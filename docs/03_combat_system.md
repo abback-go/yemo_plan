@@ -25,7 +25,7 @@
 - 적의 대응: 유형별로 접근, 원거리 견제, 돌진, 공중 추적으로 진로를 막는다.
 - 전투의 목표: 탐험 동선을 막는 적의 제거다. 전투는 탐험과 부탁 수행의 수단이다. (00_게임 콘셉트 4-2)
 - 보상 연결: 적 처치로 자원을 얻고, 자원은 신성 습득과 강화에 쓴다.
-- MVP 범위: 근접 기본공격 1종과 일반 적 처치까지다. 신성·보스는 이후다.
+- MVP 범위: 기본 이동(좌우·점프·일반 대시), 근접 기본공격, 더블점프, 한 신의 신성 세트(수업 절차 없이 초기 보유로 지급), 능력 게이트, 일반 적 처치까지다. 보스·수업·회복 수단은 이후다. (00_게임 콘셉트 7절)
 
 전투는 기본공격 위주로 유지한다. 신성 쿨타임을 길게 잡아 난사를 막는다. (참고 게임: 스컬)
 
@@ -36,7 +36,7 @@
 기본 흐름: 탐험 중 적 조우 → 적 감지·추적 시작 → 플레이어 공격 입력 → 공격 판정 생성 → 고정 데미지 적용 → 적 HP 감소·넉백 → 적 HP 0 이하 → 적 Dead 전환 → 자원 1회 지급 → 조우 종료 → 탐험 재개
 
 상세 설명: 플레이어가 적의 감지 범위 안에 들어오면 적이 추적을 시작한다. 플레이어는 D로 기본공격을 넣거나 Q/W/E/R/S로 신성을 사용한다. 공격 판정 안에 살아 있는 적이 있으면 해당 공격의 고정 데미지를 적용한다. 적 HP가 0 이하가 되면 Dead로 전환하고 자원을 한 번만 지급한다. 살아남은 적이 없으면 조우가 종료되고 플레이어는 탐험을 계속한다.
-전투를 회피하고 지나가는 것도 허용한다. 플레이어가 감지 범위를 벗어나면 적은 복귀 상태로 돌아간다. 적을 모두 처치해야 다음 구역으로 갈 수 있는 강제 전투 구간을 둘지는 미정 (08_스테이지 설계에서 결정)
+전투를 회피하고 지나가는 것도 허용한다. 플레이어가 감지 범위를 벗어나면 적은 복귀 상태로 돌아간다. 적을 모두 처치해야 다음 구역으로 갈 수 있는 강제 전투 구간을 둘지는 미정 (08_스테이지 설계에서 결정). 두더라도 "전투는 탐험 동선을 막는 장애물 수준"(00_게임 콘셉트 4-3절) 원칙을 상한으로 하며, 갇힘 방지를 위한 이탈 가능 여부도 08에서 함께 정의한다.
 
 ## 4. 플레이어 공격 기획
 
@@ -125,7 +125,7 @@
 | HP 회복 조건 | 제단 상호작용 시 완전 회복. 횟수 제한형 회복 수단 사용 시 회복 | 없음 |
 | HP 0 이하 | Dead 전환, Dead 애니메이션 재생 | Dead 전환, Dead 애니메이션 재생 |
 | 사망 후 판정 | 판정 대상에서 제외 | 판정 대상에서 제외. 추가 데미지 없음 |
-| 사망 후 처리 | 모든 플레이 입력 무시, 체크포인트 부활 (01_핵심 루프 9절) | 모든 AI 행동 정지, 자원 1회 지급 후 오브젝트 제거 |
+| 사망 후 처리 | 모든 플레이 입력 무시, 체크포인트 부활 (01_핵심 플레이 루프 9절) | 모든 AI 행동 정지, 자원 1회 지급 후 오브젝트 제거 |
 
 회복 수단은 둘이다. 전투 중 자연 회복은 없다.
 
@@ -153,22 +153,33 @@
 3. 피격 연출을 재생하고 HitInvincibleTime 동안 무적을 적용한다.
 4. CurrentHp가 0 이하면 Dead로 전환한다.
 
-무거운 적과 보스는 KnockbackImmune이 true다. 넉백을 적용하지 않고 데미지만 적용한다.
+KnockbackImmune이 true인 적(일부 대형 적)과 보스는 넉백을 적용하지 않고 데미지만 적용한다. 유형·개체별 지정은 09_데이터 테이블에서 한다.
 
 ## 9. 전투 상태 정의
 
 플레이어 상태는 **6종**이며 02_플레이어 조작 9절과 일치한다. **경직이 없고 피격을 상태 전환 없이 처리하므로 Hit 상태를 두지 않는다.**
 
-| 상태 | 설명 | 가능한 행동 | 전환 조건 |
-|---|---|---|---|
-| Idle | 대기 | 이동, 점프, 공격, 신성, 대시, 상호작용 | 이동 입력 없음, 지면 |
-| Move | 이동 | 이동, 점프, 공격, 신성, 대시, 상호작용 | 좌우 이동 입력 |
-| Jump(공중) | 공중 | 이동, 더블점프(보유 시), 공격, 신성, 공중 대시 | 지면에서 점프 또는 낙하 |
-| Dash | 대시 | 이동·공격·신성·대시 모두 불가. 적 통과 | Shift 입력, 쿨타임 종료 |
-| Attack | 공격·신성 시전 | 좌우 이동 가능, 콤보 연결 가능. 점프·신성 허용 여부는 미정 (사용자 확인 필요) | D 또는 Q/W/E/R/S 입력 |
-| Dead | 사망 | 모든 행동 불가 | CurrentHp 0 이하 |
+| 상태 | 좌우 이동 | 점프 | 기본공격 | 공격 신성 | 이동 신성 | 일반 대시 | 상호작용 |
+|---|---|---|---|---|---|---|---|
+| Idle | 가능 | 가능 | 가능 | 가능 | 가능 | 가능 | 가능 |
+| Move | 가능 | 가능 | 가능 | 가능 | 가능 | 가능 | 가능 |
+| Jump(공중) | 가능 | 더블점프 보유 시 1회 | 가능 | 가능 | 가능 | 가능 | 불가능 |
+| Dash | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 |
+| Attack | 가능 | 미정 (사용자 확인 필요) | 콤보 연결 입력 | 미정 (사용자 확인 필요) | 미정 (사용자 확인 필요) | 불가능 | 불가능 |
+| Dead | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 |
 
-전환 우선순위: Dead > Dash > Attack > Jump(공중) > Move > Idle. 피격은 이 우선순위에 관여하지 않는다.
+상태별 전환 조건:
+
+| 상태 | 진입 조건 |
+|---|---|
+| Idle | 지면에 있고 이동 입력이 없다 |
+| Move | 좌우 이동 입력 |
+| Jump(공중) | 지면에서 점프 또는 지면 이탈(낙하) |
+| Dash | Shift 입력, 쿨타임 종료 |
+| Attack | D 또는 Q/W/E/R/S 입력 |
+| Dead | CurrentHp 0 이하 |
+
+Dash 상태에서는 적을 통과한다. 전환 우선순위: Dead > Dash > Attack > Jump(공중) > Move > Idle. 피격은 이 우선순위에 관여하지 않는다.
 
 일반 대시 규칙:
 
@@ -212,7 +223,7 @@
 - 패턴 목록·실행 조건: 페이즈별로 사용 가능한 패턴 목록을 따로 두고, 패턴별 쿨타임(PatternCooldown)이 끝나면 실행한다. 패턴 내용 미정 (08에서 결정)
 - 예고 동작: 모든 패턴에 예고 동작을 둔다. 예고 시간 PatternWindupTime. 값 미정 (09)
 - 전환 연출: 페이즈 전환 시 1회성 연출을 재생한다. 연출 중 보스는 무적이며 패턴을 실행하지 않는다
-- 보스 사망 조건: CurrentHp 0 이하. 보상은 자원 지급이며, 부탁 완료 처리는 부탁 시스템이 담당한다 (01_핵심 루프 4~5단계)
+- 보스 사망 조건: CurrentHp 0 이하. 보상은 자원 지급이며, 부탁 완료 처리는 부탁(퀘스트) 시스템이 담당한다 (01_핵심 플레이 루프 4~5단계)
 
 보스 수와 개별 패턴은 전부 미정 (08_스테이지 설계에서 개별 정의)
 
@@ -220,14 +231,14 @@
 
 | 예외 상황 | 처리 |
 |---|---|
-| 보스 사망과 플레이어 사망 동시 발생 | 처리 방침 미정 (05_맵·진행에서 결정). 01_핵심 루프 10절의 "부탁 완료와 사망 동시 발생"과 같은 항목으로 다룬다 |
+| 보스 사망과 플레이어 사망 동시 발생 | 처리 방침 미정 (05_맵·진행에서 결정). 01_핵심 플레이 루프 10절의 "부탁 완료와 사망 동시 발생"과 같은 항목으로 다룬다 |
 | 페이즈 전환 연출 중 플레이어 공격 | 보스는 무적이므로 데미지를 적용하지 않는다 |
 | 한 프레임에 두 페이즈 구간을 통과하는 데미지 | 처리 방침 미정 (09_데이터 테이블 확정 후 재검토) |
 
 ## 12. 보상 연결
 
 - 적 처치 보상과 보스 처치 보상: 자원을 지급한다. 자원 이름·종류·수량 미정 (06·09에서 결정)
-- 부탁 관련 보상: 가호는 부탁 완료가 아니라 **수령 시점**에 부여된다 (00_게임 콘셉트 3-2). 완료 시에는 지역 신앙 회복과 중심 서사 진전이 이뤄진다. 모두 전투 시스템이 아니라 부탁 시스템이 처리한다 (01_핵심 루프 8절)
+- 부탁 관련 보상: 가호는 부탁 완료가 아니라 **수령 시점**에 부여된다 (00_게임 콘셉트 3-2). 완료 시에는 지역 신앙 회복과 중심 서사 진전이 이뤄진다. 모두 전투 시스템이 아니라 부탁 시스템이 처리한다 (01_핵심 플레이 루프 8절)
 - 경험치: 없다. 캐릭터 레벨업을 두지 않는다.
 - 지급 조건과 중복 방지: 대상이 Dead로 **처음 전환될 때** 1회만 지급한다. 보상 지급 완료 플래그를 두고, 이미 지급한 대상에게 다시 지급하지 않는다.
 - 드랍 형태: 즉시 획득인지 필드 드랍 후 습득인지 미정 (06_아이템·보상에서 결정)
@@ -249,13 +260,13 @@
 | PlayerCombatData | MaxHp, CurrentHp, AttackCooldown, ComboMaxStep, ComboResetTime, HitInvincibleTime, KnockbackDistance, KnockbackDuration, InputBufferTime, CoyoteTime |
 | ComboStepData | ComboStep, ComboStepDamage, ComboStepRange, ComboStepHitTiming, AnimationId |
 | DashData | DashDistance, DashDuration, DashCooldown, DashEnemyPassThrough, AirDashLimitType (미정) |
-| DivinityData | DivinityId, Grade, DivinityDamage, DivinityRange, DivinityCooldown, CastMoveAllowed, HitTiming |
+| DivinityData | DivinityId, Grade, DivinityDamage, DivinityRange, RangeType, DivinityCooldown, CastMoveAllowed, DivinityHitTiming |
 | EnemyData | EnemyId, Name, EnemyType, MaxHp, MoveSpeed, DetectRange, AttackRange, AttackDamage, AttackCooldown, AttackWindupTime, AttackHitTiming, AttackRecoveryTime, KnockbackImmune, RewardResourceId, RewardResourceAmount |
 | BossData | BossId, Name, BossMaxHp, PhaseCount, PhaseHpThreshold, PatternIdList, KnockbackImmune(true), RewardResourceId, RewardResourceAmount |
 | BossPatternData | PatternId, PhaseIndex, PatternDamage, PatternRange, PatternWindupTime, PatternCooldown, IsOneShotOnPhaseChange |
 | ProjectileData | ProjectileId, Speed, Damage, Lifetime, DestroyOnHit |
 
-EnemyType은 근접 보행형·원거리형·돌진형·비행형 중 하나다. Grade는 초급·고급·현계 중 하나다. RewardResourceId와 자원 구조는 06_아이템·보상에서 확정한다.
+EnemyType은 근접 보행형·원거리형·돌진형·비행형 중 하나다. Grade는 초급·고급·현계 중 하나다. RangeType은 근접·원거리 중 하나다. RewardResourceId와 자원 구조는 06_아이템·보상에서 확정한다.
 
 ## 15. 예외 조건
 
@@ -274,7 +285,7 @@ EnemyType은 근접 보행형·원거리형·돌진형·비행형 중 하나다.
 | 공중 대시 남용 | 도달 범위 통제 | 착지 없이 공중에서 대시를 반복 입력 | **처리 방침 미정 (사용자 확인 필요).** 쿨타임 제한만 둘지 공중 횟수 제한을 둘지 미정 |
 | 대시 중 적과 겹침 | 통과 규칙 확정 | Dash 상태에서 적과 위치가 겹침 | 적과의 충돌을 무시한다. 무적이 아니므로 적 공격 판정에는 피격된다 |
 | 넉백 중 지형에 막힘 | 벽 끼임 방지 | 넉백 방향에 벽이 있음 | 지형 충돌을 우선해 넉백 이동을 중단한다. 넉백 시간은 그대로 종료시킨다 |
-| 보스 사망과 플레이어 사망 동시 발생 | 판정 순서 확정 | 같은 프레임에 양쪽 HP가 0 이하 | 처리 방침 미정 (05_맵·진행에서 결정. 01_핵심 루프 10절과 동일 항목) |
+| 보스 사망과 플레이어 사망 동시 발생 | 판정 순서 확정 | 같은 프레임에 양쪽 HP가 0 이하 | 처리 방침 미정 (05_맵·진행에서 결정. 01_핵심 플레이 루프 10절과 동일 항목) |
 | 조우 종료 후 전투 입력 | 불필요한 판정 방지 | 범위 안에 살아 있는 적이 없음 | 입력은 정상 처리한다. 판정은 생성되지만 대상이 없으면 아무 처리도 하지 않는다 |
 | 전투 중 UI 팝업이 열림 | 입력 충돌 방지 | 팝업·일시정지·로딩 진행 중 | 모든 플레이 입력을 무시한다. 적 AI와 쿨타임 진행 정지 여부는 미정 (07_UI 흐름에서 결정) |
 | 회복 수단 사용 횟수 소진 | 자원 부족 처리 | 남은 사용 횟수가 0 | 사용을 거부하고 횟수를 차감하지 않는다. 세부 미정 (06_아이템·보상에서 결정) |
@@ -300,7 +311,7 @@ Unity 6, C#, PC 단독 실행, 싱글 플레이, 2D 횡스크롤 픽셀아트.
 9. 보상: 대상이 Dead로 처음 전환될 때 자원을 1회만 지급한다.
 
 **데이터 구조**
-PlayerCombatData, ComboStepData, DashData, DivinityData, EnemyData, BossData, BossPatternData, ProjectileData. 필드는 14절 표를 따른다. AttackPower와 Defense 필드를 만들지 않는다. 모든 수치는 ScriptableObject 등 외부 데이터로 분리하고 하드코딩하지 않는다.
+PlayerCombatData, ComboStepData, DashData, DivinityData, EnemyData, BossData, BossPatternData, ProjectileData. 필드는 14절 표를 따른다. DivinityData는 근접·원거리를 구분하는 RangeType과 판정 시점 DivinityHitTiming을 포함한다. AttackPower와 Defense 필드를 만들지 않는다. 모든 수치는 ScriptableObject 등 외부 데이터로 분리하고 하드코딩하지 않는다.
 
 **처리 흐름**
 공격 입력 → 상태·쿨타임 검사 → Attack 전환·애니메이션 재생 → 애니메이션 이벤트로 판정 생성 → 살아 있는 대상에게 고정 데미지 적용 → HP 감소·넉백 → HP 0 이하 시 Dead 전환 → 자원 1회 지급 → 상태 복귀.
