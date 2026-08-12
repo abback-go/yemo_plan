@@ -18,11 +18,11 @@
 
 ## 2. 조작 콘셉트
 
-플레이어는 방향키로 좌우 이동하고, Space로 가변 점프를 하며, D로 근접 기본공격을 하고, Shift로 일반 대시를 사용한다. 발현 중인 가호의 공격 신성은 Q/W/E/R/S로, 이동 신성은 A로 사용한다.
+플레이어는 방향키로 좌우 이동하고, Space로 가변 점프를 하며, D로 근접 1타 공격을 하고, Shift로 일반 대시를 사용한다. 발현 중인 가호의 공격 신성은 Q/W/E/R/S로, 이동 신성은 A로 사용한다.
 
 설계 기준은 셋이다.
 
-- 기본공격 위주로 전투한다. 참고 게임은 스컬(Skul: The Hero Slayer)이다. 신성은 쿨타임이 길어 난사할 수 없다.
+- 근접 1타 기본공격 위주로 전투한다. 참고 게임은 스컬(Skul: The Hero Slayer)이며, 1타 공격 리듬은 할로우 나이트를 참고한다. 신성은 쿨타임이 길어 난사할 수 없다.
 - 이동 능력을 두 층으로 나눈다. 처음부터 가진 기본 능력(좌우 이동, 가변 점프, 일반 대시)과 획득으로 늘어나는 능력(더블점프, 이동 신성)이다.
 - 이동 신성은 종족(신)에 속하지 않는 공용 신성 체계(이동기·유틸)에 속한다. 탐험 진행이 어느 종족을 먼저 키우느냐에 종속되지 않게 하기 위함이다.
 - 조작감은 중점 레퍼런스인 산나비와 오리와 도깨비불을 기준으로 삼는다. 입력 버퍼와 접지 유예(코요테 타임) 채택의 근거다.
@@ -70,22 +70,23 @@
 
 ### 5-1. 기본공격 (D)
 
-- 공격 입력: D (누르는 순간). 공격 방향은 캐릭터가 바라보는 방향이다.
-- 공격 방식: 근접 3연타 콤보. 연속 입력 시 1타 → 2타 → 3타로 이어진다. 타수별 판정·데미지 세부는 03_전투 시스템, 값은 09_데이터 테이블에서 확정한다.
-- 콤보 초기화: ComboResetTime 안에 재입력이 없으면 콤보를 1타로 초기화한다. 값 미정 (09에서 확정)
+- 공격 입력: D (누르는 순간). 공격 방향은 캐릭터가 바라보는 방향(좌우)이다.
+- 공격 방식: 근접 1타 공격이다. 연속 입력 시 같은 공격을 BasicAttackCooldown 간격으로 반복한다. 판정·데미지 세부는 03_전투 시스템, 값은 09_데이터 테이블에서 확정한다.
+- 공격 방향 확장: 상단·하단 베기(위·아래 방향 공격, 하단 베기 반동 포함)를 넣을지는 미정 (사용자 확인 필요). 3절의 방향키 상·하 용도와 함께 이 문서에서 재검토한다.
 - 공격 중 이동: 가능하다. 이동하면서 공격한다.
-- 공격 판정 범위·쿨타임: 타수별 ComboStepRange, AttackCooldown. 값 미정 (09에서 확정)
-- 공격 데미지: 미정. 계산식은 03_전투 시스템, 값은 09_데이터 테이블에서 확정한다.
-- 공격 가능 상태: Idle, Move, Jump(공중), Attack. 불가능 상태: Dash, Dead. Attack 중 재입력은 콤보 연결 입력으로 처리한다.
+- 공격 판정 범위·쿨타임: BasicAttackRange, BasicAttackCooldown. 값 미정 (09에서 확정)
+- 공격 데미지: BasicAttackDamage(고정값). 값 미정. 계산식은 03_전투 시스템, 값은 09_데이터 테이블에서 확정한다.
+- 공격 가능 상태: Idle, Move, Jump(공중), Attack. 불가능 상태: Dash, Dead. Attack 중 D 재입력은 입력 버퍼(InputBufferTime)로 저장했다가 쿨타임과 공격 모션이 끝난 뒤 1회 실행한다.
 - 공격 중 피격: 공격은 취소되지 않는다. 피격은 상태 전환 없이 처리한다 (9절 참조).
-- 애니메이션은 Attack이며, 판정은 애니메이션 이벤트로 발생시킨다. 발생 시점은 타수별 ComboStepHitTiming이며 값은 미정 (구조는 03, 값은 09에서 확정)
+- 애니메이션은 Attack 하나이며, 판정은 애니메이션 이벤트로 발생시킨다. 발생 시점은 BasicAttackHitTiming이며 값은 미정 (구조는 03, 값은 09에서 확정)
 
 처리 흐름:
 
-1. D 입력을 받고 현재 상태와 AttackCooldown 경과 여부를 검사한다.
+1. D 입력을 받고 현재 상태와 BasicAttackCooldown 경과 여부를 검사한다.
 2. 조건을 만족하면 Attack 상태로 전환하고 Attack 애니메이션을 재생한다.
-3. ComboStepHitTiming 시점에 공격 판정을 생성한다. 판정 결과 처리는 03_전투 시스템이 담당한다.
+3. BasicAttackHitTiming 시점에 공격 판정을 생성한다. 판정 결과 처리는 03_전투 시스템이 담당한다.
 4. 애니메이션이 끝나면 이동 입력이 있으면 Move로, 없으면 Idle로 돌아간다. 공중이면 Jump(공중)로 돌아간다.
+5. 버퍼에 저장된 D 입력이 있고 쿨타임이 끝났으면 1번으로 돌아가 같은 공격을 다시 실행한다.
 
 ### 5-2. 공격 신성 (Q, W, E, R, S)
 
@@ -158,7 +159,7 @@
 | Move | 가능 | 가능 | 가능 | 가능 | 가능 | 가능 | 가능 |
 | Jump(공중) | 가능 | 더블점프 보유 시 1회 | 가능 | 가능 | 가능 | 가능 | 불가능 |
 | Dash | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 |
-| Attack | 가능 | 미정 (03_전투 시스템 참조) | 콤보 연결 입력 | 미정 (03_전투 시스템 참조) | 미정 (03_전투 시스템 참조) | 불가능 | 불가능 |
+| Attack | 가능 | 미정 (03_전투 시스템 참조) | 입력 버퍼로 처리 | 미정 (03_전투 시스템 참조) | 미정 (03_전투 시스템 참조) | 불가능 | 불가능 |
 | Dead | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 | 불가능 |
 
 피격 처리: 피격은 상태를 전환하지 않는다. 조작도 차단하지 않는다. 처리 내용은 HP 감소, 공격받은 반대 방향으로의 가벼운 넉백, 무적 시간(HitInvincibleTime) 부여, 피격 연출 재생이다. 무적 시간 값은 미정 (09_데이터 테이블에서 확정). 넉백 거리를 포함한 피격 세부 규칙은 03_전투 시스템에서 정의한다.
@@ -184,7 +185,7 @@
 | Move | Move | 지면에 있고 이동 속도가 0보다 크다 |
 | Jump(공중) | Jump / Fall | 상승 중이면 Jump, 하강 중이면 Fall |
 | Dash | Dash | Dash 상태 진입 |
-| Attack | Attack | Attack 상태 진입. 기본공격 3연타는 타수별 애니메이션으로 나누며 신성별 구분은 미정 (신성 목록 확정 후 아트에서 결정) |
+| Attack | Attack | Attack 상태 진입. 기본공격은 Attack 단일 애니메이션이며 신성별 구분은 미정 (신성 목록 확정 후 아트에서 결정) |
 | Dead | Dead | 체력 0 이하 |
 
 - 피격 연출은 상태와 무관한 오버레이(스프라이트 플래시 등)로 처리한다. 별도 피격 애니메이션 상태를 두지 않는다.
@@ -230,15 +231,15 @@
 |---|---|---|---|
 | 이동·점프 | MoveSpeed, AirControlRatio, JumpPower, JumpHoldMaxTime, MaxAirJumpCount | 이동 계산, 점프·더블점프 | |
 | 대시 | DashDistance, DashDuration, DashCooldown | 일반 대시 | |
-| 공격 | ComboStepDamage, ComboStepRange, ComboStepHitTiming (타수별), AttackCooldown, ComboMaxStep, ComboResetTime | 기본공격 판정 | AttackRange·AttackHitTiming이라는 이름은 적(EnemyData) 전용이다. 플레이어 기본공격에 쓰지 않는다 |
+| 공격 | BasicAttackDamage, BasicAttackRange, BasicAttackCooldown, BasicAttackHitTiming | 기본공격 판정 | AttackRange·AttackDamage·AttackCooldown·AttackHitTiming이라는 이름은 적(EnemyData) 전용이다. 플레이어 기본공격에 쓰지 않는다 |
 | 조작 보정 | InputBufferTime, CoyoteTime | 입력 버퍼, 접지 유예 | |
 | 신성 | DivinityCooldown (신성별. 값은 등급 기준으로 부여) | 공격 신성·이동 신성 | |
 | 피격 | HitInvincibleTime, KnockbackDistance, KnockbackDuration | 피격 무적, 넉백 | |
 | 상호작용 | InteractionRange | 상호작용 판정 | |
-| 능력치 | MaxHp, CurrentHp, 타수별 고정 데미지 필드 (세부는 03_전투 시스템·09_데이터 테이블) | 전투 (항목 정의는 03_전투 시스템) | |
+| 능력치 | MaxHp, CurrentHp, 공격별 고정 데미지 필드 (세부는 03_전투 시스템·09_데이터 테이블) | 전투 (항목 정의는 03_전투 시스템) | |
 
 필드는 03_전투 시스템 14절의 데이터 클래스 소속을 따른다.
-ComboStepHitTiming은 해당 타수의 공격 애니메이션 시작 후 판정이 발생하는 시점이다. 능력치의 계산 규칙과 값 범위는 03_전투 시스템과 09_데이터 테이블에서 정의한다. 이 문서는 필드 이름과 참조 위치만 고정한다.
+BasicAttackHitTiming은 기본공격 애니메이션 시작 후 판정이 발생하는 시점이다. 능력치의 계산 규칙과 값 범위는 03_전투 시스템과 09_데이터 테이블에서 정의한다. 이 문서는 필드 이름과 참조 위치만 고정한다.
 
 ## 14. AI 구현 요청용 프롬프트
 
@@ -253,7 +254,7 @@ Unity 6, C#, PC 단독 실행, 싱글 플레이, 2D 횡스크롤 픽셀아트. �
 1. 좌우 이동: 방향키. 월드 좌표 기준 2방향. 공중에서도 방향 전환을 허용한다.
 2. 가변 점프: Space를 누르는 순간 점프를 시작하고, 누르는 동안 상승을 유지하며, 떼면 상승을 종료한다.
 3. 더블점프: 해금형 능력. 보유 시 공중에서 1회 추가 점프하고, 착지 시 횟수를 초기화한다.
-4. 기본공격: D. 근접 3연타 콤보. Attack 상태로 전환하고 타수별 ComboStepHitTiming 시점에 판정을 생성한다. 공격 중 이동을 허용하고, Attack 중 재입력은 콤보 연결로 처리한다. ComboResetTime 안에 재입력이 없으면 1타로 초기화한다.
+4. 기본공격: D. 근접 1타 공격. Attack 상태로 전환하고 BasicAttackHitTiming 시점에 판정을 생성한다. 공격 중 이동을 허용한다. 연속 입력 시 같은 공격을 BasicAttackCooldown 간격으로 반복하고, 모션·쿨타임 중 재입력은 InputBufferTime 동안 저장했다가 가능해지면 1회 실행한다.
 5. 공격 신성: Q/W/E/R/S. 발현 중인 가호의 배운 신성만 사용한다. 소모 자원 없이 쿨타임만 검사한다.
 6. 이동 신성: A. 종족 신성과 분리된 공용 신성 체계로 습득한다. 종류가 미정이므로 습득 여부와 쿨타임 검사 구조만 만든다.
 7. 일반 대시: Shift. 처음부터 보유하는 기본 능력이며 쿨타임을 가진다. 좌우 입력이 있으면 그 방향, 없으면 바라보는 방향으로 대시한다. 무적은 없고, 공중에서도 사용하며, 대시 중 적 충돌을 무시하고 지형 충돌은 유지한다.
@@ -263,8 +264,8 @@ Unity 6, C#, PC 단독 실행, 싱글 플레이, 2D 횡스크롤 픽셀아트. �
 
 **데이터 구조**
 
-- 플레이어 능력치: MoveSpeed, AirControlRatio, JumpPower, JumpHoldMaxTime, MaxAirJumpCount, DashDistance, DashDuration, DashCooldown, AttackCooldown, ComboMaxStep, ComboResetTime, HitInvincibleTime, KnockbackDistance, KnockbackDuration, InputBufferTime, CoyoteTime, InteractionRange
-- 콤보 타수별 데이터: ComboStep, ComboStepDamage, ComboStepRange, ComboStepHitTiming. AttackRange·AttackHitTiming이라는 이름은 적 전용이므로 플레이어에 쓰지 않는다
+- 플레이어 능력치: MoveSpeed, AirControlRatio, JumpPower, JumpHoldMaxTime, MaxAirJumpCount, DashDistance, DashDuration, DashCooldown, HitInvincibleTime, KnockbackDistance, KnockbackDuration, InputBufferTime, CoyoteTime, InteractionRange
+- 기본공격 데이터: BasicAttackDamage, BasicAttackRange, BasicAttackCooldown, BasicAttackHitTiming. AttackRange·AttackDamage·AttackCooldown·AttackHitTiming이라는 이름은 적 전용이므로 플레이어에 쓰지 않는다
 - 보유 능력 목록: 능력 ID 집합 (더블점프, 이동 신성 포함)
 - 가호 정의: 가호 ID, 소속 신(여우·늑대·용), 소속 신성 ID 5개
 - 신성 정의: 신성 ID, 등급(초급·고급·현계), 쿨타임. 소모 자원 필드는 두지 않는다
