@@ -186,7 +186,7 @@ Dash 상태에서는 적을 통과한다. 전환 우선순위: Dead > Dash > Att
 - 방향: 좌우 입력 중이면 그 방향이며 캐릭터도 그 방향을 바라본다. 입력이 없으면 바라보는 방향이다.
 - 무적: 없다. 대시 중에도 적 공격 판정에 피격된다.
 - 충돌: 적과의 충돌을 무시하고 통과한다. 지형 충돌은 유지한다.
-- 공중 사용: 가능하다. 공중 연속 대시 제한 방식은 **미정 (사용자 확인 필요)**. 쿨타임만으로 제한할지, 공중 사용 횟수 제한(착지 시 초기화)을 둘지 정하지 않았다.
+- 공중 사용: 가능하다. 공중에서는 착지 전까지 **1회만** 사용할 수 있고, 착지하면 초기화된다. 쿨타임과 별개로 적용한다. (AirDashMaxCount, 기본 1. 값은 09에서 확정)
 
 조작 보정은 둘 다 채택한다. 값은 미정 (09에서 확정)
 
@@ -259,7 +259,7 @@ Dash 상태에서는 적을 통과한다. 전환 우선순위: Dead > Dash > Att
 |---|---|
 | PlayerCombatData | MaxHp, CurrentHp, AttackCooldown, ComboMaxStep, ComboResetTime, HitInvincibleTime, KnockbackDistance, KnockbackDuration, InputBufferTime, CoyoteTime |
 | ComboStepData | ComboStep, ComboStepDamage, ComboStepRange, ComboStepHitTiming, AnimationId |
-| DashData | DashDistance, DashDuration, DashCooldown, DashEnemyPassThrough, AirDashLimitType (미정) |
+| DashData | DashDistance, DashDuration, DashCooldown, DashEnemyPassThrough, AirDashMaxCount |
 | DivinityData | DivinityId, Grade, DivinityDamage, DivinityRange, RangeType, DivinityCooldown, CastMoveAllowed, DivinityHitTiming |
 | EnemyData | EnemyId, Name, EnemyType, MaxHp, MoveSpeed, DetectRange, AttackRange, AttackDamage, AttackCooldown, AttackWindupTime, AttackHitTiming, AttackRecoveryTime, KnockbackImmune, RewardResourceId, RewardResourceAmount |
 | BossData | BossId, Name, BossMaxHp, PhaseCount, PhaseHpThreshold, PatternIdList, KnockbackImmune(true), RewardResourceId, RewardResourceAmount |
@@ -282,7 +282,7 @@ EnemyType은 근접 보행형·원거리형·돌진형·비행형 중 하나다.
 | 공격 중 피격 | 콤보 유지 | Attack 상태에서 적 공격 적중 | 공격을 취소하지 않는다. HP 감소·넉백·무적만 적용한다 |
 | 가호 전환 직후 신성 키 입력 | 쿨타임 회피 방지 | 제단에서 가호를 바꾼 직후 Q/W/E/R/S 입력 | 전환해도 쿨타임은 유지된다. 남아 있으면 입력을 무시한다 |
 | 콤보 중 가호 전환 시도 | 상태 충돌 방지 | Attack 상태에서 제단 상호작용 시도 | 상호작용은 Idle·Move에서만 가능하므로 시도 자체를 차단한다 (02_플레이어 조작 8절) |
-| 공중 대시 남용 | 도달 범위 통제 | 착지 없이 공중에서 대시를 반복 입력 | **처리 방침 미정 (사용자 확인 필요).** 쿨타임 제한만 둘지 공중 횟수 제한을 둘지 미정 |
+| 공중 대시 남용 | 도달 범위 통제 | 착지 없이 공중에서 대시를 반복 입력 | 공중에서는 착지 전까지 1회만 허용한다. 초과 입력은 무시하고, 착지 시 횟수를 초기화한다 |
 | 대시 중 적과 겹침 | 통과 규칙 확정 | Dash 상태에서 적과 위치가 겹침 | 적과의 충돌을 무시한다. 무적이 아니므로 적 공격 판정에는 피격된다 |
 | 넉백 중 지형에 막힘 | 벽 끼임 방지 | 넉백 방향에 벽이 있음 | 지형 충돌을 우선해 넉백 이동을 중단한다. 넉백 시간은 그대로 종료시킨다 |
 | 보스 사망과 플레이어 사망 동시 발생 | 판정 순서 확정 | 같은 프레임에 양쪽 HP가 0 이하 | 처리 방침 미정 (05_맵·진행에서 결정. 01_핵심 플레이 루프 10절과 동일 항목) |
@@ -323,7 +323,8 @@ PlayerCombatData, ComboStepData, DashData, DivinityData, EnemyData, BossData, Bo
 - 무적 시간 중에는 데미지도 넉백도 적용하지 않는다.
 - 보상은 Dead 첫 전환 시 1회만 지급한다.
 - 쿨타임 중 입력은 InputBufferTime 동안 저장했다가 실행한다. 가호 전환으로 신성 쿨타임을 초기화하지 않는다.
-- 공중 연속 대시 제한 방식, Attack 상태 중 신성·점프 허용 여부, 보스와 플레이어 동시 사망, 한 프레임 다중 페이즈 통과, 팝업 중 적 AI·쿨타임 정지 여부, 회복 수단의 형태·횟수·회복량은 미정이다. 임의로 구현하지 말고 TODO 주석으로 남긴다.
+- 공중 대시는 착지 전까지 1회만 허용한다(AirDashMaxCount). 초과 입력은 무시하고 착지 시 초기화한다.
+- Attack 상태 중 신성·점프 허용 여부, 보스와 플레이어 동시 사망, 한 프레임 다중 페이즈 통과, 팝업 중 적 AI·쿨타임 정지 여부, 회복 수단의 형태·횟수·회복량은 미정이다. 임의로 구현하지 말고 TODO 주석으로 남긴다.
 
 **출력 형식**
 Unity 6용 C# 스크립트. 하나의 클래스에 모두 작성하지 않는다. 입력 처리는 PlayerCombat, 데미지 적용은 DamageCalculator, 체력 관리는 Health, 피격 처리는 HitReceiver, 넉백은 KnockbackReceiver, 적 AI는 EnemyStateMachine, 보스 페이즈는 BossPhaseController로 책임을 나눈다. 데이터와 로직을 분리한다. 미정 항목은 값을 채우지 말고 TODO 주석으로 남긴다.
