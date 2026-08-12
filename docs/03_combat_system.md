@@ -71,7 +71,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 구성 | 발현 중인 가호의 초급 2 + 고급 2 + 현계 1 = 5개. 배운 것 전부 사용 가능 |
+| 구성 | 발현 중인 가호의 초급 2 + 고급 2 + 강림 1 = 5개. 배운 것 전부 사용 가능 |
 | 소모 자원 | 없음. 쿨타임만 검사한다 |
 | 데미지·사거리 | 신성별 DivinityDamage(고정값), DivinityRange. 근접·원거리 혼합. 값 미정 (09), 목록 미정 (04) |
 | 상태 전환 | 사용 시 Attack 상태로 전환한다 |
@@ -84,7 +84,7 @@
 |---|---|---|
 | 초급 | 2 | 약 10초 (가안) |
 | 고급 | 2 | 약 20초 (가안) |
-| 현계 | 1 | 60초 이상 (가안) |
+| 강림 | 1 | 60초 이상 (가안) |
 
 쿨타임은 신성 사용 입력이 성립한 시점에 시작한다. **가호를 전환해도 쿨타임은 초기화되지 않고 계속 진행한다.** 전환으로 쿨타임을 회피할 수 없다.
 
@@ -268,7 +268,7 @@ Dash 상태에서는 적을 통과한다. 전환 우선순위: Dead > Dash > Att
 | BossPatternData | PatternId, PhaseIndex, PatternDamage, PatternRange, PatternWindupTime, PatternCooldown, IsOneShotOnPhaseChange |
 | ProjectileData | ProjectileId, Speed, Damage, Lifetime, DestroyOnHit |
 
-EnemyType은 근접 보행형·원거리형·돌진형·비행형 중 하나다. Grade는 초급·고급·현계 중 하나다. RangeType은 근접·원거리 중 하나다. RewardResourceId와 자원 구조는 06_아이템·보상에서 확정한다.
+EnemyType은 근접 보행형·원거리형·돌진형·비행형 중 하나다. Grade는 초급·고급·강림 중 하나다. RangeType은 근접·원거리 중 하나다. RewardResourceId와 자원 구조는 06_아이템·보상에서 확정한다.
 
 ## 15. 예외 조건
 
