@@ -8,19 +8,19 @@
 
 각 문서는 아래 역할을 가지며, 작성되는 대로 링크가 연결됩니다.
 
-| 문서 | 역할 |
-|---|---|
-| `docs/00_game_concept.md` | 게임 콘셉트: 장르, 핵심 재미, 타깃, MVP 범위를 정의한다 |
-| `docs/01_core_loop.md` | 핵심 플레이 루프: 플레이어가 반복하는 행동 흐름을 정의한다 |
-| `docs/02_player_control.md` | 플레이어 조작: 입력 명세, 캐릭터 상태 머신, 애니메이션 전환 조건 |
-| `docs/03_combat_system.md` | 전투 시스템: 공격 판정, 데미지 계산, 피격 처리, 적 행동 패턴 |
-| `docs/04_ability_gate.md` | 능력 해금 게이트: 능력별 해금 조건과 그 능력이 여는 길 |
-| `docs/05_map_progression.md` | 맵과 진행: 방 연결 구조, 역주행 동선, 세이브/체크포인트 |
-| `docs/06_item_reward.md` | 아이템과 보상: 아이템 종류, 획득 조건, 보상 테이블 |
-| `docs/07_ui_flow.md` | UI 흐름: 화면 목록, 버튼 동작, 화면 전환 조건 |
-| `docs/08_stage_design.md` | 스테이지 설계: 구역별 목표, 적 배치, 난이도 곡선 |
-| `docs/09_data_table.md` | 데이터 테이블: 캐릭터/적/아이템/스킬 수치 표 |
-| `docs/99_change_log.md` | 변경 이력: 기획 변경 사항을 한 줄씩 기록한다 |
+| 문서 | 역할 | 상태 |
+|---|---|---|
+| [`docs/00_game_concept.md`](docs/00_game_concept.md) | 게임 콘셉트: 장르, 핵심 재미, 타깃, MVP 범위를 정의한다 | 작성 완료 |
+| [`docs/01_core_loop.md`](docs/01_core_loop.md) | 핵심 플레이 루프: 플레이어가 반복하는 행동 흐름을 정의한다 | 작성 완료 |
+| [`docs/02_player_control.md`](docs/02_player_control.md) | 플레이어 조작: 입력 명세, 캐릭터 상태 머신, 애니메이션 전환 조건 | 작성 완료 |
+| [`docs/03_combat_system.md`](docs/03_combat_system.md) | 전투 시스템: 공격 판정, 고정 데미지 규칙, 피격 처리, 적 행동 패턴 | 작성 완료 |
+| [`docs/04_ability_gate.md`](docs/04_ability_gate.md) | 가호·신성 체계와 능력 게이트: 신성 15개 명세, 공용 이동 신성, 습득 경로, 게이트 판정 규칙 | 작성 완료 |
+| `docs/05_map_progression.md` | 맵과 진행: 방 연결 구조, 역주행 동선, 세이브/체크포인트 | 예정 |
+| `docs/06_item_reward.md` | 아이템과 보상: 아이템 종류, 획득 조건, 보상 테이블 | 예정 |
+| `docs/07_ui_flow.md` | UI 흐름: 화면 목록, 버튼 동작, 화면 전환 조건 | 예정 |
+| `docs/08_stage_design.md` | 스테이지 설계: 구역별 목표, 적 배치, 난이도 곡선 | 예정 |
+| `docs/09_data_table.md` | 데이터 테이블: 캐릭터/적/아이템/스킬 수치 표 | 예정 |
+| [`docs/99_change_log.md`](docs/99_change_log.md) | 변경 이력: 기획 변경 사항을 한 줄씩 기록한다 | 기록 중 |
 
 ## 참고 자료 (reference/)
 
