@@ -255,17 +255,17 @@
 
 - 성격: 종족(신)에 속하지 않는다. 가호를 어느 것으로 발현해도 사용할 수 있다.
 - 습득: 신전 수업이 아니라 모험 중 획득한다. 획득 위치와 시점은 미정 (05·08).
-- 키: A, Z, X, C 4개. 이동 신성 1종당 키 1개다. 어느 신성이 어느 키인지는 미정 (07 또는 09).
+- 키: A, Z, X, C 4개. 벽 붙기는 자동 발동이므로 키를 쓰지 않는다. 키는 체공·신성 대시·비행 3종에 1개씩 배정하고, 남는 1개는 예비로 남긴다. 추가 이동 신성이 확정되면 예비 키를 쓴다 (05·08에서 판단). 어느 신성이 어느 키인지는 미정 (07 또는 09).
 - 상태 조건: 02_플레이어 조작 9절 표를 따른다. Idle·Move·Jump(공중)·Attack에서 사용 가능하고 Dash·Dead에서 불가능하다.
 
 | 이동 신성 | 목적 | 발동 조건 | 처리 흐름 | 예외 |
 |---|---|---|---|---|
-| 체공 | 긴 공백 구간과 활강 구간을 건넌다 | 습득 보유, 공중 상태, 남은 공중 사용 횟수 1 이상 | 키를 누르고 있는 동안 약 1초(가안) 공중에 머문다. 체공 중 미세한 좌우 이동을 허용한다. 키를 떼거나 HoverDuration이 지나면 하강한다 | 공중 사용 횟수(HoverAirUseCount)는 미정 (05_맵·진행 작성 시 04_능력 게이트를 갱신해 확정, 값은 09). 착지 시 횟수를 초기화한다. 지상에서 입력하면 무시한다 |
-| 벽 붙기 | 벽면 루트를 오르내린다 | 습득 보유, 벽면에 접촉 중 | 벽에 붙어 미끄러짐 속도를 낮춘다. 벽에서 점프할 수 있다 | 발동 방식(키 입력인지 자동인지) 미정. 벽 점프 허용 여부와 미끄러짐 속도 미정 (09) |
-| 신성 대시 | 일반 대시로 닿지 않는 거리를 건넌다 | 습득 보유, 쿨타임 종료 | 바라보는 방향(좌우 입력이 있으면 그 방향)으로 신성 대시한다 | 일반 대시와 별개 능력이며 쿨타임도 별개로 관리한다. 거리·지속 시간·무적 여부·공중 사용 횟수 미정 (09) |
+| 체공 | 긴 공백 구간과 활강 구간을 건넌다 | 습득 보유, 공중 상태, 남은 공중 사용 횟수 1 이상, 남은 신력이 HoverCost 이상 | 발동 시 HoverCost만큼 신력을 차감한다. 키를 누르고 있는 동안 약 1초(가안) 공중에 머문다. 체공 중 미세한 좌우 이동을 허용한다. 키를 떼거나 HoverDuration이 지나면 하강한다 | HoverAirUseCount = 1 (확정). 착지 시와 벽 붙기 성립 시 횟수를 초기화한다. 지상에서 입력하면 무시한다. 소모량·지속 시간 값 미정 (09) |
+| 벽 붙기 | 벽면 루트를 오르내린다 | 습득 보유, 공중 상태, 벽면 접촉 (자동 발동) | 자동으로 벽에 붙어 미끄러짐 속도를 낮춘다. 점프 키로 벽 점프해 이탈하거나, 아래 방향키로 붙기를 풀고 낙하한다. 신력을 소모하지 않는다 | 아래 방향키를 누르고 있는 동안은 다시 붙지 않는다. 미끄러짐 속도·벽 점프 수치 미정 (09) |
+| 신성 대시 | 일반 대시로 닿지 않는 거리를 건넌다 | 습득 보유, 쿨타임 종료, 남은 신력이 DivinityDashCost 이상 | 발동 시 DivinityDashCost만큼 신력을 차감한다. 바라보는 방향(좌우 입력이 있으면 그 방향)으로 신성 대시한다 | 일반 대시와 별개 능력이며 쿨타임도 별개로 관리한다. 일반 대시는 신력을 소모하지 않는다. 거리·지속 시간·무적 여부·공중 사용 횟수 미정 (09) |
 | 비행 | 최후반 구역을 자유 이동한다 | 습득 보유(최후반 해금), 남은 신력이 FlightCostPerSecond 이상 | 지속 중 자유 비행한다. 초당 FlightCostPerSecond만큼 신력을 소모하고, 신력이 소진되면 비행을 종료하고 하강시킨다 | 하강 중 조작 처리는 미정 (05_맵·진행 작성 시 04_능력 게이트를 갱신해 확정, 값은 09). 소모량 미정 (09) |
 
-- 신력 소모: 비행은 지속 소모형으로 확정한다. 체공·벽 붙기·신성 대시의 신력 소모 여부는 미정 (05_맵·진행 작성 시 04_능력 게이트를 갱신해 확정, 값은 09). 위 4종 외 추가 종류는 미정 (05·08의 게이트 요구가 확정된 뒤 판단).
+- 신력 소모: 체공·신성 대시는 발동 1회당 즉시 차감하는 1회 차감형(HoverCost·DivinityDashCost), 비행은 초당 FlightCostPerSecond를 쓰는 지속 소모형이며, 벽 붙기는 신력을 소모하지 않는다. 값은 전부 미정 (09). 위 4종 외 추가 종류는 미정 (05·08의 게이트 요구가 확정된 뒤 판단).
 - 더블점프는 이동 신성이 아니다. 신성 체계 밖의 해금형 기본 이동 능력이며 모험 중 획득한다 (02_플레이어 조작 4-3절).
 
 ## 7. 능력 게이트
@@ -301,6 +301,7 @@
 - 각 마을의 메인 동선은 **그 마을 신의 속성 게이트와 공용 능력(이동 신성·더블점프)만** 열쇠로 쓴다. 세 마을을 어느 순서로 공략해도 진행이 성립해야 하기 때문이다 (00_게임 콘셉트 4-1절).
 - 타 속성 게이트는 마을 간 교차 잠금에 쓴다. 대상은 보상 구역과 역주행 동선이며, 메인 동선에 두지 않는다.
 - 게이트로 잠긴 구역은 진입에 사용한 능력만으로 되돌아 나올 수 있는 경로를 보장한다(soft lock 방지 원칙. 구체 검증은 05·08).
+- 신력은 자연 회복이 없다 (00_게임 콘셉트 4-2절). 따라서 신력 소모형 이동 신성(체공·신성 대시·비행)을 열쇠로 요구하는 게이트 구간에는 진입 전 또는 구간 안에 신앙 오브젝트(무료 충전원) 또는 제단을 반드시 배치한다. 신력이 바닥나 구간을 통과하지도 되돌아오지도 못하는 상태를 막기 위함이다(soft lock 방지 원칙). 벽 붙기는 신력을 소모하지 않으므로 이 원칙의 대상이 아니다. 구체 배치 검증은 05_맵·진행과 08_스테이지 설계에서 한다.
 - 상위 속성 게이트는 그 신의 초급 신성을 여러 번 강화한 뒤에야 열린다. 따라서 상위 게이트 뒤는 보상 구역이거나 후반 동선이다. 구체 배치, 게이트 개수, 방 연결은 05_맵·진행과 08_스테이지 설계에서 정의한다.
 
 ### 7-4. 판정 처리 흐름
@@ -323,7 +324,7 @@
 | 능력 | 습득 경로 | 조건 |
 |---|---|---|
 | 가호 3종 | 프롤로그에서 세 부탁 수령 시 일괄 부여 | 없음. 1회 처리 |
-| 종족 초급 신성 (6개) | 신전 수업 | 해당 신의 가호 보유 + 수업 해금(스토리 진행도) |
+| 종족 초급 신성 (6개) | 신전 수업 | 해당 신의 가호 보유 + 수업 해금(스토리 진행도). 그중 파이어볼·프로스트 슬래시·라이트닝 3개는 프롤로그 수업에서 습득한다 (확정) |
 | 종족 고급 신성 (6개) | 신전 수업 + 마을 재료·과제 | 수업 해금 + 마을에서 얻는 재료 또는 과제 완료. 재료·과제 내용 미정 (06·08) |
 | 종족 강림 신성 (3개) | 습득 난이도가 높다 | 습득 조건 미정 (06·08에서 결정). 임의로 정하지 않는다 |
 | 공용 신성 (이동 신성) | 모험 중 획득 | 획득 위치·시점 미정 (05·08) |
@@ -360,6 +361,9 @@
 | 미습득 신성으로 게이트 시도 | 조건 오인 방지 | 열쇠 신성을 배우지 않은 상태에서 게이트 접촉 | 통과를 막고 필요한 능력 이름을 표시한다. 레벨 표시는 하지 않는다 |
 | 이미 보유한 신성·이동 신성 재획득 | 중복 지급 방지 | 보유 능력 목록에 이미 존재 | 중복 추가하지 않는다. 지급 처리를 중단한다 (01_핵심 플레이 루프 10절) |
 | 강림 지속 중 강림 재입력 | 지속 시간 연장 방지 | DescentDuration 진행 중 S 입력 | 입력을 무시한다. 재발동하지 않고 지속 시간도 연장하지 않는다 |
+| 신력 부족 상태의 이동 신성 입력 | 신력 부족 처리 | 체공은 남은 신력 < HoverCost, 신성 대시는 남은 신력 < DivinityDashCost, 비행은 남은 신력 < FlightCostPerSecond | 발동을 거부한다. 신력을 차감하지 않고 쿨타임도 시작하지 않으며, 신력 부족을 표시한다 (02_플레이어 조작 12절). 벽 붙기는 신력을 소모하지 않으므로 신력 검사를 하지 않는다 |
+| 벽 붙기 중 아래 방향키 입력 | 붙기 해제 수단 확정 | 벽에 붙어 있는 상태에서 아래 방향키를 누름 | 붙기를 풀고 낙하한다. 아래 방향키를 누르고 있는 동안은 벽면에 접촉해도 다시 붙지 않는다 |
+| 체공 공중 사용 횟수 소진 | 중복 사용 방지 | 남은 공중 사용 횟수가 0인 상태에서 체공 입력 | 입력을 무시한다. 신력을 차감하지 않는다. 착지 시와 벽 붙기 성립 시 횟수를 초기화한다 |
 | 비행 중 신력 소진 | 신력 부족 처리 | 비행 지속 중 CurrentDivinePower가 FlightCostPerSecond 미만 | 비행을 종료하고 하강시킨다. 하강 중 조작 처리는 미정 (05_맵·진행 작성 시 04_능력 게이트를 갱신해 확정, 값은 09) |
 | 능력 없이 진입한 구역에 갇힘 | 진행 잠금 방지 | 진입은 가능하나 탈출 경로가 모두 게이트로 막힘 | 처리 방침 미정 (05_맵·진행, 08_스테이지 설계에서 결정) |
 
@@ -374,13 +378,14 @@
 | BlessingSwitchData | BlessingSwitchCooldown, SwitchTimeScale, SwitchWindowMaxTime |
 | DivinityData (03 계승 + 추가) | DivinityId, Grade, DivinityDamage, DivinityRange, RangeType, DivinityCooldown, DivinityCost, CastMoveAllowed, DivinityHitTiming, **SkillLevel, MaxSkillLevel, UpgradeCostResourceId, UpgradeCostAmount, GateKeyType** |
 | DivinityEffectData | ExplosionRadius, TeleportSearchRange, DanceDuration, DanceCostPerSecond, DanceSlashInterval, DanceSlashRadius, BurstRangeWidth, BurstRangeHeight, MeteorRange, MeteorCount, MeteorInterval, ChargeHitRange, FreezeDuration, LinkSlashCount, LinkSlashInterval, AbsorbCap, AbsorbReturnRatio, ShieldDuration, SwingRange, BlizzardRadius, BlizzardDuration, BlizzardTickInterval, AmpFieldRadius, AmpFieldMultiplier, AmpFieldDuration, BeamRange, BeamTickInterval, BeamDamageGrowthRate, BeamCostGrowthRate, BeamMaxDuration, BreathRange, BreathAngle, BreathDuration, BreathTickInterval, CastTurnAllowed, DescentDuration, DescentBuffType, DescentBuffValue |
-| MoveDivinityData | MoveDivinityId, InputActionName, HoverDuration, HoverAirUseCount, WallSlideSpeed, WallJumpEnabled, DivinityDashDistance, DivinityDashDuration, DivinityDashCooldown, FlightCostPerSecond |
+| MoveDivinityData | MoveDivinityId, InputActionName, HoverDuration, HoverAirUseCount, HoverCost, WallSlideSpeed, WallJumpEnabled, DivinityDashDistance, DivinityDashDuration, DivinityDashCooldown, DivinityDashCost, FlightCostPerSecond |
 | GateData | GateId, GateType(불·얼음·전기·이동), GateTier(하위·상위·해당없음), RequiredAbilityId, GateRequiredLevel, Position, IsOpened, BlockedFeedbackType |
 | DivinityAcquireData | DivinityId, AcquireType(수업·모험), RequiredLessonId, RequiredStoryProgress, RequiredMaterialId, RequiredMaterialAmount, RequiredTaskId |
 
 - GateKeyType은 그 신성이 여는 속성 게이트 종류다. 값은 불·얼음·전기·없음 중 하나이며, 파이어볼·프로스트 슬래시·라이트닝만 없음이 아니다. BlockedFeedbackType은 능력 미보유와 레벨 미달을 구분하는 값이며 표시 형식은 07_UI 흐름에서 정의한다.
 - DescentBuffType과 DescentBuffValue는 강림 신성의 강화 내용이며 미정이다. 값을 채우지 않는다. 자원 필드(UpgradeCostResourceId, RequiredMaterialId)의 실제 자원 구조는 06_아이템·보상에서 확정한다.
 - AbsorbedDamage(빙갑 누적 흡수량)는 런타임 누적값이며 데이터 필드가 아니다. CastTurnAllowed는 시전 중 방향 전환 허용 여부이며 CastMoveAllowed(시전 중 이동 허용 여부)와 별개 필드다. ProjectileSpeed와 DestroyOnHit는 03_전투 시스템 14절 ProjectileData의 필드를 그대로 쓴다.
+- MoveDivinityData의 InputActionName은 키 입력으로 발동하는 이동 신성(체공·신성 대시·비행)에만 지정한다. 벽 붙기는 자동 발동이므로 InputActionName을 쓰지 않고 비워 둔다. HoverCost와 DivinityDashCost는 발동 1회당 차감하는 신력 소모량이고, FlightCostPerSecond는 초당 소모량이다. 벽 붙기에는 신력 소모 필드를 두지 않는다. HoverAirUseCount는 1로 확정했다 (6절).
 - RequiredAbilityId가 참조하는 능력 ID 체계는 DivinityId·MoveDivinityId·더블점프 등 모든 획득 능력을 포괄하는 AbilityId 공간이며, 부여 규칙은 09에서 확정한다.
 
 ## 11. AI 구현 요청용 프롬프트
@@ -398,7 +403,7 @@ Unity 6, C#, PC 단독 실행, 싱글 플레이, 2D 횡스크롤 픽셀아트. �
 3. 신성 실행: 신성별 처리를 개별 클래스로 분리한다. 투사체형(파이어볼, 프로스트 슬래시, 라이트닝, 번개창), 지속형(화영난무, 블리자드, 브레스, 강림 3종), 채널링형(번개 광선), 연계형(아이스 차지), 흡수·반사형(빙갑), 즉발 광역형(플레임 버스트, 메테오)으로 유형을 나눈다.
 4. 스킬 레벨: 신성마다 SkillLevel을 두고 자원 소모로 1씩 올린다. SkillLevel은 데미지 등 성능과 게이트 개방 조건 양쪽에 연결한다.
 5. 게이트 판정: RequiredAbilityId 보유 여부와 SkillLevel ≥ GateRequiredLevel을 함께 검사한다. 두 조건을 모두 만족할 때만 개방하고, 개방 상태를 저장한다.
-6. 공용 이동 신성: 체공, 벽 붙기, 신성 대시, 비행. 습득 여부·쿨타임·신력 검사 구조를 만든다. 비행만 지속 소모형으로 구현하고, 나머지의 소모 여부는 데이터로 받는다.
+6. 공용 이동 신성: 체공, 벽 붙기, 신성 대시, 비행. 습득 여부·쿨타임·신력 검사 구조를 만든다. 체공과 신성 대시는 발동이 성립하는 순간 HoverCost·DivinityDashCost만큼 신력을 1회 차감한다. 체공은 공중 1회(HoverAirUseCount = 1)만 허용하고, 착지 시와 벽 붙기 성립 시 횟수를 초기화한다. 벽 붙기는 키 입력 없이 공중에서 벽면에 접촉하면 자동 발동하고 신력을 소모하지 않으며, 점프 키로 벽 점프해 이탈하거나 아래 방향키로 붙기를 풀고 낙하한다(아래 방향키를 누르고 있는 동안 재부착 금지). 비행은 지속 소모형으로 구현한다.
 7. 통과 불가 피드백: 능력 미보유와 레벨 미달을 구분해 표시 요청을 보낸다.
 
 **데이터 구조**
@@ -414,7 +419,7 @@ BlessingData, BlessingSwitchData, DivinityData, DivinityEffectData, MoveDivinity
 - 번개 광선은 다음 회차 신력 소모량이 남은 신력보다 크면 즉시 종료하고 경직을 해제한다. 전기 장막은 중첩하지 않고, 재착탄 시 기존 장막을 제거하고 새로 생성한다. 빙갑의 흡수는 AbsorbCap을 넘기지 않으며 상한 도달 시 종료하고 반사 판정을 생성한다.
 - 능력은 보유하나 SkillLevel이 부족하면 게이트를 열지 않고, 현재 레벨과 요구 레벨을 함께 표시한다. RequiredAbilityId가 비어 있는 게이트는 통과 불가로 처리하고 오류를 기록한다.
 - 판정 중 보유 능력이나 SkillLevel이 바뀌면 판정을 다시 수행한다. 이미 개방한 게이트는 개방 처리를 반복하지 않는다. 이미 보유한 신성·이동 신성은 중복 지급하지 않고, 강림 지속 중 재입력은 무시한다.
-- 강림 신성의 강화 내용, 강림 습득 조건, 벽 붙기 발동 방식, 체공 공중 사용 횟수, 비행 하강 중 조작, 구역 갇힘 처리는 미정이다. 임의로 구현하지 말고 TODO 주석으로 남긴다.
+- 강림 신성의 강화 내용, 강림 습득 조건, 비행 하강 중 조작, 구역 갇힘 처리는 미정이다. 임의로 구현하지 말고 TODO 주석으로 남긴다.
 
 **출력 형식**
 Unity 6용 C# 스크립트. 하나의 클래스에 모두 작성하지 않는다. 가호 관리는 BlessingManager, 전환 UI 제어는 BlessingSwitchController, 신성 실행은 DivinitySkill 기반 파생 클래스, 스킬 레벨은 DivinityLevelManager, 게이트 판정은 AbilityGate와 GateChecker, 이동 신성은 MoveDivinityController로 책임을 나눈다. 데이터와 로직을 분리한다. 미정 항목은 값을 채우지 말고 TODO 주석으로 남긴다.
