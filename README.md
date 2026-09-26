@@ -10,11 +10,11 @@
 
 | 문서 | 역할 | 상태 |
 |---|---|---|
-| [`docs/00_game_concept.md`](docs/00_game_concept.md) | 게임 콘셉트: 장르, 핵심 재미, 타깃, MVP 범위를 정의한다 | 작성 완료 |
-| [`docs/01_core_loop.md`](docs/01_core_loop.md) | 핵심 플레이 루프: 플레이어가 반복하는 행동 흐름을 정의한다 | 작성 완료 |
-| [`docs/02_player_control.md`](docs/02_player_control.md) | 플레이어 조작: 입력 명세, 캐릭터 상태 머신, 애니메이션 전환 조건 | 작성 완료 |
-| [`docs/03_combat_system.md`](docs/03_combat_system.md) | 전투 시스템: 공격 판정, 고정 데미지 규칙, 피격 처리, 적 행동 패턴 | 작성 완료 |
-| [`docs/04_ability_gate.md`](docs/04_ability_gate.md) | 가호·신성 체계와 능력 게이트: 신성 15개 명세, 공용 이동 신성, 습득 경로, 게이트 판정 규칙 | 작성 완료 |
+| [`docs/00_game_concept.md`](docs/00_game_concept.md) | 게임 콘셉트: 폐급 불 마녀와 여우신, 마녀학교 거점·선형 챕터 구조, 폭주 게이지, 핵심 재미, 타깃, MVP 범위를 정의한다 | 개정 완료 (마녀 콘셉트) |
+| [`docs/01_core_loop.md`](docs/01_core_loop.md) | 핵심 플레이 루프: 플레이어가 반복하는 행동 흐름을 정의한다 | 개정 예정 (구 동물 신 콘셉트 기준) |
+| [`docs/02_player_control.md`](docs/02_player_control.md) | 플레이어 조작: 입력 명세, 캐릭터 상태 머신, 애니메이션 전환 조건 | 개정 예정 (구 동물 신 콘셉트 기준) |
+| [`docs/03_combat_system.md`](docs/03_combat_system.md) | 전투 시스템: 공격 판정, 고정 데미지 규칙, 피격 처리, 적 행동 패턴 | 개정 예정 (구 동물 신 콘셉트 기준) |
+| [`docs/04_ability_gate.md`](docs/04_ability_gate.md) | 마법·여우 의태·결합 스킬·폭주 게이지와 능력 게이트: 습득 경로, 게이트 판정 규칙 | 개정 예정 (구 동물 신 콘셉트 기준) |
 | `docs/05_map_progression.md` | 맵과 진행: 방 연결 구조, 역주행 동선, 세이브/체크포인트 | 예정 |
 | `docs/06_item_reward.md` | 아이템과 보상: 아이템 종류, 획득 조건, 보상 테이블 | 예정 |
 | `docs/07_ui_flow.md` | UI 흐름: 화면 목록, 버튼 동작, 화면 전환 조건 | 예정 |
