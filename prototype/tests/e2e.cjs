@@ -126,10 +126,12 @@ async function walkTo(page, tx, ty, opts) {
   await wait(page, 300);
   await shot(page, 'intro-dialog');
   await settle(page);
-  await shot(page, 'hub');
+  await shot(page, 'field');
+  // v0.2: 첫 마법은 기본마법반 수업으로 배운다 (수업 화면은 e2e-field.cjs 가 검증)
+  await page.evaluate(() => { W.rules.learnSpell(W.game.state, 'fire'); W.ui.save(); });
 
   // 부실: 손님 매입
-  await page.click('[data-act="go"][data-arg="club"]');
+  await page.evaluate(() => W.ui.go('club'));
   await wait(page, 250);
   await settle(page);
   await shot(page, 'club');
@@ -143,9 +145,9 @@ async function walkTo(page, tx, ty, opts) {
   if (s.quests.q1.status !== 'active') throw new Error('q1 매입 실패');
 
   // 매점: 체력 물약 2개
-  await page.click('[data-act="go"][data-arg="hub"]');
+  await page.evaluate(() => W.ui.go('field'));
   await wait(page, 150);
-  await page.click('[data-act="go"][data-arg="shop"]');
+  await page.evaluate(() => W.ui.go('shop'));
   await wait(page, 200);
   await shot(page, 'shop');
   await page.click('[data-act="buySheet"][data-arg="hp_potion"]');
@@ -159,9 +161,9 @@ async function walkTo(page, tx, ty, opts) {
   if (s.inv.hp_potion !== 5) throw new Error('물약 구매 실패: ' + s.inv.hp_potion);
 
   // 봉인 창고 B1
-  await page.click('[data-act="go"][data-arg="hub"]');
+  await page.evaluate(() => W.ui.go('field'));
   await wait(page, 150);
-  await page.click('[data-act="go"][data-arg="gate"]');
+  await page.evaluate(() => W.ui.go('gate'));
   await wait(page, 200);
   await shot(page, 'gate');
   await page.click('[data-act="enter"][data-arg="1"]');
@@ -186,12 +188,12 @@ async function walkTo(page, tx, ty, opts) {
   s = await state(page);
   if (s.exp && !(s.exp.x === tapped.x && s.exp.y === tapped.y) && s.stats.battles === 0) throw new Error('탭 이동 실패');
 
-  // 의뢰 표식 'a' 로 이동 (전투·사건 자동 처리)
-  const marker = await page.evaluate(() => W.rules.genFloor(1).markers.a);
-  const r1 = await walkTo(page, marker.x, marker.y, { battleShot: true, menuShot: true, sheetShot: 'first-event' });
-  await shot(page, 'dungeon-after-quest');
+  // 아래층 계단 바로 앞까지 이동 (전투·사건 자동 처리). v0.2부터 q1은 학교 음악실 의뢰라 B1 표식이 없다.
+  const near = await page.evaluate(() => { const m = W.rules.genFloor(1); for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { const ch = W.rules.tileCh(m, m.goal.x + dx, m.goal.y + dy); if (ch !== '#') return { x: m.goal.x + dx, y: m.goal.y + dy }; } return null; });
+  const r1 = await walkTo(page, near.x, near.y, { battleShot: true, menuShot: true, sheetShot: 'first-event' });
+  await shot(page, 'dungeon-after-walk');
   s = await state(page);
-  if (s.quests.q1.status !== 'ready') throw new Error('q1 목표 미달성: ' + s.quests.q1.status + ' / walk=' + r1);
+  if (!s.exp || s.stats.battles < 1) throw new Error('B1 탐험 중 전투가 없었다: walk=' + r1 + ' battles=' + s.stats.battles);
 
   // 먹물 힌트
   await page.click('[data-act="petHint"]');
@@ -211,10 +213,12 @@ async function walkTo(page, tx, ty, opts) {
   await wait(page, 300);
   s = await state(page);
   if (s.exp) throw new Error('귀환 실패');
-  await shot(page, 'hub-day2');
+  await shot(page, 'field-day2');
 
+  // 음악실 의뢰 해결 (필드 조작은 e2e-field.cjs 가 검증)
+  await page.evaluate(() => { const s = W.game.state; W.world.enterArea(s, 'music', 8, 4); W.world.search(s, 'bench'); W.world.useLocker(s); W.world.enterArea(s, 'club', 4, 5); });
   // 정화
-  await page.click('[data-act="go"][data-arg="club"]');
+  await page.evaluate(() => W.ui.go('club'));
   await wait(page, 200);
   await settle(page);
   await page.click('[data-act="purifyQuest"][data-arg="q1"]');
@@ -226,7 +230,7 @@ async function walkTo(page, tx, ty, opts) {
   await shot(page, 'club-after');
 
   // 상태·도감·훈장·설정 시트
-  await page.click('[data-act="go"][data-arg="hub"]');
+  await page.evaluate(() => W.ui.go('field'));
   await wait(page, 200);
   for (const [act, name] of [['openStatus', 'status'], ['openCodex', 'codex'], ['openBadges', 'badges'], ['openSettings', 'settings']]) {
     await page.click(`.tabbar [data-act="${act}"]`);
@@ -238,7 +242,7 @@ async function walkTo(page, tx, ty, opts) {
 
   // B2 진입 후 더 깊이: 디버그로 층 개방 후 이상한 방(B2 퍼즐) 확인
   await page.evaluate(() => { W.game.state.floorsReached = 2; W.rules.gainExp(W.game.state, 100); W.game.state.inv.hp_potion = 8; W.game.state.inv.mp_potion = 3; W.ui.save(); });
-  await page.click('[data-act="go"][data-arg="gate"]');
+  await page.evaluate(() => W.ui.go('gate'));
   await wait(page, 150);
   await page.click('[data-act="enter"][data-arg="2"]');
   await wait(page, 300);

@@ -1,4 +1,4 @@
-/* 저주 매입합니다 — 게임 데이터 (프로토타입 v0.1)
+/* 저주 매입합니다 — 게임 데이터 (프로토타입 v0.2)
  * 모든 수치는 docs/prototype-spec.md 의 [임시] 값이다. 플레이 후 조정한다. */
 (function () {
   'use strict';
@@ -30,17 +30,34 @@
   // index = 현재 레벨, 값 = 다음 레벨까지 필요한 경험치
   const EXP_CURVE = [0, 20, 45, 80, 125, 180, 245, 320, 405, 500, 99999];
 
+  // 마법은 레벨업으로 생기지 않는다. 교실에서 수업(룬 따라 그리기)을 통과해야 배운다.
+  // learn = 수강 가능 레벨, cls = 반(basic 기본마법반 / advanced 고급마법반), tuition = 수강료(합격 시 냄), seq = 룬 순서 길이
   const SPELLS = {
-    fire: { id: 'fire', name: '불씨', mp: 5, kind: 'attack', elem: 'fire', power: 1.4, learn: 1,
+    fire: { id: 'fire', name: '불씨', mp: 5, kind: 'attack', elem: 'fire', power: 1.4, learn: 1, cls: 'basic', tuition: 0, seq: 3,
       desc: '작은 불꽃을 던진다. 25% 확률로 화상(3턴).' },
-    ice: { id: 'ice', name: '얼음 가시', mp: 6, kind: 'attack', elem: 'ice', power: 1.2, learn: 2,
+    ice: { id: 'ice', name: '얼음 가시', mp: 6, kind: 'attack', elem: 'ice', power: 1.2, learn: 2, cls: 'basic', tuition: 40, seq: 4,
       desc: '얼음 가시로 찌른다. 40% 빙결. 기를 모으는 적을 반드시 끊는다.' },
-    heal: { id: 'heal', name: '치유', mp: 7, kind: 'heal', learn: 3,
+    heal: { id: 'heal', name: '치유', mp: 7, kind: 'heal', learn: 3, cls: 'basic', tuition: 60, seq: 4,
       desc: '최대 체력의 30%+8 만큼 회복한다.' },
-    light: { id: 'light', name: '정화의 빛', mp: 10, kind: 'attack', elem: 'light', power: 1.8, learn: 5,
+    light: { id: 'light', name: '정화의 빛', mp: 10, kind: 'attack', elem: 'light', power: 1.8, learn: 5, cls: 'advanced', tuition: 150, seq: 5,
       desc: '저주를 태우는 빛. 그림자 방패를 깨뜨린다.' },
+    meteor: { id: 'meteor', name: '별똥비', mp: 12, kind: 'attack', elem: null, power: 2.0, learn: 6, cls: 'advanced', tuition: 220, seq: 6,
+      desc: '작은 별을 쏟아붓는다. 속성이 없어 약점·저항과 상관없이 강하다.' },
   };
-  const SPELL_ORDER = ['fire', 'ice', 'heal', 'light'];
+  const SPELL_ORDER = ['fire', 'ice', 'heal', 'light', 'meteor'];
+  const CLASSES = {
+    basic: { id: 'basic', name: '기본마법반', teacher: 'flam', area: 'class1',
+      desc: '불씨·얼음 가시·치유를 가르친다. 칠판의 룬 순서를 기억해 그대로 그리면 합격.' },
+    advanced: { id: 'advanced', name: '고급마법반', teacher: 'serena', area: 'class2', needAll: 'basic',
+      desc: '기본마법반을 모두 수료한 학생만 받는다. 룬이 더 길고 빠르다.' },
+  };
+  // 룬 따라 그리기 미니게임의 룬 4종
+  const RUNES = [
+    { id: 0, name: '불', color: '#ff9a52', glyph: '火' },
+    { id: 1, name: '물', color: '#8fd3ff', glyph: '水' },
+    { id: 2, name: '빛', color: '#ffe680', glyph: '光' },
+    { id: 3, name: '풀', color: '#90e4c0', glyph: '木' },
+  ];
 
   // cat: potion(물약) / tool(도구) / material(재료) / quest(의뢰 물건, 판매 불가)
   const ITEMS = {
@@ -70,6 +87,7 @@
       desc: '멈춘 시간을 다시 흐르게 하는 모래. 정화 재료.', unlockFloor: 4 },
     q_spring: { name: '잃어버린 태엽', cat: 'quest', icon: 'spring', desc: '오르골에서 빠진 작은 태엽. 가끔 찌르륵 떤다.' },
     q_strap: { name: '빗자루 끈', cat: 'quest', icon: 'strap', desc: '빗자루를 얌전하게 만드는 낡은 가죽 끈.' },
+    locker_key: { name: '음악실 사물함 열쇠', cat: 'quest', icon: 'key', desc: '음표 모양 고리가 달린 작은 열쇠.' },
   };
   const SHOP_TABS = [
     { id: 'potion', name: '물약' },
@@ -175,7 +193,7 @@
     null,
     { id: 1, name: '먼지 쌓인 창고', seed: 4127, recLv: 1, monsters: 4, chests: 2, events: 2, traps: 1,
       enemies: [['dustwisp', 4], ['teacup', 3], ['waxslime', 3]], fountain: true, door: false, key: true, locked: true,
-      puzzle: false, merchant: false, markers: ['a'], down: true,
+      puzzle: false, merchant: false, markers: [], down: true,
       palette: { floor: '#5b4b6e', floor2: '#625174', wall: '#1a1222', wallTop: '#2b2038', glow: '#c9a0ff' } },
     { id: 2, name: '울음소리 복도', seed: 9203, recLv: 2, monsters: 5, chests: 2, events: 3, traps: 2,
       enemies: [['teacup', 1], ['waxslime', 1], ['giggledoll', 3], ['mirrorbat', 3], ['shroomella', 3]],
@@ -183,11 +201,11 @@
       palette: { floor: '#4a5470', floor2: '#505b78', wall: '#141824', wallTop: '#222839', glow: '#9cc3ff' } },
     { id: 3, name: '거꾸로 교실', seed: 3301, recLv: 3, monsters: 6, chests: 2, events: 3, traps: 2,
       enemies: [['giggledoll', 1], ['cursedframe', 3], ['rustarmor', 3], ['broomghost', 3], ['shroomella', 1]],
-      fountain: true, door: true, key: true, locked: false, puzzle: false, merchant: true, markers: ['c', 'e'], down: true,
+      fountain: true, door: true, key: true, locked: false, puzzle: false, merchant: true, markers: ['e'], down: true,
       palette: { floor: '#6a5050', floor2: '#725757', wall: '#1d1415', wallTop: '#2f2223', glow: '#ffb38a' } },
     { id: 4, name: '빗자루 묘지', seed: 7741, recLv: 4, monsters: 6, chests: 3, events: 3, traps: 2,
       enemies: [['shadowhand', 3], ['skelibrarian', 3], ['stuffedcrow', 3], ['broomghost', 1], ['rustarmor', 1]],
-      fountain: true, door: true, key: true, locked: true, puzzle: true, merchant: false, markers: ['d'], down: true,
+      fountain: true, door: true, key: true, locked: true, puzzle: true, merchant: false, markers: [], down: true,
       palette: { floor: '#48604f', floor2: '#4f6856', wall: '#121a15', wallTop: '#1f2b24', glow: '#9fe0bf' } },
     { id: 5, name: '자정의 봉인실', seed: 5519, recLv: 5, monsters: 6, chests: 2, events: 2, traps: 2,
       enemies: [['lockmimic', 2], ['sealcandle', 3], ['shadowhand', 2], ['skelibrarian', 2], ['stuffedcrow', 1]],
@@ -213,6 +231,9 @@
     kongal: { name: '콩알', role: '1학년 · 인형부', kind: 'student', hair: '#90d38b', style: 1, eye: '#2e5a2a' },
     tiktok: { name: '틱톡 조교', role: '교무실 조교', kind: 'student', hair: '#a59886', style: 0, eye: '#3a3a3a', glasses: true },
     belladonna: { name: '벨라도나', role: '학생회장', kind: 'student', hair: '#3a2b55', style: 3, eye: '#c0405a' },
+    flam: { name: '플람 교수', role: '기본마법반 담임 · 부엉이', kind: 'owl' },
+    serena: { name: '세레나 교수', role: '고급마법반 담임', kind: 'student', hair: '#d8d2ee', style: 2, eye: '#6a3fb0', hat: true },
+    gardener: { name: '송이 아저씨', role: '정원사 · 버섯', kind: 'gardener' },
     nocturne: { name: '녹턴', role: '그림자 집사', kind: 'enemy', enemy: 'nocturne' },
     director: { name: '깔깔 극장장', role: '', kind: 'enemy', enemy: 'director' },
   };
@@ -221,9 +242,9 @@
   const QUESTS = [
     { id: 'q1', cursedName: '훌쩍이는 오르골', customer: 'popo', antique: 'musicbox', buy: 30, unlock: {},
       symptom: '밤마다 혼자 훌쩍이며 운다.',
-      story: ['선배! 이 오르골 좀 사주세요…', '밤마다 혼자 훌쩍훌쩍 울어요. 기숙사 애들이 다 깼어요.', '태엽 하나가 빠진 뒤로 이래요.'],
-      objective: { type: 'fetch', floor: 1, marker: 'a', item: 'q_spring', place: '먼지 쌓인 음악실 사물함' },
-      hint: 'B1 어딘가의 「먼지 쌓인 음악실 사물함」에서 잃어버린 태엽을 찾자.',
+      story: ['선배! 이 오르골 좀 사주세요…', '밤마다 혼자 훌쩍훌쩍 울어요. 기숙사 애들이 다 깼어요.', '태엽 하나가 빠진 뒤로 이래요.', '태엽은 음악실 제 사물함에 있는데… 열쇠를 음악실 어딘가에 흘렸어요.'],
+      objective: { type: 'field', area: 'music', target: 'locker', item: 'q_spring', place: '음악실 사물함' },
+      hint: '본관 음악실을 뒤져 사물함 열쇠를 찾고, 사물함에서 태엽을 꺼내자.',
       found: ['삐걱— 사물함을 열자 작은 태엽이 찌르륵 떨었다.', '잃어버린 태엽을 손에 넣었다!'],
       purify: '태엽을 끼우자 오르골이 마지막으로 크게 훌쩍이더니… 조용한 자장가를 연주하기 시작했다.' },
     { id: 'q2', cursedName: '따라오는 손거울', customer: 'sera', antique: 'handmirror', buy: 50, unlock: { floor: 2 },
@@ -239,18 +260,18 @@
       objective: { type: 'items', items: { salt: 1, dew: 1 }, place: '부실 정화대' },
       hint: '정화 소금 1개와 달빛 이슬 1개를 모아 부실에서 정화하자. (매점·봉인 창고)',
       purify: '달빛 이슬을 한 방울 떨어뜨리자, 찻주전자가 "후우—" 하고 긴 한숨을 쉬며 식었다.' },
-    { id: 'q4', cursedName: '글자가 기어다니는 일기장', customer: 'noeul', antique: 'diary', buy: 60, unlock: { floor: 3 },
+    { id: 'q4', cursedName: '글자가 기어다니는 일기장', customer: 'noeul', antique: 'diary', buy: 60, unlock: { purified: 1 },
       symptom: '글자가 밤마다 다른 페이지로 이사 간다.',
-      story: ['일기장 글자들이 밤마다 다른 페이지로 이사를 가요.', '어젯밤 쓴 일기가 오늘 아침엔 시간표 위에 있었어요.', '봉인 창고의 「거꾸로 교실」에서 이 일기장을 주웠어요. 거기가 원래 집인가 봐요.'],
-      objective: { type: 'puzzle', floor: 3, marker: 'c', place: '거꾸로 교실' },
-      hint: 'B3 「거꾸로 교실」에 들어가 꺼진 촛불을 모두 밝히자.',
-      found: ['천장에 책상이 매달린 교실. 꺼진 촛불들이 일렬로 서 있다.', '"모두 밝히면 글자들이 집으로 돌아갈 거야."'],
+      story: ['일기장 글자들이 밤마다 다른 페이지로 이사를 가요.', '어젯밤 쓴 일기가 오늘 아침엔 시간표 위에 있었어요.', '도서관 금서 칸에서 빌린 일기장이에요. 그 칸 독서대에 다시 올려두면 얌전해진대요.', '그런데 금서 칸 철문은 바닥 판 두 개를 눌러야 열린대요…'],
+      objective: { type: 'field', area: 'library', target: 'lectern', place: '도서관 금서 칸 독서대' },
+      hint: '도서관 책수레를 밀어 바닥 판 두 개를 누르고, 금서 칸 독서대에 일기장을 올려두자.',
+      found: ['일기장을 독서대에 펼치자, 흩어진 글자들이 개미처럼 줄지어 제 페이지로 돌아간다.', '"…집이다." 일기장이 작게 속삭였다.'],
       purify: '일기장을 펼치자 흩어졌던 글자들이 줄을 맞춰 제 페이지로 돌아갔다.' },
-    { id: 'q5', cursedName: '삐걱대는 마녀 빗자루', customer: 'hwiparam', antique: 'broom', buy: 80, unlock: { floor: 4 },
+    { id: 'q5', cursedName: '삐걱대는 마녀 빗자루', customer: 'hwiparam', antique: 'broom', buy: 80, unlock: { purified: 2 },
       symptom: '주인을 태우고 지하로 내려가려 한다.',
-      story: ['제 빗자루가 저를 태우고 자꾸 지하로 내려가려 해요!', '어제는 봉인 창고 B2까지 갔다 왔어요. 무서웠어요.', '빗자루 묘지에 가면 얘를 얌전하게 할 끈이 있대요.'],
-      objective: { type: 'fetch', floor: 4, marker: 'd', item: 'q_strap', place: '빗자루 묘지 관리인 오두막' },
-      hint: 'B4 「빗자루 묘지 관리인 오두막」에서 빗자루 끈을 찾자.',
+      story: ['제 빗자루가 저를 태우고 자꾸 지하로 내려가려 해요!', '어제는 봉인 창고 B2까지 갔다 왔어요. 무서웠어요.', '정원 서쪽 산울타리 미로 한가운데 오두막에, 얘를 얌전하게 할 끈이 있대요.', '미로는 밤이 되면 몬스터가 돌아다녀요. 조심하세요!'],
+      objective: { type: 'field', area: 'maze', target: 'shed', item: 'q_strap', place: '밤의 미로 한가운데 오두막' },
+      hint: '정원 서쪽 「밤의 산울타리 미로」 한가운데 오두막에서 빗자루 끈을 찾자.',
       found: ['오두막 벽에 낡은 가죽 끈이 걸려 있다.', '빗자루 끈을 손에 넣었다!'],
       purify: '끈을 묶자 빗자루가 부르르 떨더니, 얌전히 휘파람의 손에 안겼다.' },
     { id: 'q6', cursedName: '웃음이 멈추지 않는 인형', customer: 'kongal', antique: 'doll', buy: 70, unlock: { floor: 3 },
@@ -291,6 +312,11 @@
     { id: 'weak20', name: '약점 공략가', desc: '약점 공격을 20번 성공했다.', reward: 30 },
     { id: 'puzzle3', name: '촛불지기', desc: '이상한 방을 3번 해결했다.', reward: 30 },
     { id: 'level5', name: '어엿한 견습 마녀', desc: '레벨 5에 도달했다.', reward: 30 },
+    { id: 'basic_grad', name: '기본마법반 수료', desc: '기본마법반 마법 3개를 모두 배웠다.', reward: 40 },
+    { id: 'adv_grad', name: '고급마법반 수료', desc: '고급마법반 마법 2개를 모두 배웠다.', reward: 60 },
+    { id: 'library', name: '금서 칸의 열쇠', desc: '도서관 책수레를 밀어 금서 칸 철문을 열었다.', reward: 30 },
+    { id: 'well', name: '분수의 비밀', desc: '분수 룬 판을 순서대로 밟아 마른 우물을 열었다.', reward: 30 },
+    { id: 'maze', name: '미로의 달인', desc: '밤의 산울타리 미로 한가운데에 도착했다.', reward: 30 },
   ];
 
   const QUIZ = [
@@ -323,7 +349,7 @@
       { who: 'council', text: '[학생회 공문] 저주골동품부는 실적 부진으로 학기말 폐부 예정. 단, 정화 실적 5건을 달성하면 존속을 허가함.' },
       { who: 'rumi', text: '폐부라니! …그런데 내 그림자는 오늘따라 왜 안 보이지?' },
       { who: 'mukmul', text: '냐. (먹물이 바닥을 긁는다. 그림자 냄새가 봉인 창고 아래에서 난다는 듯이.)' },
-      { who: 'rumi', text: '좋아. 일단 손님부터 받아보자!' },
+      { who: 'rumi', text: '좋아. 마법 하나 없이 봉인 창고는 무리야. 본관 기본마법반에서 불씨부터 배우고, 손님을 받자!' },
     ],
     bossIntro: [
       { who: 'nocturne', text: '어서 오십시오, 그림자 없는 아가씨.' },
@@ -348,11 +374,21 @@
       '냐…? (약점을 맞히면 적 이름 옆에 약점이 기록된다)',
       '냐앙. (정화한 골동품은 팔아도 되고, 장착해서 써도 돼)',
       '냐. (체력이 부족하면 양호실. 모모 선생님은 20은화)',
+      '냐아. (마법은 본관 교실에서 배워. 레벨이 올라도 저절로 생기진 않아)',
+      '냥. (부실 침대에서 자면 하루가 지나고 마력이 다 차)',
       '냥냥. (같은 층이라도 다시 들어가면 상자가 새로 채워져)',
     ],
     kiki: ['끼끼끼, 어서 와. 박쥐네 매점이야.', '물약은 넉넉히 사 둬. 봉인 창고는 배고픈 곳이거든.', '은화가 모자라? 끼끼, 외상은 없어.', '정화 소금은 늘 잘 팔리지.', '끼… 저주 냄새가 나는구나. 또 깊이 내려갔지?'],
     momo: ['붕대 많이 있어요. 어디 다쳤어요?', '무리하면 안 돼요. 먹물이 걱정해요.', '독은 해독 허브로도 나아요. 그래도 여기 오면 더 확실해요.'],
     wanderer: ['냥. 비싸지만 급하잖아?', '봉인 창고에선 내가 유일한 가게다냥.', '은화만 있으면 뭐든 판다냥. 거의.'],
+    // 필드
+    fieldIntro: [
+      { who: 'mukmul', text: '냐. (바닥을 톡 누르면 거기까지 걸어가. 사람이나 물건을 누르면 다가가서 말을 걸어)' },
+      { who: 'rumi', text: '문 위 이름표를 보고 다니면 되겠다. 금색 화살표는 지금 가야 할 방향!' },
+    ],
+    flam: ['부엉. 마법은 손끝이 아니라 기억으로 그리는 거란다.', '칠판의 룬을 잘 보렴. 한 번 보여줄 때 다 외워야 해.', '부엉… 수강료는 합격하면 받으마.'],
+    serena: ['고급 마법은 빠르고 길어. 눈을 깜빡이지 마.', '기본을 다 떼고 오렴. 그 전엔 못 가르쳐.', '정화의 빛은 그림자를 싫어해. 아주 많이.'],
+    gardener: ['어이쿠, 꼬마 마녀구먼. 분수 판은 아무렇게나 밟으면 안 꺼져.', '서쪽 산울타리 미로는 밤마다 길이 바뀌어. 오두막은 늘 한가운데 있지.', '도서관 사서님이 분수 이야기를 책에 적어 두셨다던데.'],
     rumors: [
       '계단은 언제나 입구에서 가장 먼 곳에 있다더라.',
       '얼음 가시는 기를 모으는 녀석을 멈춰. — 선배',
@@ -366,7 +402,7 @@
 
   W.DATA = {
     GRADES, GRADE_ORDER, ELEMENTS, PLAYER, EXP_CURVE, SPELLS, SPELL_ORDER, ITEMS, SHOP_TABS,
-    ANTIQUES, GRADE_ODDS, ENEMIES, FLOORS, NPCS, QUESTS, BADGES, QUIZ, LINES,
+    ANTIQUES, GRADE_ODDS, ENEMIES, FLOORS, NPCS, QUESTS, BADGES, QUIZ, LINES, CLASSES, RUNES,
     TUNING: {
       encounterRate: 0.04, encounterGrace: 3, startSafeRadius: 2,
       fleeBase: 0.6, critBase: 0.08, critMult: 1.6, chargeMult: 2.3, bossChargeMult: 2.5,
@@ -375,6 +411,7 @@
       infirmaryCost: 20, sellRatio: 0.5, defeatSilverLoss: 0.3, petHints: 3, sightBase: 3,
       chestAntiqueChance: { 1: 0.25, 2: 0.3, 3: 0.35, 4: 0.4, 5: 0.45 },
       gambleCost: 20,
+      sleepHealPct: 0.3, mazeSight: 2,
     },
   };
 })();

@@ -15,7 +15,7 @@ const URL = 'file://' + path.join(__dirname, '..', 'dist', 'index.html');
   await page.evaluate(() => {
     const R = W.rules, s = R.newGame();
     s.flags.introSeen = true; s.flags.metCustomer = true; s.flags.dungeonTip = true; s.flags.battleTip = true; s.flags.clubTip = true;
-    R.gainExp(s, 20 + 45 + 80); s.floorsReached = 3; s.silver = 320; s.inv = { hp_potion: 4, mp_potion: 2, key: 1, salt: 1, herb: 1, feather: 1 };
+    R.gainExp(s, 20 + 45 + 80); s.spells = ['fire', 'ice', 'heal']; s.floorsReached = 3; s.silver = 320; s.inv = { hp_potion: 4, mp_potion: 2, key: 1, salt: 1, herb: 1, feather: 1 };
     R.refreshCustomers(s); R.acceptQuest(s, 'q1'); s.silver += 200; R.acceptQuest(s, 'q4'); R.acceptQuest(s, 'q6');
     W.game.state = s; R.startExpedition(s, 3); W.ui.debug.snapPos(); W.ui.go('dungeon');
   });
@@ -62,7 +62,7 @@ const URL = 'file://' + path.join(__dirname, '..', 'dist', 'index.html');
   // 녹턴 방패 페이즈
   page.evaluate(() => W.ui.runBattle('nocturne', {}));
   await page.waitForTimeout(700);
-  await page.evaluate(() => { const B = W.game.ui.battle; B.b.shield = 2; B.b.hp = 240; W.game.state.known.nocturne = { weak: true }; W.rules.gainExp(W.game.state, 400); W.game.state.player.mp = 40; });
+  await page.evaluate(() => { const B = W.game.ui.battle; B.b.shield = 2; B.b.hp = 240; W.game.state.known.nocturne = { weak: true }; W.rules.gainExp(W.game.state, 400); W.game.state.spells.push('light'); W.game.state.player.mp = 40; });
   await page.evaluate(() => W.ui.ACT.bmenu('spell'));
   await shot('nocturne-shield');
   // 엔딩 대화
@@ -70,7 +70,7 @@ const URL = 'file://' + path.join(__dirname, '..', 'dist', 'index.html');
   await page.click('[data-act="bspell"][data-arg="light"]');
   await page.waitForTimeout(2500);
   await page.evaluate(() => { for (let i = 0; i < 4; i++) { const c = document.querySelector('#sheet [data-act="choose"]'); if (c) c.click(); } });
-  await page.evaluate(() => { const s = W.game.state; s.flags.bossDefeated = true; s.purified = 5; s.exp = null; W.ui.go('hub'); W.ui.debug.maybeEnding(); });
+  await page.evaluate(() => { const s = W.game.state; s.flags.bossDefeated = true; s.purified = 5; s.exp = null; W.ui.go('field'); W.ui.debug.maybeEnding(); });
   await page.waitForTimeout(1500);
   await shot('ending-dialog');
   for (let i = 0; i < 6; i++) { await page.click('.dialog-skip').catch(() => {}); await page.waitForTimeout(100); }

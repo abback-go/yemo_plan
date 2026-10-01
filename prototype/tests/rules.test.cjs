@@ -85,20 +85,82 @@ test('새 게임 초기값', () => {
   assert.equal(R.stats(s).maxHp, 60);
   assert.equal(R.count(s, 'hp_potion'), 3);
   assert.deepEqual(plain(R.customers(s).map((q) => q.id)), ['q1']);
+  assert.deepEqual(plain(s.spells), []);
+  assert.match(R.objectiveText(s), /기본마법반/);
+  R.learnSpell(s, 'fire');
   assert.match(R.objectiveText(s), /첫 손님/);
+  assert.equal(s.field.area, 'club');
 });
 
-test('레벨업: 능력치·마법 습득·늘어난 만큼 회복', () => {
+test('레벨업: 능력치·늘어난 만큼 회복 — 마법은 저절로 생기지 않는다', () => {
   const s = R.newGame();
   s.player.hp = 5;
   const ups = R.gainExp(s, 20);
   assert.equal(s.player.lv, 2);
-  assert.deepEqual(plain(ups[0].learned), ['ice']);
+  assert.deepEqual(plain(ups[0].classReady), ['ice']);
   assert.equal(s.player.hp, 5 + 12);
   assert.equal(R.stats(s).maxHp, 72);
   R.gainExp(s, 45 + 80 + 125);
   assert.equal(s.player.lv, 5);
+  assert.deepEqual(plain(R.knownSpells(s)), []);
+});
+
+// ───────── 마법 수업 ─────────
+test('수업: 레벨·수강료·기본반 수료 조건', () => {
+  const s = R.newGame();
+  assert.ok(R.canLearn(s, 'fire').ok, '불씨는 Lv1 무료');
+  assert.match(R.canLearn(s, 'ice').reason, /Lv2/);
+  assert.match(R.canLearn(s, 'light').reason, /기본마법반/);
+  assert.ok(R.learnSpell(s, 'fire').ok);
+  assert.equal(s.silver, 150, '불씨 수강료 0');
+  assert.ok(!R.learnSpell(s, 'fire').ok, '중복 수강 불가');
+  R.gainExp(s, 20 + 45);
+  assert.ok(R.learnSpell(s, 'ice').ok);
+  assert.equal(s.silver, 150 - D.SPELLS.ice.tuition);
+  s.silver = 10;
+  assert.match(R.canLearn(s, 'heal').reason, /모자라/);
+  s.silver = 999;
+  assert.ok(R.learnSpell(s, 'heal').ok);
+  assert.ok(R.classOpen(s, 'advanced'));
+  assert.match(R.canLearn(s, 'light').reason, /Lv5/);
+  R.gainExp(s, 80 + 125);
+  assert.ok(R.learnSpell(s, 'light').ok);
   assert.deepEqual(plain(R.knownSpells(s)), ['fire', 'ice', 'heal', 'light']);
+  const b = R.createBattle(s, 'dustwisp', {});
+  assert.ok(!R.canAct(s, b, { type: 'spell', id: 'meteor' }).ok, '안 배운 마법은 못 쓴다');
+});
+
+test('룬 순서: 길이가 맞고 같은 룬이 세 번 연속 나오지 않는다', () => {
+  seeded(4);
+  for (let i = 0; i < 300; i++) {
+    const q = R.runeSequence(6);
+    assert.equal(q.length, 6);
+    for (let k = 2; k < q.length; k++) assert.ok(!(q[k] === q[k - 1] && q[k] === q[k - 2]));
+    assert.ok(q.every((r) => r >= 0 && r < D.RUNES.length));
+  }
+});
+
+test('별똥비: 속성이 없어 배율 1, 오류 없이 피해', () => {
+  seeded(8);
+  const s = battleState(6);
+  s.silver = 999;
+  assert.ok(R.learnSpell(s, 'meteor').ok);
+  s.player.mp = 40;
+  const b = R.createBattle(s, 'rustarmor', {});
+  const ev = R.playerAction(s, b, { type: 'spell', id: 'meteor' });
+  const d = ev.find((e) => e.t === 'dmg' && e.target === 'enemy');
+  assert.ok(d && d.amount > 20, JSON.stringify(d));
+  assert.ok(!ev.some((e) => e.t === 'weak'));
+});
+
+test('침대: 하루가 지나고 마력 가득, 체력 일부 회복', () => {
+  const s = R.newGame();
+  s.player.hp = 10; s.player.mp = 0;
+  const r = R.sleepDay(s);
+  assert.equal(s.day, 2);
+  assert.equal(s.player.mp, 20);
+  assert.equal(s.player.hp, 10 + r.hp);
+  assert.equal(r.hp, 18);
 });
 
 test('의뢰: 매입 → 찾아오기 → 정화 → 판매', () => {
@@ -188,6 +250,7 @@ test('등급 확률 분포(B5): 전설이 가끔, 일반이 가장 적지 않다
 function battleState(lv) {
   const s = R.newGame();
   if (lv > 1) R.gainExp(s, D.EXP_CURVE.slice(1, lv).reduce((a, b) => a + b, 0));
+  s.spells = D.SPELL_ORDER.filter((id) => D.SPELLS[id].learn <= Math.min(lv, 5));
   return s;
 }
 
@@ -307,6 +370,11 @@ test('저장/불러오기 왕복', () => {
   assert.equal(t.exp.floor, 1);
   assert.equal(R.deserialize('{broken'), null);
   assert.equal(R.deserialize(JSON.stringify({ version: 999 })), null);
+  assert.equal(R.deserialize(JSON.stringify(Object.assign(R.newGame(), { version: 1 }))), null, 'v0.1 저장은 받지 않는다');
+  s.field.libGate = true; s.spells.push('fire');
+  const u = R.deserialize(R.serialize(s));
+  assert.equal(u.field.libGate, true);
+  assert.deepEqual(plain(u.spells), ['fire']);
 });
 
 test('촛불 퍼즐: 생성은 미해결 상태, 토글은 자기 자신+상하좌우', () => {
@@ -321,10 +389,160 @@ test('촛불 퍼즐: 생성은 미해결 상태, 토글은 자기 자신+상하�
 
 test('먹물 힌트: 진행 중 의뢰 표식을 가리킨다', () => {
   const s = R.newGame();
-  R.acceptQuest(s, 'q1');
-  R.startExpedition(s, 1);
+  s.floorsReached = 2;
+  R.refreshCustomers(s);
+  R.acceptQuest(s, 'q2');
+  R.startExpedition(s, 2);
   const h = R.petHint(s);
   assert.ok(h.ok);
-  assert.equal(h.label, '먼지 쌓인 음악실 사물함');
+  assert.equal(h.label, '깨진 거울의 막다른 길');
   assert.equal(h.left, 2);
+});
+
+// ───────── 학교 필드 ─────────
+const F = W.world;
+const walkTo = (s, x, y) => { const p = F.findPath(s, x, y); assert.ok(p, `길 없음 ${x},${y}`); let r; for (const [a, b] of p) r = F.step(s, a, b); return r; };
+
+test('필드: 모든 구역 출입구가 서로 이어지고 도착 칸은 걸을 수 있다', () => {
+  const s = R.newGame();
+  for (const id of F.AREA_IDS) {
+    const a = F.area(s, id);
+    assert.equal(a.rows.length, a.h, id);
+    for (const row of a.rows) assert.equal(row.length, a.w, id);
+    for (const e of a.exits) {
+      assert.equal(F.tileAt(a, e.x, e.y), 'E', `${id} 출입구 ${e.x},${e.y}`);
+      if (!e.to) continue;
+      const b = F.area(s, e.to);
+      assert.ok(b.exits.some((x) => x.to === id), `${e.to} → ${id} 되돌아오는 문`);
+      s.field.area = e.to;
+      assert.ok(F.walkable(s, e.at[0], e.at[1]), `${id}→${e.to} 도착 칸 ${e.at}`);
+    }
+  }
+});
+
+test('필드: 목표 안내 화살표는 목표 구역으로 가는 출입구를 가리킨다', () => {
+  const s = R.newGame();
+  assert.equal(F.targetArea(s), 'class1');
+  assert.equal(F.routeExit(s).to, 'garden');
+  F.enterArea(s, 'garden', 5, 1);
+  assert.equal(F.routeExit(s).to, 'hall');
+  F.enterArea(s, 'hall', 5, 9);
+  assert.equal(F.routeExit(s).to, 'class1');
+  R.learnSpell(s, 'fire');
+  assert.equal(F.targetArea(s), 'club');
+  s.flags.metCustomer = true;
+  R.acceptQuest(s, 'q1');
+  assert.equal(F.targetArea(s), 'music');
+  F.enterArea(s, 'club', 4, 5);
+  assert.equal(F.routeExit(s, 'screen:gate').screen, undefined);
+  F.enterArea(s, 'garden', 5, 1);
+  assert.equal(F.routeExit(s, 'screen:gate').screen, 'gate');
+});
+
+test('음악실: 쪽지 → 의자 밑 열쇠 → 사물함에서 태엽 (의뢰 중일 때만)', () => {
+  const s = R.newGame();
+  F.enterArea(s, 'music', 8, 4);
+  assert.ok(!F.useLocker(s).ok, '의뢰 전에는 못 연다');
+  R.acceptQuest(s, 'q1');
+  assert.match(F.useLocker(s).text, /열쇠/);
+  assert.match(F.search(s, 'stand').text, /앉아서/);
+  const d = F.search(s, 'drum');
+  assert.equal(d.silver, 8);
+  assert.equal(F.search(s, 'drum').silver, undefined, '한 번만');
+  assert.ok(F.search(s, 'bench').found);
+  assert.ok(!F.search(s, 'bench').found);
+  assert.ok(F.useLocker(s).ok);
+  assert.equal(s.quests.q1.status, 'ready');
+  assert.equal(R.count(s, 'q_spring'), 1);
+  assert.equal(R.count(s, 'locker_key'), 0);
+  assert.ok(R.purifyQuest(s, 'q1').ok);
+});
+
+test('도서관: 책수레 두 대로 판을 누르면 철문이 열리고, 다시 들어오면 수레가 제자리', () => {
+  const s = R.newGame();
+  F.enterArea(s, 'library', 5, 11);
+  assert.ok(!F.walkable(s, 5, 3), '철문은 닫혀 있다');
+  const mv = (dx, dy) => F.step(s, s.field.x + dx, s.field.y + dy);
+  walkTo(s, 5, 10); mv(0, -1);
+  assert.equal(mv(-1, 0).type, 'push');
+  walkTo(s, 5, 10);
+  F.enterArea(s, 'library', 5, 11);
+  assert.deepEqual(plain(F.carts(s)), [[4, 9], [6, 9]], '나갔다 오면 초기화');
+  walkTo(s, 5, 10); mv(0, -1);
+  mv(-1, 0); mv(-1, 0); mv(-1, 0);
+  assert.equal(mv(-1, 0).type, 'pushBlocked', '벽 쪽으로는 안 밀린다');
+  F.resetCarts(s);
+  F.enterArea(s, 'library', 5, 11);
+  walkTo(s, 5, 10); mv(0, -1); mv(-1, 0); mv(-1, 0);
+  walkTo(s, 2, 10); mv(0, -1); const r1 = mv(0, -1);
+  assert.ok(r1.onPlate && !r1.gateOpened);
+  assert.equal(F.platesCovered(s), 1);
+  walkTo(s, 5, 10); mv(0, -1); mv(1, 0); mv(1, 0);
+  walkTo(s, 8, 10); mv(0, -1); const r2 = mv(0, -1);
+  assert.ok(r2.gateOpened);
+  assert.ok(s.field.libGate);
+  assert.ok(F.findPath(s, 5, 2), '금서 칸으로 들어갈 수 있다');
+  assert.ok(!F.useLectern(s).ok, '의뢰가 없으면 독서대는 그냥 독서대');
+  s.purified = 1; R.refreshCustomers(s); s.silver = 999;
+  R.acceptQuest(s, 'q4');
+  assert.ok(F.useLectern(s).ok);
+  assert.equal(s.quests.q4.status, 'ready');
+  assert.ok(F.openLibChest(s).ok);
+  assert.ok(!F.openLibChest(s).ok);
+});
+
+test('정원: 룬 판은 달→해→별→구름, 틀리면 처음부터', () => {
+  const s = R.newGame();
+  F.enterArea(s, 'garden', 5, 1);
+  assert.ok(!F.useWell(s).ok);
+  assert.equal(walkTo(s, 3, 10).plate.result, 'progress');
+  assert.equal(walkTo(s, 7, 10).plate.result, 'reset');
+  assert.deepEqual(plain(s.field.plates), []);
+  walkTo(s, 3, 10); walkTo(s, 3, 6); walkTo(s, 7, 6);
+  assert.equal(walkTo(s, 7, 10).plate.result, 'solved');
+  assert.ok(s.field.fountain);
+  const w = F.useWell(s);
+  assert.ok(w.ok);
+  assert.equal(s.antiques[s.antiques.length - 1].grade, 'rare');
+  R.addItem(s, 'salt', 1);
+  const p = R.purifyFound(s, w.loot.antiqueList[0].uid);
+  assert.equal(D.ANTIQUES[p.antique.def].grade, 'rare');
+  assert.ok(!F.useWell(s).ok, '한 번만');
+});
+
+test('밤의 미로: 날마다 바뀌고, 입구에서 오두막·상자·몬스터까지 모두 이어진다', () => {
+  const seen = new Set();
+  for (let day = 1; day <= 40; day++) {
+    const m = F.genMaze(day);
+    seen.add(m.rows.join(''));
+    const open = (x, y) => m.rows[y] && m.rows[y][x] && m.rows[y][x] !== '#';
+    const q = [[13, 9]]; const vis = new Set(['13,9']);
+    while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) { const k = (x + dx) + ',' + (y + dy); if (!vis.has(k) && open(x + dx, y + dy)) { vis.add(k); q.push([x + dx, y + dy]); } } }
+    assert.ok(vis.has(m.shed.x + ',' + m.shed.y), `day ${day} 오두막`);
+    for (const c of m.chests) assert.ok(vis.has(c.x + ',' + c.y));
+    assert.equal(m.monsters.length, 4);
+    assert.equal(m.chests.length, 2);
+  }
+  assert.ok(seen.size >= 39, '날마다 다른 미로');
+});
+
+test('밤의 미로: 안개·몬스터 전투·오두막 의뢰', () => {
+  const s = R.newGame();
+  s.silver = 999; s.purified = 2; R.refreshCustomers(s);
+  F.enterArea(s, 'maze', 13, 9);
+  assert.ok(F.revealed(s, 13, 9));
+  assert.ok(!F.revealed(s, 1, 1), '먼 곳은 안개');
+  const m = F.genMaze(s.day);
+  const mon = m.monsters[0];
+  assert.equal(F.objectAt(s, mon.x, mon.y).kind, 'monster');
+  F.defeatMonster(s, mon.x, mon.y);
+  assert.equal(F.objectAt(s, mon.x, mon.y), null);
+  R.acceptQuest(s, 'q5');
+  const r = F.useShed(s);
+  assert.ok(r.qid === 'q5' && r.first);
+  assert.equal(s.quests.q5.status, 'ready');
+  R.sleepDay(s);
+  F.mazeState(s);
+  assert.equal(s.field.maze.day, s.day, '하루가 지나면 미로 상태 초기화');
+  assert.equal(Object.keys(s.field.maze.defeated).length, 0);
 });

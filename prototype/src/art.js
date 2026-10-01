@@ -148,6 +148,49 @@
     if (n.glasses) { fp(ctx, circ(41, 56, 8), null, 2.4, '#3b2a55'); fp(ctx, circ(59, 56, 8), null, 2.4, '#3b2a55'); line(ctx, [49, 56, 51, 56], '#3b2a55', 2.4); }
     blush(ctx, 34, 64, 4); blush(ctx, 66, 64, 4);
     if (worried) curve(ctx, 'M45 67 Q50 64 55 67', C.ink, 2.8); else smile(ctx, 50, 66, 3.4);
+    if (n.hat) {
+      fp(ctx, P('M18 36 Q34 28 44 4 Q48 -4 60 2 Q66 6 64 10 Q58 8 56 14 Q64 26 82 36 Z'), '#2c2350', 3.4);
+      fp(ctx, ell(50, 36, 38, 7), '#2c2350', 3.4);
+      fp(ctx, P('M24 32 Q50 24 76 32 L78 35 Q50 28 22 35 Z'), C.gold2, 0);
+    }
+  }
+  // 플람 교수 (부엉이)
+  function drawOwl(ctx, o) {
+    const t = o.t || 0;
+    const b = Math.sin(t * 2) * 1;
+    ctx.save(); ctx.translate(0, b);
+    fp(ctx, P('M22 96 Q16 60 30 40 Q50 26 70 40 Q84 60 78 96 Z'), '#8a6a4f');
+    fp(ctx, P('M34 96 Q30 66 50 58 Q70 66 66 96 Z'), '#e9d6b4');
+    for (const y of [68, 78, 88]) for (const x of [42, 50, 58]) curve(ctx, `M${x - 3} ${y} Q${x} ${y + 3} ${x + 3} ${y}`, '#b99a74', 2);
+    fp(ctx, P('M22 60 Q10 72 18 90 Q26 80 30 66 Z'), '#6f5440');
+    fp(ctx, P('M78 60 Q90 72 82 90 Q74 80 70 66 Z'), '#6f5440');
+    fp(ctx, P('M28 34 L22 14 L40 26 Z'), '#6f5440'); fp(ctx, P('M72 34 L78 14 L60 26 Z'), '#6f5440');
+    fp(ctx, ell(50, 40, 26, 20), '#8a6a4f');
+    fp(ctx, circ(39, 40, 10), C.cream, 2.6); fp(ctx, circ(61, 40, 10), C.cream, 2.6);
+    eyes(ctx, 39, 61, 40, 5, { blink: blinkAt(t, 1.3), iris: '#e0a020' });
+    fp(ctx, circ(39, 40, 12), null, 2.4, C.gold2); fp(ctx, circ(61, 40, 12), null, 2.4, C.gold2); line(ctx, [49, 38, 51, 38], C.gold2, 2.4);
+    fp(ctx, P('M46 48 L54 48 L50 56 Z'), C.amber, 2.4);
+    fp(ctx, P('M30 22 Q50 10 70 22 L66 26 Q50 18 34 26 Z'), '#2c2350', 3);
+    fp(ctx, rr(36, 4, 28, 18, 2), '#2c2350', 3);
+    line(ctx, [64, 6, 74, 0], C.gold, 2.4); fp(ctx, circ(75, 0, 2.6), C.gold, 0);
+    ctx.restore();
+  }
+  // 송이 아저씨 (버섯 정원사)
+  function drawGardener(ctx, o) {
+    const t = o.t || 0;
+    const b = Math.sin(t * 2.4) * 1.2;
+    ctx.save(); ctx.translate(0, b);
+    fp(ctx, P('M30 98 Q30 70 50 66 Q70 70 70 98 Z'), '#6f9a5a');
+    fp(ctx, rr(38, 74, 24, 18, 4), '#4f7a40', 2.4);
+    fp(ctx, P('M34 66 Q32 46 50 44 Q68 46 66 66 Z'), C.cream);
+    eyes(ctx, 43, 57, 56, 3.6, { blink: blinkAt(t, 0.9) });
+    smile(ctx, 50, 62, 3);
+    blush(ctx, 38, 60, 3.4); blush(ctx, 62, 60, 3.4);
+    fp(ctx, P('M12 46 Q14 14 50 10 Q86 14 88 46 Q70 40 50 40 Q30 40 12 46 Z'), '#c0473a');
+    for (const [x, y, r2] of [[30, 26, 6], [52, 18, 5], [70, 30, 6], [44, 34, 3.5]]) fp(ctx, circ(x, y, r2), C.cream, 0);
+    line(ctx, [72, 98, 84, 60], C.brown, 4);
+    fp(ctx, P('M78 60 L92 58 L90 50 L80 54 Z'), '#a39bb5', 2.4);
+    ctx.restore();
   }
   function drawBatGranny(ctx, o) {
     const t = o.t || 0;
@@ -658,6 +701,57 @@
     ctx.restore();
   }
 
+  // ───────── 필드 소품 (100×100 상자) ─────────
+  const PROP = {
+    well: (c, t, o) => {
+      fp(c, ell(50, 72, 34, 14), '#7d7590'); fp(c, rr(16, 50, 68, 24, 6), '#8d84a0');
+      for (const x of [28, 44, 60]) line(c, [x, 52, x + 4, 72], '#6f6784', 2);
+      fp(c, ell(50, 50, 34, 12), o && o.open ? '#152040' : '#5f3b27');
+      if (o && o.open) { c.globalAlpha = 0.5 + Math.sin(t * 3) * 0.3; fp(c, ell(50, 50, 18, 6), C.gold, 0); c.globalAlpha = 1; }
+      else { line(c, [22, 48, 78, 52], C.brown2, 3); line(c, [24, 54, 76, 46], C.brown2, 3); }
+      line(c, [18, 50, 18, 16], C.brown, 5); line(c, [82, 50, 82, 16], C.brown, 5);
+      fp(c, P('M10 20 L50 4 L90 20 Z'), '#7b4a8e');
+    },
+    cauldron: (c, t) => {
+      fp(c, ell(50, 88, 30, 6), '#000', 0);
+      line(c, [30, 80, 26, 92], C.ink, 5); line(c, [70, 80, 74, 92], C.ink, 5);
+      fp(c, P('M18 46 Q18 86 50 86 Q82 86 82 46 Z'), '#3a3348');
+      fp(c, ell(50, 46, 34, 10), '#2a2438');
+      fp(c, ell(50, 46, 28, 7), '#9b7be0', 0);
+      for (let i = 0; i < 3; i++) { const y = 40 - ((t * 18 + i * 12) % 30); c.globalAlpha = 0.6 - (40 - y) / 60; fp(c, circ(40 + i * 10, y, 4), C.lilac, 0); }
+      c.globalAlpha = 1;
+      for (const x of [30, 50, 70]) flame(c, x, 96, 0.35, C.amber, C.gold, t + x);
+    },
+    bed: (c) => {
+      fp(c, rr(12, 30, 76, 60, 8), '#5f3b27'); fp(c, rr(16, 34, 68, 52, 6), '#e6d4b6');
+      fp(c, rr(16, 52, 68, 34, 6), '#7d5cc6'); for (const x of [30, 50, 70]) star(c, x, 68, 5, C.gold);
+      fp(c, rr(26, 38, 48, 12, 6), C.white, 2.4);
+    },
+    piano: (c) => {
+      fp(c, rr(8, 18, 84, 66, 4), '#2b2236'); fp(c, rr(12, 54, 76, 14, 2), C.white, 2);
+      for (let i = 0; i < 7; i++) if (i !== 2 && i !== 6) fp(c, rr(20 + i * 10, 54, 5, 8, 1), C.ink, 0);
+      line(c, [14, 84, 14, 96], C.ink, 5); line(c, [86, 84, 86, 96], C.ink, 5);
+      fp(c, rr(30, 24, 40, 20, 2), C.cream, 2); for (const y of [30, 36]) line(c, [34, y, 66, y], C.grey2, 1.4);
+    },
+    bench: (c) => { fp(c, rr(14, 40, 72, 18, 4), '#2b2236'); line(c, [22, 58, 22, 88], C.ink, 6); line(c, [78, 58, 78, 88], C.ink, 6); fp(c, rr(16, 38, 68, 6, 3), '#7d5cc6', 0); },
+    locker: (c, t, o) => {
+      fp(c, rr(18, 6, 64, 90, 3), o && o.mine ? '#5a8ee0' : '#6f6784');
+      for (const y of [20, 26, 32]) line(c, [30, y, 70, y], C.ink, 2);
+      fp(c, rr(62, 52, 8, 14, 2), C.gold, 2);
+      if (o && o.mine) fp(c, rr(34, 70, 32, 12, 2), C.cream, 2);
+    },
+    stand: (c) => { line(c, [50, 50, 50, 92], C.ink, 4); line(c, [36, 94, 64, 94], C.ink, 4); fp(c, P('M20 16 L80 16 L74 54 L26 54 Z'), '#4a4359'); fp(c, rr(30, 18, 40, 30, 1), C.cream, 2); for (const y of [26, 32, 38]) line(c, [34, y, 66, y], C.grey2, 1.4); },
+    drum: (c) => { fp(c, ell(50, 74, 34, 12), '#b93a52'); fp(c, rr(16, 40, 68, 34, 2), '#e5566e', 0); fp(c, ell(50, 40, 34, 12), C.cream); for (const x of [24, 40, 60, 76]) line(c, [x, 46, x + 4, 78], C.gold, 2.4); line(c, [70, 14, 54, 36], C.brown, 4); fp(c, circ(72, 12, 5), C.cream); },
+    curtain: (c, t) => { const w2 = Math.sin(t * 1.5) * 3; fp(c, rr(6, 4, 88, 8, 3), C.gold2); fp(c, P(`M10 10 Q20 50 ${12 + w2} 96 L50 96 Q42 50 48 10 Z`), '#8e2f45'); fp(c, P(`M52 10 Q58 50 50 96 L${88 + w2} 96 Q80 50 90 10 Z`), '#8e2f45'); },
+    trash: (c) => { fp(c, P('M26 30 L74 30 L68 92 L32 92 Z'), '#6f6784'); fp(c, rr(22, 24, 56, 8, 3), '#8d84a0'); for (const x of [40, 50, 60]) line(c, [x, 38, x, 84], '#4a4359', 2); fp(c, P('M38 24 Q44 10 56 16 Q62 22 54 24 Z'), C.cream, 2); },
+    lectern: (c, t, o) => { fp(c, P('M18 30 L82 30 L74 50 L26 50 Z'), C.brown); line(c, [50, 50, 50, 90], C.brown2, 8); fp(c, rr(30, 88, 40, 8, 3), C.brown2); if (o && o.book) { fp(c, P('M24 28 L50 34 L76 28 L76 18 L50 24 L24 18 Z'), '#5b3a8c', 2.4); } },
+    chest: (c) => drawChestTile(c, 0, 0, 100, 'closed'),
+    chestOpen: (c) => drawChestTile(c, 0, 0, 100, 'open'),
+    book: (c) => { fp(c, rr(30, 70, 40, 24, 2), C.brown); fp(c, P('M14 30 L50 38 L86 30 L86 70 L50 78 L14 70 Z'), C.cream); line(c, [50, 38, 50, 78], C.cream2, 3); for (const y of [46, 54, 62]) { line(c, [22, y - 4, 44, y], C.grey2, 1.6); line(c, [56, y, 78, y - 4], C.grey2, 1.6); } star(c, 66, 46, 5, C.gold); },
+    shed: (c, t) => { fp(c, rr(14, 40, 72, 54, 3), '#6b4a34'); fp(c, P('M6 44 L50 10 L94 44 Z'), '#3e5a34'); fp(c, rr(40, 62, 20, 32, 2), '#3a261a'); fp(c, rr(22, 52, 14, 12, 2), C.gold, 2); c.globalAlpha = 0.3 + Math.sin(t * 2) * 0.15; fp(c, circ(29, 58, 14), C.gold, 0); c.globalAlpha = 1; },
+    cart: (c) => { fp(c, rr(14, 30, 72, 44, 5), '#8a5a3c'); for (let i = 0; i < 5; i++) fp(c, rr(20 + i * 12, 14 + (i % 2) * 6, 10, 20 - (i % 2) * 6, 2), ['#e5566e', '#5a8ee0', '#ffcf5a', '#90e4c0', '#bfa2ee'][i], 2.4); fp(c, circ(28, 80, 9), C.ink, 0); fp(c, circ(72, 80, 9), C.ink, 0); fp(c, circ(28, 80, 4), C.grey, 0); fp(c, circ(72, 80, 4), C.grey, 0); },
+  };
+
   // 스프라이트 그리기 진입점
   function draw(ctx, name, x, y, size, opts) {
     const o = opts || {};
@@ -677,6 +771,9 @@
     else if (name === 'portraits') drawPortraits(ctx, o);
     else if (name === 'letter') drawLetter(ctx, o);
     else if (name === 'scroll') drawScroll(ctx, o);
+    else if (name === 'owl') drawOwl(ctx, o);
+    else if (name === 'gardener') drawGardener(ctx, o);
+    else if (PROP[name]) PROP[name](ctx, o.t || 0, o);
     ctx.restore();
   }
   function portraitOf(npcId) {
@@ -690,6 +787,8 @@
       case 'mummy': return { name: 'mummy' };
       case 'cat2': return { name: 'cat2' };
       case 'portraits': return { name: 'portraits' };
+      case 'owl': return { name: 'owl' };
+      case 'gardener': return { name: 'gardener' };
       case 'enemy': return { name: n.enemy };
       default: return { name: 'student', npc: n };
     }
@@ -770,5 +869,5 @@
     ctx.beginPath(); ctx.moveTo(dx + 4, dy + dw * 0.3); ctx.lineTo(dx + dw - 4, dy + dh * 0.7); ctx.moveTo(dx + dw - 4, dy + dw * 0.3); ctx.lineTo(dx + 4, dy + dh * 0.7); ctx.stroke();
   }
 
-  W.art = { C, draw, drawFloor, drawWall, drawStairsDown, drawStairsUp, drawDoor, drawChestTile, drawSpriteTile, ICON, MON, iconURL, portraitOf, drawSchool, drawGate, star, flame, hash };
+  W.art = { C, PROP, draw, drawFloor, drawWall, drawStairsDown, drawStairsUp, drawDoor, drawChestTile, drawSpriteTile, ICON, MON, iconURL, portraitOf, drawSchool, drawGate, star, flame, hash };
 })();

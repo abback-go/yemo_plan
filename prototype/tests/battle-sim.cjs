@@ -12,6 +12,8 @@ void sim;
 function makePlayer(lv, gear, items) {
   const s = R.newGame();
   if (lv > 1) R.gainExp(s, D.EXP_CURVE.slice(1, lv).reduce((a, b) => a + b, 0));
+  // v0.2: 마법은 수업으로 배운다. 그 레벨에서 들을 수 있는 수업은 모두 들었다고 본다
+  s.spells = D.SPELL_ORDER.filter((id) => D.SPELLS[id].learn <= lv);
   s.inv = Object.assign({}, items);
   s.antiques = gear.map((def, i) => ({ uid: 900 + i, def, state: 'purified' }));
   s.equip = [gear[0] ? 900 : null, gear[1] ? 901 : null];

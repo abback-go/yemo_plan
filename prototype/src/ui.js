@@ -189,7 +189,7 @@
         ${sv ? `<button class="btn primary wide" data-act="continue">이어하기 <span class="tiny" style="opacity:.75">· ${sv.day}일째 · Lv${sv.player.lv} · 실적 ${sv.purified}/5</span></button>` : ''}
         <button class="btn ${sv ? '' : 'primary'} wide" data-act="newGame">처음부터 시작</button>
       </div>
-      <div class="ver">프로토타입 v0.1 · 기획 검증용 빌드</div>
+      <div class="ver">프로토타입 v0.2 · 기획 검증용 빌드</div>
     </div>`;
   };
   AFTER.title = () => {
@@ -224,28 +224,6 @@
     });
   };
 
-  // 학교(허브)
-  SCREENS.hub = () => {
-    const s = G.state;
-    const cust = R.customers(s).length;
-    const readyN = D.QUESTS.filter((q) => R.canPurifyQuest(s, q.id)).length;
-    const cursedN = s.antiques.filter((a) => a.state === 'cursed').length;
-    const st = R.stats(s);
-    const hurt = s.player.hp < st.maxHp * 0.6 || s.player.status.poison;
-    return `<div class="scr hub">
-      ${statusBar()}
-      <div class="hub-head"><h1>마녀학교</h1><span>${s.day}일째 · 정화 실적 <b style="color:var(--gold)">${s.purified}/5</b></span></div>
-      <div class="objective">${img('medal', 'ico sm', 40)}<span>${esc(R.objectiveText(s))}</span></div>
-      <div class="hub-art"><canvas id="school-cv"></canvas></div>
-      <div class="places">
-        <button class="place" data-act="go" data-arg="club">${readyN ? '<span class="ping">정화 가능</span>' : cust ? `<span class="ping">손님 ${cust}</span>` : cursedN ? `<span class="ping curse">미정화 ${cursedN}</span>` : ''}${sprite('cat', {}, '', true)}<b>저주골동품부 부실</b><small>매입 · 정화 · 장착</small></button>
-        <button class="place" data-act="go" data-arg="shop">${sprite('batgranny', {}, '', true)}<b>박쥐네 매점</b><small>물약 · 도구 · 재료</small></button>
-        <button class="place" data-act="go" data-arg="infirmary">${hurt ? '<span class="ping">치료 필요</span>' : ''}${sprite('mummy', {}, '', true)}<b>양호실</b><small>${s.flags.infirmaryFree ? '첫 치료 무료' : `치료비 ${D.TUNING.infirmaryCost}은화`}</small></button>
-        <button class="place" data-act="go" data-arg="gate">${sprite('cursed', {}, '', true)}<b>봉인 창고</b><small>B1${s.floorsReached > 1 ? `~B${s.floorsReached}` : ''} 이동 가능</small></button>
-      </div>
-      ${tabbar()}
-    </div>`;
-  };
   function tabbar() {
     return `<nav class="tabbar">
       <button data-act="openBag">${img('bag', '', 48)}가방</button>
@@ -255,14 +233,6 @@
       <button data-act="openSettings">${img('gear', '', 48)}설정</button>
     </nav>`;
   }
-  AFTER.hub = () => {
-    const cv = $('#school-cv');
-    const k = dpr();
-    cv.width = cv.clientWidth * k; cv.height = cv.clientHeight * k;
-    const ctx = cv.getContext('2d');
-    addAnim('screen', (t) => A.drawSchool(ctx, cv.width, cv.height, t));
-  };
-
   // 부실
   SCREENS.club = () => {
     const s = G.state;
@@ -273,7 +243,7 @@
     const tip = D.LINES.mukmulTips[G.ui.tip % D.LINES.mukmulTips.length];
     return `<div class="scr club">
       ${statusBar()}
-      <div class="bar-head"><button class="icon-btn" data-act="go" data-arg="hub" aria-label="학교로">←</button><h2>저주골동품부 부실</h2></div>
+      <div class="bar-head"><button class="icon-btn" data-act="backField" aria-label="학교 지도로">←</button><h2>저주골동품부 부실</h2></div>
       <div class="content">
         <div class="cat-corner" data-act="catTip">${sprite('cat', {}, '', true)}<div class="bubble">${esc(tip)}</div></div>
         <section><h3 class="sec">찾아온 손님 <small>매입하면 의뢰가 시작돼요</small></h3>
@@ -331,7 +301,7 @@
     }
     return `<div class="scr shop">
       ${statusBar()}
-      <div class="bar-head"><button class="icon-btn" data-act="go" data-arg="hub" aria-label="학교로">←</button><h2>박쥐네 매점</h2></div>
+      <div class="bar-head"><button class="icon-btn" data-act="backField" aria-label="학교 지도로">←</button><h2>박쥐네 매점</h2></div>
       <div class="shopkeeper">${sprite('batgranny', {}, '', true)}<div class="bubble">${esc(line)}</div></div>
       <div class="tabs">${D.SHOP_TABS.map((t) => `<button class="${t.id === tab ? 'on' : ''}" data-act="shopTab" data-arg="${t.id}">${t.name}</button>`).join('')}</div>
       <div class="content"><div class="shelf">${grid}</div></div>
@@ -347,7 +317,7 @@
     const line = G.ui.momoLine || D.LINES.momo[0];
     return `<div class="scr infirmary">
       ${statusBar()}
-      <div class="bar-head"><button class="icon-btn" data-act="go" data-arg="hub" aria-label="학교로">←</button><h2>양호실</h2></div>
+      <div class="bar-head"><button class="icon-btn" data-act="backField" aria-label="학교 지도로">←</button><h2>양호실</h2></div>
       <div class="content">
         <div class="cat-corner">${sprite('mummy', {}, '', true).replace('<canvas', '<canvas style="width:96px;height:96px"')}<div class="bubble">${esc(line)}</div></div>
         <div class="card"><div class="stats-grid">
@@ -375,7 +345,7 @@
     }
     return `<div class="scr gate">
       ${statusBar()}
-      <div class="bar-head"><button class="icon-btn" data-act="go" data-arg="hub" aria-label="학교로">←</button><h2>봉인 창고 입구</h2></div>
+      <div class="bar-head"><button class="icon-btn" data-act="backField" aria-label="학교 지도로">←</button><h2>봉인 창고 입구</h2></div>
       <div class="content">
         <div class="hub-art" style="margin:0;height:120px"><canvas id="gate-cv"></canvas></div>
         <p class="small muted" style="margin:0">공간이동 항아리가 한 번이라도 가본 층으로 보내준다. 들어가면 하루가 흐르고, 학교로 돌아오면 상자와 몬스터가 다시 채워진다.</p>
@@ -841,9 +811,10 @@
   async function goHome(msg) {
     const s = G.state;
     R.returnHome(s);
+    W.world.enterArea(s, 'garden', 5, 15);
     save();
     G.ui.log = []; G.ui.pos = null;
-    go('hub');
+    go('field');
     const n = R.customers(s).length;
     toast(msg || '학교로 돌아왔다.', 'gold');
     setTimeout(() => toast(`${s.day}일째 아침.${n ? ` 부실에 손님 ${n}명이 기다린다.` : ''}`), 400);
@@ -852,6 +823,7 @@
   async function defeat() {
     await say([{ who: null, text: '눈앞이 캄캄해졌다…' }, { who: 'mukmul', text: '냐아… (먹물이 루미의 망토를 물고 양호실까지 끌고 왔다)' }]);
     const r = R.applyDefeat(G.state);
+    W.world.enterArea(G.state, 'hall', 9, 2); // 양호실 문 앞
     save();
     G.ui.log = []; G.ui.pos = null;
     go('infirmary');
@@ -1130,7 +1102,7 @@
     await ask({ title: `${b.name} 정화 완료!`, art: '', body: `<div class="loot">${rows.join('')}</div><div class="bar exp"><i style="width:${Math.round((s.player.exp / toNext) * 100)}%"></i><span>다음 레벨까지 ${toNext - s.player.exp}</span></div>`, choices: [{ label: '계속', value: 1, cls: 'primary' }] });
     for (const up of r.levelUps) {
       S.play('levelup');
-      const learned = up.learned.map((id) => `<div class="card"><b style="color:var(--curse)">새 마법: ${D.SPELLS[id].name}</b><div class="small muted">${esc(D.SPELLS[id].desc)}</div></div>`).join('');
+      const learned = up.classReady.map((id) => `<div class="card"><b style="color:var(--curse)">수강 가능: ${D.SPELLS[id].name}</b><div class="small muted">본관 「${D.CLASSES[D.SPELLS[id].cls].name}」에서 수업을 통과하면 배울 수 있다. 수강료 ${D.SPELLS[id].tuition}은화</div></div>`).join('');
       await ask({ title: `레벨 업! Lv${up.lv}`, art: sprite('rumi', { shadow: false }, '', true), body: `<div class="stats-grid"><div><span>최대 체력</span><b>+${D.PLAYER.perLevel.maxHp}</b></div><div><span>최대 마력</span><b>+${D.PLAYER.perLevel.maxMp}</b></div><div><span>공격</span><b>+${D.PLAYER.perLevel.atk}</b></div><div><span>방어</span><b>+${D.PLAYER.perLevel.def}</b></div></div>${learned}`, choices: [{ label: '좋아!', value: 1, cls: 'primary' }] });
     }
     R.checkBadges(s).forEach(badgeToast);
@@ -1213,12 +1185,12 @@
     if (arg === 'shop') G.ui.kikiLine = D.LINES.kiki[Math.floor(Math.random() * D.LINES.kiki.length)];
     if (arg === 'infirmary') G.ui.momoLine = D.LINES.momo[Math.floor(Math.random() * D.LINES.momo.length)];
     go(arg);
-    if (arg === 'hub') maybeEnding();
     if (arg === 'club' && !G.state.flags.clubTip) {
       G.state.flags.clubTip = true;
       say([{ who: 'mukmul', text: '냐. (손님 카드를 누르면 사연을 들을 수 있다)' }, { who: 'rumi', text: '매입하면 의뢰가 시작되는구나. 해결하고 돌아와서 정화하면 실적 1건!' }]);
     }
   };
+  ACT.backField = () => { S.play('tap'); go('field'); maybeEnding(); };
   ACT.newGame = async () => {
     if (G.ui.hasSave) {
       const c = await ask({ title: '처음부터 시작할까요?', body: '<p>저장된 진행이 지워집니다.</p>', choices: [{ label: '처음부터', value: 'yes', cls: 'curse' }, { label: '취소', value: null }] });
@@ -1228,8 +1200,9 @@
     G.state = R.newGame();
     S.setEnabled(G.state.settings.sound);
     save();
-    go('hub');
+    go('field');
     await say(D.LINES.intro);
+    await say(D.LINES.fieldIntro);
     G.state.flags.introSeen = true;
     save();
   };
@@ -1238,7 +1211,7 @@
     if (!sv) { toast('저장된 진행이 없어요.', 'bad'); return; }
     G.state = sv;
     S.setEnabled(sv.settings.sound);
-    if (sv.exp) { G.ui.pos = null; snapPosSafe(); go('dungeon'); floorBanner(); } else go('hub');
+    if (sv.exp) { G.ui.pos = null; snapPosSafe(); go('dungeon'); floorBanner(); } else go('field');
   };
   function snapPosSafe() { if (G.state.exp) snapPos(); }
   ACT.catTip = () => { G.ui.tip += 1; S.play('meow'); render(); };
@@ -1402,7 +1375,7 @@
     const st = R.stats(s);
     if (s.player.hp < st.maxHp * 0.5) {
       const c = await ask({ title: '이대로 들어갈까요?', body: `<p>체력이 ${s.player.hp}/${st.maxHp}밖에 없어요. 양호실에서 치료하고 가는 걸 추천해요.</p>`, choices: [{ label: '그래도 들어간다', value: 'go', cls: 'curse' }, { label: '양호실로', value: 'heal' }] });
-      if (c === 'heal') { go('infirmary'); return; }
+      if (c === 'heal') { W.world.enterArea(s, 'hall', 9, 2); go('infirmary'); return; }
       if (c !== 'go') return;
     }
     R.startExpedition(s, fl);
@@ -1523,7 +1496,7 @@
         ${extra.length ? `<div class="small muted">${extra.join(' · ')}</div>` : ''}
         <h3 class="sec" style="margin-top:6px">장신구 (정화한 골동품)</h3>${slots}
         <h3 class="sec" style="margin-top:6px">마법</h3>
-        ${D.SPELL_ORDER.map((id) => { const sp = D.SPELLS[id]; const k = sp.learn <= s.player.lv; return `<div class="card small" style="${k ? '' : 'opacity:.45'}"><b>${sp.name}</b> <span class="dim">마력 ${sp.mp}${k ? '' : ` · Lv${sp.learn}에 배움`}</span><div class="tiny muted">${esc(sp.desc)}</div></div>`; }).join('')}
+        ${D.SPELL_ORDER.map((id) => { const sp = D.SPELLS[id]; const k = s.spells.includes(id); return `<div class="card small" style="${k ? '' : 'opacity:.5'}"><b>${sp.name}</b> <span class="dim">마력 ${sp.mp}${k ? '' : ` · ${D.CLASSES[sp.cls].name} Lv${sp.learn}~ · 수강료 ${sp.tuition}`}</span><div class="tiny muted">${esc(sp.desc)}</div></div>`; }).join('')}
         <p class="tiny dim">그림자: ${s.flags.bossDefeated ? '발끝까지 돌아왔다' : '없다… (봉인 창고 아래에서 냄새가 난다)'}</p>`,
     });
   }
@@ -1569,7 +1542,7 @@
       body: `<button class="btn wide" data-act="toggleSound">효과음 ${s.settings.sound ? '켜짐' : '꺼짐'}</button>
         <button class="btn wide" data-act="help">플레이 방법</button>
         <button class="btn wide ghost" data-act="resetAsk">처음부터 다시 하기</button>
-        <p class="tiny dim">프로토타입 v0.1 · 진행은 이 브라우저에만 저장돼요. 레퍼런스: 마녀의 집(분위기), 동물농장(상점·훈장·북쪽탑 탐험), 마법학교 아르피아(미로·방 찾기), 크라라 공주와 이상한 방(촛불 퍼즐).</p>`,
+        <p class="tiny dim">프로토타입 v0.2 · 진행은 이 브라우저에만 저장돼요. 레퍼런스: 마녀의 집(분위기), 동물농장(상점·훈장·북쪽탑 탐험), 마법학교 아르피아(미로·방 찾기), 크라라 공주와 이상한 방(촛불 퍼즐).</p>`,
     });
   };
   ACT.toggleSound = () => { const s = G.state; s.settings.sound = !s.settings.sound; S.setEnabled(s.settings.sound); save(); ACT.openSettings(); };
@@ -1577,8 +1550,10 @@
     openSheet({
       title: '플레이 방법',
       body: `<ol class="small" style="margin:0;padding-left:20px;display:grid;gap:8px">
-        <li>부실에서 손님의 저주 물건을 <b>매입</b>하면 의뢰가 시작돼요.</li>
-        <li>봉인 창고에서 바닥을 <b>탭</b>하면 그곳까지 걸어가요. 십자 버튼으로 한 칸씩도 움직여요.</li>
+        <li>학교 지도에서 바닥을 <b>탭</b>하면 그곳까지 걸어가요. 사람·물건을 탭하면 다가가서 말을 걸어요. <b>금색 화살표</b>가 지금 갈 곳이에요.</li>
+        <li>마법은 레벨업으로 생기지 않아요. 본관 <b>기본마법반·고급마법반</b>에서 룬 순서를 외워 그리면 배워요.</li>
+        <li>부실에서 손님의 저주 물건을 <b>매입</b>하면 의뢰가 시작돼요. 음악실·도서관·밤의 미로·봉인 창고에서 해결해요.</li>
+        <li>봉인 창고와 밤의 미로에는 몬스터가 있어요. 십자 버튼으로 한 칸씩도 움직여요(도서관 책수레 밀기).</li>
         <li>몬스터 칸에 들어가면 <b>턴제 전투</b>. 공격·마법·물약·도망 중에 골라요.</li>
         <li><b>약점 속성</b> 마법은 더 아파요. 기를 모으는 적은 <b>얼음 가시</b>로 끊어요.</li>
         <li>의뢰를 마치면 부실에서 <b>정화</b>. 정화한 골동품은 팔거나 장착해요.</li>
@@ -1614,10 +1589,16 @@
     window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (G.state || G.ui.screen === 'title') render(); }, 150); });
     if (restore) {
       const st = R.deserialize(restore);
-      if (st) { G.state = st; S.setEnabled(st.settings.sound); if (st.exp) { snapPos(); go('dungeon'); } else go('hub'); return; }
+      if (st) { G.state = st; S.setEnabled(st.settings.sound); if (st.exp) { snapPos(); go('dungeon'); } else go('field'); return; }
     }
     go('title');
   }
 
-  W.ui = { boot, render, go, G, ACT, toast, save, tapTile, walk, runBattle, debug: { handleEvent, say, ask, showRewards, snapPos, maybeEnding } };
+  W.ui = {
+    boot, render, go, G, ACT, toast, save, tapTile, walk, runBattle,
+    debug: { handleEvent, say, ask, showRewards, snapPos, maybeEnding },
+    // field.js 가 쓰는 내부 도구
+    lib: { SCREENS, AFTER, $, $$, esc, img, sprite, portrait, sleep, dpr, openSheet, closeSheet, ask, say, toast, statusBar, tabbar,
+      addAnim, clearAnims, paintCanvases, save, render, go, runBattle, defeat, badgeToast, lootSheet, refreshStatus, maybeEnding, gradeTag },
+  };
 })();

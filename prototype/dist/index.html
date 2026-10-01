@@ -322,13 +322,38 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
   .cmd-grid .btn { min-height: 50px; }
 }
 
+/* ───────── 학교 필드 (v0.2) ───────── */
+.field .f-head { display: flex; align-items: center; gap: 8px; padding: 8px 16px 0; }
+.field .f-head b { font-family: var(--font-display); font-size: 20px; white-space: nowrap; }
+.field .f-head .f-day { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.field .objective { margin-top: 6px; padding: 7px 10px; font-size: 13px; }
+.f-map { position: relative; flex: 1; min-height: 0; margin: 8px 8px 6px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 30px rgba(0, 0, 0, 0.5); }
+.f-map canvas { display: block; touch-action: manipulation; }
+.f-dpad { position: absolute; right: 8px; bottom: 8px; grid-template-columns: repeat(3, 36px); grid-template-rows: repeat(3, 34px); opacity: 0.82; }
+.f-dpad button { background: rgba(28, 20, 40, 0.85); }
+.f-extra { position: absolute; left: 8px; bottom: 8px; background: rgba(28, 20, 40, 0.9); }
+.f-extra em { font-style: normal; color: var(--gold); margin-left: 4px; }
+.runes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 2px; }
+.rune { position: relative; height: 84px; border-radius: 16px; border: 2px solid var(--rc); background: rgba(20, 14, 28, 0.9); color: var(--rc); display: grid; place-items: center; align-content: center; gap: 2px; cursor: pointer; touch-action: manipulation; transition: transform 0.08s, background 0.12s, box-shadow 0.12s; }
+.rune span { font-size: 32px; line-height: 1; font-family: serif; }
+.rune small { font-size: 12px; color: var(--muted); }
+.rune.lit { background: var(--rc); color: #1d1327; box-shadow: 0 0 24px var(--rc); transform: scale(1.04); }
+.rune.lit small { color: #1d1327; }
+.rune:disabled { cursor: default; opacity: 1; }
+.rune-dots { display: flex; gap: 6px; justify-content: center; }
+.rune-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+.rune-dots i.on { background: var(--gold); }
+.f-ctrl { display: grid; grid-template-columns: auto repeat(4, 1fr); gap: 6px; margin: 0 8px 6px; }
+.f-ctrl .btn { min-height: 40px; padding: 6px 10px; }
+.f-ctrl em { font-style: normal; color: var(--gold); margin-left: 4px; }
+
 </style>
 </head>
 <body>
 <div id="app"><div id="screen"></div><div id="overlay"></div><div id="sheet"></div><div id="dialog"></div><div id="toasts" aria-live="polite"></div></div>
 <script>
 /* ── data.js ── */
-/* 저주 매입합니다 — 게임 데이터 (프로토타입 v0.1)
+/* 저주 매입합니다 — 게임 데이터 (프로토타입 v0.2)
  * 모든 수치는 docs/prototype-spec.md 의 [임시] 값이다. 플레이 후 조정한다. */
 (function () {
   'use strict';
@@ -360,17 +385,34 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
   // index = 현재 레벨, 값 = 다음 레벨까지 필요한 경험치
   const EXP_CURVE = [0, 20, 45, 80, 125, 180, 245, 320, 405, 500, 99999];
 
+  // 마법은 레벨업으로 생기지 않는다. 교실에서 수업(룬 따라 그리기)을 통과해야 배운다.
+  // learn = 수강 가능 레벨, cls = 반(basic 기본마법반 / advanced 고급마법반), tuition = 수강료(합격 시 냄), seq = 룬 순서 길이
   const SPELLS = {
-    fire: { id: 'fire', name: '불씨', mp: 5, kind: 'attack', elem: 'fire', power: 1.4, learn: 1,
+    fire: { id: 'fire', name: '불씨', mp: 5, kind: 'attack', elem: 'fire', power: 1.4, learn: 1, cls: 'basic', tuition: 0, seq: 3,
       desc: '작은 불꽃을 던진다. 25% 확률로 화상(3턴).' },
-    ice: { id: 'ice', name: '얼음 가시', mp: 6, kind: 'attack', elem: 'ice', power: 1.2, learn: 2,
+    ice: { id: 'ice', name: '얼음 가시', mp: 6, kind: 'attack', elem: 'ice', power: 1.2, learn: 2, cls: 'basic', tuition: 40, seq: 4,
       desc: '얼음 가시로 찌른다. 40% 빙결. 기를 모으는 적을 반드시 끊는다.' },
-    heal: { id: 'heal', name: '치유', mp: 7, kind: 'heal', learn: 3,
+    heal: { id: 'heal', name: '치유', mp: 7, kind: 'heal', learn: 3, cls: 'basic', tuition: 60, seq: 4,
       desc: '최대 체력의 30%+8 만큼 회복한다.' },
-    light: { id: 'light', name: '정화의 빛', mp: 10, kind: 'attack', elem: 'light', power: 1.8, learn: 5,
+    light: { id: 'light', name: '정화의 빛', mp: 10, kind: 'attack', elem: 'light', power: 1.8, learn: 5, cls: 'advanced', tuition: 150, seq: 5,
       desc: '저주를 태우는 빛. 그림자 방패를 깨뜨린다.' },
+    meteor: { id: 'meteor', name: '별똥비', mp: 12, kind: 'attack', elem: null, power: 2.0, learn: 6, cls: 'advanced', tuition: 220, seq: 6,
+      desc: '작은 별을 쏟아붓는다. 속성이 없어 약점·저항과 상관없이 강하다.' },
   };
-  const SPELL_ORDER = ['fire', 'ice', 'heal', 'light'];
+  const SPELL_ORDER = ['fire', 'ice', 'heal', 'light', 'meteor'];
+  const CLASSES = {
+    basic: { id: 'basic', name: '기본마법반', teacher: 'flam', area: 'class1',
+      desc: '불씨·얼음 가시·치유를 가르친다. 칠판의 룬 순서를 기억해 그대로 그리면 합격.' },
+    advanced: { id: 'advanced', name: '고급마법반', teacher: 'serena', area: 'class2', needAll: 'basic',
+      desc: '기본마법반을 모두 수료한 학생만 받는다. 룬이 더 길고 빠르다.' },
+  };
+  // 룬 따라 그리기 미니게임의 룬 4종
+  const RUNES = [
+    { id: 0, name: '불', color: '#ff9a52', glyph: '火' },
+    { id: 1, name: '물', color: '#8fd3ff', glyph: '水' },
+    { id: 2, name: '빛', color: '#ffe680', glyph: '光' },
+    { id: 3, name: '풀', color: '#90e4c0', glyph: '木' },
+  ];
 
   // cat: potion(물약) / tool(도구) / material(재료) / quest(의뢰 물건, 판매 불가)
   const ITEMS = {
@@ -400,6 +442,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       desc: '멈춘 시간을 다시 흐르게 하는 모래. 정화 재료.', unlockFloor: 4 },
     q_spring: { name: '잃어버린 태엽', cat: 'quest', icon: 'spring', desc: '오르골에서 빠진 작은 태엽. 가끔 찌르륵 떤다.' },
     q_strap: { name: '빗자루 끈', cat: 'quest', icon: 'strap', desc: '빗자루를 얌전하게 만드는 낡은 가죽 끈.' },
+    locker_key: { name: '음악실 사물함 열쇠', cat: 'quest', icon: 'key', desc: '음표 모양 고리가 달린 작은 열쇠.' },
   };
   const SHOP_TABS = [
     { id: 'potion', name: '물약' },
@@ -505,7 +548,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     null,
     { id: 1, name: '먼지 쌓인 창고', seed: 4127, recLv: 1, monsters: 4, chests: 2, events: 2, traps: 1,
       enemies: [['dustwisp', 4], ['teacup', 3], ['waxslime', 3]], fountain: true, door: false, key: true, locked: true,
-      puzzle: false, merchant: false, markers: ['a'], down: true,
+      puzzle: false, merchant: false, markers: [], down: true,
       palette: { floor: '#5b4b6e', floor2: '#625174', wall: '#1a1222', wallTop: '#2b2038', glow: '#c9a0ff' } },
     { id: 2, name: '울음소리 복도', seed: 9203, recLv: 2, monsters: 5, chests: 2, events: 3, traps: 2,
       enemies: [['teacup', 1], ['waxslime', 1], ['giggledoll', 3], ['mirrorbat', 3], ['shroomella', 3]],
@@ -513,11 +556,11 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       palette: { floor: '#4a5470', floor2: '#505b78', wall: '#141824', wallTop: '#222839', glow: '#9cc3ff' } },
     { id: 3, name: '거꾸로 교실', seed: 3301, recLv: 3, monsters: 6, chests: 2, events: 3, traps: 2,
       enemies: [['giggledoll', 1], ['cursedframe', 3], ['rustarmor', 3], ['broomghost', 3], ['shroomella', 1]],
-      fountain: true, door: true, key: true, locked: false, puzzle: false, merchant: true, markers: ['c', 'e'], down: true,
+      fountain: true, door: true, key: true, locked: false, puzzle: false, merchant: true, markers: ['e'], down: true,
       palette: { floor: '#6a5050', floor2: '#725757', wall: '#1d1415', wallTop: '#2f2223', glow: '#ffb38a' } },
     { id: 4, name: '빗자루 묘지', seed: 7741, recLv: 4, monsters: 6, chests: 3, events: 3, traps: 2,
       enemies: [['shadowhand', 3], ['skelibrarian', 3], ['stuffedcrow', 3], ['broomghost', 1], ['rustarmor', 1]],
-      fountain: true, door: true, key: true, locked: true, puzzle: true, merchant: false, markers: ['d'], down: true,
+      fountain: true, door: true, key: true, locked: true, puzzle: true, merchant: false, markers: [], down: true,
       palette: { floor: '#48604f', floor2: '#4f6856', wall: '#121a15', wallTop: '#1f2b24', glow: '#9fe0bf' } },
     { id: 5, name: '자정의 봉인실', seed: 5519, recLv: 5, monsters: 6, chests: 2, events: 2, traps: 2,
       enemies: [['lockmimic', 2], ['sealcandle', 3], ['shadowhand', 2], ['skelibrarian', 2], ['stuffedcrow', 1]],
@@ -543,6 +586,9 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     kongal: { name: '콩알', role: '1학년 · 인형부', kind: 'student', hair: '#90d38b', style: 1, eye: '#2e5a2a' },
     tiktok: { name: '틱톡 조교', role: '교무실 조교', kind: 'student', hair: '#a59886', style: 0, eye: '#3a3a3a', glasses: true },
     belladonna: { name: '벨라도나', role: '학생회장', kind: 'student', hair: '#3a2b55', style: 3, eye: '#c0405a' },
+    flam: { name: '플람 교수', role: '기본마법반 담임 · 부엉이', kind: 'owl' },
+    serena: { name: '세레나 교수', role: '고급마법반 담임', kind: 'student', hair: '#d8d2ee', style: 2, eye: '#6a3fb0', hat: true },
+    gardener: { name: '송이 아저씨', role: '정원사 · 버섯', kind: 'gardener' },
     nocturne: { name: '녹턴', role: '그림자 집사', kind: 'enemy', enemy: 'nocturne' },
     director: { name: '깔깔 극장장', role: '', kind: 'enemy', enemy: 'director' },
   };
@@ -551,9 +597,9 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
   const QUESTS = [
     { id: 'q1', cursedName: '훌쩍이는 오르골', customer: 'popo', antique: 'musicbox', buy: 30, unlock: {},
       symptom: '밤마다 혼자 훌쩍이며 운다.',
-      story: ['선배! 이 오르골 좀 사주세요…', '밤마다 혼자 훌쩍훌쩍 울어요. 기숙사 애들이 다 깼어요.', '태엽 하나가 빠진 뒤로 이래요.'],
-      objective: { type: 'fetch', floor: 1, marker: 'a', item: 'q_spring', place: '먼지 쌓인 음악실 사물함' },
-      hint: 'B1 어딘가의 「먼지 쌓인 음악실 사물함」에서 잃어버린 태엽을 찾자.',
+      story: ['선배! 이 오르골 좀 사주세요…', '밤마다 혼자 훌쩍훌쩍 울어요. 기숙사 애들이 다 깼어요.', '태엽 하나가 빠진 뒤로 이래요.', '태엽은 음악실 제 사물함에 있는데… 열쇠를 음악실 어딘가에 흘렸어요.'],
+      objective: { type: 'field', area: 'music', target: 'locker', item: 'q_spring', place: '음악실 사물함' },
+      hint: '본관 음악실을 뒤져 사물함 열쇠를 찾고, 사물함에서 태엽을 꺼내자.',
       found: ['삐걱— 사물함을 열자 작은 태엽이 찌르륵 떨었다.', '잃어버린 태엽을 손에 넣었다!'],
       purify: '태엽을 끼우자 오르골이 마지막으로 크게 훌쩍이더니… 조용한 자장가를 연주하기 시작했다.' },
     { id: 'q2', cursedName: '따라오는 손거울', customer: 'sera', antique: 'handmirror', buy: 50, unlock: { floor: 2 },
@@ -569,18 +615,18 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       objective: { type: 'items', items: { salt: 1, dew: 1 }, place: '부실 정화대' },
       hint: '정화 소금 1개와 달빛 이슬 1개를 모아 부실에서 정화하자. (매점·봉인 창고)',
       purify: '달빛 이슬을 한 방울 떨어뜨리자, 찻주전자가 "후우—" 하고 긴 한숨을 쉬며 식었다.' },
-    { id: 'q4', cursedName: '글자가 기어다니는 일기장', customer: 'noeul', antique: 'diary', buy: 60, unlock: { floor: 3 },
+    { id: 'q4', cursedName: '글자가 기어다니는 일기장', customer: 'noeul', antique: 'diary', buy: 60, unlock: { purified: 1 },
       symptom: '글자가 밤마다 다른 페이지로 이사 간다.',
-      story: ['일기장 글자들이 밤마다 다른 페이지로 이사를 가요.', '어젯밤 쓴 일기가 오늘 아침엔 시간표 위에 있었어요.', '봉인 창고의 「거꾸로 교실」에서 이 일기장을 주웠어요. 거기가 원래 집인가 봐요.'],
-      objective: { type: 'puzzle', floor: 3, marker: 'c', place: '거꾸로 교실' },
-      hint: 'B3 「거꾸로 교실」에 들어가 꺼진 촛불을 모두 밝히자.',
-      found: ['천장에 책상이 매달린 교실. 꺼진 촛불들이 일렬로 서 있다.', '"모두 밝히면 글자들이 집으로 돌아갈 거야."'],
+      story: ['일기장 글자들이 밤마다 다른 페이지로 이사를 가요.', '어젯밤 쓴 일기가 오늘 아침엔 시간표 위에 있었어요.', '도서관 금서 칸에서 빌린 일기장이에요. 그 칸 독서대에 다시 올려두면 얌전해진대요.', '그런데 금서 칸 철문은 바닥 판 두 개를 눌러야 열린대요…'],
+      objective: { type: 'field', area: 'library', target: 'lectern', place: '도서관 금서 칸 독서대' },
+      hint: '도서관 책수레를 밀어 바닥 판 두 개를 누르고, 금서 칸 독서대에 일기장을 올려두자.',
+      found: ['일기장을 독서대에 펼치자, 흩어진 글자들이 개미처럼 줄지어 제 페이지로 돌아간다.', '"…집이다." 일기장이 작게 속삭였다.'],
       purify: '일기장을 펼치자 흩어졌던 글자들이 줄을 맞춰 제 페이지로 돌아갔다.' },
-    { id: 'q5', cursedName: '삐걱대는 마녀 빗자루', customer: 'hwiparam', antique: 'broom', buy: 80, unlock: { floor: 4 },
+    { id: 'q5', cursedName: '삐걱대는 마녀 빗자루', customer: 'hwiparam', antique: 'broom', buy: 80, unlock: { purified: 2 },
       symptom: '주인을 태우고 지하로 내려가려 한다.',
-      story: ['제 빗자루가 저를 태우고 자꾸 지하로 내려가려 해요!', '어제는 봉인 창고 B2까지 갔다 왔어요. 무서웠어요.', '빗자루 묘지에 가면 얘를 얌전하게 할 끈이 있대요.'],
-      objective: { type: 'fetch', floor: 4, marker: 'd', item: 'q_strap', place: '빗자루 묘지 관리인 오두막' },
-      hint: 'B4 「빗자루 묘지 관리인 오두막」에서 빗자루 끈을 찾자.',
+      story: ['제 빗자루가 저를 태우고 자꾸 지하로 내려가려 해요!', '어제는 봉인 창고 B2까지 갔다 왔어요. 무서웠어요.', '정원 서쪽 산울타리 미로 한가운데 오두막에, 얘를 얌전하게 할 끈이 있대요.', '미로는 밤이 되면 몬스터가 돌아다녀요. 조심하세요!'],
+      objective: { type: 'field', area: 'maze', target: 'shed', item: 'q_strap', place: '밤의 미로 한가운데 오두막' },
+      hint: '정원 서쪽 「밤의 산울타리 미로」 한가운데 오두막에서 빗자루 끈을 찾자.',
       found: ['오두막 벽에 낡은 가죽 끈이 걸려 있다.', '빗자루 끈을 손에 넣었다!'],
       purify: '끈을 묶자 빗자루가 부르르 떨더니, 얌전히 휘파람의 손에 안겼다.' },
     { id: 'q6', cursedName: '웃음이 멈추지 않는 인형', customer: 'kongal', antique: 'doll', buy: 70, unlock: { floor: 3 },
@@ -621,6 +667,11 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     { id: 'weak20', name: '약점 공략가', desc: '약점 공격을 20번 성공했다.', reward: 30 },
     { id: 'puzzle3', name: '촛불지기', desc: '이상한 방을 3번 해결했다.', reward: 30 },
     { id: 'level5', name: '어엿한 견습 마녀', desc: '레벨 5에 도달했다.', reward: 30 },
+    { id: 'basic_grad', name: '기본마법반 수료', desc: '기본마법반 마법 3개를 모두 배웠다.', reward: 40 },
+    { id: 'adv_grad', name: '고급마법반 수료', desc: '고급마법반 마법 2개를 모두 배웠다.', reward: 60 },
+    { id: 'library', name: '금서 칸의 열쇠', desc: '도서관 책수레를 밀어 금서 칸 철문을 열었다.', reward: 30 },
+    { id: 'well', name: '분수의 비밀', desc: '분수 룬 판을 순서대로 밟아 마른 우물을 열었다.', reward: 30 },
+    { id: 'maze', name: '미로의 달인', desc: '밤의 산울타리 미로 한가운데에 도착했다.', reward: 30 },
   ];
 
   const QUIZ = [
@@ -653,7 +704,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       { who: 'council', text: '[학생회 공문] 저주골동품부는 실적 부진으로 학기말 폐부 예정. 단, 정화 실적 5건을 달성하면 존속을 허가함.' },
       { who: 'rumi', text: '폐부라니! …그런데 내 그림자는 오늘따라 왜 안 보이지?' },
       { who: 'mukmul', text: '냐. (먹물이 바닥을 긁는다. 그림자 냄새가 봉인 창고 아래에서 난다는 듯이.)' },
-      { who: 'rumi', text: '좋아. 일단 손님부터 받아보자!' },
+      { who: 'rumi', text: '좋아. 마법 하나 없이 봉인 창고는 무리야. 본관 기본마법반에서 불씨부터 배우고, 손님을 받자!' },
     ],
     bossIntro: [
       { who: 'nocturne', text: '어서 오십시오, 그림자 없는 아가씨.' },
@@ -678,11 +729,21 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       '냐…? (약점을 맞히면 적 이름 옆에 약점이 기록된다)',
       '냐앙. (정화한 골동품은 팔아도 되고, 장착해서 써도 돼)',
       '냐. (체력이 부족하면 양호실. 모모 선생님은 20은화)',
+      '냐아. (마법은 본관 교실에서 배워. 레벨이 올라도 저절로 생기진 않아)',
+      '냥. (부실 침대에서 자면 하루가 지나고 마력이 다 차)',
       '냥냥. (같은 층이라도 다시 들어가면 상자가 새로 채워져)',
     ],
     kiki: ['끼끼끼, 어서 와. 박쥐네 매점이야.', '물약은 넉넉히 사 둬. 봉인 창고는 배고픈 곳이거든.', '은화가 모자라? 끼끼, 외상은 없어.', '정화 소금은 늘 잘 팔리지.', '끼… 저주 냄새가 나는구나. 또 깊이 내려갔지?'],
     momo: ['붕대 많이 있어요. 어디 다쳤어요?', '무리하면 안 돼요. 먹물이 걱정해요.', '독은 해독 허브로도 나아요. 그래도 여기 오면 더 확실해요.'],
     wanderer: ['냥. 비싸지만 급하잖아?', '봉인 창고에선 내가 유일한 가게다냥.', '은화만 있으면 뭐든 판다냥. 거의.'],
+    // 필드
+    fieldIntro: [
+      { who: 'mukmul', text: '냐. (바닥을 톡 누르면 거기까지 걸어가. 사람이나 물건을 누르면 다가가서 말을 걸어)' },
+      { who: 'rumi', text: '문 위 이름표를 보고 다니면 되겠다. 금색 화살표는 지금 가야 할 방향!' },
+    ],
+    flam: ['부엉. 마법은 손끝이 아니라 기억으로 그리는 거란다.', '칠판의 룬을 잘 보렴. 한 번 보여줄 때 다 외워야 해.', '부엉… 수강료는 합격하면 받으마.'],
+    serena: ['고급 마법은 빠르고 길어. 눈을 깜빡이지 마.', '기본을 다 떼고 오렴. 그 전엔 못 가르쳐.', '정화의 빛은 그림자를 싫어해. 아주 많이.'],
+    gardener: ['어이쿠, 꼬마 마녀구먼. 분수 판은 아무렇게나 밟으면 안 꺼져.', '서쪽 산울타리 미로는 밤마다 길이 바뀌어. 오두막은 늘 한가운데 있지.', '도서관 사서님이 분수 이야기를 책에 적어 두셨다던데.'],
     rumors: [
       '계단은 언제나 입구에서 가장 먼 곳에 있다더라.',
       '얼음 가시는 기를 모으는 녀석을 멈춰. — 선배',
@@ -696,7 +757,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
 
   W.DATA = {
     GRADES, GRADE_ORDER, ELEMENTS, PLAYER, EXP_CURVE, SPELLS, SPELL_ORDER, ITEMS, SHOP_TABS,
-    ANTIQUES, GRADE_ODDS, ENEMIES, FLOORS, NPCS, QUESTS, BADGES, QUIZ, LINES,
+    ANTIQUES, GRADE_ODDS, ENEMIES, FLOORS, NPCS, QUESTS, BADGES, QUIZ, LINES, CLASSES, RUNES,
     TUNING: {
       encounterRate: 0.04, encounterGrace: 3, startSafeRadius: 2,
       fleeBase: 0.6, critBase: 0.08, critMult: 1.6, chargeMult: 2.3, bossChargeMult: 2.5,
@@ -705,6 +766,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       infirmaryCost: 20, sellRatio: 0.5, defeatSilverLoss: 0.3, petHints: 3, sightBase: 3,
       chestAntiqueChance: { 1: 0.25, 2: 0.3, 3: 0.35, 4: 0.4, 5: 0.45 },
       gambleCost: 20,
+      sleepHealPct: 0.3, mazeSight: 2,
     },
   };
 })();
@@ -759,7 +821,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
   }
 
   // ───────── 새 게임 / 저장 ─────────
-  const SAVE_VERSION = 1;
+  const SAVE_VERSION = 2;
   function newGame() {
     const P = D.PLAYER;
     const s = {
@@ -775,7 +837,9 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       purified: 0,
       floorsReached: 1,
       exp: null,
+      spells: [],
       world: { doors: {} },
+      field: newFieldState(),
       flags: { introSeen: false, bossDefeated: false, directorDefeated: false, endingSeen: false, infirmaryFree: true, legendPurified: false, metCustomer: false },
       stats: { quizCorrect: 0, quizWrong: 0, gambles: 0, shopBuys: 0, weakHits: 0, puzzles: 0, battles: 0, kills: {}, purifyAll: 0, defeats: 0 },
       known: {},
@@ -788,6 +852,16 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     refreshCustomers(s);
     return s;
   }
+  // 필드(학교 지도) 진행 상태. 지형·물체는 world.js 가 정의한다.
+  function newFieldState() {
+    return {
+      area: 'club', x: 4, y: 5,
+      plates: [], fountain: false, well: false, // 정원 분수 룬 판 순서 퍼즐
+      carts: null, libGate: false, libChest: false, // 도서관 책수레 밀기 (null = 처음 위치)
+      searched: {}, musicKey: false,       // 음악실 숨은 물건 찾기
+      maze: null,                          // 밤의 미로 (날마다 새로 만든다)
+    };
+  }
   function serialize(s) { return JSON.stringify(s); }
   function deserialize(str) {
     let data;
@@ -799,6 +873,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     merged.stats = Object.assign(base.stats, data.stats || {});
     merged.settings = Object.assign(base.settings, data.settings || {});
     merged.player.status = Object.assign({ poison: 0, curseNext: 0 }, (data.player && data.player.status) || {});
+    merged.field = Object.assign(newFieldState(), data.field || {});
     for (const q of D.QUESTS) if (!merged.quests[q.id]) merged.quests[q.id] = { status: 'locked', cooldown: 0 };
     return merged;
   }
@@ -832,7 +907,42 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     s.player.hp = clamp(s.player.hp, 0, st.maxHp);
     s.player.mp = clamp(s.player.mp, 0, st.maxMp);
   }
-  function knownSpells(s) { return D.SPELL_ORDER.filter((id) => D.SPELLS[id].learn <= s.player.lv); }
+  function knownSpells(s) { return D.SPELL_ORDER.filter((id) => s.spells.includes(id)); }
+  // ───────── 마법 수업 ─────────
+  function classSpells(cls) { return D.SPELL_ORDER.filter((id) => D.SPELLS[id].cls === cls); }
+  function classOpen(s, cls) {
+    const C = D.CLASSES[cls];
+    return !C.needAll || classSpells(C.needAll).every((id) => s.spells.includes(id));
+  }
+  function canLearn(s, id) {
+    const sp = D.SPELLS[id];
+    if (!sp) return { ok: false, reason: '그런 마법은 없다.' };
+    if (s.spells.includes(id)) return { ok: false, reason: '이미 배운 마법이다.' };
+    if (!classOpen(s, sp.cls)) return { ok: false, reason: `${D.CLASSES[D.CLASSES[sp.cls].needAll].name} 마법을 먼저 모두 배워야 한다.` };
+    if (s.player.lv < sp.learn) return { ok: false, reason: `Lv${sp.learn}부터 들을 수 있다.` };
+    if (s.silver < sp.tuition) return { ok: false, reason: `수강료 은화 ${sp.tuition - s.silver}개가 모자라다.` };
+    return { ok: true };
+  }
+  // 룬 따라 그리기 문제: 같은 룬이 세 번 연속 나오지 않게 한다
+  function runeSequence(len) {
+    const out = [];
+    while (out.length < len) {
+      const r = randInt(0, D.RUNES.length - 1);
+      if (out.length >= 2 && out[out.length - 1] === r && out[out.length - 2] === r) continue;
+      out.push(r);
+    }
+    return out;
+  }
+  // 미니게임을 통과한 뒤 호출한다. 수강료는 합격할 때 낸다.
+  function learnSpell(s, id) {
+    const chk = canLearn(s, id);
+    if (!chk.ok) return chk;
+    const sp = D.SPELLS[id];
+    s.silver -= sp.tuition;
+    s.spells.push(id);
+    return { ok: true, spell: sp };
+  }
+  function learnableSpells(s) { return D.SPELL_ORDER.filter((id) => canLearn(s, id).ok); }
   function expToNext(s) { return D.EXP_CURVE[s.player.lv] || 99999; }
 
   function gainExp(s, n) {
@@ -845,8 +955,9 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       s.player.hp += D.PLAYER.perLevel.maxHp;
       s.player.mp += D.PLAYER.perLevel.maxMp;
       clampVitals(s);
-      const learned = D.SPELL_ORDER.filter((id) => D.SPELLS[id].learn === s.player.lv);
-      ups.push({ lv: s.player.lv, learned });
+      // 레벨업으로 마법이 생기지는 않는다. 새로 수강할 수 있게 된 마법만 알려준다.
+      const classReady = D.SPELL_ORDER.filter((id) => D.SPELLS[id].learn === s.player.lv && !s.spells.includes(id));
+      ups.push({ lv: s.player.lv, classReady });
     }
     return ups;
   }
@@ -933,14 +1044,15 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     refreshCustomers(s);
     return { ok: true, antique: a };
   }
-  function addCursedAntique(s, floor) {
+  function addCursedAntique(s, floor, grade) {
     const a = { uid: newUid(s), def: null, state: 'cursed', floor };
+    if (grade) a.grade = grade;
     s.antiques.push(a);
     return a;
   }
-  function rollAntiqueDef(floor) {
+  function rollAntiqueDef(floor, forced) {
     const odds = D.GRADE_ODDS[floor] || D.GRADE_ODDS[1];
-    const grade = weighted(D.GRADE_ORDER.map((g, i) => [g, odds[i]]));
+    const grade = forced || weighted(D.GRADE_ORDER.map((g, i) => [g, odds[i]]));
     const pool = Object.keys(D.ANTIQUES).filter((id) => D.ANTIQUES[id].random && D.ANTIQUES[id].grade === grade);
     return pick(pool);
   }
@@ -949,7 +1061,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     if (!a || a.state !== 'cursed') return { ok: false, reason: '정화할 수 없어요.' };
     if (count(s, 'salt') < 1) return { ok: false, reason: '정화 소금이 필요해요. (매점 40은화)' };
     removeItem(s, 'salt', 1);
-    a.def = rollAntiqueDef(a.floor || 1);
+    a.def = rollAntiqueDef(a.floor || 1, a.grade);
     a.state = 'purified';
     s.stats.purifyAll += 1;
     s.codex[a.def] = true;
@@ -1038,6 +1150,11 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       case 'weak20': return s.stats.weakHits >= 20;
       case 'puzzle3': return s.stats.puzzles >= 3;
       case 'level5': return s.player.lv >= 5;
+      case 'basic_grad': return classSpells('basic').every((id) => s.spells.includes(id));
+      case 'adv_grad': return classSpells('advanced').every((id) => s.spells.includes(id));
+      case 'library': return s.field.libGate;
+      case 'well': return s.field.fountain;
+      case 'maze': return !!s.flags.mazeCenter;
       default: return false;
     }
   }
@@ -1055,9 +1172,10 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
 
   // ───────── 목표 안내 ─────────
   function objectiveText(s) {
-    if (!s.flags.metCustomer) return '부실에 가서 첫 손님을 맞이하자.';
+    if (!s.spells.length) return '본관 「기본마법반」에서 첫 마법(불씨)을 배우자.';
+    if (!s.flags.metCustomer) return '부실로 돌아가 첫 손님을 맞이하자.';
     const ready = D.QUESTS.find((q) => canPurifyQuest(s, q.id));
-    if (ready) return `부실로 돌아가 「${ready.cursedName}」을(를) 정화하자.`;
+    if (ready) return `부실 정화대에서 「${ready.cursedName}」을(를) 정화하자.`;
     const act = activeQuests(s)[0];
     if (act) return act.hint;
     if (s.purified < 5 && customers(s).length) return `정화 실적 ${s.purified}/5 — 부실에 손님이 기다리고 있다.`;
@@ -1605,6 +1723,16 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     s.day += 1;
     refreshCustomers(s);
   }
+  // 부실 침대: 하루가 지나고 마력은 가득, 체력은 일부 회복 (완전 회복은 양호실)
+  function sleepDay(s) {
+    const st = stats(s);
+    const hp = Math.round(st.maxHp * T.sleepHealPct);
+    s.player.hp = Math.min(st.maxHp, s.player.hp + hp);
+    s.player.mp = st.maxMp;
+    s.day += 1;
+    refreshCustomers(s);
+    return { hp };
+  }
   function applyDefeat(s) {
     const lost = Math.floor(s.silver * T.defeatSilverLoss);
     s.silver -= lost;
@@ -1701,7 +1829,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     const st = stats(s);
     if (action.type === 'spell') {
       const sp = D.SPELLS[action.id];
-      if (!sp || sp.learn > s.player.lv) return { ok: false, reason: '아직 배우지 못한 마법이다.' };
+      if (!sp || !s.spells.includes(action.id)) return { ok: false, reason: '아직 배우지 못한 마법이다.' };
       if (s.player.mp < sp.mp) return { ok: false, reason: '마력이 부족하다.' };
       if (sp.kind === 'heal' && s.player.hp >= st.maxHp) return { ok: false, reason: '체력이 이미 가득하다.' };
     }
@@ -1750,11 +1878,11 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
         ev.push({ t: 'log', text: `치유 마법! 체력이 ${v} 회복되었다.` });
       } else {
         const info = elemMult(b, sp.elem);
-        const boost = 1 + (st[sp.elem + 'Boost'] || 0);
+        const boost = 1 + (sp.elem ? st[sp.elem + 'Boost'] || 0 : 0);
         let raw = atk * sp.power * uniform(0.92, 1.08) * info.m * boost - b.def * 0.3;
         if (sp.elem === 'light' && b.shield > 0) { b.shield = 0; ev.push({ t: 'shieldBreak' }); ev.push({ t: 'log', text: '정화의 빛이 그림자 방패를 깨뜨렸다!' }); }
         const dmg = dealToEnemy(s, b, Math.max(1, raw), ev);
-        ev.push({ t: 'log', text: `${sp.name}! ${b.name}에게 ${dmg}의 ${D.ELEMENTS[sp.elem].name} 피해.${info.weak ? ' (약점!)' : info.resist ? ' (잘 안 든다…)' : ''}` });
+        ev.push({ t: 'log', text: `${sp.name}! ${b.name}에게 ${dmg}의 ${sp.elem ? D.ELEMENTS[sp.elem].name + ' ' : ''}피해.${info.weak ? ' (약점!)' : info.resist ? ' (잘 안 든다…)' : ''}` });
         noteWeak(s, b, info, ev);
         if (b.hp > 0) {
           if (sp.elem === 'ice') {
@@ -1946,8 +2074,9 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
 
   W.rules = {
     makeRng, setRng, rand, randInt, weighted, clamp, key, describeEffect,
-    newGame, serialize, deserialize, stats, clampVitals, knownSpells, expToNext, gainExp,
-    count, addItem, removeItem, hasItems,
+    newGame, newFieldState, serialize, deserialize, stats, clampVitals, knownSpells, expToNext, gainExp,
+    classSpells, classOpen, canLearn, learnSpell, learnableSpells, runeSequence, sleepDay,
+    count, addItem, removeItem, hasItems, pick,
     questDef, refreshCustomers, customers, activeQuests, canPurifyQuest, acceptQuest, declineQuest, completeObjective,
     purifyQuest, addCursedAntique, rollAntiqueDef, purifyFound, sellAntique, equipAntique, unequip,
     shopItems, buy, sellItem, sellPrice, infirmary, checkBadges, objectiveText, canSeeEnding,
@@ -1957,6 +2086,585 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     puzzleNew, puzzleToggle, puzzleSolved, puzzleReward,
     createBattle, canAct, playerAction, elemMult,
     MAP_W, MAP_H,
+  };
+})();
+
+/* ── world.js ── */
+/* 저주 매입합니다 — 학교 필드(아르피아식 탐험 지도)의 지형·물체·규칙. 화면 코드와 분리되어 Node 테스트에서도 실행된다.
+ * 타일 기호: # 벽(정원·미로는 산울타리)  . 바닥  , 길(실내는 카펫)  T 나무  ~ 물  = 책장  d 책상  k 칠판
+ *           * 꽃(지나갈 수 있음)  E 출입구  1~4 분수 룬 판  o 누름판  G 금서 칸 철문 */
+(function () {
+  'use strict';
+  const W = (globalThis.W = globalThis.W || {});
+  const D = W.DATA, R = W.rules, T = D.TUNING;
+  const key = (x, y) => x + ',' + y;
+  const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+  // 분수 룬 판: 번호 → 그림. 정답 순서는 도서관 책에 적혀 있다.
+  const PLATES = { 1: { name: '해', glyph: '☀' }, 2: { name: '별', glyph: '★' }, 3: { name: '달', glyph: '☾' }, 4: { name: '구름', glyph: '☁' } };
+  const PLATE_ORDER = [3, 1, 2, 4];
+  const CART_START = [[4, 9], [6, 9]];
+  const LIB_PLATES = [[2, 7], [8, 7]];
+  const MAZE_ENEMIES = [['giggledoll', 3], ['mirrorbat', 3], ['shroomella', 3], ['waxslime', 2], ['teacup', 1]];
+
+  // 출입구: to = 다른 구역(at = 도착 칸) 또는 screen(매점처럼 별도 화면)
+  const AREAS = {
+    garden: {
+      name: '안뜰 정원', theme: 'garden',
+      rows: [
+        '#####E#####',
+        '#T*.,,,.*T#',
+        '#...,,,...#',
+        '#T..,,,..T#',
+        'E,,,,,,,,,E',
+        '#...,,,...#',
+        '#..1,,,2..#',
+        '#..,~~~,..#',
+        '#.,,~~~,,.#',
+        '#..,~~~,..#',
+        '#..3,,,4..#',
+        '#...,,,...#',
+        '#T..,,,..T#',
+        '#*..,,,..*#',
+        '#...,,,...#',
+        '#T..,,,..T#',
+        '#####E#####',
+      ],
+      exits: [
+        { x: 5, y: 0, to: 'hall', at: [5, 9], label: '본관' },
+        { x: 0, y: 4, to: 'maze', at: [13, 9], label: '밤의 미로' },
+        { x: 10, y: 4, to: 'club', at: [1, 4], label: '부실' },
+        { x: 5, y: 16, screen: 'gate', label: '봉인 창고' },
+      ],
+      objects: [
+        { id: 'well', kind: 'thing', sprite: 'well', x: 9, y: 8, label: '마른 우물' },
+        { id: 'gardener', kind: 'npc', npc: 'gardener', x: 8, y: 13, label: '송이 아저씨' },
+      ],
+    },
+    hall: {
+      name: '본관 복도', theme: 'hall',
+      rows: [
+        '#####E#####',
+        '#....,....#',
+        'E....,....E',
+        '#....,....#',
+        '#*...,...*#',
+        'E,,,,,,,,,E',
+        '#....,....#',
+        '#....,....#',
+        'E....,....#',
+        '#*...,...*#',
+        '#####E#####',
+      ],
+      exits: [
+        { x: 5, y: 0, to: 'library', at: [5, 11], label: '도서관' },
+        { x: 0, y: 2, screen: 'shop', label: '매점' },
+        { x: 10, y: 2, screen: 'infirmary', label: '양호실' },
+        { x: 0, y: 5, to: 'class1', at: [7, 4], label: '기본마법반' },
+        { x: 10, y: 5, to: 'class2', at: [1, 4], label: '고급마법반' },
+        { x: 0, y: 8, to: 'music', at: [8, 4], label: '음악실' },
+        { x: 5, y: 10, to: 'garden', at: [5, 1], label: '정원' },
+      ],
+      objects: [
+        { id: 'portraits', kind: 'npc', npc: 'portraits', x: 8, y: 1, label: '초상화 자매' },
+      ],
+    },
+    club: {
+      name: '저주골동품부 부실', theme: 'club',
+      rows: [
+        '#########',
+        '#==...==#',
+        '#.......#',
+        '#.......#',
+        'E.......#',
+        '#.......#',
+        '#.......#',
+        '#.......#',
+        '#########',
+      ],
+      exits: [{ x: 0, y: 4, to: 'garden', at: [9, 4], label: '정원' }],
+      objects: [
+        { id: 'desk', kind: 'thing', sprite: 'cauldron', x: 4, y: 2, label: '정화대' },
+        { id: 'bed', kind: 'thing', sprite: 'bed', x: 7, y: 6, label: '침대' },
+      ],
+      customerSpots: [[3, 6], [5, 6]],
+    },
+    class1: {
+      name: '기본마법반', theme: 'classroom',
+      rows: [
+        '#########',
+        '#kkkkkkk#',
+        '#.......#',
+        '#.d.d.d.#',
+        '#.......E',
+        '#.d.d.d.#',
+        '#########',
+      ],
+      exits: [{ x: 8, y: 4, to: 'hall', at: [1, 5], label: '복도' }],
+      objects: [{ id: 'flam', kind: 'npc', npc: 'flam', x: 4, y: 2, label: '플람 교수', cls: 'basic' }],
+    },
+    class2: {
+      name: '고급마법반', theme: 'classroom2',
+      rows: [
+        '#########',
+        '#kkkkkkk#',
+        '#.......#',
+        '#.d.d.d.#',
+        'E.......#',
+        '#.d.d.d.#',
+        '#########',
+      ],
+      exits: [{ x: 0, y: 4, to: 'hall', at: [9, 5], label: '복도' }],
+      objects: [{ id: 'serena', kind: 'npc', npc: 'serena', x: 4, y: 2, label: '세레나 교수', cls: 'advanced' }],
+    },
+    music: {
+      name: '음악실', theme: 'music',
+      rows: [
+        '##########',
+        '#........#',
+        '#........#',
+        '#........#',
+        '#........E',
+        '#........#',
+        '#........#',
+        '#........#',
+        '##########',
+      ],
+      exits: [{ x: 9, y: 4, to: 'hall', at: [1, 8], label: '복도' }],
+      objects: [
+        { id: 'piano', kind: 'thing', sprite: 'piano', x: 2, y: 1, label: '피아노', search: true },
+        { id: 'bench', kind: 'thing', sprite: 'bench', x: 2, y: 2, label: '피아노 의자', search: true },
+        { id: 'locker_a', kind: 'thing', sprite: 'locker', x: 6, y: 1, label: '사물함', search: true },
+        { id: 'locker', kind: 'thing', sprite: 'locker', x: 7, y: 1, label: '포포의 사물함' },
+        { id: 'locker_b', kind: 'thing', sprite: 'locker', x: 8, y: 1, label: '사물함', search: true },
+        { id: 'stand', kind: 'thing', sprite: 'stand', x: 4, y: 4, label: '악보대', search: true },
+        { id: 'drum', kind: 'thing', sprite: 'drum', x: 7, y: 6, label: '큰북', search: true },
+        { id: 'curtain', kind: 'thing', sprite: 'curtain', x: 1, y: 6, label: '커튼', search: true },
+        { id: 'trash', kind: 'thing', sprite: 'trash', x: 8, y: 7, label: '휴지통', search: true },
+      ],
+    },
+    library: {
+      name: '도서관', theme: 'library',
+      rows: [
+        '###########',
+        '#===...===#',
+        '#=.......=#',
+        '#####G#####',
+        '#=.......=#',
+        '#=.......=#',
+        '#...=.=...#',
+        '#.o.....o.#',
+        '#...=.=...#',
+        '#.........#',
+        '#.........#',
+        '#=.......=#',
+        '#####E#####',
+      ],
+      exits: [{ x: 5, y: 12, to: 'hall', at: [5, 1], label: '복도' }],
+      objects: [
+        { id: 'lectern', kind: 'thing', sprite: 'lectern', x: 5, y: 1, label: '금서 칸 독서대' },
+        { id: 'libchest', kind: 'thing', sprite: 'chest', x: 8, y: 2, label: '금서 칸 상자' },
+        { id: 'hintbook', kind: 'thing', sprite: 'book', x: 2, y: 4, label: '펼쳐진 책' },
+      ],
+      push: true,
+    },
+  };
+  const AREA_IDS = Object.keys(AREAS).concat(['maze']);
+
+  // ───────── 밤의 미로 (날마다 바뀐다) ─────────
+  const MAZE_CACHE = {};
+  const MAZE_W = 15, MAZE_H = 19;
+  function genMaze(day) {
+    if (MAZE_CACHE[day]) return MAZE_CACHE[day];
+    const r = R.makeRng(9100 + day * 7919);
+    const CW = 7, CH = 9, N = CW * CH;
+    const tiles = Array.from({ length: MAZE_H }, () => Array(MAZE_W).fill('#'));
+    const cid = (cx, cy) => cy * CW + cx;
+    const cxy = (c) => [c % CW, Math.floor(c / CW)];
+    const ct = (c) => { const [cx, cy] = cxy(c); return [cx * 2 + 1, cy * 2 + 1]; };
+    for (let c = 0; c < N; c++) { const [x, y] = ct(c); tiles[y][x] = '.'; }
+    const adj = Array.from({ length: N }, () => new Set());
+    const nbs = (c) => { const [cx, cy] = cxy(c); return DIRS.map(([dx, dy]) => [cx + dx, cy + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < CW && y < CH).map(([x, y]) => cid(x, y)); };
+    const carve = (a, b) => { adj[a].add(b); adj[b].add(a); const [ax, ay] = ct(a); const [bx, by] = ct(b); tiles[(ay + by) / 2][(ax + bx) / 2] = '.'; };
+    const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+    const start = cid(CW - 1, 4), center = cid(3, 4);
+    const seen = new Array(N).fill(false);
+    const stack = [start]; seen[start] = true;
+    while (stack.length) {
+      const cur = stack[stack.length - 1];
+      const n = shuffle(nbs(cur).filter((x) => !seen[x]));
+      if (n.length) { seen[n[0]] = true; carve(cur, n[0]); stack.push(n[0]); } else stack.pop();
+    }
+    // 고리 4개 (막다른 길만 있는 미로 방지)
+    const pairs = [];
+    for (let c = 0; c < N; c++) for (const n of nbs(c)) if (c < n && !adj[c].has(n)) pairs.push([c, n]);
+    shuffle(pairs).slice(0, 4).forEach(([a, b]) => carve(a, b));
+    const dist = new Array(N).fill(-1); dist[start] = 0;
+    const q = [start];
+    while (q.length) { const c = q.shift(); for (const n of adj[c]) if (dist[n] < 0) { dist[n] = dist[c] + 1; q.push(n); } }
+    const used = new Set([start, center]);
+    const deadEnds = shuffle([...Array(N).keys()].filter((c) => !used.has(c) && adj[c].size === 1));
+    const chests = deadEnds.slice(0, 2).map((c) => { used.add(c); const [x, y] = ct(c); return { x, y }; });
+    const mons = [];
+    const cands = shuffle([...Array(N).keys()].filter((c) => !used.has(c) && dist[c] >= 3 && !adj[center].has(c)));
+    for (const c of cands) {
+      if (mons.length >= 4) break;
+      const [x, y] = ct(c);
+      mons.push({ x, y, enemy: R.weighted(MAZE_ENEMIES, r) });
+      used.add(c);
+    }
+    tiles[9][MAZE_W - 1] = 'E';
+    const [shx, shy] = ct(center);
+    const m = {
+      day, w: MAZE_W, h: MAZE_H, rows: tiles.map((row) => row.join('')),
+      shed: { x: shx, y: shy }, chests, monsters: mons,
+    };
+    MAZE_CACHE[day] = m;
+    return m;
+  }
+  function mazeState(s) {
+    const f = s.field;
+    if (!f.maze || f.maze.day !== s.day) {
+      const m = genMaze(s.day);
+      f.maze = { day: s.day, defeated: {}, opened: {}, revealed: new Array(m.w * m.h).fill(0), shed: false };
+    }
+    return f.maze;
+  }
+  function mazeArea(s) {
+    const m = genMaze(s.day);
+    const objects = [{ id: 'shed', kind: 'thing', sprite: 'shed', x: m.shed.x, y: m.shed.y, label: '오두막' }];
+    return {
+      id: 'maze', name: '밤의 미로', theme: 'maze', night: true, fog: true,
+      rows: m.rows, w: m.w, h: m.h,
+      exits: [{ x: m.w - 1, y: 9, to: 'garden', at: [1, 4], label: '정원' }],
+      objects, maze: m,
+    };
+  }
+
+  const AREA_CACHE = {};
+  function area(s, id) {
+    if (id === 'maze') return mazeArea(s);
+    if (!AREA_CACHE[id]) {
+      const a = AREAS[id];
+      AREA_CACHE[id] = Object.assign({ id, w: a.rows[0].length, h: a.rows.length }, a);
+    }
+    return AREA_CACHE[id];
+  }
+  const cur = (s) => area(s, s.field.area);
+  const tileAt = (a, x, y) => (x < 0 || y < 0 || x >= a.w || y >= a.h ? '#' : a.rows[y][x]);
+  const SOLID_TILES = new Set(['#', 'T', '~', '=', 'd', 'k']);
+
+  function carts(s) { return s.field.carts || CART_START.map((c) => c.slice()); }
+  function cartAt(s, x, y) { return s.field.area === 'library' && carts(s).some(([cx, cy]) => cx === x && cy === y); }
+
+  // 지금 구역에 있는 물체(정적 + 손님 + 미로 몬스터·상자)
+  function objects(s) {
+    const a = cur(s);
+    const out = a.objects.slice();
+    if (a.id === 'club') {
+      R.customers(s).forEach((q, i) => {
+        const [x, y] = a.customerSpots[i];
+        out.push({ id: 'cust:' + q.id, kind: 'customer', npc: q.customer, qid: q.id, x, y, label: D.NPCS[q.customer].name });
+      });
+    }
+    if (a.id === 'maze') {
+      const st = mazeState(s);
+      a.maze.chests.forEach((c) => { const k = key(c.x, c.y); out.push({ id: 'mchest:' + k, kind: 'thing', sprite: st.opened[k] ? 'chestOpen' : 'chest', x: c.x, y: c.y, label: '상자', opened: !!st.opened[k] }); });
+      a.maze.monsters.forEach((m) => { const k = key(m.x, m.y); if (!st.defeated[k]) out.push({ id: 'mon:' + k, kind: 'monster', enemy: m.enemy, x: m.x, y: m.y, label: D.ENEMIES[m.enemy].name }); });
+    }
+    return out;
+  }
+  function objectAt(s, x, y) { return objects(s).find((o) => o.x === x && o.y === y) || null; }
+  function exitAt(a, x, y) { return a.exits.find((e) => e.x === x && e.y === y) || null; }
+
+  function isOpen(s, x, y) {
+    const a = cur(s);
+    const ch = tileAt(a, x, y);
+    if (SOLID_TILES.has(ch)) return false;
+    if (ch === 'G' && !s.field.libGate) return false;
+    return true;
+  }
+  // 걸어서 지나갈 수 있는 칸인가 (물체·수레·몬스터는 막힘)
+  function walkable(s, x, y) {
+    if (!isOpen(s, x, y)) return false;
+    if (cartAt(s, x, y)) return false;
+    if (objectAt(s, x, y)) return false;
+    return true;
+  }
+
+  // ───────── 안개 (미로) ─────────
+  function revealed(s, x, y) {
+    const a = cur(s);
+    if (!a.fog) return true;
+    return !!mazeState(s).revealed[y * a.w + x];
+  }
+  function reveal(s) {
+    const a = cur(s);
+    if (!a.fog) return;
+    const st = mazeState(s);
+    const rad = T.mazeSight + R.stats(s).sight;
+    const { x, y } = s.field;
+    for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
+      const tx = x + dx, ty = y + dy;
+      if (tx >= 0 && ty >= 0 && tx < a.w && ty < a.h) st.revealed[ty * a.w + tx] = 1;
+    }
+  }
+
+  // ───────── 이동 ─────────
+  function enterArea(s, id, x, y) {
+    s.field.area = id; s.field.x = x; s.field.y = y;
+    s.field.plates = [];
+    if (id === 'library' && !s.field.libGate) s.field.carts = null; // 다시 들어오면 수레가 제자리로
+    if (id === 'maze') { mazeState(s); reveal(s); }
+  }
+  // 한 칸 이동. 반환: {type: blocked|moved|exit|battle|push|pushBlocked, ...}
+  function step(s, nx, ny) {
+    const f = s.field;
+    const dx = nx - f.x, dy = ny - f.y;
+    if (Math.abs(dx) + Math.abs(dy) !== 1) return { type: 'blocked' };
+    const a = cur(s);
+    const ex = exitAt(a, nx, ny);
+    if (ex) return { type: 'exit', exit: ex };
+    const obj = objectAt(s, nx, ny);
+    if (obj && obj.kind === 'monster') return { type: 'battle', obj };
+    if (obj) return { type: 'blocked', obj };
+    if (cartAt(s, nx, ny)) return pushCart(s, nx, ny, dx, dy);
+    if (!isOpen(s, nx, ny)) return { type: 'blocked' };
+    f.x = nx; f.y = ny;
+    reveal(s);
+    const out = { type: 'moved' };
+    const ch = tileAt(a, nx, ny);
+    if (a.id === 'garden' && /[1-4]/.test(ch)) out.plate = plateStep(s, Number(ch));
+    return out;
+  }
+  function pushCart(s, cx, cy, dx, dy) {
+    const tx = cx + dx, ty = cy + dy;
+    const a = cur(s);
+    const ch = tileAt(a, tx, ty);
+    if (s.field.libGate) return { type: 'blocked' };
+    if (!isOpen(s, tx, ty) || ch === 'E' || ch === 'G' || cartAt(s, tx, ty) || objectAt(s, tx, ty)) return { type: 'pushBlocked' };
+    const list = carts(s);
+    const c = list.find(([x, y]) => x === cx && y === cy);
+    c[0] = tx; c[1] = ty;
+    s.field.carts = list;
+    s.field.x = cx; s.field.y = cy;
+    const out = { type: 'push', cart: [tx, ty], onPlate: LIB_PLATES.some(([px, py]) => px === tx && py === ty) };
+    if (LIB_PLATES.every(([px, py]) => list.some(([x, y]) => x === px && y === py))) {
+      s.field.libGate = true;
+      out.gateOpened = true;
+    }
+    return out;
+  }
+  function resetCarts(s) { if (!s.field.libGate) s.field.carts = null; }
+  function platesCovered(s) { return LIB_PLATES.filter(([px, py]) => carts(s).some(([x, y]) => x === px && y === py)).length; }
+
+  // 분수 룬 판 순서
+  function plateStep(s, n) {
+    const f = s.field;
+    if (f.fountain) return { result: 'done', n };
+    const want = PLATE_ORDER[f.plates.length];
+    if (n === want) {
+      f.plates.push(n);
+      if (f.plates.length === PLATE_ORDER.length) { f.fountain = true; return { result: 'solved', n }; }
+      return { result: 'progress', n, count: f.plates.length };
+    }
+    if (f.plates.length && f.plates[f.plates.length - 1] === n) return { result: 'same', n };
+    f.plates = n === PLATE_ORDER[0] ? [n] : [];
+    return { result: 'reset', n };
+  }
+
+  // 길 찾기. target 이 물체·출입구면 그 칸까지(마지막 칸은 막혀 있어도 됨)
+  function findPath(s, tx, ty) {
+    return bfs(s, tx, ty, false) || bfs(s, tx, ty, true);
+  }
+  function bfs(s, tx, ty, allowMonsters) {
+    const a = cur(s);
+    const sx = s.field.x, sy = s.field.y;
+    if (sx === tx && sy === ty) return [];
+    const prev = new Map([[key(sx, sy), null]]);
+    const q = [[sx, sy]];
+    while (q.length) {
+      const [x, y] = q.shift();
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= a.w || ny >= a.h) continue;
+        const k = key(nx, ny);
+        if (prev.has(k)) continue;
+        if (!revealed(s, nx, ny)) continue;
+        const isTarget = nx === tx && ny === ty;
+        const obj = objectAt(s, nx, ny);
+        const mon = obj && obj.kind === 'monster';
+        if (!isTarget) {
+          if (exitAt(a, nx, ny)) continue;
+          if (mon && !allowMonsters) continue;
+          if (!mon && !walkable(s, nx, ny)) continue;
+        } else if (!exitAt(a, nx, ny) && !obj && !walkable(s, nx, ny) && !cartAt(s, nx, ny)) continue;
+        prev.set(k, [x, y]);
+        if (isTarget) {
+          const path = [];
+          let c = [nx, ny];
+          while (c && !(c[0] === sx && c[1] === sy)) { path.unshift(c); c = prev.get(key(c[0], c[1])); }
+          return path;
+        }
+        if (mon) continue; // 몬스터 칸에서 걸음이 멈춘다(전투)
+        q.push([nx, ny]);
+      }
+    }
+    return null;
+  }
+  // 물체 옆 칸까지 가는 길 (가장 짧은 것)
+  function pathToObject(s, o) {
+    const f = s.field;
+    if (Math.abs(o.x - f.x) + Math.abs(o.y - f.y) === 1) return [];
+    let best = null;
+    for (const [dx, dy] of DIRS) {
+      const x = o.x + dx, y = o.y + dy;
+      if (!walkable(s, x, y) || !revealed(s, x, y)) continue;
+      const p = findPath(s, x, y);
+      if (p && (!best || p.length < best.length)) best = p;
+    }
+    return best;
+  }
+
+  // ───────── 상호작용 ─────────
+  const SEARCH = {
+    piano: { text: '도— 레— 미— 낡은 피아노가 맑게 울렸다. 건반 사이엔 먼지뿐이다.' },
+    stand: { text: '악보 귀퉁이에 쪽지가 끼워져 있다. 「사물함 열쇠는 내가 앉아서 연습하던 곳에 떨어뜨린 것 같아. — 포포」' },
+    drum: { text: '둥! 북 속에서 은화가 굴러 나왔다.', silver: 8, once: true },
+    curtain: { text: '커튼 뒤에는 누가 먹다 숨긴 사탕 껍질뿐이다. …으스스한 바람이 분다.' },
+    trash: { text: '구겨진 악보 사이에서 해독 허브를 찾았다.', item: 'herb', once: true },
+    locker_a: { text: '잠긴 사물함이다. 이름표: 「합창부 공용」.' },
+    locker_b: { text: '잠긴 사물함이다. 안에서 트라이앵글이 땡그랑 울렸다.' },
+    bench: { text: '의자 밑에 무언가 반짝인다… 음표 고리가 달린 작은 열쇠다!', key: true },
+  };
+  function search(s, id) {
+    const sp = SEARCH[id];
+    if (!sp) return { text: '별다른 것은 없다.' };
+    const f = s.field;
+    if (sp.key) {
+      if (f.musicKey) return { text: '의자 밑에는 이제 아무것도 없다.' };
+      f.musicKey = true;
+      R.addItem(s, 'locker_key', 1);
+      return { text: sp.text, item: 'locker_key', found: true };
+    }
+    if (sp.once && f.searched[id]) return { text: '이미 살펴본 곳이다.' };
+    f.searched[id] = true;
+    if (sp.silver) s.silver += sp.silver;
+    if (sp.item) R.addItem(s, sp.item, 1);
+    return { text: sp.text, silver: sp.silver, item: sp.item };
+  }
+  function fieldQuest(s, areaId, target) {
+    return D.QUESTS.find((q) => q.objective.type === 'field' && q.objective.area === areaId && q.objective.target === target && s.quests[q.id].status === 'active') || null;
+  }
+  function useLocker(s) {
+    const q = fieldQuest(s, 'music', 'locker');
+    if (!q) {
+      if (s.quests.q1.status === 'locked' || s.quests.q1.status === 'available') return { ok: false, text: '「포포」 이름표가 붙은 사물함. 주인 허락 없이 열면 안 되겠지.' };
+      return { ok: false, text: '텅 빈 사물함이다.' };
+    }
+    if (!R.count(s, 'locker_key')) return { ok: false, text: '잠겨 있다. 음악실 어딘가에 떨어진 열쇠를 찾아야 한다.' };
+    R.removeItem(s, 'locker_key', 1);
+    R.completeObjective(s, q.id);
+    return { ok: true, qid: q.id };
+  }
+  function useLectern(s) {
+    const q = fieldQuest(s, 'library', 'lectern');
+    if (!q) return { ok: false, text: '금서 칸 독서대. 펼쳐진 책은 없다.' };
+    R.completeObjective(s, q.id);
+    return { ok: true, qid: q.id };
+  }
+  function openLibChest(s) {
+    if (s.field.libChest) return { ok: false, text: '텅 빈 상자다.' };
+    s.field.libChest = true;
+    s.silver += 30;
+    R.addItem(s, 'mp_potion', 1);
+    const a = R.addCursedAntique(s, 3, 'uncommon');
+    return { ok: true, loot: { silver: 30, items: { mp_potion: 1 }, antiques: 1, antiqueList: [a] } };
+  }
+  function useWell(s) {
+    if (!s.field.fountain) return { ok: false, text: '바싹 마른 우물. 뚜껑이 단단히 잠겨 있다. 분수 쪽 룬 판과 연결된 것 같다.' };
+    if (s.field.well) return { ok: false, text: '우물 바닥에 이제 달빛만 고여 있다.' };
+    s.field.well = true;
+    s.silver += 40;
+    const a = R.addCursedAntique(s, 5, 'rare');
+    return { ok: true, loot: { silver: 40, items: {}, antiques: 1, antiqueList: [a] } };
+  }
+  function openMazeChest(s, x, y) {
+    const st = mazeState(s);
+    const k = key(x, y);
+    if (st.opened[k]) return { ok: false, text: '이미 연 상자다.' };
+    st.opened[k] = true;
+    const loot = { silver: 0, items: {}, antiques: 0 };
+    const roll = R.rand();
+    if (roll < 0.3) loot.antiques = 1;
+    else if (roll < 0.6) loot.silver = R.randInt(10, 20);
+    else loot.items[R.weighted([['hp_potion', 4], ['mp_potion', 3], ['salt', 2], ['key', 1], ['dew', 2]])] = 1;
+    s.silver += loot.silver;
+    for (const id of Object.keys(loot.items)) R.addItem(s, id, loot.items[id]);
+    loot.antiqueList = loot.antiques ? [R.addCursedAntique(s, 2)] : [];
+    return { ok: true, loot };
+  }
+  function useShed(s) {
+    const st = mazeState(s);
+    const first = !s.flags.mazeCenter;
+    s.flags.mazeCenter = true;
+    const q = fieldQuest(s, 'maze', 'shed');
+    if (q) { R.completeObjective(s, q.id); return { ok: true, qid: q.id, first }; }
+    if (st.shed) return { ok: false, first, text: '오두막 안은 조용하다. 정원 도구들만 가지런하다.' };
+    st.shed = true;
+    s.silver += 15;
+    return { ok: false, first, silver: 15, text: '오두막 탁자 위에 「미로를 끝까지 온 아이에게」라는 쪽지와 은화 15개가 놓여 있다.' };
+  }
+  function defeatMonster(s, x, y) { mazeState(s).defeated[key(x, y)] = true; }
+
+  // ───────── 목표 안내: 지금 가야 할 구역과 그쪽 출입구 ─────────
+  function targetArea(s) {
+    if (!s.spells.length) return 'class1';
+    if (!s.flags.metCustomer) return 'club';
+    if (D.QUESTS.some((q) => R.canPurifyQuest(s, q.id))) return 'club';
+    for (const q of R.activeQuests(s)) {
+      if (s.quests[q.id].status !== 'active') continue;
+      const o = q.objective;
+      if (o.type === 'field') return o.area;
+      if (o.type === 'defeat') return 'screen:gate';
+      if (o.type === 'items') return 'screen:gate';
+    }
+    if (s.purified < 5 && R.customers(s).length) return 'club';
+    const learn = R.learnableSpells(s)[0];
+    if (learn) return D.CLASSES[D.SPELLS[learn].cls].area;
+    return 'screen:gate';
+  }
+  // 현재 구역에서 target 으로 가는 첫 출입구
+  function routeExit(s, target) {
+    const tgt = target || targetArea(s);
+    const from = s.field.area;
+    if (tgt === from) return null;
+    const prev = new Map([[from, null]]);
+    const q = [from];
+    while (q.length) {
+      const id = q.shift();
+      const a = area(s, id);
+      for (const e of a.exits) {
+        const to = e.to || 'screen:' + e.screen;
+        if (prev.has(to)) continue;
+        prev.set(to, { id, e });
+        if (to === tgt) {
+          let c = to;
+          while (prev.get(c) && prev.get(c).id !== from) c = prev.get(c).id;
+          return prev.get(c).e;
+        }
+        if (e.to) q.push(e.to);
+      }
+    }
+    return null;
+  }
+
+  W.world = {
+    AREAS, AREA_IDS, PLATES, PLATE_ORDER, LIB_PLATES, CART_START, SEARCH,
+    area, cur, tileAt, objects, objectAt, exitAt, isOpen, walkable, revealed, reveal, enterArea, step,
+    carts, cartAt, resetCarts, platesCovered, plateStep, findPath, pathToObject,
+    search, useLocker, useLectern, openLibChest, useWell, openMazeChest, useShed, defeatMonster, mazeState, genMaze,
+    fieldQuest, targetArea, routeExit,
   };
 })();
 
@@ -2111,6 +2819,49 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     if (n.glasses) { fp(ctx, circ(41, 56, 8), null, 2.4, '#3b2a55'); fp(ctx, circ(59, 56, 8), null, 2.4, '#3b2a55'); line(ctx, [49, 56, 51, 56], '#3b2a55', 2.4); }
     blush(ctx, 34, 64, 4); blush(ctx, 66, 64, 4);
     if (worried) curve(ctx, 'M45 67 Q50 64 55 67', C.ink, 2.8); else smile(ctx, 50, 66, 3.4);
+    if (n.hat) {
+      fp(ctx, P('M18 36 Q34 28 44 4 Q48 -4 60 2 Q66 6 64 10 Q58 8 56 14 Q64 26 82 36 Z'), '#2c2350', 3.4);
+      fp(ctx, ell(50, 36, 38, 7), '#2c2350', 3.4);
+      fp(ctx, P('M24 32 Q50 24 76 32 L78 35 Q50 28 22 35 Z'), C.gold2, 0);
+    }
+  }
+  // 플람 교수 (부엉이)
+  function drawOwl(ctx, o) {
+    const t = o.t || 0;
+    const b = Math.sin(t * 2) * 1;
+    ctx.save(); ctx.translate(0, b);
+    fp(ctx, P('M22 96 Q16 60 30 40 Q50 26 70 40 Q84 60 78 96 Z'), '#8a6a4f');
+    fp(ctx, P('M34 96 Q30 66 50 58 Q70 66 66 96 Z'), '#e9d6b4');
+    for (const y of [68, 78, 88]) for (const x of [42, 50, 58]) curve(ctx, `M${x - 3} ${y} Q${x} ${y + 3} ${x + 3} ${y}`, '#b99a74', 2);
+    fp(ctx, P('M22 60 Q10 72 18 90 Q26 80 30 66 Z'), '#6f5440');
+    fp(ctx, P('M78 60 Q90 72 82 90 Q74 80 70 66 Z'), '#6f5440');
+    fp(ctx, P('M28 34 L22 14 L40 26 Z'), '#6f5440'); fp(ctx, P('M72 34 L78 14 L60 26 Z'), '#6f5440');
+    fp(ctx, ell(50, 40, 26, 20), '#8a6a4f');
+    fp(ctx, circ(39, 40, 10), C.cream, 2.6); fp(ctx, circ(61, 40, 10), C.cream, 2.6);
+    eyes(ctx, 39, 61, 40, 5, { blink: blinkAt(t, 1.3), iris: '#e0a020' });
+    fp(ctx, circ(39, 40, 12), null, 2.4, C.gold2); fp(ctx, circ(61, 40, 12), null, 2.4, C.gold2); line(ctx, [49, 38, 51, 38], C.gold2, 2.4);
+    fp(ctx, P('M46 48 L54 48 L50 56 Z'), C.amber, 2.4);
+    fp(ctx, P('M30 22 Q50 10 70 22 L66 26 Q50 18 34 26 Z'), '#2c2350', 3);
+    fp(ctx, rr(36, 4, 28, 18, 2), '#2c2350', 3);
+    line(ctx, [64, 6, 74, 0], C.gold, 2.4); fp(ctx, circ(75, 0, 2.6), C.gold, 0);
+    ctx.restore();
+  }
+  // 송이 아저씨 (버섯 정원사)
+  function drawGardener(ctx, o) {
+    const t = o.t || 0;
+    const b = Math.sin(t * 2.4) * 1.2;
+    ctx.save(); ctx.translate(0, b);
+    fp(ctx, P('M30 98 Q30 70 50 66 Q70 70 70 98 Z'), '#6f9a5a');
+    fp(ctx, rr(38, 74, 24, 18, 4), '#4f7a40', 2.4);
+    fp(ctx, P('M34 66 Q32 46 50 44 Q68 46 66 66 Z'), C.cream);
+    eyes(ctx, 43, 57, 56, 3.6, { blink: blinkAt(t, 0.9) });
+    smile(ctx, 50, 62, 3);
+    blush(ctx, 38, 60, 3.4); blush(ctx, 62, 60, 3.4);
+    fp(ctx, P('M12 46 Q14 14 50 10 Q86 14 88 46 Q70 40 50 40 Q30 40 12 46 Z'), '#c0473a');
+    for (const [x, y, r2] of [[30, 26, 6], [52, 18, 5], [70, 30, 6], [44, 34, 3.5]]) fp(ctx, circ(x, y, r2), C.cream, 0);
+    line(ctx, [72, 98, 84, 60], C.brown, 4);
+    fp(ctx, P('M78 60 L92 58 L90 50 L80 54 Z'), '#a39bb5', 2.4);
+    ctx.restore();
   }
   function drawBatGranny(ctx, o) {
     const t = o.t || 0;
@@ -2621,6 +3372,57 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     ctx.restore();
   }
 
+  // ───────── 필드 소품 (100×100 상자) ─────────
+  const PROP = {
+    well: (c, t, o) => {
+      fp(c, ell(50, 72, 34, 14), '#7d7590'); fp(c, rr(16, 50, 68, 24, 6), '#8d84a0');
+      for (const x of [28, 44, 60]) line(c, [x, 52, x + 4, 72], '#6f6784', 2);
+      fp(c, ell(50, 50, 34, 12), o && o.open ? '#152040' : '#5f3b27');
+      if (o && o.open) { c.globalAlpha = 0.5 + Math.sin(t * 3) * 0.3; fp(c, ell(50, 50, 18, 6), C.gold, 0); c.globalAlpha = 1; }
+      else { line(c, [22, 48, 78, 52], C.brown2, 3); line(c, [24, 54, 76, 46], C.brown2, 3); }
+      line(c, [18, 50, 18, 16], C.brown, 5); line(c, [82, 50, 82, 16], C.brown, 5);
+      fp(c, P('M10 20 L50 4 L90 20 Z'), '#7b4a8e');
+    },
+    cauldron: (c, t) => {
+      fp(c, ell(50, 88, 30, 6), '#000', 0);
+      line(c, [30, 80, 26, 92], C.ink, 5); line(c, [70, 80, 74, 92], C.ink, 5);
+      fp(c, P('M18 46 Q18 86 50 86 Q82 86 82 46 Z'), '#3a3348');
+      fp(c, ell(50, 46, 34, 10), '#2a2438');
+      fp(c, ell(50, 46, 28, 7), '#9b7be0', 0);
+      for (let i = 0; i < 3; i++) { const y = 40 - ((t * 18 + i * 12) % 30); c.globalAlpha = 0.6 - (40 - y) / 60; fp(c, circ(40 + i * 10, y, 4), C.lilac, 0); }
+      c.globalAlpha = 1;
+      for (const x of [30, 50, 70]) flame(c, x, 96, 0.35, C.amber, C.gold, t + x);
+    },
+    bed: (c) => {
+      fp(c, rr(12, 30, 76, 60, 8), '#5f3b27'); fp(c, rr(16, 34, 68, 52, 6), '#e6d4b6');
+      fp(c, rr(16, 52, 68, 34, 6), '#7d5cc6'); for (const x of [30, 50, 70]) star(c, x, 68, 5, C.gold);
+      fp(c, rr(26, 38, 48, 12, 6), C.white, 2.4);
+    },
+    piano: (c) => {
+      fp(c, rr(8, 18, 84, 66, 4), '#2b2236'); fp(c, rr(12, 54, 76, 14, 2), C.white, 2);
+      for (let i = 0; i < 7; i++) if (i !== 2 && i !== 6) fp(c, rr(20 + i * 10, 54, 5, 8, 1), C.ink, 0);
+      line(c, [14, 84, 14, 96], C.ink, 5); line(c, [86, 84, 86, 96], C.ink, 5);
+      fp(c, rr(30, 24, 40, 20, 2), C.cream, 2); for (const y of [30, 36]) line(c, [34, y, 66, y], C.grey2, 1.4);
+    },
+    bench: (c) => { fp(c, rr(14, 40, 72, 18, 4), '#2b2236'); line(c, [22, 58, 22, 88], C.ink, 6); line(c, [78, 58, 78, 88], C.ink, 6); fp(c, rr(16, 38, 68, 6, 3), '#7d5cc6', 0); },
+    locker: (c, t, o) => {
+      fp(c, rr(18, 6, 64, 90, 3), o && o.mine ? '#5a8ee0' : '#6f6784');
+      for (const y of [20, 26, 32]) line(c, [30, y, 70, y], C.ink, 2);
+      fp(c, rr(62, 52, 8, 14, 2), C.gold, 2);
+      if (o && o.mine) fp(c, rr(34, 70, 32, 12, 2), C.cream, 2);
+    },
+    stand: (c) => { line(c, [50, 50, 50, 92], C.ink, 4); line(c, [36, 94, 64, 94], C.ink, 4); fp(c, P('M20 16 L80 16 L74 54 L26 54 Z'), '#4a4359'); fp(c, rr(30, 18, 40, 30, 1), C.cream, 2); for (const y of [26, 32, 38]) line(c, [34, y, 66, y], C.grey2, 1.4); },
+    drum: (c) => { fp(c, ell(50, 74, 34, 12), '#b93a52'); fp(c, rr(16, 40, 68, 34, 2), '#e5566e', 0); fp(c, ell(50, 40, 34, 12), C.cream); for (const x of [24, 40, 60, 76]) line(c, [x, 46, x + 4, 78], C.gold, 2.4); line(c, [70, 14, 54, 36], C.brown, 4); fp(c, circ(72, 12, 5), C.cream); },
+    curtain: (c, t) => { const w2 = Math.sin(t * 1.5) * 3; fp(c, rr(6, 4, 88, 8, 3), C.gold2); fp(c, P(`M10 10 Q20 50 ${12 + w2} 96 L50 96 Q42 50 48 10 Z`), '#8e2f45'); fp(c, P(`M52 10 Q58 50 50 96 L${88 + w2} 96 Q80 50 90 10 Z`), '#8e2f45'); },
+    trash: (c) => { fp(c, P('M26 30 L74 30 L68 92 L32 92 Z'), '#6f6784'); fp(c, rr(22, 24, 56, 8, 3), '#8d84a0'); for (const x of [40, 50, 60]) line(c, [x, 38, x, 84], '#4a4359', 2); fp(c, P('M38 24 Q44 10 56 16 Q62 22 54 24 Z'), C.cream, 2); },
+    lectern: (c, t, o) => { fp(c, P('M18 30 L82 30 L74 50 L26 50 Z'), C.brown); line(c, [50, 50, 50, 90], C.brown2, 8); fp(c, rr(30, 88, 40, 8, 3), C.brown2); if (o && o.book) { fp(c, P('M24 28 L50 34 L76 28 L76 18 L50 24 L24 18 Z'), '#5b3a8c', 2.4); } },
+    chest: (c) => drawChestTile(c, 0, 0, 100, 'closed'),
+    chestOpen: (c) => drawChestTile(c, 0, 0, 100, 'open'),
+    book: (c) => { fp(c, rr(30, 70, 40, 24, 2), C.brown); fp(c, P('M14 30 L50 38 L86 30 L86 70 L50 78 L14 70 Z'), C.cream); line(c, [50, 38, 50, 78], C.cream2, 3); for (const y of [46, 54, 62]) { line(c, [22, y - 4, 44, y], C.grey2, 1.6); line(c, [56, y, 78, y - 4], C.grey2, 1.6); } star(c, 66, 46, 5, C.gold); },
+    shed: (c, t) => { fp(c, rr(14, 40, 72, 54, 3), '#6b4a34'); fp(c, P('M6 44 L50 10 L94 44 Z'), '#3e5a34'); fp(c, rr(40, 62, 20, 32, 2), '#3a261a'); fp(c, rr(22, 52, 14, 12, 2), C.gold, 2); c.globalAlpha = 0.3 + Math.sin(t * 2) * 0.15; fp(c, circ(29, 58, 14), C.gold, 0); c.globalAlpha = 1; },
+    cart: (c) => { fp(c, rr(14, 30, 72, 44, 5), '#8a5a3c'); for (let i = 0; i < 5; i++) fp(c, rr(20 + i * 12, 14 + (i % 2) * 6, 10, 20 - (i % 2) * 6, 2), ['#e5566e', '#5a8ee0', '#ffcf5a', '#90e4c0', '#bfa2ee'][i], 2.4); fp(c, circ(28, 80, 9), C.ink, 0); fp(c, circ(72, 80, 9), C.ink, 0); fp(c, circ(28, 80, 4), C.grey, 0); fp(c, circ(72, 80, 4), C.grey, 0); },
+  };
+
   // 스프라이트 그리기 진입점
   function draw(ctx, name, x, y, size, opts) {
     const o = opts || {};
@@ -2640,6 +3442,9 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     else if (name === 'portraits') drawPortraits(ctx, o);
     else if (name === 'letter') drawLetter(ctx, o);
     else if (name === 'scroll') drawScroll(ctx, o);
+    else if (name === 'owl') drawOwl(ctx, o);
+    else if (name === 'gardener') drawGardener(ctx, o);
+    else if (PROP[name]) PROP[name](ctx, o.t || 0, o);
     ctx.restore();
   }
   function portraitOf(npcId) {
@@ -2653,6 +3458,8 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       case 'mummy': return { name: 'mummy' };
       case 'cat2': return { name: 'cat2' };
       case 'portraits': return { name: 'portraits' };
+      case 'owl': return { name: 'owl' };
+      case 'gardener': return { name: 'gardener' };
       case 'enemy': return { name: n.enemy };
       default: return { name: 'student', npc: n };
     }
@@ -2733,7 +3540,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     ctx.beginPath(); ctx.moveTo(dx + 4, dy + dw * 0.3); ctx.lineTo(dx + dw - 4, dy + dh * 0.7); ctx.moveTo(dx + dw - 4, dy + dw * 0.3); ctx.lineTo(dx + 4, dy + dh * 0.7); ctx.stroke();
   }
 
-  W.art = { C, draw, drawFloor, drawWall, drawStairsDown, drawStairsUp, drawDoor, drawChestTile, drawSpriteTile, ICON, MON, iconURL, portraitOf, drawSchool, drawGate, star, flame, hash };
+  W.art = { C, PROP, draw, drawFloor, drawWall, drawStairsDown, drawStairsUp, drawDoor, drawChestTile, drawSpriteTile, ICON, MON, iconURL, portraitOf, drawSchool, drawGate, star, flame, hash };
 })();
 
 /* ── audio.js ── */
@@ -3008,7 +3815,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
         ${sv ? `<button class="btn primary wide" data-act="continue">이어하기 <span class="tiny" style="opacity:.75">· ${sv.day}일째 · Lv${sv.player.lv} · 실적 ${sv.purified}/5</span></button>` : ''}
         <button class="btn ${sv ? '' : 'primary'} wide" data-act="newGame">처음부터 시작</button>
       </div>
-      <div class="ver">프로토타입 v0.1 · 기획 검증용 빌드</div>
+      <div class="ver">프로토타입 v0.2 · 기획 검증용 빌드</div>
     </div>`;
   };
   AFTER.title = () => {
@@ -3043,28 +3850,6 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     });
   };
 
-  // 학교(허브)
-  SCREENS.hub = () => {
-    const s = G.state;
-    const cust = R.customers(s).length;
-    const readyN = D.QUESTS.filter((q) => R.canPurifyQuest(s, q.id)).length;
-    const cursedN = s.antiques.filter((a) => a.state === 'cursed').length;
-    const st = R.stats(s);
-    const hurt = s.player.hp < st.maxHp * 0.6 || s.player.status.poison;
-    return `<div class="scr hub">
-      ${statusBar()}
-      <div class="hub-head"><h1>마녀학교</h1><span>${s.day}일째 · 정화 실적 <b style="color:var(--gold)">${s.purified}/5</b></span></div>
-      <div class="objective">${img('medal', 'ico sm', 40)}<span>${esc(R.objectiveText(s))}</span></div>
-      <div class="hub-art"><canvas id="school-cv"></canvas></div>
-      <div class="places">
-        <button class="place" data-act="go" data-arg="club">${readyN ? '<span class="ping">정화 가능</span>' : cust ? `<span class="ping">손님 ${cust}</span>` : cursedN ? `<span class="ping curse">미정화 ${cursedN}</span>` : ''}${sprite('cat', {}, '', true)}<b>저주골동품부 부실</b><small>매입 · 정화 · 장착</small></button>
-        <button class="place" data-act="go" data-arg="shop">${sprite('batgranny', {}, '', true)}<b>박쥐네 매점</b><small>물약 · 도구 · 재료</small></button>
-        <button class="place" data-act="go" data-arg="infirmary">${hurt ? '<span class="ping">치료 필요</span>' : ''}${sprite('mummy', {}, '', true)}<b>양호실</b><small>${s.flags.infirmaryFree ? '첫 치료 무료' : `치료비 ${D.TUNING.infirmaryCost}은화`}</small></button>
-        <button class="place" data-act="go" data-arg="gate">${sprite('cursed', {}, '', true)}<b>봉인 창고</b><small>B1${s.floorsReached > 1 ? `~B${s.floorsReached}` : ''} 이동 가능</small></button>
-      </div>
-      ${tabbar()}
-    </div>`;
-  };
   function tabbar() {
     return `<nav class="tabbar">
       <button data-act="openBag">${img('bag', '', 48)}가방</button>
@@ -3074,14 +3859,6 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       <button data-act="openSettings">${img('gear', '', 48)}설정</button>
     </nav>`;
   }
-  AFTER.hub = () => {
-    const cv = $('#school-cv');
-    const k = dpr();
-    cv.width = cv.clientWidth * k; cv.height = cv.clientHeight * k;
-    const ctx = cv.getContext('2d');
-    addAnim('screen', (t) => A.drawSchool(ctx, cv.width, cv.height, t));
-  };
-
   // 부실
   SCREENS.club = () => {
     const s = G.state;
@@ -3092,7 +3869,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     const tip = D.LINES.mukmulTips[G.ui.tip % D.LINES.mukmulTips.length];
     return `<div class="scr club">
       ${statusBar()}
-      <div class="bar-head"><button class="icon-btn" data-act="go" data-arg="hub" aria-label="학교로">←</button><h2>저주골동품부 부실</h2></div>
+      <div class="bar-head"><button class="icon-btn" data-act="backField" aria-label="학교 지도로">←</button><h2>저주골동품부 부실</h2></div>
       <div class="content">
         <div class="cat-corner" data-act="catTip">${sprite('cat', {}, '', true)}<div class="bubble">${esc(tip)}</div></div>
         <section><h3 class="sec">찾아온 손님 <small>매입하면 의뢰가 시작돼요</small></h3>
@@ -3150,7 +3927,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     }
     return `<div class="scr shop">
       ${statusBar()}
-      <div class="bar-head"><button class="icon-btn" data-act="go" data-arg="hub" aria-label="학교로">←</button><h2>박쥐네 매점</h2></div>
+      <div class="bar-head"><button class="icon-btn" data-act="backField" aria-label="학교 지도로">←</button><h2>박쥐네 매점</h2></div>
       <div class="shopkeeper">${sprite('batgranny', {}, '', true)}<div class="bubble">${esc(line)}</div></div>
       <div class="tabs">${D.SHOP_TABS.map((t) => `<button class="${t.id === tab ? 'on' : ''}" data-act="shopTab" data-arg="${t.id}">${t.name}</button>`).join('')}</div>
       <div class="content"><div class="shelf">${grid}</div></div>
@@ -3166,7 +3943,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     const line = G.ui.momoLine || D.LINES.momo[0];
     return `<div class="scr infirmary">
       ${statusBar()}
-      <div class="bar-head"><button class="icon-btn" data-act="go" data-arg="hub" aria-label="학교로">←</button><h2>양호실</h2></div>
+      <div class="bar-head"><button class="icon-btn" data-act="backField" aria-label="학교 지도로">←</button><h2>양호실</h2></div>
       <div class="content">
         <div class="cat-corner">${sprite('mummy', {}, '', true).replace('<canvas', '<canvas style="width:96px;height:96px"')}<div class="bubble">${esc(line)}</div></div>
         <div class="card"><div class="stats-grid">
@@ -3194,7 +3971,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     }
     return `<div class="scr gate">
       ${statusBar()}
-      <div class="bar-head"><button class="icon-btn" data-act="go" data-arg="hub" aria-label="학교로">←</button><h2>봉인 창고 입구</h2></div>
+      <div class="bar-head"><button class="icon-btn" data-act="backField" aria-label="학교 지도로">←</button><h2>봉인 창고 입구</h2></div>
       <div class="content">
         <div class="hub-art" style="margin:0;height:120px"><canvas id="gate-cv"></canvas></div>
         <p class="small muted" style="margin:0">공간이동 항아리가 한 번이라도 가본 층으로 보내준다. 들어가면 하루가 흐르고, 학교로 돌아오면 상자와 몬스터가 다시 채워진다.</p>
@@ -3660,9 +4437,10 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
   async function goHome(msg) {
     const s = G.state;
     R.returnHome(s);
+    W.world.enterArea(s, 'garden', 5, 15);
     save();
     G.ui.log = []; G.ui.pos = null;
-    go('hub');
+    go('field');
     const n = R.customers(s).length;
     toast(msg || '학교로 돌아왔다.', 'gold');
     setTimeout(() => toast(`${s.day}일째 아침.${n ? ` 부실에 손님 ${n}명이 기다린다.` : ''}`), 400);
@@ -3671,6 +4449,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
   async function defeat() {
     await say([{ who: null, text: '눈앞이 캄캄해졌다…' }, { who: 'mukmul', text: '냐아… (먹물이 루미의 망토를 물고 양호실까지 끌고 왔다)' }]);
     const r = R.applyDefeat(G.state);
+    W.world.enterArea(G.state, 'hall', 9, 2); // 양호실 문 앞
     save();
     G.ui.log = []; G.ui.pos = null;
     go('infirmary');
@@ -3949,7 +4728,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     await ask({ title: `${b.name} 정화 완료!`, art: '', body: `<div class="loot">${rows.join('')}</div><div class="bar exp"><i style="width:${Math.round((s.player.exp / toNext) * 100)}%"></i><span>다음 레벨까지 ${toNext - s.player.exp}</span></div>`, choices: [{ label: '계속', value: 1, cls: 'primary' }] });
     for (const up of r.levelUps) {
       S.play('levelup');
-      const learned = up.learned.map((id) => `<div class="card"><b style="color:var(--curse)">새 마법: ${D.SPELLS[id].name}</b><div class="small muted">${esc(D.SPELLS[id].desc)}</div></div>`).join('');
+      const learned = up.classReady.map((id) => `<div class="card"><b style="color:var(--curse)">수강 가능: ${D.SPELLS[id].name}</b><div class="small muted">본관 「${D.CLASSES[D.SPELLS[id].cls].name}」에서 수업을 통과하면 배울 수 있다. 수강료 ${D.SPELLS[id].tuition}은화</div></div>`).join('');
       await ask({ title: `레벨 업! Lv${up.lv}`, art: sprite('rumi', { shadow: false }, '', true), body: `<div class="stats-grid"><div><span>최대 체력</span><b>+${D.PLAYER.perLevel.maxHp}</b></div><div><span>최대 마력</span><b>+${D.PLAYER.perLevel.maxMp}</b></div><div><span>공격</span><b>+${D.PLAYER.perLevel.atk}</b></div><div><span>방어</span><b>+${D.PLAYER.perLevel.def}</b></div></div>${learned}`, choices: [{ label: '좋아!', value: 1, cls: 'primary' }] });
     }
     R.checkBadges(s).forEach(badgeToast);
@@ -4032,12 +4811,12 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     if (arg === 'shop') G.ui.kikiLine = D.LINES.kiki[Math.floor(Math.random() * D.LINES.kiki.length)];
     if (arg === 'infirmary') G.ui.momoLine = D.LINES.momo[Math.floor(Math.random() * D.LINES.momo.length)];
     go(arg);
-    if (arg === 'hub') maybeEnding();
     if (arg === 'club' && !G.state.flags.clubTip) {
       G.state.flags.clubTip = true;
       say([{ who: 'mukmul', text: '냐. (손님 카드를 누르면 사연을 들을 수 있다)' }, { who: 'rumi', text: '매입하면 의뢰가 시작되는구나. 해결하고 돌아와서 정화하면 실적 1건!' }]);
     }
   };
+  ACT.backField = () => { S.play('tap'); go('field'); maybeEnding(); };
   ACT.newGame = async () => {
     if (G.ui.hasSave) {
       const c = await ask({ title: '처음부터 시작할까요?', body: '<p>저장된 진행이 지워집니다.</p>', choices: [{ label: '처음부터', value: 'yes', cls: 'curse' }, { label: '취소', value: null }] });
@@ -4047,8 +4826,9 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     G.state = R.newGame();
     S.setEnabled(G.state.settings.sound);
     save();
-    go('hub');
+    go('field');
     await say(D.LINES.intro);
+    await say(D.LINES.fieldIntro);
     G.state.flags.introSeen = true;
     save();
   };
@@ -4057,7 +4837,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     if (!sv) { toast('저장된 진행이 없어요.', 'bad'); return; }
     G.state = sv;
     S.setEnabled(sv.settings.sound);
-    if (sv.exp) { G.ui.pos = null; snapPosSafe(); go('dungeon'); floorBanner(); } else go('hub');
+    if (sv.exp) { G.ui.pos = null; snapPosSafe(); go('dungeon'); floorBanner(); } else go('field');
   };
   function snapPosSafe() { if (G.state.exp) snapPos(); }
   ACT.catTip = () => { G.ui.tip += 1; S.play('meow'); render(); };
@@ -4221,7 +5001,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     const st = R.stats(s);
     if (s.player.hp < st.maxHp * 0.5) {
       const c = await ask({ title: '이대로 들어갈까요?', body: `<p>체력이 ${s.player.hp}/${st.maxHp}밖에 없어요. 양호실에서 치료하고 가는 걸 추천해요.</p>`, choices: [{ label: '그래도 들어간다', value: 'go', cls: 'curse' }, { label: '양호실로', value: 'heal' }] });
-      if (c === 'heal') { go('infirmary'); return; }
+      if (c === 'heal') { W.world.enterArea(s, 'hall', 9, 2); go('infirmary'); return; }
       if (c !== 'go') return;
     }
     R.startExpedition(s, fl);
@@ -4342,7 +5122,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
         ${extra.length ? `<div class="small muted">${extra.join(' · ')}</div>` : ''}
         <h3 class="sec" style="margin-top:6px">장신구 (정화한 골동품)</h3>${slots}
         <h3 class="sec" style="margin-top:6px">마법</h3>
-        ${D.SPELL_ORDER.map((id) => { const sp = D.SPELLS[id]; const k = sp.learn <= s.player.lv; return `<div class="card small" style="${k ? '' : 'opacity:.45'}"><b>${sp.name}</b> <span class="dim">마력 ${sp.mp}${k ? '' : ` · Lv${sp.learn}에 배움`}</span><div class="tiny muted">${esc(sp.desc)}</div></div>`; }).join('')}
+        ${D.SPELL_ORDER.map((id) => { const sp = D.SPELLS[id]; const k = s.spells.includes(id); return `<div class="card small" style="${k ? '' : 'opacity:.5'}"><b>${sp.name}</b> <span class="dim">마력 ${sp.mp}${k ? '' : ` · ${D.CLASSES[sp.cls].name} Lv${sp.learn}~ · 수강료 ${sp.tuition}`}</span><div class="tiny muted">${esc(sp.desc)}</div></div>`; }).join('')}
         <p class="tiny dim">그림자: ${s.flags.bossDefeated ? '발끝까지 돌아왔다' : '없다… (봉인 창고 아래에서 냄새가 난다)'}</p>`,
     });
   }
@@ -4388,7 +5168,7 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
       body: `<button class="btn wide" data-act="toggleSound">효과음 ${s.settings.sound ? '켜짐' : '꺼짐'}</button>
         <button class="btn wide" data-act="help">플레이 방법</button>
         <button class="btn wide ghost" data-act="resetAsk">처음부터 다시 하기</button>
-        <p class="tiny dim">프로토타입 v0.1 · 진행은 이 브라우저에만 저장돼요. 레퍼런스: 마녀의 집(분위기), 동물농장(상점·훈장·북쪽탑 탐험), 마법학교 아르피아(미로·방 찾기), 크라라 공주와 이상한 방(촛불 퍼즐).</p>`,
+        <p class="tiny dim">프로토타입 v0.2 · 진행은 이 브라우저에만 저장돼요. 레퍼런스: 마녀의 집(분위기), 동물농장(상점·훈장·북쪽탑 탐험), 마법학교 아르피아(미로·방 찾기), 크라라 공주와 이상한 방(촛불 퍼즐).</p>`,
     });
   };
   ACT.toggleSound = () => { const s = G.state; s.settings.sound = !s.settings.sound; S.setEnabled(s.settings.sound); save(); ACT.openSettings(); };
@@ -4396,8 +5176,10 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     openSheet({
       title: '플레이 방법',
       body: `<ol class="small" style="margin:0;padding-left:20px;display:grid;gap:8px">
-        <li>부실에서 손님의 저주 물건을 <b>매입</b>하면 의뢰가 시작돼요.</li>
-        <li>봉인 창고에서 바닥을 <b>탭</b>하면 그곳까지 걸어가요. 십자 버튼으로 한 칸씩도 움직여요.</li>
+        <li>학교 지도에서 바닥을 <b>탭</b>하면 그곳까지 걸어가요. 사람·물건을 탭하면 다가가서 말을 걸어요. <b>금색 화살표</b>가 지금 갈 곳이에요.</li>
+        <li>마법은 레벨업으로 생기지 않아요. 본관 <b>기본마법반·고급마법반</b>에서 룬 순서를 외워 그리면 배워요.</li>
+        <li>부실에서 손님의 저주 물건을 <b>매입</b>하면 의뢰가 시작돼요. 음악실·도서관·밤의 미로·봉인 창고에서 해결해요.</li>
+        <li>봉인 창고와 밤의 미로에는 몬스터가 있어요. 십자 버튼으로 한 칸씩도 움직여요(도서관 책수레 밀기).</li>
         <li>몬스터 칸에 들어가면 <b>턴제 전투</b>. 공격·마법·물약·도망 중에 골라요.</li>
         <li><b>약점 속성</b> 마법은 더 아파요. 기를 모으는 적은 <b>얼음 가시</b>로 끊어요.</li>
         <li>의뢰를 마치면 부실에서 <b>정화</b>. 정화한 골동품은 팔거나 장착해요.</li>
@@ -4433,12 +5215,745 @@ h3.sec small { font-weight: 400; color: var(--dim); letter-spacing: 0; }
     window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (G.state || G.ui.screen === 'title') render(); }, 150); });
     if (restore) {
       const st = R.deserialize(restore);
-      if (st) { G.state = st; S.setEnabled(st.settings.sound); if (st.exp) { snapPos(); go('dungeon'); } else go('hub'); return; }
+      if (st) { G.state = st; S.setEnabled(st.settings.sound); if (st.exp) { snapPos(); go('dungeon'); } else go('field'); return; }
     }
     go('title');
   }
 
-  W.ui = { boot, render, go, G, ACT, toast, save, tapTile, walk, runBattle, debug: { handleEvent, say, ask, showRewards, snapPos, maybeEnding } };
+  W.ui = {
+    boot, render, go, G, ACT, toast, save, tapTile, walk, runBattle,
+    debug: { handleEvent, say, ask, showRewards, snapPos, maybeEnding },
+    // field.js 가 쓰는 내부 도구
+    lib: { SCREENS, AFTER, $, $$, esc, img, sprite, portrait, sleep, dpr, openSheet, closeSheet, ask, say, toast, statusBar, tabbar,
+      addAnim, clearAnims, paintCanvases, save, render, go, runBattle, defeat, badgeToast, lootSheet, refreshStatus, maybeEnding, gradeTag },
+  };
+})();
+
+/* ── field.js ── */
+/* 저주 매입합니다 — 학교 필드 화면(아르피아식 탐험 지도), 마법 수업 미니게임, 필드 퍼즐 연출 */
+(function () {
+  'use strict';
+  const W = globalThis.W;
+  const D = W.DATA, R = W.rules, A = W.art, S = W.audio, F = W.world;
+  const U = W.ui, L = U.lib, G = U.G, ACT = U.ACT;
+  const { SCREENS, AFTER, $, esc, img, sprite, portrait, sleep, dpr, openSheet, closeSheet, ask, say, toast, statusBar, tabbar,
+    addAnim, save, render, go, runBattle, defeat, badgeToast, lootSheet, refreshStatus, maybeEnding } = L;
+  const STEP_MS = 110;
+
+  // 구역 분위기(색)
+  const THEME = {
+    garden: { floor: '#3e5a3b', floor2: '#43603f', path: '#8c806b', path2: '#837760', outdoor: true },
+    maze: { floor: '#4a4334', floor2: '#4e4738', path: '#4a4334', path2: '#4e4738', outdoor: true, night: true },
+    hall: { floor: '#4d3f5c', floor2: '#524462', path: '#7a3346', path2: '#73304a', wall: '#21182c', wallTop: '#30243f' },
+    club: { floor: '#6a4e3a', floor2: '#70543f', path: '#6a4e3a', path2: '#70543f', wall: '#23182a', wallTop: '#3a2a40' },
+    classroom: { floor: '#6b5a43', floor2: '#715f47', path: '#6b5a43', path2: '#715f47', wall: '#1f2a24', wallTop: '#2f3d35' },
+    classroom2: { floor: '#4a4266', floor2: '#4f466c', path: '#4a4266', path2: '#4f466c', wall: '#1a1530', wallTop: '#2a2246' },
+    music: { floor: '#553c50', floor2: '#5a4155', path: '#553c50', path2: '#5a4155', wall: '#1f1420', wallTop: '#33223a' },
+    library: { floor: '#4f3d33', floor2: '#544137', path: '#4f3d33', path2: '#544137', wall: '#1c1410', wallTop: '#2e221b' },
+  };
+
+  // ───────── 화면 ─────────
+  SCREENS.field = () => {
+    const s = G.state;
+    const a = F.cur(s);
+    const pushRoom = a.push && !s.field.libGate;
+    const extra = a.id === 'maze' ? '<button class="btn small f-extra" data-act="mazeOut">입구로 돌아가기</button>' : '';
+    // 수레 밀기 방에서는 지도를 가리지 않게 지도 아래에 한 줄 조작부를 둔다
+    const ctrl = pushRoom ? `<div class="f-ctrl">
+        <button class="btn small" data-act="cartReset">되돌리기 <em>${F.platesCovered(s)}/2</em></button>
+        <button class="btn small" data-act="fmove" data-arg="-1,0" aria-label="왼쪽">◀</button>
+        <button class="btn small" data-act="fmove" data-arg="0,-1" aria-label="위">▲</button>
+        <button class="btn small" data-act="fmove" data-arg="0,1" aria-label="아래">▼</button>
+        <button class="btn small" data-act="fmove" data-arg="1,0" aria-label="오른쪽">▶</button>
+      </div>` : '';
+    return `<div class="scr field">
+      ${statusBar()}
+      <div class="f-head"><b>${esc(a.name)}</b>${a.night ? '<span class="chip curse">밤</span>' : ''}<span class="f-day">${s.day}일째 · 실적 <b style="color:var(--gold)">${s.purified}/5</b></span></div>
+      <div class="objective">${img('medal', 'ico sm', 40)}<span>${esc(R.objectiveText(s))}</span></div>
+      <div class="f-map"><canvas id="field-cv" aria-label="${esc(a.name)} 지도"></canvas>${extra}
+      </div>
+      ${ctrl}
+      ${tabbar()}
+    </div>`;
+  };
+  function snapField() {
+    const s = G.state;
+    G.ui.fpos = { x: s.field.x, y: s.field.y }; G.ui.ftween = null; G.ui.fcat = { x: s.field.x, y: s.field.y };
+  }
+  AFTER.field = () => {
+    const cv = $('#field-cv');
+    const box = $('.f-map');
+    const k = dpr();
+    const vw = box.clientWidth, vh = box.clientHeight;
+    cv.width = Math.round(vw * k); cv.height = Math.round(vh * k);
+    cv.style.width = vw + 'px'; cv.style.height = vh + 'px';
+    const a = F.cur(G.state);
+    // 너비 11칸까지는 한 화면에 다 보이게 (출입구가 화면 밖으로 밀리지 않도록)
+    G.ui.ftile = Math.max(30, Math.min(56, Math.floor(Math.min(vw / Math.min(a.w, 11), vh / Math.min(a.h, 12)))));
+    G.ui.farea = a.id;
+    snapField();
+    const ctx = cv.getContext('2d');
+    addAnim('screen', (t) => drawField(ctx, k, vw, vh, t));
+    cv.addEventListener('pointerup', onFieldTap);
+  };
+  function refreshField() {
+    if (G.ui.screen !== 'field') return;
+    const o = $('.field .objective span'); if (o) o.textContent = R.objectiveText(G.state);
+    const ex = $('.f-ctrl em'); if (ex) ex.textContent = `${F.platesCovered(G.state)}/2`;
+    refreshStatus();
+  }
+
+  // ───────── 그리기 ─────────
+  function camera(vw, vh, pv) {
+    const a = F.cur(G.state);
+    const ts = G.ui.ftile;
+    const mw = a.w * ts, mh = a.h * ts;
+    const cx = mw <= vw ? (mw - vw) / 2 : Math.max(0, Math.min(mw - vw, (pv.x + 0.5) * ts - vw / 2));
+    const cy = mh <= vh ? (mh - vh) / 2 : Math.max(0, Math.min(mh - vh, (pv.y + 0.5) * ts - vh / 2));
+    return { cx, cy, ts };
+  }
+  function visual(now) {
+    const tw = G.ui.ftween;
+    if (!tw) return G.ui.fpos;
+    const p = Math.min(1, (now - tw.start) / tw.dur);
+    if (p >= 1) { G.ui.ftween = null; return G.ui.fpos; }
+    const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    return { x: tw.fx + (tw.tx - tw.fx) * e, y: tw.fy + (tw.ty - tw.fy) * e };
+  }
+  function drawField(ctx, k, vw, vh, t) {
+    const s = G.state;
+    if (!s || G.ui.screen !== 'field') return;
+    const a = F.cur(s);
+    const th = THEME[a.theme] || THEME.hall;
+    const now = performance.now();
+    const pv = visual(now);
+    const { cx, cy, ts } = camera(vw, vh, pv);
+    G.ui.fcam = { cx, cy, ts };
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.fillStyle = th.outdoor ? (th.night ? '#0b0f0c' : '#1d2a1c') : th.wall || '#0c0812';
+    ctx.fillRect(0, 0, vw, vh);
+    ctx.save();
+    ctx.translate(-Math.round(cx), -Math.round(cy));
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const x0 = Math.max(0, Math.floor(cx / ts)), y0 = Math.max(0, Math.floor(cy / ts));
+    const x1 = Math.min(a.w - 1, Math.ceil((cx + vw) / ts)), y1 = Math.min(a.h - 1, Math.ceil((cy + vh) / ts));
+    // 바닥·벽
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) drawTile(ctx, a, th, x, y, ts, t);
+    // 물체(위쪽부터 그려 겹침을 자연스럽게)
+    const objs = F.objects(s).filter((o) => F.revealed(s, o.x, o.y));
+    const carts = a.id === 'library' ? F.carts(s) : [];
+    const route = F.routeExit(s);
+    const items = [];
+    for (const o of objs) items.push({ y: o.y, draw: () => drawObject(ctx, o, ts, t) });
+    for (const [x, y] of carts) items.push({ y, draw: () => A.draw(ctx, 'cart', x * ts + ts * 0.06, y * ts + ts * 0.02, ts * 0.88, { t }) });
+    const cat = G.ui.fcat || pv;
+    items.push({ y: cat.y - 0.01, draw: () => A.draw(ctx, 'cat', (cat.x + 0.18) * ts, (cat.y + 0.3) * ts, ts * 0.64, { t: t + 0.4 }) });
+    items.push({ y: pv.y, draw: () => A.draw(ctx, 'rumi', (pv.x - 0.12) * ts, (pv.y - 0.42) * ts, ts * 1.24, { t, shadow: s.flags.bossDefeated }) });
+    // 출입구 이름표 + 목표 화살표 (인물보다 먼저 그려서 인물을 가리지 않게)
+    for (const e of a.exits) drawExitLabel(ctx, a, e, ts, t, route && route.x === e.x && route.y === e.y);
+    items.sort((p, q) => p.y - q.y).forEach((it) => it.draw());
+    // 표시(!) — 지금 할 일이 있는 물체
+    for (const o of objs) if (attention(s, o)) bubble(ctx, (o.x + 0.5) * ts, (o.y - 0.55) * ts + Math.sin(t * 4) * 2, ts);
+    // 경로 미리보기
+    if (G.ui.fpath && G.ui.fpath.length) {
+      ctx.fillStyle = 'rgba(255,207,90,0.6)';
+      for (const [px, py] of G.ui.fpath) { ctx.beginPath(); ctx.arc((px + 0.5) * ts, (py + 0.5) * ts, ts * 0.07, 0, Math.PI * 2); ctx.fill(); }
+    }
+    // 안개·밤
+    if (a.fog) {
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        if (F.revealed(s, x, y)) continue;
+        ctx.fillStyle = A.hash(x, y, 77) < 0.5 ? '#060807' : '#080a09';
+        ctx.fillRect(x * ts, y * ts, ts + 0.5, ts + 0.5);
+      }
+    }
+    if (th.night) {
+      const px = (pv.x + 0.5) * ts, py = (pv.y + 0.5) * ts;
+      const g = ctx.createRadialGradient(px, py, ts * 0.8, px, py, ts * (3.2 + R.stats(s).sight));
+      g.addColorStop(0, 'rgba(255,200,120,0.08)'); g.addColorStop(1, 'rgba(4,6,10,0.62)');
+      ctx.fillStyle = g; ctx.fillRect(x0 * ts, y0 * ts, (x1 - x0 + 1) * ts, (y1 - y0 + 1) * ts);
+    }
+    // 떠오르는 글자
+    G.ui.ffloats = (G.ui.ffloats || []).filter((m) => now - m.start < 1000);
+    for (const m of G.ui.ffloats) {
+      const p = (now - m.start) / 1000;
+      ctx.globalAlpha = 1 - p;
+      ctx.font = `bold ${Math.round(ts * 0.36)}px sans-serif`; ctx.textAlign = 'center';
+      ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.fillStyle = m.color;
+      const y = (m.y - 0.3 - p * 0.8) * ts;
+      ctx.strokeText(m.text, (m.x + 0.5) * ts, y); ctx.fillText(m.text, (m.x + 0.5) * ts, y);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+  function ffloat(x, y, text, color) { (G.ui.ffloats = G.ui.ffloats || []).push({ x, y, text, color: color || '#fff', start: performance.now() }); }
+  function attention(s, o) {
+    if (o.kind === 'customer') return true;
+    if (o.kind === 'npc' && o.cls) return R.classSpells(o.cls).some((id) => R.canLearn(s, id).ok);
+    if (o.id === 'desk') return D.QUESTS.some((q) => R.canPurifyQuest(s, q.id));
+    if (o.id === 'locker') return !!F.fieldQuest(s, 'music', 'locker') && R.count(s, 'locker_key') > 0;
+    if (o.id === 'lectern') return !!F.fieldQuest(s, 'library', 'lectern') && s.field.libGate;
+    if (o.id === 'libchest') return s.field.libGate && !s.field.libChest;
+    if (o.id === 'shed') return !!F.fieldQuest(s, 'maze', 'shed');
+    if (o.id === 'well') return s.field.fountain && !s.field.well;
+    return false;
+  }
+  function bubble(ctx, x, y, ts) {
+    const r = ts * 0.2;
+    ctx.fillStyle = '#ffcf5a'; ctx.strokeStyle = '#2a1508'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2a1508'; ctx.font = `bold ${Math.round(r * 1.5)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('!', x, y + 1); ctx.textBaseline = 'alphabetic';
+  }
+  function drawTile(ctx, a, th, x, y, ts, t) {
+    const ch = F.tileAt(a, x, y);
+    const px = x * ts, py = y * ts;
+    const h = A.hash(x, y, 13);
+    const floor = (c1, c2) => { ctx.fillStyle = h < 0.5 ? c1 : c2; ctx.fillRect(px, py, ts + 0.5, ts + 0.5); };
+    if (ch === '#') {
+      if (th.outdoor) return drawHedge(ctx, px, py, ts, x, y, th.night);
+      const below = F.tileAt(a, x, y + 1);
+      A.drawWall(ctx, x, y, ts, th, y + 1 < a.h && below !== '#' && below !== 'k');
+      if (y === 0 && x % 3 === 1 && th !== THEME.library && below !== '#') drawWindow(ctx, px, py, ts, t);
+      return;
+    }
+    // 바닥
+    if (ch === ',' ) floor(th.path, th.path2); else floor(th.floor, th.floor2);
+    if (th.outdoor && ch !== ',' && h > 0.62) { ctx.fillStyle = 'rgba(160,220,140,0.12)'; ctx.fillRect(px + ts * 0.2, py + ts * 0.3, ts * 0.06, ts * 0.18); ctx.fillRect(px + ts * 0.3, py + ts * 0.26, ts * 0.06, ts * 0.22); }
+    if (!th.outdoor) { ctx.fillStyle = 'rgba(0,0,0,0.14)'; ctx.fillRect(px, py + ts - 1, ts, 1); }
+    switch (ch) {
+      case 'T': drawTree(ctx, px, py, ts, t, x); break;
+      case '~': drawWater(ctx, a, px, py, ts, t, x, y); break;
+      case '*': for (let i = 0; i < 3; i++) { ctx.fillStyle = ['#f394ad', '#ffcf5a', '#bfa2ee'][(i + x) % 3]; ctx.beginPath(); ctx.arc(px + ts * (0.25 + i * 0.25), py + ts * (0.4 + (i % 2) * 0.25), ts * 0.07, 0, Math.PI * 2); ctx.fill(); } break;
+      case '=': drawShelf(ctx, px, py, ts, x + y); break;
+      case 'd': drawDesk(ctx, px, py, ts); break;
+      case 'k': drawBoard(ctx, px, py, ts, x); break;
+      case 'G': if (!G.state.field.libGate) drawGate(ctx, px, py, ts); break;
+      case 'o': drawLibPlate(ctx, px, py, ts, t, F.cartAt(G.state, x, y)); break;
+      case 'E': drawExit(ctx, a, px, py, ts, x, y, th); break;
+      default:
+        if (/[1-4]/.test(ch)) drawRunePlate(ctx, px, py, ts, t, Number(ch));
+    }
+  }
+  function drawHedge(ctx, px, py, ts, x, y, night) {
+    ctx.fillStyle = night ? '#0f1a12' : '#1e3320'; ctx.fillRect(px, py, ts + 0.5, ts + 0.5);
+    const cols = night ? ['#1d3324', '#22402b', '#183020'] : ['#2f5a33', '#376a3b', '#2a502d'];
+    for (let i = 0; i < 4; i++) {
+      const hx = A.hash(x, y, i + 3), hy = A.hash(y, x, i + 5);
+      ctx.fillStyle = cols[i % 3];
+      ctx.beginPath(); ctx.arc(px + ts * (0.2 + hx * 0.6), py + ts * (0.2 + hy * 0.6), ts * 0.32, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(px, py, ts, 1.5);
+  }
+  function drawTree(ctx, px, py, ts, t, x) {
+    const sw = Math.sin(t * 1.2 + x) * ts * 0.02;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(px + ts / 2, py + ts * 0.9, ts * 0.32, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#5f3b27'; ctx.fillRect(px + ts * 0.43, py + ts * 0.55, ts * 0.14, ts * 0.36);
+    ctx.fillStyle = '#2c5530'; ctx.beginPath(); ctx.arc(px + ts / 2 + sw, py + ts * 0.38, ts * 0.38, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#3a6e3d'; ctx.beginPath(); ctx.arc(px + ts * 0.4 + sw, py + ts * 0.3, ts * 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e5566e'; ctx.beginPath(); ctx.arc(px + ts * 0.62 + sw, py + ts * 0.42, ts * 0.05, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawWater(ctx, a, px, py, ts, t, x, y) {
+    const solved = G.state.field.fountain;
+    ctx.fillStyle = '#8d84a0'; ctx.fillRect(px, py, ts + 0.5, ts + 0.5);
+    const inset = (dx, dy) => F.tileAt(a, x + dx, y + dy) === '~' ? 0 : ts * 0.12;
+    const l = inset(-1, 0), r = inset(1, 0), u = inset(0, -1), d = inset(0, 1);
+    ctx.fillStyle = solved ? '#3a5a8a' : '#4f8fd0';
+    ctx.fillRect(px + l, py + u, ts - l - r + 0.5, ts - u - d + 0.5);
+    ctx.globalAlpha = 0.35 + Math.sin(t * 2 + x + y) * 0.15; ctx.fillStyle = solved ? '#ffe680' : '#cfeaff';
+    ctx.fillRect(px + ts * 0.2, py + ts * (0.4 + Math.sin(t + x) * 0.1), ts * 0.3, 2);
+    ctx.globalAlpha = 1;
+    // 가운데 석상
+    if (F.tileAt(a, x - 1, y) === '~' && F.tileAt(a, x + 1, y) === '~' && F.tileAt(a, x, y - 1) === '~' && F.tileAt(a, x, y + 1) === '~') {
+      ctx.fillStyle = '#c9c3d6'; ctx.fillRect(px + ts * 0.36, py + ts * 0.3, ts * 0.28, ts * 0.5);
+      ctx.beginPath(); ctx.arc(px + ts / 2, py + ts * 0.26, ts * 0.16, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = solved ? '#ffe680' : '#8fd3ff';
+      for (let i = 0; i < 3; i++) { const p = ((t * 0.8 + i / 3) % 1); ctx.globalAlpha = 1 - p; ctx.beginPath(); ctx.arc(px + ts / 2 + (i - 1) * ts * 0.2 * p, py + ts * (0.1 - 0.1 * Math.sin(p * Math.PI)) + p * ts * 0.4, ts * 0.04, 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    }
+  }
+  function drawRunePlate(ctx, px, py, ts, t, n) {
+    const f = G.state.field;
+    const lit = f.fountain || f.plates.includes(n);
+    ctx.fillStyle = '#5f5870'; ctx.beginPath(); ctx.arc(px + ts / 2, py + ts / 2, ts * 0.42, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lit ? '#ffcf5a' : '#2f2a3e'; ctx.beginPath(); ctx.arc(px + ts / 2, py + ts / 2, ts * 0.34, 0, Math.PI * 2); ctx.fill();
+    if (lit) { ctx.globalAlpha = 0.3 + Math.sin(t * 4) * 0.15; ctx.fillStyle = '#fff1b0'; ctx.beginPath(); ctx.arc(px + ts / 2, py + ts / 2, ts * 0.46, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+    drawSymbol(ctx, n, px + ts / 2, py + ts / 2, ts * 0.2, lit ? '#3b2400' : '#d9d2e6', lit ? '#ffcf5a' : '#2f2a3e');
+  }
+  // 룬 판 그림: 1 해 2 별 3 달 4 구름
+  function drawSymbol(ctx, n, x, y, r, fg, bg) {
+    ctx.fillStyle = fg; ctx.strokeStyle = fg; ctx.lineWidth = Math.max(1.5, r * 0.22);
+    if (n === 1) {
+      ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < 8; i++) { const a = (i * Math.PI) / 4; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.72, y + Math.sin(a) * r * 0.72); ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); ctx.stroke(); }
+    } else if (n === 2) {
+      ctx.save(); ctx.translate(x, y); ctx.scale(r / 30, r / 30); A.star(ctx, 0, 0, 30, fg); ctx.restore();
+    } else if (n === 3) {
+      ctx.beginPath(); ctx.arc(x, y, r * 0.85, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(x + r * 0.4, y - r * 0.2, r * 0.75, 0, Math.PI * 2); ctx.fill();
+    } else {
+      for (const [dx, dy, rr] of [[-0.45, 0.15, 0.42], [0.05, -0.15, 0.55], [0.5, 0.15, 0.4]]) { ctx.beginPath(); ctx.arc(x + dx * r, y + dy * r, rr * r, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillRect(x - r * 0.85, y + r * 0.1, r * 1.7, r * 0.45);
+    }
+  }
+  function drawLibPlate(ctx, px, py, ts, t, on) {
+    ctx.strokeStyle = on ? '#ffcf5a' : '#9b7be0'; ctx.lineWidth = 3;
+    ctx.strokeRect(px + ts * 0.12, py + ts * 0.12, ts * 0.76, ts * 0.76);
+    ctx.fillStyle = on ? 'rgba(255,207,90,0.35)' : `rgba(155,123,224,${0.18 + Math.sin(t * 3) * 0.08})`;
+    ctx.fillRect(px + ts * 0.16, py + ts * 0.16, ts * 0.68, ts * 0.68);
+  }
+  function drawShelf(ctx, px, py, ts, seed) {
+    ctx.fillStyle = '#4a2e1f'; ctx.fillRect(px + 1, py + 1, ts - 2, ts - 2);
+    const cols = ['#e5566e', '#5a8ee0', '#ffcf5a', '#90e4c0', '#bfa2ee', '#f7a84a'];
+    for (let row = 0; row < 3; row++) {
+      const y = py + ts * (0.08 + row * 0.3);
+      ctx.fillStyle = '#2e1c12'; ctx.fillRect(px + 2, y + ts * 0.24, ts - 4, ts * 0.04);
+      for (let i = 0; i < 5; i++) { ctx.fillStyle = cols[(seed + i * 2 + row) % cols.length]; ctx.fillRect(px + ts * (0.1 + i * 0.16), y + ts * (0.04 + ((i + row) % 2) * 0.04), ts * 0.12, ts * (0.2 - ((i + row) % 2) * 0.04)); }
+    }
+  }
+  function drawDesk(ctx, px, py, ts) {
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(px + ts * 0.12, py + ts * 0.78, ts * 0.8, ts * 0.1);
+    ctx.fillStyle = '#8a5a3c'; ctx.fillRect(px + ts * 0.1, py + ts * 0.3, ts * 0.8, ts * 0.32);
+    ctx.fillStyle = '#5f3b27'; ctx.fillRect(px + ts * 0.14, py + ts * 0.62, ts * 0.08, ts * 0.22); ctx.fillRect(px + ts * 0.78, py + ts * 0.62, ts * 0.08, ts * 0.22);
+    ctx.fillStyle = '#f7ecd9'; ctx.fillRect(px + ts * 0.3, py + ts * 0.34, ts * 0.22, ts * 0.14);
+  }
+  function drawBoard(ctx, px, py, ts, x) {
+    ctx.fillStyle = '#30243f'; ctx.fillRect(px, py, ts + 0.5, ts + 0.5);
+    ctx.fillStyle = '#5f3b27'; ctx.fillRect(px, py + ts * 0.18, ts + 0.5, ts * 0.66);
+    ctx.fillStyle = '#25483a'; ctx.fillRect(px, py + ts * 0.24, ts + 0.5, ts * 0.54);
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)'; ctx.lineWidth = 1.5;
+    const r = D.RUNES[x % 4];
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = `${Math.round(ts * 0.3)}px serif`; ctx.textAlign = 'center';
+    if (x % 2) ctx.fillText(r.glyph, px + ts / 2, py + ts * 0.62);
+    else { ctx.beginPath(); ctx.arc(px + ts / 2, py + ts / 2, ts * 0.15, 0, Math.PI * 1.6); ctx.stroke(); }
+  }
+  function drawWindow(ctx, px, py, ts, t) {
+    ctx.fillStyle = '#1a2a4a'; ctx.fillRect(px + ts * 0.22, py + ts * 0.14, ts * 0.56, ts * 0.42);
+    ctx.fillStyle = '#ffe680'; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(px + ts * 0.6, py + ts * 0.28, ts * 0.07, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#5f3b27'; ctx.lineWidth = 2; ctx.strokeRect(px + ts * 0.22, py + ts * 0.14, ts * 0.56, ts * 0.42);
+    ctx.beginPath(); ctx.moveTo(px + ts / 2, py + ts * 0.14); ctx.lineTo(px + ts / 2, py + ts * 0.56); ctx.stroke();
+    void t;
+  }
+  function drawGate(ctx, px, py, ts) {
+    ctx.fillStyle = '#1a1420'; ctx.fillRect(px, py, ts + 0.5, ts + 0.5);
+    ctx.fillStyle = '#8d84a0';
+    for (let i = 0; i < 5; i++) ctx.fillRect(px + ts * (0.08 + i * 0.2), py, ts * 0.06, ts);
+    ctx.fillRect(px, py + ts * 0.2, ts, ts * 0.06); ctx.fillRect(px, py + ts * 0.7, ts, ts * 0.06);
+    ctx.fillStyle = '#ffcf5a'; ctx.fillRect(px + ts * 0.4, py + ts * 0.4, ts * 0.2, ts * 0.18);
+  }
+  function drawExit(ctx, a, px, py, ts, x, y, th) {
+    const side = y === 0 ? 'top' : y === a.h - 1 ? 'bottom' : x === 0 ? 'left' : 'right';
+    if (th.outdoor) {
+      ctx.fillStyle = '#8c806b'; ctx.fillRect(px, py, ts + 0.5, ts + 0.5);
+      ctx.fillStyle = '#5f5870';
+      if (side === 'top' || side === 'bottom') { ctx.fillRect(px - ts * 0.08, py, ts * 0.14, ts); ctx.fillRect(px + ts * 0.94, py, ts * 0.14, ts); }
+      else { ctx.fillRect(px, py - ts * 0.08, ts, ts * 0.14); ctx.fillRect(px, py + ts * 0.94, ts, ts * 0.14); }
+      return;
+    }
+    ctx.fillStyle = '#0c0812'; ctx.fillRect(px + ts * 0.1, py + ts * 0.05, ts * 0.8, ts * 0.95);
+    ctx.strokeStyle = '#8a5a3c'; ctx.lineWidth = 3; ctx.strokeRect(px + ts * 0.1, py + ts * 0.05, ts * 0.8, ts * 0.95);
+  }
+  function drawExitLabel(ctx, a, e, ts, t, isRoute) {
+    const side = e.y === 0 ? 'top' : e.y === a.h - 1 ? 'bottom' : e.x === 0 ? 'left' : 'right';
+    let lx = (e.x + 0.5) * ts, ly = (e.y + 0.5) * ts;
+    if (side === 'top') ly += ts * 0.95; else if (side === 'bottom') ly -= ts * 0.95; else ly -= ts * 0.72;
+    const label = e.label;
+    ctx.font = `bold ${Math.max(11, Math.round(ts * 0.3))}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(label).width + 12, h = Math.max(16, ts * 0.42);
+    lx = Math.max(w / 2 + 2, Math.min(a.w * ts - w / 2 - 2, lx));
+    ctx.fillStyle = isRoute ? 'rgba(255,207,90,0.95)' : 'rgba(20,14,28,0.78)';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx - w / 2, ly - h / 2, w, h, 6) : ctx.rect(lx - w / 2, ly - h / 2, w, h); ctx.fill();
+    ctx.fillStyle = isRoute ? '#2a1508' : '#f2e8ff'; ctx.fillText(label, lx, ly + 1);
+    ctx.textBaseline = 'alphabetic';
+    if (isRoute) {
+      const dir = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] }[side];
+      const bob = Math.sin(t * 6) * ts * 0.08;
+      const ax = (e.x + 0.5) * ts + dir[0] * bob, ay = (e.y + 0.5) * ts + dir[1] * bob;
+      ctx.save(); ctx.translate(ax, ay); ctx.rotate(Math.atan2(dir[1], dir[0]));
+      ctx.fillStyle = '#ffcf5a'; ctx.strokeStyle = '#2a1508'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(ts * 0.3, 0); ctx.lineTo(-ts * 0.12, -ts * 0.26); ctx.lineTo(-ts * 0.12, ts * 0.26); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+  }
+  function drawObject(ctx, o, ts, t) {
+    const px = o.x * ts, py = o.y * ts;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(px + ts / 2, py + ts * 0.9, ts * 0.32, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+    if (o.kind === 'npc' || o.kind === 'customer') {
+      const p = A.portraitOf(o.npc);
+      A.draw(ctx, p.name, px - ts * 0.08, py - ts * 0.32, ts * 1.16, { t: t + o.x, npc: p.npc, mood: o.kind === 'customer' ? 'worried' : undefined });
+      return;
+    }
+    if (o.kind === 'monster') {
+      A.drawSpriteTile(ctx, (c, tt) => A.MON[o.enemy](c, tt), px, py + Math.sin(t * 3 + o.x) * ts * 0.04, ts, t + o.x * 0.7, 0.95);
+      return;
+    }
+    const f = G.state.field;
+    const opts = { t };
+    if (o.id === 'well') opts.open = f.fountain && !f.well;
+    if (o.id === 'locker') opts.mine = true;
+    if (o.id === 'lectern') opts.book = G.state.quests.q4.status === 'ready' || G.state.quests.q4.status === 'done';
+    let name = o.sprite;
+    if (o.id === 'libchest' && f.libChest) name = 'chestOpen';
+    const big = o.sprite === 'shed' ? 1.3 : o.sprite === 'piano' || o.sprite === 'curtain' || o.sprite === 'locker' ? 1.05 : 0.92;
+    A.draw(ctx, name, px + ts * (1 - big) / 2, py + ts * (1 - big) - ts * 0.04, ts * big, opts);
+  }
+
+  // ───────── 입력 ─────────
+  function onFieldTap(e) {
+    if (G.ui.dialog || $('#sheet').innerHTML || G.ui.battle) return;
+    const cam = G.ui.fcam; if (!cam) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left + cam.cx) / cam.ts);
+    const y = Math.floor((e.clientY - rect.top + cam.cy) / cam.ts);
+    if (G.ui.busy) { G.ui.fredirect = { x, y }; G.ui.fcancel = true; return; }
+    fieldTap(x, y);
+  }
+  async function fieldTap(x, y) {
+    const s = G.state;
+    const a = F.cur(s);
+    if (x < 0 || y < 0 || x >= a.w || y >= a.h) return;
+    const f = s.field;
+    if (x === f.x && y === f.y) { toast(F.cur(s).name); return; }
+    if (!F.revealed(s, x, y)) { toast('어둠에 가려 보이지 않는다.'); S.play('error'); return; }
+    const obj = F.objectAt(s, x, y);
+    if (obj && obj.kind !== 'monster') {
+      const p = F.pathToObject(s, obj);
+      if (!p) { toast('그쪽으로 갈 길이 없다.'); S.play('error'); return; }
+      const ok = await walk(p);
+      if (ok && G.ui.screen === 'field' && F.cur(s).id === a.id) await interact(obj);
+      return;
+    }
+    if (F.cartAt(s, x, y)) {
+      if (Math.abs(x - f.x) + Math.abs(y - f.y) === 1) { await walk([[x, y]]); return; }
+      toast('책수레 바로 옆에 서서 수레를 누르거나 십자 버튼으로 밀자.');
+      return;
+    }
+    if (!F.isOpen(s, x, y)) { S.play('error'); return; }
+    const p = F.findPath(s, x, y);
+    if (!p || !p.length) { toast('그곳까지 가는 길을 모른다.'); S.play('error'); return; }
+    await walk(p);
+  }
+  // 걸어가기. 끝까지 갔으면 true
+  async function walk(path) {
+    G.ui.busy = true; G.ui.fcancel = false; G.ui.fredirect = null;
+    G.ui.fpath = path.slice();
+    let done = true;
+    for (const [nx, ny] of path) {
+      if (G.ui.fcancel) { done = false; break; }
+      const cont = await stepTo(nx, ny);
+      if (G.ui.fpath) G.ui.fpath.shift();
+      if (!cont) { done = false; break; }
+    }
+    G.ui.fpath = null;
+    G.ui.busy = false;
+    save();
+    refreshField();
+    const rd = G.ui.fredirect; G.ui.fredirect = null;
+    if (rd && G.ui.screen === 'field') { fieldTap(rd.x, rd.y); return false; }
+    return done;
+  }
+  function tweenTo(fx, fy, nx, ny) {
+    G.ui.fcat = { x: fx, y: fy };
+    G.ui.ftween = { fx: G.ui.fpos.x, fy: G.ui.fpos.y, tx: nx, ty: ny, start: performance.now(), dur: STEP_MS * (G.ui.speed || 1) };
+    G.ui.fpos = { x: nx, y: ny };
+  }
+  async function stepTo(nx, ny) {
+    const s = G.state;
+    const fx = s.field.x, fy = s.field.y;
+    const r = F.step(s, nx, ny);
+    switch (r.type) {
+      case 'moved':
+        tweenTo(fx, fy, nx, ny); S.play('step');
+        await sleep(STEP_MS);
+        if (r.plate) return plateEvent(r.plate, nx, ny);
+        return true;
+      case 'push':
+        tweenTo(fx, fy, s.field.x, s.field.y); S.play('door');
+        await sleep(STEP_MS);
+        refreshField();
+        if (r.onPlate) { ffloat(r.cart[0], r.cart[1], '철컥!', '#ffcf5a'); S.play('coin'); }
+        if (r.gateOpened) await gateOpened();
+        return false;
+      case 'pushBlocked': S.play('error'); toast('수레가 꿈쩍도 하지 않는다.'); return false;
+      case 'exit': await useExit(r.exit); return false;
+      case 'battle': await mazeBattle(r.obj); return false;
+      default:
+        if (r.obj) return false;
+        S.play('error'); return false;
+    }
+  }
+  async function plateEvent(p, x, y) {
+    const f = G.state.field;
+    if (p.result === 'done' || p.result === 'same') return true;
+    if (p.result === 'progress') { S.play('tap'); ffloat(x, y, F.PLATES[p.n].name + ' ' + p.count + '/4', '#ffcf5a'); return true; }
+    if (p.result === 'reset') { S.play('bad'); ffloat(x, y, '스르르…', '#c9c3d6'); toast('룬 판의 빛이 모두 꺼졌다. 순서가 틀린 것 같다.'); return false; }
+    if (p.result === 'solved') {
+      S.play('purify');
+      await say([{ who: null, text: '네 번째 룬 판이 빛나자, 분수의 물이 금빛으로 물들었다.' }, { who: null, text: '그르르릉— 정원 동쪽의 마른 우물 뚜껑이 열리는 소리가 났다!' }]);
+      R.checkBadges(G.state).forEach(badgeToast);
+      save();
+      void f;
+      return false;
+    }
+    return true;
+  }
+  async function gateOpened() {
+    S.play('purify');
+    await say([{ who: null, text: '두 바닥 판이 동시에 눌리자— 끼이익, 금서 칸 철문이 천천히 올라갔다.' }]);
+    R.checkBadges(G.state).forEach(badgeToast);
+    save(); render();
+  }
+  async function useExit(e) {
+    const s = G.state;
+    S.play('door');
+    if (e.screen) {
+      if (e.screen === 'shop') G.ui.kikiLine = D.LINES.kiki[Math.floor(Math.random() * D.LINES.kiki.length)];
+      if (e.screen === 'infirmary') G.ui.momoLine = D.LINES.momo[Math.floor(Math.random() * D.LINES.momo.length)];
+      go(e.screen);
+      return;
+    }
+    F.enterArea(s, e.to, e.at[0], e.at[1]);
+    snapField();
+    save();
+    render();
+    await areaTip(e.to);
+  }
+  async function areaTip(id) {
+    const s = G.state;
+    const k = 'visit_' + id;
+    if (s.flags[k]) return;
+    s.flags[k] = true;
+    save();
+    const tips = {
+      hall: [{ who: 'rumi', text: '본관 복도. 문마다 이름표가 붙어 있네. 교실은 왼쪽·오른쪽, 위쪽은 도서관!' }],
+      class1: [{ who: 'flam', text: '부엉. 새 얼굴이구나. 마법을 배우고 싶으면 내게 말을 걸렴.' }],
+      class2: [{ who: 'serena', text: '여긴 고급마법반. 기본을 다 떼고 오면 가르쳐 줄게.' }],
+      music: [{ who: 'rumi', text: '음악실… 여기저기 뒤져 볼 만한 곳이 많아. 물건을 누르면 살펴볼 수 있어.' }],
+      library: [{ who: 'rumi', text: '금서 칸은 철문으로 막혀 있어. 바닥의 보라색 판 두 개…를 책수레로 누르면 열리려나?' }, { who: 'mukmul', text: '냐. (수레 옆에 서서 수레를 누르면 반대쪽으로 밀려. 막히면 「수레 되돌리기」)' }],
+      maze: [{ who: 'rumi', text: '밤의 산울타리 미로… 어두워서 가까운 곳만 보여.' }, { who: 'mukmul', text: '냐아. (몬스터를 건드리면 전투야. 오두막은 한가운데. 미로는 날마다 바뀌어)' }],
+      garden: [{ who: 'rumi', text: '안뜰 정원이다. 분수 둘레에 이상한 그림이 새겨진 돌판이 있네.' }],
+    };
+    if (tips[id]) await say(tips[id]);
+  }
+  async function mazeBattle(o) {
+    const s = G.state;
+    const res = await runBattle(o.enemy, {});
+    if (res === 'win') { F.defeatMonster(s, o.x, o.y); save(); if (G.ui.screen === 'field') render(); }
+    else if (res === 'lose') { await defeat(); }
+  }
+
+  // ───────── 상호작용 ─────────
+  async function interact(o) {
+    const s = G.state;
+    S.play('tap');
+    if (o.kind === 'customer') { await ACT.customer(o.qid); return; }
+    if (o.kind === 'npc') {
+      if (o.cls) return classSheet(o.cls);
+      if (o.npc === 'gardener') { const ln = D.LINES.gardener; await say([{ who: 'gardener', text: ln[(s.day + (G.ui.gtalk = (G.ui.gtalk || 0) + 1)) % ln.length] }]); return; }
+      if (o.npc === 'portraits') { await say([{ who: 'portraits', text: '"어머, 루미! 소문 하나 들려줄까?"' }, { who: 'portraits', text: `"${D.LINES.rumors[(s.day + (G.ui.ptalk = (G.ui.ptalk || 0) + 1)) % D.LINES.rumors.length]}"` }]); return; }
+    }
+    switch (o.id) {
+      case 'desk': go('club'); if (!s.flags.clubTip) { s.flags.clubTip = true; await say([{ who: 'mukmul', text: '냐. (정화대에서 의뢰 물건을 정화하고, 찾은 골동품을 정화·장착·판매할 수 있어)' }]); } return;
+      case 'bed': return bedSheet();
+      case 'locker': {
+        const r = F.useLocker(s);
+        if (!r.ok) { toast(r.text); return; }
+        const q = R.questDef(r.qid);
+        S.play('chest');
+        await say(q.found.map((text) => ({ who: null, text })));
+        toast('의뢰 목표 달성! 부실 정화대로 가자.', 'gold');
+        save(); refreshField(); return;
+      }
+      case 'lectern': {
+        const r = F.useLectern(s);
+        if (!r.ok) { toast(r.text); return; }
+        const q = R.questDef(r.qid);
+        S.play('purify');
+        await say(q.found.map((text) => ({ who: null, text })));
+        toast('의뢰 목표 달성! 부실 정화대로 가자.', 'gold');
+        save(); refreshField(); return;
+      }
+      case 'libchest': {
+        const r = F.openLibChest(s);
+        if (!r.ok) { toast(r.text); return; }
+        S.play('chest'); await lootSheet('금서 칸 상자를 열었다!', r.loot); save(); return;
+      }
+      case 'hintbook':
+        await ask({ title: '『정원 분수의 비밀』', art: sprite('book', {}, '', false), body: '<p>「분수 둘레 네 룬 판은 밤에서 낮, 낮에서 밤으로 흐르는 하늘을 따라 밟을 것.」</p><p><b>처음엔 ☾ 달, 다음은 ☀ 해, 셋째는 ★ 별, 마지막은 ☁ 구름.</b></p><p class="tiny dim">「…순서가 맞으면 우물이 열린다.」 — 옛 사서의 메모</p>', choices: [{ label: '기억했다', value: 1, cls: 'primary' }] });
+        return;
+      case 'well': {
+        const r = F.useWell(s);
+        if (!r.ok) { toast(r.text); return; }
+        S.play('chest'); await lootSheet('우물 바닥에서 달빛에 싸인 골동품을 건졌다!', r.loot); R.checkBadges(s).forEach(badgeToast); save(); return;
+      }
+      case 'shed': {
+        const r = F.useShed(s);
+        if (r.first) R.checkBadges(s).forEach(badgeToast);
+        if (r.qid) { const q = R.questDef(r.qid); S.play('chest'); await say(q.found.map((text) => ({ who: null, text }))); toast('의뢰 목표 달성! 부실 정화대로 가자.', 'gold'); }
+        else { if (r.silver) S.play('coin'); await ask({ title: '미로 한가운데 오두막', art: sprite('shed', {}, '', true), body: `<p>${esc(r.text)}</p>`, choices: [{ label: '확인', value: 1, cls: 'primary' }] }); }
+        save(); refreshField(); return;
+      }
+      default: break;
+    }
+    if (o.id.startsWith('mchest:')) {
+      const r = F.openMazeChest(s, o.x, o.y);
+      if (!r.ok) { toast(r.text); return; }
+      S.play('chest'); await lootSheet('상자를 열었다!', r.loot); save(); return;
+    }
+    if (F.SEARCH[o.id]) {
+      const r = F.search(s, o.id);
+      if (r.found) S.play('chest'); else if (r.silver) S.play('coin'); else S.play('tap');
+      const extra = [];
+      if (r.silver) extra.push(`은화 +${r.silver}`);
+      if (r.item) extra.push(`${D.ITEMS[r.item].name} 획득`);
+      await ask({ title: `${o.label} 살펴보기`, art: sprite(o.sprite, { mine: false }, '', true), body: `<p>${esc(r.text)}</p>${extra.length ? `<p class="small" style="color:var(--gold)">${extra.join(' · ')}</p>` : ''}`, choices: [{ label: '확인', value: 1, cls: 'primary' }] });
+      save(); refreshField();
+    }
+  }
+  async function bedSheet() {
+    const s = G.state;
+    const st = R.stats(s);
+    const c = await ask({ title: '부실 침대', art: sprite('bed', {}, '', false), body: `<p>한숨 자고 내일을 맞을까? 마력이 가득 차고, 체력이 최대치의 ${Math.round(D.TUNING.sleepHealPct * 100)}% 회복된다.</p><p class="tiny dim">하루가 지나면 새 손님이 오고, 밤의 미로 길이 바뀐다. 지금 체력 ${s.player.hp}/${st.maxHp} · 마력 ${s.player.mp}/${st.maxMp}</p>`, choices: [{ label: '잔다 (하루 지남)', value: 'sleep', cls: 'primary' }, { label: '아직', value: null }] });
+    if (c !== 'sleep') return;
+    const r = R.sleepDay(s);
+    S.play('heal');
+    save(); render();
+    const n = R.customers(s).length;
+    toast(`${s.day}일째 아침. 체력 +${r.hp}, 마력 가득!${n ? ` 손님 ${n}명이 와 있다.` : ''}`, 'good');
+    await maybeEnding();
+  }
+
+  // ───────── 마법 수업 ─────────
+  async function classSheet(cls) {
+    const s = G.state;
+    const C = D.CLASSES[cls];
+    const teacher = C.teacher;
+    const lines = D.LINES[teacher];
+    if (!R.classOpen(s, cls)) {
+      await say([{ who: teacher, text: lines[1] }]);
+      return;
+    }
+    const ids = R.classSpells(cls);
+    while (true) {
+      const rows = ids.map((id) => {
+        const sp = D.SPELLS[id];
+        const known = s.spells.includes(id);
+        const chk = R.canLearn(s, id);
+        const state = known ? '<span class="chip good">배움</span>' : chk.ok ? '<span class="chip weak">수강 가능</span>' : `<span class="chip">${esc(chk.reason)}</span>`;
+        return { id, known, ok: chk.ok, html: `<div class="card small"><b>${sp.name}</b> <span class="dim">마력 ${sp.mp} · Lv${sp.learn}~ · 수강료 ${sp.tuition ? sp.tuition + '은화' : '무료'} · 룬 ${sp.seq}개</span> ${state}<div class="tiny muted">${esc(sp.desc)}</div></div>` };
+      });
+      const c = await ask({
+        title: C.name, art: portrait(teacher, '', true),
+        body: `<p class="small muted">"${esc(lines[Math.floor(Math.random() * lines.length)])}"</p><p class="tiny dim">${esc(C.desc)} 수강료는 합격해야 낸다. 보유 은화 ${s.silver}</p>${rows.map((r) => r.html).join('')}`,
+        vertical: true,
+        choices: rows.filter((r) => !r.known).map((r) => ({ label: `「${D.SPELLS[r.id].name}」 수업 듣기`, value: r.id, cls: r.ok ? 'primary' : '', disabled: !r.ok })).concat([{ label: '교실을 나선다', value: null, cls: 'ghost' }]),
+      });
+      if (!c) return;
+      const passed = await runeLesson(c, cls);
+      if (passed) {
+        const r = R.learnSpell(s, c);
+        if (r.ok) {
+          S.play('levelup');
+          save();
+          await ask({ title: `새 마법: ${r.spell.name}`, art: sprite('rumi', { shadow: false }, '', true), body: `<p>${esc(r.spell.desc)}</p><p class="small muted">마력 ${r.spell.mp} · 전투의 「마법」 메뉴에서 쓸 수 있다.${r.spell.tuition ? ` 수강료 ${r.spell.tuition}은화를 냈다.` : ''}</p>`, choices: [{ label: '좋아!', value: 1, cls: 'primary' }] });
+          R.checkBadges(s).forEach(badgeToast);
+          save(); refreshField();
+        }
+      }
+    }
+  }
+  // 룬 따라 그리기: 보여준 순서대로 룬을 누른다. 반환 true = 합격
+  function runeLesson(spellId, cls) {
+    const sp = D.SPELLS[spellId];
+    return new Promise((resolve) => {
+      G.ui.rune = { seq: R.runeSequence(sp.seq), i: 0, phase: 'intro', lit: -1, resolve, speed: cls === 'advanced' ? 430 : 620, spell: sp, tries: 0 };
+      renderRune();
+    });
+  }
+  function renderRune(msg) {
+    const P = G.ui.rune; if (!P) return;
+    const btns = D.RUNES.map((r) => `<button class="rune ${P.lit === r.id ? 'lit' : ''}" style="--rc:${r.color}" data-act="rune" data-arg="${r.id}" ${P.phase === 'input' ? '' : 'disabled'} aria-label="${r.name} 룬"><span>${r.glyph}</span><small>${r.name}</small></button>`).join('');
+    const dots = P.seq.map((_, i) => `<i class="${P.phase === 'input' && i < P.i ? 'on' : ''}"></i>`).join('');
+    const head = P.phase === 'intro' ? `칠판에 룬 <b>${P.seq.length}개</b>가 차례로 빛난다. 순서를 외워서 똑같이 누르자.`
+      : P.phase === 'show' ? '<b>잘 봐!</b> 룬이 빛나는 순서를 외우자…'
+        : P.phase === 'input' ? '<b>이제 네 차례.</b> 같은 순서로 룬을 누르자.' : '';
+    openSheet({
+      title: `수업 · ${sp(P).name}`, dismiss: false,
+      body: `<p class="small">${msg || head}</p><div class="rune-dots">${dots}</div><div class="runes">${btns}</div>`,
+      foot: P.phase === 'intro' ? '<button class="btn primary" data-act="runeStart">시작</button><button class="btn ghost" data-act="runeQuit">그만두기</button>'
+        : P.phase === 'fail' ? '<button class="btn primary" data-act="runeStart">다시 도전</button><button class="btn ghost" data-act="runeQuit">그만두기</button>'
+          : '<button class="btn ghost" data-act="runeQuit">그만두기</button>',
+    });
+  }
+  const sp = (P) => P.spell;
+  async function runeShow() {
+    const P = G.ui.rune; if (!P) return;
+    P.phase = 'show'; P.i = 0; P.lit = -1; renderRune();
+    await sleep(500);
+    for (const r of P.seq) {
+      if (G.ui.rune !== P) return;
+      P.lit = r; renderRune(); S.play(['fire', 'ice', 'light', 'heal'][r]);
+      await sleep(P.speed);
+      P.lit = -1; renderRune();
+      await sleep(P.speed * 0.35);
+    }
+    if (G.ui.rune !== P) return;
+    P.phase = 'input'; renderRune();
+  }
+  ACT.runeStart = () => {
+    const P = G.ui.rune; if (!P) return;
+    if (P.phase === 'fail') { P.seq = R.runeSequence(P.spell.seq); P.tries += 1; }
+    runeShow();
+  };
+  ACT.rune = (arg) => {
+    const P = G.ui.rune; if (!P || P.phase !== 'input') return;
+    const r = Number(arg);
+    if (r !== P.seq[P.i]) {
+      S.play('bad');
+      P.phase = 'fail'; P.lit = -1;
+      renderRune(`틀렸다! ${P.i + 1}번째는 「${D.RUNES[P.seq[P.i]].name}」 룬이었다. 새 문제로 다시 도전할 수 있다. (수강료는 합격할 때만)`);
+      return;
+    }
+    S.play('tap');
+    P.i += 1; P.lit = r;
+    renderRune();
+    setTimeout(() => { if (G.ui.rune === P && P.phase === 'input') { P.lit = -1; renderRune(); } }, 180);
+    if (P.i >= P.seq.length) {
+      P.phase = 'done';
+      S.play('purify');
+      renderRune('<b>합격!</b> 룬이 손끝에서 마법으로 바뀌었다.');
+      setTimeout(() => { if (G.ui.rune !== P) return; closeSheet(); G.ui.rune = null; P.resolve(true); }, 700);
+    }
+  };
+  ACT.runeQuit = () => { const P = G.ui.rune; if (!P) return; G.ui.rune = null; closeSheet(); P.resolve(false); };
+
+  // ───────── 버튼 ─────────
+  ACT.fmove = (arg) => {
+    if (G.ui.busy || G.ui.battle || G.ui.screen !== 'field') return;
+    const [dx, dy] = arg.split(',').map(Number);
+    const f = G.state.field;
+    const tx = f.x + dx, ty = f.y + dy;
+    const obj = F.objectAt(G.state, tx, ty);
+    if (obj && obj.kind !== 'monster') { interact(obj); return; }
+    walk([[tx, ty]]);
+  };
+  ACT.mazeOut = async () => {
+    if (G.ui.busy) return;
+    const s = G.state;
+    const e = F.cur(s).exits[0];
+    const p = F.findPath(s, e.x, e.y);
+    if (!p) { toast('돌아가는 길을 모르겠다.'); return; }
+    await walk(p);
+  };
+  ACT.cartReset = () => {
+    if (G.ui.busy) return;
+    F.resetCarts(G.state);
+    S.play('door');
+    toast('책수레를 처음 자리로 돌려놓았다.');
+    save(); render();
+  };
+
+  W.ui.field = { fieldTap, walk, interact, snapField, useExit, classSheet, runeLesson };
 })();
 
 /* ── main.js ── */

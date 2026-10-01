@@ -141,15 +141,68 @@ async function settle() {
 }
 
 async function click(sel) { await page.click(sel); await wait(30); await settle(); }
+// v0.2: 학교 지도(필드)에서 문을 지나 들어가는 화면. 걷기·문 조작은 e2e-field.cjs 가 검증하므로 여기서는 바로 연다.
+async function goScreen(name) { await ev((n) => W.ui.go(n), name); await wait(30); await settle(); }
+
+// 마법 수업(룬 미니게임은 e2e-field.cjs 가 검증) + 필드 의뢰·퍼즐
+async function fieldPhase() {
+  await ev(() => {
+    const s = W.game.state, R = W.rules, D = W.DATA, F = W.world;
+    for (const id of D.SPELL_ORDER) if (R.canLearn(s, id).ok && s.silver >= D.SPELLS[id].tuition + 30) R.learnSpell(s, id);
+    const step = (dx, dy) => F.step(s, s.field.x + dx, s.field.y + dy);
+    const walk = (x, y) => { const p = F.findPath(s, x, y); if (p) for (const [a, b] of p) F.step(s, a, b); };
+    if (s.quests.q1.status === 'active') { F.enterArea(s, 'music', 8, 4); F.search(s, 'bench'); F.useLocker(s); }
+    if (!s.field.libGate) {
+      F.enterArea(s, 'library', 5, 11);
+      walk(5, 10); step(0, -1); step(-1, 0); step(-1, 0); walk(2, 10); step(0, -1); step(0, -1);
+      walk(5, 10); step(0, -1); step(1, 0); step(1, 0); walk(8, 10); step(0, -1); step(0, -1);
+      if (s.field.libGate) F.openLibChest(s);
+    }
+    if (s.field.libGate && s.quests.q4.status === 'active') { F.enterArea(s, 'library', 5, 2); F.useLectern(s); }
+    if (!s.field.fountain) { F.enterArea(s, 'garden', 5, 1); for (const [x, y] of [[3, 10], [3, 6], [7, 6], [7, 10]]) walk(x, y); F.useWell(s); }
+    F.enterArea(s, 'club', 4, 5);
+    W.ui.save();
+  });
+  // 밤의 미로는 실제 전투 화면으로 지나간다
+  if (!(await ev(() => W.game.state.quests.q5.status === 'active' && W.game.state.player.lv >= 3))) return;
+  await ev(() => { W.world.enterArea(W.game.state, 'maze', 13, 9); W.ui.go('field'); });
+  await settle();
+  for (let i = 0; i < 40; i++) {
+    const r = await ev(() => {
+      const s = W.game.state;
+      if (s.field.area !== 'maze') return 'left';
+      const a = W.world.cur(s), m = a.maze, key = (x, y) => x + ',' + y;
+      const prev = new Map([[key(s.field.x, s.field.y), null]]); const q = [[s.field.x, s.field.y]];
+      while (q.length) {
+        const [x, y] = q.shift();
+        for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+          const nx = x + dx, ny = y + dy, k = key(nx, ny);
+          if (nx === m.shed.x && ny === m.shed.y) {
+            const path = []; for (let c = [x, y]; c && !(c[0] === s.field.x && c[1] === s.field.y); c = prev.get(key(c[0], c[1]))) path.unshift(c);
+            if (!path.length) { W.ui.field.interact(W.world.objectAt(s, nx, ny)); return 'shed'; }
+            W.ui.field.walk(path); return 'walk';
+          }
+          if (prev.has(k) || !a.rows[ny] || a.rows[ny][nx] !== '.') continue;
+          prev.set(k, [x, y]); q.push([nx, ny]);
+        }
+      }
+      return 'nopath';
+    });
+    await wait(30); await settle();
+    if (r !== 'walk') break;
+  }
+  await ev(() => { const s = W.game.state; if (s.field.area === 'maze') { W.world.enterArea(s, 'club', 4, 5); W.ui.go('field'); } });
+  await settle();
+}
 
 async function hubPhase() {
   await settle();
-  if (await ev(() => W.game.ui.screen !== 'hub')) await click('[data-act="go"][data-arg="hub"]');
+  if (await ev(() => W.game.ui.screen !== 'field')) await goScreen('field');
   const s = await ev(() => JSON.parse(JSON.stringify(W.game.state)));
   if (s.flags.endingSeen) return 'end';
   // 치료
   const needHeal = await ev(() => { const s = W.game.state, st = W.rules.stats(s); return (s.player.hp < st.maxHp * 0.9 || s.player.mp < st.maxMp * 0.7 || s.player.status.poison) && (s.flags.infirmaryFree || s.silver >= 20); });
-  if (needHeal) { await click('[data-act="go"][data-arg="infirmary"]'); const dis = await ev(() => document.querySelector('[data-act="heal"]').disabled); if (!dis) await click('[data-act="heal"]'); await click('[data-act="go"][data-arg="hub"]'); }
+  if (needHeal) { await goScreen('infirmary'); const dis = await ev(() => document.querySelector('[data-act="heal"]').disabled); if (!dis) await click('[data-act="heal"]'); await goScreen('field'); }
   // 매점: 소금(미정화·재료 의뢰), 재료, 물약
   const buyList = await ev(() => {
     const s = W.game.state, R = W.rules, D = W.DATA;
@@ -167,7 +220,7 @@ async function hubPhase() {
     return out;
   });
   if (buyList.length) {
-    await click('[data-act="go"][data-arg="shop"]');
+    await goScreen('shop');
     for (const [id, n] of buyList) {
       const tab = await ev((i) => W.DATA.ITEMS[i].cat, id);
       await click(`[data-act="shopTab"][data-arg="${tab}"]`);
@@ -177,10 +230,11 @@ async function hubPhase() {
       if (dis) await page.click('#sheet .sh-head [data-act="sheetDismiss"]'); else await page.click('[data-act="buyConfirm"]');
       await wait(30);
     }
-    await click('[data-act="go"][data-arg="hub"]');
+    await goScreen('field');
   }
+  await fieldPhase();
   // 부실: 정화, 미정화 정화, 매입
-  await click('[data-act="go"][data-arg="club"]');
+  await goScreen('club');
   for (let i = 0; i < 10; i++) {
     const btn = await ev(() => { const b = document.querySelector('[data-act="purifyQuest"], [data-act="purifyFound"]:not([disabled])'); return b ? `[data-act="${b.dataset.act}"][data-arg="${b.dataset.arg}"]` : null; });
     if (!btn) break;
@@ -193,7 +247,14 @@ async function hubPhase() {
     if (!q) break;
     await click(`[data-act="customer"][data-arg="${q}"]`);
   }
-  await click('[data-act="go"][data-arg="hub"]');
+  await fieldPhase();
+  await goScreen('club');
+  for (let i = 0; i < 10; i++) {
+    const btn = await ev(() => { const b = document.querySelector('[data-act="purifyQuest"], [data-act="purifyFound"]:not([disabled])'); return b ? `[data-act="${b.dataset.act}"][data-arg="${b.dataset.arg}"]` : null; });
+    if (!btn) break;
+    await click(btn);
+  }
+  await goScreen('field');
   return (await ev(() => W.game.state.flags.endingSeen)) ? 'end' : 'ok';
 }
 
@@ -225,7 +286,7 @@ async function walkTo(x, y) {
 async function expedition() {
   const tf = await ev(targetFloorJS);
   ctx.wantHome = false; ctx.wantDown = false; ctx.wantBoss = false; ctx.wantUp = false;
-  await click('[data-act="go"][data-arg="gate"]');
+  await goScreen('gate');
   await click(`[data-act="enter"][data-arg="${tf.floor}"]`);
   for (let hop = 0; hop < 6; hop++) {
     const info = await ev(() => { const s = W.game.state; if (!s.exp) return null; const m = W.rules.genFloor(s.exp.floor); return { f: s.exp.floor, map: m }; });
@@ -313,7 +374,7 @@ async function expedition() {
   }
   await settle();
   await shot('final');
-  const fin = await ev(() => { const s = W.game.state; return { day: s.day, lv: s.player.lv, purified: s.purified, battles: s.stats.battles, badges: Object.keys(s.badges).length, codex: Object.keys(s.codex).length, deaths: s.stats.defeats, quiz: s.stats.quizCorrect, puzzles: s.stats.puzzles }; });
+  const fin = await ev(() => { const s = W.game.state; return { day: s.day, lv: s.player.lv, purified: s.purified, battles: s.stats.battles, badges: Object.keys(s.badges).length, codex: Object.keys(s.codex).length, deaths: s.stats.defeats, quiz: s.stats.quizCorrect, puzzles: s.stats.puzzles, spells: s.spells.length, field: { lib: s.field.libGate, fountain: s.field.fountain, maze: !!s.flags.mazeCenter }, quests: Object.fromEntries(Object.entries(s.quests).map(([k, v]) => [k, v.status])) }; });
   console.log(JSON.stringify({ seed: SEED, result, seconds: Math.round((Date.now() - t0) / 1000), final: fin, errors, sheetsSeen: Object.keys(stats.sheets).length, shots: stats.shots }, null, 1));
   await browser.close();
   if (result !== 'ending' || errors.length) process.exit(1);

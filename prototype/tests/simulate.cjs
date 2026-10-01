@@ -5,6 +5,7 @@ const { load } = require('./harness.cjs');
 const W = load();
 const R = W.rules;
 const D = W.DATA;
+const F = W.world;
 
 const MAX_DAYS = 90;
 
@@ -94,11 +95,17 @@ function hubPhase(s, log) {
   s.equip = [purified[0] ? purified[0].uid : null, purified[1] ? purified[1].uid : null];
   R.clampVitals(s);
   for (const a of purified.slice(2)) R.sellAntique(s, a.uid);
+  // 마법 수업 (미니게임은 통과했다고 본다)
+  for (const id of D.SPELL_ORDER) {
+    if (R.canLearn(s, id).ok && s.silver >= D.SPELLS[id].tuition + 30) { R.learnSpell(s, id); log.push(`  수업: ${D.SPELLS[id].name} (-${D.SPELLS[id].tuition})`); }
+  }
   // 의뢰 매입 + 재료 구매
   for (const q of R.customers(s)) {
     if (R.activeQuests(s).length >= 3) break;
     if (s.silver >= q.buy + 60) { R.acceptQuest(s, q.id); log.push(`  매입: ${q.cursedName} (-${q.buy})`); }
   }
+  if (fieldPhase(s, log) === 'dead') return 'ok';
+  for (const q of D.QUESTS) if (R.canPurifyQuest(s, q.id)) { R.purifyQuest(s, q.id); log.push(`  정화: ${q.cursedName}`); }
   for (const q of R.activeQuests(s)) {
     if (q.objective.type !== 'items') continue;
     for (const id of Object.keys(q.objective.items)) {
@@ -118,6 +125,60 @@ function hubPhase(s, log) {
     }
   }
   R.checkBadges(s);
+  return 'ok';
+}
+
+// 학교 필드: 필드 의뢰와 필드 퍼즐(도서관·분수)을 실제 규칙 함수로 푼다
+function fieldWalk(s, x, y) { const p = F.findPath(s, x, y); if (!p) return false; for (const [a, b] of p) F.step(s, a, b); return true; }
+function fieldPhase(s, log) {
+  const mv = (dx, dy) => F.step(s, s.field.x + dx, s.field.y + dy);
+  if (s.quests.q1.status === 'active') {
+    F.enterArea(s, 'music', 8, 4);
+    F.search(s, 'bench');
+    if (F.useLocker(s).ok) log.push('  필드: 음악실 사물함에서 태엽');
+  }
+  if (!s.field.libGate) {
+    F.enterArea(s, 'library', 5, 11);
+    fieldWalk(s, 5, 10); mv(0, -1); mv(-1, 0); mv(-1, 0);
+    fieldWalk(s, 2, 10); mv(0, -1); mv(0, -1);
+    fieldWalk(s, 5, 10); mv(0, -1); mv(1, 0); mv(1, 0);
+    fieldWalk(s, 8, 10); mv(0, -1); mv(0, -1);
+    if (s.field.libGate) { F.openLibChest(s); log.push('  필드: 도서관 철문 개방'); }
+  }
+  if (s.field.libGate && s.quests.q4.status === 'active') { F.enterArea(s, 'library', 5, 2); if (F.useLectern(s).ok) log.push('  필드: 일기장을 독서대에'); }
+  if (!s.field.fountain) {
+    F.enterArea(s, 'garden', 5, 1);
+    for (const [x, y] of [[3, 10], [3, 6], [7, 6], [7, 10]]) fieldWalk(s, x, y);
+    if (F.useWell(s).ok) log.push('  필드: 분수 퍼즐 → 우물');
+  }
+  if (s.quests.q5.status === 'active' && s.player.lv >= 3) {
+    F.enterArea(s, 'maze', 13, 9);
+    const m = F.genMaze(s.day);
+    // 오두막 옆 칸까지 지도 전체 기준 최단 경로 (몬스터는 싸워서 지나간다)
+    const key = (x, y) => x + ',' + y;
+    const prev = new Map([[key(13, 9), null]]); const q = [[13, 9]]; let end = null;
+    while (q.length && !end) {
+      const [x, y] = q.shift();
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx === m.shed.x && ny === m.shed.y) { end = [x, y]; break; }
+        if (prev.has(key(nx, ny)) || !m.rows[ny] || m.rows[ny][nx] !== '.') continue;
+        prev.set(key(nx, ny), [x, y]); q.push([nx, ny]);
+      }
+    }
+    const path = []; for (let c = end; c && !(c[0] === 13 && c[1] === 9); c = prev.get(key(c[0], c[1]))) path.unshift(c);
+    for (const [nx, ny] of path) {
+      let r = F.step(s, nx, ny);
+      if (r.type === 'battle') {
+        const b = fight(s, r.obj.enemy, {}, null);
+        if (b.result === 'lose') { die(s, log); F.enterArea(s, 'hall', 9, 2); return 'dead'; }
+        if (b.result === 'win') F.defeatMonster(s, nx, ny);
+        r = F.step(s, nx, ny);
+      }
+    }
+    if (F.useShed(s).qid) log.push('  필드: 미로 오두막에서 빗자루 끈');
+  }
+  F.enterArea(s, 'club', 4, 5);
   return 'ok';
 }
 
@@ -303,7 +364,7 @@ function playOne(seed, verbose) {
   const finished = s.flags.endingSeen || R.canSeeEnding(s);
   return {
     seed, finished, days: s.day, lv: s.player.lv, purified: s.purified, deaths: s.stats.defeats, battles: s.stats.battles,
-    bossDay, bossLv, silver: s.silver, badges: Object.keys(s.badges).length, codex: Object.keys(s.codex).length, log,
+    bossDay, bossLv, silver: s.silver, spells: s.spells.length, badges: Object.keys(s.badges).length, codex: Object.keys(s.codex).length, log,
   };
 }
 
@@ -318,8 +379,9 @@ if (require.main === module) {
   console.log(`판 수 ${n} · 엔딩 도달 ${fin.length} (${Math.round((fin.length / n) * 100)}%)`);
   if (fin.length) {
     console.log(`엔딩까지 일수 중앙값 ${median(fin.map((r) => r.days))} (최소 ${Math.min(...fin.map((r) => r.days))}, 최대 ${Math.max(...fin.map((r) => r.days))})`);
+    console.log(`배운 마법 수 중앙값 ${median(fin.map((r) => r.spells))}/${D.SPELL_ORDER.length}`);
     console.log(`보스 격파 레벨 중앙값 ${median(fin.map((r) => r.bossLv))} · 패배 횟수 중앙값 ${median(fin.map((r) => r.deaths))} · 전투 수 중앙값 ${median(fin.map((r) => r.battles))}`);
-    console.log(`훈장 중앙값 ${median(fin.map((r) => r.badges))}/15 · 도감 중앙값 ${median(fin.map((r) => r.codex))}/20`);
+    console.log(`훈장 중앙값 ${median(fin.map((r) => r.badges))}/${D.BADGES.length} · 도감 중앙값 ${median(fin.map((r) => r.codex))}/20`);
   }
   const fail = results.filter((r) => !r.finished);
   if (fail.length) {

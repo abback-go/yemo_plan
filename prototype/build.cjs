@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const src = (f) => fs.readFileSync(path.join(__dirname, 'src', f), 'utf8');
-const JS_ORDER = ['data.js', 'rules.js', 'art.js', 'audio.js', 'ui.js', 'main.js'];
+const JS_ORDER = ['data.js', 'rules.js', 'world.js', 'art.js', 'audio.js', 'ui.js', 'field.js', 'main.js'];
 const css = src('style.css');
 const js = JS_ORDER.map((f) => `/* ── ${f} ── */\n` + src(f)).join('\n');
 if (js.includes('</script')) throw new Error('스크립트 안에 </script 문자열이 있으면 안 됩니다');

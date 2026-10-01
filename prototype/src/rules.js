@@ -47,7 +47,7 @@
   }
 
   // ───────── 새 게임 / 저장 ─────────
-  const SAVE_VERSION = 1;
+  const SAVE_VERSION = 2;
   function newGame() {
     const P = D.PLAYER;
     const s = {
@@ -63,7 +63,9 @@
       purified: 0,
       floorsReached: 1,
       exp: null,
+      spells: [],
       world: { doors: {} },
+      field: newFieldState(),
       flags: { introSeen: false, bossDefeated: false, directorDefeated: false, endingSeen: false, infirmaryFree: true, legendPurified: false, metCustomer: false },
       stats: { quizCorrect: 0, quizWrong: 0, gambles: 0, shopBuys: 0, weakHits: 0, puzzles: 0, battles: 0, kills: {}, purifyAll: 0, defeats: 0 },
       known: {},
@@ -76,6 +78,16 @@
     refreshCustomers(s);
     return s;
   }
+  // 필드(학교 지도) 진행 상태. 지형·물체는 world.js 가 정의한다.
+  function newFieldState() {
+    return {
+      area: 'club', x: 4, y: 5,
+      plates: [], fountain: false, well: false, // 정원 분수 룬 판 순서 퍼즐
+      carts: null, libGate: false, libChest: false, // 도서관 책수레 밀기 (null = 처음 위치)
+      searched: {}, musicKey: false,       // 음악실 숨은 물건 찾기
+      maze: null,                          // 밤의 미로 (날마다 새로 만든다)
+    };
+  }
   function serialize(s) { return JSON.stringify(s); }
   function deserialize(str) {
     let data;
@@ -87,6 +99,7 @@
     merged.stats = Object.assign(base.stats, data.stats || {});
     merged.settings = Object.assign(base.settings, data.settings || {});
     merged.player.status = Object.assign({ poison: 0, curseNext: 0 }, (data.player && data.player.status) || {});
+    merged.field = Object.assign(newFieldState(), data.field || {});
     for (const q of D.QUESTS) if (!merged.quests[q.id]) merged.quests[q.id] = { status: 'locked', cooldown: 0 };
     return merged;
   }
@@ -120,7 +133,42 @@
     s.player.hp = clamp(s.player.hp, 0, st.maxHp);
     s.player.mp = clamp(s.player.mp, 0, st.maxMp);
   }
-  function knownSpells(s) { return D.SPELL_ORDER.filter((id) => D.SPELLS[id].learn <= s.player.lv); }
+  function knownSpells(s) { return D.SPELL_ORDER.filter((id) => s.spells.includes(id)); }
+  // ───────── 마법 수업 ─────────
+  function classSpells(cls) { return D.SPELL_ORDER.filter((id) => D.SPELLS[id].cls === cls); }
+  function classOpen(s, cls) {
+    const C = D.CLASSES[cls];
+    return !C.needAll || classSpells(C.needAll).every((id) => s.spells.includes(id));
+  }
+  function canLearn(s, id) {
+    const sp = D.SPELLS[id];
+    if (!sp) return { ok: false, reason: '그런 마법은 없다.' };
+    if (s.spells.includes(id)) return { ok: false, reason: '이미 배운 마법이다.' };
+    if (!classOpen(s, sp.cls)) return { ok: false, reason: `${D.CLASSES[D.CLASSES[sp.cls].needAll].name} 마법을 먼저 모두 배워야 한다.` };
+    if (s.player.lv < sp.learn) return { ok: false, reason: `Lv${sp.learn}부터 들을 수 있다.` };
+    if (s.silver < sp.tuition) return { ok: false, reason: `수강료 은화 ${sp.tuition - s.silver}개가 모자라다.` };
+    return { ok: true };
+  }
+  // 룬 따라 그리기 문제: 같은 룬이 세 번 연속 나오지 않게 한다
+  function runeSequence(len) {
+    const out = [];
+    while (out.length < len) {
+      const r = randInt(0, D.RUNES.length - 1);
+      if (out.length >= 2 && out[out.length - 1] === r && out[out.length - 2] === r) continue;
+      out.push(r);
+    }
+    return out;
+  }
+  // 미니게임을 통과한 뒤 호출한다. 수강료는 합격할 때 낸다.
+  function learnSpell(s, id) {
+    const chk = canLearn(s, id);
+    if (!chk.ok) return chk;
+    const sp = D.SPELLS[id];
+    s.silver -= sp.tuition;
+    s.spells.push(id);
+    return { ok: true, spell: sp };
+  }
+  function learnableSpells(s) { return D.SPELL_ORDER.filter((id) => canLearn(s, id).ok); }
   function expToNext(s) { return D.EXP_CURVE[s.player.lv] || 99999; }
 
   function gainExp(s, n) {
@@ -133,8 +181,9 @@
       s.player.hp += D.PLAYER.perLevel.maxHp;
       s.player.mp += D.PLAYER.perLevel.maxMp;
       clampVitals(s);
-      const learned = D.SPELL_ORDER.filter((id) => D.SPELLS[id].learn === s.player.lv);
-      ups.push({ lv: s.player.lv, learned });
+      // 레벨업으로 마법이 생기지는 않는다. 새로 수강할 수 있게 된 마법만 알려준다.
+      const classReady = D.SPELL_ORDER.filter((id) => D.SPELLS[id].learn === s.player.lv && !s.spells.includes(id));
+      ups.push({ lv: s.player.lv, classReady });
     }
     return ups;
   }
@@ -221,14 +270,15 @@
     refreshCustomers(s);
     return { ok: true, antique: a };
   }
-  function addCursedAntique(s, floor) {
+  function addCursedAntique(s, floor, grade) {
     const a = { uid: newUid(s), def: null, state: 'cursed', floor };
+    if (grade) a.grade = grade;
     s.antiques.push(a);
     return a;
   }
-  function rollAntiqueDef(floor) {
+  function rollAntiqueDef(floor, forced) {
     const odds = D.GRADE_ODDS[floor] || D.GRADE_ODDS[1];
-    const grade = weighted(D.GRADE_ORDER.map((g, i) => [g, odds[i]]));
+    const grade = forced || weighted(D.GRADE_ORDER.map((g, i) => [g, odds[i]]));
     const pool = Object.keys(D.ANTIQUES).filter((id) => D.ANTIQUES[id].random && D.ANTIQUES[id].grade === grade);
     return pick(pool);
   }
@@ -237,7 +287,7 @@
     if (!a || a.state !== 'cursed') return { ok: false, reason: '정화할 수 없어요.' };
     if (count(s, 'salt') < 1) return { ok: false, reason: '정화 소금이 필요해요. (매점 40은화)' };
     removeItem(s, 'salt', 1);
-    a.def = rollAntiqueDef(a.floor || 1);
+    a.def = rollAntiqueDef(a.floor || 1, a.grade);
     a.state = 'purified';
     s.stats.purifyAll += 1;
     s.codex[a.def] = true;
@@ -326,6 +376,11 @@
       case 'weak20': return s.stats.weakHits >= 20;
       case 'puzzle3': return s.stats.puzzles >= 3;
       case 'level5': return s.player.lv >= 5;
+      case 'basic_grad': return classSpells('basic').every((id) => s.spells.includes(id));
+      case 'adv_grad': return classSpells('advanced').every((id) => s.spells.includes(id));
+      case 'library': return s.field.libGate;
+      case 'well': return s.field.fountain;
+      case 'maze': return !!s.flags.mazeCenter;
       default: return false;
     }
   }
@@ -343,9 +398,10 @@
 
   // ───────── 목표 안내 ─────────
   function objectiveText(s) {
-    if (!s.flags.metCustomer) return '부실에 가서 첫 손님을 맞이하자.';
+    if (!s.spells.length) return '본관 「기본마법반」에서 첫 마법(불씨)을 배우자.';
+    if (!s.flags.metCustomer) return '부실로 돌아가 첫 손님을 맞이하자.';
     const ready = D.QUESTS.find((q) => canPurifyQuest(s, q.id));
-    if (ready) return `부실로 돌아가 「${ready.cursedName}」을(를) 정화하자.`;
+    if (ready) return `부실 정화대에서 「${ready.cursedName}」을(를) 정화하자.`;
     const act = activeQuests(s)[0];
     if (act) return act.hint;
     if (s.purified < 5 && customers(s).length) return `정화 실적 ${s.purified}/5 — 부실에 손님이 기다리고 있다.`;
@@ -893,6 +949,16 @@
     s.day += 1;
     refreshCustomers(s);
   }
+  // 부실 침대: 하루가 지나고 마력은 가득, 체력은 일부 회복 (완전 회복은 양호실)
+  function sleepDay(s) {
+    const st = stats(s);
+    const hp = Math.round(st.maxHp * T.sleepHealPct);
+    s.player.hp = Math.min(st.maxHp, s.player.hp + hp);
+    s.player.mp = st.maxMp;
+    s.day += 1;
+    refreshCustomers(s);
+    return { hp };
+  }
   function applyDefeat(s) {
     const lost = Math.floor(s.silver * T.defeatSilverLoss);
     s.silver -= lost;
@@ -989,7 +1055,7 @@
     const st = stats(s);
     if (action.type === 'spell') {
       const sp = D.SPELLS[action.id];
-      if (!sp || sp.learn > s.player.lv) return { ok: false, reason: '아직 배우지 못한 마법이다.' };
+      if (!sp || !s.spells.includes(action.id)) return { ok: false, reason: '아직 배우지 못한 마법이다.' };
       if (s.player.mp < sp.mp) return { ok: false, reason: '마력이 부족하다.' };
       if (sp.kind === 'heal' && s.player.hp >= st.maxHp) return { ok: false, reason: '체력이 이미 가득하다.' };
     }
@@ -1038,11 +1104,11 @@
         ev.push({ t: 'log', text: `치유 마법! 체력이 ${v} 회복되었다.` });
       } else {
         const info = elemMult(b, sp.elem);
-        const boost = 1 + (st[sp.elem + 'Boost'] || 0);
+        const boost = 1 + (sp.elem ? st[sp.elem + 'Boost'] || 0 : 0);
         let raw = atk * sp.power * uniform(0.92, 1.08) * info.m * boost - b.def * 0.3;
         if (sp.elem === 'light' && b.shield > 0) { b.shield = 0; ev.push({ t: 'shieldBreak' }); ev.push({ t: 'log', text: '정화의 빛이 그림자 방패를 깨뜨렸다!' }); }
         const dmg = dealToEnemy(s, b, Math.max(1, raw), ev);
-        ev.push({ t: 'log', text: `${sp.name}! ${b.name}에게 ${dmg}의 ${D.ELEMENTS[sp.elem].name} 피해.${info.weak ? ' (약점!)' : info.resist ? ' (잘 안 든다…)' : ''}` });
+        ev.push({ t: 'log', text: `${sp.name}! ${b.name}에게 ${dmg}의 ${sp.elem ? D.ELEMENTS[sp.elem].name + ' ' : ''}피해.${info.weak ? ' (약점!)' : info.resist ? ' (잘 안 든다…)' : ''}` });
         noteWeak(s, b, info, ev);
         if (b.hp > 0) {
           if (sp.elem === 'ice') {
@@ -1234,8 +1300,9 @@
 
   W.rules = {
     makeRng, setRng, rand, randInt, weighted, clamp, key, describeEffect,
-    newGame, serialize, deserialize, stats, clampVitals, knownSpells, expToNext, gainExp,
-    count, addItem, removeItem, hasItems,
+    newGame, newFieldState, serialize, deserialize, stats, clampVitals, knownSpells, expToNext, gainExp,
+    classSpells, classOpen, canLearn, learnSpell, learnableSpells, runeSequence, sleepDay,
+    count, addItem, removeItem, hasItems, pick,
     questDef, refreshCustomers, customers, activeQuests, canPurifyQuest, acceptQuest, declineQuest, completeObjective,
     purifyQuest, addCursedAntique, rollAntiqueDef, purifyFound, sellAntique, equipAntique, unequip,
     shopItems, buy, sellItem, sellPrice, infirmary, checkBadges, objectiveText, canSeeEnding,
