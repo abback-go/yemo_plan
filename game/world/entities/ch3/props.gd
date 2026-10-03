@@ -67,7 +67,7 @@ static func setup_info(kind: String, p: Prop) -> Dictionary:
 		"moonwell":
 			info.glow_pos = Vector2(0, -10)
 			info.glow_r = 14.0 * p.w
-			info.glow_col = Color(0.6, 0.8, 1.0)
+			info.glow_col = Color(0.32, 0.42, 0.6)
 		"blight_crystal":
 			info.glow_pos = Vector2(0, -p.h * T * 0.5)
 			info.glow_r = 22.0 * p.h

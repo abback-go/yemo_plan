@@ -20,10 +20,10 @@ const THEMES := {
 		"near": Color("#030707"), "fog": Color(0.35, 1.0, 0.85, 0.05), "particles": "spores",
 	},
 	"blight": {
-		"base": Color("#45454d"), "deep": Color("#121216"), "top": Color("#a9a9b6"), "top_hi": Color("#f0f0ff"),
-		"seam": Color("#33333a"), "edge": Color("#24242a"), "pattern": "tile", "cap": "snow", "cap_col": Color("#e2e2ec"),
-		"plat": Color("#7c7c88"), "plat_hi": Color("#e6e6f2"), "spike": Color("#c4c4d4"), "accent": Color("#f0f0ff"),
-		"sky_top": Color("#0e0e12"), "sky_bottom": Color("#3c3c46"), "far": Color("#2a2a32"), "mid": Color("#1f1f26"),
-		"near": Color("#0c0c10"), "fog": Color(1.0, 1.0, 1.0, 0.06), "particles": "blight",
+		"base": Color("#2c2c34"), "deep": Color("#0a0a0d"), "top": Color("#5e5e6c"), "top_hi": Color("#c4c4d4"),
+		"seam": Color("#202027"), "edge": Color("#18181d"), "pattern": "tile", "cap": "snow", "cap_col": Color("#d8d8e4"),
+		"plat": Color("#5a5a66"), "plat_hi": Color("#c8c8d6"), "spike": Color("#b4b4c4"), "accent": Color("#f0f0ff"),
+		"sky_top": Color("#07070a"), "sky_bottom": Color("#24242c"), "far": Color("#1d1d24"), "mid": Color("#15151a"),
+		"near": Color("#08080a"), "fog": Color(1.0, 1.0, 1.0, 0.04), "particles": "blight",
 	},
 }

@@ -117,3 +117,58 @@ def dev_e_blight():
     r.add("prop", kind="blight_tree", x=70, y=F, h=8)
     r.add("prop", kind="blight_crystal", x=74, y=F, h=1.5)
     return r
+
+
+@room
+def dev_e_hunt():
+    """사냥 시험 경기장 시험판: 세로 3칸. 4행 간격 가지(통과 발판)를 지그재그로 — 한 번 점프로 오를 수 있다.
+    엘라리엔은 꼭대기 횃대(perch_1)에서 시작, 닿을 때마다 세라에게서 먼 횃대로 뛴다."""
+    r = dev_room("dev_e_hunt", "시험장 · 사냥 시험", "elf", (1, 3), "elf_hunt")
+    F = r.h - 4  # 65
+    r.box(wall=1, floor=4, ceil=1)
+    r.clear(1, 1, r.w - 2, 2)
+    levels = [
+        (61, [(4, 12), (27, 35)]),
+        (57, [(14, 24)]),
+        (53, [(3, 10), (29, 37)]),
+        (49, [(13, 21)]),
+        (45, [(4, 11), (27, 35)]),
+        (41, [(15, 24)]),
+        (37, [(3, 9), (30, 37)]),
+        (33, [(13, 21)]),
+        (29, [(4, 11), (28, 36)]),
+        (25, [(15, 23)]),
+        (21, [(3, 10), (29, 37)]),
+        (17, [(15, 24)]),
+    ]
+    for y, spans in levels:
+        for x0, x1 in spans:
+            r.plat(x0, x1, y)
+    for i, (x, y) in enumerate([(20, 17), (6, 29), (33, 37), (17, 49), (7, 45), (33, 21)]):
+        r.add("spawn", id="perch_%d" % (i + 1), x=x, y=y)
+    r.add("spawn", id="start", x=6, y=F, face="right")
+    r.add("enemy", id="elarien", kind="elarien_hunt", x=20, y=17, face="left", engaged=False)
+    for x, y in ((9, 29), (32, 21), (19, 41)):
+        r.add("prop", kind="elf_lantern", x=x, y=y + 1, len=1)
+    r.add("prop", kind="vine_curtain", x=34, y=1, w=3, h=6)
+    r.add("prop", kind="elf_banner", x=6, y=1, h=6)
+    return r
+
+
+@room
+def dev_e_crown():
+    """백색 사도 둥지 시험판: 넓은 바닥 + 왼쪽 높은 가지(엘라리엔 엄호 자리 ally)"""
+    r = dev_room("dev_e_crown", "시험장 · 사도의 둥지", "blight", (2, 1), "herald")
+    F = 19
+    r.box(wall=1, floor=4, ceil=1)
+    r.clear(1, 1, r.w - 2, 2)
+    r.plat(2, 8, 8)
+    r.plat(16, 22, F - 5)
+    r.plat(58, 64, F - 5)
+    r.add("spawn", id="start", x=10, y=F, face="right")
+    r.add("spawn", id="ally", x=5, y=8, face="right")
+    r.add("enemy", id="herald", kind="white_herald", x=44, y=F, face="left", engaged=False)
+    for x, h in ((26, 1.5), (52, 2), (70, 1)):
+        r.add("prop", kind="blight_crystal", x=x, y=F, h=h)
+    r.add("prop", kind="blight_growth", x=36, y=F, w=5)
+    return r

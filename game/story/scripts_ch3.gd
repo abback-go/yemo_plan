@@ -66,3 +66,33 @@ func dev_ch3_folk(c: Cut) -> void:
 		c.world.room.add_entity(n)
 		n.visual.set_pose(pose)
 	await c.wait(0.1)
+
+
+## 시험: 사냥 시험 보스 곁으로 세라를 옮김 (몸에 닿기 시험)
+func dev_ch3_touch_elarien(c: Cut) -> void:
+	var e := c.enemy("elarien_hunt")
+	if e:
+		c.player.global_position = e.global_position + Vector2(-10, 0)
+		c.player.velocity = Vector2.ZERO
+
+
+## 시험: 되쏜 화살이 사냥 시험 보스를 맞힘 (Hit.kind = reflect)
+func dev_ch3_reflect_elarien(c: Cut) -> void:
+	var e := c.enemy("elarien_hunt")
+	if e:
+		e.take_hit(Hit.make(150, &"reflect", e.global_position + Vector2(-200, -16), 1))
+
+
+## 시험: 세라를 백색 사도 왼쪽 6T에 세움 (사도를 바라봄)
+func dev_ch3_near_herald(c: Cut) -> void:
+	var e := c.enemy("white_herald")
+	if e:
+		c.player.global_position = Vector2(e.global_position.x - 6.0 * 16.0, c.player.global_position.y)
+		c.player.facing = 1
+
+
+## 시험: 동료 저격 — 백색 사도의 수정 눈을 깸
+func dev_ch3_snipe(c: Cut) -> void:
+	var e := c.enemy("white_herald") as WhiteHerald
+	if e:
+		e.snipe_eye()
