@@ -222,10 +222,34 @@ y6        [투기장 바닥][  ][은신처     ][하5 ][하수도4    ][하수�
 | `ch2_sewer.json` | 뗏목 위에 서기, 밸브 ↑(배수조 물 빠짐·수문), 수문 굴, 뗏목 승강 |
 | `ch2_quests.json` | 서브 7종 받기 → 물건 → 보상 |
 | `ch2_boss_spar/noxis/duel/beast.json` | 실제 방에서 보스(처음 수백 프레임은 무적 없이 피격 확인 → 진행) |
+| `ch2_talk.json` | 33개 방·학교의 인물 모두에게 말 걸기 (진행 중 / 장 끝 두 번) |
 | `ch2_<적>.json` (1단계) | 적 11종 개별 |
+
+결과 (2장 마무리 시점):
+- `check_scripts.gd` → `CHECKED 297 scripts, failures: 0` · `python3 tools/roomgen.py check all k_` → 문제 0.
+- `ch2_full`: 목표 줄이 순서대로 바뀌고(아침 → 날개 → 교장실 → … → 옛 성곽) 끝에 `room=s_dorm`, `chapter=3`, `tails=2`, `ch2_done=true`, SCRIPT ERROR 0, WAIT TIMEOUT 0.
+- `ch2_sewer`: 지하 묘지·하수도2 장벽이 **자동 방벽 되쏘기만으로** 깨짐, 뗏목 위 서기(11.91행), 밸브 ↑ → 배수조 물 빠짐·수문, 수문 굴(2,20), 뗏목 승강 19.92 → 5.82행.
+- `ch2_quests`: 7종 모두 `state=2`, 보상 최대 체력 5→7(깃털·스튜), 물약 0→1, 마도석 +6.
+- 보스: 대련(세라 피격 5→4, 세 번 맞히기 → "나쁘지 않군"), 녹시스(피격 5→3, 절반 → 도망 → 그날 밤 시계탑), 결투(피격, 일섬, 2페이즈 1440/3000, 별비·방벽·동료 합류),
+  운석수(자동 방벽으로 갑피 3→1, 큰 일격 → 브로치, 다리 베기, 처치 → 작별 → 기숙사 → 3장 카드).
 
 ### 7.11 남은 문제
 - 지붕 '틈'은 대시 점프(20칸/초)로도 꽤 넘어갈 수 있어 활공이 **강제**되는 곳은 상승 기류(굴뚝·시계탑·성벽 틈)뿐이다. 진행 게이트는 대본(지붕 입구 잠금 `ab_wings`)이 맡는다.
 - 2장 동안 학교에도 피피·이졸데·엠버린이 그대로 서 있다(1장 방 개체의 cond는 1장 파일). 공관과 학교를 전이진으로 오가는 설정으로 둔다.
-- 동료 레오니는 저장되지 않으므로(공통 규칙) 옛 성곽 방에 들어올 때마다 `_ensure_leonie`가 다시 부른다.
+- 동료 레오니는 저장되지 않으므로(공통 규칙) 옛 성곽 방에 들어올 때마다 `_ensure_leonie`가 다시 부른다. 옛 성곽 구간 중 전이진으로 학교에 가면 레오니도 따라간다.
+- 장 끝 `c.tails(2)` 뒤로 너울 그림(`fox/neoul_pet.gd` 152행, 공용)이 꼬리 2개 다각형 삼각분할에 실패해 매 프레임 `ERROR: Invalid polygon data`를 낸다 — 통합 담당에게 수정 요청(아래 7.12).
+- 학교 방(`s_cafeteria`·`s_windtower`·`s_headmaster`·`s_courtyard`) 생성 파일은 2장 덧붙임을 넣어 다시 만든 것이다. 다른 장의 덧붙임과 합칠 때는 통합 쪽에서 `python3 tools/roomgen.py`로 다시 만들어야 한다.
+
+### 7.12 공용 파일 요청 (2장은 고치지 않음)
+1. `game/fox/neoul_pet.gd` 꼬리 다각형(꼬리 2개 이상에서 삼각분할 실패): 꼬리 방향의 수직 벡터로 폭을 잡으면 어떤 각도에서도 꼬이지 않는다.
+   ```gdscript
+   		var tail_tip := tail_base + Vector2(-8 * f, -8 + tw).rotated(spread * f)
+   		var dir := (tail_tip - tail_base).normalized()
+   		var nrm := Vector2(-dir.y, dir.x)
+   		var mid := tail_base.lerp(tail_tip, 0.5)
+   		draw_colored_polygon(PackedVector2Array([tail_base + nrm * 2.0, mid + nrm * 3.0, tail_tip, mid - nrm * 2.5, tail_base - nrm * 2.0]), fur)
+   ```
+2. `.gitignore`에 `__pycache__/` 추가 + `git rm -r --cached tools/rooms/__pycache__` (방 생성기를 돌릴 때마다 추적 중인 .pyc가 바뀜).
+3. (선택) `Player.bind(sec)` 공개 함수 — 가론의 그물이 지금은 `state = STUN` + `_stun_timer`를 직접 쓴다.
+4. (선택) 1장 학교 방의 피피(`s_alchemy`)·이졸데(`s_advclass`)·엠버린에 2장 파견 중 숨김 조건(`!k_departed` 등) — 지금은 공관과 학교에 함께 서 있다.
 
