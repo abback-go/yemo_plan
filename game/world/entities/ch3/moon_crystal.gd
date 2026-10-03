@@ -12,7 +12,7 @@ func setup(room: Room, e: Dictionary, eid: String) -> void:
 	remove_from_group(&"pillar_target") # 불기둥이 노리지 않게 (달빛만 통함)
 	_glow.modulate = Color(MOON, 0.0)
 	_glow.position = Vector2(0, 14)
-	_glow.scale = Vector2.ONE * 80.0 / 32.0
+	_glow.scale = Vector2.ONE * 46.0 / 32.0
 	# 판정 상자를 수정 자리(천장 아래)로
 	var cs := _hurt.get_child(0) as CollisionShape2D
 	if cs:
@@ -48,7 +48,7 @@ func set_lit(v: bool, quiet := false) -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_fail = maxf(_fail - delta, 0.0)
-	_glow.base_alpha = 0.7 if lit else 0.0
+	_glow.base_alpha = 0.4 if lit else 0.0
 	queue_redraw()
 
 

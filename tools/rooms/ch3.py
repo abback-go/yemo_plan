@@ -172,3 +172,38 @@ def dev_e_crown():
         r.add("prop", kind="blight_crystal", x=x, y=F, h=h)
     r.add("prop", kind="blight_growth", x=36, y=F, w=5)
     return r
+
+
+@room
+def dev_e_border():
+    """장치 시험: 저격 구간(엄폐물 셋) → 바람 밸브·상승 기류·옆바람 → 역병 덩굴 → 빛버섯 순서 퍼즐·뿌리 문 → 달빛 퍼즐 → 활터 과녁"""
+    r = dev_room("dev_e_border", "시험장 · 장치", "elf", (3, 1), "elf")
+    F = 19
+    r.box(wall=1, floor=4, ceil=1)
+    r.clear(1, 1, r.w - 2, 2)
+    markers(r, F)
+    # 저격 구간 (엄폐 바위)
+    for x0, x1, h in ((12, 13, 3), (22, 24, 2), (32, 33, 3)):
+        r.fill(x0, F - h, x1, F - 1)
+    r.plat(40, 44, 5)
+    r.add("sniper_cover_arrows", id="snipe", x=3, y=0, w=37, h=23, ox=42, oy=5, done="dev_snipe_done")
+    # 바람길
+    r.add("wind_valve", id="valve", x=48, y=F, flag="dev_valve")
+    r.add("updraft", id="draft", x=52, y=3, w=3, h=16, style="wind", on_if="dev_valve")
+    r.add("crosswind", id="cross", x=56, y=7, w=20, h=5, dir=1, on_if="!dev_valve")
+    r.plat(50, 57, 3)
+    r.add("wind_valve", id="valve2", x=62, y=F, flag="dev_valve2", broken=True, fix_flag="dev_valve2_fixed")
+    # 역병 덩굴 + 빛버섯 순서 퍼즐 → 뿌리 문
+    r.add("blight_vine", id="vine", x=80, y=F - 5, w=2, h=5, hp=3)
+    for i, (x, o, s) in enumerate(((86, 2, 1.0), (90, 3, 1.4), (94, 1, 0.7))):
+        r.add("glow_mushroom", id="gm%d" % i, x=x, y=F, group="dm", order=o, size=s, done_flag="dev_mush")
+    r.add("puzzle", id="pz", group="dm", mode="order", done_flag="dev_mush")
+    r.add("root_gate", id="rg", x=98, y=F - 5, w=1, h=5, open_if="dev_mush")
+    # 달빛 퍼즐
+    r.add("moon_crystal", id="mc", x=104, y=1, group="moon", done_flag="dev_moon")
+    r.add("moon_drop", id="md", x=104, y=5)
+    r.add("puzzle", id="pz2", group="moon", mode="all", done_flag="dev_moon")
+    # 활터
+    r.add("archery_mark", id="am1", x=110, y=F, active_if="dev_arch")
+    r.add("archery_mark", id="am2", x=115, y=8, hang=True, dy=2, active_if="dev_arch")
+    return r

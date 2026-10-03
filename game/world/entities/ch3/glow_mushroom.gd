@@ -14,7 +14,7 @@ func setup(room: Room, e: Dictionary, eid: String) -> void:
 	super(room, e, eid)
 	size = float(e.get("size", 1.0))
 	_glow.modulate = Color(MUSH, 0.0)
-	_glow.scale = Vector2.ONE * (110.0 * size) / 32.0
+	_glow.scale = Vector2.ONE * (64.0 * size) / 32.0
 	_glow.position = Vector2(0, -12 * size)
 
 
@@ -33,7 +33,7 @@ func set_lit(v: bool, quiet := false) -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_fail = maxf(_fail - delta, 0.0)
-	_glow.base_alpha = (0.75 if lit else 0.08)
+	_glow.base_alpha = (0.42 if lit else 0.05)
 	queue_redraw()
 
 
