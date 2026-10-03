@@ -72,5 +72,6 @@ func _init() -> void:
 		{t = "prop", kind = "st_fire", x = 34, y = 42},
 		{t = "prop", kind = "st_comm_crystal", x = 18, y = 42, on = true},
 		{t = "trigger", id = "comm", x = 15, y = 38, w = 6, h = 4, run = "r5_comm_leonie", cond = "!st_comm_k"},
+		{t = "spawn", id = "comm", x = 16, y = 42, face = "right"},
 		{t = "prop", kind = "st_white_growth", x = 36, y = 31},
 	]

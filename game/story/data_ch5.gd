@@ -23,12 +23,14 @@ const CHARACTERS := {
 	},
 }
 
-## 이 장의 방 ID (지도·검사용). st_ = 별의 탑 영역 + 학교 영역의 축제 광장·다시 세우는 안뜰, r5_ = 침공으로 무너진 학교
+## 이 장의 방 ID (지도·검사용). st_ = 별의 탑 영역 + 학교 영역의 축제 광장·다시 세우는 안뜰, r5_ = 침공으로 무너진 학교,
+## r5_vision_* = 통신이 울릴 때 잠깐 보여 주는 같은 시각의 제국·세계수·대신전 (영역 "vision", 장면 전용)
 const ROOMS := [
 	"st_festival", "st_rebuild",
 	"st_crossroads", "st_trial_k1", "st_trial_k", "st_trial_e1", "st_trial_e", "st_trial_tp1", "st_trial_tp", "st_trial_s1", "st_trial_s",
 	"st_tower_1", "st_tower_2", "st_tower_3", "st_tower_4", "st_tower_4r", "st_tower_5", "st_tower_top",
 	"r5_clock", "r5_hall", "r5_westcorr", "r5_library", "r5_dorm", "r5_courtyard",
+	"r5_vision_k", "r5_vision_e", "r5_vision_tp",
 	"st_void", "r5_courtyard_rise", "st_colossus_1", "st_colossus_2", "st_colossus_3", "st_sky_1", "st_skygate",
 ]
 

@@ -46,6 +46,7 @@ func _init() -> void:
 		{t = "st_follow", id = "followers", who = ["pippa", "student_a", "student_b"], cond = "st_escort"},
 		{t = "prop", kind = "st_comm_crystal", x = 60, y = 19, on = true},
 		{t = "trigger", id = "comm", x = 57, y = 15, w = 6, h = 4, run = "r5_comm_elarien", cond = "!st_comm_e"},
+		{t = "spawn", id = "comm", x = 58, y = 19, face = "right"},
 		{t = "st_quake", x = 0, y = 0, strength = 0.5},
 		{t = "prop", kind = "bookshelf", x = 8, y = 19, w = 4, h = 8},
 		{t = "prop", kind = "bookshelf", x = 28, y = 19, w = 4, h = 8},

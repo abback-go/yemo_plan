@@ -766,6 +766,7 @@ def r5_clock():
         r.add("prop", kind="st_fire", x=x, y=y)
     r.add("prop", kind="st_comm_crystal", x=18, y=FB, on=True)
     r.add("trigger", id="comm", x=15, y=FB - 4, w=6, h=4, run="r5_comm_leonie", cond="!st_comm_k")
+    r.add("spawn", id="comm", x=16, y=FB, face="right")
     r.add("prop", kind="st_white_growth", x=36, y=31)
     return r
 
@@ -841,6 +842,7 @@ def r5_library():
     r.add("st_follow", id="followers", who=["pippa", "student_a", "student_b"], cond="st_escort")
     r.add("prop", kind="st_comm_crystal", x=60, y=F, on=True)
     r.add("trigger", id="comm", x=57, y=F - 4, w=6, h=4, run="r5_comm_elarien", cond="!st_comm_e")
+    r.add("spawn", id="comm", x=58, y=F, face="right")
     r.add("st_quake", x=0, y=0, strength=0.5)
     for x in (8, 28, 52, 70):
         r.add("prop", kind="bookshelf", x=x, y=F, w=4, h=8)
@@ -862,6 +864,7 @@ def r5_dorm():
     r.add("npc", id="stu_c", who="student_c", x=20, y=F, face="left", talk="npc_r5_stu", cond="!st_dorm_seen")
     r.add("st_follow", id="followers", who=["pippa", "student_a", "student_b"], cond="st_escort")
     r.add("prop", kind="st_comm_crystal", x=24, y=F, on=True)
+    r.add("spawn", id="comm", x=22, y=F, face="right")
     r.add("prop", kind="bed_prop", x=12, y=F)
     r.add("prop", kind="bed_prop", x=26, y=F)
     r.add("prop", kind="st_rubble", x=34, y=F, w=3)
@@ -999,8 +1002,11 @@ def st_colossus_3():
     r.fill(1, 37, 7, G)
     r.exit_left("west", 32, 36, "st_colossus_2", "east")
     r.add("spawn", id="start", x=4, y=37, face="right")
+    # 무너진 탑의 잔해를 딛고 손바닥(약 17행, x 2~3)까지 → 팔 오르막 → 어깨 → 머리 꼭대기(약 10행, x 20~22)
+    for x0, x1, y in ((9, 14, 33), (2, 7, 29), (9, 14, 25), (5, 10, 21)):
+        r.plat(x0, x1, y)
     r.add("st_colossus_ride", id="big", x=24, y=G, h=40, dir="left", speed=0.0, travel=0)
-    r.add("trigger", id="launch", x=10, y=1, w=28, h=6, run="st_launch", cond="!st_launch")
+    r.add("trigger", id="launch", x=17, y=6, w=8, h=4, run="st_launch", cond="!st_launch")
     r.add("st_quake", x=0, y=0, strength=0.2)
     r.add("prop", kind="st_rubble", x=4, y=37, w=4)
     r.add("prop", kind="st_fire", x=12, y=G, size=1.2)
@@ -1076,4 +1082,57 @@ def st_rebuild():
     for x, y, w, sag in ((10, 3, 16, 2), (48, 2, 18, 3)):
         r.add("prop", kind="st_lantern_string", x=x, y=y, w=w, sag=sag)
     r.add("sign", x=7, y=F, look="board", text="다시 세우는 안뜰|공사 중. 머리 조심.|도울 사람은 엠버린 교수에게 이름을 적을 것. 간식은 버터워스 님 제공.")
+    return r
+
+
+# ═══════════════════════════════════════════════════════════
+# 절망의 환상: 같은 시각 다른 지역 (통신 수정 구슬이 울릴 때 잠깐 보여 주는 장면 전용 방)
+# 지도 영역 "vision" — 장면 중에만 머무르므로 지도에 나오지 않는다. 문·출구 없음.
+# ═══════════════════════════════════════════════════════════
+
+def _vision_room(rid, title, theme, cell):
+    r = Room(rid, title, "vision", theme, "despair", cell, (1, 1))
+    r.ground(F)
+    r.fill(0, 0, 0, F - 1)
+    r.fill(r.w - 1, 0, r.w - 1, F - 1)
+    r.add("spawn", id="view", x=20, y=F, face="right")
+    r.add("st_quake", x=0, y=0, strength=1.0)
+    return r
+
+
+@room
+def r5_vision_k():
+    r = _vision_room("r5_vision_k", "황도 아르덴 — 같은 시각", "ruin_kingdom", (0, 0))
+    r.add("enemy", id="giant", kind="colossus", x=36, y=F, face="left", mode="walk", stride=6.0, step_time=2.4)
+    r.add("prop", kind="st_rubble", x=6, y=F, w=5)
+    r.add("prop", kind="st_burning_beam", x=25, y=F, w=4)
+    r.add("prop", kind="st_fallen_banner", x=11, y=F)
+    r.add("prop", kind="st_broken_pillar", x=30, y=F, h=7)
+    for x in (3, 20, 33):
+        r.add("prop", kind="st_fire", x=x, y=F, size=1.2)
+    return r
+
+
+@room
+def r5_vision_e():
+    r = _vision_room("r5_vision_e", "세계수 — 같은 시각", "ruin_elf", (1, 0))
+    r.add("enemy", id="giant", kind="colossus", x=34, y=F, face="left", mode="walk", stride=6.0, step_time=2.6)
+    r.add("prop", kind="st_ash_tree", x=8, y=F)
+    r.add("prop", kind="st_ash_tree", x=27, y=F)
+    r.add("prop", kind="st_white_growth", x=22, y=F)
+    for x in (4, 14, 31):
+        r.add("prop", kind="st_fire", x=x, y=F, size=1.1)
+    return r
+
+
+@room
+def r5_vision_tp():
+    r = _vision_room("r5_vision_tp", "대신전 — 같은 시각", "ruin_temple", (2, 0))
+    r.add("enemy", id="giant", kind="colossus", x=35, y=F, face="left", mode="walk", stride=6.0, step_time=2.5)
+    r.add("prop", kind="st_broken_bell", x=8, y=F)
+    r.add("prop", kind="st_cracked_statue", x=27, y=F)
+    r.add("prop", kind="st_broken_pillar", x=4, y=F, h=8)
+    r.add("prop", kind="st_broken_pillar", x=32, y=F, h=5)
+    for x in (12, 24):
+        r.add("prop", kind="st_fire", x=x, y=F, size=1.0)
     return r
