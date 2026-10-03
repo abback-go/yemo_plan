@@ -912,7 +912,9 @@ func _die(_dir: int) -> void:
 	Fx.flash(Color(1, 1, 1, 0.6), 0.5)
 	H.snd(&"sky_crack", &"roar", 0.0)
 	collision_layer = 0
+	collision_mask = GameConst.L_WORLD # 돌진 중(벽 통과)에 쓰러져도 투기장 바닥에 내려앉게
 	_hurtbox.set_deferred("monitorable", false)
+	_flash = 0.0 # 마지막 일격의 흰 번쩍임이 남지 않게
 	flying = false
 	velocity = Vector2.ZERO
 	_go(S.DOWN)
@@ -924,6 +926,7 @@ func _physics_process(delta: float) -> void:
 	super(delta)
 	if not _alive:
 		_t += delta
+		_flash = maxf(_flash - delta, 0.0)
 		if not is_on_floor():
 			velocity.y = minf(velocity.y + _gravity * delta, 600.0)
 			velocity.x = 0.0

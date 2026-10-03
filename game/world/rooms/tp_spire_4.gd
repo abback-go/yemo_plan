@@ -91,7 +91,7 @@ func _init() -> void:
 		{t = "holy_chaser", id = "chaser", start_y = 67, stop_y = 10, delay = 2.5, first = 4.0, rise = 1.2, interval = 4.4, cond = "!tp_aurelia_defeated"},
 		{t = "star_steps", id = "stars", flag = "tp_star_steps", steps = [[19, 38, 4], [25, 35, 4], [31, 32, 4], [25, 29, 4], [19, 26, 4], [25, 23, 4], [18, 20, 4]]},
 		{t = "updraft", id = "starwind", x = 18, y = 14, w = 3, h = 27, style = "star", power = 1.0, on_if = "tp_star_steps"},
-		{t = "trigger", id = "astrid", x = 5, y = 35, w = 4, h = 6, run = "tp_spire4_astrid", cond = "!tp_star_steps"},
+		{t = "trigger", id = "astrid", x = 4, y = 35, w = 14, h = 6, run = "tp_spire4_astrid", cond = "!tp_star_steps"},
 		{t = "prop", kind = "tp_stairs_broken", x = 16, y = 41, w = 3},
 		{t = "prop", kind = "tp_rubble", x = 8, y = 41, w = 3},
 		{t = "prop", kind = "tp_broken_column", x = 12, y = 17, h = 3},

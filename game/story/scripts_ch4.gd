@@ -751,7 +751,6 @@ func tp_spire3_leonie(c: Cut) -> void:
 		ch.set_paused(true)
 		if ch.cstate != HolyChaser.C.NONE:
 			await ch.charge_done
-	var p := _ptile(c)
 	var a := _leonie_join(c, 7.0, 35.0)
 	a.mode = "script"
 	await c.say("leonie", "세라!")
@@ -760,7 +759,8 @@ func tp_spire3_leonie(c: Cut) -> void:
 	await c.say("leonie", "수도사들에게 맡겼다. 무사하다.")
 	await c.say("leonie", "…온다. 뒤로 물러서라.")
 	c.close_box()
-	await a.move_to(maxf(p.x + 6.0, 18.0))
+	await c.player_walk(9.0, 90.0)
+	await a.move_to(17.0)
 	a.facing = 1
 	a.set_pose("guard")
 	c.player_face(1)
@@ -911,13 +911,27 @@ func _boss_end(c: Cut, boss: AureliaBoss) -> void:
 	c.shake(0.5, 1.0)
 	await c.say("tp_voice", "…아아… 또… 다른… 그릇이… 있으니…")
 	c.close_box()
+	# 빛이 걷히는 동안(암전) 투기장 가운데로 모은다 — 리라가 그 위 첨탑 끝에 나타난다
+	await c.fade_out(0.6, Color(0.75, 0.88, 1.0))
+	var floor_y := 19.0 * 16.0
 	if is_instance_valid(boss):
 		boss.purify()
-	c.tint(Color(0.05, 0.08, 0.25, 0.3), 1.5)
-	await c.wait(1.5)
+		boss.global_position = Vector2(42 * 16 + 8, floor_y)
+		boss.velocity = Vector2.ZERO
+		boss.facing = -1
+	c.player.global_position = Vector2(38 * 16 + 8, floor_y)
+	c.player.velocity = Vector2.ZERO
+	c.player_face(1)
 	if a:
-		await a.move_to(bpos.x / 16.0 - 2.5)
+		a.global_position = Vector2(35 * 16 + 8, floor_y)
+		a.velocity = Vector2.ZERO
 		a.facing = 1
+		a.set_pose("idle")
+	c.tint(Color(0.05, 0.08, 0.25, 0.3), 0.01)
+	await c.camera_back(0.01)
+	c.player.camera.reset_smoothing()
+	await c.fade_in(1.2)
+	await c.wait(0.6)
 	await c.say("aurelia", "……", "sad")
 	await c.say("aurelia", "…저는… 무엇을…", "surprised")
 	await c.say("sera", "괜찮아? 흰 것한테 홀렸었어. 이제 다 태웠어.")

@@ -900,12 +900,12 @@ def tp_spire_3():
     """가운데 넓은 돌 층계참에서 레오니가 신성 돌진을 정면으로 받아낸다(tp_spire3_leonie): "올라가라, 세라!" """
     r = spire_room("tp_spire_3", "첨탑 · 부서진 층계참", (11, -3), "right", "right", "tp_spire_4", "down", "tp_spire_2", "up",
                    steps=[(27, 32, 62), (18, 23, 59), (9, 14, 56), (10, 15, 50), (18, 23, 47), (26, 31, 44), (24, 29, 38),
-                          (24, 29, 32), (31, 36, 29), (24, 29, 26), (15, 20, 23), (6, 11, 20), (13, 18, 17), (21, 26, 13)],
+                          (1, 5, 31), (8, 13, 28), (16, 21, 25), (24, 29, 22), (31, 36, 19), (23, 28, 16), (22, 27, 13)],
                    rests=[(1, 7, 53), (32, 38, 41), (6, 22, 35)],
-                   planks=[(2, 44, 5), (32, 23, 6)],
+                   planks=[(2, 44, 5), (32, 26, 6)],
                    chaser=dict(rise=1.15, interval=4.6))
     r.add("spawn", id="landing", x=12, y=35, face="right")
-    r.add("trigger", id="leonie", x=10, y=29, w=3, h=6, run="tp_spire3_leonie")
+    r.add("trigger", id="leonie", x=6, y=29, w=17, h=6, run="tp_spire3_leonie")  # 층계참 전체 (위로 가는 길은 층계참 왼쪽 끝에서만 이어짐)
     r.ents[-1]["cond"] = "!tp_spire3_leonie"
     spire_deco(r, [
         ("tp_broken_column", 8, 35, dict(h=4)), ("tp_rubble", 16, 35, dict(w=3)), ("tp_glass", 16, 6, dict(w=3, h=7)),
@@ -926,7 +926,7 @@ def tp_spire_4():
     r.add("star_steps", id="stars", flag="tp_star_steps",
           steps=[[19, 38, 4], [25, 35, 4], [31, 32, 4], [25, 29, 4], [19, 26, 4], [25, 23, 4], [18, 20, 4]])
     r.add("updraft", id="starwind", x=18, y=14, w=3, h=27, style="star", power=1.0, on_if="tp_star_steps")
-    r.add("trigger", id="astrid", x=5, y=35, w=4, h=6, run="tp_spire4_astrid")
+    r.add("trigger", id="astrid", x=4, y=35, w=14, h=6, run="tp_spire4_astrid")  # 무너진 층계참 전체
     r.ents[-1]["cond"] = "!tp_star_steps"
     spire_deco(r, [
         ("tp_stairs_broken", 16, 41, dict(w=3)), ("tp_rubble", 8, 41, dict(w=3)), ("tp_broken_column", 12, 17, dict(h=3)),
@@ -975,7 +975,7 @@ def tp_spire_top():
     r.ents[-1]["cond"] = "!tp_aurelia_defeated"
     deco(r, [
         ("tp_broken_column", 19, F - 4, dict(h=3)), ("tp_broken_column", 61, F - 4, dict(h=3)), ("tp_rubble", 24, F, dict(w=3)),
-        ("tp_rubble", 54, F, dict(w=2)), ("tp_bell", 40, 1, dict(len=4, size=1.3)), ("tp_flags", 3, 6, dict(w=30, h=2)),
+        ("tp_rubble", 54, F, dict(w=2)), ("tp_bell", 27, 1, dict(len=2, size=0.7)), ("tp_bell", 53, 1, dict(len=2, size=0.7)), ("tp_flags", 3, 6, dict(w=30, h=2)),
         ("tp_flags", 47, 6, dict(w=30, h=2)), ("tp_brazier", 4, F), ("tp_brazier", 75, F), ("tp_wing_statue", 77, F),
     ])
     return r
