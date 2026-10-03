@@ -280,6 +280,14 @@ func teach_dash_jump(c: Cut) -> void:
 
 # ─── P7 수문: 해태 ──────────────────────────────────────
 
+const FOX_MARK := 0.85 ## 해태 체력이 이만큼 아래로 내려가면 첫 빙의
+
+
+## 수문에 들어오면(쓰러져 다시 온 경우 포함) 철창을 올려 둔다. 싸움이 시작될 때 내려온다
+func enter_t_gate(c: Cut) -> void:
+	if c.has("t_gate_fight"):
+		c.flag("t_gate_fight", false)
+
 func p_haetae(c: Cut) -> void:
 	if c.has("haetae_down"):
 		return
@@ -299,23 +307,33 @@ func p_haetae(c: Cut) -> void:
 		await c.say("neoul", "해태니라. 불을 먹는 신수. 신계의 문을 지키는 아이지.")
 		await c.say("neoul", "붉은 불은 저놈에겐 밥이나 다름없다. 쏘아 봐야 반은 먹어 치울 게야.")
 		await c.say("sera", "그럼 어떡하라고! 난 불밖에 못 쓰는데!", "angry")
-		await c.say("neoul", "…방법은 있다. 일단 버티거라.")
+		await c.say("neoul", "…방법은 있다. 붉은 불로 저 녀석의 기운을 조금만 꺾거라.")
+		await c.say("neoul", "그 틈에 내 힘을 빌려주마. 오래 걸리진 않을 게야.")
 		c.close_box()
 		await c.camera_back(0.5)
 	else:
 		await c.say("neoul", "다시 가자. 이번엔 물러서지 말거라.")
 		c.close_box()
 	c.music("boss")
+	c.flag("t_gate_fight") # 왼쪽 통로에 철창이 내려와 투기장을 막음
+	c.sfx("chain", 2.0)
+	if not GameState.has_ability("fox_mode"):
+		h.set_meta("fox_mark", FOX_MARK) # 보스 체력바의 푸른 "빙의" 눈금
 	h.engaged = true
 	c.release()
-	# 체력 70%: 첫 빙의 (붉은 불로 조금 버티면 바로 변신하도록)
-	await c.wait_enemy(h, 0.7)
+	# 첫 빙의: 붉은 불 몇 대(체력 85%까지) 또는 10초가 지나면 (docs/chapter1.md 13.2절)
+	if not GameState.has_ability("fox_mode"):
+		await c.wait_enemy(h, FOX_MARK, 10.0)
 	if not c.ok():
 		return
+	if is_instance_valid(h):
+		h.remove_meta("fox_mark")
 	if is_instance_valid(h) and h.is_alive() and not GameState.has_ability("fox_mode"):
 		c.lock()
 		c.sfx("roar", 4.0)
 		c.shake(0.4, 1.0)
+		if h.hp > h.max_hp * FOX_MARK:
+			await c.say("neoul", "…붉은 불은 안 통하는구나. 더는 못 기다리겠다!", "angry")
 		await c.say("sera", "하아… 하아… 안 돼, 또 끓어올라…!", "sad")
 		c.player.overload = 96.0
 		await c.say("neoul", "세라! 그 힘, 이리 다오!", "angry")
@@ -341,6 +359,7 @@ func p_haetae(c: Cut) -> void:
 func p_haetae_end(c: Cut) -> void:
 	c.lock()
 	c.flag("haetae_down")
+	c.flag("t_gate_fight", false)
 	Music.stop(2.0)
 	await c.wait(1.5)
 	await c.say("neoul", "…잠들었구나. 이 아이는 그저 문을 지켰을 뿐이니라.", "sad")

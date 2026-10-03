@@ -40,6 +40,7 @@ func _init() -> void:
 		{t = "save", id = "save", x = 4, y = 19, style = "lantern"},
 		{t = "trigger", id = "tb", x = 10, y = 11, w = 2, h = 8, run = "p_haetae", once = false},
 		{t = "enemy", id = "haetae", kind = "haetae", x = 29, y = 19, face = "left", engaged = false},
+		{t = "gate", id = "arena", x = 1, y = 14, w = 1, h = 5, open_if = "!t_gate_fight", look = "bars"},
 		{t = "gate", id = "g", x = 38, y = 12, w = 1, h = 7, open_if = "haetae_down", look = "seal"},
 		{t = "door", id = "portal", x = 36, y = 19, to = "s_infirmary", to_id = "bed", style = "portal", cond = "haetae_down"},
 		{t = "prop", kind = "hongsal", x = 34, y = 19},

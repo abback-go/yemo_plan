@@ -19,26 +19,26 @@ enum S {
 	FLINCH, ROAR, DEFEATED,
 }
 
-const HP := 1600 ## 첫 미니보스라 낮춤 (2600 → 1600, 사용자 플레이 피드백)
+const HP := 1000 ## 첫 미니보스 = 여우 모드 시범전 (2600 → 1600 → 1000, 사용자 플레이 피드백)
 const BODY := Vector2(62, 44)
 const WALK_T := 3.0
 const RISE_TIME := 0.9
-const STALK_TIME := Vector2(0.9, 1.4) ## 공격 사이 어슬렁거리는 시간 (최소, 최대)
-const STALK_TIME_ENRAGED := Vector2(0.55, 0.9)
+const STALK_TIME := Vector2(1.35, 2.1) ## 공격 사이 어슬렁거리는 시간 (최소, 최대). 시범전이라 넉넉히
+const STALK_TIME_ENRAGED := Vector2(0.85, 1.35)
 # 돌진
-const CHARGE_WINDUP := 0.9
+const CHARGE_WINDUP := 1.2
 const CHARGE_SPEED_T := 15.0
 const CHARGE_SPEED_ENRAGED_T := 17.0
 const CHARGE_MAX_T := 36.0
 const WALL_STAGGER_TIME := 1.0
 const SKID_TIME := 0.6
 # 도약 + 불 숨결
-const CROUCH_TIME := 0.6
+const CROUCH_TIME := 0.8
 const LEAP_TIME := 0.75
 const LEAP_GRAVITY := 1050.0 ## 도약 포물선이 너무 높아 천장 발판에 부딪히지 않게 (꼭대기 약 4.6T)
 const LEAP_MAX_T := 14.0
 const LAND_TIME := 0.3
-const BREATH_WINDUP := 0.65
+const BREATH_WINDUP := 0.85
 const BREATH_TIME := 1.0
 const PANT_TIME := 1.0
 # 불 먹기
@@ -58,7 +58,7 @@ const FLINCH_COOLDOWN := 2.0
 const FOX_HEAVY: Array[StringName] = [&"foxfire_heavy", &"fox_pillar", &"fox_storm_final", &"fox_burst"]
 # 포효 · 기와
 const ROAR_TIME := 1.6
-const TILE_EVERY := 4.2
+const TILE_EVERY := 6.0
 const TILE_WARN := 0.7
 const MOUTH := Vector2(45, -31) ## 오른쪽을 볼 때 원점(발밑) → 입 (평소 자세)
 const FIRE_FOX := Color(0.55, 0.85, 1.0)

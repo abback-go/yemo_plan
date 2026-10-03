@@ -393,6 +393,12 @@ class HudDraw extends Control:
 		var k := clampf(float(boss.hp) / boss.max_hp, 0.0, 1.0)
 		draw_rect(Rect2(r.position, Vector2(r.size.x * k, r.size.y)), Color(0.85, 0.2, 0.25, a))
 		draw_rect(Rect2(r.position, Vector2(r.size.x * k, 1)), Color(1, 0.6, 0.6, a))
+		# 첫 빙의 지점 (대본이 boss에 fox_mark를 달아 둔 동안): 푸른 눈금 + "빙의"
+		if boss.has_meta("fox_mark"):
+			var mx: float = r.position.x + r.size.x * float(boss.get_meta("fox_mark"))
+			var blue := Color(0.55, 0.85, 1.0, a * (0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.008)))
+			draw_rect(Rect2(mx - 1, r.position.y - 4, 2, r.size.y + 8), blue)
+			draw_string(_font, Vector2(mx - 10, r.end.y + 13), "빙의", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, blue)
 
 	## 정예 적 머리 위 작은 체력바 (맞은 직후 2.5초)
 	func _draw_elite_bars(w: World) -> void:

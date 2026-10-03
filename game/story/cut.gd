@@ -318,14 +318,18 @@ func wait_until(cond: Callable, timeout := 600.0) -> bool:
 	return false
 
 
-## 적이 쓰러지거나 체력이 hp_frac 이하가 될 때까지 기다림 (적이 사라져도 안전)
-func wait_enemy(e: EnemyBase, hp_frac := 0.0) -> void:
+## 적이 쓰러지거나 체력이 hp_frac 이하가 될 때까지 기다림 (적이 사라져도 안전). timeout초가 지나도 돌아옴
+func wait_enemy(e: EnemyBase, hp_frac := 0.0, timeout := 0.0) -> void:
 	var wr: WeakRef = weakref(e)
+	var t := 0.0
 	while ok():
 		var o: EnemyBase = wr.get_ref()
 		if o == null or not o.is_alive() or (hp_frac > 0.0 and o.hp <= o.max_hp * hp_frac):
 			return
+		if timeout > 0.0 and t >= timeout:
+			return
 		await world.get_tree().physics_frame
+		t += world.get_physics_process_delta_time()
 
 
 ## 방의 적 (종류로 찾기)
