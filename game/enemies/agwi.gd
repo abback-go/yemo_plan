@@ -8,10 +8,10 @@ extends EnemyBase
 ## - 흡입: 고개를 숙이고 입을 벌려 세라를 8 T/s로 끌어당기고 폭주 게이지를 빨아들임. 이때 입이 약점(1.5배).
 ## - 검은 불덩이 3발: 느린 포물선.
 ## 체력 50%: phase_changed(2) → 사슬을 끊는 연출(무적) → 2페이즈 (자유롭게 걷고 뜀)
-## - 그림자 손 3연속(세라 자리에 0.6초 검은 원 예고), 도약 내려찍기(+양옆 충격파), 탐식 잡기(긴 예고 → 빠른 돌진, 맞으면 2 피해).
+## - 그림자 손 3연속(세라 자리에 0.6초 검은 원 예고), 도약 내려찍기(+양옆 충격파), 탐식 잡기(긴 예고 → 빠른 돌진, 맞으면 1 피해).
 ## - 흡입·휩쓸기도 계속 쓰고, 휩쓸기는 높게↔낮게 연속으로 이어지기도 한다.
 ## 체력 25%: enraged (패턴 간격·예고가 조금 빨라짐).
-## 공통: 몸은 질겨서 피해 50%. 내려찍기 착지 뒤·탐식 헛손질 뒤는 빈틈(100%). 푸른 여우불에 맞으면 움찔(0.4초, 2초에 한 번).
+## 공통: 몸은 질겨서 피해 80%. 내려찍기 착지 뒤·탐식 헛손질 뒤는 빈틈(100%). 푸른 여우불에 맞으면 움찔(0.4초, 2초에 한 번).
 ## 죽으면 터지지 않고 무너져 보랏빛 연기로 흩어진 뒤(1.6초) 처치 처리.
 
 enum S {
@@ -30,13 +30,13 @@ const T := GameConst.TILE
 ## 입 위치 (오른쪽을 볼 때, 발밑 원점): 평소 / 흡입 때 고개를 숙였을 때
 const MOUTH_REST := Vector2(54, -112)
 const MOUTH_LOW := Vector2(62, -38)
-const BODY_MULT := 0.5
+const BODY_MULT := 0.8 ## 플레이 피드백으로 하향 (0.5 → 0.8)
 const OPEN_MULT := 1.0
 const MOUTH_MULT := 1.5
 const MOUTH_WEAK_RADIUS := 3.0 * 16.0
 
-const SWEEP_WIND_TIME := 0.85
-const SWEEP_COMBO_WIND := 0.6
+const SWEEP_WIND_TIME := 1.1
+const SWEEP_COMBO_WIND := 0.8
 const SWEEP_TIME := 0.7
 const SWEEP_REC_TIME := 0.7
 const SWEEP_REACH_T := 19.0
@@ -45,15 +45,15 @@ const SWEEP_HIGH_H := 36.0
 const SWEEP_LOW_Y := -12.0 ## 낮게: 바닥 위 0~24px
 const SWEEP_LOW_H := 24.0
 
-const INHALE_WIND_TIME := 0.75
+const INHALE_WIND_TIME := 1.0
 const INHALE_TIME := 3.0
 const INHALE_REC_TIME := 1.2
-const INHALE_PULL_T := 8.0
+const INHALE_PULL_T := 6.0
 const INHALE_DRAIN := 15.0
 const INHALE_COOLDOWN := 9.0
 const INHALE_RANGE_T := 22.0 ## 이보다 멀면 끌려가지 않음 (투기장 절반 폭)
 
-const SPIT_WIND_TIME := 0.6
+const SPIT_WIND_TIME := 0.8
 const SPIT_INTERVAL := 0.24
 const SPIT_REC_TIME := 0.8
 const FIREBALL_FLIGHT := 1.15
@@ -63,14 +63,14 @@ const SPIT_RANGE_T := 20.0 ## 불덩이가 노리는 최대 거리
 const CHAIN_BREAK_TIME := 3.2
 const CHAIN_SNAP_AT := 1.7 ## 연출 시작 뒤 사슬이 끊기는 시각
 
-const HANDS_WIND_TIME := 0.5
-const HAND_WARN := 0.6
+const HANDS_WIND_TIME := 0.65
+const HAND_WARN := 0.8
 const HAND_UP := 0.35
 const HAND_DOWN := 0.3
 const HAND_GAP := 0.55
 const HANDS_REC_TIME := 0.8
 
-const LEAP_WIND_TIME := 0.75
+const LEAP_WIND_TIME := 1.0
 const LEAP_LOCK := 0.25
 const LEAP_HEIGHT_T := 4.5
 const LEAP_MAX_T := 15.0
@@ -78,7 +78,7 @@ const LEAP_REC_TIME := 1.1
 const WAVE_SPEED_T := 13.0
 const WAVE_TIME := 0.75
 
-const GRAB_WIND_TIME := 0.85
+const GRAB_WIND_TIME := 1.1
 const GRAB_SPEED_T := 26.0
 const GRAB_MAX_TIME := 0.42
 const GRAB_MISS_TIME := 1.4
@@ -165,7 +165,7 @@ var _wave_pool: Array[EnemyAttackArea] = []
 
 
 func _build() -> void:
-	max_hp = 6000
+	max_hp = 3000 # 6000 → 3000 (플레이 피드백 "너무 어렵다")
 	body_size = Vector2(72, 132)
 	display_name = "아귀"
 	subtitle = "봉인된 굶주림"
@@ -186,7 +186,7 @@ func _build() -> void:
 	_mouth.dodgeable = false
 	_mouth.hit_player.connect(_on_mouth_bite)
 	_slam = add_attack_area(Vector2(6.0 * T, 1.6 * T), Vector2(0, -0.8 * T), &"agwi", 1)
-	_grab = add_attack_area(Vector2(3.0 * T, 5.0 * T), Vector2.ZERO, &"agwi", 2)
+	_grab = add_attack_area(Vector2(3.0 * T, 5.0 * T), Vector2.ZERO, &"agwi", 1)
 	_grab.hit_player.connect(func(_p: Node) -> void: _grab_hit = true)
 	for i in 3:
 		_hand_pool.append(add_attack_area(Vector2(22, 44), Vector2.ZERO, &"agwi", 1))
@@ -238,8 +238,9 @@ func chain_anchors() -> Array[Vector2]:
 	return arr
 
 
+## 공격 사이 쉬는 시간 배율 (하향 조정으로 1.3배 여유)
 func _cadence() -> float:
-	return 0.7 if _is_enraged else 1.0
+	return (0.7 if _is_enraged else 1.0) * 1.3
 
 
 func _set_state(s: S, time: float) -> void:
