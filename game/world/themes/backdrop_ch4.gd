@@ -8,15 +8,13 @@ extends RefCounted
 ##   spire       밤의 첨탑: 달, 별, 오를수록 아래로 가라앉는 구름바다, 종틀·비계·톱니 승강기, 아래 심연의 금빛
 ##   spire_top   꼭대기: 거대한 달, 소용돌이 구름, 종루 아치와 거대한 종, 떠 있는 대리석 조각
 
+const ART := preload("res://world/entities/ch4/art.gd")
 const THEMES := ["holymount", "temple_out", "temple", "temple_dark", "spire", "spire_top"]
 
 const GOLD := Color("#ffe08a")
 const GOLD_DIM := Color("#b08a48")
 const GOLD_DEEP := Color("#6a4e2a")
 const MARBLE := Color("#d8d2e4")
-const WHITE_HOT := Color("#fff8e8")
-
-
 static func is_animated(theme: String, depth: int) -> bool:
 	match theme:
 		"holymount": return depth == 1
@@ -36,14 +34,6 @@ static func has_sky(theme: String) -> bool:
 # 공용 도우미
 # ═══════════════════════════════════════════════════════════
 
-## 0~1 결정적 난수 (프레임마다 같은 값 → 움직이는 그림도 흔들리지 않음)
-static func _hf(i: int, s: int) -> float:
-	var n := i * 374761393 + s * 668265263
-	n = (n ^ (n >> 13)) * 1274126177
-	n = n ^ (n >> 16)
-	return float(absi(n) % 10000) / 10000.0
-
-
 ## 계단식 세로 그라데이션 (픽셀 느낌). cols는 위→아래로 고르게 놓인 색들
 static func _grad(c: CanvasItem, cols: Array, y0: float, h: float, w: float, steps := 30) -> void:
 	var n := cols.size()
@@ -58,41 +48,14 @@ static func _grad(c: CanvasItem, cols: Array, y0: float, h: float, w: float, ste
 
 static func _stars(c: CanvasItem, n: int, seed: int, t: float, area: Rect2, alpha := 0.7) -> void:
 	for i in n:
-		var p := area.position + Vector2(_hf(i, seed) * area.size.x, _hf(i, seed + 1) * area.size.y)
+		var p := area.position + Vector2(ART.hf(i, seed) * area.size.x, ART.hf(i, seed + 1) * area.size.y)
 		var fade := 1.0 - (p.y - area.position.y) / maxf(area.size.y, 1.0) * 0.7
-		var tw := 0.45 + 0.55 * absf(sin(t * (0.4 + _hf(i, seed + 2) * 1.6) + i))
+		var tw := 0.45 + 0.55 * absf(sin(t * (0.4 + ART.hf(i, seed + 2) * 1.6) + i))
 		var s := 2.0 if i % 11 == 0 else 1.0
 		c.draw_rect(Rect2(p, Vector2(s, s)), Color(1.0, 0.97, 0.88, alpha * tw * fade))
 		if i % 23 == 0:
 			c.draw_rect(Rect2(p + Vector2(-1, 0.5), Vector2(4, 1)), Color(1.0, 0.95, 0.8, 0.25 * tw))
 			c.draw_rect(Rect2(p + Vector2(0.5, -1), Vector2(1, 4)), Color(1.0, 0.95, 0.8, 0.25 * tw))
-
-
-## 해: 겹친 빛무리 + 천천히 도는 빛살
-static func _sun(c: CanvasItem, p: Vector2, r: float, t: float, core: Color, glow: Color, flicker := 0.0) -> void:
-	var fl := 1.0 - flicker * (0.5 + 0.5 * sin(t * 2.3) * sin(t * 0.9))
-	for i in 6:
-		c.draw_circle(p, r * (4.2 - i * 0.55), Color(glow, (0.025 + i * 0.012) * fl))
-	var rays := 14
-	for i in rays:
-		var a := t * 0.025 + TAU * float(i) / rays
-		var ln := r * (3.4 + 0.8 * sin(t * 0.6 + i * 1.7))
-		var w := 0.045 + 0.02 * (i % 2)
-		c.draw_colored_polygon(PackedVector2Array([
-			p + Vector2(cos(a - w), sin(a - w)) * r * 1.05, p + Vector2(cos(a), sin(a)) * ln, p + Vector2(cos(a + w), sin(a + w)) * r * 1.05,
-		]), Color(glow, 0.07 * fl))
-	c.draw_circle(p, r * 1.18, Color(glow, 0.35 * fl))
-	c.draw_circle(p, r, core)
-	c.draw_circle(p + Vector2(-r * 0.25, -r * 0.25), r * 0.55, Color(1, 1, 1, 0.35))
-
-
-static func _moon(c: CanvasItem, p: Vector2, r: float, col: Color) -> void:
-	for i in 4:
-		c.draw_circle(p, r * (2.6 - i * 0.4), Color(col, 0.03 + i * 0.012))
-	c.draw_circle(p, r, col)
-	c.draw_circle(p + Vector2(r * 0.3, -r * 0.15), r * 0.22, col.darkened(0.08))
-	c.draw_circle(p + Vector2(-r * 0.35, r * 0.3), r * 0.16, col.darkened(0.07))
-	c.draw_circle(p + Vector2(-r * 0.1, -r * 0.45), r * 0.1, col.darkened(0.06))
 
 
 ## 구름 띠: 둥근 덩어리들이 speed px/s로 흘러간다. 위쪽이 빛을 받는다
@@ -105,176 +68,23 @@ static func _cloud_band(c: CanvasItem, y: float, t: float, speed: float, seed: i
 	for k in n:
 		var j := k - base
 		var x := (k - 2) * sp + shift
-		var rr := size * (0.65 + 0.55 * _hf(j, seed))
-		var yy := y + (_hf(j, seed + 3) - 0.5) * size * 0.5
+		var rr := size * (0.65 + 0.55 * ART.hf(j, seed))
+		var yy := y + (ART.hf(j, seed + 3) - 0.5) * size * 0.5
 		c.draw_circle(Vector2(x, yy), rr, shade)
 	for k in n:
 		var j := k - base
 		var x := (k - 2) * sp + shift
-		var rr := size * (0.65 + 0.55 * _hf(j, seed))
-		var yy := y + (_hf(j, seed + 3) - 0.5) * size * 0.5
+		var rr := size * (0.65 + 0.55 * ART.hf(j, seed))
+		var yy := y + (ART.hf(j, seed + 3) - 0.5) * size * 0.5
 		c.draw_circle(Vector2(x - rr * 0.12, yy - rr * 0.22), rr * 0.8, lit)
 
 
 static func _snow(c: CanvasItem, t: float, n: int, seed: int, speed: float, size: float, alpha: float, w := 640.0, h := 360.0) -> void:
 	for i in n:
-		var sp := speed * (0.6 + 0.8 * _hf(i, seed + 1))
-		var y := fmod(_hf(i, seed + 2) * (h + 20.0) + t * sp, h + 20.0) - 10.0
-		var x := fmod(_hf(i, seed) * w + sin(t * 0.7 + i * 1.3) * 6.0 + t * sp * 0.35, w + 10.0) - 5.0
+		var sp := speed * (0.6 + 0.8 * ART.hf(i, seed + 1))
+		var y := fmod(ART.hf(i, seed + 2) * (h + 20.0) + t * sp, h + 20.0) - 10.0
+		var x := fmod(ART.hf(i, seed) * w + sin(t * 0.7 + i * 1.3) * 6.0 + t * sp * 0.35, w + 10.0) - 5.0
 		c.draw_rect(Rect2(x, y, size, size), Color(0.95, 0.97, 1.0, alpha))
-
-
-## 대리석 기둥: 세로 홈 + 금빛 머리·받침
-static func _column(c: CanvasItem, x: float, top: float, bottom: float, w: float, body: Color, light: Color, gold: Color) -> void:
-	c.draw_rect(Rect2(x - w * 0.5, top, w, bottom - top), body)
-	c.draw_rect(Rect2(x - w * 0.5 + w * 0.12, top, maxf(w * 0.14, 1.0), bottom - top), light)
-	for i in 3:
-		c.draw_rect(Rect2(x - w * 0.5 + w * (0.4 + i * 0.18), top, maxf(w * 0.05, 1.0), bottom - top), body.darkened(0.22))
-	c.draw_rect(Rect2(x - w * 0.78, top - w * 0.42, w * 1.56, w * 0.42), body.lightened(0.06))
-	c.draw_rect(Rect2(x - w * 0.78, top - w * 0.42, w * 1.56, maxf(w * 0.08, 1.0)), gold)
-	c.draw_rect(Rect2(x - w * 0.62, top - w * 0.1, w * 1.24, maxf(w * 0.1, 1.0)), gold.darkened(0.35))
-	c.draw_rect(Rect2(x - w * 0.72, bottom - w * 0.32, w * 1.44, w * 0.32), body.lightened(0.04))
-	c.draw_rect(Rect2(x - w * 0.72, bottom - w * 0.32, w * 1.44, maxf(w * 0.05, 1.0)), gold.darkened(0.25))
-
-
-## 아치 (기둥 사이 반원 테두리)
-static func _arch(c: CanvasItem, x0: float, x1: float, spring_y: float, col: Color, width: float) -> void:
-	var cx := (x0 + x1) * 0.5
-	var r := (x1 - x0) * 0.5
-	var pts := PackedVector2Array()
-	for i in 17:
-		var a := PI + PI * float(i) / 16.0
-		pts.append(Vector2(cx + cos(a) * r, spring_y + sin(a) * r))
-	c.draw_polyline(pts, col, width)
-
-
-const BELL_PROFILE: Array[Vector2] = [
-	Vector2(0.0, 0.0), Vector2(0.12, 0.0), Vector2(0.22, 0.03), Vector2(0.28, 0.09), Vector2(0.3, 0.18), Vector2(0.31, 0.36),
-	Vector2(0.33, 0.55), Vector2(0.37, 0.72), Vector2(0.45, 0.86), Vector2(0.52, 0.95), Vector2(0.54, 1.0),
-]
-const BELL_METAL := Color("#c8963c")
-
-
-static func _bp(top: Vector2, side: Vector2, dir: Vector2, size: float, x: float, y: float) -> Vector2:
-	return top + side * x * size + dir * y * size
-
-
-## 흔들리는 종 (청동·금): pivot에 매달려 ang(라디안)만큼 기운다. dim = 멀수록 어둡게 (0~1), light = 빛 받는 정도
-static func _bell(c: CanvasItem, pivot: Vector2, length: float, size: float, ang: float, metal: Color, dim: float, light := 0.0) -> void:
-	var dir := Vector2(sin(ang), cos(ang))
-	var side := Vector2(dir.y, -dir.x)
-	var top := pivot + dir * length
-	var dark := Color(0.04, 0.03, 0.07)
-	var body := metal.lerp(dark, dim)
-	var shade := metal.darkened(0.5).lerp(dark, dim)
-	var hi := metal.lightened(0.4).lerp(dark, dim * 0.75)
-	c.draw_line(pivot, top, shade.darkened(0.3), maxf(1.0, size * 0.05))
-	var pts := PackedVector2Array()
-	for p in BELL_PROFILE:
-		pts.append(_bp(top, side, dir, size, p.x, p.y))
-	for i in range(BELL_PROFILE.size() - 1, 0, -1):
-		pts.append(_bp(top, side, dir, size, -BELL_PROFILE[i].x, BELL_PROFILE[i].y))
-	c.draw_colored_polygon(pts, body)
-	# 그늘진 오른쪽
-	var sh := PackedVector2Array()
-	for p in BELL_PROFILE:
-		sh.append(_bp(top, side, dir, size, p.x, p.y))
-	sh.append(_bp(top, side, dir, size, 0.14, 1.0))
-	sh.append(_bp(top, side, dir, size, 0.08, 0.12))
-	c.draw_colored_polygon(sh, shade)
-	# 빛을 받는 왼쪽 띠
-	c.draw_colored_polygon(PackedVector2Array([
-		_bp(top, side, dir, size, -0.2, 0.05), _bp(top, side, dir, size, -0.11, 0.04),
-		_bp(top, side, dir, size, -0.17, 0.86), _bp(top, side, dir, size, -0.33, 0.87),
-	]), Color(hi, 0.55 + light * 0.4))
-	var lw := maxf(1.0, size * 0.025)
-	c.draw_line(_bp(top, side, dir, size, -0.3, 0.22), _bp(top, side, dir, size, 0.3, 0.22), hi, lw)
-	c.draw_line(_bp(top, side, dir, size, -0.31, 0.28), _bp(top, side, dir, size, 0.31, 0.28), Color(hi, 0.5), lw)
-	c.draw_line(_bp(top, side, dir, size, -0.44, 0.84), _bp(top, side, dir, size, 0.44, 0.84), hi, lw)
-	# 입술(테) + 입 안쪽 + 추
-	c.draw_line(_bp(top, side, dir, size, -0.54, 0.99), _bp(top, side, dir, size, 0.54, 0.99), hi.lightened(0.15), maxf(1.0, size * 0.045))
-	c.draw_colored_polygon(PackedVector2Array([
-		_bp(top, side, dir, size, -0.48, 1.0), _bp(top, side, dir, size, 0.48, 1.0),
-		_bp(top, side, dir, size, 0.3, 1.06), _bp(top, side, dir, size, -0.3, 1.06),
-	]), shade.darkened(0.5))
-	c.draw_circle(_bp(top, side, dir, size, sin(ang * 3.0) * 0.08, 1.04), size * 0.075, shade.darkened(0.2))
-	# 머리 고리
-	c.draw_rect(Rect2(top - side * size * 0.07 - dir * size * 0.06, Vector2(maxf(size * 0.14, 1.0), maxf(size * 0.07, 1.0))), shade)
-
-
-## 금빛 돔 (북 + 반구 + 꼭대기 등탑)
-static func _dome(c: CanvasItem, cx: float, base_y: float, r: float, body: Color, gold: Color, window: Color) -> void:
-	c.draw_rect(Rect2(cx - r * 0.92, base_y - r * 0.55, r * 1.84, r * 0.55), body)
-	for i in 5:
-		var wx := cx - r * 0.7 + i * r * 0.35
-		c.draw_rect(Rect2(wx - r * 0.05, base_y - r * 0.42, r * 0.1, r * 0.22), window)
-	var pts := PackedVector2Array()
-	for i in 13:
-		var a := PI + PI * float(i) / 12.0
-		pts.append(Vector2(cx + cos(a) * r, base_y - r * 0.55 + sin(a) * r * 0.95))
-	c.draw_colored_polygon(pts, gold)
-	# 반구의 갈빗대와 빛
-	for i in 4:
-		var a2 := PI + PI * (0.2 + i * 0.2)
-		c.draw_line(Vector2(cx + cos(a2) * r, base_y - r * 0.55 + sin(a2) * r * 0.95), Vector2(cx, base_y - r * 1.5), gold.darkened(0.25), maxf(1.0, r * 0.04))
-	c.draw_arc(Vector2(cx, base_y - r * 0.55), r * 0.82, PI * 1.12, PI * 1.45, 8, Color(1, 1, 1, 0.25), maxf(1.0, r * 0.07))
-	# 등탑
-	c.draw_rect(Rect2(cx - r * 0.14, base_y - r * 1.8, r * 0.28, r * 0.32), body)
-	c.draw_circle(Vector2(cx, base_y - r * 1.8), r * 0.15, gold)
-	c.draw_line(Vector2(cx, base_y - r * 1.9), Vector2(cx, base_y - r * 2.35), gold, maxf(1.0, r * 0.05))
-	c.draw_circle(Vector2(cx, base_y - r * 2.35), maxf(1.0, r * 0.06), WHITE_HOT)
-
-
-## 얼굴 없는 루멘 석상 (해의 관). pose 0: 가슴 앞에 해 원반 / 1: 한 손을 들어 해 원반을 받쳐 듦
-static func _lumen_statue(c: CanvasItem, base: Vector2, h: float, body: Color, rim: Color, gold: Color, pose := 0, rim_side := 1.0) -> void:
-	var sh_y := base.y - h * 0.78
-	var sh_w := h * 0.13
-	var hem_w := h * 0.2
-	# 받침
-	c.draw_rect(Rect2(base.x - hem_w * 1.3, base.y - h * 0.06, hem_w * 2.6, h * 0.06), body.darkened(0.15))
-	c.draw_rect(Rect2(base.x - hem_w * 1.3, base.y - h * 0.06, hem_w * 2.6, maxf(h * 0.008, 1.0)), gold.darkened(0.2))
-	# 로브 (어깨 → 옷자락)
-	var robe := PackedVector2Array([
-		Vector2(base.x - sh_w, sh_y), Vector2(base.x + sh_w, sh_y),
-		Vector2(base.x + hem_w, base.y - h * 0.06), Vector2(base.x - hem_w, base.y - h * 0.06),
-	])
-	c.draw_colored_polygon(robe, body)
-	# 옷 주름
-	for i in 4:
-		var fx := base.x + (i - 1.5) * hem_w * 0.42
-		c.draw_line(Vector2(base.x + (i - 1.5) * sh_w * 0.4, sh_y + h * 0.08), Vector2(fx, base.y - h * 0.07), body.darkened(0.18), maxf(1.0, h * 0.008))
-	# 테두리 빛 (빛을 받는 쪽)
-	var e0 := Vector2(base.x + sh_w * rim_side, sh_y)
-	var e1 := Vector2(base.x + hem_w * rim_side, base.y - h * 0.06)
-	c.draw_line(e0, e1, Color(rim, 0.55), maxf(1.0, h * 0.012))
-	# 머리 (얼굴 없음)
-	var hc := Vector2(base.x, sh_y - h * 0.07)
-	var hr := h * 0.055
-	# 해의 관: 머리 뒤 빛살 고리
-	for i in 12:
-		var a := TAU * i / 12.0
-		c.draw_colored_polygon(PackedVector2Array([
-			hc + Vector2(cos(a - 0.12), sin(a - 0.12)) * hr * 1.5, hc + Vector2(cos(a), sin(a)) * hr * 2.6, hc + Vector2(cos(a + 0.12), sin(a + 0.12)) * hr * 1.5,
-		]), gold)
-	c.draw_arc(hc, hr * 1.55, 0, TAU, 20, gold.lightened(0.15), maxf(1.0, hr * 0.18))
-	c.draw_circle(hc, hr * 1.05, body.lightened(0.04))
-	c.draw_line(hc + Vector2(hr * 0.9 * rim_side, -hr * 0.5), hc + Vector2(hr * 0.9 * rim_side, hr * 0.5), Color(rim, 0.5), maxf(1.0, hr * 0.15))
-	# 머리 너울(어깨로 흘러내림)
-	c.draw_colored_polygon(PackedVector2Array([hc + Vector2(-hr, -hr * 0.2), hc + Vector2(hr, -hr * 0.2), Vector2(base.x + sh_w * 1.05, sh_y + h * 0.03), Vector2(base.x - sh_w * 1.05, sh_y + h * 0.03)]), body.darkened(0.08))
-	if pose == 0:
-		# 가슴 앞에 맞잡은 손 + 해 원반
-		var dc := Vector2(base.x, sh_y + h * 0.12)
-		c.draw_circle(dc, h * 0.06, gold)
-		c.draw_circle(dc, h * 0.042, gold.lightened(0.25))
-		c.draw_line(Vector2(base.x - sh_w, sh_y + h * 0.02), dc + Vector2(-h * 0.04, h * 0.03), body.lightened(0.05), maxf(1.0, h * 0.03))
-		c.draw_line(Vector2(base.x + sh_w, sh_y + h * 0.02), dc + Vector2(h * 0.04, h * 0.03), body.lightened(0.05), maxf(1.0, h * 0.03))
-	else:
-		# 한 팔을 높이 들어 해 원반을 받쳐 듦
-		var hand := Vector2(base.x + sh_w * 1.6 * rim_side, sh_y - h * 0.26)
-		c.draw_line(Vector2(base.x + sh_w * rim_side, sh_y + h * 0.01), hand, body.lightened(0.05), maxf(1.0, h * 0.032))
-		c.draw_circle(hand + Vector2(0, -h * 0.06), h * 0.075, gold)
-		c.draw_circle(hand + Vector2(0, -h * 0.06), h * 0.05, gold.lightened(0.3))
-		c.draw_line(Vector2(base.x - sh_w, sh_y + h * 0.02), Vector2(base.x - sh_w * 0.4, sh_y + h * 0.16), body.lightened(0.05), maxf(1.0, h * 0.03))
 
 
 ## 길게 늘어진 깃발 (흰 바탕 + 금 해 문양), sway로 끝이 흔들림
@@ -377,12 +187,6 @@ static func _cairn(c: CanvasItem, x: float, base_y: float, s: float, col: Color,
 	c.draw_rect(Rect2(x - s * 0.22, y - 1, s * 0.44, 2), snow)
 
 
-static func _lantern_dot(c: CanvasItem, p: Vector2, r: float, a: float) -> void:
-	c.draw_circle(p, r * 3.2, Color(1.0, 0.75, 0.4, 0.07 * a))
-	c.draw_circle(p, r * 1.8, Color(1.0, 0.8, 0.45, 0.2 * a))
-	c.draw_circle(p, r, Color(1.0, 0.9, 0.6, a))
-
-
 static func _theme(l: Node2D) -> Dictionary:
 	var th: Variant = l.get("theme")
 	return th if th is Dictionary else {}
@@ -456,13 +260,13 @@ static func _sky_gold(c: Control, t: float, interior: bool) -> void:
 	_stars(c, 30, 403, t, Rect2(0, 0, 640, 90), 0.45)
 	# 높은 새털구름
 	for i in 7:
-		var y := 70.0 + i * 22.0 + _hf(i, 5) * 10.0
-		var x := fmod(_hf(i, 6) * 900.0 + t * (2.0 + i * 0.5), 900.0) - 160.0
-		var w := 120.0 + _hf(i, 7) * 160.0
+		var y := 70.0 + i * 22.0 + ART.hf(i, 5) * 10.0
+		var x := fmod(ART.hf(i, 6) * 900.0 + t * (2.0 + i * 0.5), 900.0) - 160.0
+		var w := 120.0 + ART.hf(i, 7) * 160.0
 		c.draw_rect(Rect2(x, y, w, 2), Color(1.0, 0.8, 0.75, 0.12))
 		c.draw_rect(Rect2(x + w * 0.2, y + 3, w * 0.6, 1), Color(1.0, 0.85, 0.8, 0.08))
 	# 루멘의 해: 크고 희미하게 깜빡임 (침묵)
-	_sun(c, Vector2(452, 212), 30.0, t, Color("#fff4dc"), Color("#ffd890"), 0.25)
+	ART.sun(c, Vector2(452, 212), 30.0, t, Color("#fff4dc"), Color("#ffd890"), 0.25)
 	# 구름 위로 솟은 먼 봉우리
 	var pk := Color("#7a5a8a")
 	c.draw_colored_polygon(PackedVector2Array([Vector2(20, 300), Vector2(70, 238), Vector2(96, 252), Vector2(130, 222), Vector2(200, 300)]), pk)
@@ -490,11 +294,11 @@ static func _sky_spire(c: Control, t: float) -> void:
 	_grad(c, [Color("#02031a"), Color("#080a2c"), Color("#14143e"), Color("#24204e").lerp(Color("#121236"), k)], 0, 360, 640, 24)
 	_stars(c, 110, 405, t, Rect2(0, 0, 640, 300), 0.9)
 	# 달 (오를수록 조금 더 커 보임)
-	_moon(c, Vector2(116, 80 - k * 10.0), 30.0 + k * 6.0, Color("#f2ead2"))
+	ART.moon(c, Vector2(116, 80 - k * 10.0), 30.0 + k * 6.0, Color("#f2ead2"))
 	# 옅은 구름 자락
 	for i in 5:
 		var y := 120.0 + i * 30.0
-		var x := fmod(_hf(i, 9) * 800.0 + t * (3.0 + i), 800.0) - 120.0
+		var x := fmod(ART.hf(i, 9) * 800.0 + t * (3.0 + i), 800.0) - 120.0
 		c.draw_rect(Rect2(x, y, 140 + i * 20, 3), Color(0.6, 0.6, 0.85, 0.07))
 	# 오를수록 아래로 가라앉는 구름바다
 	var cy := 286.0 + k * 140.0
@@ -508,7 +312,7 @@ static func _sky_top(c: Control, t: float) -> void:
 	_grad(c, [Color("#02031a"), Color("#0a0a30"), Color("#1c1a4c"), Color("#34306a"), Color("#4a3a6e")], 0, 360, 640, 26)
 	_stars(c, 140, 407, t, Rect2(0, 0, 640, 320), 1.0)
 	# 거대한 달
-	_moon(c, Vector2(470, 110), 58.0, Color("#f4ecd6"))
+	ART.moon(c, Vector2(470, 110), 58.0, Color("#f4ecd6"))
 	# 금빛 띠 (약해진 루멘의 빛이 하늘에 흩어짐) — 천천히 일렁임
 	for j in 3:
 		var pts := PackedVector2Array()
@@ -643,7 +447,7 @@ static func _layer_mount(l: Node2D, th: Dictionary, depth: int, span: Vector2, r
 				l.draw_rect(Rect2(px - 1, gy - 46, 2, 46), col.darkened(0.3))
 				l.draw_rect(Rect2(p2 - 1, gy2 - 46, 2, 46), col.darkened(0.3))
 				_prayer_flags(l, Vector2(px, gy - 44), Vector2(p2, gy2 - 44), 14.0, t, 0.55, int(px) % 7, 5.0)
-				_lantern_dot(l, Vector2(px, gy - 50), 1.5, 0.7 + 0.3 * sin(t * 3.0 + px))
+				ART.lantern_dot(l, Vector2(px, gy - 50), 1.5, 0.7 + 0.3 * sin(t * 3.0 + px))
 				px = p2 + rng.randf_range(80, 200)
 		2:
 			var snow := Color("#cdd2e6")
@@ -688,17 +492,17 @@ static func _layer_temple_out(l: Node2D, th: Dictionary, depth: int, span: Vecto
 			for i in 4:
 				var dx: float = [-0.32, -0.16, 0.16, 0.32][i]
 				var r := span.y * (0.09 if i % 3 == 0 else 0.12)
-				_dome(l, cx + dx * span.x * 0.9, base, r, col.lightened(0.03), gold, win)
+				ART.dome(l, cx + dx * span.x * 0.9, base, r, col.lightened(0.03), gold, win)
 			for side: float in [-1.0, 1.0]:
 				var bx: float = cx + side * span.x * 0.24
 				var bh := span.y * 0.42
 				l.draw_rect(Rect2(bx - 14, base - bh, 28, bh), col.lightened(0.02))
 				l.draw_rect(Rect2(bx - 9, base - bh + 10, 18, 22), Color(1.0, 0.8, 0.5, 0.18))
-				_bell(l, Vector2(bx, base - bh + 10), 2, 14, 0.0, BELL_METAL, 0.55)
+				ART.bell(l, Vector2(bx, base - bh + 10), 2, 14, 0.0, ART.BELL_METAL, 0.55)
 				l.draw_colored_polygon(PackedVector2Array([Vector2(bx - 18, base - bh), Vector2(bx, base - bh - 34), Vector2(bx + 18, base - bh)]), gold.darkened(0.15))
 			# 거대한 루멘 석상 둘 (신전 양옆)
-			_lumen_statue(l, Vector2(span.x * 0.1, base + 4), span.y * 0.62, col.lightened(0.05), Color("#ffd8a0"), gold, 1, 1.0)
-			_lumen_statue(l, Vector2(span.x * 0.9, base + 4), span.y * 0.62, col.lightened(0.05), Color("#ffd8a0"), gold, 1, -1.0)
+			ART.lumen_statue(l, Vector2(span.x * 0.1, base + 4), span.y * 0.62, col.lightened(0.05), Color("#ffd8a0"), gold, 1, 1.0)
+			ART.lumen_statue(l, Vector2(span.x * 0.9, base + 4), span.y * 0.62, col.lightened(0.05), Color("#ffd8a0"), gold, 1, -1.0)
 		1:
 			# 회랑: 아치 기둥 줄 + 종루의 큰 종(흔들림) + 깃발
 			var top := span.y * 0.22
@@ -710,13 +514,13 @@ static func _layer_temple_out(l: Node2D, th: Dictionary, depth: int, span: Vecto
 			var gold := Color("#c8a050").lerp(col, 0.35)
 			var i := 0
 			while x < span.x + gap:
-				_column(l, x, top, bot, 22, body, light, gold)
+				ART.column(l, x, top, bot, 22, body, light, gold)
 				if i % 3 == 1:
 					var sw := sin(t * 0.9 + x) * 0.08
-					_bell(l, Vector2(x - gap * 0.5, top + 4), 12, 42, sw, BELL_METAL, 0.4, 0.2)
+					ART.bell(l, Vector2(x - gap * 0.5, top + 4), 12, 42, sw, ART.BELL_METAL, 0.4, 0.2)
 				elif i % 3 == 2:
 					_banner(l, x - gap * 0.5, top + 6, 22, span.y * 0.34, Color("#d8d0e0").lerp(col, 0.45), gold, sin(t * 1.1 + x) * 4.0)
-				_arch(l, x - gap, x, top + 16, body, 10)
+				ART.arch(l, x - gap, x, top + 16, body, 10)
 				x += gap
 				i += 1
 			l.draw_rect(Rect2(-50, top - 30, span.x + 100, 22), body)
@@ -726,7 +530,7 @@ static func _layer_temple_out(l: Node2D, th: Dictionary, depth: int, span: Vecto
 			var gold := Color("#d8b060").lerp(col, 0.4)
 			var x := rng.randf_range(60, 200)
 			while x < span.x:
-				_column(l, x, span.y * 0.08, span.y + 40, 34, col.lightened(0.03), col.lightened(0.1), gold)
+				ART.column(l, x, span.y * 0.08, span.y + 40, 34, col.lightened(0.03), col.lightened(0.1), gold)
 				x += rng.randf_range(360, 520)
 			var by := span.y - 182
 			l.draw_rect(Rect2(-40, by, span.x + 80, span.y), col)
@@ -764,12 +568,12 @@ static func _layer_temple(l: Node2D, th: Dictionary, depth: int, span: Vector2, 
 				_shaft(l, Vector2(sx + 10, -20), 14, 40, span.y + 60, 0.42, Color(1.0, 0.95, 0.75, a * 0.9))
 				sx += rng.randf_range(260, 420)
 			while x < span.x + gap:
-				_column(l, x, top, span.y + 40, 30, body, Color("#aaa4c8").lerp(col, 0.35), gold)
+				ART.column(l, x, top, span.y + 40, 30, body, Color("#aaa4c8").lerp(col, 0.35), gold)
 				var mid := x + gap * 0.5
 				if i % 2 == 0:
 					var sw := sin(t * 0.7 + i * 1.3) * 0.07
 					l.draw_line(Vector2(mid, -20), Vector2(mid, top + 10), col.darkened(0.2), 2.0)
-					_bell(l, Vector2(mid, top + 10), 30, 58, sw, BELL_METAL, 0.3, 0.3)
+					ART.bell(l, Vector2(mid, top + 10), 30, 58, sw, ART.BELL_METAL, 0.3, 0.3)
 				else:
 					_banner(l, mid, top - 6, 26, span.y * 0.45, Color("#e0d8e8").lerp(col, 0.5), gold, sin(t * 0.9 + i) * 3.0)
 				x += gap
@@ -782,10 +586,10 @@ static func _layer_temple(l: Node2D, th: Dictionary, depth: int, span: Vector2, 
 			var x := rng.randf_range(80, 220)
 			var k := 0
 			while x < span.x:
-				_column(l, x, span.y * 0.04, span.y + 40, 40, col.lightened(0.02), col.lightened(0.08), gold)
+				ART.column(l, x, span.y * 0.04, span.y + 40, 40, col.lightened(0.02), col.lightened(0.08), gold)
 				var cx := x + rng.randf_range(150, 200)
 				if k % 2 == 0:
-					_lumen_statue(l, Vector2(cx, span.y - 140), span.y * 0.62, col.lightened(0.03), Color("#ffd8a0"), Color("#c89a48").lerp(col, 0.3), 0, -1.0)
+					ART.lumen_statue(l, Vector2(cx, span.y - 140), span.y * 0.62, col.lightened(0.03), Color("#ffd8a0"), Color("#c89a48").lerp(col, 0.3), 0, -1.0)
 				else:
 					var ln := rng.randf_range(60, 140)
 					var y := -20.0
@@ -794,7 +598,7 @@ static func _layer_temple(l: Node2D, th: Dictionary, depth: int, span: Vector2, 
 						y += 7.0
 					l.draw_colored_polygon(PackedVector2Array([Vector2(cx - 10, ln), Vector2(cx + 10, ln), Vector2(cx + 6, ln + 14), Vector2(cx - 6, ln + 14)]), col.lightened(0.08))
 					l.draw_rect(Rect2(cx - 10, ln, 20, 2), gold)
-					_lantern_dot(l, Vector2(cx, ln + 10), 1.5, 0.6)
+					ART.lantern_dot(l, Vector2(cx, ln + 10), 1.5, 0.6)
 				x += rng.randf_range(400, 560)
 				k += 1
 
@@ -872,12 +676,6 @@ static func _temple_far_wall(l: Node2D, col: Color, span: Vector2, rng: RandomNu
 
 # ─── 기록실·지하 ───────────────────────────────────────
 
-## 은은한 빛 무리 (겹친 원)
-static func _glow(c: CanvasItem, p: Vector2, r: float, col: Color, a: float) -> void:
-	for i in 4:
-		c.draw_circle(p, r * (1.0 - i * 0.22), Color(col, a * (0.18 + i * 0.12)))
-
-
 static func _layer_dark(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
 	if depth == 3:
 		_front(l, "temple_dark", span, rng)
@@ -904,12 +702,12 @@ static func _layer_dark(l: Node2D, th: Dictionary, depth: int, span: Vector2, rn
 				x += sw + rng.randf_range(40, 90)
 			var ax := rng.randf_range(0, 100)
 			while ax < span.x:
-				_arch(l, ax, ax + 220, span.y * 0.3, col.lightened(0.06), 6.0)
+				ART.arch(l, ax, ax + 220, span.y * 0.3, col.lightened(0.06), 6.0)
 				ax += 220.0
 			for i in int(span.x / 160.0) + 1:
 				var lp := Vector2(rng.randf_range(0, span.x), rng.randf_range(40, span.y * 0.5))
 				l.draw_line(Vector2(lp.x, -20), lp, col.lightened(0.08), 1.0)
-				_glow(l, lp, 26.0, warm, 0.25)
+				ART.glow(l, lp, 26.0, warm, 0.25)
 				l.draw_rect(Rect2(lp.x - 2, lp.y - 1, 4, 3), Color(1.0, 0.85, 0.55, 0.8))
 			for i in int(span.x / 30.0):
 				l.draw_rect(Rect2(rng.randf_range(0, span.x), rng.randf_range(20, span.y * 0.8), 1, 1), Color(1.0, 0.75, 0.4, 0.45))
@@ -947,9 +745,9 @@ static func _layer_dark(l: Node2D, th: Dictionary, depth: int, span: Vector2, rn
 				for c in 5:
 					var cx := x + 10 + c * (sw - 20) / 4.0
 					var fl := 0.75 + 0.25 * sin(t * (6.0 + c) + x) * sin(t * 2.3 + c)
-					_glow(l, Vector2(cx, cy - 8), 18.0, warm, 0.22 * fl)
+					ART.glow(l, Vector2(cx, cy - 8), 18.0, warm, 0.22 * fl)
 					l.draw_rect(Rect2(cx - 1, cy - 6, 2, 6), Color("#d8c8a0").lerp(col, 0.25))
-					_lantern_dot(l, Vector2(cx, cy - 8), 1.0, fl)
+					ART.lantern_dot(l, Vector2(cx, cy - 8), 1.0, fl)
 				x += sw + rng.randf_range(90, 180)
 		2:
 			# 가까운 무덤 감실·기도하는 성인상 + 큰 촛대
@@ -979,8 +777,8 @@ static func _layer_dark(l: Node2D, th: Dictionary, depth: int, span: Vector2, rn
 						var cx := x + (j - 1) * 12.0
 						l.draw_line(Vector2(x, by - 60), Vector2(cx, by - 72), col.lightened(0.06), 2.0)
 						l.draw_rect(Rect2(cx - 1.5, by - 80, 3, 8), Color("#d8c8a0").lerp(col, 0.3))
-						_lantern_dot(l, Vector2(cx, by - 83), 1.2, 0.85)
-					_glow(l, Vector2(x, by - 82), 34.0, warm, 0.2)
+						ART.lantern_dot(l, Vector2(cx, by - 83), 1.2, 0.85)
+					ART.glow(l, Vector2(x, by - 82), 34.0, warm, 0.2)
 				x += rng.randf_range(260, 420)
 				k += 1
 
@@ -1019,7 +817,7 @@ static func _layer_spire(l: Node2D, th: Dictionary, depth: int, span: Vector2, r
 				# 고리 들보 아래 늘어진 장식(아치 모양 버팀대)
 				var bx := rng.randf_range(-40, 40)
 				while bx < span.x:
-					_arch(l, bx, bx + pier_gap, y + 70, col, 6.0)
+					ART.arch(l, bx, bx + pier_gap, y + 70, col, 6.0)
 					bx += pier_gap
 				y -= ring
 			for i in 12:
@@ -1039,15 +837,15 @@ static func _layer_spire(l: Node2D, th: Dictionary, depth: int, span: Vector2, r
 						l.draw_rect(Rect2(x - 66, y - 96, 6, 130), col.lightened(0.06))
 						l.draw_rect(Rect2(x + 60, y - 96, 6, 130), col.lightened(0.06))
 						l.draw_rect(Rect2(x - 66, y - 96, 1, 130), Color(lit, 0.6))
-						_glow(l, Vector2(x, y - 50), 70.0, warm, 0.08)
-						_bell(l, Vector2(x, y - 88), 6, 68, sin(t * 0.8 + k) * 0.1, BELL_METAL, 0.3, 0.4)
+						ART.glow(l, Vector2(x, y - 50), 70.0, warm, 0.08)
+						ART.bell(l, Vector2(x, y - 88), 6, 68, sin(t * 0.8 + k) * 0.1, ART.BELL_METAL, 0.3, 0.4)
 					1:
 						_scaffold(l, x - 80, x + 80, y - 120, y, col.lightened(0.07), lit, 40.0)
 						for j in 3:
 							var lp := Vector2(x - 60 + j * 60, y - 114)
 							var fl := 0.7 + 0.3 * sin(t * 4.0 + j + k)
-							_glow(l, lp, 16.0, warm, 0.25 * fl)
-							_lantern_dot(l, lp, 1.8, fl)
+							ART.glow(l, lp, 16.0, warm, 0.25 * fl)
+							ART.lantern_dot(l, lp, 1.8, fl)
 					2:
 						var gc := Vector2(x, y - 60)
 						var r := 52.0
@@ -1078,7 +876,7 @@ static func _layer_spire(l: Node2D, th: Dictionary, depth: int, span: Vector2, r
 								l.draw_line(prev, p, col.lightened(0.15), 1.0)
 							if i % 2 == 1:
 								var fl := 0.7 + 0.3 * sin(t * 3.0 + i + k)
-								_glow(l, p + Vector2(0, 6), 12.0, warm, 0.3 * fl)
+								ART.glow(l, p + Vector2(0, 6), 12.0, warm, 0.3 * fl)
 								l.draw_rect(Rect2(p.x - 2, p.y + 2, 4, 6), Color(1.0, 0.82, 0.5, 0.9 * fl))
 							prev = p
 				y -= rng.randf_range(170, 250)
@@ -1120,7 +918,7 @@ static func _layer_top(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng
 				l.draw_colored_polygon(PackedVector2Array([Vector2(x - 10, by), Vector2(x - 6, by - h), Vector2(x, by - h - 26), Vector2(x + 6, by - h), Vector2(x + 10, by)]), col)
 				l.draw_rect(Rect2(x - 1, by - h * 0.6, 2, 3), Color(1.0, 0.85, 0.5, 0.7))
 			for i in 4:
-				_dome(l, rng.randf_range(0, span.x), by, rng.randf_range(14, 24), col, gold, Color(1, 0.85, 0.5, 0.5))
+				ART.dome(l, rng.randf_range(0, span.x), by, rng.randf_range(14, 24), col, gold, Color(1, 0.85, 0.5, 0.5))
 		1:
 			# 종루의 거대한 아치와 대종 (아주 크게, 천천히 흔들림)
 			var gold := Color("#b8904c").lerp(col, 0.3)
@@ -1129,12 +927,12 @@ static func _layer_top(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng
 			var body := col.lightened(0.06)
 			var half := minf(span.x * 0.36, 300.0)
 			for side: float in [-1.0, 1.0]:
-				_column(l, cx + side * half, top + 70, span.y + 40, 40, body, col.lightened(0.15), gold)
+				ART.column(l, cx + side * half, top + 70, span.y + 40, 40, body, col.lightened(0.15), gold)
 			l.draw_rect(Rect2(cx - half - 30, top + 40, half * 2.0 + 60, 18), body)
 			l.draw_rect(Rect2(cx - half - 30, top + 40, half * 2.0 + 60, 2), gold)
 			l.draw_line(Vector2(cx, top + 56), Vector2(cx, top + 76), gold, 4.0)
-			_glow(l, Vector2(cx, top + 170), 160.0, Color(1.0, 0.85, 0.5), 0.06)
-			_bell(l, Vector2(cx, top + 56), 20, 150, sin(t * 0.35) * 0.04, BELL_METAL, 0.3, 0.5)
+			ART.glow(l, Vector2(cx, top + 170), 160.0, Color(1.0, 0.85, 0.5), 0.06)
+			ART.bell(l, Vector2(cx, top + 56), 20, 150, sin(t * 0.35) * 0.04, ART.BELL_METAL, 0.3, 0.5)
 			for i in 4:
 				var bx := rng.randf_range(0, span.x)
 				var bw := rng.randf_range(30, 60)
@@ -1150,7 +948,7 @@ static func _layer_top(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng
 				var rot := t * 0.1 * (1.0 if i % 2 == 0 else -1.0) + i
 				var pts := PackedVector2Array()
 				for k in 5:
-					var a := rot + TAU * k / 5.0 + _hf(k, i) * 0.6
-					pts.append(Vector2(x, y + bob) + Vector2(cos(a), sin(a)) * s * (0.7 + _hf(k, i + 9) * 0.5))
+					var a := rot + TAU * k / 5.0 + ART.hf(k, i) * 0.6
+					pts.append(Vector2(x, y + bob) + Vector2(cos(a), sin(a)) * s * (0.7 + ART.hf(k, i + 9) * 0.5))
 				l.draw_colored_polygon(pts, col.lightened(0.1))
 				l.draw_line(pts[0], pts[1], gold, 1.0)
