@@ -254,7 +254,7 @@ def t_stairs():
     r.add("enemy", id="watch1", kind="lantern_watcher", x=36, y=11, face="left")
     r.add("save", id="save", x=34, y=34, style="lantern")
     r.add("trigger", id="tw", x=18, y=12, w=6, h=7, run="p_watcher_seen")
-    r.add("trigger", id="tdrop", x=31, y=12, w=7, h=4, run="teach_drop")
+    r.add("trigger", id="tdrop", x=33, y=12, w=5, h=4, run="teach_drop")
     # 소품
     for x, y in ((4, 43), (36, 34)):
         r.add("prop", kind="fox_statue", x=x, y=y)

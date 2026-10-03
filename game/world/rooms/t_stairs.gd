@@ -64,7 +64,7 @@ func _init() -> void:
 		{t = "enemy", id = "watch1", kind = "lantern_watcher", x = 36, y = 11, face = "left"},
 		{t = "save", id = "save", x = 34, y = 34, style = "lantern"},
 		{t = "trigger", id = "tw", x = 18, y = 12, w = 6, h = 7, run = "p_watcher_seen"},
-		{t = "trigger", id = "tdrop", x = 31, y = 12, w = 7, h = 4, run = "teach_drop"},
+		{t = "trigger", id = "tdrop", x = 33, y = 12, w = 5, h = 4, run = "teach_drop"},
 		{t = "prop", kind = "fox_statue", x = 4, y = 43},
 		{t = "prop", kind = "fox_statue", x = 36, y = 34},
 		{t = "prop", kind = "lantern_red", x = 12, y = 1, len = 6},

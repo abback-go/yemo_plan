@@ -218,7 +218,11 @@ func revive() -> void:
 func buffer_action(a: String) -> void:
 	match a:
 		"jump":
-			_jump_buffer_timer = tuning.jump_buffer_time
+			# 안내 중 ↓를 누른 채 Z를 눌렀다면 발판 내려가기
+			if Input.is_action_pressed("move_down") and is_on_floor() and _standing_on_platform():
+				_drop_through()
+			else:
+				_jump_buffer_timer = tuning.jump_buffer_time
 		"attack":
 			_attack_buffer = tuning.attack_buffer_time
 		"dash":
