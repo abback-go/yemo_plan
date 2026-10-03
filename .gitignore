@@ -1,2 +1,5 @@
 # 웹 빌드 결과물 (GitHub Actions가 gh-pages 브랜치로 배포)
 build/
+
+# Claude Code 서브에이전트 임시 작업 폴더 (저장소 사본, 커밋하지 않음)
+.claude/worktrees/
