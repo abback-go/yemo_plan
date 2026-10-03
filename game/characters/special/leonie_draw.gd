@@ -498,7 +498,8 @@ static func _cape(v: CharacterVisual, sh_b: Vector2, sh_f: Vector2, flow: Vector
 	var front_hem := top_b + down * 0.95 + Vector2(1.0, 0) + flow * 0.78
 	# 앞으로 휘말려도 자락이 꼬이지 않게: 뒤 자락은 늘 앞 자락보다 뒤에
 	back_hem.x = minf(back_hem.x, front_hem.x - 4.0)
-	back_hem.y = maxf(back_hem.y, top_b.y + 3.0)
+	back_hem.y = maxf(back_hem.y, top_b.y + 6.0)
+	front_hem.y = maxf(front_hem.y, back_hem.y + 3.0) # 앞 자락이 늘 뒤 자락보다 아래 (빠르게 달려도 꼬이지 않게)
 	var pts := PackedVector2Array([top_f, top_b])
 	# 뒤쪽 가장자리 (위 → 아래, 바깥으로 불룩)
 	for i in range(1, 5):
