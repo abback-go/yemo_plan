@@ -26,16 +26,17 @@ const BUTTONS := [
 	["dash", "dash", "대시", "C", 0, Vector2(-48, -112), 22.0],
 	["window", "fox_window", "여우창", "D", 0, Vector2(-150, -118), 20.0],
 	["potion", "potion", "물약", "Q", 0, Vector2(-26, -168), 20.0],
-	["pillar", "skill_1", "불기둥", "A", 0, Vector2(-118, -176), 20.0],
-	["storm", "skill_2", "폭풍", "S", 0, Vector2(-70, -200), 20.0],
-	["map", "map", "지도", "", 1, Vector2(-58, 20), 15.0],
+	["slot_a", "skill_1", "", "A", 0, Vector2(-118, -176), 20.0],
+	["slot_s", "skill_2", "", "S", 0, Vector2(-70, -200), 20.0],
+	["slot_f", "skill_3", "", "F", 0, Vector2(-26, -246), 22.0],
+	["map", "map", "", "", 1, Vector2(-86, 32), 26.0], ## 미니맵 자리를 누르면 지도 (그림 없음)
 	["pause", "pause", "II", "", 1, Vector2(-22, 20), 15.0],
 ]
 
 ## 멈춤 안내(TeachPrompt)에 보여 줄 터치 버튼 이름
 const TOUCH_LABEL := {
 	"move": "조이스틱 ◀▶", "move_left": "조이스틱 ◀", "move_right": "조이스틱 ▶", "jump": "점프", "attack": "공격",
-	"dash": "대시", "skill_1": "불기둥", "skill_2": "폭풍", "fox_window": "여우창", "potion": "물약",
+	"dash": "대시", "skill_1": "A 마법", "skill_2": "S 마법", "skill_3": "F 고급 마법", "fox_window": "여우창", "potion": "물약",
 	"move_up": "조이스틱 ▲", "move_down": "조이스틱 ▼", "map": "지도", "pause": "II",
 }
 
@@ -223,20 +224,42 @@ func _button_action(id: String) -> String:
 
 
 func button_center(b: Array) -> Vector2:
+	if b[0] == "map":
+		return Vector2(554, 32) # HUD 미니맵 가운데 (크기 설정과 무관)
 	var corner := Vector2(640, 360) if int(b[4]) == 0 else Vector2(640, 0)
 	return corner + (b[5] as Vector2) * _scale
 
 
 func button_radius(b: Array) -> float:
+	if b[0] == "map":
+		return 26.0
 	return float(b[6]) * _scale
+
+
+## 칸 버튼에 끼운 마법 ID (여우 모드 S는 비어 있어도 구미호 폭풍)
+func slot_spell(id: String) -> String:
+	match id:
+		"slot_a":
+			return Spells.equipped("a")
+		"slot_s":
+			var sp := Spells.equipped("s")
+			if sp == "":
+				var p := get_tree().get_first_node_in_group(GameConst.GROUP_PLAYER) as Player
+				if p != null and p.is_fox():
+					return "storm"
+			return sp
+		"slot_f":
+			return Spells.equipped("f")
+	return ""
 
 
 ## 지금 보이는 버튼인가 (배우지 않은 스킬·받지 않은 물약은 숨김)
 func button_visible(id: String) -> bool:
 	match id:
-		"storm":
-			var p := get_tree().get_first_node_in_group(GameConst.GROUP_PLAYER) as Player
-			return GameState.has_ability("storm") or (p != null and p.is_fox())
+		"slot_a", "slot_s":
+			return slot_spell(id) != ""
+		"slot_f":
+			return GameState.has_ability("meteor") or GameState.has_ability("phoenix")
 		"window":
 			return GameState.has_ability("fox_window")
 		"potion":
@@ -334,12 +357,26 @@ class TouchDraw extends Control:
 			var c: Vector2 = tc.button_center(b)
 			var r: float = tc.button_radius(b)
 			var held: bool = tc.is_held(String(b[1]))
+			if id == "map":
+				# 미니맵(HUD가 그림)이 곧 지도 버튼: 누를 때만 테두리
+				if held:
+					draw_rect(Rect2(506, 6, 96, 52), Color(ring_col, 0.9), false, 2.0)
+				continue
 			draw_circle(c, r, Color(ring_col, 0.42) if held else Color(0.04, 0.03, 0.08, 0.42))
 			_draw_cooldown(id, c, r, p)
 			draw_arc(c, r, 0.0, TAU, 32, Color(ring_col, 0.85 if held else 0.55), 2.0)
 			if wanted.has(String(b[1])):
 				draw_arc(c, r + 4.0, 0.0, TAU, 32, Color(Palette.GOLD, 0.4 + 0.5 * pulse), 2.0)
 			var label := _label(id, String(b[2]), fox)
+			if id.begins_with("slot_"):
+				var sp: String = tc.slot_spell(id)
+				label = String(Spells.info(sp).get("short", "")) if sp != "" else "—"
+				if fox and sp == "pillar":
+					label = "여우비"
+				elif fox and sp == "storm":
+					label = "구미호"
+			if id == "slot_f":
+				draw_arc(c, r + 2.0, 0.0, TAU, 32, Color(Palette.GOLD, 0.6), 1.0)
 			var fs := 12
 			var tw := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			var text_col := Color(Palette.UI_TEXT, 0.95 if held else 0.8)
@@ -358,24 +395,19 @@ class TouchDraw extends Control:
 			return label
 		match id:
 			"attack": return "여우불"
-			"pillar": return "여우비"
-			"storm": return "구미호"
 		return label
 
 	func _draw_cooldown(id: String, c: Vector2, r: float, p: Player) -> void:
 		if p == null:
 			return
-		var left := 0.0
-		var total := 1.0
-		var fox := p.is_fox()
-		if id == "pillar":
-			left = p.pillar_cooldown_left
-			total = p.tuning.pillar_cooldown * (1.6 if fox else 1.0)
-		elif id == "storm":
-			left = p.storm_cooldown_left
-			total = p.tuning.storm_cooldown * (1.2 if fox else 1.0)
-		else:
+		if not id.begins_with("slot_"):
 			return
+		var sp: String = owner_ctl.slot_spell(id)
+		if sp == "":
+			return
+		var cd: Vector2 = p.spell_cooldown(sp)
+		var left := cd.x
+		var total := maxf(cd.y, 0.01)
 		if left <= 0.0:
 			return
 		var k := clampf(left / total, 0.0, 1.0)

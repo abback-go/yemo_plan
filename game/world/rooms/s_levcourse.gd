@@ -47,4 +47,5 @@ func _init() -> void:
 		{t = "prop", kind = "pillar", x = 34, y = 19, h = 17},
 		{t = "prop", kind = "pillar", x = 58, y = 19, h = 17},
 		{t = "sign", x = 74, y = 19, look = "board", text = "부양 실습실|떠 있는 등불 다섯 개를 모두 모으면 합격.|떨어져도 다치지 않게 바닥을 푹신하게 해 두었단다~ (거짓말) — 오필리아"},
+		{t = "door", id = "tower", x = 3, y = 19, to = "s_windtower", to_id = "in", style = "iron", label = "바람의 탑", cond = "cls_wings_open"},
 	]

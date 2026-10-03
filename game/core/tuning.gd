@@ -68,13 +68,13 @@ extends Resource
 @export var pillar_warn_time := 0.22 ## v0.2: 0.35
 @export var pillar_width_t := 2.0 ## v0.2: 1
 @export var pillar_height_t := 7.0 ## v0.2: 4
-@export var pillar_damage := 45
-@export var pillar_side_damage := 25 ## 연쇄로 양옆에 솟는 기둥
+@export var pillar_damage := 120 ## 전체판: 마법 7종 기준(docs/bible/balance.md)
+@export var pillar_side_damage := 60 ## 연쇄로 양옆에 솟는 기둥
 @export var pillar_side_count := 2 ## 한쪽당 연쇄 기둥 수
 @export var pillar_side_gap_t := 2.2
 @export var pillar_side_delay := 0.07 ## 연쇄 기둥 사이 간격 (s). 간격 × 개수가 중심 기둥 수명(분출 후 0.55초)보다 짧아야 함
 @export var pillar_launch_t := 3.0
-@export var pillar_cooldown := 0.9
+@export var pillar_cooldown := 1.0
 @export var pillar_overload := 30.0
 
 @export_group("Skill: Fire Storm")
@@ -82,12 +82,12 @@ extends Resource
 @export var storm_angle_deg := 100.0
 @export var storm_duration := 0.45
 @export var storm_ticks := 5
-@export var storm_tick_damage := 12
-@export var storm_final_damage := 30 ## 마지막 폭발 피해
+@export var storm_tick_damage := 30
+@export var storm_final_damage := 90 ## 마지막 폭발 피해
 @export var storm_knockback_t := 6.0
 @export var storm_move_mult := 0.5
 @export var storm_recoil_t := 1.2 ## 시전 시 뒤로 밀리는 거리
-@export var storm_cooldown := 1.3
+@export var storm_cooldown := 1.4
 @export var storm_overload := 35.0
 
 @export_group("Overload")
@@ -148,3 +148,20 @@ extends Resource
 @export var sniper_lock_time := 0.2
 @export var sniper_shot_speed_t := 20.0
 @export var sniper_reload := 2.2
+
+@export_group("Wings · Ward · Ultimates (전체판 마법)")
+@export var glide_fall_speed_t := 2.5 ## 활공 중 최대 낙하 속도 (T/s)
+@export var glide_speed_t := 11.0 ## 활공 수평 속도 (Lv2 13)
+@export var updraft_speed_t := 15.0 ## 상승 기류 속도 (T/s)
+@export var ward_radius_t := 2.0
+@export var ward_time := 0.5 ## Lv2 0.65
+@export var ward_reflect_damage := 150
+@export var ward_burn_damage := 120
+@export var ward_nova_damage := 200 ## Lv3
+@export var ward_overload := 20.0
+@export var meteor_count := 7 ## Lv2 10 · Lv3 15
+@export var meteor_damage := 220
+@export var meteor_big_damage := 600
+@export var meteor_radius_t := 2.5
+@export var meteor_width_t := 24.0
+@export var phoenix_damage := 400

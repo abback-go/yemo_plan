@@ -7,12 +7,12 @@ signal answered(action: String)
 
 const KEY_LABEL := {
 	"move": "← →", "move_left": "←", "move_right": "→", "jump": "Z", "attack": "X", "dash": "C",
-	"skill_1": "A", "skill_2": "S", "fox_window": "D", "potion": "Q", "move_up": "↑", "move_down": "↓",
+	"skill_1": "A", "skill_2": "S", "skill_3": "F", "fox_window": "D", "potion": "Q", "move_up": "↑", "move_down": "↓",
 	"map": "Tab", "pause": "Esc",
 }
 const PAD_LABEL := {
 	"move": "스틱", "move_left": "←", "move_right": "→", "jump": "A", "attack": "X", "dash": "B",
-	"skill_1": "LB", "skill_2": "RB", "fox_window": "Y", "potion": "LT", "move_up": "위", "move_down": "아래",
+	"skill_1": "LB", "skill_2": "RB", "skill_3": "R3", "fox_window": "Y", "potion": "LT", "move_up": "위", "move_down": "아래",
 	"map": "Back", "pause": "Start",
 }
 
