@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-gen_music.py — 「마녀학교 × 여우신」 데모용 배경음악 / 징글 절차적 생성기
-=====================================================================
+gen_music.py — 「마녀학교 × 여우신」 배경음악 / 징글 절차적 생성기 (1~5장)
+=========================================================================
 
 * 외부 샘플·다운로드 에셋·AI 오디오 서비스를 전혀 쓰지 않는다. 모든 소리는 이 파일 안의
   합성 코드(가산 합성, 파형표 톱니파, 1극 필터, Karplus-Strong 현 모델, 잡음 타악기,
@@ -12,12 +12,21 @@ gen_music.py — 「마녀학교 × 여우신」 데모용 배경음악 / 징글
 
 사용법 (저장소 루트에서)::
 
-    python3 tools/gen_music.py                 # 전체 11곡 생성
+    python3 tools/gen_music.py                 # 전체 33곡 생성 (1장 11곡 + 2~5장 22곡)
     python3 tools/gen_music.py --only title    # 특정 곡만
     python3 tools/gen_music.py --jobs 2        # 병렬 프로세스 수 지정
     python3 tools/gen_music.py --wav-dir /tmp/wav   # 중간 WAV 저장 위치
 
 결과물: game/assets/music/<이름>.ogg  (ffmpeg + libvorbis 필요)
+
+곡 목록 (곡마다 track_<이름>() / jingle_<이름>() 함수 하나)
+-----------------------------------------------------------
+* 1장   : title, shingye, shingye_tension, school, library, basement, boss, ending,
+          jingle_ability, jingle_quest, jingle_save
+* 2~5장 : school_day, kingdom, kingdom_night, knight_duel, starbeast, elf, elf_hunt, herald,
+          temple, temple_dark, chase, aurelia, star_tower, lyra, despair, nine_tails, final,
+          ending2, festival, jingle_spell, jingle_levelup, jingle_chapter
+  곡끼리 주제 동기(학교·여우·제국·숲·신전·별)를 서로 인용한다 — '2~5장 곡들' 머리말 참고.
 
 루프 곡 처리 방식
 -----------------
@@ -172,6 +181,16 @@ def make_table(amps):
     return [x / pk for x in t]
 
 
+# 오르간 배음별 세기 (배음 번호 → 진폭)
+_ORGAN = {1: 1.0, 2: 0.6, 3: 0.32, 4: 0.36, 5: 0.1, 6: 0.16, 8: 0.14, 10: 0.04, 12: 0.05, 16: 0.03}
+# 합창 모음 포먼트 (중심 주파수 Hz, 대역폭 Hz, 세기) — 혼성 합창 평균값에 가깝게
+_VOWELS = {
+    'a': [(780.0, 110.0, 1.0), (1150.0, 130.0, 0.55), (2800.0, 200.0, 0.2), (3600.0, 250.0, 0.08)],
+    'o': [(470.0, 90.0, 1.0), (820.0, 110.0, 0.45), (2700.0, 200.0, 0.1)],
+    'u': [(330.0, 80.0, 1.0), (750.0, 120.0, 0.18), (2500.0, 200.0, 0.05)],
+}
+
+
 def _spec(kind, f):
     """악기별 배음 스펙트럼. 기본 주파수 f 에 따라 고역을 제한해 거친 고음을 막는다."""
     lim = min(9000.0, 0.45 * SR)
@@ -194,6 +213,18 @@ def _spec(kind, f):
             a /= (1.0 + (x / 2800.0) ** 2)
         elif kind == 'sine':
             a = 1.0 if k == 1 else 0.0
+        elif kind == 'brass':        # 금관: 톱니에 가까운 배음 + 1.2 kHz 근처 포먼트 (밝기는 필터 엔벨로프가 정함)
+            a = (1.0 / k ** 0.8) * (1.0 + 2.0 * math.exp(-((x - 1300.0) / 900.0) ** 2)) / (1.0 + (x / 6500.0) ** 2)
+        elif kind == 'flute':        # 플루트: 기음 위주, 2·3배음 조금 (숨소리는 잡음으로 따로)
+            base = [1.0, 0.28, 0.11, 0.045, 0.02, 0.01]
+            a = base[k - 1] if k <= len(base) else 0.0
+            a /= (1.0 + (x / 4500.0) ** 2)
+        elif kind == 'organ':        # 파이프 오르간: 8'·4'·2⅔'·2'·1⅗'·1⅓'·1' 스톱을 섞은 배음
+            a = _ORGAN.get(k, 0.0) / (1.0 + (x / 5000.0) ** 2)
+        elif kind.startswith('choir_'):   # 합창 '아·오·우': 성대 원음(배음이 점점 약해짐) × 모음 포먼트
+            src = 1.0 / k ** 0.8
+            env = sum(g / (1.0 + ((x - fc) / bw) ** 2) for fc, bw, g in _VOWELS[kind[6:]])
+            a = src * (0.04 + env)
         else:
             raise ValueError(kind)
         amps.append(a)
@@ -631,6 +662,250 @@ def inst_sawbass(m, dur, flags, seed, accent=1.0):
 
 
 # ---------------------------------------------------------------------------
+# 악기 5 (2~5장 추가): 금관, 합창, 오르간, 플루트, 스피카토 현, 큰 종, 글로켄슈필, 팀파니, FM 유리음, 스웰
+# ---------------------------------------------------------------------------
+def inst_brass(m, dur, flags, seed, bright=1.0, attack=0.045, release=0.14, voices=2, detune=6.0):
+    """금관풍(트럼펫·호른·트롬본): 금관 파형표 + '필터 엔벨로프'.
+    입술이 떨리기 시작하는 순간 소리가 확 밝아졌다가(컷오프 상승) 조금 어두워지는 금관 특유의 어택을 흉내낸다.
+    처음 40 ms 는 음높이가 살짝 아래에서 올라붙고, 긴 음에는 늦은 비브라토가 걸린다.
+    bright: 필터가 열리는 정도 (호른 0.5 ~ 트럼펫 1.2)."""
+    f = mtof(m)
+    rel = release
+    n = int((dur + rel + 0.03) * SR)
+    rnd = random.Random(seed)
+    tab = get_table('brass', m)
+    vib = dur >= 0.9 or 'v' in flags
+
+    def pf(t):
+        p = -0.35 * (1.0 - t / 0.04) ** 2 if t < 0.04 else 0.0
+        if vib and t > 0.35:
+            p += 0.11 * math.sin(TWO_PI * 5.0 * (t - 0.35)) * min(1.0, (t - 0.35) / 0.4)
+        return p
+    sig = None
+    for v in range(voices):
+        cents = 0.0 if voices == 1 else detune * (2.0 * v / (voices - 1) - 1.0)
+        o = osc(tab, f * 2.0 ** (cents / 1200.0), n, phase=rnd.random(), pitch_fn=pf)
+        sig = o if sig is None else [a + b for a, b in zip(sig, o)]
+    env = adsr(n, attack, 0.3, 0.8, rel, dur)
+    g = 1.0 / voices
+    out = [0.0] * n
+    y1 = y2 = 0.0
+    for i0 in range(0, n, 32):
+        t = i0 / SR
+        e = t / attack if t < attack else 0.5 + 0.5 * math.exp(-(t - attack) / 0.22)
+        if t > dur:
+            e *= max(0.0, 1.0 - (t - dur) / rel)
+        fc = min(8000.0, f * (1.5 + bright * 9.0 * e) + 300.0)
+        a = 1.0 - math.exp(-TWO_PI * fc / SR)
+        for i in range(i0, min(n, i0 + 32)):
+            y1 += a * (sig[i] * g - y1)
+            y2 += a * (y1 - y2)
+            out[i] = y2 * env[i]
+    return out
+
+
+def inst_choir(m, dur, flags, seed, vowel='a', voices=3, attack=0.35, release=0.9, breath=0.035):
+    """합창 '아/오/우': 모음 포먼트로 깎은 가산 합성 파형 여러 개를 서로 다른 비브라토로 겹친다.
+    성부마다 음높이가 몇 센트씩 어긋나고 떨림 속도도 달라서 여러 사람이 부르는 느낌이 난다."""
+    f = mtof(m)
+    n = int((dur + release) * SR)
+    rnd = random.Random(seed)
+    tab = get_table('choir_' + vowel, m)
+    sig = [0.0] * n
+    for v in range(voices):
+        det = rnd.uniform(-9.0, 9.0) / 100.0
+        rate = rnd.uniform(4.6, 5.7)
+        dep = rnd.uniform(0.07, 0.15)
+        ph0 = rnd.random() * TWO_PI
+        o = osc(tab, f, n, phase=rnd.random(),
+                pitch_fn=lambda t, det=det, rate=rate, dep=dep, ph0=ph0: det + dep * math.sin(ph0 + TWO_PI * rate * t))
+        sig = [a + b for a, b in zip(sig, o)]
+    env = adsr(n, attack, 0.5, 0.9, release, dur)
+    nz = breath_noise()
+    off = rnd.randrange(len(nz))
+    NL = len(nz)
+    g = 1.0 / voices
+    return [(s * g + breath * nz[(off + i) % NL]) * e for i, (s, e) in enumerate(zip(sig, env))]
+
+
+def inst_organ(m, dur, flags, seed, attack=0.06, release=0.35, chiff=0.05):
+    """파이프 오르간: 오르간 파형표 2개(2.5센트 어긋난 셀레스테) + 파이프가 말할 때의 짧은 '칙' 바람 소리."""
+    f = mtof(m)
+    n = int((dur + release) * SR)
+    rnd = random.Random(seed)
+    tab = get_table('organ', m)
+    a = osc(tab, f, n, rnd.random())
+    b = osc(tab, f * 2.0 ** (2.5 / 1200.0), n, rnd.random())
+    env = adsr(n, attack, 0.2, 0.92, release, dur)
+    nz = breath_noise()
+    off = rnd.randrange(len(nz))
+    NL = len(nz)
+    ck = 1.0 / (0.03 * SR)
+    return [(0.6 * x + 0.4 * y) * e + chiff * nz[(off + i) % NL] * math.exp(-ck * i)
+            for i, (x, y, e) in enumerate(zip(a, b, env))]
+
+
+def inst_flute(m, dur, flags, seed, **kw):
+    """플루트: 관악기 모델에 플루트 파형표 + 숨소리를 조금 더."""
+    kw.setdefault('breath', 0.11)
+    kw.setdefault('chiff', 0.26)
+    kw.setdefault('attack', 0.06)
+    return inst_wind(m, dur, flags, seed, kind='flute', auto_vib=0.7, **kw)
+
+
+def inst_spicc(m, dur, flags, seed, bright=1.0):
+    """현악 스피카토(짧게 튀기는 활): 디튠 톱니 2개 + 활이 줄을 긁는 잡음 + 짧은 엔벨로프. 오스티나토용."""
+    f = mtof(m)
+    rel = 0.07
+    gate = min(dur, 0.6)
+    n = int((gate + rel) * SR)
+    rnd = random.Random(seed)
+    tab = get_table('saw', m)
+    o1 = osc(tab, f * 2.0 ** (5.0 / 1200.0), n, rnd.random())
+    o2 = osc(tab, f * 2.0 ** (-5.0 / 1200.0), n, rnd.random())
+    env = adsr(n, 0.006, 0.09, 0.45, rel, gate)
+    nz = breath_noise()
+    off = rnd.randrange(len(nz) - n - 1)
+    kz = 1.0 / (0.02 * SR)
+    sig = [(0.5 * (a + b) + 0.22 * nz[off + i] * math.exp(-kz * i)) * e
+           for i, (a, b, e) in enumerate(zip(o1, o2, env))]
+    return onepole_lp(sig, 2500.0 + 3000.0 * bright) if bright < 1.0 else sig
+
+
+# 교회 종 부분음 (기본음 대비 주파수비, 진폭, 길이 비율): 험·프라임·티어스(단3도)·퀸트·노미널 …
+_CBELL = [(0.5, 0.55, 1.0), (1.0, 0.7, 0.75), (1.2, 0.5, 0.55), (1.5, 0.25, 0.42), (2.0, 0.8, 0.35),
+          (2.51, 0.3, 0.22), (2.66, 0.25, 0.2), (3.01, 0.2, 0.15), (4.17, 0.12, 0.1), (5.43, 0.08, 0.07)]
+
+
+def inst_cbell(m, dur, flags, seed, T=7.0, lp=2600.0):
+    """큰 교회 종 (신전·성당): 실제 종의 부분음 비율(단3도 티어스가 섞여 쓸쓸하고 장엄함).
+    험·프라임에 0.6 Hz 어긋난 쌍둥이 부분음을 더해 종 특유의 '웅-웅' 맥놀이를 만든다."""
+    f = mtof(m)
+    P = []
+    for r, a, dr in _CBELL:
+        fr = f * r
+        P.append((r, a / (1.0 + (fr / lp) ** 2), T * dr))
+    P.append((0.5 + 0.6 / f, 0.3, T))
+    P.append((1.0 + 0.6 / f, 0.35, T * 0.7))
+    sig = partial_sum(f, int(T * SR), P, attack=0.002, maxf=8000.0)
+    pk = max(abs(x) for x in sig) or 1.0
+    return [x / pk for x in sig]
+
+
+def inst_glock(m, dur, flags, seed):
+    """글로켄슈필: 밝고 짧은 금속 막대 (자유막대 부분음 2.76·5.40배)."""
+    f = mtof(m)
+    T = 1.7 * (880.0 / f) ** 0.3
+    P = [(1.0, 1.0, T), (2.76, 0.25, T * 0.25), (5.40, 0.1, T * 0.1), (8.93, 0.04, 0.05)]
+    return partial_sum(f, int(T * SR), P, attack=0.0008, maxf=11000.0)
+
+
+def inst_timp(m, dur, flags, seed, T=1.8):
+    """팀파니: 가죽 고유진동(1 : 1.50 : 1.74 : 2.00 : 2.44) + 처음 50 ms 음높이가 살짝 위에서 내려옴
+    + 말렛 타격 잡음. 롤은 악보에서 짧은 음을 빠르게 반복해서 만든다."""
+    f = mtof(m)
+    rnd = random.Random(seed)
+    n = int(T * SR)
+    out = [0.0] * n
+    tau = 0.05 * SR
+    bend = 0.025
+    ph = [i + bend * tau * (1.0 - math.exp(-i / tau)) for i in range(n)]   # 음높이 하강을 반영한 위상(샘플)
+    for r, a, t60 in [(1.0, 1.0, T), (1.504, 0.45, T * 0.6), (1.742, 0.22, T * 0.45), (2.0, 0.28, T * 0.5),
+                      (2.44, 0.1, T * 0.3)]:
+        w = TWO_PI * f * r / SR
+        k = 6.9078 / (t60 * SR)
+        mm = min(n, int(t60 * SR))
+        out[:mm] = [o + a * math.exp(-k * i) * math.sin(w * p) for i, (o, p) in enumerate(zip(out[:mm], ph[:mm]))]
+    nz = bandnoise(int(0.06 * SR), 120.0, 1600.0, rnd)
+    kn = 1.0 / (0.012 * SR)
+    for i, v in enumerate(nz):
+        out[i] += 0.6 * v * math.exp(-kn * i)
+    A = int(0.0015 * SR)
+    for i in range(A):
+        out[i] *= i / A
+    pk = max(abs(x) for x in out) or 1.0
+    return fade_tail([x / pk for x in out], 0.1)
+
+
+def inst_fmglass(m, dur, flags, seed, ratio=3.53, index=1.8, T=3.0, attack=0.004):
+    """외신(外神)의 유리 소리: 비조화 FM (반송파 : 변조파 = 1 : ratio).
+    변조 지수가 서서히 줄어 처음엔 거칠게 반짝이다가 맑은 사인으로 가라앉는다."""
+    f = mtof(m)
+    n = int(max(T, dur + 0.5) * SR)
+    wc = TWO_PI * f / SR
+    wm = wc * ratio
+    k = 6.9078 / (T * SR)
+    ki = 1.0 / (0.5 * SR)
+    A = max(1, int(attack * SR))
+    return [min(1.0, i / A) * math.exp(-k * i) * math.sin(wc * i + index * math.exp(-ki * i) * math.sin(wm * i))
+            for i in range(n)]
+
+
+def inst_swell(m, dur, flags, seed, lo=2500.0, hi=9000.0, power=2.5):
+    """서스펜디드 심벌 롤 / 차오르는 바람: 대역 잡음이 dur 동안 점점 커지다가 끝에서 짧게 사라진다.
+    (m 은 쓰지 않음 — 악보 형식을 맞추기 위한 자리)"""
+    rnd = random.Random(seed)
+    n = int((dur + 0.3) * SR)
+    nz = bandnoise(n, lo, hi, rnd)
+    D = max(1.0, dur * SR)
+    kr = 1.0 / (0.08 * SR)
+    out = [v * ((i / D) ** power if i < D else math.exp(-(i - D) * kr)) for i, v in enumerate(nz)]
+    pk = max(abs(x) for x in out) or 1.0
+    return [x / pk for x in out]
+
+
+def metal_hit(seed, sec=0.7, f=1650.0):
+    """칼날·쇠붙이가 부딪히는 '챙' (비조화 부분음 + 짧은 잡음)."""
+    rnd = random.Random(seed)
+    f *= rnd.uniform(0.96, 1.04)
+    P = [(1.0, 1.0, 0.55), (1.47, 0.6, 0.38), (2.09, 0.5, 0.26), (2.56, 0.35, 0.2), (3.42, 0.25, 0.12)]
+    sig = partial_sum(f, int(sec * SR), P, attack=0.0005, maxf=12000.0)
+    nz = bandnoise(int(0.05 * SR), 2000.0, 8000.0, rnd)
+    kn = 1.0 / (0.008 * SR)
+    pk0 = max(abs(x) for x in sig) or 1.0
+    for i, v in enumerate(nz):
+        sig[i] += 1.2 * pk0 * v * math.exp(-kn * i)
+    pk = max(abs(x) for x in sig) or 1.0
+    return fade_tail([x / pk for x in sig], 0.05)
+
+
+def debris_hit(seed, sec=1.5):
+    """무너지는 돌 부스러기: 시간이 지날수록 드문드문해지는 작은 충격음 알갱이 + 낮은 웅웅거림."""
+    rnd = random.Random(seed)
+    n = int(sec * SR)
+    imp = [0.0] * n
+    for i in range(n):
+        p = 0.012 * math.exp(-i / (0.35 * SR))
+        if rnd.random() < p:
+            imp[i] = rnd.uniform(-1.0, 1.0)
+    # 알갱이마다 짧은 울림: 1극 공진(저역통과 두 번) → 고역 일부 제거
+    y1 = y2 = 0.0
+    a1 = 1.0 - math.exp(-TWO_PI * 2200.0 / SR)
+    out = [0.0] * n
+    for i in range(n):
+        y1 += a1 * (imp[i] - y1)
+        y2 += 0.15 * (y1 - y2)
+        out[i] = y1 - y2
+    rum = bandnoise(n, 40.0, 300.0, rnd)
+    pk_r = max(abs(x) for x in rum) or 1.0
+    kr = 1.0 / (0.4 * SR)
+    pk_o = max(abs(x) for x in out) or 1.0
+    out = [o / pk_o + 0.5 * r / pk_r * math.exp(-i * kr) for i, (o, r) in enumerate(zip(out, rum))]
+    pk = max(abs(x) for x in out) or 1.0
+    return fade_tail([x / pk for x in out], 0.2)
+
+
+def tri_hit(seed, sec=1.6):
+    """오케스트라 트라이앵글: 높은 비조화 부분음이 오래 남는다."""
+    rnd = random.Random(seed)
+    f = 1850.0 * rnd.uniform(0.99, 1.01)
+    P = [(1.0, 0.7, 1.4), (2.13, 1.0, 1.2), (3.31, 0.8, 0.9), (4.62, 0.5, 0.6)]
+    sig = partial_sum(f, int(sec * SR), P, attack=0.0005, maxf=12000.0)
+    pk = max(abs(x) for x in sig) or 1.0
+    return fade_tail([x / pk for x in sig], 0.1)
+
+
+# ---------------------------------------------------------------------------
 # 악기 4: 타악 (북, 장구, 킥, 스네어, 셰이커 …) — 모두 잡음/사인 합성
 # ---------------------------------------------------------------------------
 def membrane(seed, sec, f0, f1, ptau, atau, nz=0.3, nlo=150.0, nhi=1500.0, ntau=0.03, mode2=0.0):
@@ -701,6 +976,20 @@ DRUMS = {
     'shaker': lambda s: noise_hit(s, 0.12, 2800.0, 7000.0, 0.035, attack=0.01),
     'thump':  lambda s: membrane(s, 0.7, 75.0, 42.0, 0.05, 0.22, nz=0.06, nlo=40, nhi=300, ntau=0.02),
     'tom':    lambda s: membrane(s, 0.6, 160.0, 105.0, 0.05, 0.22, nz=0.15, nlo=120, nhi=1500, ntau=0.02, mode2=0.15),
+    # --- 2~5장 추가 ---
+    'crash':  lambda s: noise_hit(s, 2.2, 2600.0, 9500.0, 0.5, attack=0.002),          # 크래시 심벌
+    'tamb':   lambda s: noise_hit(s, 0.22, 4500.0, 9500.0, 0.05, attack=0.003),         # 탬버린
+    'rim':    lambda s: noise_hit(s, 0.08, 1500.0, 5000.0, 0.008, body_f=1700.0, body_end=1600.0,
+                                  body_amp=0.8, body_tau=0.012),                        # 림샷 '딱'
+    'sroll':  lambda s: noise_hit(s, 0.14, 1300.0, 6500.0, 0.03, body_f=230.0, body_end=200.0,
+                                  body_amp=0.35, body_tau=0.02),                        # 스네어 롤 한 타
+    'btaiko': lambda s: membrane(s, 2.4, 82.0, 40.0, 0.09, 0.8, nz=0.32, nlo=50, nhi=700, ntau=0.04, mode2=0.22),
+    'boom':   lambda s: membrane(s, 3.2, 70.0, 30.0, 0.15, 1.15, nz=0.45, nlo=40, nhi=600, ntau=0.12, mode2=0.25),
+    'debris': lambda s: debris_hit(s),                                                   # 돌 부스러기
+    'heart':  lambda s: membrane(s, 0.4, 95.0, 58.0, 0.03, 0.1, nz=0.12, nlo=60, nhi=600, ntau=0.012),
+    'wood':   lambda s: membrane(s, 0.18, 1050.0, 900.0, 0.02, 0.045, nz=0.25, nlo=700, nhi=4500, ntau=0.004),
+    'clang':  lambda s: metal_hit(s),                                                    # 칼날 부딪힘
+    'tri':    lambda s: tri_hit(s),                                                      # 트라이앵글
 }
 
 
@@ -990,6 +1279,139 @@ def arpeggio(t, bus, chord_seq, voicings, pattern, unit, fn, vel=0.35, accent=1.
                 continue
             vv = vel * (accent if i == 0 else 1.0)
             t.play(bus, [(t.bar(k) + i * unit, unit, v[idx], '')], fn, vel=vv, **kw)
+
+
+# ---------------------------------------------------------------------------
+# 화성 도우미 (2~5장 추가): 화음 이름 → 구성음, 보이싱, 화음 진행 이벤트, 2성부 화성
+#   화음 이름 형식: 근음[#b] + 성격 + (/베이스)   예) 'F#m7', 'Bb/D', 'E7sus4', 'Gmaj7#11'
+# ---------------------------------------------------------------------------
+_CHORD_Q = {
+    '': (0, 4, 7), 'm': (0, 3, 7), '7': (0, 4, 7, 10), 'm7': (0, 3, 7, 10), 'maj7': (0, 4, 7, 11),
+    'sus4': (0, 5, 7), 'sus2': (0, 2, 7), 'dim': (0, 3, 6), 'aug': (0, 4, 8), 'add9': (0, 4, 7, 14),
+    'madd9': (0, 3, 7, 14), 'm9': (0, 3, 7, 10, 14), 'maj9': (0, 4, 7, 11, 14), '6': (0, 4, 7, 9),
+    'm6': (0, 3, 7, 9), '7sus4': (0, 5, 7, 10), '5': (0, 7), 'dim7': (0, 3, 6, 9), 'm7b5': (0, 3, 6, 10),
+    'maj7#11': (0, 4, 7, 11, 18), '9': (0, 4, 7, 10, 14), 'mmaj7': (0, 3, 7, 11),
+}
+
+
+def _pc(name):
+    return (_NOTE_PC[name[0]] + {'': 0, '#': 1, 'b': -1}[name[1:]]) % 12
+
+
+def chord_parse(sym):
+    """화음 이름 → (근음 pc, 구성음 반음거리, 베이스 pc)."""
+    mm = re.match(r'^([A-G][#b]?)([^/]*)(?:/([A-G][#b]?))?$', sym)
+    if not mm or mm.group(2) not in _CHORD_Q:
+        raise ValueError('화음 이름 오류: ' + sym)
+    root = _pc(mm.group(1))
+    bass = _pc(mm.group(3)) if mm.group(3) else root
+    return root, _CHORD_Q[mm.group(2)], bass
+
+
+def chord_pcs(sym):
+    root, q, _ = chord_parse(sym)
+    return sorted(set((root + iv) % 12 for iv in q))
+
+
+def voicing(sym, lo, count):
+    """lo(음 이름 또는 MIDI) 이상에서 화음 구성음을 아래부터 count 개 쌓는다 (닫힌 자리바꿈).
+    lo 를 고정해 두면 화음이 바뀌어도 성부가 가까이 머물러 자연스럽게 이어진다."""
+    m = midi(lo) if isinstance(lo, str) else lo
+    pcs = chord_pcs(sym)
+    out = []
+    while len(out) < count:
+        if m % 12 in pcs:
+            out.append(m)
+        m += 1
+    return out
+
+
+def open_voicing(sym, lo, count):
+    """열린 보이싱: 근음(또는 베이스) + 5도 + 그 위에 닫힌 화음 (합창·오르간·금관 화음용)."""
+    base = bass_of(sym, lo)
+    root, q, _ = chord_parse(sym)
+    out = [base, base + 7 if (base + 7 - root) % 12 in [iv % 12 for iv in q] else base + 12]
+    out += voicing(sym, out[-1] + 1, max(0, count - 2))
+    return out[:count]
+
+
+def bass_of(sym, lo):
+    """lo 이상에서 가장 낮은 베이스음 (슬래시 화음이면 슬래시 뒤의 음)."""
+    m = midi(lo) if isinstance(lo, str) else lo
+    b = chord_parse(sym)[2]
+    return m + (b - m) % 12
+
+
+def prog_events(prog, bpb):
+    """마디별 화음 목록 → [(시작 박, 길이 박, 화음), ...]. 'C G' 처럼 띄어 쓰면 마디를 똑같이 나눈다."""
+    out = []
+    for k, item in enumerate(prog):
+        parts = item.split()
+        d = bpb / len(parts)
+        for j, sym in enumerate(parts):
+            out.append((k * bpb + j * d, d, sym))
+    return out
+
+
+def chord_at(pev, beat):
+    for b, d, sym in pev:
+        if b - 1e-6 <= beat < b + d - 1e-6:
+            return sym
+    return pev[-1][2]
+
+
+def harmonize(events, pev, gap=3, offset=0.0):
+    """선율 아래에 그때 화음의 구성음으로 한 성부를 더한다 (금관·합창 2성부). gap: 최소 반음 간격.
+    offset: 선율 이벤트의 박이 화음 진행보다 앞서 있으면 그만큼 빼고 화음을 찾는다."""
+    out = []
+    for (b, d, m, f) in events:
+        pcs = chord_pcs(chord_at(pev, b - offset))
+        h = m - gap
+        while h % 12 not in pcs:
+            h -= 1
+        out.append((b, d, h, f))
+    return out
+
+
+def articulate(events, short=0.5, stacc=0.8, legato=0.95):
+    """짧은 음(≤ short 박)은 스타카토(길이 × stacc), 긴 음은 레가토(× legato)."""
+    return [(b, d * (stacc if d <= short + 1e-6 else legato), m, f) for (b, d, m, f) in events]
+
+
+def roll(t, bus, kind, start, beats, step, v0, v1):
+    """북·스네어·팀파니 롤: step 박 간격으로 v0 → v1 크레셴도."""
+    n = max(1, int(round(beats / step)))
+    for i in range(n):
+        t.hit(bus, kind, start + i * step, v0 + (v1 - v0) * i / max(1, n - 1), jitter=0.001)
+
+
+def timp_roll(t, bus, note, start, beats, v0, v1, step=0.125):
+    """팀파니 롤 (음높이 있는 북): 짧은 타격을 빠르게 반복하며 크레셴도."""
+    n = max(1, int(round(beats / step)))
+    m = midi(note) if isinstance(note, str) else note
+    for i in range(n):
+        t.play(bus, [(start + i * step, step, m, '')], inst_timp, vel=v0 + (v1 - v0) * i / max(1, n - 1),
+               human=0.08, jitter=0.002, variants=3, T=0.9)
+
+
+def gliss(t, bus, start, names, step, fn, vel=0.5, **kw):
+    """하프 글리산도·빠른 상행: 음 이름 목록을 step 박 간격으로 차례로 뜯는다."""
+    ms = notes(names) if isinstance(names, str) else names
+    for i, m in enumerate(ms):
+        t.play(bus, [(start + i * step, step * 2, m, '')], fn, vel=vel, human=0.05, jitter=0.0, **kw)
+
+
+def scale_run(lo, hi, pcs):
+    """lo~hi(MIDI) 사이에서 pcs(반음 집합)에 속한 음을 오름차순으로."""
+    lo = midi(lo) if isinstance(lo, str) else lo
+    hi = midi(hi) if isinstance(hi, str) else hi
+    return [m for m in range(lo, hi + 1) if m % 12 in pcs]
+
+
+def pad_prog(t, bus, pev, lo, count, fn=inst_pad, vel=0.5, offset=0.0, voicer=voicing, **kw):
+    """화음 진행 이벤트마다 패드 화음을 깐다."""
+    for b, d, sym in pev:
+        t.chord(bus, offset + b, d, voicer(sym, lo, count), fn, vel=vel, **kw)
 
 
 # ===========================================================================
@@ -1513,6 +1935,1662 @@ def jingle_save():
     return t.finish(rev_size=0.86, rev_damp=0.45, rev_level=0.32, fade=0.7)
 
 
+# ===========================================================================
+# 2~5장 곡들
+#   주제 동기(라이트모티프) — 곡끼리 서로 인용한다
+#     학교 동기  : 'r A4 D5 F5 E5 D5' (D 도리안, school 곡의 첫 선율)
+#     여우 동기  : 'E5 — D5 C5(꺾는음) A4' (A 계면조풍, shingye 곡의 주제)
+#     제국 동기  : 'F4 F4 Bb4 D5 F5' (5-1-3-5 팡파르, 레오니 / 아르덴 제국)
+#     숲 동기    : 'A4 D5 E5 F#5 | G#5' (D 리디안 — #4 가 신비로움, 엘라리엔 / 세계수)
+#     신전 동기  : 'B4 E5 F#5 G5 | F#5 E5' (E 에올리안 성가풍, 루멘 신전 / 아우렐리아)
+#     별 동기    : 'B4 F#5 G#5 | F#5 E5 D5' (B 도리안 — 6음 G# 이 쓸쓸하면서 밝음, 별의 마녀 리라)
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# school_day — 2~5장 아침의 학교 (D장조, 4/4, 108 bpm, 24마디 = 53.3초)
+#   school 곡의 선율을 D 도리안 → D장조로 옮겨(F→F#, C→C#) 밝고 가볍게. 플루트·하프·글로켄슈필.
+# ---------------------------------------------------------------------------
+SCHOOL_DAY_A = ("r:1 A4:0.5 D5:0.5 F#5:1 E5:0.5 D5:0.5 | B4:1.5 G4:0.5 B4:1 D5:1 | "
+                "C#5:0.5 D5:0.5 F#5:1 A5:1 G5:0.5 F#5:0.5 | E5:1.5 D5:0.5 B4:2 | "
+                "A4:0.5 C#5:0.5 F#5:1 E5:0.5 F#5:0.5 G5:1 | E5:1.5 D5:0.5 C#5:1 G4:1 | "
+                "D5:0.5 E5:0.5 F#5:0.5 G5:0.5 A5:1 B5:1 | A5:2 E5:1 C#5:1")
+
+
+def track_school_day():
+    t = Track('school_day', bpm=108, bpb=4, bars=24, seed=1101)
+    prog = ['D', 'G', 'D', 'Em7', 'F#m', 'A7', 'G', 'A',
+            'G', 'A', 'F#m', 'Bm', 'Em', 'A7', 'D/F# G', 'A7',
+            'D', 'G', 'D', 'Em7', 'Bm', 'Em', 'G', 'A7']
+    pev = prog_events(prog, 4)
+    SB = ("B4:0.5 D5:0.5 G5:1.5 F#5:0.5 E5:1 | E5:1 C#5:0.5 D5:0.5 E5:2 | F#5:1.5 E5:0.5 C#5:1 A4:1 | "
+          "B4:1 D5:1 F#5:2 | G5:1.5 F#5:0.5 E5:1 B4:1 | C#5:1 E5:1 A5:1.5 G5:0.5 | "
+          "F#5:1 A5:0.5 F#5:0.5 G5:1 B5:1 | A5:2 E5:1 C#5:1")
+    SC = ("r:1 A4:0.5 D5:0.5 F#5:1 E5:0.5 D5:0.5 | B4:1.5 G4:0.5 B4:1 D5:1 | "
+          "C#5:0.5 D5:0.5 F#5:1 A5:1 G5:0.5 F#5:0.5 | E5:1.5 D5:0.5 B4:2 | "
+          "D5:1 F#5:0.5 D5:0.5 B4:1 D5:1 | E5:1 G5:0.5 E5:0.5 B4:1 E5:1 | "
+          "D5:1.5 E5:0.5 D5:1 B4:1 | C#5:1 E5:0.5 G5:0.5 A5:1 r:1")
+    fl = t.bus('flute', gain=0.62, pan=0.1, rev=1.0, dly=0.5)
+    cl = t.bus('clarinet', gain=0.5, pan=0.18, rev=1.0, dly=0.4)
+    gl = t.bus('glock', gain=0.2, pan=0.35, rev=1.0, dly=0.8)
+    hp = t.bus('harp', gain=0.75, pan=-0.3, rev=1.0)
+    hc = t.bus('harpsichord', gain=1.25, pan=-0.2, rev=0.7)
+    bass = t.bus('pizz', gain=0.62, pan=0.0, rev=0.4)
+    st = t.bus('strings', gain=0.16, pan=-0.05, rev=1.0)
+    perc = t.bus('perc', gain=0.2, pan=0.3, rev=0.3)
+
+    a = articulate(seq(SCHOOL_DAY_A, bar=4))
+    b = articulate(seq(SB, bar=4, offset=32))
+    c = articulate(seq(SC, bar=4, offset=64))
+    t.play(fl, a + c, inst_flute, vel=0.8, jitter=0.003)
+    t.play(cl, b, inst_wind, vel=0.8, jitter=0.003, kind='clar', breath=0.035, attack=0.035,
+           release=0.08, chiff=0.12, auto_vib=0.9)
+    # 마지막 A' 는 글로켄슈필이 한 옥타브 위에서 살짝 겹친다
+    t.play(gl, ev_transpose([e for e in c if e[1] <= 1.0], 12), inst_glock, vel=0.55)
+
+    for k, ch in enumerate(prog):
+        b0 = t.bar(k)
+        syms = ch.split()
+        main = syms[0]
+        r = bass_of(main, 'D2')
+        if 8 <= k < 16:
+            # B: 하프시코드 엇박 화음 + 피치카토 워킹 베이스 (다음 화음 근음의 반음 아래로 다가감)
+            for bt in (0.5, 1.5, 2.5, 3.5):
+                sym = chord_at(pev, b0 + bt)
+                for mm in voicing(sym, 'F#3', 3):
+                    t.play(hc, [(b0 + bt, 0.3, mm, '')], inst_harpsi, vel=0.42, jitter=0.002)
+            nr = bass_of(prog[(k + 1) % len(prog)].split()[0], 'D2')
+            walk = [r, r + 7, r + 12, nr - 1 if nr != r else r + 7]
+            if len(syms) > 1:
+                r2 = bass_of(syms[1], 'D2')
+                walk = [r, voicing(main, r + 1, 1)[0], r2, r2 + 7]
+            for i, mm in enumerate(walk):
+                t.play(bass, [(b0 + i, 1, mm, '')], inst_pizz, vel=0.85 if i == 0 else 0.62)
+            for i in range(4):
+                t.hit(perc, 'tamb', b0 + i + 0.5, 0.4)
+        else:
+            # A·A': 하프 8분음표 분산화음 + 근음·5음 피치카토
+            v = voicing(main, 'A3', 4)
+            for i, idx in enumerate([0, 1, 2, 3, 2, 1, 2, 1]):
+                t.play(hp, [(b0 + i * 0.5, 0.5, v[idx], '')], inst_harp, vel=0.5 if i == 0 else 0.38)
+            t.play(bass, [(b0, 1, r, ''), (b0 + 2, 1, r + 7, '')], inst_pizz, vel=0.8)
+        if k >= 8:
+            t.chord(st, b0, 4, voicing(main, 'D4', 3), inst_pad, vel=0.5, attack=0.6, release=0.9)
+        # 셰이커 (가볍게, 내내)
+        for i in range(8):
+            t.hit(perc, 'shaker', b0 + i * 0.5, 0.5 if i % 2 else 0.3)
+        if k >= 16 and k % 2 == 1:
+            t.hit(perc, 'tamb', b0 + 1, 0.45)
+            t.hit(perc, 'tamb', b0 + 3, 0.45)
+    # 프레이즈 끝 반짝임
+    for k, ns in {7: 'A5 C#6 E6', 15: 'A5 C#6 E6 G6', 23: 'G5 A5 C#6 E6'}.items():
+        for i, mm in enumerate(notes(ns)):
+            t.play(gl, [(t.bar(k) + 2.5 + i * 0.25, 0.25, mm, '')], inst_glock, vel=0.6)
+    return t.finish(rev_size=0.8, rev_damp=0.45, rev_level=0.2, dly_beats=0.75, dly_fb=0.25, dly_level=0.08)
+
+
+# ---------------------------------------------------------------------------
+# kingdom — 아르덴 제국 수도의 낮 (B♭장조, 4/4, 112 bpm, 28마디 = 60초)
+#   서주 팡파르 4 + A(트럼펫 제국 주제) 8 + B(시장의 북적임: 클라리넷·하프시코드) 8 + A'(총주) 8
+# ---------------------------------------------------------------------------
+KINGDOM_A = ("F4:0.75 F4:0.25 Bb4:1 D5:1 F5:1 | G5:1.5 F5:0.5 Eb5:1 Bb4:1 | "
+             "A4:0.75 Bb4:0.25 C5:1 F5:1 Eb5:1 | D5:3 r:1 | "
+             "D5:0.75 D5:0.25 G5:1 Bb5:1 A5:0.5 G5:0.5 | G5:1.5 F5:0.5 Eb5:1 G5:1 | "
+             "G5:0.5 F5:0.5 Eb5:0.5 C5:0.5 F5:1 A4:1 | Bb4:2 r:2")
+KINGDOM_A_PROG = ['Bb', 'Eb', 'F7', 'Bb', 'Gm', 'Eb', 'Cm7 F', 'Bb']
+
+
+def march_snare(t, bus, b0, pat, vel=0.7):
+    kit = {'X': [('snare', 1.0)], 'x': [('sroll', 0.6)], 'o': [('sroll', 0.35)]}
+    for i, ch in enumerate(pat):
+        if ch in kit:
+            kind, v = kit[ch][0]
+            t.hit(bus, kind, b0 + i * 0.25, v * vel, jitter=0.001)
+
+
+def track_kingdom():
+    t = Track('kingdom', bpm=112, bpb=4, bars=28, seed=1201)
+    prog = (['Bb', 'Eb', 'Cm F', 'F7'] + KINGDOM_A_PROG +
+            ['Gm', 'D7', 'Gm', 'F', 'Eb', 'Bb/D', 'Cm7', 'F7'] + KINGDOM_A_PROG)
+    pev = prog_events(prog, 4)
+    tp = t.bus('trumpet', gain=0.55, pan=0.12, rev=0.9, dly=0.3)
+    hn = t.bus('horns', gain=0.55, pan=-0.2, rev=1.0)
+    tb = t.bus('lowbrass', gain=0.5, pan=-0.05, rev=0.7)
+    ww = t.bus('woodwind', gain=0.3, pan=0.22, rev=0.9, dly=0.4)
+    fl = t.bus('flute', gain=0.2, pan=0.3, rev=1.0)
+    st = t.bus('strings', gain=0.4, pan=-0.28, rev=0.7)
+    hc = t.bus('harpsichord', gain=1.4, pan=-0.35, rev=0.6)
+    bass = t.bus('pizz', gain=0.4, pan=0.0, rev=0.4)
+    gl = t.bus('glock', gain=0.16, pan=0.4, rev=1.0)
+    sn = t.bus('snare', gain=0.5, pan=0.08, rev=0.4)
+    bd = t.bus('bassdrum', gain=0.27, pan=0.0, rev=0.5)
+    cy = t.bus('cymbal', gain=0.12, pan=0.25, rev=0.6)
+    tim = t.bus('timpani', gain=0.5, pan=-0.1, rev=0.6)
+
+    # --- 서주 팡파르 (트럼펫 + 호른 화성) ---
+    INTRO = ("D5:0.75 D5:0.25 D5:1 F5:1.5 r:0.5 | Eb5:0.75 Eb5:0.25 Eb5:1 G5:1.5 r:0.5 | "
+             "G5:0.75 G5:0.25 G5:1 A5:1 F5:1 | F5:4")
+    intro = articulate(seq(INTRO, bar=4), short=0.75, stacc=0.75)
+    t.play(tp, intro, inst_brass, vel=0.85, jitter=0.0, bright=1.1)
+    t.play(hn, harmonize(intro, pev, 3), inst_brass, vel=0.75, jitter=0.0, bright=0.55)
+    t.play(hn, harmonize(intro, pev, 8), inst_brass, vel=0.65, jitter=0.0, bright=0.5)
+    # --- A, A': 트럼펫 주제 (A' 는 호른 3도 아래 화성 + 글로켄슈필) ---
+    ka = articulate(seq(KINGDOM_A, bar=4, offset=16), short=0.75, stacc=0.8)
+    ka2 = articulate(seq(KINGDOM_A, bar=4, offset=80), short=0.75, stacc=0.8)
+    t.play(tp, ka + ka2, inst_brass, vel=0.85, jitter=0.0, bright=1.1)
+    t.play(hn, harmonize(ka2, pev, 3), inst_brass, vel=0.72, jitter=0.0, bright=0.55)
+    t.play(gl, ev_transpose(ka2, 12), inst_glock, vel=0.5)
+    # A 부분 호른: 2분음표 대선율
+    HCOUNT = "Bb3:2 D4:2 | Eb4:2 G4:2 | F4:2 A4:2 | Bb4:2 F4:2 | G4:2 D4:2 | Eb4:2 Bb3:2 | C4:2 F4:2 | D4:2 r:2"
+    t.play(hn, seq(HCOUNT, bar=4, offset=16), inst_brass, vel=0.6, jitter=0.0, bright=0.45)
+    # --- B: 시장의 북적임 (클라리넷 8분음표, 뒤 4마디는 플루트가 옥타브 위로) ---
+    KB = ("G4:0.5 A4:0.5 Bb4:0.5 D5:0.5 G5:1 D5:1 | F#5:0.5 E5:0.5 D5:0.5 C5:0.5 A4:1 F#4:1 | "
+          "G4:0.5 Bb4:0.5 D5:0.5 G5:0.5 Bb5:1 A5:0.5 G5:0.5 | F5:1.5 C5:0.5 A4:1 F4:1 | "
+          "Eb5:0.5 F5:0.5 G5:0.5 Bb5:0.5 G5:1 Eb5:1 | D5:0.5 Eb5:0.5 F5:0.5 Bb5:0.5 F5:1 D5:1 | "
+          "C5:0.5 D5:0.5 Eb5:0.5 G5:0.5 Bb5:1 G5:1 | A5:1 F5:0.5 Eb5:0.5 C5:1 A4:1")
+    kb = articulate(seq(KB, bar=4, offset=48), stacc=0.7)
+    t.play(ww, kb, inst_wind, vel=0.8, jitter=0.003, kind='clar', breath=0.035, attack=0.03,
+           release=0.07, chiff=0.14, auto_vib=0.9)
+    t.play(fl, ev_transpose([e for e in kb if e[0] >= 64], 12), inst_flute, vel=0.6)
+
+    for k, ch in enumerate(prog):
+        b0 = t.bar(k)
+        main = ch.split()[0]
+        sec_b = k >= 12 and k < 20
+        # 베이스: A 는 행진곡 '쿵-짝'(1·3박 근음/5음), B 는 8분음표 워킹
+        if not sec_b:
+            for i, sym in enumerate([chord_at(pev, b0), chord_at(pev, b0 + 2)]):
+                r = bass_of(sym, 'Bb1')
+                t.play(bass, [(b0 + 2 * i, 1, r, ''), (b0 + 2 * i + 1, 1, r + 7 if r + 7 < midi('C3') else r - 5, '')],
+                       inst_pizz, vel=0.85)
+            # 현악 '짝' 화음 (2·4박) + 저음 금관 2분음표
+            for bt in (1, 3):
+                t.chord(st, b0 + bt, 0.45, voicing(chord_at(pev, b0 + bt), 'D4', 3), inst_spicc, vel=0.5)
+            if k >= 20 or k < 4:
+                for i in (0, 2):
+                    sym = chord_at(pev, b0 + i)
+                    t.play(tb, [(b0 + i, 1.8, bass_of(sym, 'Bb1') + 12, '')], inst_brass, vel=0.7, jitter=0.0,
+                           bright=0.5)
+        else:
+            r = bass_of(main, 'Bb1')
+            pat = [0, 12, 7, 12, 0, 12, 7, 5]
+            for i, iv in enumerate(pat):
+                t.play(bass, [(b0 + i * 0.5, 0.5, r + iv, '')], inst_pizz, vel=0.8 if i % 4 == 0 else 0.55)
+            v = voicing(main, 'F4', 4)
+            for i, idx in enumerate([0, 2, 1, 3, 0, 2, 1, 3]):
+                t.play(hc, [(b0 + i * 0.5, 0.45, v[idx], '')], inst_harpsi, vel=0.5 if i % 2 == 0 else 0.38)
+            t.chord(st, b0, 4, voicing(main, 'D4', 3), inst_pad, vel=0.32, attack=0.3, release=0.6)
+        # --- 타악 ---
+        if k < 3:
+            t.hit(bd, 'taiko', b0, 0.8)
+            t.play(tim, [(b0, 1, bass_of(main, 'F2'), '')], inst_timp, vel=0.8)
+            march_snare(t, sn, b0, 'X..xX...X..x....', 0.75)
+        elif k == 3:
+            roll(t, sn, 'sroll', b0, 3.5, 0.125, 0.25, 0.95)
+            timp_roll(t, tim, 'F2', b0, 3.5, 0.3, 0.9)
+            t.hit(sn, 'snare', b0 + 3.5, 0.95)
+        elif sec_b:
+            t.hit(bd, 'taiko', b0, 0.55)
+            for i in range(4):
+                t.hit(sn, 'tamb', b0 + i + 0.5, 0.55)
+                t.hit(sn, 'tamb', b0 + i, 0.3)
+            if k == 19:
+                roll(t, sn, 'sroll', b0 + 2, 2, 0.125, 0.3, 0.9)
+        else:
+            t.hit(bd, 'taiko', b0, 0.8)
+            t.hit(bd, 'taiko', b0 + 2, 0.6)
+            march_snare(t, sn, b0, 'X..xX.x.X..xX.xx' if k % 4 != 3 else 'X..xX.x.Xxxxxxxx', 0.7)
+        if k in (4, 20):
+            t.hit(cy, 'crash', b0, 0.9)
+            t.play(tim, [(b0, 1, midi('Bb2'), '')], inst_timp, vel=0.9)
+        if k in (11, 27):
+            t.play(tim, [(b0, 1, midi('Bb2'), ''), (b0 + 2, 1, midi('F2'), '')], inst_timp, vel=0.75)
+    return t.finish(rev_size=0.82, rev_damp=0.45, rev_level=0.22, dly_beats=0.75, dly_fb=0.2,
+                    dly_level=0.05, drive=0.8)
+
+
+# ---------------------------------------------------------------------------
+# kingdom_night — 밤의 수도 · 수사 (G단조, 4/4, 80 bpm, 20마디 = 60초)
+#   제국 동기를 단조로 낮춰 클라리넷 저음이 몰래 읊조린다. 살금살금 피치카토, 먼 시계탑 종.
+# ---------------------------------------------------------------------------
+def track_kingdom_night():
+    t = Track('kingdom_night', bpm=80, bpb=4, bars=20, seed=1301)
+    prog = ['Gm', 'Gm', 'Eb', 'D', 'Gm', 'Cm', 'Am7b5', 'D7',
+            'Eb', 'Bb/D', 'Cm', 'Gm', 'Ab', 'Eb/G', 'Am7b5', 'D7',
+            'Gm', 'Gm', 'Eb/G', 'D/F#']
+    cl = t.bus('clarinet', gain=0.55, pan=0.12, rev=1.0, dly=0.4)
+    fl = t.bus('flute', gain=0.55, pan=0.2, rev=1.0, dly=0.6)
+    bass = t.bus('pizz', gain=0.75, pan=-0.05, rev=0.5)
+    hp = t.bus('harp', gain=1.0, pan=-0.3, rev=1.0)
+    st = t.bus('strings', gain=0.2, pan=0.0, rev=1.0)
+    cel = t.bus('celesta', gain=0.22, pan=0.4, rev=1.0, dly=0.9)
+    bell = t.bus('bell', gain=0.42, pan=-0.25, rev=1.0)
+    perc = t.bus('perc', gain=0.18, pan=0.2, rev=0.6)
+    low = t.bus('drone', gain=0.18, pan=0.0, rev=0.8)
+
+    NA = ("D4:0.75 D4:0.25 G4:1 Bb4:2 | A4:1 G4:0.5 F#4:0.5 G4:2 | Bb4:0.75 Bb4:0.25 Eb5:1 G5:1.5 F5:0.5 | "
+          "D5:1 C5:0.5 Bb4:0.5 A4:2 | D4:0.75 D4:0.25 G4:1 Bb4:1 D5:1 | Eb5:1.5 D5:0.5 C5:1 G4:1 | "
+          "A4:1 C5:1 Eb5:1.5 D5:0.5 | C5:1 Bb4:0.5 A4:0.5 F#4:2")
+    NB = ("G5:2 F5:1 Eb5:1 | D5:3 r:1 | Eb5:1 G5:1 C6:1.5 Bb5:0.5 | G5:2 D5:2 | "
+          "C5:1 Eb5:1 Ab5:1.5 G5:0.5 | G5:2 Bb4:2 | C5:1 Eb5:1 A5:1 G5:1 | F#5:3 r:1")
+    NC = "r:2 D4:1 G4:1 | Bb4:2 A4:2 | G4:3 r:1 | F#4:2 r:2"
+    t.play(cl, articulate(seq(NA, bar=4), short=0.75, stacc=0.6) + seq(NC, bar=4, offset=64), inst_wind,
+           vel=0.8, jitter=0.004, kind='clar', breath=0.05, attack=0.05, release=0.12, chiff=0.1, auto_vib=1.2)
+    t.play(fl, seq(NB, bar=4, offset=32), inst_flute, vel=0.7, breath=0.13)
+
+    for k, ch in enumerate(prog):
+        b0 = t.bar(k)
+        r = bass_of(ch, 'C2')
+        if k < 16:
+            for i, iv in enumerate([0, 7, 12, 7]):
+                t.play(bass, [(b0 + i, 0.5, r + iv, '')], inst_pizz, vel=0.8 if i == 0 else 0.55)
+        else:
+            v = voicing(ch, r, 4)
+            for i, idx in enumerate([0, 1, 2, 1, 3, 1, 2, 1]):
+                t.play(bass, [(b0 + i * 0.5, 0.5, v[idx], '')], inst_pizz, vel=0.75 if i == 0 else 0.5)
+            t.chord(low, b0, 4, [midi('G1'), midi('D2')], inst_pad, vel=0.6, kind='saw_dark', attack=1.0,
+                    release=1.5, detune=5.0)
+            t.hit(perc, 'thump', b0, 0.7)
+        # 하프: A 는 4분음표 상행 분산화음, B 는 2박마다 화음
+        hv = voicing(ch, 'G3', 4)
+        if k < 8:
+            for i in range(4):
+                t.play(hp, [(b0 + i + 0.5, 0.5, hv[i], '')], inst_harp, vel=0.42)
+        elif k < 16:
+            t.chord(hp, b0, 2, hv[1:], inst_harp, vel=0.32)
+            t.chord(hp, b0 + 2, 2, hv[:3], inst_harp, vel=0.25)
+        t.chord(st, b0, 4, voicing(ch, 'Bb3', 3), inst_pad, vel=0.5, kind='saw_dark', attack=1.2, release=1.5)
+        # 밤의 시계 소리 같은 림 (B·다리 부분)
+        if k >= 8:
+            t.hit(perc, 'rim', b0 + 1, 0.35)
+            t.hit(perc, 'rim', b0 + 3, 0.3)
+    # 별빛 같은 첼레스타 (G 단조 오음음계, 무작위지만 시드 고정)
+    pent = notes('G5 Bb5 C6 D6 F6 G6')
+    for k in range(8, 20):
+        for _ in range(2):
+            if t.rng.random() < 0.6:
+                pos = t.bar(k) + t.rng.randrange(8) * 0.5
+                t.play(cel, [(pos, 1, t.rng.choice(pent), '')], inst_celesta, vel=t.rng.uniform(0.4, 0.75))
+    # 먼 시계탑 종
+    t.play(bell, [(0.0, 4, midi('G3'), '')], inst_cbell, vel=0.8, variants=1, T=7.0, lp=1800.0)
+    t.play(bell, [(t.bar(16), 4, midi('D3'), '')], inst_cbell, vel=0.7, variants=1, T=7.0, lp=1800.0)
+    return t.finish(rev_size=0.9, rev_damp=0.45, rev_level=0.4, predelay=0.03,
+                    dly_beats=1.5, dly_fb=0.3, dly_level=0.1)
+
+
+# 학교 동기 원형 (school 곡 A 부분, D 도리안) — 다른 곡에서 옮겨 인용한다
+SCHOOL_MOTIF = ("r:1 A4:0.5 D5:0.5 F5:1 E5:0.5 D5:0.5 | B4:1.5 G4:0.5 B4:1 D5:1 | "
+                "C5:0.5 D5:0.5 F5:1 A5:1 G5:0.5 F5:0.5 | E5:1.5 D5:0.5 B4:2 | "
+                "A4:0.5 C5:0.5 F5:1 E5:0.5 F5:0.5 G5:1 | E5:1.5 D5:0.5 C5:1 G4:1 | "
+                "D5:0.5 E5:0.5 F5:0.5 G5:0.5 A5:1 B5:1 | A5:2 E5:1 C#5:1")
+SCHOOL_MOTIF_PROG = ['Dm', 'G', 'Dm', 'G', 'F', 'C', 'G', 'A']
+# 드럼 문자 패턴용 악기표 (16분음표 한 글자)
+KIT_ORCH = {'T': [('taiko', 0.95)], 't': [('taiko', 0.6)], 'S': [('snare', 0.85)], 's': [('sroll', 0.5)],
+            'o': [('tom', 0.7)], 'B': [('btaiko', 1.0)], 'K': [('kick', 0.9)]}
+
+
+def drum_bar(t, bus, b0, pat, vel=1.0, kit=None):
+    """16분음표 문자 패턴 한 마디 (KIT_ORCH 기본)."""
+    kit = kit or KIT_ORCH
+    for i, ch in enumerate(pat):
+        for kind, v in kit.get(ch, ()):
+            t.hit(bus, kind, b0 + i * 0.25, v * vel, jitter=0.001)
+
+
+# ---------------------------------------------------------------------------
+# knight_duel — 기사단장 레오니와의 밤의 결투 (D단조, 4/4, 150 bpm, 36마디 = 57.6초)
+#   마법 없이 검 하나 — 쉬지 않는 현악 오스티나토(3+3+2 강세) 위로 제국 동기를 단조로 바꾼 호른.
+#   서주 4 + A 8 + B(F장조로 영웅적으로) 8 + C(트럼펫과 현의 주고받기, 칼날 부딪힘) 8 + A' 8
+# ---------------------------------------------------------------------------
+def track_knight_duel():
+    t = Track('knight_duel', bpm=150, bpb=4, bars=36, seed=1401)
+    A = ['Dm', 'Dm', 'Bb', 'C', 'Dm', 'Gm', 'Bb', 'A7']
+    prog = (['Dm', 'Dm', 'Bb', 'A7'] + A + ['F', 'C/E', 'Dm', 'Bb', 'Gm', 'C', 'A7sus4', 'A7'] +
+            ['Dm', 'Eb', 'Dm', 'Eb', 'Bb', 'C', 'A', 'A7'] + A)
+    pev = prog_events(prog, 4)
+    hn = t.bus('horns', gain=0.6, pan=-0.15, rev=0.8)
+    tp = t.bus('trumpet', gain=0.5, pan=0.15, rev=0.7, dly=0.25)
+    lo = t.bus('cellos', gain=0.55, pan=-0.2, rev=0.4)
+    vn = t.bus('violins', gain=0.45, pan=0.3, rev=0.5)
+    cb = t.bus('contrabass', gain=0.24, pan=0.0, rev=0.3)
+    dr = t.bus('drums', gain=0.34, pan=0.0, rev=0.35)
+    tim = t.bus('timpani', gain=0.5, pan=-0.1, rev=0.5)
+    cy = t.bus('cymbal', gain=0.13, pan=0.2, rev=0.5)
+    clang = t.bus('clang', gain=0.18, pan=0.35, rev=0.7)
+
+    DA = ("A3:0.75 A3:0.25 D4:1 F4:1 A4:1 | G4:1.5 F4:0.5 E4:1 D4:1 | F4:0.75 F4:0.25 Bb4:1 D5:1.5 C5:0.5 | "
+          "C5:2 G4:2 | A4:0.75 A4:0.25 D5:1 F5:1 E5:0.5 D5:0.5 | D5:1.5 Bb4:0.5 G4:1 Bb4:1 | "
+          "A4:1 Bb4:1 D5:1 F5:1 | E5:2 C#5:1 A4:1")
+    DB = ("C5:0.75 C5:0.25 F5:1 A5:1.5 G5:0.5 | G5:1 E5:1 C5:1 E5:1 | F5:0.75 F5:0.25 A5:1 D6:1.5 C6:0.5 | "
+          "Bb5:2 F5:1 D5:1 | G5:1.5 A5:0.5 Bb5:1 G5:1 | E5:1.5 F5:0.5 G5:1 C5:1 | D5:2 E5:2 | C#5:2 E5:1 A5:1")
+    DC_TP = ("D5:0.5 F5:0.5 A5:1 r:2 | r:4 | F5:0.5 A5:0.5 D6:1 r:2 | r:4 | "
+             "F5:1 D5:0.5 F5:0.5 Bb5:2 | G5:1 E5:0.5 G5:0.5 C6:2 | E5:0.5 F5:0.5 E5:0.5 C#5:0.5 A4:2 | r:4")
+    DC_VN = "r:4 | Bb5:0.5 G5:0.5 Eb5:1 r:2 | r:4 | G5:0.5 Eb5:0.5 Bb4:1 r:2"
+    da = articulate(seq(DA, bar=4, offset=16), short=0.75, stacc=0.75)
+    da2 = articulate(seq(DA, bar=4, offset=112), short=0.75, stacc=0.75)
+    db = articulate(seq(DB, bar=4, offset=48), short=0.75, stacc=0.75)
+    t.play(hn, da + da2, inst_brass, vel=0.85, jitter=0.0, bright=0.65)
+    t.play(tp, ev_transpose(da2, 12), inst_brass, vel=0.7, jitter=0.0, bright=1.1)
+    t.play(tp, db, inst_brass, vel=0.85, jitter=0.0, bright=1.15)
+    t.play(hn, harmonize(db, pev, 3), inst_brass, vel=0.7, jitter=0.0, bright=0.6)
+    t.play(tp, articulate(seq(DC_TP, bar=4, offset=80)), inst_brass, vel=0.9, jitter=0.0, bright=1.2)
+    t.play(hn, harmonize([e for e in seq(DC_TP, bar=4, offset=80) if e[0] >= 96], pev, 3), inst_brass,
+           vel=0.7, jitter=0.0, bright=0.6)
+    t.play(vn, seq(DC_VN, bar=4, offset=80), inst_spicc, vel=1.0, jitter=0.0)
+    t.play(vn, ev_transpose(seq(DC_VN, bar=4, offset=80), -12), inst_spicc, vel=0.8, jitter=0.0)
+
+    for k, ch in enumerate(prog):
+        b0 = t.bar(k)
+        sym = ch.split()[0]
+        r = bass_of(sym, 'A2')
+        # 첼로 오스티나토: 8분음표, 3+3+2 강세
+        for i, iv in enumerate([0, 0, 0, 12, 0, 0, 7, 0]):
+            acc = i in (0, 3, 6)
+            t.play(lo, [(b0 + i * 0.5, 0.4, r + iv, '')], inst_spicc, vel=0.95 if acc else 0.55, jitter=0.002)
+        t.play(cb, [(b0, 3.8, bass_of(sym, 'C2'), '')], inst_pad, vel=0.7, jitter=0.0, variants=1,
+               kind='saw', attack=0.03, release=0.2, detune=6.0)
+        # 바이올린 16분음표 (B · A')
+        if 12 <= k < 20 or k >= 28:
+            v = voicing(sym, 'D5', 3)
+            for i in range(16):
+                t.play(vn, [(b0 + i * 0.25, 0.22, v[[0, 1, 2, 1][i % 4]], '')], inst_spicc,
+                       vel=0.7 if i % 4 == 0 else 0.45, jitter=0.0)
+        # --- 타악 ---
+        sec = 0 if k < 4 else 1 if k < 12 else 2 if k < 20 else 3 if k < 28 else 4
+        if sec == 0:
+            drum_bar(t, dr, b0, 'T.....t.T.......', 0.9)
+            if k == 3:
+                roll(t, dr, 'sroll', b0 + 1, 3, 0.125, 0.2, 0.9)
+                timp_roll(t, tim, 'A2', b0 + 1, 3, 0.3, 0.9)
+        elif sec == 3:
+            drum_bar(t, dr, b0, 'T.....t.T...S...' if k % 2 == 0 else 'T.....t.T.S.S.ss', 0.9)
+            if k in (21, 23):
+                t.hit(clang, 'clang', b0, 0.9)
+            if k == 27:
+                for bt in (0.0, 1.0, 1.5):
+                    t.hit(clang, 'clang', b0 + bt, 0.8)
+                roll(t, dr, 'sroll', b0 + 2, 2, 0.125, 0.3, 1.0)
+                timp_roll(t, tim, 'A2', b0 + 2, 2, 0.3, 1.0)
+        else:
+            last = (k % 8 == 3)
+            drum_bar(t, dr, b0, 'T..s..t.T.s.S.s.' if not last else 'T..s..t.Tsssoooo', 0.95)
+        if k in (4, 12, 20, 28):
+            t.hit(cy, 'crash', b0, 0.9)
+            t.play(tim, [(b0, 1, midi('D2'), '')], inst_timp, vel=0.95)
+        elif sec in (1, 2, 4) and k % 2 == 0:
+            t.play(tim, [(b0, 1, bass_of(sym, 'F2'), '')], inst_timp, vel=0.6)
+    return t.finish(rev_size=0.8, rev_damp=0.45, rev_level=0.2, dly_beats=0.75, dly_fb=0.2,
+                    dly_level=0.05, drive=1.3)
+
+
+# ---------------------------------------------------------------------------
+# starbeast — 운석 짐승, 레오니와 함께 (G단조 → B♭장조, 4/4, 128 bpm, 32마디 = 60초) · 2장 절정
+#   A: 위협적인 저음 금관 리프 + 합창 / B: 제국 주제(트럼펫) 장조로 / C: 학교 동기(호른) + 가야금 /
+#   D: 제국 동기 상승 반복 + 합창 '아' 절정
+# ---------------------------------------------------------------------------
+def track_starbeast():
+    t = Track('starbeast', bpm=128, bpb=4, bars=32, seed=1501)
+    prog = (['Gm', 'Gm', 'Eb', 'D', 'Gm', 'Gm', 'Cm', 'D'] + KINGDOM_A_PROG +
+            ['Gm', 'C', 'Gm', 'C', 'Bb', 'F', 'C', 'D'] + ['Eb', 'F', 'Gm', 'Gm/F', 'Eb', 'F', 'D', 'D7'])
+    pev = prog_events(prog, 4)
+    tp = t.bus('trumpet', gain=0.5, pan=0.15, rev=0.8, dly=0.2)
+    hn = t.bus('horns', gain=0.55, pan=-0.18, rev=0.9)
+    lb = t.bus('lowbrass', gain=0.5, pan=-0.05, rev=0.5)
+    ch = t.bus('choir', gain=0.42, pan=0.0, rev=1.0)
+    st = t.bus('strings', gain=0.3, pan=0.25, rev=0.6)
+    lo = t.bus('cellos', gain=0.45, pan=-0.25, rev=0.4)
+    gy = t.bus('gayageum', gain=1.05, pan=-0.35, rev=0.6)
+    dr = t.bus('drums', gain=0.4, pan=0.0, rev=0.4)
+    tim = t.bus('timpani', gain=0.5, pan=-0.1, rev=0.6)
+    cy = t.bus('cymbal', gain=0.13, pan=0.25, rev=0.6)
+
+    SA = ("D4:1 G4:1 Bb4:1.5 A4:0.5 | G4:3 D4:1 | Eb4:1 G4:1 Bb4:1.5 C5:0.5 | A4:3 F#4:1 | "
+          "D5:1 G5:1 Bb5:1.5 A5:0.5 | G5:2 F5:1 D5:1 | Eb5:1 G5:1 C6:1.5 Bb5:0.5 | A5:2 F#5:1 D5:1")
+    sa = seq(SA, bar=4)
+    t.play(hn, [e for e in sa if e[0] < 16], inst_brass, vel=0.9, jitter=0.0, bright=0.7)
+    t.play(tp, [e for e in sa if e[0] >= 16], inst_brass, vel=0.85, jitter=0.0, bright=1.1)
+    t.play(hn, harmonize([e for e in sa if e[0] >= 16], pev, 3), inst_brass, vel=0.7, jitter=0.0, bright=0.6)
+    kb = articulate(seq(KINGDOM_A, bar=4, offset=32), short=0.75, stacc=0.8)
+    t.play(tp, kb, inst_brass, vel=0.9, jitter=0.0, bright=1.15)
+    t.play(hn, harmonize(kb, pev, 3), inst_brass, vel=0.72, jitter=0.0, bright=0.6)
+    sm = articulate(ev_transpose(seq(SCHOOL_MOTIF, bar=4, offset=64), -7), stacc=0.85)
+    t.play(hn, sm, inst_brass, vel=0.9, jitter=0.0, bright=0.75)
+    t.play(tp, ev_transpose([e for e in sm if e[0] >= 80], 12), inst_brass, vel=0.6, jitter=0.0, bright=0.9)
+    SD = ("Bb4:0.75 Bb4:0.25 Eb5:1 G5:2 | C5:0.75 C5:0.25 F5:1 A5:2 | D5:0.75 D5:0.25 G5:1 Bb5:2 | "
+          "A5:2 G5:1 F5:1 | G5:2 Bb5:2 | A5:2 C6:2 | F#5:2 A5:2 | D5:2 r:2")
+    sd = articulate(seq(SD, bar=4, offset=96), short=0.75, stacc=0.8)
+    t.play(tp, sd, inst_brass, vel=0.95, jitter=0.0, bright=1.2)
+    t.play(hn, harmonize(sd, pev, 3), inst_brass, vel=0.8, jitter=0.0, bright=0.65)
+    t.play(hn, harmonize(sd, pev, 8), inst_brass, vel=0.65, jitter=0.0, bright=0.55)
+
+    riff = [0, 0, 3, 0, 5, 0, 6, 5]
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        sym = c.split()[0]
+        r = bass_of(sym, 'A1')
+        sec = k // 8
+        # 저음: A 는 반음계 리프, 나머지는 8분음표 근음 박동
+        if sec == 0:
+            for i, iv in enumerate(riff):
+                t.play(lb, [(b0 + i * 0.5, 0.45, r + iv, '')], inst_brass, vel=0.85 if i % 2 == 0 else 0.7,
+                       jitter=0.0, variants=1, bright=0.55)
+                t.play(lo, [(b0 + i * 0.5, 0.4, r + 12 + iv, '')], inst_spicc, vel=0.8, jitter=0.0)
+        else:
+            for i in range(8):
+                t.play(lo, [(b0 + i * 0.5, 0.4, r + 12 + (12 if i % 4 == 2 else 0), '')], inst_spicc,
+                       vel=0.85 if i % 2 == 0 else 0.55, jitter=0.0)
+            t.play(lb, [(b0, 1.8, r + 12, ''), (b0 + 2, 1.8, bass_of(chord_at(pev, b0 + 2), 'A1') + 12, '')],
+                   inst_brass, vel=0.75, jitter=0.0, bright=0.5)
+        # 합창: A 는 어두운 '오', D 는 밝은 '아'
+        if sec == 0:
+            t.chord(ch, b0, 4, open_voicing(sym, 'G2', 4), inst_choir, vel=0.6, vowel='o', attack=0.5)
+        elif sec == 3:
+            for sy_b, sy_d, sy in [(b, d, s) for (b, d, s) in pev if b0 <= b < b0 + 4]:
+                t.chord(ch, sy_b, sy_d, open_voicing(sy, 'Bb2', 5), inst_choir, vel=0.7, vowel='a', attack=0.25)
+        # 현악: B·D 는 16분음표 트레몰로풍, C 는 가야금 분산화음
+        if sec in (1, 3):
+            v = voicing(sym, 'G4', 3)
+            for i in range(16):
+                t.play(st, [(b0 + i * 0.25, 0.22, v[[0, 1, 2, 1][i % 4]], '')], inst_spicc,
+                       vel=0.6 if i % 4 == 0 else 0.4, jitter=0.0)
+        if sec == 2:
+            v = voicing(sym, 'G3', 4)
+            for i, idx in enumerate([0, 1, 2, 3, 2, 3, 1, 2, 0, 1, 2, 3, 2, 3, 1, 2]):
+                t.play(gy, [(b0 + i * 0.25, 0.25, v[idx] + 12, '')], inst_gayageum, vel=0.55 if i % 4 == 0 else 0.4,
+                       ring=0.4, jitter=0.002)
+            t.chord(st, b0, 4, voicing(sym, 'D4', 3), inst_pad, vel=0.4, attack=0.3, release=0.5)
+        # --- 타악 ---
+        if sec == 0:
+            drum_bar(t, dr, b0, 'B.....t.T.......' if k % 2 == 0 else 'B.....t.T...oooo', 0.95)
+        elif sec == 1:
+            drum_bar(t, dr, b0, 'T..s..t.S..sT.s.' if k % 4 != 3 else 'T..s..t.Sssssooo', 0.9)
+        elif sec == 2:
+            drum_bar(t, dr, b0, 'T.s.S.s.T.s.S.ss', 0.85)
+        else:
+            drum_bar(t, dr, b0, 'B..s..t.S..sT.S.' if k != 31 else 'B..s..t.SsssoooT', 1.0)
+        if k % 8 == 0:
+            t.hit(cy, 'crash', b0, 0.95)
+            t.play(tim, [(b0, 1, midi('G2'), '')], inst_timp, vel=1.0)
+        elif k % 2 == 0:
+            t.play(tim, [(b0, 1, bass_of(sym, 'F2'), '')], inst_timp, vel=0.65)
+        if k in (7, 15, 23):
+            timp_roll(t, tim, 'D2', b0 + 2, 2, 0.3, 0.95)
+        if sec == 3 and k % 2 == 0:
+            t.hit(cy, 'crash', b0, 0.6)
+    return t.finish(rev_size=0.84, rev_damp=0.45, rev_level=0.24, dly_beats=0.75, dly_fb=0.2,
+                    dly_level=0.04, drive=1.4)
+
+
+# ---------------------------------------------------------------------------
+# elf — 세계수 위 엘프 마을 (D 리디안, 12/8, 점4분 = 60 bpm, 16마디 = 64초)
+#   하프 12/8 분산화음, 플루트(숲 동기: #4 = G# 이 신비로움), 합창 '우' 바람 패드, 반딧불 글로켄슈필
+# ---------------------------------------------------------------------------
+ELF_A = ("A4:3 D5:3 E5:3 F#5:3 | G#5:6 F#5:3 E5:3 | F#5:3 A5:3 D6:3 C#6:3 | B5:9 G#5:3 | "
+         "F#5:6 D5:3 B4:3 | D5:3 E5:3 G5:4 F#5:2 | E5:6 D5:3 B4:3 | C#5:9 r:3")
+ELF_A_PROG = ['D', 'E/D', 'D', 'E/D', 'Bm', 'G', 'Em7', 'A']
+
+
+def track_elf():
+    t = Track('elf', bpm=60, bpb=4, bars=16, seed=1601)
+    U = 1.0 / 3.0
+    prog = ELF_A_PROG + ['G', 'A', 'F#m', 'Bm', 'Gmaj7', 'E/G#', 'Asus4', 'A']
+    pev = prog_events(prog, 4)
+    fl = t.bus('flute', gain=0.6, pan=0.12, rev=1.0, dly=0.5)
+    fl2 = t.bus('flute2', gain=0.3, pan=-0.12, rev=1.0)
+    hp = t.bus('harp', gain=1.2, pan=-0.25, rev=1.0)
+    hp_hi = t.bus('harp_hi', gain=0.9, pan=0.3, rev=1.0, dly=0.6)
+    ch = t.bus('choir', gain=0.2, pan=0.0, rev=1.0)
+    st = t.bus('cello', gain=0.22, pan=-0.05, rev=0.8)
+    gl = t.bus('fireflies', gain=0.18, pan=0.45, rev=1.0, dly=1.0)
+    wind = t.bus('wind', gain=0.12, pan=0.0, rev=0.6)
+    perc = t.bus('perc', gain=0.22, pan=0.15, rev=0.6)
+
+    EB = ("D5:2 E5:1 G5:3 B5:6 | A5:3 G5:2 F#5:1 E5:6 | F#5:2 E5:1 C#5:3 A4:6 | B4:3 C#5:3 D5:3 F#5:3 | "
+          "F#5:6 B5:6 | G#5:6 E5:3 B4:3 | D5:6 E5:6 | C#5:6 r:6")
+    ea = seq(ELF_A, U, 12)
+    eb = seq(EB, U, 12, offset=32)
+    t.play(fl, ea + eb, inst_flute, vel=0.8, jitter=0.0)
+    t.play(fl2, harmonize(eb, pev, 3), inst_flute, vel=0.7, jitter=0.0)
+
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        v = voicing(c, 'D3', 4)
+        for i, idx in enumerate([0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1]):
+            t.play(hp, [(b0 + i * U, 2 * U, v[idx], '')], inst_harp, vel=0.55 if i % 3 == 0 else 0.38)
+        t.play(hp, [(b0, 4, bass_of(c, 'D2'), '')], inst_harp, vel=0.6)
+        if k >= 8:
+            vh = voicing(c, 'D5', 4)
+            for i, idx in enumerate([3, 2, 1, 2]):
+                t.play(hp_hi, [(b0 + i + 2 * U, U, vh[idx], '')], inst_harp, vel=0.45)
+        t.chord(ch, b0, 4, voicing(c, 'A3', 3), inst_choir, vel=0.6, vowel='u', attack=1.2, release=1.5)
+        t.play(st, [(b0, 4, bass_of(c, 'D2'), '')], inst_pad, vel=0.6, jitter=0.0, variants=1,
+               kind='saw_dark', attack=0.8, release=1.2)
+        # 부드러운 타악: 1박 낮은 북, B 부분은 셰이커 '둥-다닥'
+        t.hit(perc, 'tom', b0, 0.35)
+        if k >= 8:
+            for i in range(12):
+                if i % 3 != 1:
+                    t.hit(perc, 'shaker', b0 + i * U, 0.45 if i % 3 == 0 else 0.3)
+            t.hit(perc, 'tom', b0 + 2, 0.25)
+    # 반딧불: D 리디안 높은 음이 여기저기서 반짝
+    sc = notes('D6 E6 F#6 G#6 A6 B6 C#7')
+    for k in range(16):
+        for _ in range(3):
+            if t.rng.random() < 0.55:
+                pos = t.bar(k) + t.rng.randrange(12) * U
+                t.play(gl, [(pos, 1, t.rng.choice(sc), '')], inst_glock, vel=t.rng.uniform(0.35, 0.8))
+    for b in (2.0, 22.0, 42.0):
+        t.play(wind, [(b, 16, 60, '')], inst_wind_noise, vel=1.0, jitter=0.0, variants=1)
+    return t.finish(rev_size=0.9, rev_damp=0.4, rev_level=0.4, predelay=0.03,
+                    dly_beats=1.0, dly_fb=0.3, dly_level=0.1)
+
+
+# ---------------------------------------------------------------------------
+# elf_hunt — 엘라리엔의 사냥 (E 프리지안, 4/4, 96 bpm, 24마디 = 60초)
+#   어디서 화살이 날아올지 모르는 숲. 드문 뜯음, 팽팽한 침묵, 빨라지는 심장 박동.
+# ---------------------------------------------------------------------------
+def track_elf_hunt():
+    t = Track('elf_hunt', bpm=96, bpb=4, bars=24, seed=1701)
+    pz = t.bus('pizz', gain=0.8, pan=0.2, rev=0.8, dly=0.6)
+    hp = t.bus('harp', gain=0.75, pan=-0.3, rev=0.9, dly=0.4)
+    fl = t.bus('flute', gain=0.42, pan=0.1, rev=1.0, dly=0.5)
+    dr = t.bus('drone', gain=0.3, pan=0.0, rev=0.8)
+    trem = t.bus('tremolo', gain=0.2, pan=-0.15, rev=0.6)
+    gl = t.bus('glass', gain=0.07, pan=0.35, rev=1.0)
+    heart = t.bus('heart', gain=0.47, pan=0.0, rev=0.3)
+    tk = t.bus('taiko', gain=0.3, pan=0.0, rev=0.9)
+    sw = t.bus('swell', gain=0.12, pan=0.0, rev=0.8)
+
+    # 심장 박동: 쿵-쿵 (조용한 곳은 2박마다, 긴장되면 매 박)
+    for k in range(24):
+        fast = 8 <= k < 20
+        for bt in (range(4) if fast else (0, 2)):
+            t.hit(heart, 'heart', t.bar(k) + bt, 0.85)
+            t.hit(heart, 'heart', t.bar(k) + bt + 0.3, 0.55)
+    # 저음 드론 (E 지속음 + 긴장 구간은 F 반음 충돌)
+    for b, d, ns in [(0, 32, 'E1 B1 E2'), (32, 16, 'E1 E2 F2'), (48, 16, 'E1 B1 F2'), (64, 16, 'E1 B1 E2'),
+                     (80, 16, 'E1 B1')]:
+        t.chord(dr, b, d, ns, inst_pad, vel=0.6, kind='saw_dark', attack=2.5, release=3.0, detune=5.0)
+    # 뜯는 동기 (드문드문, 사이가 비어 있는 게 핵심)
+    M1 = "E4:0.5 F4:0.5 r:1 E4:0.5 B3:0.5 r:1"
+    M2 = "r:2 F4:0.25 E4:0.25 r:0.5 B3:1"
+    M3 = "E4:0.25 F4:0.25 G4:0.25 F4:0.25 E4:1 r:2"
+    for k, mt in {1: M1, 3: M2, 7: M1, 12: M1, 13: M3, 14: M2, 15: M3, 17: M2, 20: M1, 22: M2}.items():
+        t.play(pz, seq(mt, bar=4, offset=t.bar(k)), inst_pizz, vel=0.8, jitter=0.0)
+    # 하프 오스티나토 조각
+    for k in (4, 5, 6, 16, 17, 18, 19):
+        for i, nm in enumerate(['E3', 'B3', 'F4', 'B3']):
+            t.play(hp, [(t.bar(k) + i * 0.75, 0.75, midi(nm), '')], inst_harp, vel=0.45 if i else 0.6)
+    # 엘라리엔의 플루트: 숲 동기를 프리지안으로 비튼 조각
+    FA = "B4:1 E5:1 F5:1 G5:1 | F5:3 r:1"
+    FB = "B4:1 E5:1 F5:1 A5:1 | G5:2 F5:1 E5:1 | E5:4 | r:4"
+    t.play(fl, seq(FA, bar=4, offset=t.bar(4)), inst_flute, vel=0.75, breath=0.16)
+    t.play(fl, seq(FB, bar=4, offset=t.bar(16)), inst_flute, vel=0.8, breath=0.16)
+    # 팽팽한 침묵: 높은 유리음
+    for b, nm in [(t.bar(8), 'B5'), (t.bar(9) + 2, 'C6'), (t.bar(10), 'F6')]:
+        t.play(gl, [(b, 6, midi(nm), '')], inst_glass, vel=0.8, variants=1)
+    t.play(sw, [(t.bar(11), 4, 60, '')], inst_swell, vel=1.0, jitter=0.0, variants=1, lo=800.0, hi=5000.0)
+    # 긴장 구간: 낮은 현 트레몰로 (16분음표 E-F 반복) + 북
+    for k in range(12, 16):
+        for i in range(16):
+            t.play(trem, [(t.bar(k) + i * 0.25, 0.2, midi('E3') + (1 if (i // 2) % 2 else 0), '')], inst_spicc,
+                   vel=0.55 + 0.03 * i, jitter=0.0)
+        t.hit(tk, 'taiko', t.bar(k), 0.9)
+        if k % 2 == 1:
+            t.hit(tk, 'tom', t.bar(k) + 2.5, 0.6)
+            t.hit(tk, 'tom', t.bar(k) + 3, 0.7)
+    t.hit(tk, 'btaiko', t.bar(16), 0.9)
+    return t.finish(rev_size=0.9, rev_damp=0.45, rev_level=0.38, predelay=0.04,
+                    dly_beats=0.75, dly_fb=0.35, dly_level=0.12, drive=0.8)
+
+
+# ---------------------------------------------------------------------------
+# herald — 하얀 전령(외신의 사자)과의 싸움 (C# 중심의 무조, 4/4, 120 bpm, 30마디 = 60초)
+#   외신의 소리 = 겹겹이 맥놀이하는 낮은 웅웅거림 + 높은 유리음. 3+3+2 로 비틀거리는 북,
+#   오염된 숲 동기(E→E♭, F#→F, G#→G) 를 반음 어긋나게 조율한 플루트가 부른다.
+# ---------------------------------------------------------------------------
+def track_herald():
+    t = Track('herald', bpm=120, bpb=4, bars=30, seed=1801)
+    hum = t.bus('hum', gain=0.35, pan=0.0, rev=0.7)
+    sub = t.bus('sub', gain=0.21, pan=0.0, rev=0.2)
+    gl = t.bus('glass', gain=0.18, pan=0.3, rev=1.0, dly=0.6)
+    fm = t.bus('fmglass', gain=0.25, pan=-0.3, rev=1.0, dly=0.8)
+    ch = t.bus('choir', gain=0.28, pan=0.0, rev=1.0)
+    bass = t.bus('sawbass', gain=0.3, pan=0.0, rev=0.1)
+    dr = t.bus('drums', gain=0.55, pan=0.0, rev=0.4)
+    tick = t.bus('ticks', gain=0.28, pan=0.4, rev=0.6)
+    br = t.bus('brass', gain=0.42, pan=-0.15, rev=0.6)
+    fl = t.bus('flute', gain=0.4, pan=0.15, rev=1.0, dly=0.5)
+
+    # 낮은 웅웅거림: C#1·G#1 + 0.3 반음 어긋난 층 → 느린 맥놀이, 그 아래 사인 서브
+    for b in range(0, 120, 16):
+        t.chord(hum, b, 16, [25, 32], inst_pad, vel=0.6, kind='saw_dark', attack=2.0, release=2.5, detune=4.0)
+        t.chord(hum, b, 16, [25.3, 37.2], inst_pad, vel=0.45, kind='saw_dark', attack=3.0, release=2.5, detune=9.0)
+        t.chord(sub, b, 16, [37], inst_pad, vel=0.6, kind='sine', attack=2.0, release=2.0, voices=1)
+    # 높은 유리음 (오래 끄는 맥놀이) + 비조화 FM 반짝임
+    for b, nm, d in [(0, 'C#6', 10), (12, 'D6', 10), (24, 'G6', 8), (40, 'C#6', 12), (56, 'G#6', 10),
+                     (72, 'D6', 12), (88, 'G6', 10), (100, 'C#6', 14)]:
+        t.play(gl, [(b, d, midi(nm), '')], inst_glass, vel=0.8, variants=1, beat_hz=0.9)
+    fmset = notes('C#6 D6 G6 G#6 D7 C#7')
+    for k in range(30):
+        if t.rng.random() < 0.7:
+            pos = t.bar(k) + t.rng.randrange(16) * 0.25
+            t.play(fm, [(pos, 1, t.rng.choice(fmset), '')], inst_fmglass, vel=t.rng.uniform(0.4, 0.9),
+                   ratio=3.53, index=2.2, T=2.5)
+    # 합창 '우' 불협 덩어리 (멀리서)
+    for b, d, ns in [(32, 16, 'C#4 D4 G4'), (48, 16, 'C4 C#4 G4'), (64, 16, 'C#4 D4 G#4'), (80, 16, 'D4 G4 G#4'),
+                     (96, 16, 'C#4 D4 G4')]:
+        t.chord(ch, b, d, ns, inst_choir, vel=0.6, vowel='u', attack=2.5, release=2.0)
+    # 리듬: 8분음표 베이스 오스티나토 + 3+3+2 북 (9~28마디)
+    ost = [0, 0, 1, 0, 0, 6, 0, 1]
+    for k in range(8, 28):
+        b0 = t.bar(k)
+        for i, iv in enumerate(ost):
+            acc = i in (0, 3, 6)
+            t.play(bass, [(b0 + i * 0.5, 0.42, 37 + iv, '')], inst_sawbass, vel=0.85 if acc else 0.6,
+                   jitter=0.0, variants=1, accent=1.0 if acc else 0.5)
+        if k < 24:
+            drum_bar(t, dr, b0, 'T.....T.....t...' if k < 16 else 'T..s..T..s..S.ss', 0.9)
+        else:
+            drum_bar(t, dr, b0, 'T.....t.........', 0.8)
+        if k % 4 == 3 and k < 24:
+            drum_bar(t, dr, b0 + 2, 'oooo....', 0.75)
+    for k in range(30):
+        for i in range(16):
+            if t.rng.random() < 0.18:
+                t.hit(tick, 'rim', t.bar(k) + i * 0.25, t.rng.uniform(0.3, 0.8))
+    t.hit(dr, 'boom', t.bar(16), 1.0)
+    t.hit(dr, 'boom', t.bar(24), 0.9)
+    # 금관 불협 찌르기 (17~24마디, 엇박)
+    for k in range(16, 24):
+        for bt in (1.5, 3.0):
+            t.chord(br, t.bar(k) + bt, 0.4, [49, 50, 55], inst_brass, vel=0.75, bright=0.9, release=0.1)
+    # 오염된 숲 동기 (반음의 1/3 만큼 어긋난 조율)
+    CF = "A4:1 D5:1 Eb5:1 F5:1 | G5:3 r:1 | A4:1 D5:1 Eb5:1 F5:1 | Gb5:2 F5:1 Eb5:1 | " \
+         "D5:4 | r:4 | A5:1 G5:1 Eb5:1 D5:1 | A4:4"
+    cf = [(b, d, m + 0.33, f) for (b, d, m, f) in seq(CF, bar=4, offset=t.bar(16))]
+    t.play(fl, cf, inst_flute, vel=0.8, jitter=0.0, breath=0.15)
+    t.play(fm, ev_transpose(cf, 12), inst_fmglass, vel=0.45, jitter=0.0, ratio=3.53, index=1.2, T=1.5)
+    return t.finish(rev_size=0.9, rev_damp=0.4, rev_level=0.36, predelay=0.04, dly_beats=0.75,
+                    dly_fb=0.35, dly_level=0.1, master_lp=9500.0, drive=1.0)
+
+
+# ---------------------------------------------------------------------------
+# temple — 관리자 신 루멘의 대신전 (E 에올리안, 4/4, 60 bpm, 16마디 = 64초)
+#   흰 대리석과 금, 차갑고 성스러운 공기. 오르간 화음, 합창 성가(신전 동기), 큰 종, 빛의 거울 같은 첼레스타.
+#   장3도 대신 v 화음을 단화음(Bm)·sus4 로 써서 따뜻함을 빼고, C 화음 위의 F# (#11) 로 차가운 빛을 낸다.
+# ---------------------------------------------------------------------------
+TEMPLE_MOTIF = ("B4:1 E5:1 F#5:1 G5:1 | F#5:2 E5:2 | D5:1 E5:1 F#5:1 A5:1 | F#5:4 | "
+                "G5:1 F#5:1 E5:1 B4:1 | C5:1 E5:1 A5:2 | G5:1 F#5:1 E5:1 G5:1 | F#5:2 E5:2")
+TEMPLE_PROG = ['Em', 'C', 'D', 'Bm', 'Em', 'Am', 'C', 'Bsus4']
+
+
+def track_temple():
+    t = Track('temple', bpm=60, bpb=4, bars=16, seed=1901)
+    prog = TEMPLE_PROG + ['C', 'D', 'Bm', 'Em', 'Am', 'C', 'D', 'Bsus4']
+    pev = prog_events(prog, 4)
+    org = t.bus('organ', gain=0.3, pan=-0.1, rev=1.0)
+    solo = t.bus('organ_solo', gain=0.4, pan=0.15, rev=1.0, dly=0.4)
+    ch = t.bus('choir', gain=0.5, pan=0.05, rev=1.0)
+    chb = t.bus('choir_low', gain=0.32, pan=-0.05, rev=1.0)
+    bell = t.bus('bell', gain=0.6, pan=-0.2, rev=1.0)
+    bsm = t.bus('bell_small', gain=0.22, pan=0.3, rev=1.0, dly=0.6)
+    cel = t.bus('celesta', gain=0.2, pan=0.4, rev=1.0, dly=1.0)
+    hp = t.bus('harp', gain=0.8, pan=-0.3, rev=1.0)
+
+    ta = seq(TEMPLE_MOTIF, bar=4)
+    t.play(ch, ta, inst_choir, vel=0.8, jitter=0.0, vowel='a', attack=0.25, release=0.8)
+    t.play(ch, harmonize(ta, pev, 3), inst_choir, vel=0.6, jitter=0.0, vowel='a', attack=0.3, release=0.8)
+    TB = ("G5:2 E5:1 G5:1 | A5:2 F#5:1 A5:1 | B5:2 F#5:1 D5:1 | E5:4 | "
+          "C6:2 B5:1 A5:1 | G5:2 E5:1 G5:1 | F#5:2 A5:2 | B5:2 F#5:2")
+    tb = seq(TB, bar=4, offset=32)
+    t.play(solo, tb, inst_organ, vel=0.8, jitter=0.0, attack=0.04, release=0.3)
+    for b, d, sym in pev:
+        t.chord(org, b, d, open_voicing(sym, 'E2', 5), inst_organ, vel=0.55, attack=0.12, release=0.9)
+        if b >= 32:
+            t.chord(chb, b, d, open_voicing(sym, 'E3', 4), inst_choir, vel=0.6, vowel='o', attack=0.6,
+                    release=1.2)
+            # 하프: 차가운 4분음표 분산화음
+            v = voicing(sym, 'B3', 4)
+            for i in range(4):
+                t.play(hp, [(b + i, 1, v[i], '')], inst_harp, vel=0.45 if i else 0.55)
+        else:
+            t.chord(chb, b, d, [bass_of(sym, 'E2'), bass_of(sym, 'E2') + 7], inst_choir, vel=0.55, vowel='u',
+                    attack=0.8, release=1.2)
+    # 큰 종 (탑의 종)
+    for k, nm, v in [(0, 'E3', 0.9), (4, 'B2', 0.7), (8, 'C3', 0.8), (12, 'E3', 0.9)]:
+        t.play(bell, [(t.bar(k), 4, midi(nm), '')], inst_cbell, vel=v, variants=1, T=7.0, lp=2400.0)
+    # 작은 종 연타 (프레이즈 끝)
+    for k in (7, 15):
+        for i, nm in enumerate(['E5', 'D5', 'B4', 'G4', 'E4']):
+            t.play(bsm, [(t.bar(k) + i * 0.5, 1, midi(nm), '')], inst_cbell, vel=0.7 - 0.06 * i, variants=1,
+                   T=3.0, lp=5000.0)
+    # 빛의 거울: 높은 첼레스타가 지연음과 함께 반짝인다 (B 부분)
+    for k in range(8, 16):
+        sym = prog[k]
+        hv = voicing(sym, 'E6', 3)
+        for i, idx in enumerate([0, 1, 2, 1]):
+            t.play(cel, [(t.bar(k) + 1.5 + i * 0.25, 0.25, hv[idx], '')], inst_celesta, vel=0.5)
+    return t.finish(rev_size=0.94, rev_damp=0.35, rev_level=0.5, predelay=0.05,
+                    dly_beats=1.5, dly_fb=0.3, dly_level=0.08)
+
+
+# ---------------------------------------------------------------------------
+# temple_dark — 신전 지하 서고 (C단조, 4/4, 56 bpm, 14마디 = 60초)
+#   촛불만 흔들리는 조용한 어둠. 신전 동기를 단조로 낮춘 첼레스타, 낮은 오르간, 멀리 웅얼거리는 합창,
+#   물방울, 촛불 깜박임 같은 아주 작은 잡음. D♭(나폴리 화음)·#11 로 섬뜩함.
+# ---------------------------------------------------------------------------
+def track_temple_dark():
+    t = Track('temple_dark', bpm=56, bpb=4, bars=14, seed=2001)
+    prog = ['Cm', 'Ab', 'Fm', 'G', 'Cm', 'Db', 'G', 'Ab', 'Fm', 'Cm/Eb', 'Db', 'Bbm', 'Gsus4', 'G']
+    cel = t.bus('celesta', gain=0.75, pan=0.1, rev=1.0, dly=0.6)
+    mb = t.bus('musicbox', gain=0.35, pan=0.35, rev=1.0, dly=0.8)
+    gl = t.bus('glass', gain=0.05, pan=-0.3, rev=1.0)
+    org = t.bus('organ', gain=0.2, pan=-0.1, rev=1.0)
+    ch = t.bus('choir', gain=0.22, pan=0.0, rev=1.0)
+    drone = t.bus('drone', gain=0.17, pan=0.0, rev=0.8)
+    drip = t.bus('drip', gain=0.3, pan=0.3, rev=1.0, dly=0.8)
+    cand = t.bus('candle', gain=0.15, pan=-0.2, rev=0.5)
+    bell = t.bus('bell', gain=0.3, pan=-0.25, rev=1.0)
+    hp = t.bus('harp', gain=0.7, pan=-0.35, rev=1.0)
+
+    TD = ("G4:1 C5:1 D5:1 Eb5:1 | D5:2 C5:2 | r:1 Ab4:1 C5:1 F5:1 | D5:3 r:1 | Eb5:1 D5:1 C5:1 G4:1 | "
+          "Ab4:2 F4:2 | G4:3 r:1 | C5:2 Eb5:2 | Ab5:2 G5:1 F5:1 | G5:3 r:1 | F5:1 Eb5:1 Db5:2 | "
+          "Db5:2 Bb4:2 | C5:2 D5:2 | B4:3 r:1")
+    td = seq(TD, bar=4)
+    t.play(cel, td, inst_celesta, vel=0.75, jitter=0.006, human=0.1)
+    t.play(mb, ev_transpose([e for e in td if e[0] >= 28], 12), inst_musicbox, vel=0.5, jitter=0.008)
+    for b, nm, d in [(0, 'G5', 8), (20, 'Db6', 8), (36, 'G5', 10)]:
+        t.play(gl, [(b, d, midi(nm), '')], inst_glass, vel=0.8, variants=1)
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        t.chord(org, b0, 4, voicing(c, 'G3', 3), inst_organ, vel=0.5, attack=0.4, release=1.0, chiff=0.02)
+        t.chord(ch, b0, 4, voicing(c, 'C4', 3), inst_choir, vel=0.5, vowel='u', attack=1.5, release=1.5)
+        t.play(hp, [(b0, 2, bass_of(c, 'C2') + 12, '')], inst_harp, vel=0.55)
+        if k % 2 == 1:
+            t.play(hp, [(b0 + 2.5, 1, bass_of(c, 'C2') + 19, '')], inst_harp, vel=0.3)
+    for b in (0, 16, 32, 48):
+        t.chord(drone, b, min(16, 56 - b), 'C1 G1 C2', inst_pad, vel=0.6, kind='saw_dark', attack=3.0,
+                release=3.0, detune=4.0)
+    t.play(bell, [(0.0, 4, midi('C3'), '')], inst_cbell, vel=0.8, variants=1, T=7.0, lp=1500.0)
+    t.play(bell, [(t.bar(7), 4, midi('Ab2'), '')], inst_cbell, vel=0.7, variants=1, T=7.0, lp=1500.0)
+    # 물방울 (높은 피치카토가 지연음으로 메아리) · 촛불 깜박임
+    dropn = notes('C6 G6 Eb6 Bb6')
+    for k in range(14):
+        if t.rng.random() < 0.5:
+            t.play(drip, [(t.bar(k) + t.rng.randrange(8) * 0.5, 0.5, t.rng.choice(dropn), '')], inst_pizz,
+                   vel=t.rng.uniform(0.5, 0.9))
+        for _ in range(3):
+            t.hit(cand, 'shaker', t.bar(k) + t.rng.random() * 4, t.rng.uniform(0.3, 0.8))
+    return t.finish(rev_size=0.93, rev_damp=0.5, rev_level=0.5, predelay=0.05,
+                    dly_beats=1.5, dly_fb=0.35, dly_level=0.12, master_lp=8500.0)
+
+
+# ---------------------------------------------------------------------------
+# chase — 폭주한 수호자를 피해 첨탑을 오른다 (E단조, 4/4, 168 bpm, 40마디 = 57.1초)
+#   쉬지 않는 8분음표 저음 현, 다급한 종(경보), 북. A: 신전 동기(호른) / B: 아우렐리아 동기(트럼펫, 창을 찌르듯
+#   솟구치는 분산화음) / C: 프리지안 ♭II(F) 와 금관 찌르기 + 종 / A' / 북 쉼표 4마디
+# ---------------------------------------------------------------------------
+AURELIA_MOTIF = ("C5:0.5 E5:0.5 G5:0.5 C6:0.5 B5:1 A5:0.5 G5:0.5 | A5:1.5 F#5:0.5 D5:2 | "
+                 "B4:0.5 E5:0.5 G5:0.5 B5:0.5 A5:1 G5:0.5 F#5:0.5 | E5:4 | "
+                 "C5:0.5 E5:0.5 G5:0.5 C6:0.5 D6:1 C6:0.5 B5:0.5 | A5:1 F#5:1 A5:1 D6:1 | "
+                 "B5:2 F#5:2 | D#5:2 F#5:1 B5:1")
+
+
+def track_chase():
+    t = Track('chase', bpm=168, bpb=4, bars=40, seed=2101)
+    A = ['Em', 'C', 'D', 'B', 'Em', 'Am', 'C', 'Bsus4']      # 신전 동기의 화성 (temple 과 같은 뼈대)
+    prog = (['Em', 'Em', 'C', 'B7'] + A + ['C', 'D', 'Em', 'Em', 'C', 'D', 'B', 'B'] +
+            ['Em', 'F', 'Em', 'F', 'Am', 'Bb', 'B', 'B7'] + A + ['Em', 'Em', 'F', 'B7'])
+    pev = prog_events(prog, 4)
+    hn = t.bus('horns', gain=0.6, pan=-0.15, rev=0.7)
+    tp = t.bus('trumpet', gain=0.48, pan=0.15, rev=0.6, dly=0.2)
+    lb = t.bus('lowbrass', gain=0.45, pan=-0.05, rev=0.4)
+    lo = t.bus('cellos', gain=0.55, pan=-0.2, rev=0.35)
+    vn = t.bus('violins', gain=0.56, pan=0.3, rev=0.45)
+    ch = t.bus('choir', gain=0.35, pan=0.0, rev=0.9)
+    bell = t.bus('bells', gain=0.48, pan=0.3, rev=0.9)
+    dr = t.bus('drums', gain=0.36, pan=0.0, rev=0.3)
+    hat = t.bus('hat', gain=0.14, pan=0.25, rev=0.2)
+    cy = t.bus('cymbal', gain=0.12, pan=0.2, rev=0.5)
+    tim = t.bus('timpani', gain=0.45, pan=-0.1, rev=0.5)
+
+    ca = articulate(seq(TEMPLE_MOTIF, bar=4, offset=16), stacc=0.85)
+    ca2 = articulate(seq(TEMPLE_MOTIF, bar=4, offset=112), stacc=0.85)
+    t.play(hn, ca + ca2, inst_brass, vel=0.85, jitter=0.0, bright=0.75)
+    t.play(tp, ev_transpose(ca2, 12), inst_brass, vel=0.6, jitter=0.0, bright=1.0)
+    au = articulate(seq(AURELIA_MOTIF, bar=4, offset=48))
+    t.play(tp, au, inst_brass, vel=0.9, jitter=0.0, bright=1.2)
+    t.play(hn, harmonize(au, pev, 3), inst_brass, vel=0.7, jitter=0.0, bright=0.65)
+    # C: 다급한 종 선율 + 금관 찌르기 (3+3+2)
+    BELLS = "E5:2 B4:2 | F5:2 C5:2 | E5:2 B4:2 | F5:2 C5:2 | E5:2 A4:2 | F5:2 Bb4:2 | F#5:2 D#5:2 | B4:4"
+    t.play(bell, seq(BELLS, bar=4, offset=80), inst_cbell, vel=0.85, jitter=0.0, T=2.6, lp=4500.0)
+    for k in range(20, 28):
+        b0 = t.bar(k)
+        for bt in (0.0, 1.5, 3.0):
+            t.chord(hn, b0 + bt, 0.5, voicing(chord_at(pev, b0 + bt), 'E4', 3), inst_brass, vel=0.8,
+                    bright=0.9, release=0.08)
+    # 서주·끝: 경보 종
+    for k in (0, 1, 2, 3, 36, 37, 38, 39):
+        for i in range(2):
+            nm = {'F': ['F5', 'C5'], 'B7': ['F#5', 'B4']}.get(prog[k], ['E5', 'B4'])[i]
+            t.play(bell, [(t.bar(k) + 2 * i, 2, midi(nm), '')], inst_cbell, vel=0.75, jitter=0.0, T=2.6, lp=4500.0)
+    t.play(bell, [(0.0, 4, midi('E3'), '')], inst_cbell, vel=0.9, variants=1, T=6.0, lp=2500.0)
+
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        sym = c.split()[0]
+        r = bass_of(sym, 'A2')
+        sec = 0 if k < 4 else 1 if k < 12 else 2 if k < 20 else 3 if k < 28 else 4 if k < 36 else 5
+        for i, iv in enumerate([0, 0, 12, 0, 7, 0, 12, 7]):
+            t.play(lo, [(b0 + i * 0.5, 0.4, r + iv, '')], inst_spicc, vel=0.9 if i % 2 == 0 else 0.6, jitter=0.0)
+        t.play(lb, [(b0, 1.8, r - 12, ''), (b0 + 2, 1.8, r - 12, '')], inst_brass, vel=0.6, jitter=0.0,
+               variants=1, bright=0.4)
+        if sec in (2, 4):
+            t.chord(ch, b0, 4, open_voicing(sym, 'E3', 5), inst_choir, vel=0.6, vowel='a', attack=0.2,
+                    release=0.6)
+        if sec == 4:
+            v = voicing(sym, 'E5', 3)
+            for i in range(16):
+                t.play(vn, [(b0 + i * 0.25, 0.2, v[[0, 1, 2, 1][i % 4]], '')], inst_spicc,
+                       vel=0.65 if i % 4 == 0 else 0.42, jitter=0.0)
+        elif sec in (1, 2):
+            v = voicing(sym, 'B4', 3)
+            for i in range(8):
+                t.play(vn, [(b0 + i * 0.5, 0.4, v[[0, 1, 2, 1][i % 4]], '')], inst_spicc, vel=0.5, jitter=0.0)
+        # --- 타악 ---
+        if sec == 0:
+            drum_bar(t, dr, b0, 'T.......T.......' if k < 3 else 'T.......ssssssss', 0.9)
+        elif sec == 5:
+            drum_bar(t, dr, b0, ['T.T.S.T.TT.SS.SS', 'T..T..T.S.S.S.ss', 'T.T.S.T.TT.SS.SS', 'TsTsSsTsoooooooo'][k - 36], 0.95)
+        elif sec == 3:
+            drum_bar(t, dr, b0, 'T..t..T.S...S.s.', 0.95)
+        else:
+            drum_bar(t, dr, b0, 'T..s..t.S..sT.s.' if k % 4 != 3 else 'T..s..t.Sssssooo', 0.95)
+        if sec in (1, 2, 4):
+            for i in range(8):
+                t.hit(hat, 'hat', b0 + i * 0.5, 0.7 if i % 2 else 0.45)
+        if k in (4, 12, 20, 28):
+            t.hit(cy, 'crash', b0, 0.95)
+            t.play(tim, [(b0, 1, midi('E2'), '')], inst_timp, vel=0.95)
+        elif k % 2 == 0 and sec in (1, 2, 3, 4):
+            t.play(tim, [(b0, 1, bass_of(sym, 'E2'), '')], inst_timp, vel=0.6)
+    return t.finish(rev_size=0.8, rev_damp=0.45, rev_level=0.2, dly_beats=0.75, dly_fb=0.2,
+                    dly_level=0.04, drive=1.4)
+
+
+# ---------------------------------------------------------------------------
+# aurelia — 첨탑 꼭대기, 황금창의 수호자 아우렐리아와의 결전 (E단조, 4/4, 144 bpm, 36마디 = 60초)
+#   성스러운 전투: 합창 + 북 + 종. 서주(종 · 합창) 4 + A(아우렐리아 동기, 현 + 합창) 8 +
+#   B(신전 동기를 G장조 금관으로 당당하게) 8 + C(대금 · 가야금의 여우 동기 — 세라의 여우신 힘) 8 + A' 8
+# ---------------------------------------------------------------------------
+def track_aurelia():
+    t = Track('aurelia', bpm=144, bpb=4, bars=36, seed=2201)
+    A = ['Em', 'C', 'Am', 'B', 'Em', 'C', 'D', 'B']
+    prog = (['Em', 'C', 'Am', 'B'] + A + ['G', 'D', 'Em', 'C', 'G', 'D/F#', 'Am', 'B7'] +
+            ['Am', 'F', 'Am', 'Em', 'Am', 'F', 'G', 'B7'] + A)
+    pev = prog_events(prog, 4)
+    ch = t.bus('choir', gain=0.5, pan=0.0, rev=1.0)
+    chl = t.bus('choir_low', gain=0.32, pan=-0.05, rev=1.0)
+    vn = t.bus('violins', gain=0.63, pan=0.3, rev=0.5)
+    lo = t.bus('cellos', gain=0.5, pan=-0.25, rev=0.4)
+    tp = t.bus('trumpet', gain=0.5, pan=0.15, rev=0.7, dly=0.2)
+    hn = t.bus('horns', gain=0.55, pan=-0.15, rev=0.8)
+    dg = t.bus('daegeum', gain=0.4, pan=0.2, rev=0.9)
+    gy = t.bus('gayageum', gain=1.25, pan=-0.35, rev=0.6)
+    bell = t.bus('bell', gain=0.6, pan=-0.2, rev=1.0)
+    bsm = t.bus('bell_small', gain=0.18, pan=0.35, rev=1.0)
+    dr = t.bus('drums', gain=0.45, pan=0.0, rev=0.4)
+    tim = t.bus('timpani', gain=0.5, pan=-0.1, rev=0.6)
+    cy = t.bus('cymbal', gain=0.13, pan=0.2, rev=0.6)
+
+    AU_A = ("B4:0.5 E5:0.5 G5:0.5 B5:0.5 A5:1 G5:0.5 F#5:0.5 | G5:2 E5:2 | "
+            "A4:0.5 C5:0.5 E5:0.5 A5:0.5 G5:1 F#5:0.5 E5:0.5 | F#5:2 D#5:2 | "
+            "B4:0.5 E5:0.5 G5:0.5 B5:0.5 C6:1 B5:0.5 A5:0.5 | G5:1.5 E5:0.5 C5:2 | "
+            "F#5:1 A5:1 D6:1 C6:0.5 A5:0.5 | B5:4")
+    AU_CH = "E5:4 | G5:2 E5:2 | E5:4 | D#5:4 | E5:2 G5:2 | G5:2 E5:2 | F#5:2 A5:2 | B5:4"
+    for off in (16, 112):
+        a = articulate(seq(AU_A, bar=4, offset=off))
+        t.play(vn, a, inst_spicc, vel=0.9, jitter=0.0)
+        t.play(vn, ev_transpose(a, -12), inst_spicc, vel=0.6, jitter=0.0)
+        c = seq(AU_CH, bar=4, offset=off)
+        t.play(ch, c, inst_choir, vel=0.85, jitter=0.0, vowel='a', attack=0.15, release=0.6)
+        t.play(ch, harmonize(c, pev, 3), inst_choir, vel=0.65, jitter=0.0, vowel='a', attack=0.2, release=0.6)
+    t.play(tp, articulate(seq(AU_A, bar=4, offset=112)), inst_brass, vel=0.7, jitter=0.0, bright=1.1)
+    AU_B = ("D5:1 G5:1 A5:1 B5:1 | A5:2 F#5:2 | E5:1 G5:1 B5:2 | C6:2 G5:2 | D5:1 G5:1 A5:1 B5:1 | "
+            "A5:1.5 G5:0.5 F#5:2 | E5:1 A5:1 C6:2 | B5:2 A5:1 F#5:1")
+    ab = articulate(seq(AU_B, bar=4, offset=48))
+    t.play(tp, ab, inst_brass, vel=0.9, jitter=0.0, bright=1.15)
+    t.play(hn, harmonize(ab, pev, 3), inst_brass, vel=0.75, jitter=0.0, bright=0.6)
+    t.play(hn, harmonize(ab, pev, 8), inst_brass, vel=0.6, jitter=0.0, bright=0.5)
+    AU_C = ("E5:3w D5:1 | C5:1k A4:3v | A4:1 C5:1 D5:1 E5:1 | G5:2s E5:1 D5:1 | E5:3w D5:1 | "
+            "C5:1 A4:1 C5:1 D5:1 | D5:2 G5:2v | F#5:2 D#5:2")
+    t.play(dg, seq(AU_C, bar=4, offset=80), inst_wind, vel=0.85, jitter=0.0, attack=0.05, chiff=0.3)
+    t.play(hn, ev_transpose([e for e in seq(AU_C, bar=4, offset=80) if e[0] >= 96], -12), inst_brass,
+           vel=0.6, jitter=0.0, bright=0.5)
+
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        sym = c.split()[0]
+        r = bass_of(sym, 'A2')
+        sec = 0 if k < 4 else 1 if k < 12 else 2 if k < 20 else 3 if k < 28 else 4
+        # 첼로 8분음표 (3+3+2)
+        for i, iv in enumerate([0, 0, 0, 12, 0, 0, 7, 0]):
+            t.play(lo, [(b0 + i * 0.5, 0.4, r + iv, '')], inst_spicc, vel=0.9 if i in (0, 3, 6) else 0.55,
+                   jitter=0.0)
+        t.chord(chl, b0, 4, open_voicing(sym, 'E2', 4), inst_choir, vel=0.6, vowel='o', attack=0.3, release=0.7)
+        if sec == 0:
+            t.chord(ch, b0, 4, voicing(sym, 'B4', 3), inst_choir, vel=0.6, vowel='a', attack=0.4, release=0.8)
+        if sec == 2:
+            v = voicing(sym, 'D5', 3)
+            for i in range(16):
+                t.play(vn, [(b0 + i * 0.25, 0.2, v[[0, 1, 2, 1][i % 4]], '')], inst_spicc,
+                       vel=0.55 if i % 4 == 0 else 0.35, jitter=0.0)
+        if sec == 3:
+            v = voicing(sym, 'A3', 4)
+            for i, idx in enumerate([0, 1, 2, 3, 2, 3, 1, 2]):
+                t.play(gy, [(b0 + i * 0.5, 0.5, v[idx] + 12, '')], inst_gayageum, vel=0.6 if i % 4 == 0 else 0.45,
+                       ring=0.6)
+        # --- 타악 ---
+        if sec == 0:
+            drum_bar(t, dr, b0, 'B.......t.......' if k < 3 else 'B.......ssssoooo', 0.95)
+        elif sec == 3:
+            drum_bar(t, dr, b0, 'T.....t.T.......' if k % 4 != 3 else 'T.....t.T...oooo', 0.85)
+            t.hit(dr, 'kung', b0 + 1, 0.6)
+            t.hit(dr, 'ttak', b0 + 3, 0.5)
+        else:
+            drum_bar(t, dr, b0, 'T..s..t.S..sT.s.' if k % 4 != 3 else 'T..s..t.Sssssooo', 0.95)
+        if k in (4, 12, 20, 28):
+            t.hit(cy, 'crash', b0, 0.95)
+            t.play(tim, [(b0, 1, midi('E2'), '')], inst_timp, vel=1.0)
+        elif k % 2 == 0:
+            t.play(tim, [(b0, 1, bass_of(sym, 'E2'), '')], inst_timp, vel=0.6)
+        if k in (11, 19, 27, 35):
+            timp_roll(t, tim, 'B1', b0 + 2, 2, 0.3, 0.9)
+    # 종: 서주는 큰 종이 울리고, A·A' 는 2마디마다, 작은 종 연타
+    for k, nm in [(0, 'E3'), (2, 'B2'), (4, 'E3'), (8, 'E3'), (28, 'E3'), (30, 'C3'), (32, 'E3'), (34, 'B2')]:
+        t.play(bell, [(t.bar(k), 4, midi(nm), '')], inst_cbell, vel=0.85, variants=1, T=6.0, lp=2600.0)
+    for k in (11, 19, 35):
+        for i, nm in enumerate(['B5', 'G5', 'E5', 'B4']):
+            t.play(bsm, [(t.bar(k) + i * 0.5, 1, midi(nm), '')], inst_cbell, vel=0.7, variants=1, T=2.5, lp=6000.0)
+    return t.finish(rev_size=0.88, rev_damp=0.4, rev_level=0.28, predelay=0.03, dly_beats=0.75, dly_fb=0.2,
+                    dly_level=0.04, drive=1.4)
+
+
+# ---------------------------------------------------------------------------
+# star_tower — 학교 위, 별의 마녀 리라의 탑 (B 도리안/단조, 3/4, 84 bpm, 28마디 = 60초)
+#   첼레스타 · 하프의 반짝임, 우주처럼 넓은 합창 '우'. 아름답지만 불길하다 — 마지막 4마디는 낮은 드론과 종.
+# ---------------------------------------------------------------------------
+LYRA_A = ("B4:1 F#5:1 G#5:1 | F#5:1.5 E5:0.5 D5:1 | B4:1 D5:1 F#5:1 | B4:1.5 A#4:1.5 | "
+          "B4:1 F#5:1 G#5:1 | B5:1.5 A5:0.5 G#5:1 | F#5:1 D5:1 B4:1 | C#5:3")
+LYRA_A_PROG = ['Bm', 'E/G#', 'Gmaj7', 'F#sus4 F#', 'Bm', 'E/G#', 'Gmaj7', 'F#']
+
+
+def track_star_tower():
+    t = Track('star_tower', bpm=84, bpb=3, bars=28, seed=2301)
+    prog = LYRA_A_PROG + ['Em', 'A', 'Dmaj7', 'Gmaj7', 'C#m7b5', 'F#', 'Bm', 'F#7'] + LYRA_A_PROG + \
+        ['Gmaj7', 'F#sus4', 'Bm', 'F#']
+    pev = prog_events(prog, 3)
+    cel = t.bus('celesta', gain=0.85, pan=0.08, rev=1.0, dly=0.6)
+    mb = t.bus('musicbox', gain=0.25, pan=0.35, rev=1.0, dly=0.9)
+    hp = t.bus('harp', gain=0.8, pan=-0.3, rev=1.0)
+    hpm = t.bus('harp_mel', gain=2.0, pan=-0.1, rev=1.0, dly=0.5)
+    ch = t.bus('choir', gain=0.24, pan=0.0, rev=1.0)
+    st = t.bus('strings', gain=0.16, pan=0.05, rev=1.0)
+    gl = t.bus('glass', gain=0.06, pan=0.4, rev=1.0)
+    star = t.bus('stars', gain=0.13, pan=-0.4, rev=1.0, dly=1.0)
+    drone = t.bus('drone', gain=0.19, pan=0.0, rev=0.8)
+    bell = t.bus('bell', gain=0.3, pan=-0.2, rev=1.0)
+
+    la = seq(LYRA_A, bar=3)
+    la2 = seq(LYRA_A, bar=3, offset=48)
+    t.play(cel, la + la2, inst_celesta, vel=0.8)
+    t.play(mb, ev_transpose(la2, 12), inst_musicbox, vel=0.5)
+    SB = ("E5:1 G5:1 B5:1 | C#6:2 A5:1 | F#5:1 A5:1 C#6:1 | B5:2 F#5:1 | E5:1 G5:1 B5:1 | "
+          "A#5:2 C#6:1 | D6:1.5 C#6:0.5 B5:1 | A#5:1 C#6:1 E6:1")
+    sb = seq(SB, bar=3, offset=24)
+    t.play(hpm, sb, inst_harp, vel=0.8)
+    t.play(cel, harmonize(sb, pev, 3), inst_celesta, vel=0.45)
+    SD = "D6:1.5 B5:1.5 | C#6:3 | B5:1 F#5:1 D5:1 | C#5:3"
+    t.play(cel, seq(SD, bar=3, offset=72), inst_celesta, vel=0.6)
+
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        sym = c.split()[0]
+        if k < 24:
+            v = voicing(sym, 'B2', 4)
+            for i, idx in enumerate([0, 1, 2, 3, 2, 1]):
+                t.play(hp, [(b0 + i * 0.5, 0.5, v[idx], '')], inst_harp, vel=0.5 if i == 0 else 0.36)
+            t.chord(st, b0, 3, voicing(sym, 'F#3', 3), inst_pad, vel=0.5, attack=0.8, release=1.2)
+        t.chord(ch, b0, 3, voicing(sym, 'D4', 3), inst_choir, vel=0.55, vowel='u', attack=1.0, release=1.5)
+    # 마지막 4마디: 낮은 드론 + 종 (불길함)
+    t.chord(drone, t.bar(24), 12, 'B1 F#2 B2', inst_pad, vel=0.7, kind='saw_dark', attack=2.0, release=3.0)
+    t.play(bell, [(t.bar(24), 3, midi('B2'), '')], inst_cbell, vel=0.8, variants=1, T=7.0, lp=2000.0)
+    t.play(bell, [(0.0, 3, midi('F#3'), '')], inst_cbell, vel=0.5, variants=1, T=6.0, lp=2000.0)
+    for b, nm, d in [(t.bar(8), 'F#6', 9), (t.bar(16), 'B6', 9), (t.bar(24), 'C7', 9)]:
+        t.play(gl, [(b, d, midi(nm), '')], inst_glass, vel=0.8, variants=1)
+    # 별빛: B 도리안 높은 음이 무작위로 반짝 (첼레스타)
+    sc = notes('B5 C#6 D6 E6 F#6 G#6 A6 B6')
+    for k in range(28):
+        if t.rng.random() < 0.6:
+            pos = t.bar(k) + t.rng.randrange(6) * 0.5
+            t.play(star, [(pos, 1, t.rng.choice(sc), '')], inst_celesta, vel=t.rng.uniform(0.4, 0.8))
+    return t.finish(rev_size=0.93, rev_damp=0.38, rev_level=0.48, predelay=0.04,
+                    dly_beats=1.5, dly_fb=0.35, dly_level=0.12, drive=0.8)
+
+
+def inst_violin(m, dur, flags, seed, **kw):
+    """독주 바이올린풍: 관악기 모델에 따뜻한 톱니 파형표 + 아주 작은 활 잡음 + 이른 비브라토."""
+    kw.setdefault('breath', 0.012)
+    kw.setdefault('chiff', 0.06)
+    kw.setdefault('attack', 0.09)
+    kw.setdefault('release', 0.25)
+    return inst_wind(m, dur, flags, seed, kind='saw', auto_vib=0.45, **kw)
+
+
+# ---------------------------------------------------------------------------
+# lyra — 별의 마녀 리라 (B단조, 4/4, 140 bpm, 36마디 = 61.7초)
+#   웅장하고 화려하면서도 씁쓸하다. 서주(하프·첼레스타 질주) 4 + A(별 동기, 현 + 첼레스타) 8 +
+#   B(남의 마법을 그대로 베끼는 리라: 제국 → 숲 → 신전 → 학교 동기를 차례로 인용하고, 첼레스타가 반 박 늦게
+#   한 옥타브 위에서 그대로 따라 한다) 8 + C(반으로 느려진 듯한 바이올린 독주, 씁쓸함) 8 + A'(총주) 8
+# ---------------------------------------------------------------------------
+def track_lyra():
+    t = Track('lyra', bpm=140, bpb=4, bars=36, seed=2401)
+    A = ['Bm', 'E/G#', 'G', 'F#', 'Bm', 'E/G#', 'Em7', 'F#7']
+    prog = (['Bm', 'G', 'Em', 'F#'] + A + ['D', 'G', 'D', 'E/D', 'Em', 'C', 'Bm', 'E'] +
+            ['G', 'D/F#', 'Em', 'A', 'F#m', 'Bm', 'G', 'F#'] + A)
+    pev = prog_events(prog, 4)
+    st = t.bus('strings_lead', gain=0.67, pan=0.1, rev=0.8)
+    cel = t.bus('celesta', gain=0.55, pan=0.3, rev=1.0, dly=0.5)
+    hp = t.bus('harp', gain=1.05, pan=-0.3, rev=0.8)
+    lo = t.bus('cellos', gain=0.45, pan=-0.2, rev=0.4)
+    pad = t.bus('strings', gain=0.2, pan=0.0, rev=0.9)
+    ch = t.bus('choir', gain=0.35, pan=0.0, rev=1.0)
+    hn = t.bus('horns', gain=0.5, pan=-0.15, rev=0.8)
+    tp = t.bus('trumpet', gain=0.42, pan=0.15, rev=0.7)
+    fl = t.bus('flute', gain=0.36, pan=0.2, rev=1.0)
+    cl = t.bus('clarinet', gain=0.3, pan=0.12, rev=1.0)
+    vs = t.bus('violin_solo', gain=0.45, pan=0.08, rev=1.0, dly=0.3)
+    dr = t.bus('drums', gain=0.4, pan=0.0, rev=0.4)
+    tim = t.bus('timpani', gain=0.45, pan=-0.1, rev=0.6)
+    cy = t.bus('cymbal', gain=0.12, pan=0.2, rev=0.6)
+
+    LY = ("B4:1 F#5:1 G#5:2 | F#5:1.5 E5:0.5 D5:1 B4:1 | D5:1 G5:1 B5:1.5 A5:0.5 | F#5:3 C#5:1 | "
+          "B4:1 F#5:1 G#5:1 B5:1 | C#6:1.5 B5:0.5 G#5:1 E5:1 | G5:1 F#5:1 E5:1 D5:1 | C#5:2 A#4:2")
+    for off in (16, 112):
+        ly = seq(LY, bar=4, offset=off)
+        t.play(st, ly, inst_pad, vel=0.8, jitter=0.0, attack=0.06, release=0.3, voices=3, detune=9.0)
+        t.play(cel, ev_transpose(ly, 12), inst_celesta, vel=0.6)
+    ly2 = seq(LY, bar=4, offset=112)
+    t.play(hn, harmonize(ly2, pev, 3), inst_brass, vel=0.7, jitter=0.0, bright=0.6)
+    t.play(tp, ly2, inst_brass, vel=0.65, jitter=0.0, bright=0.9)
+    # 서주: 호른이 별 동기 머리를 낮게
+    t.play(hn, seq("r:4 | r:4 | B3:1 F#4:1 G#4:2 | F#4:4", bar=4), inst_brass, vel=0.85, jitter=0.0, bright=0.6)
+    # B: 인용 (제국 → 숲 → 신전 → 학교), 첼레스타가 반 박 늦게 옥타브 위에서 흉내
+    q_k = articulate(seq("A4:0.75 A4:0.25 D5:1 F#5:1 A5:1 | B5:1.5 A5:0.5 G5:1 D5:1", bar=4, offset=48),
+                     short=0.75, stacc=0.8)
+    q_e = seq("A4:1 D5:1 E5:1 F#5:1 | G#5:2 F#5:1 E5:1", bar=4, offset=56)
+    q_t = seq("B4:1 E5:1 F#5:1 G5:1 | F#5:2 E5:2", bar=4, offset=64)
+    q_s = articulate(seq("r:1 F#4:0.5 B4:0.5 D5:1 C#5:0.5 B4:0.5 | G#4:1.5 E4:0.5 G#4:1 B4:1", bar=4, offset=72))
+    t.play(tp, q_k, inst_brass, vel=0.9, jitter=0.0, bright=1.1)
+    t.play(fl, q_e, inst_flute, vel=0.85, jitter=0.0)
+    t.play(ch, q_t, inst_choir, vel=0.9, jitter=0.0, vowel='a', attack=0.15, release=0.5)
+    t.play(ch, harmonize(q_t, pev, 3), inst_choir, vel=0.7, jitter=0.0, vowel='a', attack=0.15, release=0.5)
+    t.play(cl, q_s, inst_wind, vel=0.85, jitter=0.0, kind='clar', breath=0.035, attack=0.03, release=0.08,
+           chiff=0.12)
+    copy = [(b + 0.5, d, m + 12, f) for (b, d, m, f) in q_k + q_e + q_t + q_s]
+    t.play(cel, copy, inst_celesta, vel=0.5)
+    # C: 바이올린 독주 (씁쓸하게)
+    LC = "B5:3 A5:1 | F#5:3 D5:1 | G5:2 F#5:1 E5:1 | E5:4 | A5:2 C#6:1 B5:1 | B5:2 F#5:2 | G5:1 A5:1 B5:1 D6:1 | C#6:4"
+    t.play(vs, seq(LC, bar=4, offset=80), inst_violin, vel=0.85, jitter=0.0)
+
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        sym = c.split()[0]
+        sec = 0 if k < 4 else 1 if k < 12 else 2 if k < 20 else 3 if k < 28 else 4
+        r = bass_of(sym, 'A2')
+        # 하프: 서주·A·A' 는 16분음표 질주, B·C 는 8분음표
+        v = voicing(sym, 'B3', 5)
+        if sec in (0, 1, 4):
+            for i, idx in enumerate([0, 1, 2, 3, 4, 3, 2, 1, 0, 1, 2, 3, 4, 3, 2, 1]):
+                t.play(hp, [(b0 + i * 0.25, 0.25, v[idx], '')], inst_harp, vel=0.5 if i % 4 == 0 else 0.36)
+        else:
+            for i, idx in enumerate([0, 2, 4, 2, 1, 3, 4, 3]):
+                t.play(hp, [(b0 + i * 0.5, 0.5, v[idx], '')], inst_harp, vel=0.45 if i % 4 == 0 else 0.33)
+        if sec == 3:
+            t.play(lo, [(b0, 2, r, ''), (b0 + 2, 2, r + 7, '')], inst_pizz, vel=0.8)
+        else:
+            for i, iv in enumerate([0, 0, 12, 0, 0, 12, 7, 12]):
+                t.play(lo, [(b0 + i * 0.5, 0.4, r + iv, '')], inst_spicc, vel=0.8 if i % 2 == 0 else 0.5,
+                       jitter=0.0)
+        t.chord(pad, b0, 4, voicing(sym, 'D4', 3), inst_pad, vel=0.5, attack=0.4, release=0.8)
+        if sec in (0, 4):
+            t.chord(ch, b0, 4, open_voicing(sym, 'B2', 5), inst_choir, vel=0.55, vowel='a', attack=0.3, release=0.8)
+        # --- 타악 ---
+        if sec == 0:
+            drum_bar(t, dr, b0, 'T.......t.......' if k < 3 else 'T.......ssssoooo', 0.85)
+        elif sec == 2:
+            drum_bar(t, dr, b0, 'T.......S.......', 0.7)
+        elif sec == 3:
+            drum_bar(t, dr, b0, 'T...............', 0.55)
+        else:
+            drum_bar(t, dr, b0, 'T..s..t.S..sT.s.' if k % 4 != 3 else 'T..s..t.Sssssooo', 0.9)
+        if k in (4, 28):
+            t.hit(cy, 'crash', b0, 0.95)
+            t.play(tim, [(b0, 1, midi('B1'), '')], inst_timp, vel=1.0)
+        elif k % 2 == 0 and sec != 3:
+            t.play(tim, [(b0, 1, bass_of(sym, 'F#1') + 12, '')], inst_timp, vel=0.55)
+        if k in (27,):
+            timp_roll(t, tim, 'F#2', b0, 4, 0.2, 0.95)
+    # 서주: 첼레스타가 B 단조 음계를 위아래로 질주 (가상악기 같은 화려함)
+    run = scale_run('B4', 'B6', {11, 1, 2, 4, 6, 7, 9})
+    gliss(t, cel, 0.0, run + run[::-1][1:], 0.25, inst_celesta, vel=0.45)
+    return t.finish(rev_size=0.86, rev_damp=0.4, rev_level=0.26, predelay=0.03, dly_beats=0.75, dly_fb=0.2,
+                    dly_level=0.05, drive=1.2)
+
+
+# ---------------------------------------------------------------------------
+# despair — 거대한 흰 외신들의 행진, 무너지는 학교 (C단조, 4/4, 48 bpm, 12마디 = 60초)
+#   절망: 짓누르는 저음 드론, 2박마다 땅을 울리는 거대한 '발소리'(서브 저음 + 돌 부스러기),
+#   멀리서 들리는 합창의 하행 탄식, 외신의 높은 유리음, 장례의 종.
+# ---------------------------------------------------------------------------
+def track_despair():
+    t = Track('despair', bpm=48, bpb=4, bars=12, seed=2501, tail=12.0)
+    prog = ['Cm', 'Gm/Bb', 'Ab', 'G', 'Fm', 'Db', 'Ab/C', 'G', 'Cm', 'Db', 'Cm', 'G7sus4']
+    step = t.bus('footsteps', gain=0.62, pan=0.0, rev=0.6)
+    deb = t.bus('debris', gain=0.45, pan=0.2, rev=0.7)
+    drone = t.bus('drone', gain=0.32, pan=0.0, rev=0.7)
+    lb = t.bus('lowbrass', gain=0.42, pan=-0.1, rev=0.8)
+    hn = t.bus('horns', gain=0.36, pan=0.15, rev=1.0)
+    ch = t.bus('choir', gain=0.3, pan=0.0, rev=1.0)
+    chs = t.bus('choir_sop', gain=0.3, pan=0.1, rev=1.0)
+    gl = t.bus('glass', gain=0.08, pan=0.35, rev=1.0)
+    bell = t.bus('bell', gain=0.35, pan=-0.3, rev=1.0)
+    rum = t.bus('rumble', gain=0.25, pan=0.0, rev=0.4)
+    tim = t.bus('timpani', gain=0.4, pan=-0.1, rev=0.8)
+
+    for k in range(12):
+        for bt in (0, 2):
+            t.hit(step, 'boom', t.bar(k) + bt, 1.0 if bt == 0 else 0.85)
+            t.hit(step, 'btaiko', t.bar(k) + bt + 0.02, 0.5)
+            t.hit(deb, 'debris', t.bar(k) + bt + 0.08, 0.9)
+    for b in (0, 16, 32):
+        t.chord(drone, b, 16, 'C1 G1 C2', inst_pad, vel=0.7, kind='saw_dark', attack=3.0, release=4.0, detune=6.0)
+        t.chord(drone, b, 16, [25.2], inst_pad, vel=0.35, kind='saw_dark', attack=4.0, release=4.0, detune=12.0)
+        t.play(rum, [(b, 16, 40, '')], inst_wind_noise, vel=1.0, jitter=0.0, variants=1)
+    LB = "C3:4 | Bb2:4 | Ab2:4 | G2:4 | F2:4 | Db3:4 | C3:4 | B2:4 | C3:2 Eb3:2 | Db3:4 | C3:2 G2:2 | G2:4"
+    t.play(lb, seq(LB, bar=4), inst_brass, vel=0.8, jitter=0.0, bright=0.35, attack=0.4, release=1.0)
+    t.play(lb, ev_transpose(seq(LB, bar=4), -12), inst_brass, vel=0.55, jitter=0.0, bright=0.3, attack=0.4,
+           release=1.0)
+    HN = "r:4 | r:4 | r:4 | r:4 | Ab3:2 G3:2 | F3:4 | Eb3:2 F3:2 | D3:4 | G3:2 Ab3:2 | F3:4 | Eb3:2 D3:2 | D3:4"
+    t.play(hn, seq(HN, bar=4), inst_brass, vel=0.85, jitter=0.0, bright=0.45, attack=0.25, release=0.8)
+    SOP = "Eb5:4 | D5:4 | C5:4 | B4:4 | C5:2 Ab4:2 | F4:4 | Eb4:4 | D4:4 | G4:4 | Ab4:4 | G4:4 | F4:2 G4:2"
+    t.play(chs, seq(SOP, bar=4), inst_choir, vel=0.8, jitter=0.0, vowel='o', attack=1.2, release=2.0)
+    for k, c in enumerate(prog):
+        t.chord(ch, t.bar(k), 4, open_voicing(c, 'C3', 4), inst_choir, vel=0.6, vowel='o', attack=1.5, release=2.0)
+    for b, nm, d in [(16, 'C6', 12), (20, 'Db6', 12), (32, 'G6', 14), (36, 'Ab6', 10)]:
+        t.play(gl, [(b, d, midi(nm), '')], inst_glass, vel=0.8, variants=1, beat_hz=1.3)
+    t.play(bell, [(0.0, 4, midi('C3'), '')], inst_cbell, vel=0.9, variants=1, T=8.0, lp=1600.0)
+    t.play(bell, [(t.bar(6), 4, midi('C3'), '')], inst_cbell, vel=0.75, variants=1, T=8.0, lp=1600.0)
+    for k in (3, 7, 11):
+        timp_roll(t, tim, 'G2', t.bar(k) + 2, 2, 0.2, 0.9, step=0.1)
+    return t.finish(rev_size=0.95, rev_damp=0.45, rev_level=0.5, predelay=0.06, dly_beats=1.0, dly_fb=0.2,
+                    dly_level=0.0, master_lp=7500.0, drive=0.5)
+
+
+# ---------------------------------------------------------------------------
+# nine_tails — 아홉 꼬리를 되찾다 (A 계면조 → A장조, 12/8, 점4분 = 76 bpm, 20마디 = 63.2초)
+#   신계 주제 가야금 독주로 조용히 시작 → 대금 · 현 패드 → 오스티나토와 팀파니 롤로 차오름 →
+#   A장조 총주(가야금 · 대금 · 장구 + 서양 관현악 · 합창)로 터진다 → 마지막 마디는 가야금만 남아 처음으로.
+# ---------------------------------------------------------------------------
+def track_nine_tails():
+    t = Track('nine_tails', bpm=76, bpb=4, bars=20, seed=2601)
+    U = 1.0 / 3.0
+    prog = ['Am', 'Am', 'Am', 'Am', 'Am', 'F', 'C', 'G', 'F', 'G', 'E7sus4', 'E7',
+            'A', 'F#m', 'D', 'E', 'A', 'D E', 'A', 'Asus4']
+    pev = prog_events(prog, 4)
+    gy = t.bus('gayageum', gain=1.25, pan=-0.2, rev=0.9, dly=0.3)
+    dg = t.bus('daegeum', gain=0.5, pan=0.2, rev=1.0)
+    st = t.bus('strings', gain=0.26, pan=0.05, rev=0.9)
+    vn = t.bus('violins', gain=0.5, pan=0.3, rev=0.6)
+    lo = t.bus('cellos', gain=0.38, pan=-0.2, rev=0.5)
+    ch = t.bus('choir', gain=0.36, pan=0.0, rev=1.0)
+    tp = t.bus('trumpet', gain=0.5, pan=0.15, rev=0.8)
+    hn = t.bus('horns', gain=0.48, pan=-0.15, rev=0.9)
+    drone = t.bus('drone', gain=0.2, pan=0.0, rev=1.0)
+    jg = t.bus('janggu', gain=0.42, pan=0.2, rev=0.4)
+    dr = t.bus('drums', gain=0.42, pan=0.0, rev=0.5)
+    tim = t.bus('timpani', gain=0.45, pan=-0.1, rev=0.6)
+    cy = t.bus('cymbal', gain=0.12, pan=0.25, rev=0.6)
+
+    # 1) 가야금 독주 — 신계 주제
+    G1 = ("E4:9w D4:3 | C4:3k A3:9v | r:3 A3:2 C4:1 D4:3 E4:3 | G4:3s E4:3 D4:2 C4:1k A3:3")
+    t.play(gy, seq(G1, U, 12), inst_gayageum, vel=1.3)
+    t.chord(drone, 0, 32, 'A2 E3', inst_pad, vel=0.5, kind='saw_dark', attack=3.0, release=3.0, detune=5.0)
+    # 2) 대금 + 현 패드 + 가야금 반주
+    D2 = "E5:9w D5:3 | C5:3k A4:9v | r:3 A4:2 C5:1 D5:3 E5:3 | G5:3s E5:3 D5:6v"
+    t.play(dg, seq(D2, U, 12, offset=16), inst_wind, vel=0.8, jitter=0.0)
+    # 3) 차오름: 호른이 여우 동기를 넓게, 가야금 8분음표 오스티나토
+    H3 = "A3:6 C4:6 | D4:6 E4:6 | G4:6 E4:6 | E4:12"
+    t.play(hn, seq(H3, U, 12, offset=32), inst_brass, vel=0.8, jitter=0.0, bright=0.55, attack=0.12)
+    t.play(dg, seq("r:6 E5:6v | r:6 G5:6v | A5:12w | B5:6 G#5:6", U, 12, offset=32), inst_wind, vel=0.75,
+           jitter=0.0)
+    # 4) A장조 총주: 여우 동기 장조 변형 (트럼펫 + 대금 옥타브)
+    T4 = ("E5:9 D5:3 | C#5:3 A4:9 | r:3 A4:2 C#5:1 D5:3 E5:3 | G#5:3 E5:3 D5:2 C#5:1 B4:3 | "
+          "A5:9 E5:3 | F#5:6 G#5:6 | A5:12")
+    t4 = seq(T4, U, 12, offset=48)
+    t.play(tp, t4, inst_brass, vel=0.9, jitter=0.0, bright=1.1)
+    t.play(hn, harmonize(t4, pev, 3), inst_brass, vel=0.72, jitter=0.0, bright=0.6)
+    t.play(dg, [(b, d, m + 12, 'v' if d >= 1.5 else '') for (b, d, m, f) in t4], inst_wind, vel=0.55, jitter=0.0)
+    # 5) 마지막 마디: 가야금만 남아 처음으로 이어짐
+    t.play(gy, seq("A4:6v r:3 E4:3", U, 12, offset=76), inst_gayageum, vel=0.75)
+
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        sym = c.split()[0]
+        r = bass_of(sym, 'A1')
+        if 4 <= k < 8:
+            v = voicing(sym, 'A3', 4)
+            for i, idx in enumerate([0, 1, 2, 3, 2, 1]):
+                t.play(gy, [(b0 + i * 2 * U, 2 * U, v[idx], '')], inst_gayageum, vel=0.42, ring=1.2)
+            t.chord(st, b0, 4, voicing(sym, 'E3', 4), inst_pad, vel=0.5, attack=1.2, release=1.2)
+            t.play(lo, [(b0, 4, r + 12, '')], inst_pad, vel=0.5, jitter=0.0, variants=1, kind='saw', attack=0.8,
+                   release=1.0)
+            t.hit(dr, 'buk', b0, 0.55)
+        elif 8 <= k < 19:
+            # 가야금 8분음표 오스티나토 (강세 3·3·3·3), 현 · 첼로
+            v = voicing(sym, 'A3', 4)
+            for i, idx in enumerate([0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1]):
+                t.play(gy, [(b0 + i * U, U, v[idx] + (12 if k >= 12 else 0), '')], inst_gayageum,
+                       vel=0.7 if i % 3 == 0 else 0.45, ring=0.5)
+            t.chord(st, b0, 4, voicing(sym, 'E3', 4), inst_pad, vel=0.5 + 0.03 * (k - 8), attack=0.4, release=0.8)
+            for i in range(4):
+                t.play(lo, [(b0 + i, 0.6, r + 12, ''), (b0 + i + 2 * U, 0.3, r + 12, '')], inst_spicc, vel=0.7,
+                       jitter=0.0)
+            if k >= 12:
+                vv = voicing(sym, 'C#5', 3)
+                for i in range(12):
+                    t.play(vn, [(b0 + i * U, U * 0.9, vv[[0, 1, 2][i % 3]], '')], inst_spicc,
+                           vel=0.6 if i % 3 == 0 else 0.4, jitter=0.0)
+            sy_list = [(b, d, s) for (b, d, s) in pev if b0 <= b < b0 + 4]
+            for sb, sd, sy in sy_list:
+                t.chord(ch, sb, sd, open_voicing(sy, 'A2', 5), inst_choir, vel=0.4 + (0.3 if k >= 12 else 0.03 * (k - 8)),
+                        vowel='a', attack=0.6 if k < 12 else 0.2, release=1.0)
+        # --- 타악 ---
+        if 8 <= k < 12:
+            t.hit(dr, 'buk', b0, 0.6 + 0.08 * (k - 8))
+            t.hit(dr, 'buk', b0 + 2, 0.5 + 0.08 * (k - 8))
+            t.pattern(jg, b0, 'K..K..K..K..' if k < 10 else 'D.tK.TK.tK.T', U,
+                      {'D': [('kung', 0.9), ('ttak', 0.7)], 'K': [('kung', 0.7)], 'T': [('ttak', 0.7)],
+                       't': [('ttak', 0.4)]})
+        if k == 11:
+            timp_roll(t, tim, 'E2', b0, 4, 0.2, 1.0, step=1.0 / 6.0)
+            roll(t, dr, 'sroll', b0 + 2, 2, 1.0 / 6.0, 0.2, 0.9)
+        if 12 <= k < 19:
+            t.hit(dr, 'btaiko', b0, 1.0)
+            t.hit(dr, 'taiko', b0 + 2, 0.8)
+            t.pattern(jg, b0, 'D.tK.TD.tDTT' if k % 2 else 'D.tK.TK.tK.T', U,
+                      {'D': [('kung', 0.9), ('ttak', 0.75)], 'K': [('kung', 0.8)], 'T': [('ttak', 0.75)],
+                       't': [('ttak', 0.4)]})
+            t.play(tim, [(b0, 1, bass_of(sym, 'E2'), '')], inst_timp, vel=0.8)
+            if k in (12, 16, 18):
+                t.hit(cy, 'crash', b0, 1.0)
+    return t.finish(rev_size=0.88, rev_damp=0.4, rev_level=0.3, predelay=0.03, dly_beats=2.0 / 3.0, dly_fb=0.2,
+                    dly_level=0.05, drive=1.6)
+
+
+# ---------------------------------------------------------------------------
+# final — 하늘 문에서의 마지막 싸움 (D단조 → D장조, 4/4, 150 bpm, 40마디 = 64초) · 가장 웅장한 곡
+#   서주 4 (학교 동기 머리 팡파르) + A(학교 동기, D단조 총주) 8 + B(여우 동기, 대금 + 호른) 8 +
+#   C(동료들: 제국 → 숲 → 신전 → 별 동기 2마디씩) 8 + D(D장조, 학교 동기 + 가야금 · 합창 절정) 8 +
+#   끝(단조로 돌아와 처음으로) 4
+# ---------------------------------------------------------------------------
+def track_final():
+    t = Track('final', bpm=150, bpb=4, bars=40, seed=2701)
+    prog = (['Dm', 'Bb', 'C', 'A7'] + SCHOOL_MOTIF_PROG + ['Dm', 'Bb', 'F', 'C', 'Dm', 'Bb', 'Gm', 'A'] +
+            ['F', 'Bb', 'F', 'G/F', 'Dm', 'Bb', 'Dm', 'A7'] +
+            ['D', 'G', 'D', 'Em7', 'F#m', 'A7', 'G', 'A'] + ['Bb', 'C', 'Dm', 'A7'])
+    pev = prog_events(prog, 4)
+    tp = t.bus('trumpet', gain=0.48, pan=0.15, rev=0.7, dly=0.15)
+    hn = t.bus('horns', gain=0.55, pan=-0.15, rev=0.8)
+    lb = t.bus('lowbrass', gain=0.66, pan=-0.05, rev=0.5)
+    ch = t.bus('choir', gain=0.4, pan=0.0, rev=1.0)
+    vn = t.bus('violins', gain=0.4, pan=0.3, rev=0.5)
+    lo = t.bus('cellos', gain=0.48, pan=-0.25, rev=0.4)
+    dg = t.bus('daegeum', gain=0.45, pan=0.22, rev=0.9)
+    gy = t.bus('gayageum', gain=1.0, pan=-0.35, rev=0.6)
+    fl = t.bus('flute', gain=0.3, pan=0.25, rev=1.0)
+    cel = t.bus('celesta', gain=0.3, pan=0.35, rev=1.0, dly=0.4)
+    dr = t.bus('drums', gain=0.3, pan=0.0, rev=0.4)
+    jg = t.bus('janggu', gain=0.3, pan=0.2, rev=0.4)
+    tim = t.bus('timpani', gain=0.45, pan=-0.1, rev=0.6)
+    cy = t.bus('cymbal', gain=0.13, pan=0.2, rev=0.6)
+
+    # 서주: 학교 동기 머리(5-1-3)를 화음마다 쌓아 올리는 팡파르
+    IN = "r:1 A4:0.5 D5:0.5 F5:2 | r:1 F4:0.5 Bb4:0.5 D5:2 | r:1 G4:0.5 C5:0.5 E5:2 | C#5:2 E5:1 A5:1"
+    inn = seq(IN, bar=4)
+    t.play(tp, inn, inst_brass, vel=0.9, jitter=0.0, bright=1.1)
+    t.play(hn, harmonize(inn, pev, 3), inst_brass, vel=0.75, jitter=0.0, bright=0.6)
+    # A: 학교 동기 (D단조), 호른 + 트럼펫 옥타브
+    sa = articulate(seq(SCHOOL_MOTIF, bar=4, offset=16), stacc=0.85)
+    t.play(hn, ev_transpose(sa, -12), inst_brass, vel=0.85, jitter=0.0, bright=0.7)
+    t.play(tp, sa, inst_brass, vel=0.85, jitter=0.0, bright=1.1)
+    # B: 여우 동기 (D 계면조풍으로 옮김) — 대금 + 호른 한 옥타브 아래
+    FX = "A5:3w G5:1 | F5:1k D5:3v | D5:1 F5:1 G5:1 A5:1 | C6:2s A5:1 G5:1 | A5:3w G5:1 | " \
+         "F5:1 D5:1 F5:1 G5:1 | G5:2 Bb5:2 | A5:2 C#6:2"
+    fx = seq(FX, bar=4, offset=48)
+    t.play(dg, fx, inst_wind, vel=0.85, jitter=0.0, attack=0.05, chiff=0.3)
+    t.play(hn, ev_transpose([(b, d, m, '') for (b, d, m, f) in fx], -12), inst_brass, vel=0.7, jitter=0.0,
+           bright=0.55)
+    # C: 동료들의 동기 2마디씩
+    ck = articulate(seq("C5:0.75 C5:0.25 F5:1 A5:1 C6:1 | D6:1.5 C6:0.5 Bb5:1 F5:1", bar=4, offset=80),
+                    short=0.75, stacc=0.8)
+    ce = seq("C5:1 F5:1 G5:1 A5:1 | B5:2 A5:1 G5:1", bar=4, offset=88)
+    ctm = seq("A4:1 D5:1 E5:1 F5:1 | E5:2 D5:2", bar=4, offset=96)
+    cl = seq("D5:1 A5:1 B5:2 | A5:1.5 G5:0.5 E5:1 C#5:1", bar=4, offset=104)
+    t.play(tp, ck, inst_brass, vel=0.9, jitter=0.0, bright=1.15)
+    t.play(hn, harmonize(ck, pev, 3), inst_brass, vel=0.7, jitter=0.0, bright=0.6)
+    t.play(fl, ce, inst_flute, vel=0.9, jitter=0.0)
+    t.play(ch, ctm, inst_choir, vel=0.9, jitter=0.0, vowel='a', attack=0.12, release=0.5)
+    t.play(ch, harmonize(ctm, pev, 3), inst_choir, vel=0.7, jitter=0.0, vowel='a', attack=0.12, release=0.5)
+    t.play(cel, cl + ev_transpose(cl, 12), inst_celesta, vel=0.8)
+    t.play(vn, cl, inst_pad, vel=0.6, jitter=0.0, attack=0.06, release=0.3, voices=3, detune=9.0)
+    # D: D장조 학교 동기 — 트럼펫 + 호른 화성, 대금이 옥타브 위에서 겹침 (뒤 4마디)
+    sd = articulate(seq(SCHOOL_DAY_A, bar=4, offset=112), stacc=0.85)
+    t.play(tp, sd, inst_brass, vel=0.95, jitter=0.0, bright=1.2)
+    t.play(hn, harmonize(sd, pev, 3), inst_brass, vel=0.75, jitter=0.0, bright=0.6)
+    t.play(dg, ev_transpose([e for e in sd if e[0] >= 128], 12), inst_wind, vel=0.6, jitter=0.0, attack=0.04)
+    # 끝: 단조로 돌아오며 첼로·호른 하행
+    OUT = "F5:2 D5:2 | G5:2 E5:2 | A5:3 F5:1 | E5:2 C#5:2"
+    ot = seq(OUT, bar=4, offset=144)
+    t.play(tp, ot, inst_brass, vel=0.85, jitter=0.0, bright=1.0)
+    t.play(hn, harmonize(ot, pev, 3), inst_brass, vel=0.7, jitter=0.0, bright=0.55)
+
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        sym = c.split()[0]
+        r = bass_of(sym, 'A2')
+        sec = 0 if k < 4 else 1 if k < 12 else 2 if k < 20 else 3 if k < 28 else 4 if k < 36 else 5
+        for i, iv in enumerate([0, 0, 0, 12, 0, 0, 7, 0]):
+            t.play(lo, [(b0 + i * 0.5, 0.4, r + iv, '')], inst_spicc, vel=0.9 if i in (0, 3, 6) else 0.55,
+                   jitter=0.0)
+        t.play(lb, [(b0, 1.8, r - 12, ''), (b0 + 2, 1.8, bass_of(chord_at(pev, b0 + 2), 'A2') - 12, '')],
+               inst_brass, vel=0.65, jitter=0.0, variants=1, bright=0.45)
+        if sec in (0, 1, 4, 5):
+            for sb, sd_, sy in [(b, d, s) for (b, d, s) in pev if b0 <= b < b0 + 4]:
+                t.chord(ch, sb, sd_, open_voicing(sy, 'A2', 5), inst_choir, vel=0.6, vowel='a', attack=0.2,
+                        release=0.6)
+        if sec in (1, 4):
+            v = voicing(sym, 'D5', 3)
+            for i in range(16):
+                t.play(vn, [(b0 + i * 0.25, 0.2, v[[0, 1, 2, 1][i % 4]], '')], inst_spicc,
+                       vel=0.6 if i % 4 == 0 else 0.4, jitter=0.0)
+        if sec in (2, 4):
+            v = voicing(sym, 'A3', 4)
+            for i, idx in enumerate([0, 1, 2, 3, 2, 3, 1, 2, 0, 1, 2, 3, 2, 3, 1, 2]):
+                t.play(gy, [(b0 + i * 0.25, 0.25, v[idx] + 12, '')], inst_gayageum, vel=0.5 if i % 4 == 0 else 0.36,
+                       ring=0.4, jitter=0.0)
+        if sec == 3:
+            t.chord(vn, b0, 4, voicing(sym, 'F4', 3), inst_pad, vel=0.4, attack=0.2, release=0.5)
+        # --- 타악 ---
+        if sec == 0:
+            drum_bar(t, dr, b0, 'B.....t.T.......' if k < 3 else 'B.....t.Sssssooo', 0.95)
+        elif sec == 2:
+            drum_bar(t, dr, b0, 'T..s..t.S..sT.s.' if k % 4 != 3 else 'T..s..t.Sssssooo', 0.9)
+            t.pattern(jg, b0, 'D..T..D.T.T.tTt.', 0.25,
+                      {'D': [('kung', 0.9), ('ttak', 0.7)], 'T': [('ttak', 0.7)], 't': [('ttak', 0.35)]})
+        elif sec == 3:
+            drum_bar(t, dr, b0, 'T.......S.......' if k % 2 == 0 else 'T.....t.S...S.s.', 0.85)
+        elif sec == 5:
+            drum_bar(t, dr, b0, ['B..s..t.S..sB.s.', 'B..s..t.S..sB.s.', 'B.T.S.T.BB.SS.SS', 'BsTsSsTsoooooooo'][k - 36], 1.0)
+        else:
+            drum_bar(t, dr, b0, 'B..s..t.S..sT.S.' if k % 4 != 3 else 'B..s..t.SsssoooT', 1.0)
+        if k in (4, 12, 20, 28, 36):
+            t.hit(cy, 'crash', b0, 1.0)
+            t.play(tim, [(b0, 1, midi('D2'), '')], inst_timp, vel=1.0)
+        elif k % 2 == 0:
+            t.play(tim, [(b0, 1, bass_of(sym, 'F2'), '')], inst_timp, vel=0.6)
+        if sec == 4 and k % 2 == 1:
+            t.hit(cy, 'crash', b0, 0.55)
+        if k == 27:
+            timp_roll(t, tim, 'A2', b0, 4, 0.2, 1.0)
+    return t.finish(rev_size=0.86, rev_damp=0.42, rev_level=0.25, predelay=0.03, dly_beats=0.75, dly_fb=0.2,
+                    dly_level=0.04, drive=1.5)
+
+
+# ---------------------------------------------------------------------------
+# ending2 — 에필로그 · 엔딩 크레디트 (D장조, 3/4, 80 bpm, 40마디 = 90초)
+#   타이틀 자장가(첼레스타) → 학교 동기(플루트) → 여우 동기(대금 · 가야금) → 별 동기를 장조의 희망으로(호른) →
+#   자장가 절정을 모두가 함께(현 · 합창 · 호른). 따뜻하고 그리운, 그래도 앞을 보는 끝.
+# ---------------------------------------------------------------------------
+def track_ending2():
+    t = Track('ending2', bpm=80, bpb=3, bars=40, seed=2801)
+    prog = (['D', 'Gadd9', 'D/F#', 'A', 'D', 'Bm9', 'Em7', 'A7'] +
+            ['D', 'G', 'D', 'Em7', 'D/F#', 'A7', 'Bm', 'Asus4 A'] +
+            ['Bm', 'G', 'Em', 'D', 'A', 'Bm', 'G', 'A'] +
+            ['E', 'D', 'Bm', 'A', 'E', 'E/G#', 'D', 'A'] +
+            ['D', 'G', 'D/F#', 'A', 'Bm', 'A', 'Dmaj7', 'A7'])
+    pev = prog_events(prog, 3)
+    cel = t.bus('celesta', gain=0.8, pan=0.08, rev=1.0, dly=0.5)
+    fl = t.bus('flute', gain=0.5, pan=0.18, rev=1.0, dly=0.4)
+    cl = t.bus('clarinet', gain=0.2, pan=-0.12, rev=1.0)
+    dg = t.bus('daegeum', gain=0.45, pan=0.22, rev=1.0)
+    gy = t.bus('gayageum', gain=1.1, pan=-0.35, rev=1.0)
+    hn = t.bus('horn', gain=0.75, pan=-0.1, rev=1.0)
+    vs = t.bus('strings_mel', gain=0.56, pan=0.05, rev=1.0)
+    hp = t.bus('harp', gain=1.05, pan=-0.3, rev=1.0)
+    pad = t.bus('strings', gain=0.24, pan=0.0, rev=1.0)
+    ch = t.bus('choir', gain=0.26, pan=0.0, rev=1.0)
+    bass = t.bus('pizz', gain=0.5, pan=0.0, rev=0.5)
+    gl = t.bus('glock', gain=0.16, pan=0.4, rev=1.0, dly=1.0)
+
+    tm = title_melody()
+    m_hi = ev_map(tm, midi('A4'), midi('D5'), _MINOR_TO_MAJOR)
+    m_lo = ev_map(tm, midi('A4'), midi('D4'), _MINOR_TO_MAJOR)
+    # A (1~8): 자장가 A 부분 — 첼레스타
+    t.play(cel, [e for e in m_hi if e[0] < 24], inst_celesta, vel=0.8)
+    # B (9~16): 학교 동기 3/4 변형 — 플루트, 클라리넷이 3도 아래
+    SB = ("A4:0.5 D5:0.5 F#5:1 E5:0.5 D5:0.5 | B4:1.5 G4:0.5 B4:1 | C#5:0.5 D5:0.5 F#5:1 A5:1 | "
+          "G5:1.5 F#5:0.5 E5:1 | D5:0.5 E5:0.5 F#5:1 E5:0.5 F#5:0.5 | G5:1.5 E5:0.5 C#5:1 | "
+          "D5:1 E5:1 F#5:1 | A5:2 r:1")
+    sb = articulate(seq(SB, bar=3, offset=24))
+    t.play(fl, sb, inst_flute, vel=0.8, jitter=0.0)
+    t.play(cl, harmonize(sb, pev, 3), inst_wind, vel=0.75, jitter=0.0, kind='clar', breath=0.035,
+           attack=0.04, release=0.1, chiff=0.1, auto_vib=0.8)
+    # C (17~24): 여우 동기 — 대금
+    SC = "F#5:2w E5:1 | D5:1k B4:2v | B4:1 D5:1 E5:1 | F#5:1 A5:1 F#5:1 | E5:2w D5:1 | B4:3v | A4:1 B4:1 D5:1 | E5:3w"
+    t.play(dg, seq(SC, bar=3, offset=48), inst_wind, vel=0.8, jitter=0.0, breath=0.07, attack=0.1)
+    # D (25~32): 별 동기를 장조의 희망으로 — 호른 + 현
+    SD = "B4:1 F#5:1 G#5:1 | F#5:1.5 E5:0.5 D5:1 | B4:1 D5:1 F#5:1 | E5:3 | B4:1 F#5:1 G#5:1 | B5:1.5 A5:0.5 G#5:1 | A5:1 F#5:1 D5:1 | E5:3"
+    sd = seq(SD, bar=3, offset=72)
+    t.play(hn, ev_transpose(sd, -12), inst_brass, vel=0.8, jitter=0.0, bright=0.45, attack=0.08)
+    t.play(vs, sd, inst_pad, vel=0.6, jitter=0.0, attack=0.15, release=0.6, voices=3, detune=8.0)
+    # E (33~40): 자장가 절정 — 현 · 호른 · 합창, 첼레스타가 옥타브 위
+    me = [(b - 48 + 96, d, m, f) for (b, d, m, f) in m_lo if b >= 48]
+    t.play(vs, me, inst_pad, vel=0.75, jitter=0.0, attack=0.12, release=0.6, voices=3, detune=8.0)
+    t.play(hn, harmonize(me, pev, 3), inst_brass, vel=0.65, jitter=0.0, bright=0.4, attack=0.08)
+    t.play(cel, ev_transpose(me, 12), inst_celesta, vel=0.55)
+
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        sym = c.split()[0]
+        r = bass_of(sym, 'D2')
+        sec = k // 8
+        t.chord(pad, b0, 3, voicing(sym, 'F#3', 3), inst_pad, vel=0.5, attack=0.6, release=1.0)
+        t.play(bass, [(b0, 1, r, ''), (b0 + 2, 1, r + 7, '')], inst_pizz, vel=0.75 if sec else 0.6)
+        if sec == 2:
+            v = voicing(sym, 'B3', 4)
+            for i, idx in enumerate([0, 1, 2, 3, 2, 1]):
+                t.play(gy, [(b0 + i * 0.5, 0.5, v[idx], '')], inst_gayageum, vel=0.45 if i else 0.55, ring=1.6)
+        else:
+            v = voicing(sym, 'A3', 4)
+            for i, idx in enumerate([0, 1, 2, 3, 2, 1]):
+                t.play(hp, [(b0 + i * 0.5, 0.5, v[idx], '')], inst_harp, vel=0.42 if i else 0.52)
+        if sec == 4:
+            t.chord(ch, b0, 3, open_voicing(sym, 'D3', 4), inst_choir, vel=0.6, vowel='a', attack=0.5, release=1.0)
+        elif sec == 3:
+            t.chord(ch, b0, 3, voicing(sym, 'D4', 3), inst_choir, vel=0.45, vowel='u', attack=0.8, release=1.0)
+    for k in (7, 15, 23, 31):
+        for i, mm in enumerate(voicing(prog[k].split()[-1], 'A5', 3)):
+            t.play(gl, [(t.bar(k) + 1.5 + i * 0.5, 0.5, mm, '')], inst_glock, vel=0.5)
+    return t.finish(rev_size=0.88, rev_damp=0.4, rev_level=0.36, dly_beats=1.5, dly_fb=0.3, dly_level=0.1)
+
+
+# ---------------------------------------------------------------------------
+# festival — 학교 축제 (5장, 폭풍 전의 고요) (F장조, 4/4, 132 bpm, 32마디 = 58.2초)
+#   쿵-짝 폴카풍. 플루트 · 클라리넷 축제 가락, 트럼펫의 장난스러운 대답, 학교 동기(F장조, 글로켄슈필),
+#   축제 오르간(칼리오페풍) 엇박 화음, 탬버린 · 우드블록 · 트라이앵글.
+# ---------------------------------------------------------------------------
+def track_festival():
+    t = Track('festival', bpm=132, bpb=4, bars=32, seed=2901)
+    A = ['F', 'C7', 'C7', 'F', 'F', 'Bb', 'C7', 'F']
+    prog = (A + ['Dm', 'Am', 'Bb', 'F', 'Gm', 'C', 'Dm G7', 'C7'] +
+            ['F', 'Bb', 'F', 'Gm7', 'Am', 'C7', 'Bb', 'C'] + A)
+    pev = prog_events(prog, 4)
+    fl = t.bus('flute', gain=0.55, pan=0.12, rev=0.8, dly=0.3)
+    cl = t.bus('clarinet', gain=0.32, pan=-0.12, rev=0.8)
+    tp = t.bus('trumpet', gain=0.75, pan=0.2, rev=0.7)
+    hn = t.bus('horns', gain=0.5, pan=-0.2, rev=0.8)
+    gl = t.bus('glock', gain=0.42, pan=0.35, rev=0.9, dly=0.4)
+    org = t.bus('organ', gain=0.32, pan=-0.25, rev=0.6)
+    hc = t.bus('harpsichord', gain=1.1, pan=-0.3, rev=0.5)
+    tuba = t.bus('tuba', gain=0.9, pan=0.0, rev=0.3)
+    bass = t.bus('pizz', gain=0.45, pan=0.0, rev=0.3)
+    perc = t.bus('perc', gain=0.22, pan=0.25, rev=0.4)
+    dr = t.bus('drums', gain=0.42, pan=0.0, rev=0.4)
+    cy = t.bus('cymbal', gain=0.1, pan=0.2, rev=0.6)
+
+    FA = ("C5:0.5 A4:0.5 C5:0.5 F5:0.5 A5:1 F5:1 | G5:0.5 E5:0.5 C5:0.5 E5:0.5 G5:1 Bb5:1 | "
+          "A5:0.5 G5:0.5 F5:0.5 E5:0.5 D5:1 C5:1 | F5:1 A5:1 F5:1 r:1 | "
+          "C5:0.5 A4:0.5 C5:0.5 F5:0.5 A5:1 C6:1 | D6:1 Bb5:0.5 A5:0.5 G5:1 F5:1 | "
+          "E5:0.5 F5:0.5 G5:0.5 A5:0.5 Bb5:1 E5:1 | F5:2 r:2")
+    FB = ("A5:1.5 F5:0.5 D5:1 A4:1 | C5:1.5 E5:0.5 A5:2 | Bb5:1 A5:0.5 G5:0.5 F5:1 D5:1 | C5:1 F5:1 A5:2 | "
+          "G5:1.5 Bb5:0.5 D6:1 Bb5:1 | C6:1 G5:1 E5:1 C5:1 | D5:0.5 F5:0.5 A5:1 B5:1 D6:1 | C6:1 Bb5:1 G5:1 E5:1")
+    fa = articulate(seq(FA, bar=4), stacc=0.6)
+    fa2 = articulate(seq(FA, bar=4, offset=96), stacc=0.6)
+    t.play(fl, fa + fa2, inst_flute, vel=0.85, jitter=0.002, attack=0.03, chiff=0.3)
+    t.play(cl, ev_transpose(fa + fa2, -12), inst_wind, vel=0.75, jitter=0.002, kind='clar', breath=0.03,
+           attack=0.025, release=0.06, chiff=0.12)
+    fb = articulate(seq(FB, bar=4, offset=32), stacc=0.7)
+    t.play(tp, fb, inst_brass, vel=0.85, jitter=0.0, bright=1.0, attack=0.03)
+    t.play(hn, harmonize(fb, pev, 3), inst_brass, vel=0.7, jitter=0.0, bright=0.55, attack=0.03)
+    sc = articulate(ev_transpose(seq(SCHOOL_DAY_A, bar=4, offset=64), 3), stacc=0.7)
+    t.play(gl, sc, inst_glock, vel=0.75)
+    t.play(fl, sc, inst_flute, vel=0.7, jitter=0.002)
+    # A' 트럼펫 대선율 (2분음표, 화음 구성음)
+    TC = "A4:2 C5:2 | Bb4:2 G4:2 | C5:2 E5:2 | F5:2 C5:2 | A4:2 F4:2 | Bb4:2 D5:2 | C5:2 E5:2 | F5:2 r:2"
+    t.play(tp, seq(TC, bar=4, offset=96), inst_brass, vel=0.6, jitter=0.0, bright=0.7)
+    t.play(gl, ev_transpose([e for e in fa2 if e[1] <= 0.5], 12), inst_glock, vel=0.45)
+
+    for k, c in enumerate(prog):
+        b0 = t.bar(k)
+        sec = k // 8
+        for half in (0, 2):
+            sym = chord_at(pev, b0 + half)
+            r = bass_of(sym, 'C2')
+            # 쿵(1·3박: 튜바풍 저음 금관 + 피치카토) - 짝(2·4박: 축제 오르간 + 하프시코드)
+            t.play(tuba, [(b0 + half, 0.45, r if half == 0 else (r + 7 if r + 7 <= midi('C3') else r - 5), '')],
+                   inst_brass, vel=0.8, jitter=0.0, bright=0.4, attack=0.02, release=0.08)
+            t.play(bass, [(b0 + half, 0.5, r + 12 if half == 0 else r + 7, '')], inst_pizz, vel=0.6)
+            v = voicing(sym, 'A3', 3)
+            t.chord(org, b0 + half + 1, 0.4, v, inst_organ, vel=0.55, attack=0.01, release=0.08)
+            for mm in v:
+                t.play(hc, [(b0 + half + 1, 0.3, mm + 12, '')], inst_harpsi, vel=0.4, jitter=0.002)
+            if sec == 1:
+                t.chord(org, b0 + half + 1.5, 0.3, v, inst_organ, vel=0.35, attack=0.01, release=0.06)
+        # --- 타악 ---
+        for i in range(8):
+            t.hit(perc, 'tamb', b0 + i * 0.5, 0.6 if i % 2 else 0.35)
+        t.hit(dr, 'taiko', b0, 0.45)
+        t.hit(dr, 'taiko', b0 + 2, 0.35)
+        t.hit(dr, 'snare', b0 + 1, 0.4)
+        t.hit(dr, 'snare', b0 + 3, 0.45)
+        if sec == 1:
+            for bt in (0.5, 1.5, 2.5, 3.5):
+                t.hit(perc, 'wood', b0 + bt, 0.55)
+        if k % 8 == 7:
+            roll(t, dr, 'sroll', b0 + 2, 2, 0.125, 0.2, 0.7)
+        if k % 8 == 0:
+            t.hit(perc, 'tri', b0, 0.8)
+        if k == 24:
+            t.hit(cy, 'crash', b0, 0.9)
+    return t.finish(rev_size=0.78, rev_damp=0.45, rev_level=0.18, dly_beats=0.75, dly_fb=0.2, dly_level=0.05,
+                    drive=0.6)
+
+
+# ===========================================================================
+# 2~5장 징글 (반복 없음)
+# ===========================================================================
+def jingle_spell():
+    """마법 습득(웅장): 하프 글리산도 + 팀파니 롤 → 학교 동기 머리(5-1-3) 금관 팡파르 → D장조 총주 · 합창 · 종."""
+    t = Track('jingle_spell', bpm=100, bpb=4, loop=False, length=5.2, seed=3001)
+    hp = t.bus('harp', gain=0.7, pan=-0.3, rev=1.0)
+    tp = t.bus('trumpet', gain=0.55, pan=0.12, rev=0.9)
+    hn = t.bus('horns', gain=0.5, pan=-0.15, rev=1.0)
+    ch = t.bus('choir', gain=0.42, pan=0.0, rev=1.0)
+    cel = t.bus('celesta', gain=0.45, pan=0.35, rev=1.0, dly=0.6)
+    bell = t.bus('bell', gain=0.6, pan=-0.2, rev=1.0)
+    tim = t.bus('timpani', gain=0.5, pan=-0.1, rev=0.8)
+    sw = t.bus('swell', gain=0.14, pan=0.1, rev=0.8)
+    cy = t.bus('cymbal', gain=0.14, pan=0.2, rev=0.8)
+    pad = t.bus('strings', gain=0.3, pan=0.0, rev=1.0)
+    lb = t.bus('lowbrass', gain=0.4, pan=0.0, rev=0.8)
+
+    gliss(t, hp, 0.0, scale_run('D4', 'D6', {2, 4, 6, 7, 9, 11, 1}), 0.1, inst_harp, vel=0.5)
+    timp_roll(t, tim, 'A2', 0.0, 1.5, 0.2, 0.8, step=0.1)
+    t.play(sw, [(0.0, 1.5, 60, '')], inst_swell, vel=1.0, jitter=0.0, variants=1)
+    fan = seq("r:1.5 A4:0.5 D5:0.5 F#5:0.5 A5:3", bar=6)
+    t.play(tp, fan, inst_brass, vel=0.9, jitter=0.0, bright=1.2)
+    t.play(hn, seq("r:1.5 F#4:0.5 A4:0.5 D5:0.5 F#5:3", bar=6), inst_brass, vel=0.7, jitter=0.0, bright=0.6)
+    t.chord(hn, 3.0, 3.0, 'D4 F#4', inst_brass, vel=0.6, bright=0.55)
+    t.chord(lb, 3.0, 3.0, 'D2 A2 D3', inst_brass, vel=0.7, bright=0.45)
+    t.chord(ch, 3.0, 3.2, open_voicing('D', 'D3', 6), inst_choir, vel=0.7, vowel='a', attack=0.15, release=1.2)
+    t.chord(pad, 3.0, 3.2, 'D3 A3 D4 F#4 A4', inst_pad, vel=0.5, attack=0.08, release=1.2)
+    t.hit(cy, 'crash', 3.0, 1.0)
+    t.play(tim, [(3.0, 1, midi('D2'), '')], inst_timp, vel=1.0, T=2.0)
+    t.play(bell, [(3.0, 3, midi('D4'), '')], inst_cbell, vel=0.8, variants=1, T=4.0, lp=3500.0)
+    for i, nm in enumerate(['A6', 'F#6', 'D6', 'A5', 'F#5', 'E6', 'D6']):
+        t.play(cel, [(3.5 + i * 0.4, 0.5, midi(nm), '')], inst_celesta, vel=0.65 - 0.05 * i)
+    return t.finish(rev_size=0.86, rev_damp=0.4, rev_level=0.3, fade=1.0, drive=0.8)
+
+
+def jingle_levelup():
+    """마법 레벨 업: 짧고 반짝이는 상승 아르페지오 (1.5초)."""
+    t = Track('jingle_levelup', bpm=140, bpb=4, loop=False, length=1.5, seed=3002)
+    cel = t.bus('celesta', gain=0.8, pan=0.1, rev=1.0)
+    gl = t.bus('glock', gain=0.4, pan=0.35, rev=1.0)
+    hp = t.bus('harp', gain=0.5, pan=-0.3, rev=1.0)
+    chm = t.bus('chime', gain=0.25, pan=-0.1, rev=1.0)
+    for i, nm in enumerate(['D5', 'F#5', 'A5', 'D6']):
+        t.play(cel, [(i * 0.25, 0.25, midi(nm), '')], inst_celesta, vel=0.75, jitter=0.0)
+        t.play(gl, [(i * 0.25, 0.25, midi(nm) + 12, '')], inst_glock, vel=0.6, jitter=0.0)
+        t.play(hp, [(i * 0.25, 0.25, midi(nm) - 12, '')], inst_harp, vel=0.55, jitter=0.0)
+    t.play(cel, [(1.0, 1, midi('A6'), ''), (1.0, 1, midi('F#6'), '')], inst_celesta, vel=0.7, jitter=0.0)
+    t.play(chm, [(1.0, 1, midi('D7'), ''), (1.35, 1, midi('A6'), '')], inst_chime, vel=0.7, jitter=0.0)
+    return t.finish(rev_size=0.8, rev_damp=0.45, rev_level=0.25, fade=0.4)
+
+
+def jingle_chapter():
+    """장 제목 카드: 큰 종 + 북 + 낮은 합창 → 호른이 학교 동기 머리를 부르고 D장조로 열린다 (3초)."""
+    t = Track('jingle_chapter', bpm=90, bpb=4, loop=False, length=3.2, seed=3003)
+    bell = t.bus('bell', gain=0.45, pan=-0.15, rev=1.0)
+    dr = t.bus('drums', gain=0.5, pan=0.0, rev=0.7)
+    ch = t.bus('choir', gain=0.4, pan=0.0, rev=1.0)
+    hn = t.bus('horns', gain=0.55, pan=0.1, rev=1.0)
+    gy = t.bus('gayageum', gain=1.1, pan=-0.35, rev=1.0)
+    cel = t.bus('celesta', gain=0.35, pan=0.35, rev=1.0)
+    t.play(bell, [(0.0, 3, midi('D3'), '')], inst_cbell, vel=0.9, variants=1, T=5.0, lp=2200.0)
+    t.hit(dr, 'btaiko', 0.0, 1.0)
+    t.chord(ch, 0.0, 3.2, 'D2 A2 D3 A3', inst_choir, vel=0.7, vowel='o', attack=0.4, release=1.0)
+    hm = seq("r:1 A3:0.5 D4:0.5 F#4:2.5", bar=4.5)
+    t.play(hn, hm, inst_brass, vel=0.85, jitter=0.0, bright=0.7)
+    t.play(hn, seq("r:1 F#3:0.5 A3:0.5 D4:2.5", bar=4.5), inst_brass, vel=0.65, jitter=0.0, bright=0.5)
+    t.play(gy, [(2.0, 2, midi('A4'), 's')], inst_gayageum, vel=0.8, jitter=0.0)
+    t.chord(ch, 2.0, 1.2, 'F#3 A3 D4', inst_choir, vel=0.55, vowel='a', attack=0.3, release=1.0)
+    for i, nm in enumerate(['D6', 'F#6', 'A6']):
+        t.play(cel, [(2.0 + i * 0.25, 0.5, midi(nm), '')], inst_celesta, vel=0.55)
+    return t.finish(rev_size=0.86, rev_damp=0.4, rev_level=0.32, fade=0.8)
+
+
 # ---------------------------------------------------------------------------
 # 출력 (WAV → Ogg Vorbis)
 # ---------------------------------------------------------------------------
@@ -1521,8 +3599,18 @@ TRACKS = [
     ('school', track_school), ('library', track_library), ('basement', track_basement),
     ('boss', track_boss), ('ending', track_ending),
     ('jingle_ability', jingle_ability), ('jingle_quest', jingle_quest), ('jingle_save', jingle_save),
+    # 2~5장
+    ('school_day', track_school_day), ('kingdom', track_kingdom), ('kingdom_night', track_kingdom_night),
+    ('knight_duel', track_knight_duel), ('starbeast', track_starbeast), ('elf', track_elf),
+    ('elf_hunt', track_elf_hunt), ('herald', track_herald), ('temple', track_temple),
+    ('temple_dark', track_temple_dark), ('chase', track_chase), ('aurelia', track_aurelia),
+    ('star_tower', track_star_tower), ('lyra', track_lyra), ('despair', track_despair),
+    ('nine_tails', track_nine_tails), ('final', track_final), ('ending2', track_ending2),
+    ('festival', track_festival),
+    ('jingle_spell', jingle_spell), ('jingle_levelup', jingle_levelup), ('jingle_chapter', jingle_chapter),
 ]
-LOOP_KB_PER_SEC = 10.5         # 루프 곡 용량 상한: 초당 약 10.5 KB (≈ 86 kbps) → 8곡 합계 최대 약 4.7 MB
+LOOP_KB_PER_SEC = 10.5         # 루프 곡 용량 상한: 초당 약 10.5 KB (≈ 86 kbps)
+LOOP_MAX_KB = 700              # 곡 하나의 최대 용량 (90초짜리 엔딩 곡도 이 안에서 품질을 고른다)
 JINGLE_BUDGET = 70 * 1024
 
 
@@ -1562,7 +3650,7 @@ def render(job):
     ogg_path = os.path.join(out_dir, name + '.ogg')
     write_wav(wav_path, L, R)
     dur = len(L) / SR
-    budget = JINGLE_BUDGET if name.startswith('jingle') else int(dur * LOOP_KB_PER_SEC * 1024)
+    budget = JINGLE_BUDGET if name.startswith('jingle') else int(min(dur * LOOP_KB_PER_SEC, LOOP_MAX_KB) * 1024)
     q = encode_ogg(wav_path, ogg_path, budget)
     return {'name': name, 'sec': dur, 'time': time.time() - t0, 'synth': synth_t, 'q': q,
             'kb': os.path.getsize(ogg_path) / 1024.0, 'info': info}
