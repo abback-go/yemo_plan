@@ -76,7 +76,7 @@ class MapDraw extends Control:
 		var w := World.get_world()
 		if w and w.room:
 			_ppos = (w.player.global_position / w.room.size_px).clamp(Vector2.ZERO, Vector2.ONE)
-		for id in RoomIndex.ROOMS:
+		for id in RoomIndex.all():
 			var d := RoomIndex.data(id)
 			if d and d.area == _area:
 				_rooms.append(d)

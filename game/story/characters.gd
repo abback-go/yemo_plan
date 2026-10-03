@@ -86,8 +86,26 @@ const DB := {
 }
 
 
+static var _merged := {}
+
+
+## 인물 정보: 1장 DB + 장별 확장(story/data_<장>.gd 의 CHARACTERS). 같은 ID면 확장의 키가 덮어씀(예: 5장이 교장에게 전용 그림을 줌)
 static func info(who: String) -> Dictionary:
-	return DB.get(who, DB["student_a"])
+	if _merged.has(who):
+		return _merged[who]
+	var ext: Dictionary = ChapterRegistry.characters().get(who, {})
+	var out: Dictionary
+	if DB.has(who):
+		out = DB[who]
+		if not ext.is_empty():
+			out = out.duplicate()
+			out.merge(ext, true)
+	elif not ext.is_empty():
+		out = ext
+	else:
+		return DB["student_a"]
+	_merged[who] = out
+	return out
 
 
 static func display_name(who: String) -> String:

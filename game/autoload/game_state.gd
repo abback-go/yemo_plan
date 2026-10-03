@@ -37,6 +37,7 @@ var stats := {}
 var settings := {
 	"master": 0.9, "music": 0.75, "sfx": 0.85,
 	"fullscreen": false, "shake": true, "damage_numbers": true, "touch_scale": 1,
+	"difficulty": 0, ## 0 쉬움(초보자, 기본) · 1 보통 (docs/bible/balance.md 3절)
 }
 
 
@@ -109,6 +110,18 @@ func has_flag(key: String) -> bool:
 func set_flag(key: String, value: Variant = true) -> void:
 	flags[key] = value
 	flag_changed.emit(key)
+
+
+## 초보자 난이도인가 (기본값)
+func easy() -> bool:
+	return int(settings.get("difficulty", 0)) == 0
+
+
+## 적 체력 배율: 쉬움이면 일반 0.7 · 보스 0.75
+func difficulty_hp_mult(boss: bool) -> float:
+	if not easy():
+		return 1.0
+	return 0.75 if boss else 0.7
 
 
 ## 해금 능력: storm(화염 폭풍), double_jump(부양), fox_window(여우창문), fox_mode(여우 모드), neoul(너울 동행)

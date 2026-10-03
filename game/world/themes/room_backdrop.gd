@@ -99,6 +99,52 @@ static func _particles(room: Room) -> CPUParticles2D:
 			p.initial_velocity_max = 20.0
 			p.amount = maxi(p.amount / 3, 10)
 			col = Color(0.55, 0.5, 0.9, 0.5)
+		"fireflies":
+			p.direction = Vector2(0.3, -1)
+			p.gravity = Vector2(2, -3)
+			p.initial_velocity_min = 2.0
+			p.initial_velocity_max = 8.0
+			col = Color(0.85, 1.0, 0.45, 0.8)
+			p.material = Fx.add_material
+		"stars":
+			p.direction = Vector2(0.2, -1)
+			p.gravity = Vector2(0, -2)
+			p.initial_velocity_min = 1.0
+			p.initial_velocity_max = 4.0
+			col = Color(1.0, 0.95, 0.75, 0.75)
+			p.material = Fx.add_material
+		"light":
+			p.direction = Vector2.UP
+			p.gravity = Vector2(0, -8)
+			p.initial_velocity_min = 3.0
+			p.initial_velocity_max = 10.0
+			col = Color(1.0, 0.88, 0.5, 0.6)
+			p.material = Fx.add_material
+		"spores":
+			p.direction = Vector2(0.4, -1)
+			p.gravity = Vector2(1, -4)
+			p.initial_velocity_min = 2.0
+			p.initial_velocity_max = 7.0
+			col = Color(0.4, 1.0, 0.85, 0.55)
+			p.material = Fx.add_material
+		"ash":
+			p.direction = Vector2(0.6, 1)
+			p.gravity = Vector2(6, 10)
+			p.initial_velocity_min = 4.0
+			p.initial_velocity_max = 14.0
+			col = Color(0.75, 0.7, 0.68, 0.55)
+		"blight":
+			p.direction = Vector2(0.2, 1)
+			p.gravity = Vector2(2, 6)
+			p.initial_velocity_min = 2.0
+			p.initial_velocity_max = 8.0
+			col = Color(0.95, 0.95, 1.0, 0.6)
+		"leaves":
+			p.direction = Vector2(1, 0.5)
+			p.gravity = Vector2(5, 9)
+			p.initial_velocity_min = 5.0
+			p.initial_velocity_max = 14.0
+			col = Color(0.55, 0.85, 0.35, 0.65)
 		"petals":
 			p.direction = Vector2(1, 0.3)
 			p.gravity = Vector2(6, 8)
@@ -130,12 +176,23 @@ class SkyDraw extends Control:
 	var theme_name := ""
 	var _t := 0.0
 
+	var _ext: GDScript = null ## 이 하늘을 그리는 장별 배경 스크립트
+
+	func _ready() -> void:
+		for s in ChapterRegistry.backdrop_scripts():
+			if s.has_sky(theme_name):
+				_ext = s
+				break
+
 	func _process(delta: float) -> void:
 		_t += delta
-		if theme_name in ["shingye", "exterior"]:
+		if theme_name in ["shingye", "exterior"] or _ext != null:
 			queue_redraw()
 
 	func _draw() -> void:
+		if _ext != null:
+			_ext.draw_sky(self, theme_name, pal, _t)
+			return
 		var top: Color = pal.sky_top
 		var bot: Color = pal.sky_bottom
 		var steps := 24
@@ -178,6 +235,9 @@ class BackdropLayer extends Node2D:
 
 	func _ready() -> void:
 		_animated = theme_name == "clock" and depth != FRONT
+		for s in ChapterRegistry.backdrop_scripts():
+			if s.is_animated(theme_name, depth):
+				_animated = true
 		z_index = -10 + depth * 2 if depth != FRONT else 0
 
 	func _process(delta: float) -> void:
@@ -199,6 +259,10 @@ class BackdropLayer extends Node2D:
 	func _draw() -> void:
 		_rng.seed = rng_seed
 		var span := _span()
+		# 2장부터의 지역: world/themes/backdrop_<장>.gd
+		for s in ChapterRegistry.backdrop_scripts():
+			if s.draw_layer(self, theme_name, depth, span, _rng, _t):
+				return
 		match theme_name:
 			"shingye": _draw_shingye(span)
 			"shrine": _draw_shrine(span)

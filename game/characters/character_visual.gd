@@ -7,6 +7,11 @@ var who := "student_a"
 var info := {}
 var walking := false
 var talking := false
+## 강자 등 전용 그림(Characters 정보의 "draw" 스크립트)이 읽는 자세 이름과 그 자세가 된 뒤 지난 시간.
+## 예: "idle", "attack", "windup", "guard", "cast", "hurt", "down", "kneel", "aim" — 그리는 스크립트가 아는 것만 반영된다.
+var pose := ""
+var pose_t := 0.0
+var _custom: GDScript = null
 var _t := 0.0
 var _blink := 0.0
 var _phase := 0.0
@@ -16,10 +21,33 @@ func setup(p_who: String) -> void:
 	who = p_who
 	info = Characters.info(who)
 	_t = randf() * 5.0
+	_custom = null
+	if info.has("draw") and ResourceLoader.exists(String(info.draw)):
+		_custom = load(String(info.draw)) as GDScript
+
+
+func set_pose(p: String) -> void:
+	if p != pose:
+		pose = p
+		pose_t = 0.0
+
+
+## 전용 그림 스크립트용: 시간·눈 깜빡임·걸음 위상
+func time() -> float:
+	return _t
+
+
+func blinking() -> bool:
+	return _blink > 0.0
+
+
+func walk_phase() -> float:
+	return _phase
 
 
 func _process(delta: float) -> void:
 	_t += delta
+	pose_t += delta
 	if walking:
 		_phase += delta * 10.0
 	_blink -= delta
@@ -34,6 +62,10 @@ func _draw() -> void:
 		return
 	if info.is_empty():
 		info = Characters.info(who)
+	# 강자 등 전용 그림: static func draw_body(v: CharacterVisual) (원점 발밑, +x가 바라보는 쪽)
+	if _custom != null:
+		_custom.draw_body(self)
+		return
 	var h := float(info.get("height", 32))
 	var robe: Color = info.robe
 	var robe2: Color = info.robe2

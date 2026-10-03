@@ -21,8 +21,19 @@ const LIST := [
 ]
 
 
+static var _all: Array = []
+
+
+## 1장 목록 + 장별 확장(story/data_<장>.gd 의 OBJECTIVES)을 장 순서대로
+static func all() -> Array:
+	if _all.is_empty():
+		_all = LIST.duplicate()
+		_all.append_array(ChapterRegistry.objectives())
+	return _all
+
+
 static func current() -> String:
-	for row in LIST:
+	for row in all():
 		var req: String = row[2]
 		if req != "" and not GameState.has_flag(req):
 			continue
@@ -34,7 +45,7 @@ static func current() -> String:
 
 static func done_list() -> Array:
 	var out := []
-	for row in LIST:
+	for row in all():
 		if GameState.has_flag(row[0]):
 			out.append(row[1])
 	return out

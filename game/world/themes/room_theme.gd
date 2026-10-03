@@ -86,4 +86,6 @@ const THEMES := {
 
 
 static func get_theme(name: String) -> Dictionary:
-	return THEMES.get(name, THEMES["hall"])
+	if THEMES.has(name):
+		return THEMES[name]
+	return ChapterRegistry.themes().get(name, THEMES["hall"])

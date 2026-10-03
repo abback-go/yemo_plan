@@ -38,10 +38,25 @@ func setup(room: Room, e: Dictionary) -> void:
 		"torch": glow_pos = Vector2(0, -26); glow_r = 56.0; glow_col = Color(1.0, 0.6, 0.3)
 		"lamp_green": glow_pos = Vector2(0, -20); glow_r = 40.0; glow_col = Color(0.6, 1.0, 0.7)
 		"magic_circle": glow_pos = Vector2(0, -4); glow_r = 60.0; glow_col = Color(0.7, 0.55, 1.0)
+	if glow_r <= 0.0 and not _animated:
+		for s in ChapterRegistry.prop_scripts():
+			var inf: Dictionary = s.setup_info(kind, self)
+			if inf.is_empty():
+				continue
+			_animated = bool(inf.get("animated", false))
+			glow_r = float(inf.get("glow_r", 0.0))
+			glow_pos = inf.get("glow_pos", Vector2.ZERO)
+			glow_col = inf.get("glow_col", glow_col)
+			break
 	if glow_r > 0.0:
 		_glow = LightGlow.make(glow_pos, glow_r, glow_col, float(e.get("glow", 0.45)))
 		_glow.z_index = 9
 		add_child(_glow)
+
+
+## 장별 소품 그림이 쓰는 시간 (초)
+func time() -> float:
+	return _t
 
 
 func _process(delta: float) -> void:
@@ -333,4 +348,7 @@ func _draw() -> void:
 			for i in 4:
 				draw_rect(Rect2(-12 + i * 6, -4 - (i % 2) * 3, 5, 4 + (i % 2) * 3), Color("#4a4458").darkened(i * 0.05))
 		_:
-			pass
+			# 2장부터의 소품: world/entities/<장>/props.gd 의 draw(prop, kind)
+			for s in ChapterRegistry.prop_scripts():
+				if s.draw(self, kind):
+					break

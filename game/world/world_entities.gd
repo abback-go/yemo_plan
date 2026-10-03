@@ -17,7 +17,7 @@ const KINDS := {
 
 
 static func make(t: String, room: Room, e: Dictionary, eid: String) -> Node:
-	var path: String = KINDS.get(t, "")
+	var path: String = KINDS.get(t, ChapterRegistry.entity_kinds().get(t, ""))
 	if path == "" or not ResourceLoader.exists(path):
 		return null
 	var n: Node = (load(path) as GDScript).new()

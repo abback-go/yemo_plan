@@ -906,6 +906,8 @@ func take_damage(amount: int, cause: StringName, from_x: float, forced := false)
 		return false
 	if not forced and is_invincible():
 		return false
+	if GameState.easy():
+		amount = mini(amount, 1) # 초보자: 무엇이든 최대 1칸
 	hp = maxi(hp - amount, 0)
 	GameState.hp = hp
 	GameState.add("hits_" + String(cause))

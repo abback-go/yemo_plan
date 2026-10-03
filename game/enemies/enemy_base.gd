@@ -46,6 +46,7 @@ func _ready() -> void:
 	collision_mask = GameConst.L_WORLD | GameConst.L_PLATFORM
 	floor_snap_length = 4.0
 	_build()
+	max_hp = maxi(int(round(max_hp * GameState.difficulty_hp_mult(is_boss))), 1)
 	hp = max_hp
 
 	var col := CollisionShape2D.new()

@@ -21,7 +21,7 @@ const KINDS := {
 
 
 static func create(kind: String) -> EnemyBase:
-	var path: String = KINDS.get(kind, "")
+	var path: String = KINDS.get(kind, ChapterRegistry.enemy_kinds().get(kind, ""))
 	if path == "" or not ResourceLoader.exists(path):
 		return null
 	var res := load(path)

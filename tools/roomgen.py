@@ -10,8 +10,13 @@ game/world/rooms/<id>.gd (RoomData 상속) 파일로 써 낸다.
 지형 문자: # 벽  = 통과 발판  ^ 가시  I 환영 벽  H 숨은 발판  W 부서지는 벽  . 빈칸
 개체의 y는 '발이 닿는 바닥 타일의 행'(바닥 윗면).
 """
+import glob
+import importlib
 import os
 import sys
+
+# 장별 모듈(tools/rooms/*.py)이 `from roomgen import Room, room, overlay` 로 같은 모듈을 쓰게
+sys.modules.setdefault("roomgen", sys.modules[__name__])
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "game", "world", "rooms")
@@ -134,11 +139,39 @@ def gd_dict(d):
 
 
 ROOMS = {}
+OVERLAYS = {}  # 방 ID → 덧붙일 개체 목록 (다른 장 모듈이 학교 방 등에 NPC·문·장치를 더할 때)
 
 
 def room(fn):
     ROOMS[fn.__name__] = fn
     return fn
+
+
+def overlay(room_id, t, **kw):
+    """이미 있는 방(1장 학교 방 등)에 개체를 덧붙인다. 지형은 못 바꾼다(문·NPC·트리거·장치만).
+    보통 cond="플래그"(그 장에만 보이게)를 함께 준다."""
+    e = dict(t=t)
+    e.update(kw)
+    OVERLAYS.setdefault(room_id, []).append(e)
+    return e
+
+
+def build(name):
+    r = ROOMS[name]()
+    r.ents.extend(OVERLAYS.get(r.id, []))
+    return r
+
+
+def load_modules():
+    """tools/rooms/*.py (2장부터의 방 모듈)를 불러온다. 파일 이름 순서 = 장 순서"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    for path in sorted(glob.glob(os.path.join(here, "rooms", "*.py"))):
+        name = os.path.splitext(os.path.basename(path))[0]
+        if name.startswith("_"):
+            continue
+        importlib.import_module("rooms." + name)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -977,9 +1010,19 @@ def clear(g, x, y):
     return g[y][x] not in SOLID
 
 
-def reach(r, start, dj):
+def updrafts(r):
+    """상승 기류(불꽃 날개로 탐): updraft 개체의 칸 범위 (x0, x1, y_top, y_bot)"""
+    out = []
+    for e in r.ents:
+        if e.get("t") == "updraft":
+            out.append((e["x"], e["x"] + e.get("w", 2) - 1, e["y"], e["y"] + e.get("h", 8) - 1))
+    return out
+
+
+def reach(r, start, dj, wings=False):
     g = r.g if not REVEAL[0] else [[("." if c == "I" else c) for c in row] for row in r.g]
     H = 7 if dj else 4
+    drafts = updrafts(r) if wings else []
     seen = {start}
     stack = [start]
     while stack:
@@ -1005,9 +1048,16 @@ def reach(r, start, dj):
                 yy += 1
             if standable(g, x, yy):
                 nxt.append((x, yy))
-        # 점프
-        for dy in range(-6, H + 1):
-            wmax = max(3, 11 - max(dy, 0))
+        # 상승 기류: 기류 기둥 안(또는 바로 옆)에서는 기류 꼭대기까지 솟아 그 근처에 내릴 수 있다
+        for (x0, x1, yt, yb) in drafts:
+            if x0 - 2 <= x <= x1 + 2 and yt - 2 <= y <= yb + 2:
+                for tx in range(x0 - 8, x1 + 9):
+                    for ty in range(yt - 3, yb + 1):
+                        if standable(g, tx, ty):
+                            nxt.append((tx, ty))
+        # 점프 (불꽃 날개면 아래로 갈수록 활공으로 더 멀리: 떨어진 높이 1칸당 약 3칸)
+        for dy in range(-12 if wings else -6, H + 1):
+            wmax = max(3, 11 - max(dy, 0)) + (3 * max(-dy, 0) + 6 if wings else 0)
             for dx in range(-wmax, wmax + 1):
                 tx, ty = x + dx, y - dy
                 if (tx, ty) in seen or not standable(g, tx, ty):
@@ -1042,43 +1092,57 @@ def points(r):
     return out
 
 
-def check(r):
+def check(r, modes=("1j", "dj", "fox", "all")):
+    """도달 검사. 1j 한 번 점프 / dj 2단 점프 / fox 2단+여우창문 / all 모든 능력(2단+여우창문+불꽃 날개·상승 기류).
+    2장부터의 방은 all에서 문제가 없어야 한다(그 장의 게이트는 대본·개체로 막는다)."""
     pts = points(r)
     starts = [p for p in pts if p[0].startswith(("exit", "door"))]
     if not starts:
         return []
     probs = []
-    for mode in ("1j", "dj", "fox"):
+    for mode in modes:
         dj = mode != "1j"
-        REVEAL[0] = mode == "fox"
-        g = r.g if mode != "fox" else [[("." if c == "I" else c) for c in row] for row in r.g]
+        REVEAL[0] = mode in ("fox", "all")
+        g = r.g if not REVEAL[0] else [[("." if c == "I" else c) for c in row] for row in r.g]
         for name, st in starts:
             if not standable(g, *st):
                 if mode == "fox":
                     probs.append(f"{name} at {st} not standable")
                 continue
-            got = reach(r, st, dj)
+            got = reach(r, st, dj, wings=(mode == "all"))
             for n2, p2 in pts:
                 if n2 == name:
                     continue
                 near = any((p2[0] + d, p2[1]) in got for d in (-1, 0, 1))
-                if not near and (mode == "fox" or n2.startswith(("exit", "door"))):
+                if not near and (mode in ("fox", "all") or n2.startswith(("exit", "door"))):
                     probs.append(f"[{mode}] {name} -/-> {n2} {p2}")
     REVEAL[0] = False
     return probs
 
 
 def main():
-    if sys.argv[1:] == ["check"]:
-        for n, fn in ROOMS.items():
-            r = fn()
-            for p in check(r):
+    load_modules()
+    args = sys.argv[1:]
+    if args[:1] == ["check"]:
+        # check            모든 방(모든 모드)
+        # check all k_     ID가 k_로 시작하는 방만, all 모드만
+        modes = ("1j", "dj", "fox", "all")
+        prefix = ""
+        if len(args) >= 2:
+            modes = tuple(args[1].split(","))
+        if len(args) >= 3:
+            prefix = args[2]
+        for n in ROOMS:
+            if prefix and not n.startswith(prefix):
+                continue
+            r = build(n)
+            for p in check(r, modes):
                 print(n, p)
         return
     os.makedirs(OUT, exist_ok=True)
-    names = sys.argv[1:] or list(ROOMS)
+    names = args or list(ROOMS)
     for n in names:
-        r = ROOMS[n]()
+        r = build(n)
         path = os.path.join(OUT, r.id + ".gd")
         with open(path, "w", encoding="utf-8") as f:
             f.write(r.to_gd())

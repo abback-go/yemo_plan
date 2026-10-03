@@ -7,6 +7,7 @@ extends Control
 signal closed
 
 const SIZE_NAMES := ["작게", "보통", "크게"]
+const DIFF_NAMES := ["쉬움 (초보자)", "보통"]
 
 var _rows: Array = []
 var _sel := 0
@@ -30,6 +31,7 @@ func open() -> void:
 	]
 	if OS.get_name() != "Web":
 		_rows.append(["전체 화면", "fullscreen", "bool"])
+	_rows.append(["난이도", "difficulty", "size2"])
 	if DisplayServer.is_touchscreen_available() or TouchControls.active:
 		_rows.append(["터치 버튼 크기", "touch_scale", "size"])
 	_rows.append(["돌아가기", "", "back"])
@@ -72,6 +74,8 @@ func handle_input(event: InputEvent) -> bool:
 				GameState.settings[key] = not bool(GameState.settings[key])
 			"size":
 				GameState.settings[key] = wrapi(int(GameState.settings[key]) + (dir if dir != 0 else 1), 0, SIZE_NAMES.size())
+			"size2":
+				GameState.settings[key] = wrapi(int(GameState.settings[key]) + (dir if dir != 0 else 1), 0, DIFF_NAMES.size())
 		GameState.apply_settings()
 		GameState.save_settings()
 		Sfx.play(&"ui_move", 0.0, 0.0)
@@ -104,6 +108,8 @@ func _tap(lp: Vector2) -> bool:
 				GameState.settings[key] = not bool(GameState.settings[key])
 			"size":
 				GameState.settings[key] = wrapi(int(GameState.settings[key]) + 1, 0, SIZE_NAMES.size())
+			"size2":
+				GameState.settings[key] = wrapi(int(GameState.settings[key]) + 1, 0, DIFF_NAMES.size())
 		GameState.apply_settings()
 		GameState.save_settings()
 		Sfx.play(&"ui_move", 0.0, 0.0)
@@ -136,6 +142,8 @@ func _draw() -> void:
 				draw_string(_font, Vector2(300, y), "%d" % int(round(v * 100.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
 			"bool":
 				draw_string(_font, Vector2(150, y), "켜짐" if bool(GameState.settings[row[1]]) else "꺼짐", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
+			"size2":
+				draw_string(_font, Vector2(150, y), DIFF_NAMES[clampi(int(GameState.settings[row[1]]), 0, DIFF_NAMES.size() - 1)], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
 			"size":
 				draw_string(_font, Vector2(150, y), SIZE_NAMES[clampi(int(GameState.settings[row[1]]), 0, SIZE_NAMES.size() - 1)], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
 	draw_string(_font, Vector2(0, 22.0 + _rows.size() * 20.0 + 6), "눌러서 바꾸기" if TouchControls.active else "←→ 바꾸기 · Esc 돌아가기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(Palette.UI_DIM, 0.7))

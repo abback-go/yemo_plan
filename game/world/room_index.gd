@@ -1,6 +1,6 @@
 class_name RoomIndex
 extends RefCounted
-## 모든 방 ID 목록 (지도 화면·연결 검사용). 방을 추가하면 여기에도 적는다.
+## 모든 방 ID 목록 (지도 화면·연결 검사용). 1장 방은 여기, 2장부터는 story/data_<장>.gd 의 ROOMS (ChapterRegistry).
 
 const ROOMS := [
 	# 신계 (프롤로그)
@@ -13,6 +13,17 @@ const ROOMS := [
 ]
 
 static var _cache := {}
+static var _all: Array = []
+
+
+## 1장 + 장별 확장의 모든 방
+static func all() -> Array:
+	if _all.is_empty():
+		_all = ROOMS.duplicate()
+		for id in ChapterRegistry.rooms():
+			if not _all.has(id):
+				_all.append(id)
+	return _all
 
 
 static func data(id: String) -> RoomData:

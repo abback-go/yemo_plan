@@ -31,6 +31,11 @@ func _draw() -> void:
 	draw_rect(Rect2(0, 0, 72, 72), Color(0.05, 0.04, 0.09))
 	for i in 6:
 		draw_rect(Rect2(0, 72 - i * 12, 72, 12), Color(accent, 0.03 + i * 0.012))
+	# 강자 등 전용 초상화: static func draw_portrait(p: Portrait, info, expr, t, talking, blinking) — 72×72 안에
+	if info.has("portrait") and ResourceLoader.exists(String(info.portrait)):
+		(load(String(info.portrait)) as GDScript).draw_portrait(self, info, expr, _t, talking, _blink > 0.0)
+		draw_rect(Rect2(0, 0, 72, 72), Color(accent, 0.8), false, 1.0)
+		return
 	match who:
 		"neoul":
 			_draw_fox()

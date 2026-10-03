@@ -16,7 +16,9 @@ var _gen := 0 ## 부활·타이틀 이동 시 진행 중이던 컷신을 무효�
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	for path in SCRIPT_FILES:
+	var paths: Array = SCRIPT_FILES.duplicate()
+	paths.append_array(ChapterRegistry.script_paths())
+	for path in paths:
 		if ResourceLoader.exists(path):
 			_scripts.append((load(path) as GDScript).new())
 
@@ -51,6 +53,13 @@ func has_script(id: String) -> bool:
 func run(id: String, soft := false) -> void:
 	if id == "" or world == null:
 		return
+	# 인물 대화는 지금 장의 덮어쓰기(npc_<who>_ch<N>)가 있으면 그것을 쓴다 (docs/bible/progression.md 5절)
+	if id.begins_with("npc_"):
+		for n in range(int(GameState.flag("chapter", 1)), 1, -1):
+			var alt := "%s_ch%d" % [id, n]
+			if has_script(alt):
+				id = alt
+				break
 	for s in _scripts:
 		if s.has_method(id):
 			var gen := _gen
