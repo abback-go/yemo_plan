@@ -265,3 +265,27 @@ static func seal_stone(c: CanvasItem, base: Vector2, t: float, intact: float, cr
 		var cc := Color(1.0, 0.95, 0.8, 0.9)
 		c.draw_polyline(PackedVector2Array([base + Vector2(-4, -30), base + Vector2(-2, -22), base + Vector2(-5, -14), base + Vector2(-1, -6)]), Color(cc, crack), 1.0)
 		c.draw_polyline(PackedVector2Array([base + Vector2(13, -22), base + Vector2(7, -17), base + Vector2(9, -9)]), Color(cc, crack), 1.0)
+
+
+## 문양 (종 받침·벽화 단서): moon · fox · flame · star · sun. 여우창문 벽화(HintMural)와 같은 모양을 작게
+static func symbol(c: CanvasItem, p: Vector2, kind: String, col: Color, bg: Color, s := 1.0) -> void:
+	match kind:
+		"moon":
+			c.draw_circle(p, 5.0 * s, col)
+			c.draw_circle(p + Vector2(2, -1.5) * s, 4.2 * s, bg)
+		"fox":
+			var pts := PackedVector2Array()
+			for v: Vector2 in [Vector2(-5, -1), Vector2(-6, -7), Vector2(-1.5, -4), Vector2(1.5, -4), Vector2(6, -7), Vector2(5, -1), Vector2(0, 4.5)]:
+				pts.append(p + v * s)
+			c.draw_colored_polygon(pts, col)
+		"flame":
+			c.draw_colored_polygon(PackedVector2Array([p + Vector2(-3.5, 4.5) * s, p + Vector2(0, -6.5) * s, p + Vector2(3.5, 4.5) * s]), col)
+		"star":
+			for k in 5:
+				var ang := -PI * 0.5 + TAU * k / 5.0
+				c.draw_line(p, p + Vector2(cos(ang), sin(ang)) * 5.5 * s, col, 1.5)
+		_:
+			c.draw_circle(p, 3.0 * s, col)
+			for k in 8:
+				var ang2 := TAU * k / 8.0
+				c.draw_line(p + Vector2(cos(ang2), sin(ang2)) * 4.0 * s, p + Vector2(cos(ang2), sin(ang2)) * 6.0 * s, col, 1.0)

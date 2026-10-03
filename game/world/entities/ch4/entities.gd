@@ -8,4 +8,7 @@ const KINDS := {
 	"seal_stone": "res://world/entities/ch4/seal_stone.gd", ## 금빛 봉인석: 유성 낙화로만 부서짐
 	"holy_chaser": "res://world/entities/ch4/holy_chaser.gd", ## 첨탑 추격: 신성 돌진 + 차오르는 금빛
 	"spire_plank": "res://world/entities/ch4/spire_plank.gd", ## 신성 돌진에 무너지는 비계 발판
+	"bell_puzzle": "res://world/entities/ch4/bell_puzzle.gd", ## 종 퍼즐: 순서·박자대로 울리면 플래그
+	"star_steps": "res://world/entities/ch4/star_steps.gd", ## 교장의 별빛 발판 (플래그가 서면 나타남)
+	"tp_ally": "res://world/entities/ch4/ally_keeper.gd", ## 동료 유지 (저장·부활 뒤에도 레오니가 곁에)
 }

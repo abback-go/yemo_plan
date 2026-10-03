@@ -3,8 +3,9 @@ extends Node2D
 ## 울리면: 크게 흔들리며 금빛 소리 고리가 퍼지고, 근처(13칸)의 종지기 망령(bell_wraith)이 3초 동안 귀를 막고 주저앉는다(빈틈).
 ## 화염탄은 "팅" 소리만 나고 울리지 않는다. 종 퍼즐(박자·순서)을 위해 rung 신호와 note·group·order를 둔다.
 ## 방 데이터: {t:"temple_bell", x, y(종 아래 바닥 행), top(매다는 천장 행), size("big"|"small"), hang(종 아래끝이 바닥에서 몇 칸 위, 기본 big 3·small 3.5),
-##            note(음 0~6), group, order, id}
+##            note(음 0~6), group, order, symbol(받침 문양: moon·fox·flame·star·sun — 벽화 단서와 맞춰 봄), id}
 ## 불기둥 표적이 되도록 pillar_target 무리에 들고, 위치(원점)는 종 아래 바닥 — 불기둥이 그 자리에서 솟아 종까지 닿는다(기둥 높이 7칸 안).
+## 종 퍼즐(bell_puzzle)이 set_mark()로 맞힌 종을 금빛으로 표시한다.
 
 signal rung(bell: Node)
 
@@ -22,6 +23,9 @@ var bell_top := 0.0 ## 종 머리 (지역 y)
 var note := 0
 var group := ""
 var order := 0
+var symbol := ""
+var marked := false
+var _mark_a := 0.0
 var _swing := 0.0
 var _swing_v := 0.0
 var _t := 0.0
@@ -42,6 +46,7 @@ func setup(room: Room, e: Dictionary, eid: String) -> void:
 	note = int(e.get("note", 2))
 	group = String(e.get("group", ""))
 	order = int(e.get("order", 0))
+	symbol = String(e.get("symbol", ""))
 	z_index = -1
 	_t = randf() * 4.0
 
@@ -106,8 +111,14 @@ func ring() -> void:
 	rung.emit(self)
 
 
+## 종 퍼즐: 맞힌 종을 금빛으로 표시 (틀리면 퍼즐이 모두 끔)
+func set_mark(on: bool) -> void:
+	marked = on
+
+
 func _process(delta: float) -> void:
 	_t += delta
+	_mark_a = move_toward(_mark_a, 1.0 if marked else 0.0, delta * 3.0)
 	_cool = maxf(_cool - delta, 0.0)
 	_glow = maxf(_glow - delta * 0.6, 0.0)
 	# 진자: 되돌아오는 힘 + 감쇠
@@ -125,4 +136,14 @@ func _draw() -> void:
 	var ang := _swing * 0.25 + sin(_t * 1.1) * 0.02
 	if _glow > 0.0:
 		ART.glow(self, Vector2(0, bell_top + size * 0.6), size * 1.6, Color(1.0, 0.85, 0.45), 0.6 * _glow)
-	ART.bell(self, pivot, rope, size, ang, ART.BELL_METAL, 0.0, 0.5 + _glow * 0.5)
+	if _mark_a > 0.0:
+		ART.glow(self, Vector2(0, bell_top + size * 0.6), size * 1.3, Color(1.0, 0.8, 0.35), (0.3 + 0.1 * sin(_t * 4.0)) * _mark_a)
+	ART.bell(self, pivot, rope, size, ang, ART.BELL_METAL, 0.0, 0.5 + _glow * 0.5 + _mark_a * 0.3)
+	if symbol != "":
+		# 바닥의 둥근 받침돌 + 금 문양
+		var base := Vector2(0, -5)
+		draw_rect(Rect2(-9, -3, 18, 3), Color("#3a3446"))
+		draw_circle(base, 7.0, Color("#4e4a62"))
+		draw_arc(base, 7.0, 0, TAU, 20, Color("#8a8296"), 1.0)
+		var gold := Color("#ffd870").lerp(Color(1.0, 1.0, 0.85), _mark_a * 0.6)
+		ART.symbol(self, base, symbol, Color(gold, 0.75 + 0.25 * _mark_a), Color("#4e4a62"), 0.85)
