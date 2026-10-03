@@ -14,7 +14,17 @@
 | 구조 전환 | 분량 감당 불가 시 선형 구조로 전환 가능 | [확정] |
 | 개발 기간 | 2년 이상 (아트 제외) | [확정] |
 | 개발 인원 | 개발 1 + 아트 1, 또는 AI 아트 생성 후 수정하는 1인 개발 | [확정] |
-| 엔진 | Godot 우선 검토, 함께 선정 | [미정] |
+| 엔진 | **Godot 4** (최신 안정판 4.7.2, 2026-08 기준) | [확정] |
+| 스크립트 언어 | GDScript 권장 (공식 문서·예제 중심, 웹 데모 빌드 가능. C#은 웹 내보내기 불가) | [후보] |
+| 콘솔·모바일 | 당장 계획 없음. 추후 필요 시 모바일은 공식 내보내기, 콘솔은 제3자 포팅 업체(Pineapple Works 등) 이용 | [확정] |
+
+### 엔진 선정 근거 (요약)
+- Steam(PC) 목표라 Godot의 콘솔 공식 미지원은 해당 없음. 콘솔 출시 절차(콘솔사 계약·심사·devkit)는 어느 엔진이든 동일.
+- 1인 개발 + Claude 협업 구조에서 텍스트 기반 씬(`.tscn`)과 가벼운 에디터가 유리.
+- MIT 라이선스, 매출 제한 없음.
+- 개발자 경험: Godot 처음, Unity 2개월 → 전환 비용 작다고 판단.
+- 감수할 점: 같은 장르(정밀 2D 액션)의 대형 흥행 레퍼런스와 기성 에셋이 Unity보다 적음 → 타격감 연출·대화·세이브 시스템 직접 구현 가능성.
+- 권장 다음 단계: 이동·점프·화염탄·적 1종·히트스톱/화면 흔들림만 담은 최소 프로토타입으로 손맛 검증.
 
 ## 2. 핵심 재미와 원칙
 
@@ -107,7 +117,7 @@
 
 ## 12. 미정 / 논의 대기
 
-- [ ] 엔진 선정 (Godot 우선 검토)
+- [x] 엔진 선정 → Godot 4 확정
 - [ ] 주인공 이름·나이·성격·외형
 - [ ] 여우신 이름
 - [ ] 메인 갈등, 최강의 마녀의 역할
@@ -125,3 +135,6 @@
 - 여우구슬 설화: https://encykorea.aks.ac.kr/Article/E0036434
 - 여우불: https://namu.wiki/w/%EC%97%AC%EC%9A%B0%EB%B6%88(%EC%84%A4%ED%99%94)
 - Steam AI 공개 규정: https://gigazine.net/gsc_news/en/20260120-steam-updates-ai-disclosure-guidelines
+- Godot 4.7.2 릴리스: https://gamedev.net/news/5172-godot-engine-472-stable-released/
+- Godot 콘솔 지원 문서: https://github.com/godotengine/godot-docs/blob/4.5/tutorials/platform/consoles.rst
+- Godot C# 플랫폼 지원: https://github.com/godotengine/godot-docs/blob/master/tutorials/scripting/c_sharp/index.rst
