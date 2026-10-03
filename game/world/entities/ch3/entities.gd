@@ -11,4 +11,5 @@ const KINDS := {
 	"moon_crystal": "res://world/entities/ch3/moon_crystal.gd", ## 달빛 수정: 되쏜 달빛에만 켜짐 (puzzle mode=all)
 	"archery_mark": "res://world/entities/ch3/archery_mark.gd", ## 활터 과녁 (엘라리엔의 부탁)
 	"root_gate": "res://world/entities/ch3/root_gate.gd", ## 뿌리 문: open_if가 서면 뿌리가 물러남
+	"white_pod": "res://world/entities/ch3/white_pod.gd", ## 흰 꼬투리: 사도가 피오를 가둔 고치 (대본이 crack())
 }

@@ -47,4 +47,8 @@ func _init() -> void:
 		{t = "prop", kind = "window", x = 10, y = 11, w = 4, h = 6},
 		{t = "prop", kind = "window", x = 22, y = 11, w = 4, h = 6},
 		{t = "prop", kind = "window", x = 32, y = 11, w = 4, h = 6},
+		{t = "prop", kind = "eilach_sapling", x = 22, y = 19, white = 0.6, cond = "e_start,!e_herald_done"},
+		{t = "prop", kind = "eilach_sapling", x = 22, y = 19, white = 0.0, cond = "e_herald_done"},
+		{t = "spawn", id = "ch3", x = 16, y = 19, face = "right"},
+		{t = "npc", id = "pippa_gh", who = "pippa", x = 27, y = 19, face = "left", cond = "e_start,!ch3_done"},
 	]

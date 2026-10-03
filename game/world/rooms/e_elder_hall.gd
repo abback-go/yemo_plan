@@ -3,12 +3,12 @@ extends RoomData
 
 
 func _init() -> void:
-	id = "s_headmaster"
-	title = "마녀학교 · 교장실"
-	area = "school"
-	theme = "room"
-	music = "school"
-	cell = Vector2i(7, 0)
+	id = "e_elder_hall"
+	title = "세계수 · 장로의 집"
+	area = "elf"
+	theme = "elf"
+	music = "elf"
+	cell = Vector2i(11, 8)
 	cells = Vector2i(1, 1)
 	map = """
 ########################################
@@ -36,15 +36,17 @@ func _init() -> void:
 ########################################
 """
 	entities = [
-		{t = "door", id = "door", x = 4, y = 19, to = "s_clock", to_id = "hm", style = "grand", label = "시계탑"},
-		{t = "npc", id = "astrid", who = "astrid", x = 26, y = 19, face = "left"},
-		{t = "prop", kind = "desk", x = 29, y = 19, w = 4},
-		{t = "prop", kind = "bookshelf", x = 12, y = 19, w = 4, h = 10},
-		{t = "prop", kind = "bookshelf", x = 36, y = 19, w = 3, h = 10},
-		{t = "prop", kind = "window", x = 20, y = 14, w = 5, h = 10},
-		{t = "prop", kind = "globe", x = 33, y = 19},
-		{t = "prop", kind = "fox_statue", x = 17, y = 19},
-		{t = "prop", kind = "painting", x = 26, y = 11, w = 4, h = 4, col = Color("#1a2a5a")},
-		{t = "prop", kind = "candles", x = 8, y = 19},
-		{t = "trigger", id = "t_ch3", x = 8, y = 11, w = 3, h = 8, run = "e_headmaster", cond = "e_start,!e_letter"},
+		{t = "door", id = "door", x = 5, y = 19, to = "e_roots", to_id = "elder", style = "wood", label = "뿌리 마을"},
+		{t = "npc", id = "ortia", who = "ortia", x = 27, y = 19, face = "left"},
+		{t = "prop", kind = "elder_shelf", x = 12, y = 19, w = 3, h = 5},
+		{t = "prop", kind = "elder_shelf", x = 35, y = 19, w = 2, h = 4},
+		{t = "prop", kind = "tea_set", x = 31, y = 19},
+		{t = "prop", kind = "herb_rack", x = 18, y = 19},
+		{t = "prop", kind = "round_window", x = 22, y = 9, r = 3},
+		{t = "prop", kind = "spirit_statue", x = 8, y = 19},
+		{t = "prop", kind = "firefly_jar", x = 24, y = 19},
+		{t = "prop", kind = "elf_banner", x = 30, y = 2, h = 5},
+		{t = "prop", kind = "eilach_sapling", x = 33, y = 19, white = 0.0},
+		{t = "prop", kind = "elf_lantern", x = 16, y = 2, len = 2},
+		{t = "prop", kind = "elf_lantern", x = 26, y = 2, len = 3},
 	]

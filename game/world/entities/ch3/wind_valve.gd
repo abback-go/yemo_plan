@@ -4,7 +4,7 @@ extends Node2D
 ## 한 칸 돌아가며 플래그(flag)를 켜고 끈다. 바람길 개체가 그 플래그를 읽는다:
 ##   상승 기류(공용 updraft)  on_if = "valve_a"   → 밸브가 "위"일 때 켜짐
 ##   옆바람(crosswind)        on_if = "!valve_a"  → 밸브가 "옆"일 때 켜짐
-## 고장 난 밸브(broken = true): 녹슨 톱니가 끼어 있다 — 불로 세 번 데우면 풀린다(fix_flag). 티엘의 부탁(e_tiel_valve).
+## 고장 난 밸브(broken = true): 녹슨 톱니가 끼어 있다 — 불로 세 번 데우면 풀린다(fix_flag) → 곧장 "켜짐". 티엘의 부탁(e_tiel_valve).
 ## 방 데이터: {t = "wind_valve", x, y, flag, start = false(처음 값), broken = false, fix_flag = "", up = true(켜짐 = 위 화살표)}
 
 const BRASS := Color("#c8a050")
@@ -76,6 +76,9 @@ func take_hit(hit: Hit) -> void:
 			broken = false
 			if fix_flag != "":
 				GameState.set_flag(fix_flag)
+			# 풀리면 바로 "켜짐"으로 한 칸 돈다 (고친 보람 — 바람이 곧장 살아남)
+			GameState.set_flag(flag, true)
+			_target_ang = PI * 0.5
 			Sfx.play(&"ignite", 0.0, 0.0)
 			Ch3Sfx.play(&"wind", -2.0, 0.0)
 			Fx.ring(global_position + Vector2(0, -22), 4.0, 26.0, WIND, 0.4, 2.0)
