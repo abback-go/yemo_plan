@@ -1,0 +1,44 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://player/player.gd" id="1_rkbax"]
+[ext_resource type="Resource" path="res://player/player_tuning.tres" id="2_g1dw6"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_yw30f"]
+size = Vector2(12, 30)
+
+[node name="Player" type="CharacterBody2D" unique_id=249609249]
+floor_snap_length = 4.0
+script = ExtResource("1_rkbax")
+tuning = ExtResource("2_g1dw6")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=252475249]
+position = Vector2(0, -15)
+shape = SubResource("RectangleShape2D_yw30f")
+
+[node name="Visual" type="Node2D" parent="." unique_id=201362410]
+
+[node name="Flip" type="Node2D" parent="Visual" unique_id=1019098494]
+
+[node name="Body" type="ColorRect" parent="Visual/Flip" unique_id=34320884]
+offset_left = -7.0
+offset_top = -32.0
+offset_right = 7.0
+mouse_filter = 2
+color = Color(0.85, 0.3, 0.25, 1)
+
+[node name="FacingMark" type="ColorRect" parent="Visual/Flip" unique_id=769076561]
+offset_left = 2.0
+offset_top = -27.0
+offset_right = 6.0
+offset_bottom = -23.0
+mouse_filter = 2
+color = Color(1, 0.95, 0.8, 1)
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=2097977598]
+position = Vector2(0, -16)
+limit_left = 0
+limit_top = 0
+limit_right = 1280
+limit_bottom = 360
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
