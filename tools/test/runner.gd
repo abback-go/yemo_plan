@@ -31,6 +31,8 @@ var sframe := 0 ## 단계 시계 (waitidle 동안 멈춤)
 var _hold := 0 ## 0이 아니면 대기 중 (남은 한도)
 var _idle_n := 0
 var _god := false
+var _autoward := false
+var _autokill := 0 ## 적 탄이 가까우면 방벽(장착 칸)을 자동으로 세움 (방벽 수업 시험)
 
 
 func _tap(a: String) -> void:
@@ -92,6 +94,19 @@ func _process(_d: float) -> bool:
 	_release_next.clear()
 	if _auto and frame % 7 == 0:
 		_auto_advance()
+	if _autoward:
+		var ap = get_first_node_in_group("player")
+		if ap and ap.ward_cooldown_left <= 0.0 and not ap.is_warding():
+			for pr in get_nodes_in_group("enemy_projectile"):
+				if not pr.reflected and pr.global_position.distance_to(ap.center()) < 30.0:
+					var slot := "s" if load("res://core/spells.gd").equipped("s") == "ward" else "a"
+					ap.cast_slot(slot)
+					print("AUTOWARD f=", frame)
+					break
+	if _autokill > 0 and frame % _autokill == 0:
+		for e in get_nodes_in_group("enemy"):
+			if e.is_alive() and not e.is_boss:
+				e.take_hit(load("res://core/hit.gd").make(99999, &"bolt", e.global_position))
 	if _god:
 		var gp := get_first_node_in_group("player")
 		if gp:
@@ -278,6 +293,67 @@ func _process(_d: float) -> bool:
 			"ovl":
 				var p := get_first_node_in_group("player")
 				p.overload = float(s[2])
+			"quest":
+				# [frame, "quest", id] — 퀘스트 상태·단계
+				var qs = load("res://core/quests.gd")
+				print("QUEST ", s[2], " f=", frame, " state=", qs.state(s[2]), " step=", qs.step(s[2]), " tracker=", qs.tracker_line())
+			"spells":
+				var sp = load("res://core/spells.gd")
+				var ls := []
+				for id in sp.ORDER:
+					if sp.learned(id):
+						ls.append("%s:%d" % [id, sp.level(id)])
+				print("SPELLS ", s[2] if s.size() > 2 else "", " f=", frame, " learned=", ls, " eq=", [sp.equipped("a"), sp.equipped("s"), sp.equipped("f")], " stones=", sp.stones(), " total=", root.get_node("GameState").flag("mana_total", 0))
+			"hitg":
+				# [frame, "hitg", 그룹, 피해 종류, (속성, 값)] — 그룹의 장치를 order 순서로 맞힘 (별·과녁·촛불)
+				var ns: Array = get_nodes_in_group(s[2])
+				ns.sort_custom(func(a, b): return int(a.get("order") if a.get("order") != null else 0) < int(b.get("order") if b.get("order") != null else 0))
+				var n_hit := 0
+				for n in ns:
+					if s.size() > 5 and str(n.get(s[4])) != str(s[5]):
+						continue
+					n.take_hit(load("res://core/hit.gd").make(100, StringName(s[3]), n.global_position))
+					n_hit += 1
+				print("HITG ", s[2], " n=", n_hit, " f=", frame)
+			"projs":
+				var pp = get_first_node_in_group("player")
+				var ps := []
+				for pr in get_nodes_in_group("enemy_projectile"):
+					ps.append("%s r=%s" % [(pr.global_position / 16.0).snapped(Vector2(0.1, 0.1)), pr.reflected])
+				print("PROJS f=", frame, " player=", (pp.center() / 16.0).snapped(Vector2(0.1, 0.1)), " cd=", pp.ward_cooldown_left, " ", ps)
+			"litg":
+				var lits := []
+				for n in get_nodes_in_group(s[2]):
+					lits.append(n.get("lit"))
+				print("LIT ", s[2], " f=", frame, " ", lits)
+			"autoward":
+				_autoward = bool(s[2])
+			"flagval":
+				root.get_node("GameState").set_flag(s[2], s[3])
+			"talk":
+				# [frame, "talk", 인물] — 그 인물에게 말 걸기 (NPC의 대본, 퀘스트 대화 가로채기 포함)
+				var w = get_first_node_in_group("world")
+				var npc = w.room.actors.get(s[2])
+				if npc == null:
+					print("TALK no actor ", s[2])
+				else:
+					var p := get_first_node_in_group("player")
+					p.global_position = npc.global_position + Vector2(-24, 0)
+					npc.interact()
+			"board":
+				# [frame, "board", 마법ID] — 수업 게시판 창을 열고 그 수업을 신청
+				var w = get_first_node_in_group("world")
+				w.class_ui.open()
+				w.class_ui.sel = load("res://core/spells.gd").ORDER.find(s[2])
+				print("BOARD ", s[2], " status=", w.class_ui.status(s[2]))
+				if s.size() > 3 and s[3] == "peek":
+					return false
+				w.class_ui._apply()
+			"board_close":
+				get_first_node_in_group("world").class_ui.close()
+			"autokill":
+				# [frame, "autokill", n] — n프레임마다 보스 아닌 적을 모두 처치 (0 = 끔)
+				_autokill = int(s[2])
 			"quit":
 				return true
 	return false

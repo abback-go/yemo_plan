@@ -24,7 +24,7 @@
 
 - 방 크기·좌표 규칙은 1장과 같다(화면 1칸 40×23타일, 개체 y = 발이 닿는 바닥 행). 지도 칸(`cell`)은 **자기 영역(area) 안에서만** 겹치지 않으면 된다.
 - 방 도달 검사: `python3 tools/roomgen.py check all <접두사>` — 모든 능력(2단 점프+여우창문+불꽃 날개·상승 기류)으로 출구·문·기록·줍는 것 사이가 닿아야 한다. 장의 게이트는 지형이 아니라 **대본·개체**(문 잠금, `gate`, 역병 덩굴 장치 등)로 막는다. 상승 기류는 `updraft` 개체(6절).
-- 1장 개체 종류(그대로 사용): `exit`, `door`(lock·lock_msg·style), `spawn`, `save`(style), `trigger`(run·once·cond), `sign`(look·text — `|`로 쪽 나눔), `light`, `prop`, `pickup`, `brazier`, `gate`(open_if), `npc`(who·talk·face·cond), `enemy`(kind + 속성), `actor`, `event`(flag·run·done), `switch`, `target`, `float_lantern`, `puzzle`, `chaser`, `hint_mural`, `calm`, `cracked`. 모든 개체에 `cond`(플래그 식 — `"!flag"`, `"a&b"` 1장 규칙) 가능.
+- 1장 개체 종류(그대로 사용): `exit`, `door`(lock·lock_msg·style), `spawn`, `save`(style), `trigger`(run·once·cond), `sign`(look·text — `|`로 쪽 나눔), `light`, `prop`, `pickup`, `brazier`, `gate`(open_if), `npc`(who·talk·face·cond), `enemy`(kind + 속성), `actor`, `event`(flag·run·done), `switch`, `target`, `float_lantern`, `puzzle`, `chaser`, `hint_mural`, `calm`, `cracked`. 모든 개체에 `cond`(플래그 식 — 쉼표 = 그리고, `!` = 아님: `"k_met_leonie,!k_spar_done"`, 1장 `RoomData.cond_ok`) 가능.
 
 ## 2. 강자·인물 전용 그림
 - `data_<ext>.gd`의 `CHARACTERS["leonie"]`에 `"draw": "res://characters/special/leonie_draw.gd"`, `"portrait": "res://characters/special/leonie_portrait.gd"`를 넣으면 NPC·컷신·동료·보스 어디서든 그 그림을 쓴다. 이름·색·목소리 키(`name`, `color`, `voice`)는 필수.

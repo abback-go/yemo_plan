@@ -67,15 +67,41 @@ func emote(kind: String, time := 1.2) -> void:
 	_emote_t = time
 
 
+var _mark := "" ## 퀘스트 표시: "!" 받을 수 있음 · "…" 진행 중
+var _mark_t := 0.0
+var _t := 0.0
+
+
 func _process(delta: float) -> void:
+	_t += delta
+	_mark_t -= delta
+	if _mark_t <= 0.0:
+		_mark_t = 0.5
+		var m := ""
+		if Quests.available_for(who) != "":
+			m = "!"
+		elif Quests.active_for(who):
+			m = "…"
+		if m != _mark:
+			_mark = m
+			queue_redraw()
 	if _emote_t > 0.0:
 		_emote_t -= delta
 		if _emote_t <= 0.0:
 			_emote = ""
 		queue_redraw()
+	elif _mark != "":
+		queue_redraw()
 
 
 func _draw() -> void:
+	if _emote == "" and _mark != "":
+		var hh := float(visual.info.get("height", 32))
+		var y := -hh - 20.0 + sin(_t * 4.0) * 1.5
+		var col := Palette.GOLD if _mark == "!" else Color(0.75, 0.85, 1.0)
+		draw_string_outline(_font, Vector2(-3, y), _mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.7))
+		draw_string(_font, Vector2(-3, y), _mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col)
+		return
 	if _emote == "":
 		return
 	var h := float(visual.info.get("height", 32))

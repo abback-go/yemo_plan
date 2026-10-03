@@ -98,6 +98,7 @@ class HudDraw extends Control:
 			if not TouchControls.shown:
 				_draw_skills3(p)
 			_draw_objective()
+			_draw_minimap(w)
 			_draw_boss()
 			_draw_elite_bars(w)
 		else:
@@ -213,6 +214,9 @@ class HudDraw extends Control:
 			return
 		var a := _style_alpha
 		var right := 628.0
+		# 1장 데모 HUD에서는 오른쪽 위에 미니맵이 있으므로 스타일 랭크를 그 아래로
+		if World.get_world() != null:
+			draw_set_transform(Vector2(0, 48), 0.0, Vector2.ONE)
 
 		# 랭크 글자 (36px). 오를 때 크게 튀고, S 이상은 떨린다
 		var col: Color = RANK_COLORS[sr.rank]
@@ -260,6 +264,7 @@ class HudDraw extends Control:
 			var ea := a * clampf((1.2 - since) / 0.3, 0.0, 1.0)
 			draw_string_outline(_font, Vector2(right - 160, 96), sr.last_event, HORIZONTAL_ALIGNMENT_RIGHT, 160, 12, 4, Color(Palette.OUTLINE, ea))
 			draw_string(_font, Vector2(right - 160, 96), sr.last_event, HORIZONTAL_ALIGNMENT_RIGHT, 160, 12, Color(Palette.GOLD, ea))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	# ─── 1장 데모용 HUD (docs/chapter1.md 10절) ─────────────
 
@@ -281,7 +286,7 @@ class HudDraw extends Control:
 			return
 		var r := Rect2(12, 30, 72, 6)
 		if p.is_fox():
-			var k := p.fox_time / Player.FOX_DURATION
+			var k := clampf(p.fox_time / p.fox_duration(), 0.0, 1.0)
 			draw_rect(r.grow(1), Color("#0b0914"))
 			draw_rect(r, Color(0.08, 0.12, 0.25))
 			draw_rect(Rect2(r.position, Vector2(r.size.x * k, r.size.y)), Color(0.45, 0.78, 1.0).lerp(Color(0.9, 0.97, 1.0), 0.5 + 0.5 * sin(_t * 10.0)))
@@ -296,37 +301,77 @@ class HudDraw extends Control:
 			draw_colored_polygon(PackedVector2Array([c + Vector2(-6, -3), c + Vector2(-7, -9), c + Vector2(-2, -5), c + Vector2(2, -5), c + Vector2(7, -9), c + Vector2(6, -3), c + Vector2(0, 4)]), col)
 			if e < 1.0:
 				draw_arc(c + Vector2(0, -2), 9, -PI * 0.5, -PI * 0.5 + TAU * e, 16, Color(0.6, 0.88, 1.0, 0.8), 1.0)
+			# 꼬리 수 (장이 지날수록 늘어남)
+			var nt := p.tails()
+			if nt > 1:
+				draw_string(_font, c + Vector2(11, 5), "×%d" % nt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.6, 0.88, 1.0, 0.9))
 
+	## 오른쪽 아래 마법 칸: A·S(장착 마법) · F(고급 마법, 배웠을 때) · D(여우창문) — docs/magic.md 3절
 	func _draw_skills3(p: Player) -> void:
 		var fox := p.is_fox()
-		var slots := [
-			["A", p.pillar_cooldown_left, p.tuning.pillar_cooldown * (1.6 if fox else 1.0), true, 0],
-			["S", p.storm_cooldown_left, p.tuning.storm_cooldown * (1.2 if fox else 1.0), fox or GameState.has_ability("storm"), 1],
-		]
+		var slots := []
+		for sl in [["A", "a"], ["S", "s"]]:
+			var id := Spells.equipped(String(sl[1]))
+			if id == "" and sl[1] == "s" and fox:
+				id = "storm"
+			slots.append([sl[0], id])
+		if GameState.has_ability("meteor") or GameState.has_ability("phoenix"):
+			slots.append(["F", Spells.equipped("f")])
 		if GameState.has_ability("fox_window"):
-			slots.append(["D", 0.0, 1.0, true, 2])
+			slots.append(["D", "window"])
 		for i in slots.size():
 			var sl: Array = slots[i]
-			var box := Rect2(640 - 34 * slots.size() + i * 34 - 2, 318, 26, 26)
-			var unlocked: bool = sl[3]
-			var left: float = sl[1]
-			var ready := unlocked and left <= 0.0
+			var id: String = sl[1]
+			var big := String(sl[0]) == "F"
+			var bs := 30.0 if big else 26.0
+			var box := Rect2(640 - 34 * slots.size() + i * 34 - 2 - (4.0 if big else 0.0), 344 - bs, bs, bs)
+			var unlocked := id != ""
+			var cd := Vector2.ZERO
+			if unlocked and id != "window":
+				cd = p.spell_cooldown(id)
+			var ready := unlocked and cd.x <= 0.0
 			if i < 2:
 				if ready and not _was_ready[i]:
 					_ready_flash[i] = 1.0
 				_was_ready[i] = ready
-			draw_rect(box.grow(1), Color(0.55, 0.85, 1.0, 0.6) if fox and unlocked else Color("#0b0914"))
+			var frame_col := Color(0.55, 0.85, 1.0, 0.6) if fox and unlocked else (Color(Palette.GOLD, 0.7) if big else Color("#0b0914"))
+			draw_rect(box.grow(1), frame_col)
 			draw_rect(box, Color("#241a35") if not fox else Color("#14223a"))
 			if not unlocked:
-				draw_string(_font, box.position + Vector2(9, 18), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+				draw_string(_font, box.position + Vector2(box.size.x * 0.5 - 3, box.size.y * 0.5 + 5), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 			else:
-				_skill_icon3(int(sl[4]), box.get_center(), ready or int(sl[4]) == 2, fox)
-				if left > 0.0:
-					var k: float = clampf(left / float(sl[2]), 0.0, 1.0)
+				_spell_icon(id, box.get_center(), ready or id == "window", fox)
+				if cd.x > 0.0 and cd.y > 0.0:
+					var k: float = clampf(cd.x / cd.y, 0.0, 1.0)
 					draw_rect(Rect2(box.position, Vector2(box.size.x, box.size.y * k)), Color(0, 0, 0, 0.6))
+					if big:
+						draw_string(_font, box.position + Vector2(4, box.size.y - 4), "%d" % int(ceil(cd.x)), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
 			if i < 2 and _ready_flash[i] > 0.0:
 				draw_rect(box, Color(1, 0.9, 0.7, 0.5 * _ready_flash[i]), false, 1.0)
-			draw_string(_font, box.position + Vector2(2, -3), String(sl[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+			draw_string(_font, box.position + Vector2(2, -3), String(sl[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD if big else Palette.UI_DIM)
+
+	## 마법별 칸 그림
+	func _spell_icon(id: String, c: Vector2, ready: bool, fox: bool) -> void:
+		match id:
+			"pillar": _skill_icon3(0, c, ready, fox)
+			"storm": _skill_icon3(1, c, ready, fox)
+			"window": _skill_icon3(2, c, ready, fox)
+			_:
+				var a := 1.0 if ready else 0.5
+				var out := Color(0.35, 0.65, 1.0) if fox else Palette.FIRE_OUT
+				var hot := Color(0.85, 0.96, 1.0) if fox else Palette.FIRE_HOT
+				match id:
+					"ward":
+						draw_arc(c, 8.0, 0.0, TAU, 16, Color(out, a), 3.0)
+						draw_arc(c, 5.0, 0.0, TAU, 12, Color(hot, a), 1.0)
+					"meteor":
+						for j in 3:
+							var o := Vector2(-6 + j * 6, -7 + j * 4)
+							draw_line(c + o + Vector2(5, -5), c + o, Color(out, a * 0.7), 2.0)
+							draw_circle(c + o, 2.0, Color(hot, a))
+					"phoenix":
+						draw_colored_polygon(PackedVector2Array([c + Vector2(-9, -5), c + Vector2(0, 2), c + Vector2(9, -5), c + Vector2(3, 6), c + Vector2(-3, 6)]), Color(out, a))
+						draw_circle(c + Vector2(0, -2), 2.5, Color(hot, a))
 
 	func _skill_icon3(kind: int, c: Vector2, ready: bool, fox: bool) -> void:
 		var a := 1.0 if ready else 0.5
@@ -374,6 +419,10 @@ class HudDraw extends Control:
 		var y := 52.0
 		draw_rect(Rect2(12, y - 2, 3, 13), Color(Palette.GOLD, a))
 		draw_string(_font, Vector2(19, y + 9), text, HORIZONTAL_ALIGNMENT_LEFT, 300, 12, Color(Palette.UI_TEXT, a).lerp(Palette.GOLD, _obj_flash))
+		var tr := Quests.tracker_line()
+		if tr != "":
+			draw_rect(Rect2(12, y + 14, 3, 11), Color(0.6, 0.8, 1.0, a * 0.8))
+			draw_string(_font, Vector2(19, y + 23), tr, HORIZONTAL_ALIGNMENT_LEFT, 320, 12, Color(Palette.UI_DIM, a))
 
 	func _draw_boss() -> void:
 		var boss: EnemyBase = null
@@ -411,3 +460,30 @@ class HudDraw extends Control:
 			var r := Rect2(sp.x - 14, sp.y, 28, 3)
 			draw_rect(r.grow(1), Color(0.03, 0.02, 0.05, 0.8))
 			draw_rect(Rect2(r.position, Vector2(r.size.x * clampf(float(e.hp) / e.max_hp, 0.0, 1.0), r.size.y)), Color(0.9, 0.3, 0.3))
+
+	## 오른쪽 위 미니맵: 지금 지역의 다녀간 방들 (칸 하나 = 화면 1칸). 터치하면 지도가 열림 (docs/systems2.md)
+	func _draw_minimap(w: World) -> void:
+		if w.room == null or w.room.data == null:
+			return
+		var box := Rect2(506, 6, 96, 52)
+		draw_rect(box, Color(0.02, 0.015, 0.04, 0.55))
+		draw_rect(box, Color(0.55, 0.5, 0.75, 0.5), false, 1.0)
+		var cur := w.room.data
+		var cw := 12.0
+		var ch := 7.0
+		var center := box.get_center()
+		var pr := (w.player.global_position / w.room.size_px).clamp(Vector2.ZERO, Vector2.ONE)
+		var focus := Vector2(cur.cell) + Vector2(cur.cells) * pr
+		for id in RoomIndex.all():
+			var d := RoomIndex.data(id)
+			if d == null or d.area != cur.area or not GameState.visited.has(id):
+				continue
+			var r := Rect2(center + (Vector2(d.cell) - focus) * Vector2(cw, ch), Vector2(d.cells) * Vector2(cw, ch))
+			r = r.grow(-0.5)
+			var clip := r.intersection(box.grow(-2))
+			if clip.size.x <= 0.0 or clip.size.y <= 0.0:
+				continue
+			var is_cur: bool = d.id == cur.id
+			draw_rect(clip, Color("#4a3a6a") if is_cur else Color("#2a2440"))
+			draw_rect(clip, Color("#8a80b0", 0.8), false, 1.0)
+		draw_circle(center, 2.0 + 0.6 * sin(_t * 6.0), Color(1.0, 0.45, 0.35))

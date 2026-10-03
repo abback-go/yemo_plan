@@ -53,6 +53,11 @@ func has_script(id: String) -> bool:
 func run(id: String, soft := false) -> void:
 	if id == "" or world == null:
 		return
+	# 진행 중인 퀘스트가 지금 단계에서 이 인물과의 대화를 기다리면 그 대본 (퀘스트 정의의 talk: [[단계, 인물, 대본ID], ...])
+	if id.begins_with("npc_"):
+		var hook := Quests.talk_hook(id.substr(4))
+		if hook != "" and has_script(hook):
+			id = hook
 	# 인물 대화는 지금 장의 덮어쓰기(npc_<who>_ch<N>)가 있으면 그것을 쓴다 (docs/bible/progression.md 5절)
 	if id.begins_with("npc_"):
 		for n in range(int(GameState.flag("chapter", 1)), 1, -1):
