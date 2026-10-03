@@ -1,7 +1,8 @@
-"""3장 방 (docs/chapter3.md). roomgen.py가 불러온다.
+"""3장 방 (docs/chapter3.md 8~9절). roomgen.py가 불러온다.
 from roomgen import Room, room, overlay — 1장 roomgen.py와 같은 문법.
 
-지금(1단계)은 개발용 시험 방(dev_e_*)만 있다 — 지도·ROOMS에 넣지 않는다.
+본편: e_gate ~ e_crown_nest 32방 (아래 "3장 본편" 절) + 학교 덧붙임(overlay).
+개발용 시험 방(dev_e_*) — 지도·ROOMS에 넣지 않는다.
   dev_e_tree    세계수 마을 배경·소품·인물 전시 (elf, 3×1)
   dev_e_stage   빈 무대 — 인물 자세·초상화 점검 (elf, 3×1)
   dev_e_cave    뿌리 동굴 배경·버섯 퍼즐·적 (elf_deep, 2×1)
@@ -263,14 +264,36 @@ def item(r, iid, x, y, name, flag, text):
     r.add("pickup", id=iid, kind="key", x=x, y=y, name=name, flag=flag, text=text)
 
 
+# 퀘스트 모으기 세기 (quest_counter): 종류 → (퀘스트, 플래그들, 다 모이면 단계, 알림 이름)
+COUNTERS = {
+    "seed": ("e_fio_seeds", ["e_seed_%d" % i for i in range(1, 6)], 1, "반짝이 씨앗"),
+    "moss": ("e_pippa_moss", ["e_moss_%d" % i for i in range(1, 4)], 1, "빛이끼 표본"),
+    "valve": ("e_tiel_valve", ["e_valve_fix_%d" % i for i in range(1, 4)], 1, "고친 밸브"),
+    "tea": ("e_ortia_tea", ["e_tea_leaf", "e_tea_dew"], 1, "차 재료"),
+    "honey": ("e_honey", ["e_honey_got"], 1, ""),
+}
+
+
+def counter(r, kind):
+    """방마다 종류별로 하나만"""
+    key = "_ctr_" + kind
+    if getattr(r, key, False):
+        return
+    setattr(r, key, True)
+    q, flags, step, label = COUNTERS[kind]
+    r.add("quest_counter", id="qc_" + kind, quest=q, flags=flags, step=step, label=label)
+
+
 def seed(r, n, x, y):
     """피오의 반짝이 씨앗 (e_fio_seeds) — 퀘스트를 받기 전에 주워도 센다"""
     item(r, "seed_%d" % n, x, y, "반짝이 씨앗", "e_seed_%d" % n, "손바닥 위에서 별처럼 깜빡이는 씨앗. 피오가 찾던 거다.")
+    counter(r, "seed")
 
 
 def moss(r, n, x, y):
     """피피의 빛이끼 표본 (e_pippa_moss)"""
     item(r, "moss_%d" % n, x, y, "빛이끼 표본", "e_moss_%d" % n, "축축한 뿌리에서 살살 떼어 낸 빛이끼. 피피가 좋아하겠다.")
+    counter(r, "moss")
 
 
 def rocks(r, F, spans):
@@ -736,6 +759,7 @@ def e_wind_1():
     r.add("crosswind", id="cb", x=46, y=8, w=14, h=10, dir=-1, on_if="!e_valveB")
     r.fill(56, 19, 78, 20)
     r.add("wind_valve", id="vx", x=38, y=30, flag="e_valveX1", broken=True, fix_flag="e_valve_fix_1")
+    counter(r, "valve")
     r.add("updraft", id="ux", x=17, y=10, w=3, h=20, style="wind", on_if="e_valveX1")
     r.fill(2, 12, 12, 13)
     stone(r, "stone_wind1", 6, 12)
@@ -769,6 +793,7 @@ def e_wind_2():
     r.add("crosswind", id="cd", x=12, y=10, w=26, h=9, dir=-1, on_if="!e_valveD")
     r.fill(28, 19, 38, 20)
     r.add("wind_valve", id="vx", x=30, y=46, flag="e_valveX2", broken=True, fix_flag="e_valve_fix_2")
+    counter(r, "valve")
     r.add("updraft", id="ux", x=34, y=26, w=3, h=19, style="wind", on_if="e_valveX2")
     r.fill(26, 28, 33, 29)
     stone(r, "stone_wind2", 28, 28)
@@ -798,6 +823,7 @@ def e_wind_3():
     r.plat(46, 51, F - 3)
     r.add("updraft", id="ue", x=40, y=6, w=3, h=14, style="wind", on_if="e_valveE")
     r.add("wind_valve", id="vx", x=64, y=F, flag="e_valveX3", broken=True, fix_flag="e_valve_fix_3")
+    counter(r, "valve")
     r.add("updraft", id="ux", x=67, y=4, w=3, h=15, style="wind", on_if="e_valveX3")
     r.fill(70, 4, 78, 5)
     seed(r, 5, 75, 4)
@@ -909,6 +935,7 @@ def e_moonwell():
     r.add("trigger", id="t_moon", x=4, y=F - 8, w=2, h=8, run="e_moon_arrive", cond="e_wind_done,!e_moon_talk")
     r.fill(34, 1, 35, F - 7)
     r.add("root_gate", id="rg", x=34, y=F - 6, w=2, h=6, open_if="e_moon_lesson")
+    counter(r, "tea")
     item(r, "moonleaf", 30, F, "달샘의 달잎", "e_tea_leaf", "달빛을 머금어 은빛으로 빛나는 잎. 장로님 차에 들어간다고 했다.")
     r.add("prop", kind="moonwell", x=18, y=F, w=8)
     ferns(r, (3, 31), F)
@@ -997,6 +1024,7 @@ def e_secret_grove():
     r.add("pickup", id="feather_grove", kind="feather", x=6, y=F - 12, name="수호의 깃털", text="최대 체력이 1 늘었다.")
     stone(r, "stone_grove", 15, F - 8)
     note(r, "note_song3", 8, F, *SONG3)
+    counter(r, "honey")
     item(r, "honey", 25, F - 4, "숲 꿀", "e_honey_got", "오래된 벌집에서 흘러내린 황금빛 꿀. 버터워스 아주머니가 찾던 거다.")
     r.add("prop", kind="flower_bed", x=14, y=F, w=4)
     r.add("prop", kind="flower_bed", x=28, y=F, w=3)
@@ -1044,6 +1072,7 @@ def e_canopy_2():
     r.fill(30, 19, 38, 20)
     r.add("crosswind", id="cw", x=2, y=8, w=26, h=10, dir=1, power=0.7)
     stone(r, "stone_canopy2", 4, 30)
+    counter(r, "tea")
     item(r, "dew", 15, 26, "수관의 이슬", "e_tea_dew", "높은 잎에 고인 맑은 이슬. 장로님 차에 들어간다.")
     r.add("enemy", id="spore1", kind="blight_spore", x=26, y=38, face="left")
     r.add("enemy", id="stalker1", kind="vine_stalker", x=34, y=19, face="left")

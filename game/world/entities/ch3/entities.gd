@@ -12,4 +12,5 @@ const KINDS := {
 	"archery_mark": "res://world/entities/ch3/archery_mark.gd", ## 활터 과녁 (엘라리엔의 부탁)
 	"root_gate": "res://world/entities/ch3/root_gate.gd", ## 뿌리 문: open_if가 서면 뿌리가 물러남
 	"white_pod": "res://world/entities/ch3/white_pod.gd", ## 흰 꼬투리: 사도가 피오를 가둔 고치 (대본이 crack())
+	"quest_counter": "res://world/entities/ch3/quest_counter.gd", ## 퀘스트 모으기 세기: "씨앗 3/5" 알림 + 다 모이면 단계
 }

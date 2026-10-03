@@ -10,4 +10,5 @@ const KINDS := {
 	"white_mite": "res://enemies/ch3/white_mite.gd", ## 백색 진드기 정예 1800 → 작은 둘(450, small = true)
 	"elarien_hunt": "res://enemies/ch3/elarien_hunt.gd", ## 엘라리엔 사냥 시험 (강자 보스, 세 번 닿기)
 	"white_herald": "res://enemies/ch3/white_herald.gd", ## 백색 사도 7000 (절정 보스, snipe_eye)
+	"isolde_duel": "res://enemies/ch3/isolde_duel.gd", ## 이졸데 결투 2000 (서브 s_duel_cup — 서리 조각·얼음 창·가시)
 }
