@@ -40,6 +40,7 @@ func _init() -> void:
 		{t = "pickup", id = "feather_grove", kind = "feather", x = 6, y = 7, name = "수호의 깃털", text = "최대 체력이 1 늘었다."},
 		{t = "pickup", id = "stone_grove", kind = "stone", x = 15, y = 11, name = "마도석"},
 		{t = "pickup", id = "note_song3", kind = "note", x = 8, y = 19, name = "엘프 노래 가사 · 셋째 장", text = "마녀에겐 두 제자가 있었네. 하나는 별을 세고, 하나는 별을 지켰지.|별을 세던 아이는 밤마다 하늘 너머를 오래 올려다봤다네.|…그 아이는 끝내, 별이 되고 싶어 했다지."},
+		{t = "quest_counter", id = "qc_honey", quest = "e_honey", flags = ["e_honey_got"], step = 1, label = ""},
 		{t = "pickup", id = "honey", kind = "key", x = 25, y = 15, name = "숲 꿀", flag = "e_honey_got", text = "오래된 벌집에서 흘러내린 황금빛 꿀. 버터워스 아주머니가 찾던 거다."},
 		{t = "prop", kind = "flower_bed", x = 14, y = 19, w = 4},
 		{t = "prop", kind = "flower_bed", x = 28, y = 19, w = 3},

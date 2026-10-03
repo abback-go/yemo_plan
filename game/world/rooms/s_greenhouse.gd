@@ -51,4 +51,5 @@ func _init() -> void:
 		{t = "prop", kind = "eilach_sapling", x = 11, y = 19, white = 0.0, cond = "e_herald_done"},
 		{t = "spawn", id = "ch3", x = 6, y = 19, face = "right"},
 		{t = "npc", id = "pippa_gh", who = "pippa", x = 14, y = 19, face = "left", cond = "e_start,!ch3_done"},
+		{t = "pickup", id = "st_ing_moss", kind = "key", x = 31, y = 14, name = "반딧불 이끼", flag = "st_ing_moss", text = "밤마다 빛나는 이끼. 피피의 물약 재료다.", cond = "q_st_pippa_stall"},
 	]

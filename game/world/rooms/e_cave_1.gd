@@ -48,6 +48,7 @@ func _init() -> void:
 		{t = "trigger", id = "t_dark", x = 8, y = 11, w = 2, h = 8, run = "e_cave_dark", cond = "!e_cave_mush"},
 		{t = "sign", x = 20, y = 19, look = "stone", text = "버섯지기의 낙서|아기 버섯부터 깨워라. 큰 버섯은 잠꾸러기.|(순서가 틀리면 다들 다시 잠든다)"},
 		{t = "pickup", id = "moss_1", kind = "key", x = 66, y = 14, name = "빛이끼 표본", flag = "e_moss_1", text = "축축한 뿌리에서 살살 떼어 낸 빛이끼. 피피가 좋아하겠다."},
+		{t = "quest_counter", id = "qc_moss", quest = "e_pippa_moss", flags = ["e_moss_1", "e_moss_2", "e_moss_3"], step = 1, label = "빛이끼 표본"},
 		{t = "enemy", id = "stag_calm", kind = "moss_stag", x = 72, y = 19, face = "left"},
 		{t = "prop", kind = "mushroom_glow", x = 6, y = 19, h = 1},
 		{t = "prop", kind = "mushroom_big", x = 31, y = 19, h = 3},

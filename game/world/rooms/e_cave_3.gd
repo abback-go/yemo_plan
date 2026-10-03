@@ -88,6 +88,7 @@ func _init() -> void:
 		{t = "pickup", id = "feather_cave", kind = "feather", x = 35, y = 37, name = "수호의 깃털", text = "최대 체력이 1 늘었다."},
 		{t = "pickup", id = "stone_cave3", kind = "stone", x = 4, y = 21, name = "마도석"},
 		{t = "pickup", id = "moss_2", kind = "key", x = 36, y = 53, name = "빛이끼 표본", flag = "e_moss_2", text = "축축한 뿌리에서 살살 떼어 낸 빛이끼. 피피가 좋아하겠다."},
+		{t = "quest_counter", id = "qc_moss", quest = "e_pippa_moss", flags = ["e_moss_1", "e_moss_2", "e_moss_3"], step = 1, label = "빛이끼 표본"},
 		{t = "enemy", id = "stalker1", kind = "vine_stalker", x = 32, y = 53, face = "left"},
 		{t = "enemy", id = "stalker2", kind = "vine_stalker", x = 28, y = 29, face = "left"},
 		{t = "prop", kind = "mushroom_big", x = 6, y = 65, h = 3},

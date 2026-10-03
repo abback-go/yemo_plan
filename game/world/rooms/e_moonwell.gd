@@ -48,6 +48,7 @@ func _init() -> void:
 		{t = "event", id = "ev", flag = "e_moon_puzzle", run = "e_moon_lesson", done = "e_moon_lesson_run"},
 		{t = "trigger", id = "t_moon", x = 4, y = 11, w = 2, h = 8, run = "e_moon_arrive", cond = "e_wind_done,!e_moon_talk"},
 		{t = "root_gate", id = "rg", x = 34, y = 13, w = 2, h = 6, open_if = "e_moon_lesson"},
+		{t = "quest_counter", id = "qc_tea", quest = "e_ortia_tea", flags = ["e_tea_leaf", "e_tea_dew"], step = 1, label = "차 재료"},
 		{t = "pickup", id = "moonleaf", kind = "key", x = 30, y = 19, name = "달샘의 달잎", flag = "e_tea_leaf", text = "달빛을 머금어 은빛으로 빛나는 잎. 장로님 차에 들어간다고 했다."},
 		{t = "prop", kind = "moonwell", x = 18, y = 19, w = 8},
 		{t = "prop", kind = "fern", x = 3, y = 19},

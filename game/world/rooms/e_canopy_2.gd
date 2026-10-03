@@ -63,6 +63,7 @@ func _init() -> void:
 		{t = "exit", id = "east", x = 39, y = 14, w = 1, h = 5, to = "e_canopy_3", to_id = "west"},
 		{t = "crosswind", id = "cw", x = 2, y = 8, w = 26, h = 10, dir = 1, power = 0.7},
 		{t = "pickup", id = "stone_canopy2", kind = "stone", x = 4, y = 30, name = "마도석"},
+		{t = "quest_counter", id = "qc_tea", quest = "e_ortia_tea", flags = ["e_tea_leaf", "e_tea_dew"], step = 1, label = "차 재료"},
 		{t = "pickup", id = "dew", kind = "key", x = 15, y = 26, name = "수관의 이슬", flag = "e_tea_dew", text = "높은 잎에 고인 맑은 이슬. 장로님 차에 들어간다."},
 		{t = "enemy", id = "spore1", kind = "blight_spore", x = 26, y = 38, face = "left"},
 		{t = "enemy", id = "stalker1", kind = "vine_stalker", x = 34, y = 19, face = "left"},

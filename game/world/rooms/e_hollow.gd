@@ -41,6 +41,7 @@ func _init() -> void:
 		{t = "pickup", id = "stone_hollow", kind = "stone", x = 25, y = 12, name = "마도석"},
 		{t = "pickup", id = "note_song2", kind = "note", x = 34, y = 19, name = "엘프 노래 가사 · 둘째 장", text = "불을 든 마녀가 숲에 왔네. 태우지 않는 불, 잠재우는 불.|마녀는 굳은 가지에 손을 얹고 웃었지. \"나무야, 조금만 자거라.\"|그 봄에 숲은 다시 초록이 되었다네."},
 		{t = "pickup", id = "moss_3", kind = "key", x = 15, y = 15, name = "빛이끼 표본", flag = "e_moss_3", text = "축축한 뿌리에서 살살 떼어 낸 빛이끼. 피피가 좋아하겠다."},
+		{t = "quest_counter", id = "qc_moss", quest = "e_pippa_moss", flags = ["e_moss_1", "e_moss_2", "e_moss_3"], step = 1, label = "빛이끼 표본"},
 		{t = "prop", kind = "moonwell", x = 28, y = 19, w = 5},
 		{t = "prop", kind = "mushroom_glow", x = 9, y = 19, h = 1},
 		{t = "prop", kind = "mushroom_big", x = 20, y = 19, h = 3},

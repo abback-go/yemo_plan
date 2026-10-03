@@ -49,4 +49,6 @@ func _init() -> void:
 		{t = "npc", id = "k_pippa_am", who = "pippa", x = 18, y = 19, face = "left", cond = "ch1_done,!k_breakfast"},
 		{t = "npc", id = "k_isolde_am", who = "isolde", x = 21, y = 19, face = "left", cond = "ch1_done,!k_breakfast"},
 		{t = "trigger", id = "k_morning", x = 7, y = 13, w = 4, h = 6, run = "k_cafe_morning", cond = "ch1_done,!k_breakfast", once = false},
+		{t = "prop", kind = "st_garland", x = 4, y = 6, w = 30, cond = "st_fest,!st_invaded"},
+		{t = "pickup", id = "st_ing_honey", kind = "key", x = 36, y = 19, name = "별사탕 꿀", flag = "st_ing_honey", text = "축제용 별사탕 꿀 한 병. 피피의 물약 재료다.", cond = "q_st_pippa_stall"},
 	]

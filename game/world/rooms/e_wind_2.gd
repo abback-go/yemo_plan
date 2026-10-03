@@ -91,6 +91,7 @@ func _init() -> void:
 		{t = "updraft", id = "ud", x = 22, y = 14, w = 3, h = 22, style = "wind", on_if = "e_valveD"},
 		{t = "crosswind", id = "cd", x = 12, y = 10, w = 26, h = 9, dir = -1, on_if = "!e_valveD"},
 		{t = "wind_valve", id = "vx", x = 30, y = 46, flag = "e_valveX2", broken = true, fix_flag = "e_valve_fix_2"},
+		{t = "quest_counter", id = "qc_valve", quest = "e_tiel_valve", flags = ["e_valve_fix_1", "e_valve_fix_2", "e_valve_fix_3"], step = 1, label = "고친 밸브"},
 		{t = "updraft", id = "ux", x = 34, y = 26, w = 3, h = 19, style = "wind", on_if = "e_valveX2"},
 		{t = "pickup", id = "stone_wind2", kind = "stone", x = 28, y = 28, name = "마도석"},
 		{t = "enemy", id = "moth2", kind = "lantern_moth", x = 18, y = 26, face = "left"},

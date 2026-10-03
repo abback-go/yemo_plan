@@ -39,6 +39,7 @@ func _init() -> void:
 		{t = "door", id = "door", x = 5, y = 19, to = "e_roots", to_id = "homes", style = "wood", label = "뿌리 마을"},
 		{t = "npc", id = "fio_mom", who = "fio_mom", x = 22, y = 19, face = "left"},
 		{t = "pickup", id = "seed_2", kind = "key", x = 33, y = 14, name = "반짝이 씨앗", flag = "e_seed_2", text = "손바닥 위에서 별처럼 깜빡이는 씨앗. 피오가 찾던 거다."},
+		{t = "quest_counter", id = "qc_seed", quest = "e_fio_seeds", flags = ["e_seed_1", "e_seed_2", "e_seed_3", "e_seed_4", "e_seed_5"], step = 1, label = "반짝이 씨앗"},
 		{t = "prop", kind = "hammock", x = 12, y = 19, w = 3},
 		{t = "prop", kind = "loom", x = 17, y = 19},
 		{t = "prop", kind = "tea_set", x = 26, y = 19},
