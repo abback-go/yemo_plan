@@ -4,7 +4,8 @@ extends StaticBody2D
 ## 불 종류 공격(화염탄·불기둥·화염 폭풍·폭주·여우불·방벽·되쏘기·유성·불사조)에 hp번 맞으면 정화된다:
 ## 흰 결정이 금 가며 타서 떨어지고 → 잠깐 초록 새순이 돋았다가 사라짐 → 길이 열림. 동료 공격(ally)은 통하지 않는다.
 ## 정화 기록: done_flag(주면) 또는 "pure_<방ID>_<id>". 처음 정화할 때 first 대본 실행(있으면).
-## 방 데이터: {t = "blight_vine", x, y, w = 1, h = 4, hp = 3, done_flag = "", first = ""}
+## need(플래그 식)가 서기 전에는 불이 흰 결정에 먹혀 튕겨 나간다(달샘에서 "잠재우는 불"을 배우기 전 — 대본 hint 실행).
+## 방 데이터: {t = "blight_vine", x, y, w = 1, h = 4, hp = 3, done_flag = "", first = "", need = "", hint = ""}
 
 const WHITE := Color("#e6e6f0")
 const SHADE := Color("#9c9cae")
@@ -14,7 +15,10 @@ var size_px := Vector2(16, 64)
 var hits_needed := 3
 var key := ""
 var first := ""
+var need := ""
+var hint := ""
 var _hits := 0
+var _bounce := 0.0
 var _purify := -1.0
 var _t := 0.0
 var _shake := 0.0
@@ -29,6 +33,8 @@ func setup(room: Room, e: Dictionary, eid: String) -> void:
 	hits_needed = int(e.get("hp", 3))
 	key = String(e.get("done_flag", "pure_%s_%s" % [room.data.id, eid]))
 	first = String(e.get("first", ""))
+	need = String(e.get("need", ""))
+	hint = String(e.get("hint", ""))
 	_seed = hash(room.data.id + eid)
 	collision_layer = GameConst.L_WORLD
 	collision_mask = 0
@@ -68,6 +74,16 @@ func is_on_floor() -> bool:
 func take_hit(hit: Hit) -> void:
 	if _purify >= 0.0 or hit.kind == &"ally":
 		return
+	if not RoomData.cond_ok(need):
+		# 아직은 불이 흰 결정에 먹혀 튕겨 나간다
+		if _bounce <= 0.0:
+			_bounce = 1.0
+			Ch3Sfx.play(&"ch3_glass", -6.0, 0.1)
+			Fx.burst(hit.source_pos if hit.source_pos != Vector2.ZERO else global_position, 10, {spread = 120.0, speed_min = 40.0,
+				speed_max = 120.0, lifetime = 0.3, gradient = Palette.fade_gradient(WHITE), size_min = 1.0, size_max = 2.0})
+			if hint != "" and Story.has_script(hint) and not Story.busy():
+				Story.run(hint, true)
+		return
 	_hits += 1
 	_shake = 0.25
 	Ch3Sfx.play(&"ch3_crystal_break", -8.0, 0.15)
@@ -96,6 +112,7 @@ func _start_purify() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_shake = maxf(_shake - delta, 0.0)
+	_bounce = maxf(_bounce - delta, 0.0)
 	if _purify >= 0.0 and _purify < 99.0:
 		_purify += delta
 	queue_redraw()
