@@ -255,7 +255,7 @@ func _start_attack() -> void:
 func _update_attack(delta: float) -> void:
 	velocity.x = move_toward(velocity.x if absf(_dash_v) < 1.0 else _dash_v, 0.0, 1400.0 * delta)
 	_dash_v = move_toward(_dash_v, 0.0, 1600.0 * delta)
-	var tgt := _target
+	var tgt: EnemyBase = _target if is_instance_valid(_target) else null
 	match _act_kind:
 		"slash", "spear":
 			if not _hit_done and _act_t < 0.2:

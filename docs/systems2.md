@@ -74,6 +74,7 @@
 | `class_board` | — | 수업 게시판(학교 중앙 홀) — 마법 배우기 창 |
 
 - 세라 상태 읽기: `player.is_gliding()`, `player.is_warding()`, `player.ward_center()`.
+- 학교에 이미 놓인 것(공통 시스템): 중앙 홀 수업 게시판(`ch1_done`), 앞마당 전이진·등장 위치 `warp`(`ch1_done`), 수업 방 5개(`s_windtower`·`s_observatory`·`s_duel`·`s_ashstacks`·`s_phoenix`)와 그 문. 학교 지도 칸 중 (0,3)~(0,5)·(1,4)~(2,5)·(3,4)·(3,5)~(4,5)·(6,-1)은 이미 씀.
 
 ## 7. 장 흐름 (`ChapterFlow` — `game/core/chapter_flow.gd`)
 - `ChapterFlow.current()` = 지금 장(플래그 `chapter`, 없으면 1).

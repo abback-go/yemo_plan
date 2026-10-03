@@ -64,11 +64,11 @@ class Gauge extends Control:
 		if p == null:
 			return
 		var font := ThemeDB.fallback_font
-		var box := Rect2(170, 70, 300, 10)
+		var box := Rect2(170, 146, 300, 10)
 		draw_rect(box.grow(2), Color(0, 0, 0, 0.6))
 		draw_rect(Rect2(box.position.x + box.size.x * 0.7, box.position.y, box.size.x * 0.25, box.size.y), Color(0.3, 0.8, 0.4, 0.5))
 		var r := p.overload_ratio()
 		draw_rect(Rect2(box.position, Vector2(box.size.x * r, box.size.y)), Palette.FIRE_OUT.lerp(Palette.FIRE_HOT, r))
 		var k: float = clampf(trial.held / trial.need, 0.0, 1.0)
-		draw_string(font, Vector2(170, 64), "제어 시험 — 70~95%%를 유지: %.1f / %d초" % [trial.held, int(trial.need)], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
-		draw_rect(Rect2(170, 86, 300 * k, 3), Palette.GOLD)
+		draw_string(font, Vector2(170, 140), "제어 시험 — 70~95%%를 유지: %.1f / %d초" % [trial.held, int(trial.need)], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
+		draw_rect(Rect2(170, 162, 300 * k, 3), Palette.GOLD)

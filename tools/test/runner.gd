@@ -326,6 +326,21 @@ func _process(_d: float) -> bool:
 				for n in get_nodes_in_group(s[2]):
 					lits.append(n.get("lit"))
 				print("LIT ", s[2], " f=", frame, " ", lits)
+			"ally":
+				# [frame, "ally", 종류] — 동료 합류 (world.ally_join)
+				var w = get_first_node_in_group("world")
+				var a = w.ally_join(s[2])
+				print("ALLY ", s[2], " ", a != null)
+			"ally_special":
+				var w = get_first_node_in_group("world")
+				var a = w.ally(s[2])
+				var tgt = null
+				for e in get_nodes_in_group("enemy"):
+					if e.is_alive():
+						tgt = e
+						break
+				if a:
+					a.special(tgt)
 			"autoward":
 				_autoward = bool(s[2])
 			"flagval":

@@ -417,9 +417,14 @@ class HudDraw extends Control:
 		var in_combat := StyleRank.combo >= 2 or _boss_shown > 0.0
 		var a := 0.45 if in_combat else 0.9
 		var y := 52.0
+		var tr := Quests.tracker_line()
+		# 밝은 배경(하늘·창)에서도 읽히게 옅은 어둠 띠
+		var bw := minf(_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 300.0)
+		if tr != "":
+			bw = maxf(bw, minf(_font.get_string_size(tr, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 320.0))
+		draw_rect(Rect2(9, y - 4, bw + 16, 30 if tr != "" else 17), Color(0.02, 0.01, 0.05, 0.35 * a))
 		draw_rect(Rect2(12, y - 2, 3, 13), Color(Palette.GOLD, a))
 		draw_string(_font, Vector2(19, y + 9), text, HORIZONTAL_ALIGNMENT_LEFT, 300, 12, Color(Palette.UI_TEXT, a).lerp(Palette.GOLD, _obj_flash))
-		var tr := Quests.tracker_line()
 		if tr != "":
 			draw_rect(Rect2(12, y + 14, 3, 11), Color(0.6, 0.8, 1.0, a * 0.8))
 			draw_string(_font, Vector2(19, y + 23), tr, HORIZONTAL_ALIGNMENT_LEFT, 320, 12, Color(Palette.UI_DIM, a))

@@ -165,7 +165,7 @@ func _draw() -> void:
 	draw_string(_font, Vector2(x, 100), String(inf.name) if learned2 else "아직 모르는 마법", HORIZONTAL_ALIGNMENT_LEFT, -1, 24 if learned2 else 12, Palette.UI_TEXT)
 	draw_string(_font, Vector2(x, 120), "%s 마법 · %s" % [Spells.GRADE_NAMES[g2], String(inf.teacher)], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, _grade_col(g2))
 	if learned2:
-		draw_string(_font, Vector2(x, 142), String(inf.desc), HORIZONTAL_ALIGNMENT_LEFT, 350, 12, Palette.UI_DIM)
+		draw_multiline_string(_font, Vector2(x, 142), String(inf.desc), HORIZONTAL_ALIGNMENT_LEFT, 346, 12, 2, Palette.UI_DIM)
 		var lvs: Array = inf.lv
 		var cur := Spells.level(id2)
 		for k in lvs.size():

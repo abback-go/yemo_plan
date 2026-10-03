@@ -70,6 +70,6 @@ class Bar extends Control:
 	func _draw() -> void:
 		var k: float = clampf(trial.left / trial.light, 0.0, 1.0)
 		var col := Color(1.0, 0.75, 0.4).lerp(Color(1.0, 0.3, 0.2), 1.0 - k)
-		draw_rect(Rect2(220, 68, 200, 6), Color(0, 0, 0, 0.6))
-		draw_rect(Rect2(220, 68, 200 * k, 6), col)
-		draw_string(ThemeDB.fallback_font, Vector2(220, 64), "촛불", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+		draw_rect(Rect2(220, 144, 200, 6), Color(0, 0, 0, 0.6))
+		draw_rect(Rect2(220, 144, 200 * k, 6), col)
+		draw_string(ThemeDB.fallback_font, Vector2(220, 140), "촛불", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)

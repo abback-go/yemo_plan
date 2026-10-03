@@ -87,6 +87,12 @@ class NoticeDraw extends Control:
 		_font = ThemeDB.fallback_font
 
 	func _process(delta: float) -> void:
+		# 메뉴·지도·게시판으로 멈춘 동안엔 감추고 시간도 멈춤 (마법 습득 창은 예외 — 그게 멈춘 이유)
+		var n := get_parent() as Notice
+		var hold := get_tree().paused and n != null and not n._waiting
+		visible = not hold
+		if hold:
+			return
 		_t += delta
 		toast_t = maxf(toast_t - delta, 0.0)
 		area_t = maxf(area_t - delta, 0.0)

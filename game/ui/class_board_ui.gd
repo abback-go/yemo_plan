@@ -198,9 +198,9 @@ class BoardDraw extends Control:
 		var g2 := Spells.grade(sp2)
 		draw_string(_font, Vector2(x, 100), String(inf.name), HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Palette.UI_TEXT)
 		draw_string(_font, Vector2(x, 120), "%s 마법 · 담당 %s" % [Spells.GRADE_NAMES[g2], String(inf.teacher)], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, [Color("#c8c0d8"), Color("#7ac8ff"), Palette.GOLD][g2])
-		draw_string(_font, Vector2(x, 142), String(inf.desc), HORIZONTAL_ALIGNMENT_LEFT, 330, 12, Palette.UI_DIM)
+		draw_multiline_string(_font, Vector2(x, 142), String(inf.desc), HORIZONTAL_ALIGNMENT_LEFT, 330, 12, 3, Palette.UI_DIM)
 		var q := ClassBoardUI.class_of(sp2)
-		var y := 196.0
+		var y := 200.0
 		if q == "":
 			draw_string(_font, Vector2(x, y), "1장에서 이미 배운 마법이다.", HORIZONTAL_ALIGNMENT_LEFT, 330, 12, Palette.UI_DIM)
 		else:
