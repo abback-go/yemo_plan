@@ -1,7 +1,7 @@
 class_name Haetae
 extends EnemyBase
 ## 해태 — 신계 수문의 미니보스 (docs/chapter1.md 7절·12.1절 P7·12.5절).
-## 광화문 해태처럼 불을 먹는 신수: 붉은 불은 50%만 들어가고, 가끔 입을 벌려 주변의 불을 들이켜 40 회복한다
+## 광화문 해태처럼 불을 먹는 신수: 붉은 불은 50%만 들어가고, 가끔 입을 벌려 주변의 불을 들이켜 20 회복한다
 ## (들이켜는 동안 맞은 붉은 불은 먹혀서 피해 0 + 조금 더 회복). 푸른 여우불은 제 피해가 들어가고 움찔하게 만든다.
 ## 패턴 (모두 예고 → 공격 → 빈틈):
 ##   돌진: 머리를 낮추고 뒷발로 땅을 긁음(0.9초, 붉은빛) → 벽까지 돌진(이때만 퍼펙트 회피 대상) → 벽에 박히면 1초 비틀거림
@@ -19,7 +19,7 @@ enum S {
 	FLINCH, ROAR, DEFEATED,
 }
 
-const HP := 2600
+const HP := 1600 ## 첫 미니보스라 낮춤 (2600 → 1600, 사용자 플레이 피드백)
 const BODY := Vector2(62, 44)
 const WALK_T := 3.0
 const RISE_TIME := 0.9
@@ -49,8 +49,8 @@ const EAT_MIN_GAP := 5.0
 const EAT_WINDUP := 0.5
 const INHALE_TIME := 1.3
 const SATED_TIME := 0.6
-const EAT_HEAL := 40
-const GULP_HEAL := 3 ## 들이켜는 중에 먹힌 붉은 불 1발당 추가 회복
+const EAT_HEAL := 20
+const GULP_HEAL := 2 ## 들이켜는 중에 먹힌 붉은 불 1발당 추가 회복
 # 움찔 (푸른 여우불)
 const FLINCH_TIME := 0.35
 const FLINCH_HEAVY_TIME := 0.7

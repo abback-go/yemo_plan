@@ -308,8 +308,8 @@ func p_haetae(c: Cut) -> void:
 	c.music("boss")
 	h.engaged = true
 	c.release()
-	# 체력 절반: 첫 빙의
-	await c.wait_enemy(h, 0.5)
+	# 체력 70%: 첫 빙의 (붉은 불로 조금 버티면 바로 변신하도록)
+	await c.wait_enemy(h, 0.7)
 	if not c.ok():
 		return
 	if is_instance_valid(h) and h.is_alive() and not GameState.has_ability("fox_mode"):
