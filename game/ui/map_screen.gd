@@ -87,7 +87,7 @@ class MapDraw extends Control:
 
 	func _draw() -> void:
 		draw_rect(Rect2(0, 0, 640, 360), Color(0.02, 0.015, 0.04, 0.94))
-		var title: String = {"shingye": "신계", "school": "마녀학교", "kingdom": "황도 아르덴", "elf": "세계수 에일라흐", "temple": "루멘 대신전", "star": "별의 탑"}.get(_area, _area)
+		var title: String = {"shingye": "신계", "school": "마녀학교", "kingdom": "황도 아르덴", "elf": "세계수 에일라흐", "temple": "루멘 대신전", "star": "별의 탑", "vision": "같은 시각"}.get(_area, _area)
 		draw_string(_font, Vector2(24, 30), "지도 — " + title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD)
 		draw_string(_font, Vector2(24, 344), "눌러서 닫기" if TouchControls.active else "Tab 닫기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 		# 격자 범위

@@ -172,9 +172,11 @@ func _draw_fox_tail(fa: float, rot := 0.0, scale_k := 1.0) -> void:
 	var mid := base + (Vector2(-8, -2 + sway * 0.5) * scale_k).rotated(rot)
 	var tip := base + (Vector2(-12 + sway, -12) * scale_k).rotated(rot)
 	var w := 4.0
-	var pts := PackedVector2Array([base + Vector2(0, -w * 0.5), mid + Vector2(1, -w), tip, mid + Vector2(1, w), base + Vector2(0, w * 0.5)])
+	# 폭은 꼬리 방향에 수직으로 — 아홉 꼬리처럼 많이 돌려도 다각형이 꼬이지 않게
+	var nrm := (tip - base).normalized().orthogonal()
+	var pts := PackedVector2Array([base + nrm * (w * 0.5), mid + nrm * w, tip, mid - nrm * w, base - nrm * (w * 0.5)])
 	draw_colored_polygon(pts, Color(FOX_BLUE, 0.85 * fa))
-	draw_colored_polygon(PackedVector2Array([mid + Vector2(0, -w * 0.4), tip + Vector2(1, 2), mid + Vector2(0, w * 0.4)]), Color(FOX_CORE, 0.9 * fa))
+	draw_colored_polygon(PackedVector2Array([mid + nrm * (w * 0.4), tip.lerp(mid, 0.15), mid - nrm * (w * 0.4)]), Color(FOX_CORE, 0.9 * fa))
 	for i in 3:
 		var fl := tip + Vector2(sin(_t * 11.0 + i * 2.0) * 2.0, -2.0 - i * 2.0 - fmod(_t * 6.0 + i, 3.0))
 		draw_rect(Rect2(fl, Vector2(1.5, 1.5)), Color(FOX_CORE, 0.6 * fa))
