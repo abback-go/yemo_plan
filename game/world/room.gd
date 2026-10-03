@@ -44,6 +44,7 @@ func build(d: RoomData) -> void:
 	add_child(_tiles)
 
 	_build_solids()
+	_build_bounds()
 	_build_platforms()
 	_build_hazards()
 	_build_special_regions()
@@ -114,6 +115,24 @@ func _build_solids() -> void:
 	body.collision_mask = 0
 	for r in merge_rects(data, "#"):
 		body.add_child(_rect_shape(r))
+	add_child(body)
+
+
+## 방 좌우 바깥의 보이지 않는 벽: 출구 자리가 뚫려 있어도 세라·적이 방 밖 허공으로 나가지 못하게 한다.
+## (출구 판정은 방 안쪽 첫 칸이라, 벽에 붙어 서면 출구가 작동한다. 보스전처럼 대본이 출구를 막는 동안엔 그냥 벽)
+func _build_bounds() -> void:
+	var body := StaticBody2D.new()
+	body.name = "Bounds"
+	body.collision_layer = GameConst.L_WORLD
+	body.collision_mask = 0
+	var h := size_px.y + 800.0
+	for x: float in [-32.0, size_px.x + 32.0]:
+		var cs := CollisionShape2D.new()
+		var rs := RectangleShape2D.new()
+		rs.size = Vector2(64, h)
+		cs.shape = rs
+		cs.position = Vector2(x, size_px.y * 0.5)
+		body.add_child(cs)
 	add_child(body)
 
 
