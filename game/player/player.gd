@@ -453,10 +453,12 @@ func _apply_gravity(delta: float, fast_fall: bool) -> void:
 	velocity.y = minf(velocity.y + g * delta, max_fall)
 
 
+## 통과 발판(충돌 층 L_PLATFORM) 위에 서 있는가: 연습 방의 Block, 1장 방의 발판, 숨은 발판, 벽에 박힌 빗자루 모두
 func _standing_on_platform() -> bool:
 	for i in get_slide_collision_count():
 		var c := get_slide_collision(i)
-		if c.get_normal().y < -0.7 and c.get_collider() is Block and c.get_collider().one_way:
+		var body := c.get_collider() as CollisionObject2D
+		if c.get_normal().y < -0.7 and body and (body.collision_layer & GameConst.L_PLATFORM) != 0:
 			return true
 	return false
 
