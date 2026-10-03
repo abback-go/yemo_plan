@@ -12,6 +12,7 @@ const HALF := 11.0
 var angles: Array = [45.0, 135.0]
 var angle_deg := 45.0
 var fixed := false
+var mir_id := "" ## 방 데이터의 id (시험 실행기 hitg 거르기용)
 var _key := ""
 var _shown := 45.0
 var _t := 0.0
@@ -25,6 +26,7 @@ func setup(p_room: Room, e: Dictionary, eid: String) -> void:
 	angle_deg = float(e.get("angle", 45.0))
 	angles = e.get("angles", [angle_deg, angle_deg + 90.0])
 	fixed = bool(e.get("fixed", false))
+	mir_id = eid
 	_key = "mir_%s_%s" % [room.data.id, eid]
 	if GameState.flags.has(_key):
 		angle_deg = float(GameState.flag(_key))
