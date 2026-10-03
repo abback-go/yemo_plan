@@ -1,0 +1,32 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_tp_temple",
+  "spawn": "statue",
+  "flags": ["p_intro_done", "t_escaped", "s_woke", "ab_neoul", "ab_storm", "ab_double_jump", "teach_폭주 게이지", "teach_퍼펙트 회피"],
+  "steps": [
+    [3, "auto", true],
+    [5, "setting", "difficulty", 1],
+    [20, "spawn_enemy", "seraph_statue", 113, 19, {"facing": -1}],
+    [40, "face", 1],
+    [41, "press", "attack"],
+    [120, "release", "attack"],
+    [121, "status", "watched_bolts"],
+    [122, "shot", "statue_frozen"],
+    [130, "face", -1],
+    [150, "shot", "statue_moving"],
+    [170, "enemies", "moving"],
+    [200, "shot", "statue_close"],
+    [260, "status", "after_turn_away"],
+    [261, "face", 1],
+    [262, "enemies", "frozen_again"],
+    [270, "tp", 104, 18],
+    [272, "face", 1],
+    [275, "tap", "skill_1"],
+    [300, "shot", "statue_pillar"],
+    [330, "status", "after_pillar"],
+    [331, "godmode"],
+    [340, "kill"],
+    [380, "status", "killed"],
+    [390, "quit"]
+  ]
+}

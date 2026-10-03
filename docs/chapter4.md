@@ -71,4 +71,130 @@
 | `tp_herbs` | 버터워스(학교) | 산 약초 | 최대 체력 +1 (요리) |
 | `tp_pippa_water` | 피피(학교) | 성수 실험 | 마도석 1 |
 
-## 7. 세부 (제작하며 채움)
+## 7. 세부 — 실제로 만든 것 (2026-10-03)
+
+파일 지도:
+| 무엇 | 파일 |
+|---|---|
+| 방 생성기 (31방 + 개발용 6방) | `tools/rooms/ch4.py` → `game/world/rooms/tp_*.gd` |
+| 데이터 (인물·방 목록·목표·퀘스트) | `game/story/data_ch4.gd` |
+| 대본 (상속 사슬) | `game/story/scripts_ch4.gd`(메인) → `game/story/ch4/talk.gd`(인물 대화·서브) → `game/story/ch4/base.gd`(도우미·개발용) |
+| 테마·배경·소품 | `game/world/themes/themes_ch4.gd`, `backdrop_ch4.gd`, `game/world/entities/ch4/props.gd`, `art.gd` |
+| 장치 | `game/world/entities/ch4/` — `temple_bell`, `bell_puzzle`, `light_mirror`, `light_crystal`, `seal_stone`, `holy_chaser`, `spire_plank`, `star_steps`, `ally_keeper`(`tp_ally`) |
+| 적 | `game/enemies/ch4/` — `holy_monk`, `lumen_eye`, `bell_wraith`, `seraph_statue`, `pilgrim_shade`, `gold_herald`, `aurelia_boss` (+ `*_visual.gd`, 공용 `holy.gd`) |
+| 인물 그림 | `game/characters/special/aurelia_draw.gd`·`aurelia_portrait.gd`, `temple_folk_draw.gd`·`temple_folk_portrait.gd`, `outer_voice_portrait.gd` |
+| 시험 | `tools/test/scenarios/ch4_*.json` |
+
+### 7.1 지역 그림 (테마·배경·소품)
+- 테마 6: `holymount`(눈 덮인 성산 — 눈 입자), `temple_out`(대신전 바깥·정원, 해와 구름바다), `temple`(대신전 안 — 흰 대리석·금), `temple_dark`(기록실·지하), `spire`(첨탑 — 카메라 높이에 따라 하늘이 밤으로), `spire_top`(종루 위 열린 하늘 — 달·금빛 띠).
+- 배경은 테마마다 하늘 + 먼 층(산맥·대신전 실루엣·구름바다·비계·기도 깃발·소나무·돌무더기). 첨탑 배경은 오를수록 하늘이 어두워지고 별이 늘어난다(`_climb_k`).
+- 소품 30종(`tp_*`): 기둥·부서진 기둥·화로·거울·종(큰·작은)·촛대·촛불·장의자·독서대·두루마리 서가·책·조각상·날개 조각상·깃발·스테인드글라스·해 부조·제단·성수반·향로·사슬·비계·부서진 계단·잔해·돌무더기·기도 깃발·등불·소나무·작은 사당·봉인석 모양.
+
+### 7.2 지도·방 (31방, 지도 영역 `temple`, 약 61화면)
+칸 배치는 `tools/rooms/ch4.py` 머리말 그림. 첨탑 다섯 방은 x 11·12를 지그재그로 오르며(아래 칸이 앞 방의 꼭대기 칸 옆), 꼭대기 결전장은 (12~13, -7).
+
+| 방 | 칸·크기 | 내용 |
+|---|---|---|
+| `tp_road` | (0,8) 1×1 | 전이진(`warp` area temple, 등장 `warp`), 기록 지점, 늙은 순례자, 정문 지름길 계단(`tp_gate_open` 뒤) |
+| `tp_road_1` | (1,8) 2×1 | 눈 덮인 산길: 턱·작은 낭떠러지·고원, 순례자의 그림자 2, 높은 바위 마도석. 레오니 이야기(빈민가 예배당의 수프) + 배지 퀘스트 |
+| `tp_road_2` | (3,7) 1×2 | 벼랑길: 순례자 나무 발판 지그재그. 꼭대기 왼쪽 바위 틈(환영 벽) → 얼음 동굴 |
+| `tp_cave` | (2,7) 1×1 | (숨은 곳) 어린 레오니의 배지(`tp_badge_found`), 마도석, 얼어붙은 순례자의 일기 |
+| `tp_road_3` | (4,7) 2×1 | 바람의 능선: **16칸 끊긴 다리를 불꽃 날개로 활공**(게이트), 골짜기 상승 기류 → 떠 있는 바위 마도석. 얼음 사당 곁 성가대원 마리의 그림자 |
+| `tp_hut` | (6,7) 1×1 | 순례자 쉼터: 처마·화로·기록 지점, 쉼터지기 안셀름, 순례자 |
+| `tp_road_4` | (7,6) 2×2 | 대신전 오르막: **18칸 낭떠러지 활공**, 긴 상승 기류 끝 높은 바위의 수호의 깃털, 약초 턱(눈꽃 약초), 바위 턱 → 가운데 단 → 바깥 회랑. 빛의 감시안 첫 만남 |
+| `tp_gate` | (9,6) 2×1 | 황금 정문(세 단 계단, `grand` 문 — `tp_gate_open`). 아우렐리아 첫 대면 |
+| `tp_cloister` | (9,5) 2×1 | **거점**: 기록 지점·전이진(학교로)·성수반·시련의 석판. 레오니·베네딕타가 시련 동안 기다림. 문: 정문/본당/기록실/거울 지름길 |
+| `tp_garden` | (11,5) 1×1 | 지붕 없는 정원: 루카, 기도 촛불 ① |
+| `tp_choir` | (12,5) 1×1 | 성가대석: 엘사·성가대장. 오른쪽이 종탑 |
+| `tp_nave` | (9,4) 2×1 | 본당: 아우렐리아가 제단 앞에서 기도. 시련 셋 뒤 대화(`tp_aurelia_talk`), 내전 계단(잠금 `tp_aurelia_talk`) |
+| `tp_monk_cells` | (11,4) 2×1 | 수도사 숙소: 침묵 서원 수도사, 기도 촛불 ⑤, 경전 조각 1, 높은 선반 마도석, 종탑 지름길 철창(`tp_trial_bell`) |
+| `tp_mirror_1` | (7,5) 2×1 | 거울 Ⅰ(입문): 광원 → 바닥 거울(위로) → 높은 거울(왼쪽) → 수정. 성갑 수도사 첫 만남 |
+| `tp_mirror_2` | (5,5) 2×1 | 거울 Ⅱ: 천장 광원(아래로) → A를 돌려 작은 수정(안쪽 결계) → A를 되돌려 B(위)·C(왼쪽) → 수정. 날개 조각상 2, 촛불 ②, 구석 마도석 |
+| `tp_mirror_3` | (3,5) 2×1 | 빛의 근원: **불꽃 방벽으로 빛을 되돌림**(게이트) → M(위)·N(오른쪽) → 수정 = 시련 ① 끝. 수도사·감시안. 회랑 지름길 문 |
+| `tp_bell_1` | (13,4) 1×2 | 종탑 아래층: 들보 지그재그, 진짜 종 2, 망령 2, 루카의 종 추, 촛불 ③. 꼭대기 왼쪽 = 숙소 지름길 |
+| `tp_bell_2` | (14,3) 1×2 | 박자의 방: 문양 종 4(달·불꽃·별·여우) + 여우창문 벽화(차례) — 순서·박자(5초) 퍼즐 → 위층 계단 |
+| `tp_bell_3` | (13,2) 2×1 | 큰 종 다락: 망령 2, 큰 종 = 시련 ② 끝. 그레고르의 작은 종 셋(조율 퀘스트), 들보 위 마도석 |
+| `tp_archive_1` | (11,6) 2×1 | 기록실: 날개 조각상 2, 수도사 |
+| `tp_scriptorium` | (13,6) 1×1 | (선택) 필사실: 필사 수도사, 촛불 ④, 경전 조각 2, 높은 서가 마도석 |
+| `tp_archive_2` | (11,7) 2×1 | 깊은 서고: **백금 사도**(미니보스, 철창 투기장) → 가장 오래된 기록(`tp_archive_read`) = 시련 ③ 끝 |
+| `tp_crypt_1` | (9,7) 2×1 | (선택) 지하 묘소: 그림자 2·조각상, 석관 위 마도석, 아우렐리아의 빈 감실, **금빛 봉인석**(유성 낙화) 뒤 계단 |
+| `tp_crypt_2` | (9,8) 2×1 | (선택·유성 낙화) 성유물실: 수도사·조각상, 마도석, 안쪽 봉인석 너머 수호의 깃털·경전 조각 3·어린 아우렐리아의 서원 |
+| `tp_sanctum` | (9,3) 2×1 | 내전: 제단, 폭주 장면(`tp_sanctum_berserk`). 뒤엔 첨탑 봉인 문이 열리고 본당 계단은 결계가 막음(꼭대기 결전까지) |
+| `tp_spire_1`~`5` | 1×3 각 | 첨탑 추격(7.6절). 3에 넓은 돌 층계참(레오니), 4에 통째로 무너진 계단(별빛 발판) |
+| `tp_spire_top` | (12,-7) 2×1 | 종루 위 열린 하늘: 엄폐 기둥 2(x 18·60, 높이 4), 발판 4, 왼쪽 출구 봉인(`tp_boss_fight`) |
+
+게이트 정리: 불꽃 날개(`tp_road_3`·`tp_road_4` 낭떠러지 — 메인 길), 불꽃 방벽(`tp_mirror_3` 빛 되돌리기 — 메인 길), 여우창문(얼음 동굴·박자의 방 벽화), 유성 낙화(지하 봉인석 — 선택 구역만). 방 도달 검사 `python3 tools/roomgen.py check all tp_` 문제 0.
+
+### 7.3 인물 그림
+- 아우렐리아(`aurelia`/`aurelia_berserk`): 전용 몸 그림(관절 구조 + 기울기, 허리까지 오는 금발 머리카락 물리, 왕관 땋음, 떠 있는 광륜, 날개 날 창), 자세 12종 idle·run·windup·attack·attack2·charge·cast·guard·hurt·kneel·down·special. 폭주는 자세 앞에 `berserk_`·인물 정보 `berserk`·메타 `berserk` — 하얀 눈, 금 간 흰 광륜, 흰금 불꽃. 초상화 표정 normal·angry·surprised·sad·smile·berserk.
+- 신전 사람들(`temple_folk_draw/portrait`, 정보 `look`): benedicta·luca·gregor·monk·priest·pilgrim·choir. `tp_anselm`(쉼터지기)은 monk 모습.
+- 바깥 신들의 목소리 `tp_voice`: 세로로 갈라진 흰 눈 + 어긋나 도는 고리 + 하늘의 금(`outer_voice_portrait.gd`).
+- 리라 `lyra`: 4장 끝 등장용 기본값(일반 그림). 5장이 전용 그림으로 덮어쓴다(EXTS 순서). 레오니는 2장 데이터를 쓴다(4장에서 정의하지 않음).
+
+### 7.4 적 (체력 = 보통 난이도, `Difficulty`가 조정)
+| 종류 | 체력 | 공략 (구현) | 나오는 곳 |
+|---|---|---|---|
+| `pilgrim_shade` 순례자의 그림자 | 600 | 붙잡기(0.7초 붉은 손 예고) → 흐느낌 빈틈. 쓰러지면 "고맙다…" 하며 금빛으로 풀려남(`free_flag`·`line`) | 순례길·동굴·지하 |
+| `lumen_eye` 빛의 감시안 | 700 | 붉은 조준선·부채꼴 끝선 0.9초 → 1.3초 빛줄기 쓸기 → 1.5초 달아오름(피해 1.5배). 빛줄기는 거울에서 꺾이고 방벽에서 되쏘임. `source=true`면 퍼즐 광원(무적) | 오르막·거울 Ⅲ |
+| `holy_monk` 성갑 수도사 | 900 | 빛의 방패가 정면 화염탄을 세라에게 되돌림 → 방벽으로 다시 되쏘면 방패가 깨져 2.5초 휘청. 등 뒤 1초 무방비. 지팡이 내려치기 충격파(점프) | 거울·기록실·지하 |
+| `seraph_statue` 날개 조각상 | 900 | 세라가 등을 돌릴 때만 미끄러져 다가와 벰. 바라보면 굳음(화염탄 튕김, 불기둥 1.5배) | 거울 Ⅱ·기록실·지하 |
+| `bell_wraith` 종지기 망령 | 800 | 유령 종 소리 고리 2겹(0.8초 예고 링), 엇박 세 번. 근처 진짜 종을 불기둥으로 울리면 3초 주저앉음(1.5배) | 종탑 |
+| `gold_herald` 백금 사도 (미니보스) | 2400 | 거울판 3장(막는 쪽 화염탄 → 흰 조각탄 반사), 프리즘 3→5줄, 판 회전, 격자 가시, 세 번마다 내려앉기(1.5배·불기둥 닿음). 50% 2페이즈 | 깊은 서고 |
+| `aurelia_boss` 아우렐리아 (강자 보스) | 9000 | 7.6절 | 첨탑 꼭대기 |
+
+### 7.5 장치 (방 개체)
+| `t` | 키 | 동작 |
+|---|---|---|
+| `light_mirror` | angle(45 '/' · 135 '\'), angles, fixed | ↑ 또는 불기둥으로 다음 각도. 각도는 플래그 `mir_<방>_<id>`로 기억. 거울 중심 = 바닥 행×16−28px → 수평 빛을 보내려면 광원(감시안)을 그 바닥 행−1에 |
+| `light_crystal` | flag, hold(기본 0.6초), hang | 빛줄기가 hold초 닿으면 flag(영구) — `gate open_if`로 문을 연다. 방벽 퍼즐은 hold 0.25 |
+| `temple_bell` | top, size, hang, note, group, order, symbol | 불기둥·폭발·유성·되쏜 탄으로 울림 → 13칸 안 망령 3초 주저앉음. 받침 문양(symbol), 퍼즐이 맞힌 종은 금빛(set_mark) |
+| `bell_puzzle` | group, seq(비우면 order 오름차순), beat(초), done_flag, hint, need | 순서·박자대로 울리면 done_flag(모든 종이 함께 한 번 더 울림). 틀리거나 박자를 놓치면 불협화음과 함께 처음부터. need = 그 조건일 때만 셈(퀘스트를 받은 뒤) |
+| `seal_stone` | h, flag | 유성 낙화(Hit.kind meteor)로만 부서짐. 다른 공격은 "팅" + 안내 한 번 |
+| `holy_chaser` | 7.6절 | 첨탑 추격 |
+| `spire_plank` | w | 위에서만 밟히는 비계 발판. 신성 돌진 띠가 지나가면 부서짐(방에 다시 들어오면 복구) |
+| `star_steps` | flag, steps [[x,y,w]…], gap | 교장의 별빛 발판: flag가 서면 아래부터 하나씩 반짝이며 생김(통과 발판) |
+| `tp_ally` | kind, flag | 4장 방마다 자동으로 들어감(`troom`). `tp_leonie_on`이면 레오니가 없을 때 합류, 내려가 있으면 떠남 — 동료는 저장되지 않으므로 이어하기·부활 뒤에도 동행 유지 |
+| (공통) `updraft` style wind/star, `warp`, `brazier` style seal(기도 촛불), `puzzle`, `event`, `hint_mural`, `gate` | | 공통 시스템 그대로 |
+
+### 7.6 첨탑 추격·꼭대기 결전 (이 장의 하이라이트)
+**추격** — `tp_spire_1`~`5`, 각 40×69타일(세로 3화면). 발판은 한 번 점프(4칸) 높이 3~4칸 간격 지그재그 + 돌 쉼터 + 부서지는 비계(빠르지만 위험한 갈림).
+- `holy_chaser`: 방에 들어오면 시작(부활 지점을 그 방 아래 `start`로). ① 아래에서 금빛이 차오름(rise 1.0 → 1.3칸/초, 방마다 빨라짐) — 잠기면 1 피해 + 위로 튕겨 오르고 금빛이 5칸 물러남(초보자도 다시 붙음). 세라가 12칸 넘게 앞서면 조금 빨리 따라붙음. ② 신성 돌진(interval 5.2 → 3.9초): 세라에게서 먼 쪽 끝에 폭주한 아우렐리아가 나타남 → 세라가 선 높이에 붉은 가장자리 금빛 예고 띠(`Difficulty.telegraph(0.9)`, 갈매기 무늬) → 잔상을 끌며 반대편까지 돌진(1 피해) → 그 높이의 비계 발판이 부서짐. 금빛이 바로 아래 2.5칸 안이면 돌진하지 않음(공정). ③ 배경에 거대한 금빛 그림자가 이따금 첨탑 바깥을 스침. 대본이 돌면(Story.busy) 멈춤.
+- 대본: 1층 입구 "멈추지 말고 위로!"(안내), 3층 층계참 — 레오니가 아래에서 뛰어올라 `charge_at(띠, 방향, 레오니)`로 돌진을 정면으로 받아냄 → "올라가라, 세라! 여기는 내가 막는다!" (그대로 층계참에 남아 막아섬), 4층 — 계단이 통째로 무너진 곳에서 교장의 목소리("세라. 위를 보세요.") + 별빛 발판 7개와 별가루 상승 기류(`tp_star_steps`). 5층을 지나 꼭대기로.
+
+**꼭대기 결전** — `aurelia_boss` 9000, 3페이즈.
+1. 100~66% "규율의 창": 찌르기(0.55초 예고), 세 번 찌르기, 빛의 창 비(세라 둘레 붉은 예고 → 금빛 창), 정면 화염탄 막기 → 반격.
+2. 66%: 무릎 꿇고 "…아직입니다." → 빛 폭발로 밀어냄 → 신성 돌진(투기장 끝 → 예고 띠 0.9초 → 2 피해, 엄폐 기둥도 뚫음, 멈춘 0.8초가 빈틈), 광륜 던지기(점프로 넘음, 방벽으로 되쏘면 주인이 1.5초 휘청). **레오니 합류**("기다렸지! 다리를 끊어 주마!") — 돌진 예고가 보이면 12초마다 `special` → 받아쳐 2초 휘청(1.5배).
+3. 33%: 바깥 신들의 목소리 — 흰금 폭주(하얀 눈, 금 간 광륜). 연속 돌진, 흰 창 비 두 물결, 광륜 둘, **심판의 창**(하늘로 떠올라 화면만 한 빛의 창, 2.6초 동안 바닥의 안전한 그늘이 파랗게 → 충격파 2 피해, 기둥 뒤·방벽·대시 무적이면 무사, 뒤에 2초 지쳐 무릎).
+- 쓰러지면 터지지 않고 무릎 꿇은 채 → 대본: 너울의 푸른 불로 바깥 신들의 연결만 태움(`purify`) → 깨어남·미소 → 바깥 신들의 이름("천외(天外)의 신들") → "'별의 그릇'. 그리고 — '별의 마녀'." → 달빛 아래 리라 → 기숙사의 밤.
+- 실패: `save_here("start")` — 꼭대기 입구에서 바로 다시(인트로는 짧게). 레오니는 `tp_leonie_on`으로 처음부터 곁에.
+
+### 7.7 서브 퀘스트 (7개)
+| ID | 받기 | 흐름 | 보상 |
+|---|---|---|---|
+| `tp_leonie_badge` | 산길 대화(자동) | 얼음 동굴 배지(`tp_badge_found` 사건) → 레오니가 곁에 있으면 바로, 없으면 회랑의 레오니에게(걸이 1단계) | 수호의 깃털(최대 체력 +1) |
+| `tp_luca_clapper` | 정원 루카 | 종탑 아래층 종 추(사건 → 1단계) → 루카(걸이). 먼저 주웠으면 받자마자 끝 | 마도석 1 |
+| `tp_gregor_bells` | 큰 종 다락 그레고르 | 작은 종 셋 높음→낮음→가운데→높음(`bell_puzzle` seq [3,1,2,3], need = 퀘스트 진행 중) → 그레고르(걸이) | 마도석 2 |
+| `tp_choir_voice` | 성가대석 엘사 | 바람의 능선 사당 곁 마리의 그림자를 풀어 줌(`free_flag` tp_choir_found → 사건) → 엘사(걸이). 먼저 풀었으면 받자마자 끝 | 물약 최대 +1 |
+| `tp_candles` | 회랑 베네딕타 (선택지) | 촛불 5(정원·거울 Ⅱ·종탑 아래층·필사실·숙소, `brazier style=seal` + `puzzle` + `event`) → 다 켜면 1단계 → 베네딕타(걸이) | 마도석 2 |
+| `tp_herbs` | 4장 시작(피피가 전함) | 대신전 오르막 약초 턱(상승 기류) → 학교 식당 버터워스(걸이) | 최대 체력 +1 |
+| `tp_pippa_water` | 4장 시작(피피) | 회랑 성수반(`tp_font`) → 학교 연금술실 피피(걸이) | 마도석 1 |
+학교 퀘스트 둘은 회랑 전이진(area temple)으로 학교에 다녀오면 된다(돌아오면 순례길 입구 → 정문 지름길 계단).
+
+### 7.8 대본 목록·주요 대사
+메인(`scripts_ch4.gd`): `ch4_start`(앞마당: 레오니 등장·학생들·이졸데 얼어붙음·피피 사인·루멘의 침묵·교장이 전이진에 별자리를 그림 — 손끝이 떨림·퀘스트 둘) → `_arrive_road`(전이진 해금·레오니 동행) · `enter_tp_road` · `tp_road1_talk` · `tp_road3_glide` · `tp_hut_scene` · `tp_road4_eyes` · `tp_gate_scene`("이단의 마녀는 들어올 수 없습니다. 물러나십시오." → 레오니의 검을 두 손가락으로 → "제국제일검. 듣던 대로 곧은 검입니다. 그러나 곧은 검은 막기도 쉽습니다." → 베네딕타의 중재, 시련 셋) · `enter_tp_cloister` · `_aurelia_cameo`(첫 시련을 마친 순간 소리 없이 나타남) · `enter_tp_mirror_1/3` · `tp_mirror_trial_done` · `tp_bell_intro` · `tp_beat_intro` · `tp_beat_done` · `tp_bell_trial_done` · `tp_archive_intro` · `tp_herald_fight`/`_herald_end` · `tp_archive_record`(초대 대사제의 기록: 루멘이 수백 년째 엷어짐, 바깥의 흰 것들, "가장 강한 그릇을 문으로", "대답하는 목소리를 믿지 말라", 불사조 메모 → `tp_archive_read`) · `npc_aurelia` · `tp_aurelia_talk`("…열흘 전부터, 주께서 대답하지 않으십니다." / "붉은 불 속에… 별빛이 섞여 있습니다.") · `tp_sanctum_scene`(기도 → 겹친 메아리 "문이… 되어라…" → 폭주 → 레오니가 대사제 앞에서 돌진을 받아냄 "위로 — 첨탑으로 도망쳐라!") · `tp_spire1_enter` · `tp_spire3_leonie` · `tp_spire4_astrid` · `enter_tp_spire_top` · `tp_boss`(아우렐리아 본인의 목소리 "…세라… 님… 피하십시오… 제 창이… 멈추지 않습니다…") · `_boss_end`("…빛을 지킨 것은 당신이었습니다." / "웃지 않겠다는 서원은… 오늘로 깨진 것 같군요." / 리라 "잘 자랐구나, 나의 별.") · `_dorm_night` → `ChapterFlow.finish(c, 4)`.
+인물·서브(`ch4/talk.gd`): `npc_tp_pilgrim`, `npc_tp_pilgrim_b`, `npc_tp_pilgrim_nave`, `npc_tp_anselm`, `npc_benedicta`(+`tp_candle_lit`, `tp_candles_done`), `npc_leonie_ch4`, `npc_tp_priest`, `npc_tp_monk_cloister`, `npc_tp_monk_cells`, `npc_tp_scribe`, `tp_trials_status`, `tp_font`, `npc_luca`(+`tp_clapper_found`, `tp_luca_return`), `npc_gregor`(+`tp_gregor_tuned`, `tp_gregor_done`), `npc_tp_choir`(+`tp_choir_found`, `tp_choir_done`), `npc_tp_choirmaster`, `tp_badge_found`/`tp_badge_return`, 학교 덮어쓰기 `npc_pippa_ch4`(+`tp_pippa_done`), `npc_butterworth_ch4`(+`tp_herb_found`, `tp_herbs_done`), `npc_isolde_ch4`, `npc_astrid_ch4`. 덮어쓰기는 `ch4_done` 뒤엔 4장 이후 말로 바뀐다(5장이 자기 것을 두면 그쪽이 이김).
+
+### 7.9 목표 줄·플래그
+목표(`data_ch4.gd` OBJECTIVES): `tp_arrived`(ch3_done) → `tp_gate_scene` → `tp_trials_done` → `tp_aurelia_talk` → `tp_sanctum_berserk` → `tp_spire_top_reached` → `tp_aurelia_defeated`.
+주요 플래그: `tp_arrived`, `warp_temple`, `tp_leonie_on`(동행), `tp_road1_talk`, `tp_gate_scene`, `tp_gate_open`, `tp_trial_mirror`/`tp_trial_bell`/`tp_trial_archive`, `tp_trials_done`, `tp_mir1`/`tp_mir2a`/`tp_mir2`/`tp_mir3`, `tp_beat_done`, `tp_great_rung`, `tp_herald_fight`/`tp_herald_down`, `tp_archive_read`(불사조 수업 해금), `tp_aurelia_talk`, `tp_sanctum_berserk`, `tp_spire3_leonie`, `tp_star_steps`, `tp_spire_top_reached`, `tp_boss_fight`, `tp_aurelia_defeated`, `tp_lyra_seen`, `ch4_done`. 촛불 `tp_candle_1`~`5`, 퀘스트 물건 `tp_badge_found`·`tp_clapper_found`·`tp_choir_found`·`tp_herb_found`·`tp_holy_water`·`tp_tuned`.
+
+### 7.10 숨은 것
+- 마도석 10(줍기): 산길 높은 바위, 얼음 동굴, 바람의 능선 떠 있는 바위(상승 기류), 거울 Ⅱ 구석, 박자의 방 왼쪽 턱, 큰 종 다락 들보, 수도사 숙소 선반, 필사실 서가, 지하 묘소 석관, 성유물실(유성 낙화). + 퀘스트 6(루카 1·그레고르 2·촛불 2·피피 1).
+- 수호의 깃털 2(줍기): 대신전 오르막 긴 상승 기류 끝, 성유물실 안쪽 봉인석 너머(유성 낙화). + 배지 퀘스트 깃털, 약초 퀘스트 최대 체력 +1.
+- 루멘 경전 조각 3: 수도사 숙소, 필사실, 성유물실. 그 밖의 읽을거리: 얼어붙은 순례자의 일기(동굴), 어린 수호자의 서원(성유물실), 수호자들의 묘·빈 감실(묘소).
+
+### 7.11 예상 플레이 시간 (첫 플레이, 보통)
+학교 시작 장면 5분 · 순례길 7방(전투·대화·활공) 20분 · 정문 장면 4분 · 회랑·인물·퀘스트 받기 6분 · 거울 시련 3방 15분 · 종 시련 3방 15분 · 기록실·필사실·백금 사도 15분 · 본당·내전 장면 6분 · 첨탑 추격 5방 8분(실패 포함) · 꼭대기 결전 8분(실패 1~2회 포함) · 엔딩 5분 · 서브 퀘스트·학교 왕복·지하(선택) 10~15분 → **약 1시간 50분~2시간**.
+
+### 7.12 시험 (시나리오)
+`ch4_full.json`(ch4_start → 5장 카드), `ch4_chase.json`(실제 첨탑 방), `ch4_boss.json`(실제 꼭대기 방), 1단계 적·장치 시나리오(`ch4_monk`·`ch4_monk_back`·`ch4_eye`·`ch4_bell`·`ch4_statue`·`ch4_shade`·`ch4_herald`·`ch4_aurelia`·`ch4_aurelia_moves`·`ch4_backdrops`·`ch4_aurelia_art`·`ch4_head`). 결과는 작업 보고서에.
