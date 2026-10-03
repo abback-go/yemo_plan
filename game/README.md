@@ -2,7 +2,17 @@
 
 조작·전투 검증용 프로토타입. 기획: [`docs/prototype.md`](../docs/prototype.md) · 단계별 설명: [`docs/devlog/`](../docs/devlog/)
 
-## 사지방 PC에서 실행하기 (Git 없이)
+## 브라우저에서 바로 플레이 (추천)
+
+**https://abback-go.github.io/yemo_plan/**
+
+- 코드가 올라가면 GitHub Actions가 자동으로 웹 빌드를 만들어 위 주소에 올린다 (수 분 소요).
+- 페이지가 열리면 게임 화면을 한 번 클릭한 뒤 키보드로 조작.
+- 지금 올라간 빌드 정보: https://abback-go.github.io/yemo_plan/version.txt (브랜치, 커밋, 빌드 시각)
+- 최신 빌드가 안 보이면 Ctrl+F5(강력 새로고침).
+- 웹 빌드는 PC 실행보다 입력 반응이 조금 다를 수 있다. 최종 손맛 확인은 아래 방법으로 PC에서 한 번씩.
+
+## Godot 에디터로 열기 (Git 없이)
 
 1. GitHub에 로그인 → `abback-go/yemo_plan` 저장소
 2. 왼쪽 위 브랜치 선택 메뉴에서 작업 브랜치 선택 (PR 페이지에 적힌 브랜치)
