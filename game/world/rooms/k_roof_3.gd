@@ -40,6 +40,7 @@ func _init() -> void:
 		{t = "exit", id = "west", x = 0, y = 7, w = 1, h = 5, to = "k_roof_2", to_id = "east"},
 		{t = "door", id = "down", x = 75, y = 15, to = "k_roof_4", to_id = "up", style = "stair_down", label = "아래 지붕"},
 		{t = "pickup", id = "k_helmet", kind = "key", x = 43, y = 6, name = "카엘의 투구", flag = "k_helmet", text = "은사자 문장이 박힌 투구. 안쪽에 '카엘 — 잃어버리면 단장님께 혼남'이라고 쓰여 있다."},
+		{t = "event", id = "helmet_ev", flag = "k_helmet", run = "k_helmet_got", done = "k_helmet_seen"},
 		{t = "enemy", id = "garg1", kind = "gargoyle", x = 56, y = 19, face = "left"},
 		{t = "enemy", id = "garg2", kind = "gargoyle", x = 72, y = 15, face = "left"},
 		{t = "enemy", id = "liz", kind = "star_lizard", x = 30, y = 17},

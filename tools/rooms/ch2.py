@@ -60,16 +60,16 @@ def book(r, bid, x, y, title):
 # 식당: 아침 식사 (피피·이졸데)
 overlay("s_cafeteria", "npc", id="k_pippa_am", who="pippa", x=18, y=19, face="left", cond="ch1_done,!k_breakfast")
 overlay("s_cafeteria", "npc", id="k_isolde_am", who="isolde", x=21, y=19, face="left", cond="ch1_done,!k_breakfast")
-overlay("s_cafeteria", "trigger", id="k_morning", x=7, y=13, w=4, h=6, run="k_cafe_morning", cond="ch1_done,!k_breakfast")
+overlay("s_cafeteria", "trigger", id="k_morning", x=7, y=13, w=4, h=6, run="k_cafe_morning", cond="ch1_done,!k_breakfast", once=False)
 # 바람의 탑: 날개 수업이 끝나면 교장의 부름
 overlay("s_windtower", "event", id="k_wings_ev", flag="ab_wings", run="k_after_wings", done="k_after_wings_seen", cond="ch1_done")
 # 교장실: 제국의 사자
-overlay("s_headmaster", "trigger", id="k_envoy_tg", x=6, y=13, w=4, h=6, run="k_envoy", cond="ab_wings,!k_envoy_seen")
+overlay("s_headmaster", "trigger", id="k_envoy_tg", x=6, y=13, w=4, h=6, run="k_envoy", cond="ab_wings,!k_envoy_seen", once=False)
 # 앞마당: 파견 출발 (엠버린·피피·이졸데가 전이진 앞에서 기다림)
 overlay("s_courtyard", "npc", id="k_emb_go", who="emberlyn", x=20, y=19, face="right", cond="k_envoy_seen,!k_departed")
 overlay("s_courtyard", "npc", id="k_pip_go", who="pippa", x=17, y=19, face="right", cond="k_envoy_seen,!k_departed")
 overlay("s_courtyard", "npc", id="k_iso_go", who="isolde", x=31, y=19, face="left", cond="k_envoy_seen,!k_departed")
-overlay("s_courtyard", "trigger", id="k_depart_tg", x=26, y=13, w=6, h=6, run="k_depart", cond="k_envoy_seen,!k_departed")
+overlay("s_courtyard", "trigger", id="k_depart_tg", x=26, y=13, w=6, h=6, run="k_depart", cond="k_envoy_seen,!k_departed", once=False)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -162,7 +162,7 @@ def k_market():
     r.plat(108, 113, 6)
     stone(r, "k_stone_market", 110, 6, "대장간 굴뚝 연기에 그을린 결정.")
     # 별의 짐승 습격 (레오니 등장)
-    r.add("trigger", id="beast_tg", x=52, y=11, w=4, h=8, run="k_market_beast", cond="k_departed,!k_met_leonie")
+    r.add("trigger", id="beast_tg", x=52, y=11, w=4, h=8, run="k_market_beast", cond="k_departed,!k_met_leonie", once=False)
     r.add("spawn", id="beast", x=80, y=F)
     r.add("spawn", id="center", x=58, y=F)
     # 인물
@@ -315,6 +315,7 @@ def k_barracks():
     note(r, "k_note_1", 33, 12, 1,
          "10년 전 그 밤, 하늘이 둘로 갈라지고 별 하나가 옛 성곽 위로 떨어졌다.|불타는 거리에서 마력 한 톨 없는 빈민가 소녀가 막대기 하나로 아이들을 지켰다고 한다.|— 은사자 기사단 기록, '별이 떨어진 밤' 1")
     book(r, "k_book_1", 14, F, "『은사자 전기』")
+    r.add("event", id="book_ev", flag="k_book_1", run="k_book_got", done="k_book_1_seen")
     r.add("npc", id="kn", who="k_knight_b", x=22, y=F, face="left", talk="npc_k_barracks")
     for x in (10, 18):
         r.add("prop", kind="bed_prop", x=x, y=F)
@@ -339,7 +340,7 @@ def k_walls():
     for x in range(16, 72, 9):
         r.fill(x, F - 1, x + 1, F - 1)  # 성가퀴
     r.fill(56, F - 5, 61, F - 1)  # 망루 받침
-    r.add("trigger", id="talk_tg", x=34, y=F - 6, w=3, h=6, run="k_walls_talk", cond="k_spar_done,!k_walls_talk")
+    r.add("trigger", id="talk_tg", x=34, y=F - 6, w=3, h=6, run="k_walls_talk", cond="k_spar_done,!k_walls_talk", once=False)
     r.add("npc", id="leonie", who="leonie", x=44, y=F, face="left", cond="k_spar_done,!k_walls_talk")
     r.add("spawn", id="look", x=40, y=F, face="right")
     for x in (20, 47, 65):
@@ -435,6 +436,7 @@ def k_roof_3():
     r.door("down", 75, 15, "k_roof_4", "up", style="stair_down", label="아래 지붕")
     r.add("pickup", id="k_helmet", kind="key", x=43, y=6, name="카엘의 투구", flag="k_helmet",
           text="은사자 문장이 박힌 투구. 안쪽에 '카엘 — 잃어버리면 단장님께 혼남'이라고 쓰여 있다.")
+    r.add("event", id="helmet_ev", flag="k_helmet", run="k_helmet_got", done="k_helmet_seen")
     r.add("enemy", id="garg1", kind="gargoyle", x=56, y=19, face="left")
     r.add("enemy", id="garg2", kind="gargoyle", x=72, y=15, face="left")
     r.add("enemy", id="liz", kind="star_lizard", x=30, y=17)
@@ -524,6 +526,7 @@ def k_gearworks():
     r.add("event", id="gears_ev", flag="k_gears_done", run="k_gears_solved", done="k_gears_seen")
     r.add("enemy", id="watch", kind="watchman", x=50, y=F, patrol=5.0)
     book(r, "k_book_2", 76, F, "『시간을 거스르는 태엽』")
+    r.add("event", id="book_ev", flag="k_book_2", run="k_book_got", done="k_book_2_seen")
     for x, y, w, s in ((8, 6, 6, 0.3), (28, 4, 4, -0.5), (54, 5, 8, 0.2), (74, 9, 5, -0.4)):
         r.add("prop", kind="k_gear", x=x, y=y, w=w, speed=s)
     r.add("prop", kind="k_pipe", x=1, y=4, w=78, dir="h", drip=False)
@@ -557,7 +560,7 @@ def k_clocktower():
     r.exit_left("top", 7, 11, "k_noble", "east")
     r.add("gate", id="bridge_gate", x=2, y=7, w=1, h=5, open_if="k_duel_called", look="bars")
     r.add("save", id="top", x=30, y=12, style="candle")
-    r.add("trigger", id="top_tg", x=20, y=6, w=5, h=6, run="k_tower_top", cond="k_gears_done,!k_tower_top")
+    r.add("trigger", id="top_tg", x=20, y=6, w=5, h=6, run="k_tower_top", cond="k_gears_done,!k_tower_top", once=False)
     r.add("spawn", id="wolf", x=34, y=12)
     r.add("enemy", id="liz1", kind="star_lizard", x=6, y=50)
     r.add("enemy", id="liz2", kind="star_lizard", x=24, y=30)
@@ -600,6 +603,7 @@ def k_cathedral():
     r.add("save", id="candle", x=8, y=F, style="candle")
     r.add("npc", id="priest", who="k_priest", x=48, y=F, face="left")
     book(r, "k_book_3", 74, 19, "『빛의 기도서 (어린이용)』")
+    r.add("event", id="book_ev", flag="k_book_3", run="k_book_got", done="k_book_3_seen")
     r.add("sign", x=28, y=F, look="board",
           text="대성당 종 치는 시각|새벽 — 다섯 번|정오 — 열두 번|저녁 — 일곱 번|(빛의 신 루멘께 드리는 기도 시간을 알리는 종입니다)")
     r.add("prop", kind="k_altar", x=40, y=37)
@@ -627,7 +631,7 @@ def k_crypt():
     # 별 수정 장벽 (낮은 천장 아래 통로를 막음)
     r.fill(36, 2, 46, 13)
     r.add("k_crystal_wall", id="cw", x=40, y=14, w=2, h=5, done_flag="k_crypt_open", period=2.4, range=12)
-    r.add("trigger", id="seen_tg", x=24, y=13, w=3, h=6, run="k_crypt_wall", cond="k_tower_top,!k_crypt_seen")
+    r.add("trigger", id="seen_tg", x=24, y=13, w=3, h=6, run="k_crypt_wall", cond="k_tower_top,!k_crypt_seen", once=False)
     r.add("event", id="open_ev", flag="k_crypt_open", run="k_crypt_broken", done="k_crypt_broken_seen")
     r.door("sewer", 74, F, "k_sewer_1", "crypt", style="stair_down", label="하수도")
     # 숨은 감실 (여우창문) — 수호의 깃털
@@ -692,6 +696,7 @@ def k_sewer_2():
           on_text="쿠르르… 수로 물이 빠진다.", off_text="수로에 물이 다시 찬다.")
     r.add("pickup", id="k_star_iron", kind="key", x=6, y=21, name="별철 조각", flag="k_star_iron",
           text="떨어진 별에서 나온 쇠. 차갑고, 희미하게 빛난다. 브론이 찾던 것이다.")
+    r.add("event", id="iron_ev", flag="k_star_iron", run="k_star_iron_got", done="k_star_iron_seen")
     r.add("enemy", id="cult", kind="cultist", x=64, y=F)
     r.add("enemy", id="jelly", kind="sewer_jelly", x=26, y=14)
     r.add("prop", kind="k_pipe", x=58, y=6, w=20, dir="h")
@@ -774,7 +779,7 @@ def k_sewer_5():
     r.plat(24, 29, 7)
     r.exit_left("west", F - 5, F - 1, "k_cult_den", "east")
     r.door("grate", 6, F, "k_market_alley", "grate", style="stair_up", label="시장 뒷골목")
-    r.add("trigger", id="grate_tg", x=4, y=F - 6, w=5, h=6, run="k_grate_open", cond="!k_sewer_grate")
+    r.add("trigger", id="grate_tg", x=4, y=F - 6, w=5, h=6, run="k_grate_open", cond="!k_sewer_grate", once=False)
     r.add("save", id="candle", x=14, y=F, style="candle")
     r.add("enemy", id="cult", kind="cultist", x=26, y=F)
     r.add("prop", kind="k_grate", x=6, y=2, w=3, h=3)

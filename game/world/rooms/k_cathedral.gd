@@ -67,6 +67,7 @@ func _init() -> void:
 		{t = "save", id = "candle", x = 8, y = 42, style = "candle"},
 		{t = "npc", id = "priest", who = "k_priest", x = 48, y = 42, face = "left"},
 		{t = "pickup", id = "k_book_3", kind = "key", x = 74, y = 19, name = "연체 도서 『빛의 기도서 (어린이용)』", flag = "k_book_3", text = "마녀학교 도서관 도장이 찍혀 있다. 그레타에게 돌려주자."},
+		{t = "event", id = "book_ev", flag = "k_book_3", run = "k_book_got", done = "k_book_3_seen"},
 		{t = "sign", x = 28, y = 42, look = "board", text = "대성당 종 치는 시각|새벽 — 다섯 번|정오 — 열두 번|저녁 — 일곱 번|(빛의 신 루멘께 드리는 기도 시간을 알리는 종입니다)"},
 		{t = "prop", kind = "k_altar", x = 40, y = 37},
 		{t = "prop", kind = "k_candelabra", x = 34, y = 42},

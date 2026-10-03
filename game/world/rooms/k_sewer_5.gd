@@ -40,7 +40,7 @@ func _init() -> void:
 		{t = "exit", id = "east", x = 39, y = 1, w = 1, h = 5, to = "k_sewer_4", to_id = "west"},
 		{t = "exit", id = "west", x = 0, y = 14, w = 1, h = 5, to = "k_cult_den", to_id = "east"},
 		{t = "door", id = "grate", x = 6, y = 19, to = "k_market_alley", to_id = "grate", style = "stair_up", label = "시장 뒷골목"},
-		{t = "trigger", id = "grate_tg", x = 4, y = 13, w = 5, h = 6, run = "k_grate_open", cond = "!k_sewer_grate"},
+		{t = "trigger", id = "grate_tg", x = 4, y = 13, w = 5, h = 6, run = "k_grate_open", cond = "!k_sewer_grate", once = false},
 		{t = "save", id = "candle", x = 14, y = 19, style = "candle"},
 		{t = "enemy", id = "cult", kind = "cultist", x = 26, y = 19},
 		{t = "prop", kind = "k_grate", x = 6, y = 2, w = 3, h = 3},

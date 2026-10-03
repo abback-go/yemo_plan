@@ -89,7 +89,7 @@ func _init() -> void:
 		{t = "exit", id = "top", x = 0, y = 7, w = 1, h = 5, to = "k_noble", to_id = "east"},
 		{t = "gate", id = "bridge_gate", x = 2, y = 7, w = 1, h = 5, open_if = "k_duel_called", look = "bars"},
 		{t = "save", id = "top", x = 30, y = 12, style = "candle"},
-		{t = "trigger", id = "top_tg", x = 20, y = 6, w = 5, h = 6, run = "k_tower_top", cond = "k_gears_done,!k_tower_top"},
+		{t = "trigger", id = "top_tg", x = 20, y = 6, w = 5, h = 6, run = "k_tower_top", cond = "k_gears_done,!k_tower_top", once = false},
 		{t = "spawn", id = "wolf", x = 34, y = 12},
 		{t = "enemy", id = "liz1", kind = "star_lizard", x = 6, y = 50},
 		{t = "enemy", id = "liz2", kind = "star_lizard", x = 24, y = 30},

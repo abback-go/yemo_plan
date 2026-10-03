@@ -100,6 +100,11 @@ const CHARACTERS := {
 		"robe": Color("#2a2440"), "robe2": Color("#a01e2c"), "skin": Color("#f0d4c0"), "hair": Color("#3a3028"),
 		"hair_style": "tied", "hat": "none", "hat_col": Color("#000000"), "eye": Color("#3a2a20"), "height": 35, "extra": [],
 	},
+	"k_clockmaker": {
+		"name": "시계공 오토", "color": Color("#e8c890"), "voice": 0.8,
+		"robe": Color("#4a3a2a"), "robe2": Color("#c8a040"), "skin": Color("#ecc8b0"), "hair": Color("#c8c0b8"),
+		"hair_style": "short", "hat": "none", "hat_col": Color("#000000"), "eye": Color("#3a3020"), "height": 33, "extra": ["glasses", "apron"],
+	},
 	"k_cultist": {
 		"name": "별 신도", "color": Color("#b090e8"), "voice": 0.92,
 		"robe": Color("#1e1838"), "robe2": Color("#c89aff"), "skin": Color("#d8c8d0"), "hair": Color("#1e1838"),
@@ -107,11 +112,81 @@ const CHARACTERS := {
 	},
 }
 
-## 이 장의 방 ID (지도·검사용) — 2단계에서 채운다 (docs/chapter2.md 7절)
-const ROOMS := []
+## 이 장의 방 ID (지도·검사용) — tools/rooms/ch2.py (docs/chapter2.md 7.1절)
+const ROOMS := [
+	"k_embassy", "k_gate_street", "k_market", "k_bakery", "k_smithy", "k_market_alley",
+	"k_knights_yard", "k_barracks", "k_walls",
+	"k_roof_1", "k_roof_2", "k_roof_3", "k_roof_4",
+	"k_clock_street", "k_gearworks", "k_clocktower",
+	"k_cathedral", "k_crypt",
+	"k_sewer_1", "k_sewer_2", "k_sewer_3", "k_sewer_4", "k_sewer_5", "k_cult_den",
+	"k_colosseum", "k_arena",
+	"k_noble", "k_palace_gate", "k_palace_plaza",
+	"k_oldquarter_1", "k_oldquarter_2", "k_oldquarter_3", "k_crater",
+]
 
-## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 플래그] — 2단계에서 채운다 (docs/chapter2.md 7.3절)
-const OBJECTIVES := []
+## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 플래그] (docs/chapter2.md 7.3절)
+const OBJECTIVES := [
+	["k_breakfast", "식당에서 아침을 먹자 (동관 복도 → 아래층)", "ch1_done"],
+	["ab_wings", "중앙 홀 수업 게시판에서 '불꽃 날개' 수업을 듣자", "k_breakfast"],
+	["k_envoy_seen", "교장 선생님이 부르신다 — 시계탑 꼭대기 교장실로", "ab_wings"],
+	["k_departed", "앞마당 전이진 앞에서 모두와 만나자", "k_envoy_seen"],
+	["k_met_leonie", "황도 아르덴 — 시장을 지나 동쪽 기사단 연무장으로", "k_departed"],
+	["k_spar_done", "기사단 연무장에서 레오니와 대련하자", "k_met_leonie"],
+	["k_walls_talk", "연무장 오른쪽 계단으로 성벽 위에 오르자", "k_spar_done"],
+	["k_clock_arrived", "성벽 서쪽 끝에서 지붕을 건너 시계 구역으로 (굴뚝 열기는 날개로)", "k_walls_talk"],
+	["k_gears_done", "태엽 공방의 톱니 시계 셋을 맞추자 (답은 대성당 종)", "k_clock_arrived"],
+	["k_tower_top", "시계탑 꼭대기로 — 짐승의 흔적을 쫓자", "k_gears_done"],
+	["k_crypt_seen", "대성당 지하 묘지로 (대성당 오른쪽 계단)", "k_tower_top"],
+	["ab_ward", "학교 실습장의 엠버린 교수에게 '불꽃 방벽'을 배우자 (공관 전이진 → 수업 게시판)", "k_crypt_seen"],
+	["k_crypt_open", "지하 묘지의 별 수정 장벽 — 날아오는 별 조각을 방벽으로 되쏘자", "ab_ward"],
+	["k_noxis_fled", "하수도 깊은 곳 — 별 신도의 은신처를 찾자 (수문 밸브로 물길을 열며)", "k_crypt_open"],
+	["k_duel_done", "밤 — 시계탑 꼭대기 다리를 건너 황궁 광장으로", "k_duel_called"],
+	["k_beast_down", "레오니와 함께 옛 성곽 지구 — 별이 떨어진 자리로", "k_duel_done"],
+]
 
-## 퀘스트 (docs/systems2.md 4절) — 2단계에서 채운다 (docs/chapter2.md 7.4절)
-const QUESTS := {}
+## 퀘스트 (docs/systems2.md 4절 · docs/chapter2.md 6절·7.4절). 진행은 각 인물의 npc_ 대본이 직접 처리한다.
+const QUESTS := {
+	"k_mia_bread": {
+		"title": "미아의 빵 배달", "giver": "mia", "kind": "side", "chapter": 2, "need": "k_met_leonie",
+		"desc": "갓 구운 빵을 세 곳에 배달하자. 미아는 레오니 단장님의 열성 팬이다.",
+		"steps": ["빵 배달 (0/3): 연무장의 카엘 · 대장간의 브론 · 대성당의 사제", "빵 배달 (1/3)", "빵 배달 (2/3)", "빵집의 미아에게 돌아가기"],
+		"reward": {"stones": 1, "text": "레오니의 옛이야기"},
+	},
+	"k_bron_ore": {
+		"title": "별철 조각", "giver": "bron", "kind": "side", "chapter": 2, "need": "k_spar_done",
+		"desc": "브론이 별이 떨어진 밤의 쇠 — 별철을 찾는다. 하수도 수로 어딘가에 가라앉아 있다는 소문.",
+		"steps": ["하수도 수로에서 별철 조각 찾기 (물을 빼야 할지도)", "대장간의 브론에게 가져가기"],
+		"reward": {"potion_slot": 1, "text": "레오니의 새 검 (브론이 벼림)"},
+	},
+	"k_kael_helmet": {
+		"title": "카엘의 투구", "giver": "kael", "kind": "side", "chapter": 2, "need": "k_walls_talk",
+		"desc": "카엘이 지붕 순찰 중에 가고일에게 투구를 빼앗겼다. 풍향계 근처에 걸려 있다는데…",
+		"steps": ["지붕 위(풍향계)에서 카엘의 투구 찾기 — 굴뚝 열기를 타고", "연무장의 카엘에게 돌려주기"],
+		"reward": {"stones": 1},
+	},
+	"k_arena": {
+		"title": "투기장 챔피언", "giver": "k_arena_master", "kind": "side", "chapter": 2, "need": "k_spar_done",
+		"desc": "투기장 지배인이 새 도전자를 찾는다. 챔피언 '그물의 가론'을 이기면 수호의 깃털을 준다.",
+		"steps": ["투기장 바닥에서 챔피언 가론과 겨루기", "지배인에게 보고하기"],
+		"reward": {"feather": 1, "text": "수호의 깃털"},
+	},
+	"k_isolde_race": {
+		"title": "지붕 경주", "giver": "isolde", "kind": "side", "chapter": 2, "need": "k_clock_arrived",
+		"desc": "이졸데가 지붕 경주를 걸어왔다. 굴뚝 숲(지붕1)에서 출발해 시계 거리 지붕(지붕4)까지, 2분 안에.",
+		"steps": ["지붕1(굴뚝 숲)에서 이졸데에게 말 걸어 출발", "2분 안에 지붕4(시계 거리)까지!"],
+		"reward": {"stones": 2, "text": "이졸데가 처음으로 이름을 불렀다"},
+	},
+	"k_spice": {
+		"title": "별향신료", "giver": "butterworth", "kind": "side", "chapter": 2, "need": "k_departed",
+		"desc": "버터워스 아주머니가 제국 시장의 별향신료로 학교 저녁을 만들고 싶어 한다.",
+		"steps": ["제국 시장의 향신료 상인에게서 별향신료 받기", "학교 식당의 버터워스 아주머니에게 가져가기"],
+		"reward": {"heart": 1, "text": "별향신료 스튜 (최대 체력 +1)"},
+	},
+	"k_greta_books": {
+		"title": "연체 도서 회수", "giver": "greta", "kind": "side", "chapter": 2, "need": "k_departed",
+		"desc": "제국으로 빌려 간 학교 도서관 책 세 권이 몇 년째 돌아오지 않았다. 그레타는 화가 났다(겉으로는 모름).",
+		"steps": ["제국에 흩어진 연체 도서 찾기 (0/3)", "연체 도서 찾기 (1/3)", "연체 도서 찾기 (2/3)", "도서관의 그레타에게 돌려주기"],
+		"reward": {"stones": 2},
+	},
+}

@@ -43,6 +43,7 @@ func _init() -> void:
 		{t = "event", id = "gears_ev", flag = "k_gears_done", run = "k_gears_solved", done = "k_gears_seen"},
 		{t = "enemy", id = "watch", kind = "watchman", x = 50, y = 19, patrol = 5.0},
 		{t = "pickup", id = "k_book_2", kind = "key", x = 76, y = 19, name = "연체 도서 『시간을 거스르는 태엽』", flag = "k_book_2", text = "마녀학교 도서관 도장이 찍혀 있다. 그레타에게 돌려주자."},
+		{t = "event", id = "book_ev", flag = "k_book_2", run = "k_book_got", done = "k_book_2_seen"},
 		{t = "prop", kind = "k_gear", x = 8, y = 6, w = 6, speed = 0.3},
 		{t = "prop", kind = "k_gear", x = 28, y = 4, w = 4, speed = -0.5},
 		{t = "prop", kind = "k_gear", x = 54, y = 5, w = 8, speed = 0.2},

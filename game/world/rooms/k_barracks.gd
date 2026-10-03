@@ -39,6 +39,7 @@ func _init() -> void:
 		{t = "door", id = "door", x = 4, y = 19, to = "k_knights_yard", to_id = "barracks", style = "wood", label = "연무장"},
 		{t = "pickup", id = "k_note_1", kind = "note", x = 33, y = 12, name = "제국 연대기 쪽지 (1/3)", text = "10년 전 그 밤, 하늘이 둘로 갈라지고 별 하나가 옛 성곽 위로 떨어졌다.|불타는 거리에서 마력 한 톨 없는 빈민가 소녀가 막대기 하나로 아이들을 지켰다고 한다.|— 은사자 기사단 기록, '별이 떨어진 밤' 1"},
 		{t = "pickup", id = "k_book_1", kind = "key", x = 14, y = 19, name = "연체 도서 『은사자 전기』", flag = "k_book_1", text = "마녀학교 도서관 도장이 찍혀 있다. 그레타에게 돌려주자."},
+		{t = "event", id = "book_ev", flag = "k_book_1", run = "k_book_got", done = "k_book_1_seen"},
 		{t = "npc", id = "kn", who = "k_knight_b", x = 22, y = 19, face = "left", talk = "npc_k_barracks"},
 		{t = "prop", kind = "bed_prop", x = 10, y = 19},
 		{t = "prop", kind = "bed_prop", x = 18, y = 19},

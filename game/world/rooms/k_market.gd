@@ -42,7 +42,7 @@ func _init() -> void:
 		{t = "door", id = "smithy", x = 108, y = 19, to = "k_smithy", to_id = "door", style = "wood", label = "브론의 대장간"},
 		{t = "updraft", id = "smithy_heat", x = 101, y = 3, w = 4, h = 13, style = "heat"},
 		{t = "pickup", id = "k_stone_market", kind = "stone", x = 110, y = 6, name = "마도석", text = "대장간 굴뚝 연기에 그을린 결정."},
-		{t = "trigger", id = "beast_tg", x = 52, y = 11, w = 4, h = 8, run = "k_market_beast", cond = "k_departed,!k_met_leonie"},
+		{t = "trigger", id = "beast_tg", x = 52, y = 11, w = 4, h = 8, run = "k_market_beast", cond = "k_departed,!k_met_leonie", once = false},
 		{t = "spawn", id = "beast", x = 80, y = 19},
 		{t = "spawn", id = "center", x = 58, y = 19},
 		{t = "npc", id = "merchant", who = "k_merchant", x = 37, y = 19, face = "left"},

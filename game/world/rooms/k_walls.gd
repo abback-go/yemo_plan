@@ -41,7 +41,7 @@ func _init() -> void:
 		{t = "gate", id = "west_gate", x = 2, y = 12, w = 1, h = 5, open_if = "k_walls_talk", look = "bars"},
 		{t = "gate", id = "east_gate", x = 75, y = 12, w = 1, h = 5, open_if = "k_clock_arrived", look = "bars"},
 		{t = "door", id = "stair", x = 10, y = 17, to = "k_knights_yard", to_id = "stair", style = "stair_down", label = "연무장"},
-		{t = "trigger", id = "talk_tg", x = 34, y = 11, w = 3, h = 6, run = "k_walls_talk", cond = "k_spar_done,!k_walls_talk"},
+		{t = "trigger", id = "talk_tg", x = 34, y = 11, w = 3, h = 6, run = "k_walls_talk", cond = "k_spar_done,!k_walls_talk", once = false},
 		{t = "npc", id = "leonie", who = "leonie", x = 44, y = 17, face = "left", cond = "k_spar_done,!k_walls_talk"},
 		{t = "spawn", id = "look", x = 40, y = 17, face = "right"},
 		{t = "prop", kind = "k_flag", x = 20, y = 16, h = 5},

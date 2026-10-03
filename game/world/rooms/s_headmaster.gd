@@ -46,5 +46,5 @@ func _init() -> void:
 		{t = "prop", kind = "fox_statue", x = 17, y = 19},
 		{t = "prop", kind = "painting", x = 26, y = 11, w = 4, h = 4, col = Color("#1a2a5a")},
 		{t = "prop", kind = "candles", x = 8, y = 19},
-		{t = "trigger", id = "k_envoy_tg", x = 6, y = 13, w = 4, h = 6, run = "k_envoy", cond = "ab_wings,!k_envoy_seen"},
+		{t = "trigger", id = "k_envoy_tg", x = 6, y = 13, w = 4, h = 6, run = "k_envoy", cond = "ab_wings,!k_envoy_seen", once = false},
 	]

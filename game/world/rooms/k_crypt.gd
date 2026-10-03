@@ -39,7 +39,7 @@ func _init() -> void:
 	entities = [
 		{t = "door", id = "up", x = 4, y = 19, to = "k_cathedral", to_id = "crypt", style = "stair_up", label = "대성당"},
 		{t = "k_crystal_wall", id = "cw", x = 40, y = 14, w = 2, h = 5, done_flag = "k_crypt_open", period = 2.4, range = 12},
-		{t = "trigger", id = "seen_tg", x = 24, y = 13, w = 3, h = 6, run = "k_crypt_wall", cond = "k_tower_top,!k_crypt_seen"},
+		{t = "trigger", id = "seen_tg", x = 24, y = 13, w = 3, h = 6, run = "k_crypt_wall", cond = "k_tower_top,!k_crypt_seen", once = false},
 		{t = "event", id = "open_ev", flag = "k_crypt_open", run = "k_crypt_broken", done = "k_crypt_broken_seen"},
 		{t = "door", id = "sewer", x = 74, y = 19, to = "k_sewer_1", to_id = "crypt", style = "stair_down", label = "하수도"},
 		{t = "pickup", id = "k_feather_crypt", kind = "feather", x = 28, y = 8, name = "수호의 깃털", text = "최대 체력이 1 늘었다."},

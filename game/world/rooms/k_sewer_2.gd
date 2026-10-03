@@ -43,6 +43,7 @@ func _init() -> void:
 		{t = "k_water", id = "channel", x = 1, y = 17, w = 35, h = 4, low_y = 21, low_if = "k_sw2_low", safe_x = 38, safe_y = 19},
 		{t = "k_valve", id = "valve", x = 38, y = 19, flag = "k_sw2_low", label = "수로 밸브", on_text = "쿠르르… 수로 물이 빠진다.", off_text = "수로에 물이 다시 찬다."},
 		{t = "pickup", id = "k_star_iron", kind = "key", x = 6, y = 21, name = "별철 조각", flag = "k_star_iron", text = "떨어진 별에서 나온 쇠. 차갑고, 희미하게 빛난다. 브론이 찾던 것이다."},
+		{t = "event", id = "iron_ev", flag = "k_star_iron", run = "k_star_iron_got", done = "k_star_iron_seen"},
 		{t = "enemy", id = "cult", kind = "cultist", x = 64, y = 19},
 		{t = "enemy", id = "jelly", kind = "sewer_jelly", x = 26, y = 14},
 		{t = "prop", kind = "k_pipe", x = 58, y = 6, w = 20, dir = "h"},
