@@ -139,7 +139,7 @@ func enter_s_training(c: Cut) -> void:
 	c.lock()
 	await c.wait(0.3)
 	await c.say("emberlyn", "왔구나. 시작해라.")
-	await c.say("emberlyn", "과녁은 맞으면 4초 동안 불이 남는다. 셋이 동시에 타오르면 합격이다.")
+	await c.say("emberlyn", "과녁은 맞으면 5초 동안 불이 남는다. 셋이 동시에 타오르면 합격이다.")
 	await c.say("emberlyn", "높은 과녁은 발판을 밟고 올라가서 쏴라. 화염탄은 멀리 못 간다 — 가까이 가서.")
 	await c.say("emberlyn", "서두르면 폭주 게이지가 넘친다. 70을 넘기면 처음부터다.")
 	c.close_box()

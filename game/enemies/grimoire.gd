@@ -2,7 +2,7 @@ class_name Grimoire
 extends EnemyBase
 ## 마도서 (docs/chapter1.md 7절·12.2절·12.4절·12.5절): 서가 미로의 정예. 표지에 외눈이 달린 살아 있는 금서.
 ## 책장 사이를 순간이동하며 페이지 탄을 쏜다: 5장 부채꼴 / 느린 유도 페이지 2장.
-## 150 피해마다 책을 덮어 1.2초 무적(맞으면 "팅") → 펼치며 사방으로 페이지 고리. 덮을 때마다 다음 페이지 패턴이 바뀐다.
+## 400 피해마다 책을 덮어 1.2초 무적(맞으면 "팅") → 펼치며 사방으로 페이지 고리. 덮을 때마다 다음 페이지 패턴이 바뀐다.
 ## 펼친 직후 잠깐 제자리에 머무는 때가 집중 공격할 틈.
 ## 순간이동은 home에서 10T 안, 벽 속이 아니고 세라가 보이는 곳으로만 간다. 멀리 밀려나면 home 근처로 돌아온다.
 ## 여우불에 맞으면 페이지가 탄다(피해 1.3배 + 푸른 불티).
@@ -11,7 +11,7 @@ enum S { HOVER, WINDUP, VOLLEY, TELE_OUT, TELE_IN, CLOSED, BURST }
 enum A { FAN, HOMING }
 
 const HP := 600
-const CLOSE_EVERY := 150 ## 이만큼 피해를 받을 때마다 책을 덮는다
+const CLOSE_EVERY := 400 ## 이만큼 피해를 받을 때마다 책을 덮는다 (v0.4 묵직한 한 발: 150 → 400, 두 발마다)
 const CLOSED_TIME := 1.2
 const TELE_RANGE_T := 10.0 ## home에서 순간이동할 수 있는 거리
 const LEASH_T := 12.0 ## home에서 이보다 멀어지면 home 근처로 순간이동

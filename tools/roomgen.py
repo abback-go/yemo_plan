@@ -554,9 +554,9 @@ def s_training():
     r.plat(50, 55, F - 3)
     # 과녁 3개: 바닥 둘(좌우)·높은 발판 위 하나. 맞으면 4초 동안 불이 남고, 셋이 동시에 타야 합격 (폭주 70 미만)
     # 화염탄 사거리 11T 안에서 쏠 수 있게 가운데에 모음
-    r.add("target", id="t1", group="tg", x=22, y=F, dx=2, period=2.6, hold=4.0)
-    r.add("target", id="t2", group="tg", x=33, y=F - 6, dx=2, period=2.4, hold=4.0)
-    r.add("target", id="t3", group="tg", x=42, y=F, dx=-2, period=3.0, phase=1.0, hold=4.0)
+    r.add("target", id="t1", group="tg", x=22, y=F, dx=2, period=2.6, hold=5.0)
+    r.add("target", id="t2", group="tg", x=33, y=F - 6, dx=2, period=2.4, hold=5.0)
+    r.add("target", id="t3", group="tg", x=42, y=F, dx=-2, period=3.0, phase=1.0, hold=5.0)
     r.add("puzzle", id="pz", group="tg", mode="targets", done_flag="t_targets_done", max_overload=70)
     r.add("event", id="ev", flag="t_targets_done", run="s_golem", done="s_golem_started")
     r.add("enemy", id="golem", kind="golem", x=58, y=F, face="left", cond="s_golem_started,!golem_done")

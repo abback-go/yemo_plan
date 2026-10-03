@@ -42,19 +42,16 @@ extends Resource
 @export var witch_time_cooldown := 2.0
 
 @export_group("Fire Bolt")
-@export var bolt_damage_light := 12
-@export var bolt_damage_heavy := 30
-@export var bolt_speed_light_t := 30.0 ## v0.2: 20
-@export var bolt_speed_heavy_t := 36.0
-@export var bolt_range_light_t := 11.0
-@export var bolt_range_heavy_t := 13.0
-@export var bolt_interval_light := 0.12 ## v0.2: 0.16
-@export var bolt_interval_heavy := 0.22 ## v0.2: 0.30
-@export var bolt_knockback_light_t := 0.25
-@export var bolt_knockback_heavy_t := 1.5
-@export var heavy_blast_radius_t := 1.6 ## 3타 화염창이 터지는 범위
-@export var heavy_blast_damage := 15
-@export var combo_keep_time := 0.32
+## v0.4 (플레이 피드백): 3연타 대신 묵직한 한 발. 단일 대상, 폭발 없음
+@export var shot_damage := 200
+@export var shot_interval := 1.2 ## 한 발 쏜 뒤 다음 발까지 (누르고 있으면 이 간격으로 계속)
+@export var shot_speed_t := 40.0
+@export var shot_range_t := 14.0
+@export var shot_knockback_t := 1.6
+@export var fox_shot_damage := 260 ## 여우 모드 X: 유도 + 관통
+@export var fox_shot_speed_t := 34.0
+@export var fox_shot_range_t := 20.0
+@export var fox_shot_homing := 4.0 ## 초당 회전 각 (라디안)
 @export var attack_buffer_time := 0.15
 @export var heavy_recoil_t := 0.5
 @export var air_shot_hover_speed_t := 1.5 ## 공중에서 쏘면 낙하 속도를 이 값으로 눌러 잠깐 떠 있음

@@ -51,7 +51,7 @@ func p_wisp_seen(c: Cut) -> void:
 	await c.say("sera", "어차피 들킬 거면 — 먼저 쏴 버리는 수밖에.", "angry")
 	c.close_box()
 	await c.camera_back(0.4)
-	await c.teach("화염탄", "X 로 화염탄을 쏜다. 연달아 누르면 3연타.\n세 번째 불덩이가 가장 세다.", ["attack"])
+	await c.teach("화염탄", "X 로 묵직한 화염탄 한 발. 쏘고 나면 손이 잠깐 식는다.\n누르고 있으면 식는 대로 계속 쏜다.", ["attack"])
 
 
 func p_fox_seen(c: Cut) -> void:

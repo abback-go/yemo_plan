@@ -1,102 +1,92 @@
 class_name FoxfireBolt
 extends Area2D
-## 여우 모드 X — 여우불 (docs/chapter1.md 4.8절).
-## 1·2타: 적을 살짝 따라가는 여우불 2발 / 3타: 관통하는 여우불 창 + 끝에서 폭발.
+## 여우 모드 X — 여우불 (v0.4, 플레이 피드백): 기본 공격처럼 약 1.2초마다 묵직한 한 발.
+## 커다란 푸른 여우불 창이 앞쪽의 가까운 적을 따라 휘어지며(유도), 적을 꿰뚫고 계속 날아간다(관통, 적마다 한 번).
+## 영혼의 불이라 벽은 통과한다. 폭발은 없다.
 
 const BLUE := Color(0.45, 0.78, 1.0)
 const CORE := Color(0.88, 0.97, 1.0)
 
-var heavy := false
 var tuning: Tuning
 var vel := Vector2.ZERO
-var damage := 16
-var max_dist := 224.0
+var damage := 260
+var max_dist := 320.0
+var homing := 4.0
 var _traveled := 0.0
 var _hit := {}
 var _done := false
 var _t := 0.0
 var _trail: Array[Vector2] = []
-var _home := 0.0
 
 
-static func fire(pos: Vector2, dir: int, p_heavy: bool, p_tuning: Tuning) -> void:
-	if p_heavy:
-		var b := FoxfireBolt.new()
-		b._init_bolt(pos, Vector2(dir, 0), true, p_tuning)
-		Fx.effect_parent().add_child(b)
-		Sfx.play(&"foxfire", 2.0, 0.05)
-	else:
-		for i in 2:
-			var b2 := FoxfireBolt.new()
-			b2._init_bolt(pos + Vector2(0, -5 + i * 10), Vector2(dir, -0.12 + i * 0.24).normalized(), false, p_tuning)
-			Fx.effect_parent().add_child(b2)
-		Sfx.play(&"foxfire", -2.0, 0.08)
+static func fire(pos: Vector2, dir: int, p_tuning: Tuning) -> void:
+	var b := FoxfireBolt.new()
+	b._init_bolt(pos, Vector2(dir, 0), p_tuning)
+	Fx.effect_parent().add_child(b)
+	Sfx.play(&"foxfire", 2.0, 0.05)
 
 
-func _init_bolt(pos: Vector2, d: Vector2, p_heavy: bool, p_tuning: Tuning) -> void:
+func _init_bolt(pos: Vector2, d: Vector2, p_tuning: Tuning) -> void:
 	global_position = pos
-	heavy = p_heavy
 	tuning = p_tuning
-	var speed := 38.0 * GameConst.TILE if heavy else 32.0 * GameConst.TILE
-	vel = d * speed
-	damage = 48 if heavy else 16
-	max_dist = (16.0 if heavy else 14.0) * GameConst.TILE
-	_home = 0.0 if heavy else 5.0
+	vel = d * tuning.fox_shot_speed_t * GameConst.TILE
+	damage = tuning.fox_shot_damage
+	max_dist = tuning.fox_shot_range_t * GameConst.TILE
+	homing = tuning.fox_shot_homing
 
 
 func _ready() -> void:
 	collision_layer = GameConst.L_PLAYER_ATTACK
-	collision_mask = GameConst.L_ENEMY_HURT | (0 if heavy else GameConst.L_WORLD)
+	collision_mask = GameConst.L_ENEMY_HURT
 	material = Fx.add_material
 	z_index = 6
 	var cs := CollisionShape2D.new()
-	if heavy:
-		var r := RectangleShape2D.new()
-		r.size = Vector2(26, 10)
-		cs.shape = r
-	else:
-		var c := CircleShape2D.new()
-		c.radius = 5.0
-		cs.shape = c
+	var r := RectangleShape2D.new()
+	r.size = Vector2(30, 14)
+	cs.shape = r
 	add_child(cs)
 	area_entered.connect(_on_area)
-	body_entered.connect(func(_b: Node) -> void: _finish())
 
 
 func _physics_process(delta: float) -> void:
 	if _done:
 		return
 	_t += delta
-	if _home > 0.0:
-		var target := _nearest()
-		if target:
-			var want := (target.global_position + Vector2(0, -12) - global_position).angle()
-			var cur := vel.angle()
-			vel = vel.rotated(clampf(wrapf(want - cur, -PI, PI), -_home * delta, _home * delta))
+	var target := _nearest()
+	if target:
+		var want := (target.global_position + Vector2(0, -minf(target.body_size.y * 0.5, 40.0)) - global_position).angle()
+		var cur := vel.angle()
+		vel = vel.rotated(clampf(wrapf(want - cur, -PI, PI), -homing * delta, homing * delta))
+	rotation = vel.angle()
 	_trail.push_front(global_position)
-	if _trail.size() > (10 if heavy else 7):
+	if _trail.size() > 12:
 		_trail.pop_back()
 	var step := vel * delta
 	global_position += step
 	_traveled += step.length()
+	if Engine.get_physics_frames() % 2 == 0:
+		Fx.burst(global_position - vel.normalized() * 12.0, 1, {spread = 40.0, speed_min = 10.0, speed_max = 40.0,
+			lifetime = 0.3, gradient = Palette.fade_gradient(BLUE), add = true, gravity = Vector2(0, -30)})
 	if _traveled >= max_dist:
 		_finish()
 	queue_redraw()
 
 
-func _nearest() -> Node2D:
-	var best: Node2D = null
-	var bd := 10.0 * GameConst.TILE
+## 앞쪽(진행 방향)에 있는, 아직 꿰뚫지 않은 가장 가까운 적
+func _nearest() -> EnemyBase:
+	var best: EnemyBase = null
+	var bd := 12.0 * GameConst.TILE
 	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-		if not e.is_alive():
+		var en := e as EnemyBase
+		if en == null or not en.is_alive() or _hit.has(en):
 			continue
-		var to: Vector2 = e.global_position - global_position
+		var to: Vector2 = en.global_position - global_position
 		if to.dot(vel) <= 0.0:
 			continue
 		var d := to.length()
 		if d < bd:
 			bd = d
-			best = e
+			best = en
 	return best
 
 
@@ -107,18 +97,17 @@ func _on_area(area: Area2D) -> void:
 	if target == null or not target.has_method("take_hit") or not target.is_alive() or _hit.has(target):
 		return
 	_hit[target] = true
-	var hit := Hit.make(damage, &"foxfire_heavy" if heavy else &"foxfire", global_position, int(signf(vel.x)))
-	hit.knockback_t = 1.2 if heavy else 0.3
-	hit.hitstop = tuning.hitstop_heavy if heavy else tuning.hitstop_light
-	hit.shake_t = tuning.shake_heavy_t if heavy else tuning.shake_light_t
-	hit.breaks_charge = heavy
-	hit.zoom = tuning.zoom_punch * 0.6 if heavy else 0.0
+	var hit := Hit.make(damage, &"foxfire_heavy", global_position, int(signf(vel.x)))
+	hit.knockback_t = 1.4
+	hit.hitstop = tuning.hitstop_heavy * 1.6
+	hit.shake_t = tuning.shake_heavy_t
+	hit.breaks_charge = true
+	hit.zoom = tuning.zoom_punch * 0.8
 	target.take_hit(hit)
-	Sfx.play(&"hit_heavy" if heavy else &"hit", -3.0)
-	Fx.burst(global_position, 10, {spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.3,
+	Sfx.play(&"hit_heavy", -2.0)
+	Fx.burst(global_position, 18, {spread = 180.0, speed_min = 60.0, speed_max = 200.0, lifetime = 0.35,
 		gradient = Palette.fade_gradient(BLUE), add = true})
-	if not heavy:
-		_finish()
+	Fx.ring(global_position, 3.0, 22.0, BLUE, 0.22, 2.0)
 
 
 func _finish() -> void:
@@ -126,37 +115,22 @@ func _finish() -> void:
 		return
 	_done = true
 	set_deferred("monitoring", false)
-	if heavy:
-		# 창 끝 폭발
-		var r := 2.4 * GameConst.TILE
-		for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-			if e.is_alive() and not _hit.has(e) and EnemyBase.dist_to_body(e, global_position) <= r + 8.0:
-				var hit := Hit.make(24, &"foxfire_heavy", global_position)
-				hit.knockback_t = 1.0
-				e.take_hit(hit)
-		Fx.ring(global_position, 4.0, r, BLUE, 0.3, 2.0)
-		Fx.burst(global_position, 26, {spread = 180.0, speed_min = 50.0, speed_max = 180.0, lifetime = 0.45,
-			gradient = Palette.fade_gradient(BLUE), add = true, damping = 120.0})
-		Sfx.play(&"blast", -4.0)
+	Fx.burst(global_position, 12, {spread = 180.0, speed_min = 30.0, speed_max = 90.0, lifetime = 0.35,
+		gradient = Palette.fade_gradient(BLUE), add = true})
 	queue_free()
 
 
 func _draw() -> void:
+	# 꼬리 (전역 자취를 지역 좌표로 — 회전되어 있으니 to_local로 그대로 씀)
 	var prev := Vector2.ZERO
 	for i in _trail.size():
 		var p := to_local(_trail[i])
 		var k := 1.0 - float(i) / _trail.size()
-		draw_line(prev, p, Color(BLUE, 0.55 * k), (6.0 if heavy else 3.5) * k + 0.5)
+		draw_line(prev, p, Color(BLUE, 0.6 * k), 9.0 * k + 0.5)
 		prev = p
-	if heavy:
-		var d := vel.normalized()
-		var side := Vector2(-d.y, d.x)
-		draw_colored_polygon(PackedVector2Array([d * 16.0, side * 5.0, -d * 12.0, -side * 5.0]), Color(BLUE, 0.9))
-		draw_colored_polygon(PackedVector2Array([d * 14.0, side * 2.0, -d * 6.0, -side * 2.0]), CORE)
-		# 여우 꼬리 같은 날개
-		draw_colored_polygon(PackedVector2Array([-d * 2.0, -d * 14.0 + side * 9.0 * sin(_t * 20.0), -d * 6.0]), Color(BLUE, 0.6))
-	else:
-		var f := 1.0 + 0.2 * sin(_t * 30.0)
-		draw_circle(Vector2.ZERO, 5.5 * f, Color(BLUE, 0.6))
-		draw_circle(Vector2.ZERO, 3.0 * f, CORE)
-		draw_colored_polygon(PackedVector2Array([Vector2(-2, -3), -vel.normalized() * 10.0 + Vector2(0, -2), Vector2(-2, 3)]), Color(BLUE, 0.7))
+	# 창 머리 (회전된 좌표: +x가 진행 방향)
+	draw_circle(Vector2.ZERO, 18.0, Color(BLUE, 0.15))
+	draw_colored_polygon(PackedVector2Array([Vector2(22, 0), Vector2(2, -7), Vector2(-14, -4), Vector2(-24, -9 + sin(_t * 30.0) * 2.0),
+		Vector2(-18, 0), Vector2(-24, 9 + cos(_t * 30.0) * 2.0), Vector2(-14, 4), Vector2(2, 7)]), Color(BLUE, 0.9))
+	draw_colored_polygon(PackedVector2Array([Vector2(19, 0), Vector2(3, -3.5), Vector2(-10, 0), Vector2(3, 3.5)]), CORE)
+	draw_circle(Vector2(8, 0), 2.0, Color.WHITE)

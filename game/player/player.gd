@@ -1,6 +1,6 @@
 class_name Player
 extends CharacterBody2D
-## 세라 — 이동·점프·대시 + 화염탄 3타, 불기둥, 화염 폭풍, 폭주 게이지, 체력·피격·사망.
+## 세라 — 이동·점프·대시 + 화염탄(묵직한 한 발), 불기둥, 화염 폭풍, 폭주 게이지, 체력·피격·사망.
 ## v0.3: 빠른 이동, 대시 점프, 최고점 체공, 빠른 낙하, 발판 내려가기, 천장 모서리 보정,
 ##       대시 중 사격, 공중 체공 사격, 퍼펙트 회피(위치 타임), 과열 강화 (docs/prototype.md 14절).
 ## 원점(0, 0)은 발밑. 수치는 전부 core/tuning.tres.
@@ -67,7 +67,6 @@ const FOX_RECHARGE := 50.0
 const POTION_HEAL := 2
 const POTION_TIME := 0.6
 
-var _combo_index := 0 ## 다음에 쏠 타 (0, 1, 2 = 1·2·3타)
 var _air_hovers_left := 0
 var _dash_dir := 1
 var _dash_jumping := false
@@ -549,43 +548,43 @@ func _end_dash() -> void:
 	velocity.x = _dash_dir * _max_speed
 
 
-# ─── 화염탄 3타 ─────────────────────────────────────────
+# ─── 화염탄 (묵직한 한 발) ──────────────────────────────
 
+## v0.4: 약 1.2초마다 커다란 한 발 (누르고 있으면 그 간격으로 계속). 여우 모드면 유도·관통 여우불
 func _fire_bolt() -> void:
-	if _since_shot > tuning.combo_keep_time:
-		_combo_index = 0
-	var heavy := _combo_index == 2
 	var hand := to_global(Vector2(HAND.x * facing, HAND.y))
 	if is_fox():
-		FoxfireBolt.fire(hand, facing, heavy, tuning)
+		FoxfireBolt.fire(hand, facing, tuning)
 	else:
 		var bolt := FireBolt.new()
-		bolt.setup(facing, heavy, tuning, is_overheated())
+		bolt.setup(facing, tuning, is_overheated())
 		bolt.global_position = hand
 		Fx.effect_parent().add_child(bolt)
+		Sfx.play(&"shoot_heavy", 0.0)
 
-	_attack_cooldown = tuning.bolt_interval_heavy if heavy else tuning.bolt_interval_light
-	_combo_index = (_combo_index + 1) % 3
+	_attack_cooldown = tuning.shot_interval
 	_since_shot = 0.0
 	_attack_buffer = 0.0
-	_cast_pose = 0.16
+	_cast_pose = 0.22
 	_cast_kind = 0
 	GameState.add("bolts_fired")
-	if not is_fox():
-		Sfx.play(&"shoot_heavy" if heavy else &"shoot", -1.0 if heavy else -3.0)
-	Fx.burst(hand, 8 if heavy else 4, {
-		direction = Vector2(facing, 0), spread = 35.0, speed_min = 60.0, speed_max = 160.0,
-		lifetime = 0.15, size_min = 1.0, size_max = 2.5, gravity = Vector2.ZERO,
+	var col := Color(0.55, 0.85, 1.0) if is_fox() else Palette.FIRE_HOT
+	Fx.burst(hand, 14, {
+		direction = Vector2(facing, 0), spread = 40.0, speed_min = 80.0, speed_max = 220.0,
+		lifetime = 0.2, size_min = 1.5, size_max = 3.0, gravity = Vector2.ZERO,
+		gradient = Palette.fade_gradient(col), add = true,
 	})
+	Fx.ring(hand, 2.0, 14.0, col, 0.15, 2.0)
+	Fx.shake(tuning.shake_light_t)
 	# 공중 사격: 낙하를 잠깐 멈춰 떠 있게 한다 (착지 전까지 정해진 횟수)
 	if not is_on_floor() and state != State.DASH and _air_hovers_left > 0 and velocity.y > -20.0:
 		velocity.y = minf(velocity.y, tuning.air_shot_hover_speed_t * GameConst.TILE)
 		_air_hovers_left -= 1
-	if heavy and state != State.DASH:
-		# 3타 반동: 뒤로 밀림
-		velocity.x = -facing * 2.0 * tuning.heavy_recoil_t * GameConst.TILE / 0.1
+	if state != State.DASH:
+		# 반동: 뒤로 밀림 (공중에서는 절반)
+		var k := 1.0 if is_on_floor() else 0.5
+		velocity.x = -facing * 2.0 * tuning.heavy_recoil_t * GameConst.TILE / 0.1 * k
 		_squash_to(Vector2(1.12, 0.9))
-		Fx.shake(tuning.shake_light_t)
 
 
 # ─── 스킬 ───────────────────────────────────────────────

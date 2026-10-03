@@ -37,9 +37,9 @@ func _init() -> void:
 """
 	entities = [
 		{t = "exit", id = "east", x = 79, y = 11, w = 1, h = 5, to = "s_class", to_id = "west"},
-		{t = "target", id = "t1", group = "tg", x = 22, y = 19, dx = 2, period = 2.6, hold = 4.0},
-		{t = "target", id = "t2", group = "tg", x = 33, y = 13, dx = 2, period = 2.4, hold = 4.0},
-		{t = "target", id = "t3", group = "tg", x = 42, y = 19, dx = -2, period = 3.0, phase = 1.0, hold = 4.0},
+		{t = "target", id = "t1", group = "tg", x = 22, y = 19, dx = 2, period = 2.6, hold = 5.0},
+		{t = "target", id = "t2", group = "tg", x = 33, y = 13, dx = 2, period = 2.4, hold = 5.0},
+		{t = "target", id = "t3", group = "tg", x = 42, y = 19, dx = -2, period = 3.0, phase = 1.0, hold = 5.0},
 		{t = "puzzle", id = "pz", group = "tg", mode = "targets", done_flag = "t_targets_done", max_overload = 70},
 		{t = "event", id = "ev", flag = "t_targets_done", run = "s_golem", done = "s_golem_started"},
 		{t = "enemy", id = "golem", kind = "golem", x = 58, y = 19, face = "left", cond = "s_golem_started,!golem_done"},
