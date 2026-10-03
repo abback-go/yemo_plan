@@ -72,6 +72,18 @@ func _ensure_fox(c: Cut) -> void:
 		c.player.start_fox_mode()
 
 
+## 작은 너울을 화면 밖으로 치워 둠 (어둠·환상 장면). show=true면 세라 곁으로 돌려놓음
+func _pet_away(c: Cut, away := true) -> void:
+	var pet := c.world.pet
+	if pet == null:
+		return
+	if away:
+		pet.place(Vector2(-4000, -4000), 1)
+	else:
+		pet.release_script()
+		pet.snap_to_player()
+
+
 ## 대본 중에 따라오는 학생들을 만든다 (방 데이터의 st_follow와 같음)
 func _spawn_followers(c: Cut) -> void:
 	if c.actor("followers") != null:
@@ -82,12 +94,40 @@ func _spawn_followers(c: Cut) -> void:
 	c.world.room.actors["followers"] = f
 
 
-## 아레나 입장: 문 너머로 몇 걸음 들어올 때까지 기다린 뒤 결계(FlagGate)를 닫는다
-func _close_arena(c: Cut, flag: String, past_x := 6.0) -> void:
+## 이 방의 kind 적이 모두 쓰러질 때까지 기다린다. 그 전에 방을 떠나면 false (대본은 거기서 그만둔다)
+func _wait_clear(c: Cut, kind: String, timeout := 1800.0) -> bool:
+	var rid := c.world.room.data.id
+	await c.wait_until(func() -> bool: return c.world.room == null or c.world.room.data.id != rid or c.enemy(kind) == null, timeout)
+	return c.ok() and c.world.room != null and c.world.room.data.id == rid
+
+
+## 대본 중에 별의 문을 하나 세운다 (시련을 마친 아레나: 곧장 문간으로 돌아가는 문)
+func _spawn_star_door(c: Cut, eid: String, x_t: float, y_t: float, to: String, to_id: String, col: String) -> void:
+	var room := c.world.room
+	if room == null or room.doors.has(eid):
+		return
+	var pr := Prop.new()
+	pr.setup(room, {"kind": "st_star_door", "x": x_t, "y": y_t, "col": col})
+	room.add_entity(pr)
+	var d := RoomDoor.new()
+	d.setup(room, {"x": x_t, "y": y_t, "to": to, "to_id": to_id, "style": "st", "label": "별의 문간"}, eid)
+	room.add_entity(d)
+	room.doors[eid] = d
+	Fx.ring(Vector2(x_t * 16.0 + 8.0, y_t * 16.0 - 20.0), 4.0, 40.0, StArt.STAR, 0.5, 2.0)
+	c.sfx("star_twinkle", 0.0)
+
+
+## 아레나 입장: 문 너머로 몇 걸음 들어올 때까지 기다린 뒤 결계(FlagGate)를 닫는다.
+## 들어오지 않고 방을 나가면 false (대본은 거기서 그만둔다)
+func _close_arena(c: Cut, flag: String, past_x := 6.0) -> bool:
 	c.flag(flag, false)
-	await c.wait_until(func() -> bool: return c.player.global_position.x > past_x * 16.0, 30.0)
+	var rid := c.world.room.data.id
+	await c.wait_until(func() -> bool: return c.world.room == null or c.world.room.data.id != rid or c.player.global_position.x > past_x * 16.0, 3600.0)
+	if not c.ok() or c.world.room == null or c.world.room.data.id != rid:
+		return false
 	c.flag(flag)
 	c.sfx("ward", -4.0)
+	return true
 
 
 ## 별의 열쇠
@@ -136,7 +176,8 @@ func ch5_start(c: Cut) -> void:
 	await c.say("sera", "…아우렐리아가 가게를? 상상이 안 되는데.", "surprised")
 	c.close_box()
 	c.sfx("whoosh", -6.0)
-	c.spawn_npc("hodu", 36.0, 12.0, 1)
+	c.face("hodu", -1)
+	await c.move("hodu", 46.0, 10.0, 0.01)
 	await c.move("hodu", 41.0, 19.0, 0.8)
 	await c.say("hodu", "호우.")
 	await c.say("pippa", "어, 호두다. 그레타 선생님네 부엉이. …편지? 아, 교장 선생님께 드릴 축제 초대장이구나.")
@@ -381,6 +422,8 @@ func st_evening(c: Cut) -> void:
 	await c.say("isolde", "…따라오지 말라는 말은 안 했어. 오고 싶으면 와.", "smug")
 	await c.say("astrid", "앞마당에 별의 문이 열렸을 거예요. 문마다 시련이 있는 곳으로 곧장 이어지죠. …선배다운 친절이에요.")
 	c.close_box()
+	c.flag("st_fest_seen")
+	c.flag("st_fest_ready")
 	c.flag("st_lyra_came")
 	c.letterbox(false)
 	await c.fade_out(1.0)
@@ -486,7 +529,7 @@ func npc_pippa_ch5(c: Cut) -> void:
 			else:
 				await c.say("pippa", "별사탕 물약 한 병 마셔 볼래? …왜 표정이 그래?", "happy")
 		"trial":
-			await c.say("pippa", "…교장 선생님은 의무실에서 쉬셔. 미라벨 선생님이 곁에 계셔.", "sad")
+			await c.say("pippa", "…교장 선생님은 별의 문간에서 버티고 계셔. 미라벨 선생님이 말려도 소용없대.", "sad")
 			await c.say("pippa", "난 물약을 잔뜩 만들어 둘게. 다녀와, 세라. 꼭!")
 		"epi":
 			await _pippa_epi(c)
@@ -756,6 +799,9 @@ func npc_astrid_ch5(c: Cut) -> void:
 			c.player.restore_from_state()
 			Story.toast("체력이 가득 찼다.", 1.6)
 		"epi":
+			if not c.has("st_tea_done"):
+				await st_tea(c)
+				return
 			await c.say("astrid", "차가 식기 전에 선배랑 같이 마셔요. 오늘은 수업 없어요.", "happy")
 		_:
 			await c.say("astrid", "……", "tired")
@@ -809,6 +855,9 @@ func npc_aurelia_ch5(c: Cut) -> void:
 
 
 func npc_lyra_ch5(c: Cut) -> void:
+	if c.has("st_epilogue") and not c.has("st_tea_done"):
+		await st_tea(c)
+		return
 	if c.has("ch5_done"):
 		var lines := [
 			"별 보는 법? 그건 쉬워. 고개를 들면 돼. …어려운 건 고개를 드는 거지.",
@@ -898,8 +947,7 @@ func enter_st_trial_k(c: Cut) -> void:
 	if c.has("st_key_k"):
 		return
 	_join(c, "leonie")
-	await _close_arena(c, "st_k_fight", 5.0)
-	if not c.ok():
+	if not await _close_arena(c, "st_k_fight", 5.0):
 		return
 	c.lock()
 	var en := c.spawn_enemy("star_knight", 30, 19, "grand_knight", {"grand": true})
@@ -927,6 +975,7 @@ func enter_st_trial_k(c: Cut) -> void:
 	await c.wait(0.8)
 	await c.say("leonie", "…끝났다. 나쁘지 않군, 세라.", "happy")
 	await _key_get(c, "k")
+	_spawn_star_door(c, "out", 20.0, 19.0, "st_crossroads", "k", "k")
 	await c.say("leonie", "브론이 밤새 새 검을 벼리고 있다. 별빛 따위가 아니라— 진짜 적을 벨 검을.")
 	await c.say("leonie", "그 마녀가 노리는 게 무엇이든, 그 검이 필요할 날이 올 것 같다.")
 	c.close_box()
@@ -964,8 +1013,7 @@ func enter_st_trial_e(c: Cut) -> void:
 	var cover := c.marker("cover") / 16.0
 	var a := _join(c, "elarien", cover.x - 0.5, cover.y)
 	a.mode = "hold"
-	await _close_arena(c, "st_e_fight", 4.0)
-	if not c.ok():
+	if not await _close_arena(c, "st_e_fight", 4.0):
 		return
 	c.lock()
 	var en := c.spawn_enemy("star_archer", 20, 10, "grand_archer", {"grand": true})
@@ -993,6 +1041,7 @@ func enter_st_trial_e(c: Cut) -> void:
 	await c.wait(0.8)
 	await c.say("elarien", "…맞혔군. 네 불은 여전히 숲을 태우지 않는다.", "happy")
 	await _key_get(c, "e")
+	_spawn_star_door(c, "out", 20.0, 19.0, "st_crossroads", "e", "e")
 	await c.say("elarien", "장로님이 세계수의 가지 하나를 떼어 두셨다. 언젠가 활로 깎으라고.")
 	await c.say("elarien", "…무엇을 쏘게 될지는 모르겠다. 다만, 튕기지 않는 화살이 필요할 거다.")
 	c.close_box()
@@ -1026,8 +1075,7 @@ func enter_st_trial_tp(c: Cut) -> void:
 	if c.has("st_key_tp"):
 		return
 	_join(c, "aurelia")
-	await _close_arena(c, "st_tp_fight", 5.0)
-	if not c.ok():
+	if not await _close_arena(c, "st_tp_fight", 5.0):
 		return
 	c.lock()
 	var en := c.spawn_enemy("star_lancer", 30, 19, "grand_lancer", {"grand": true})
@@ -1057,6 +1105,7 @@ func enter_st_trial_tp(c: Cut) -> void:
 	await c.wait(1.0)
 	await c.say("aurelia", "종이 울렸습니다. 별의 시련, 통과입니다.")
 	await _key_get(c, "tp")
+	_spawn_star_door(c, "out", 20.0, 19.0, "st_crossroads", "tp", "tp")
 	await c.say("aurelia", "루멘이 마지막으로 남긴 빛이 제단에 조금 있습니다. 쓸 때가 오면… 당신 곁에서 쓰겠습니다.")
 	c.close_box()
 	c.music("temple")
@@ -1120,6 +1169,7 @@ func st_s_key(c: Cut) -> void:
 			e.take_hit(Hit.make(99999, &"fox", e.global_position))
 	await c.wait(0.4)
 	await _key_get(c, "s")
+	_spawn_star_door(c, "out", 76.0, 10.0, "st_crossroads", "s", "s")
 	await c.say("emberlyn", "세라. 네 불은… 이제 내가 가르칠 게 별로 없구나.", "happy")
 	await c.say("isolde", "다음 시련엔 나도 데려가. …싫으면 말고.", "smug")
 	await c.say("sera", "싫다고 한 적 없어.", "happy")
@@ -1549,18 +1599,58 @@ func enter_r5_clock(c: Cut) -> void:
 
 
 ## 통신 수정 구슬: 각 지역 강자에게서 오는 소식
-func _comm(c: Cut, flag: String, lines: Array) -> void:
+func _comm(c: Cut, flag: String, lines: Array, vision := "", who := "", pose := "kneel", caption := "") -> void:
 	if c.has(flag):
 		return
 	c.flag(flag)
 	c.lock()
 	c.sfx("window", 0.0)
 	await c.narrate("깨진 통신 수정 구슬이 지직거리며 빛났다.")
+	c.close_box()
+	if vision != "":
+		await _vision(c, vision, who, pose, caption, lines)
+	else:
+		for l in lines:
+			var row: Array = l
+			await c.say(String(row[0]), String(row[1]), String(row[2]) if row.size() > 2 else "normal")
+	c.close_box()
+	c.release()
+
+
+## 같은 시각, 다른 지역 (침공의 땅울림): 통신이 울리는 동안 그 땅을 보여 주고 돌아온다.
+## 세라는 보이지 않고 다치지 않는다. 돌아오는 자리는 지금 방의 "comm" 표식
+func _vision(c: Cut, room_id: String, who: String, pose: String, _caption: String, lines: Array) -> void:
+	var back := c.world.room.data.id
+	await c.fade_out(0.6)
+	c.hud(false)
+	c.letterbox(true)
+	c.player.set("_hurt_iframe", 999.0)
+	await c.goto_room(room_id, "view")
+	c.lock()
+	await c.fade_out(0.01)
+	c.player.visible = false
+	_pet_away(c)
+	var n := c.spawn_npc(who, 14.0, 19.0, 1)
+	if n:
+		n.visual.set_pose(pose)
+	c.freeze_enemies(false)
+	await c.fade_in(1.0)
+	for k in 2:
+		c.sfx("colossus_step", 4.0)
+		c.shake(0.5, 0.5)
+		await c.wait(0.9)
 	for l in lines:
 		var row: Array = l
 		await c.say(String(row[0]), String(row[1]), String(row[2]) if row.size() > 2 else "normal")
 	c.close_box()
-	c.release()
+	await c.fade_out(0.6)
+	c.player.visible = true
+	await c.goto_room(back, "comm")
+	_pet_away(c, false)
+	c.lock()
+	c.player.set("_hurt_iframe", 1.0)
+	c.letterbox(false)
+	c.hud(true)
 
 
 func r5_comm_leonie(c: Cut) -> void:
@@ -1568,9 +1658,11 @@ func r5_comm_leonie(c: Cut) -> void:
 		["leonie", "…세라, 들리나. 황도에 거신이 들어왔다.", "sad"],
 		["leonie", "검을 맞혔다. 흠집 하나 나지 않았다. …검이 부러졌다.", "sad"],
 		["leonie", "시민은 성 지하로 옮겼다. 나는 아직 서 있다. 너도— 서 있어라."],
-		["sera", "레오니! 레오니!!", "surprised"],
-		["neoul", "…끊겼느니라.", "sad"],
-	])
+	], "r5_vision_k", "leonie", "kneel", "같은 시각 — 황도 아르덴")
+	await c.say("sera", "레오니! 레오니!!", "surprised")
+	await c.say("neoul", "…끊겼느니라.", "sad")
+	c.close_box()
+	c.release()
 
 
 func enter_r5_hall(c: Cut) -> void:
@@ -1586,8 +1678,7 @@ func enter_r5_hall(c: Cut) -> void:
 		await c.say("neoul", "흰 사도니라. 저것들은 푸른 불을 싫어하지만— 지금 네 불로도 끌 수는 있다. 가거라!")
 		c.close_box()
 		c.release()
-	await c.wait_until(func() -> bool: return c.enemy("outer_seraph") == null, 600.0)
-	if not c.ok():
+	if not await _wait_clear(c, "outer_seraph"):
 		return
 	c.lock()
 	await c.wait(0.5)
@@ -1628,8 +1719,7 @@ func enter_r5_library(c: Cut) -> void:
 		await c.say("hodu", "호우…!")
 		c.close_box()
 		c.release()
-	await c.wait_until(func() -> bool: return c.enemy("outer_seraph") == null, 600.0)
-	if not c.ok():
+	if not await _wait_clear(c, "outer_seraph"):
 		return
 	c.lock()
 	await c.wait(0.4)
@@ -1644,6 +1734,9 @@ func enter_r5_library(c: Cut) -> void:
 	c.hide_actor("greta")
 	c.hide_actor("hodu")
 	c.release()
+	# 싸우는 동안 수정 구슬 곁을 지나쳤어도 소식은 듣는다
+	await c.wait(0.6)
+	await r5_comm_elarien(c)
 
 
 func r5_comm_elarien(c: Cut) -> void:
@@ -1651,12 +1744,14 @@ func r5_comm_elarien(c: Cut) -> void:
 		["elarien", "…세라. 숲이다.", "sad"],
 		["elarien", "거신의 눈을 맞혔다. 세 번. 화살이 튕겼다.", "sad"],
 		["elarien", "세계수가 탄다. 아이들은 뿌리 아래에 숨겼다. …살아라."],
-		["sera", "엘라리엔…!", "sad"],
-	])
+	], "r5_vision_e", "elarien", "hurt", "같은 시각 — 세계수")
+	await c.say("sera", "엘라리엔…!", "sad")
+	c.close_box()
+	c.release()
 
 
 func enter_r5_dorm(c: Cut) -> void:
-	if c.has("st_dorm_seen"):
+	if c.has("st_dorm_seen") or c.has("st_dorm_vision"):
 		return
 	c.lock()
 	await c.wait(0.4)
@@ -1664,11 +1759,14 @@ func enter_r5_dorm(c: Cut) -> void:
 	await c.say("sera", "교장 선생님! 탑에서 저를—", "surprised")
 	await c.say("astrid", "던진 건 저예요. 받는 건 조금 서툴렀네요. 미안해요.", "tired")
 	c.close_box()
-	c.sfx("window", 0.0)
-	await c.narrate("탁자 위의 통신 수정 구슬이 지직거렸다.")
-	await c.say("aurelia", "…세라피나. 대신전입니다. 창이… 부서졌습니다.", "sad")
-	await c.say("aurelia", "루멘의 빛이 닿지 않습니다. 그래도 저는 아직 서 있습니다. 당신도.", "sad")
-	c.close_box()
+	c.flag("st_dorm_vision")
+	await _comm(c, "st_comm_tp", [
+		["aurelia", "…세라피나. 대신전입니다. 창이… 부서졌습니다.", "sad"],
+		["aurelia", "루멘의 빛이 닿지 않습니다. 종루도 무너졌습니다.", "sad"],
+		["aurelia", "그래도 저는 아직 서 있습니다. 당신도.", "sad"],
+	], "r5_vision_tp", "aurelia", "kneel", "같은 시각 — 루멘 대신전")
+	c.lock()
+	await c.wait(0.3)
 	await c.say("mirabel", "교장 선생님 얼굴이 하얘요… 더 이상은 무리예요!", "sad")
 	await c.say("astrid", "괜찮아요. 아직은.", "tired")
 	await c.say("astrid", "학생들을 앞마당으로 모읍시다. 제가 결계를 치겠어요.")
@@ -1676,7 +1774,6 @@ func enter_r5_dorm(c: Cut) -> void:
 	await c.say("sera", "제가 앞장설게요.")
 	c.close_box()
 	c.flag("st_dorm_seen")
-	c.flag("st_comm_tp")
 	for who in ["astrid", "mirabel", "student_c"]:
 		c.walk(who, 1.0, 90.0)
 	await c.wait(1.2)
@@ -1692,10 +1789,14 @@ func r5_despair(c: Cut) -> void:
 		return
 	c.lock()
 	c.letterbox(true)
-	var giant := c.enemy("colossus")
+	var giant: EnemyBase = null
 	for e in c.world.room.enemies:
-		if is_instance_valid(e) and String(e.get("mode")) == "hand":
+		if not is_instance_valid(e) or e.kind_id != "colossus":
+			continue
+		if String(e.get("mode")) == "hand":
 			e.set("walking", false)
+		else:
+			giant = e
 	await c.wait(0.4)
 	c.player_face(1)
 	await c.say("sera", "더는 도망칠 데가 없어… 그럼—!", "angry")
@@ -1792,6 +1893,7 @@ func enter_st_void(c: Cut) -> void:
 	await c.fade_out(0.01)
 	Music.stop(0.1)
 	c.player_face(1)
+	_pet_away(c)
 	await c.wait(1.0)
 	await c.fade_in(3.0)
 	await c.wait(0.8)
@@ -1843,6 +1945,7 @@ func enter_st_void(c: Cut) -> void:
 	await c.title_card("아홉 꼬리", "구미호 — 너울과 하나 되어", 2.6)
 	if g:
 		await g.merge_into(c.player.center(), 1.4)
+	_pet_away(c, false)
 	c.player.start_fox_mode()
 	await c.wait(0.8)
 	await c.say("neoul", "가자, 세라야. 깨워야 할 것들이 있느니라. 그리고— 잠재워야 할 것들도.", "happy")
@@ -1954,8 +2057,7 @@ func enter_st_colossus_1(c: Cut) -> void:
 		await c.say("aurelia", "거신의 발은 우리가 막습니다. 앞으로!")
 		c.close_box()
 		c.release()
-	await c.wait_until(func() -> bool: return c.enemy("outer_seraph") == null, 900.0)
-	if not c.ok():
+	if not await _wait_clear(c, "outer_seraph"):
 		return
 	c.flag("st_c1_clear")
 	c.sfx("ward", 0.0)
@@ -2052,8 +2154,7 @@ func enter_st_skygate(c: Cut) -> void:
 		return
 	_ensure_fox(c)
 	c.save_here("start")
-	await _close_arena(c, "st_gate_fight", 3.0)
-	if not c.ok():
+	if not await _close_arena(c, "st_gate_fight", 3.0):
 		return
 	c.lock()
 	var gate := c.spawn_enemy("sky_gate", 20, 10, "gate")

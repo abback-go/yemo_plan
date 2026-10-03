@@ -46,6 +46,7 @@ func _init() -> void:
 		{t = "npc", id = "stu_c", who = "student_c", x = 20, y = 19, face = "left", talk = "npc_r5_stu", cond = "!st_dorm_seen"},
 		{t = "st_follow", id = "followers", who = ["pippa", "student_a", "student_b"], cond = "st_escort"},
 		{t = "prop", kind = "st_comm_crystal", x = 24, y = 19, on = true},
+		{t = "spawn", id = "comm", x = 22, y = 19, face = "right"},
 		{t = "prop", kind = "bed_prop", x = 12, y = 19},
 		{t = "prop", kind = "bed_prop", x = 26, y = 19},
 		{t = "prop", kind = "st_rubble", x = 34, y = 19, w = 3},
