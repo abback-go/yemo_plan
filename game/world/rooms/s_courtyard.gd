@@ -51,6 +51,10 @@ func _init() -> void:
 		{t = "prop", kind = "torch", x = 64, y = 19},
 		{t = "npc", id = "stu", who = "student_b", x = 50, y = 19, face = "left", talk = "npc_courtyard"},
 		{t = "sign", x = 72, y = 19, look = "board", text = "지하 저장고|교장의 명으로 출입을 금함.|…밤마다 안에서 무언가 씹는 소리가 난다는 소문은 사실무근. — 관리인"},
+		{t = "npc", id = "k_emb_go", who = "emberlyn", x = 20, y = 19, face = "right", cond = "k_envoy_seen,!k_departed"},
+		{t = "npc", id = "k_pip_go", who = "pippa", x = 17, y = 19, face = "right", cond = "k_envoy_seen,!k_departed"},
+		{t = "npc", id = "k_iso_go", who = "isolde", x = 31, y = 19, face = "left", cond = "k_envoy_seen,!k_departed"},
+		{t = "trigger", id = "k_depart_tg", x = 26, y = 13, w = 6, h = 6, run = "k_depart", cond = "k_envoy_seen,!k_departed", once = false},
 		{t = "warp", id = "warp_circle", x = 24, y = 19, area = "school", cond = "ch1_done"},
 		{t = "spawn", id = "warp", x = 24, y = 19, face = "right"},
 	]
