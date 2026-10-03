@@ -149,7 +149,7 @@ def tp_road_2():
 @room
 def tp_cave():
     """얼음 동굴 (숨은 곳): 어린 레오니가 눈보라를 피했던 곳 — 견습 기사 배지, 마도석, 순례자의 일기"""
-    r = troom("tp_cave", "성산 · 얼음 동굴", "temple_dark", "temple", (2, 7), (1, 1), dark=0.3)
+    r = troom("tp_cave", "성산 · 얼음 동굴", "icecave", "temple", (2, 7), (1, 1), dark=0.25)
     F = 19
     r.box(wall=1, floor=4, ceil=2)
     r.exit_right("east", F - 5, F - 1, "tp_road_2", "cave")
@@ -293,6 +293,7 @@ def tp_gate():
     r.fill(42, F - 1, 78, F - 1)
     r.fill(46, F - 2, 78, F - 2)
     r.fill(50, F - 3, 78, F - 3)
+    r.add("prop", kind="tp_great_gate", x=64, y=F - 3, w=8, h=11, open_if="tp_gate_open")
     r.door("gate", 64, F - 3, "tp_cloister", "gate", style="grand", label="대신전", lock="tp_gate_open",
            lock_msg="황금 정문. 굳게 닫혀 있다. 문틈으로 낮은 성가가 새어 나온다.")
     r.door("short", 4, F, "tp_road", "short", style="stair_down", label="순례길 입구 (지름길)")
@@ -304,8 +305,8 @@ def tp_gate():
     deco(r, [
         ("tp_font", 20, F), ("tp_lantern", 7, F), ("tp_pine", 2, F, dict(h=10)), ("tp_pine", 36, F, dict(h=8)),
         ("tp_wing_statue", 46, F - 2), ("tp_wing_statue", 76, F - 3), ("tp_brazier", 54, F - 3), ("tp_brazier", 74, F - 3),
-        ("tp_column", 52, F - 3, dict(h=13)), ("tp_column", 58, F - 3, dict(h=13)), ("tp_column", 70, F - 3, dict(h=13)),
-        ("tp_banner", 56, 2, dict(h=6)), ("tp_banner", 71, 2, dict(h=6)), ("tp_sun_relief", 62, 2, dict(w=5)),
+        ("tp_column", 52, F - 3, dict(h=13)), ("tp_column", 57, F - 3, dict(h=13)), ("tp_column", 71, F - 3, dict(h=13)),
+        ("tp_banner", 55, 2, dict(h=6)), ("tp_banner", 73, 2, dict(h=6)),
         ("tp_flags", 22, 4, dict(w=18, h=2)),
     ])
     return r
@@ -618,7 +619,7 @@ def tp_bell_2():
 def tp_bell_3():
     """큰 종 다락: 종탑 꼭대기. 가운데 큰 종을 울리면 시련 ② 끝(tp_trial_bell). 망령 둘이 마지막으로 지킨다.
     종지기 그레고르의 조율(tp_gregor_bells): 작은 종 셋(낮음·가운데·높음)을 그가 흥얼거린 차례로."""
-    r = troom("tp_bell_3", "종탑 · 큰 종 다락", "spire", "temple", (13, 2), (2, 1))
+    r = troom("tp_bell_3", "종탑 · 큰 종 다락", "temple_out", "temple", (13, 2), (2, 1))
     F = 19
     r.box(wall=1, floor=4, ceil=1)
     r.door("down", 6, F, "tp_bell_2", "up", style="stair_down", label="박자의 방")

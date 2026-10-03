@@ -11,6 +11,14 @@ extends RefCounted
 ## INARI풍 규칙: 지형은 어둡고 낮은 채도(흰 대리석도 그늘진 회보라로), 빛나는 금색 하나를 강조색으로.
 
 const THEMES := {
+	## 얼음 동굴 (순례길의 숨은 동굴): 푸른 얼음 결정과 고드름, 바위 틈의 옅은 빛 — 입자: 반짝이는 얼음 가루(light)
+	"icecave": {
+		"base": Color("#2a3048"), "deep": Color("#080b16"), "top": Color("#4e5e80"), "top_hi": Color("#c8e4ff"),
+		"seam": Color("#1a2034"), "edge": Color("#10131f"), "pattern": "stone", "cap": "snow", "cap_col": Color("#b8d4f0"),
+		"plat": Color("#5a4632"), "plat_hi": Color("#b8c8e0"), "spike": Color("#7a9ac8"), "accent": Color("#9ad0ff"),
+		"sky_top": Color("#04060e"), "sky_bottom": Color("#0e1428"), "far": Color("#141a30"), "mid": Color("#0d1222"),
+		"near": Color("#060812"), "fog": Color(0.6, 0.8, 1.0, 0.06), "particles": "light",
+	},
 	"holymount": {
 		"base": Color("#363a4e"), "deep": Color("#0b0d17"), "top": Color("#58607a"), "top_hi": Color("#eef2fa"),
 		"seam": Color("#242838"), "edge": Color("#151722"), "pattern": "stone", "cap": "snow", "cap_col": Color("#dfe6f2"),

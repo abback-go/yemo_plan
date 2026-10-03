@@ -6,7 +6,7 @@ func _init() -> void:
 	id = "tp_bell_3"
 	title = "종탑 · 큰 종 다락"
 	area = "temple"
-	theme = "spire"
+	theme = "temple_out"
 	music = "temple"
 	cell = Vector2i(13, 2)
 	cells = Vector2i(2, 1)

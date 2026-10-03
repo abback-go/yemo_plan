@@ -38,6 +38,7 @@ func _init() -> void:
 	entities = [
 		{t = "tp_ally", id = "ally"},
 		{t = "exit", id = "west", x = 0, y = 14, w = 1, h = 5, to = "tp_road_4", to_id = "east"},
+		{t = "prop", kind = "tp_great_gate", x = 64, y = 16, w = 8, h = 11, open_if = "tp_gate_open"},
 		{t = "door", id = "gate", x = 64, y = 16, to = "tp_cloister", to_id = "gate", style = "grand", label = "대신전", lock = "tp_gate_open", lock_msg = "황금 정문. 굳게 닫혀 있다. 문틈으로 낮은 성가가 새어 나온다."},
 		{t = "door", id = "short", x = 4, y = 19, to = "tp_road", to_id = "short", style = "stair_down", label = "순례길 입구 (지름길)", cond = "tp_gate_open"},
 		{t = "save", id = "gate", x = 11, y = 19, style = "lantern"},
@@ -52,10 +53,9 @@ func _init() -> void:
 		{t = "prop", kind = "tp_brazier", x = 54, y = 16},
 		{t = "prop", kind = "tp_brazier", x = 74, y = 16},
 		{t = "prop", kind = "tp_column", x = 52, y = 16, h = 13},
-		{t = "prop", kind = "tp_column", x = 58, y = 16, h = 13},
-		{t = "prop", kind = "tp_column", x = 70, y = 16, h = 13},
-		{t = "prop", kind = "tp_banner", x = 56, y = 2, h = 6},
-		{t = "prop", kind = "tp_banner", x = 71, y = 2, h = 6},
-		{t = "prop", kind = "tp_sun_relief", x = 62, y = 2, w = 5},
+		{t = "prop", kind = "tp_column", x = 57, y = 16, h = 13},
+		{t = "prop", kind = "tp_column", x = 71, y = 16, h = 13},
+		{t = "prop", kind = "tp_banner", x = 55, y = 2, h = 6},
+		{t = "prop", kind = "tp_banner", x = 73, y = 2, h = 6},
 		{t = "prop", kind = "tp_flags", x = 22, y = 4, w = 18, h = 2},
 	]

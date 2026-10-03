@@ -96,7 +96,7 @@ const ROOMS := [
 	"tp_sanctum", "tp_spire_1", "tp_spire_2", "tp_spire_3", "tp_spire_4", "tp_spire_5", "tp_spire_top",
 ]
 
-## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 플래그] — 3장 끝(ch3_done)에서 이어짐 (docs/chapter4.md 7.3절)
+## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 플래그] — 3장 끝(ch3_done)에서 이어짐 (docs/chapter4.md 7.9절)
 const OBJECTIVES := [
 	["tp_arrived", "앞마당에서 교장 선생님의 이야기를 듣자", "ch3_done"],
 	["tp_gate_scene", "레오니와 함께 순례길을 올라 성산 대신전으로", "tp_arrived"],

@@ -17,6 +17,7 @@ const SWEEP_ARC := 1.15 ## 라디안 (약 66도)
 const HOT_TIME := 1.0
 const REST := Vector2(1.6, 2.4)
 const BEAM_LEN := 22.0 * 16.0
+const SOURCE_LEN := 160.0 * 16.0 ## 퍼즐 광원은 거울을 여러 번 거쳐 방 끝까지 닿아야 한다
 const BEAM_W := 7.0
 const KEEP_T := 7.0
 
@@ -158,7 +159,7 @@ func _start_aim(p: Player) -> void:
 
 func _update_beam(delta: float, hurts: bool) -> void:
 	var space := get_world_2d().direct_space_state
-	beam_pts = H.trace(space, eye_pos(), beam_dir(), BEAM_LEN, true, delta)
+	beam_pts = H.trace(space, eye_pos(), beam_dir(), SOURCE_LEN if source else BEAM_LEN, true, delta)
 	for i in _segs.size():
 		var a: H.SegmentArea = _segs[i]
 		if hurts and i < beam_pts.size() - 1:

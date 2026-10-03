@@ -9,7 +9,9 @@ extends RefCounted
 ##   spire_top   꼭대기: 거대한 달, 소용돌이 구름, 종루 아치와 거대한 종, 떠 있는 대리석 조각
 
 const ART := preload("res://world/entities/ch4/art.gd")
-const THEMES := ["holymount", "temple_out", "temple", "temple_dark", "spire", "spire_top"]
+##   icecave     얼음 동굴: 푸른 얼음 결정 무리, 얼어붙은 폭포, 고드름 커튼, 바위 틈으로 새는 옅은 빛
+const THEMES := ["holymount", "temple_out", "temple", "temple_dark", "spire", "spire_top", "icecave"]
+const ICE := Color("#9ad0ff")
 
 const GOLD := Color("#ffe08a")
 const GOLD_DIM := Color("#b08a48")
@@ -23,6 +25,7 @@ static func is_animated(theme: String, depth: int) -> bool:
 		"temple_dark": return depth == 1
 		"spire": return depth == 1
 		"spire_top": return depth == 1 or depth == 2
+		"icecave": return depth == 1
 	return false
 
 
@@ -204,6 +207,7 @@ static func draw_sky(c: Control, theme: String, _pal: Dictionary, t: float) -> v
 		"temple_dark": _sky_dark(c, t)
 		"spire": _sky_spire(c, t)
 		"spire_top": _sky_top(c, t)
+		"icecave": _sky_ice(c, t)
 
 
 ## 방 안 카메라 높이 비율 (0 = 맨 아래, 1 = 맨 위). 세로로 긴 첨탑에서 하늘이 오를수록 바뀌게
@@ -289,6 +293,99 @@ static func _sky_dark(c: Control, t: float) -> void:
 		_shaft(c, Vector2(x, -10), 20, 70, 380, 0.25, Color(0.85, 0.8, 1.0, 0.025 + 0.01 * sin(t * 0.5 + i)))
 
 
+static func _sky_ice(c: Control, t: float) -> void:
+	_grad(c, [Color("#03050c"), Color("#081022"), Color("#0e1a34"), Color("#0a1226")], 0, 360, 640, 18)
+	# 바위 틈으로 새는 옅은 푸른 빛
+	for i in 3:
+		var x := 90.0 + i * 230.0
+		_shaft(c, Vector2(x, -10), 14, 60, 380, -0.2 + i * 0.15, Color(0.6, 0.85, 1.0, 0.03 + 0.012 * sin(t * 0.6 + i)))
+	# 얼음 가루 반짝임
+	for i in 40:
+		var p := Vector2(ART.hf(i, 61) * 640.0, ART.hf(i, 62) * 340.0)
+		var tw := absf(sin(t * (0.6 + ART.hf(i, 63)) + i))
+		c.draw_rect(Rect2(p, Vector2(1, 1)), Color(0.75, 0.9, 1.0, 0.35 * tw))
+
+
+## 얼음 결정 무리 하나 (육각 기둥이 끝으로 뾰족)
+static func _crystal(l: Node2D, base: Vector2, h: float, w: float, lean: float, body: Color, rim: Color) -> void:
+	var tip := base + Vector2(lean * h, -h)
+	var pts := PackedVector2Array([base + Vector2(-w * 0.5, 0), base + Vector2(-w * 0.5, -h * 0.75) + Vector2(lean * h * 0.75, 0),
+		tip, base + Vector2(w * 0.5, -h * 0.75) + Vector2(lean * h * 0.75, 0), base + Vector2(w * 0.5, 0)])
+	l.draw_colored_polygon(pts, body)
+	l.draw_line(base + Vector2(-w * 0.5, 0), base + Vector2(-w * 0.5, -h * 0.75) + Vector2(lean * h * 0.75, 0), rim, 1.0)
+	l.draw_line(base + Vector2(-w * 0.5, -h * 0.75) + Vector2(lean * h * 0.75, 0), tip, rim, 1.0)
+	l.draw_line(base + Vector2(lean * h * 0.4, -h * 0.4), tip, Color(rim, rim.a * 0.6), 1.0)
+
+
+static func _layer_ice(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
+	var col := _col(th, depth)
+	match depth:
+		0:
+			# 동굴 안쪽 벽: 바위 결 + 큰 얼음 결정 무리 (어둡게)
+			l.draw_rect(Rect2(-50, -50, span.x + 100, span.y + 100), col)
+			var y := 20.0
+			while y < span.y:
+				var pts := PackedVector2Array()
+				var x := -20.0
+				while x < span.x + 40:
+					pts.append(Vector2(x, y + sin(x * 0.02 + y) * 6.0))
+					x += 30.0
+				l.draw_polyline(pts, col.lightened(0.05), 2.0)
+				y += rng.randf_range(26, 44)
+			var cx := rng.randf_range(20, 120)
+			while cx < span.x:
+				var by := span.y - rng.randf_range(40, 120)
+				for k in 4:
+					var h := rng.randf_range(40, 110)
+					_crystal(l, Vector2(cx + k * 14.0 - 20.0, by), h, rng.randf_range(10, 18), rng.randf_range(-0.25, 0.25),
+						Color(0.35, 0.5, 0.75, 0.22), Color(0.7, 0.88, 1.0, 0.3))
+				cx += rng.randf_range(160, 300)
+		1:
+			# 얼어붙은 폭포 + 숨 쉬듯 빛나는 결정 + 고드름 커튼
+			var x := rng.randf_range(40, 200)
+			var k := 0
+			while x < span.x:
+				if k % 2 == 0:
+					var w := rng.randf_range(40, 70)
+					for i in 6:
+						var sx := x + i * w / 6.0
+						l.draw_rect(Rect2(sx, -20, w / 6.0 - 1.0, span.y + 40), Color(0.55, 0.72, 0.95, 0.07 + 0.02 * (i % 2)))
+						l.draw_rect(Rect2(sx, -20, 1, span.y + 40), Color(0.85, 0.95, 1.0, 0.12))
+					var fy := fmod(t * 20.0 + x, span.y)
+					l.draw_rect(Rect2(x, fy, w, 2), Color(0.9, 0.97, 1.0, 0.08))
+				else:
+					var by := span.y - rng.randf_range(30, 90)
+					var pulse := 0.6 + 0.4 * sin(t * 1.3 + x * 0.01)
+					ART.glow(l, Vector2(x, by - 30), 50.0, ICE, 0.18 * pulse)
+					for j in 3:
+						_crystal(l, Vector2(x + (j - 1) * 12.0, by), rng.randf_range(30, 60), rng.randf_range(8, 14), (j - 1) * 0.18,
+							Color(0.45, 0.65, 0.95, 0.55), Color(0.85, 0.95, 1.0, 0.7 * pulse))
+				x += rng.randf_range(180, 320)
+				k += 1
+			# 고드름 커튼 (위)
+			var ix := 0.0
+			while ix < span.x:
+				var ln := rng.randf_range(8, 34)
+				l.draw_colored_polygon(PackedVector2Array([Vector2(ix, -4), Vector2(ix + 6, -4), Vector2(ix + 3, ln)]), Color(0.6, 0.78, 1.0, 0.35))
+				ix += rng.randf_range(6, 22)
+		2:
+			# 가까운 종유석·석순 실루엣 (끝이 얼음)
+			var x := rng.randf_range(30, 160)
+			while x < span.x:
+				var w := rng.randf_range(18, 40)
+				var h := rng.randf_range(50, 140)
+				if rng.randf() < 0.5:
+					l.draw_colored_polygon(PackedVector2Array([Vector2(x - w * 0.5, -10), Vector2(x + w * 0.5, -10), Vector2(x, h)]), col)
+					l.draw_colored_polygon(PackedVector2Array([Vector2(x - 3, h - 14), Vector2(x + 3, h - 14), Vector2(x, h)]), Color(0.7, 0.88, 1.0, 0.5))
+				else:
+					var by := span.y + 10
+					l.draw_colored_polygon(PackedVector2Array([Vector2(x - w * 0.5, by), Vector2(x + w * 0.5, by), Vector2(x, by - h)]), col)
+					l.draw_line(Vector2(x, by - h), Vector2(x - w * 0.2, by - h * 0.6), Color(0.7, 0.88, 1.0, 0.35), 1.0)
+				x += rng.randf_range(120, 260)
+		3:
+			_front(l, "icecave", span, rng)
+
+
 static func _sky_spire(c: Control, t: float) -> void:
 	var k := _climb_k()
 	_grad(c, [Color("#02031a"), Color("#080a2c"), Color("#14143e"), Color("#24204e").lerp(Color("#121236"), k)], 0, 360, 640, 24)
@@ -346,6 +443,7 @@ static func draw_layer(l: Node2D, theme: String, depth: int, span: Vector2, rng:
 		"temple_dark": _layer_dark(l, th, depth, span, rng, t)
 		"spire": _layer_spire(l, th, depth, span, rng, t)
 		"spire_top": _layer_top(l, th, depth, span, rng, t)
+		"icecave": _layer_ice(l, th, depth, span, rng, t)
 	return true
 
 
@@ -364,7 +462,7 @@ static func _front(l: Node2D, theme: String, span: Vector2, rng: RandomNumberGen
 		var h := rng.randf_range(18, 44)
 		var bottom := span.y + 30
 		match theme:
-			"holymount":
+			"holymount", "icecave":
 				l.draw_circle(Vector2(x + w * 0.3, bottom - h * 0.3), h, dark)
 				l.draw_circle(Vector2(x + w * 0.7, bottom - h * 0.1), h * 0.8, dark)
 				l.draw_rect(Rect2(x + w * 0.3 - h * 0.6, bottom - h * 1.3, h * 1.2, 3), Color(0.75, 0.78, 0.9, 0.5))
@@ -385,6 +483,13 @@ static func _front(l: Node2D, theme: String, span: Vector2, rng: RandomNumberGen
 				l.draw_rect(Rect2(x, bottom - h, w, h + 10), dark)
 				l.draw_rect(Rect2(x + 8, bottom - h - 10, w - 16, 10), dark)
 		x += w + rng.randf_range(280, 560)
+	# 얼음 동굴: 위쪽 가장자리의 검은 고드름
+	if theme == "icecave":
+		var ix := rng.randf_range(0, 60)
+		while ix < span.x:
+			var ln := rng.randf_range(20, 70)
+			l.draw_colored_polygon(PackedVector2Array([Vector2(ix - 8, -20), Vector2(ix + 8, -20), Vector2(ix, ln)]), dark)
+			ix += rng.randf_range(40, 160)
 	# 위쪽 가장자리: 늘어진 사슬·향로
 	if theme in ["temple", "temple_dark", "spire"]:
 		var cx := rng.randf_range(80, 360)

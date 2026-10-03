@@ -6,11 +6,11 @@ func _init() -> void:
 	id = "tp_cave"
 	title = "성산 · 얼음 동굴"
 	area = "temple"
-	theme = "temple_dark"
+	theme = "icecave"
 	music = "temple"
 	cell = Vector2i(2, 7)
 	cells = Vector2i(1, 1)
-	dark = 0.3
+	dark = 0.25
 	map = """
 ########################################
 ########################################

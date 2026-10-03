@@ -32,6 +32,8 @@ extends RefCounted
 ##   tp_pine (h)          눈 덮인 소나무
 ##   tp_shrine            길가 작은 사당 (해 성상 + 촛불)
 ##   tp_seal              금빛 봉인석 (장식판 — 부서지는 진짜는 seal_stone 개체)
+##   tp_great_gate (w, h, open_if)  대신전 황금 정문 — 대리석 기둥·금 아치·해 문양 쐐기돌, 닫힌 금 문짝(가운데 쪽문은 door 개체).
+##                        open_if 플래그가 서면 문짝이 안으로 열리고 따뜻한 빛이 새어 나온다
 
 const ART := preload("res://world/entities/ch4/art.gd")
 
@@ -128,6 +130,7 @@ static func draw(p: Prop, kind: String) -> bool:
 		"tp_pine": _pine(p, p.h if p.h > 1.0 else 7.0)
 		"tp_shrine": _shrine(p, t)
 		"tp_seal": ART.seal_stone(p, Vector2.ZERO, t, 1.0, 0.0)
+		"tp_great_gate": _great_gate(p, t, maxf(p.w, 7.0), maxf(p.h, 10.0))
 		_:
 			return false
 	return true
@@ -672,3 +675,65 @@ static func _shrine(c: Prop, t: float) -> void:
 		c.draw_line(Vector2(0, -26) + Vector2(cos(a), sin(a)) * 3.0, Vector2(0, -26) + Vector2(cos(a), sin(a)) * 4.5, GOLD, 1.0)
 	_candle(c, 0.0, -16.0, 3.0, t, 0.5)
 	c.draw_line(Vector2(9, -32), Vector2(13, -22), Color("#c84050"), 1.0)
+
+
+## 대신전 황금 정문: 원점 = 문턱 가운데. 가운데 아래의 작은 쪽문은 방의 door 개체가 그린다(소품은 그 뒤 z=-3).
+static func _great_gate(c: Prop, t: float, w_t: float, h_t: float) -> void:
+	var W := w_t * 16.0
+	var Ht := h_t * 16.0
+	var pw := 14.0
+	var inner := W - pw * 2.0
+	var spring := -Ht + inner * 0.5 # 아치가 시작되는 높이
+	var flag := String(c.params.get("open_if", ""))
+	var opened := flag != "" and GameState.has_flag(flag)
+	# 문 안쪽 (어둠 또는 따뜻한 빛)
+	var recess := PackedVector2Array()
+	recess.append(Vector2(-inner * 0.5, 0))
+	for i in 17:
+		var a := PI + PI * float(i) / 16.0
+		recess.append(Vector2(cos(a) * inner * 0.5, spring + sin(a) * inner * 0.5))
+	recess.append(Vector2(inner * 0.5, 0))
+	c.draw_colored_polygon(recess, Color("#140e1e") if not opened else Color("#6a4a2a"))
+	if opened:
+		for i in 6:
+			var k := float(i) / 5.0
+			c.draw_rect(Rect2(-inner * 0.5 * (1.0 - k * 0.5), spring + 10 + k * (-spring - 20), inner * (1.0 - k * 0.5), 8),
+				Color(1.0, 0.85, 0.55, 0.06 + 0.02 * sin(t * 1.5 + i)))
+		# 안으로 열린 문짝 (양옆으로 얇게)
+		for sd: float in [-1.0, 1.0]:
+			var x0 := sd * inner * 0.5
+			c.draw_colored_polygon(PackedVector2Array([Vector2(x0, 0), Vector2(x0, spring), Vector2(x0 - sd * 14.0, spring + 14.0), Vector2(x0 - sd * 14.0, -4.0)]), GOLD_DARK)
+			c.draw_line(Vector2(x0 - sd * 14.0, spring + 14.0), Vector2(x0 - sd * 14.0, -4.0), GOLD, 1.0)
+	else:
+		# 닫힌 금 문짝 둘: 세로 판·징·가운데 해 문양 반쪽씩
+		for sd: float in [-1.0, 1.0]:
+			var x0 := 0.0 if sd > 0.0 else -inner * 0.5
+			c.draw_rect(Rect2(x0 + 1.0, spring - inner * 0.35, inner * 0.5 - 2.0, -spring + inner * 0.35), GOLD_DARK)
+			var px := x0 + 5.0
+			while px < x0 + inner * 0.5 - 4.0:
+				c.draw_rect(Rect2(px, spring - inner * 0.3, 2, -spring + inner * 0.3 - 2.0), GOLD.darkened(0.25))
+				px += 9.0
+			var sy := spring - inner * 0.2
+			while sy < -6.0:
+				c.draw_circle(Vector2(x0 + 4.0, sy), 1.2, GOLD_LIGHT)
+				c.draw_circle(Vector2(x0 + inner * 0.5 - 4.0, sy), 1.2, GOLD_LIGHT)
+				sy += 14.0
+		c.draw_line(Vector2(0, spring - inner * 0.35), Vector2(0, 0), Color("#3a2a14"), 2.0)
+		var em := Vector2(0, spring + 18.0)
+		c.draw_circle(em, 14.0, GOLD)
+		c.draw_circle(em, 10.0, GOLD_LIGHT.lerp(GOLD, 0.5 + 0.5 * sin(t * 1.2)))
+		c.draw_line(em + Vector2(0, -14), em + Vector2(0, 14), Color("#3a2a14"), 2.0)
+	# 대리석 기둥 둘 + 금 머리
+	for sd: float in [-1.0, 1.0]:
+		var px2 := sd * (W * 0.5 - pw * 0.5)
+		c.draw_rect(Rect2(px2 - pw * 0.5, -Ht + 6.0, pw, Ht - 6.0), MARBLE)
+		c.draw_rect(Rect2(px2 - pw * 0.5, -Ht + 6.0, 3, Ht - 6.0), MARBLE_LIGHT)
+		c.draw_rect(Rect2(px2 + pw * 0.5 - 3.0, -Ht + 6.0, 3, Ht - 6.0), MARBLE_DARK)
+		c.draw_rect(Rect2(px2 - pw * 0.5 - 2.0, spring - 6.0, pw + 4.0, 6), GOLD)
+		c.draw_rect(Rect2(px2 - pw * 0.5 - 2.0, -6.0, pw + 4.0, 6), GOLD_DARK)
+	# 금 아치 띠 + 쐐기돌의 해
+	c.draw_arc(Vector2(0, spring), inner * 0.5 + 3.0, PI, TAU, 24, GOLD, 5.0)
+	c.draw_arc(Vector2(0, spring), inner * 0.5 + 7.0, PI, TAU, 24, GOLD_DARK, 2.0)
+	c.draw_rect(Rect2(-W * 0.5 - 4.0, -Ht, W + 8.0, 7), MARBLE_LIGHT)
+	c.draw_rect(Rect2(-W * 0.5 - 4.0, -Ht + 7.0, W + 8.0, 2), GOLD)
+	ART.sun(c, Vector2(0, -Ht + 4.0), 7.0, t, GOLD_LIGHT, Color(1.0, 0.85, 0.5), 0.3)

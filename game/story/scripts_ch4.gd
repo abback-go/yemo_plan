@@ -389,7 +389,8 @@ func enter_tp_mirror_3(c: Cut) -> void:
 	if Spells.learned("ward"):
 		await c.say("neoul", "불꽃 방벽이니라. 빛줄기 속에 서서 빛이 오는 쪽을 보고 방벽을 펼치면, 빛이 네가 보는 쪽으로 튕겨 나갈 게다.")
 		c.close_box()
-		await c.teach("빛 되돌리기", "빛줄기 안에 서서, 빛이 오는 쪽을 바라보고 불꽃 방벽.\n빛이 세라가 바라보는 쪽으로 되돌아간다. (오른쪽 거울 둘도 먼저 맞춰 둘 것)", [])
+		var key := "skill_1" if Spells.equipped("a") == "ward" else "skill_2"
+		await c.teach("빛 되돌리기", "빛줄기 안에 서서, 빛이 오는 쪽을 바라보고 불꽃 방벽.\n빛이 세라가 바라보는 쪽으로 되돌아간다. (오른쪽 거울 둘도 먼저 맞춰 둘 것)\n방벽은 마법서에서 A·S 칸에 끼워 두어야 쓸 수 있다.", [key])
 	else:
 		await c.say("neoul", "…방벽을 아직 못 배웠느냐. 학교 실습장의 엠버린에게 배워 오거라. 회랑의 전이진으로 다녀올 수 있다.", "sad")
 		c.close_box()
