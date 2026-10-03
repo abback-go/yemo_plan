@@ -485,7 +485,7 @@ def s_hall():
     # 1층: 창립자 동상(기록), 정문
     r.add("save", id="statue", x=32, y=F1, style="statue")
     r.door("gate", 48, F1, "s_courtyard", "gate", style="grand", label="정문 — 앞마당")
-    r.door("up", 74, F2, "s_advclass", "down", style="stair_up", label="고급반", lock="adv_done", lock_msg="고급반 계단 — 고급반 학생 외 출입 금지.")
+    r.door("up", 74, F2, "s_advclass", "down", style="stair_up", label="고급반", lock="adv_done", lock_msg="고급반 계단 — 안쪽에서 잠겨 있다. 위층으로 가는 다른 길을 찾아야 한다.")
     # 인물
     r.add("npc", id="isolde", who="isolde", x=36, y=F1, face="left", cond="s_woke,!adv_done")
     r.add("npc", id="stu_a", who="student_a", x=22, y=F1, face="right", talk="npc_hall_a")

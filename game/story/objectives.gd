@@ -12,7 +12,7 @@ const LIST := [
 	["ab_double_jump", "비속성마법반에서 부양을 배우자 (서관 복도 아래층)", "key_stolen"],
 	["key_recovered", "서가 미로에서 마도서를 쫓아라", "ab_double_jump"],
 	["ab_fox_window", "금서 구역에서 봉인 기록을 읽자", "key_recovered"],
-	["adv_done", "상층 회랑을 지나 고급마법반으로", "ab_fox_window"],
+	["adv_done", "서가 미로 꼭대기 오른쪽 벽에 여우창문(D) → 고급마법반으로", "ab_fox_window"],
 	["met_astrid", "시계탑 꼭대기의 교장실로", "adv_done"],
 	["s_cellar_seen", "앞마당의 지하 철문으로 내려가자", "met_astrid"],
 	["seal_open", "봉인 회랑의 촛대를 순서대로 밝히자", "s_cellar_seen"],

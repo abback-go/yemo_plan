@@ -67,7 +67,7 @@ func _init() -> void:
 		{t = "pickup", id = "feather_hall", kind = "feather", x = 40, y = 10, name = "수호의 깃털", text = "최대 체력이 1 늘었다."},
 		{t = "save", id = "statue", x = 32, y = 42, style = "statue"},
 		{t = "door", id = "gate", x = 48, y = 42, to = "s_courtyard", to_id = "gate", style = "grand", label = "정문 — 앞마당"},
-		{t = "door", id = "up", x = 74, y = 19, to = "s_advclass", to_id = "down", style = "stair_up", label = "고급반", lock = "adv_done", lock_msg = "고급반 계단 — 고급반 학생 외 출입 금지."},
+		{t = "door", id = "up", x = 74, y = 19, to = "s_advclass", to_id = "down", style = "stair_up", label = "고급반", lock = "adv_done", lock_msg = "고급반 계단 — 안쪽에서 잠겨 있다. 위층으로 가는 다른 길을 찾아야 한다."},
 		{t = "npc", id = "isolde", who = "isolde", x = 36, y = 42, face = "left", cond = "s_woke,!adv_done"},
 		{t = "npc", id = "stu_a", who = "student_a", x = 22, y = 42, face = "right", talk = "npc_hall_a"},
 		{t = "npc", id = "stu_b", who = "student_b", x = 56, y = 42, face = "left", talk = "npc_hall_b"},
