@@ -110,7 +110,7 @@ func draw_text_on(c: CanvasItem) -> void:
 	c.draw_rect(Rect2(258, 40, 300, 268), Color(0.03, 0.02, 0.06, 0.62))
 	c.draw_rect(Rect2(258, 40, 2, 268), Color(Palette.FIRE_OUT, 0.6))
 	c.draw_string(_font, Vector2(270, 92), "YEMO", HORIZONTAL_ALIGNMENT_LEFT, -1, 48, Palette.FIRE_HOT)
-	c.draw_string(_font, Vector2(272, 116), "마녀학교와 여우신 · 1장 체험판 v0.4", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
+	c.draw_string(_font, Vector2(272, 116), "마녀학교와 여우신 · 전체판 v1.0 (1~5장)", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
 	c.draw_string(_font, Vector2(272, 140), "폐급 마녀 세라와 여우신 너울의 이야기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 	c.draw_string(_font, Vector2(420, 350), "빌드 " + BuildInfo.COMMIT, HORIZONTAL_ALIGNMENT_RIGHT, 210, 12, Color(Palette.UI_DIM, 0.6))
 	match _phase:

@@ -403,3 +403,131 @@ func save() -> void:
 func give_potions(n: int) -> void:
 	GameState.potions_max = n
 	GameState.potions = n
+
+
+# ─── 전체판 도구 (docs/systems2.md 8절) ─────────────────
+
+## 화면 가운데 큰 글씨 카드 (레터박스)
+func title_card(title: String, sub := "", sec := 2.5) -> void:
+	await world.cinema.title_card(title, sub, sec)
+
+
+## 장 카드 ("2장 — 제국의 검")
+func chapter_card(n: int) -> void:
+	await world.cinema.chapter_card(n)
+
+
+func letterbox(on: bool) -> void:
+	world.cinema.letterbox(on)
+
+
+## 화면 전체 색 덮기 (투명색이면 걷힘)
+func tint(color: Color, time := 0.5) -> void:
+	world.cinema.tint(color, time)
+
+
+## 카메라 확대 (1.0 = 원래)
+func zoom(z: float, time := 0.6) -> void:
+	var cam := player.camera
+	var tw := cam.create_tween()
+	tw.tween_property(cam, "base_zoom", z, maxf(time, 0.01)).set_trans(Tween.TRANS_SINE)
+
+
+## 동료 합류: 세라 옆에 나타나 함께 싸운다 (방을 옮겨도 따라옴)
+func ally_join(kind: String, x_t := INF, y_t := INF) -> Ally:
+	return world.ally_join(kind, x_t, y_t)
+
+
+func ally_leave(kind: String) -> void:
+	world.ally_leave(kind)
+
+
+func ally(kind: String) -> Ally:
+	return world.ally(kind)
+
+
+func quest_start(id: String) -> void:
+	Quests.start(id)
+
+
+func quest_step(id: String, n: int) -> void:
+	Quests.set_step(id, n)
+
+
+## 퀘스트 완료 + 보상 알림 (확인할 때까지)
+func quest_done(id: String) -> void:
+	var rewards := Quests.complete(id)
+	Sfx.play(&"quest_done", 0.0, 0.0)
+	var title := String(Quests.def(id).get("title", id))
+	var desc := "보상: " + ", ".join(rewards) if not rewards.is_empty() else "퀘스트를 마쳤다."
+	world.notice.item_get("퀘스트 완료 — " + title, desc, "quest")
+	await wait(1.4)
+
+
+func give_stones(n: int) -> void:
+	Spells.add_stones(n)
+	world.notice.item_get("마도석 %d개" % n, "가진 마도석 %d개. 마법서에서 마법 레벨을 올릴 수 있다." % Spells.stones(), "stone")
+	await wait(1.0)
+
+
+func give_feather() -> void:
+	GameState.max_hp += 1
+	GameState.hp = GameState.max_hp
+	player.restore_from_state()
+	world.notice.item_get("수호의 깃털", "최대 체력이 1 늘었다.", "feather")
+	await wait(1.0)
+
+
+func give_heart() -> void:
+	GameState.max_hp += 1
+	GameState.hp = GameState.max_hp
+	player.restore_from_state()
+	world.notice.item_get("든든한 한 끼", "최대 체력이 1 늘었다.", "food")
+	await wait(1.0)
+
+
+func give_potion_slot() -> void:
+	GameState.potions_max += 1
+	GameState.potions = GameState.potions_max
+	world.notice.item_get("물약 주머니", "물약을 하나 더 가지고 다닐 수 있다. (%d개)" % GameState.potions_max, "potion")
+	await wait(1.0)
+
+
+## 너울의 꼬리가 n개로: 짧은 연출 (너울이 빛나며 꼬리가 하나씩 돋아남)
+func tails(n: int) -> void:
+	var before := int(GameState.flag("tails", 1))
+	GameState.set_flag("tails", n)
+	var pet := world.pet
+	Music.jingle("jingle_ability")
+	Sfx.play(&"fox_transform", -2.0, 0.0)
+	if pet:
+		for i in range(before, n):
+			Fx.ring(pet.global_position + Vector2(0, -8), 4.0, 40.0, Color(0.55, 0.85, 1.0), 0.5, 2.0)
+			Fx.burst(pet.global_position + Vector2(0, -8), 24, {spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.6,
+				gradient = Palette.fade_gradient(Color(0.6, 0.88, 1.0)), add = true})
+			await wait(0.45)
+	world.notice.item_get("너울의 꼬리 %d개" % n, "너울의 힘이 조금 돌아왔다. 여우 모드가 %d초로 늘고 기운이 더 빨리 찬다." % int(player.fox_duration()), "fox")
+	await wait(1.2)
+
+
+func warp_unlock(area: String) -> void:
+	GameState.set_flag("warp_" + area)
+
+
+## 마법 습득 연출 (수업 퀘스트 끝)
+func spell_learned(id: String) -> void:
+	var inf := Spells.info(id)
+	var ab := String(inf.get("ability", ""))
+	if ab != "":
+		GameState.unlock_ability(ab)
+	Spells.auto_equip(id)
+	Music.jingle("jingle_spell")
+	var keys: String = {"wings": "공중에서 Z를 다시 누르고 있기", "ward": "마법서에서 A·S 칸에 끼우기", "meteor": "F (패드 R3)", "phoenix": "F (패드 R3)"}.get(id, "")
+	await world.notice.ability_get(String(inf.get("name", id)) + " — " + Spells.grade_name(id) + " 마법", String(keys), String(inf.get("desc", "")))
+
+
+## 엔딩 크레디트 (점프·공격을 누르고 있으면 빨리)
+func credits(lines: Array = [], sec := 45.0) -> void:
+	if lines.is_empty():
+		lines = Credits.LINES
+	await world.cinema.credits(lines, sec)

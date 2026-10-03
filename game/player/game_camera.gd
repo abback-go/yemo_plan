@@ -3,6 +3,7 @@ extends Camera2D
 ## 세라를 따라가는 카메라 (docs/prototype.md 5.9절, v0.3 조정).
 ## 바라보는 방향 + 달리는 속도만큼 앞을 더 보여 주고(시선 앞당김), 흔들림은 offset, 큰 타격은 순간 확대(punch).
 
+var base_zoom := 1.0 ## 대본 확대(c.zoom). 순간 확대(punch)는 여기에 더해짐
 var tuning: Tuning
 var _look := 0.0
 var _shake_amp := 0.0
@@ -44,7 +45,7 @@ func _process(delta: float) -> void:
 		offset = Vector2.ZERO
 
 	_punch = move_toward(_punch, 0.0, real * 0.6)
-	zoom = Vector2.ONE * (1.0 + _punch)
+	zoom = Vector2.ONE * (base_zoom + _punch)
 
 
 func shake(amplitude_px: float, duration: float) -> void:

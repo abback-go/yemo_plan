@@ -16,6 +16,10 @@ var notice: Notice
 var map_screen: MapScreen
 var pause_menu: Node
 var fade: ScreenFade
+var cinema: Cinema
+var class_ui: ClassBoardUI
+var warp_ui: WarpMenu
+var allies_node: Node2D
 var transitioning := false
 
 var _room_holder: Node2D
@@ -53,6 +57,10 @@ func _ready() -> void:
 	effects.z_index = 5
 	add_child(effects)
 
+	allies_node = Node2D.new()
+	allies_node.name = "Allies"
+	add_child(allies_node)
+
 	_hint = InteractHint.new()
 	_hint.z_index = 40
 	add_child(_hint)
@@ -76,6 +84,12 @@ func _ready() -> void:
 	dbg.set_script(load("res://ui/debug_overlay.gd"))
 	dbg.visible = false
 	add_child(dbg)
+	cinema = Cinema.new()
+	add_child(cinema)
+	class_ui = ClassBoardUI.new()
+	add_child(class_ui)
+	warp_ui = WarpMenu.new()
+	add_child(warp_ui)
 	fade = ScreenFade.new()
 	add_child(fade)
 
@@ -115,6 +129,8 @@ func load_room(id: String, spawn_id: String) -> void:
 	if sp.get("jump", false):
 		player.velocity.y = -420.0
 	pet.snap_to_player()
+	for a in allies_node.get_children():
+		(a as Ally).place_near(player)
 	var cam := player.camera
 	cam.limit_left = 0
 	cam.limit_top = 0
@@ -150,6 +166,38 @@ func go(to_room: String, spawn_id: String, keep_velocity := false) -> void:
 func _enter_room(fade_time: float) -> void:
 	fade.fade_in(fade_time)
 	Story.on_room_entered(room.data.id, false)
+	# 1장을 끝낸 예전 기록으로 이어하면 2장으로 넘어가는 장면 (ChapterFlow)
+	if GameState.has_flag("chapter_end") and not GameState.has_flag("ch1_done") and not Story.busy():
+		Story.run("sys_chapter1_resume")
+
+
+# ─── 동료 (docs/systems2.md 5절) ─────────────────────────
+
+func ally_join(kind: String, x_t := INF, y_t := INF) -> Ally:
+	var a := ally(kind)
+	if a == null:
+		a = Ally.create(kind)
+		a.name = "Ally_" + kind
+		allies_node.add_child(a)
+	if x_t != INF:
+		a.global_position = Vector2(x_t * GameConst.TILE + 8.0, (y_t if y_t != INF else 0.0) * GameConst.TILE)
+		a.facing = 1 if player.global_position.x >= a.global_position.x else -1
+	else:
+		a.place_near(player)
+	return a
+
+
+func ally_leave(kind: String) -> void:
+	var a := ally(kind)
+	if a:
+		a.queue_free()
+
+
+func ally(kind: String) -> Ally:
+	for a in allies_node.get_children():
+		if (a as Ally).kind == kind and not a.is_queued_for_deletion():
+			return a as Ally
+	return null
 
 
 func request_exit(x: RoomExit) -> void:

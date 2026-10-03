@@ -142,14 +142,17 @@ func _draw() -> void:
 	var shade := Color("#d8d2cc")
 	var blue := Color(0.55, 0.82, 1.0)
 	var core := Color(0.88, 0.97, 1.0)
-	# 꼬리 (하나, 끝에 여우불)
-	var tw := sin(_t * (4.0 if not sit else 2.0)) * 3.0
-	var tail_base := base + Vector2(-5 * f, -5)
-	var tail_tip := base + Vector2(-13 * f, -13 + tw)
-	draw_colored_polygon(PackedVector2Array([tail_base + Vector2(0, -2), tail_base.lerp(tail_tip, 0.5) + Vector2(-2 * f, -3), tail_tip, tail_base.lerp(tail_tip, 0.5) + Vector2(2 * f, 2), tail_base + Vector2(0, 2)]), fur)
-	draw_circle(tail_tip, 3.0, blue)
-	draw_circle(tail_tip + Vector2(0, -1), 1.5, core)
-	draw_rect(Rect2(tail_tip + Vector2(sin(_t * 9.0), -4.0 - fmod(_t * 6.0, 3.0)), Vector2(1, 1)), Color(core, 0.8))
+	# 꼬리 (장마다 하나씩 돌아옴 — GameState "tails", 끝마다 여우불). 여러 개면 부채처럼 펼침
+	var n_tails := clampi(int(GameState.flag("tails", 1)), 1, 9)
+	for ti in n_tails:
+		var spread := (float(ti) - float(n_tails - 1) * 0.5) * (0.32 if n_tails <= 4 else 0.2)
+		var tw := sin(_t * (4.0 if not sit else 2.0) + ti * 0.7) * 3.0
+		var tail_base := base + Vector2(-5 * f, -5)
+		var tail_tip := tail_base + Vector2(-8 * f, -8 + tw).rotated(spread * f)
+		draw_colored_polygon(PackedVector2Array([tail_base + Vector2(0, -2), tail_base.lerp(tail_tip, 0.5) + Vector2(-2 * f, -3), tail_tip, tail_base.lerp(tail_tip, 0.5) + Vector2(2 * f, 2), tail_base + Vector2(0, 2)]), fur)
+		draw_circle(tail_tip, 3.0, blue)
+		draw_circle(tail_tip + Vector2(0, -1), 1.5, core)
+		draw_rect(Rect2(tail_tip + Vector2(sin(_t * 9.0 + ti), -4.0 - fmod(_t * 6.0 + ti, 3.0)), Vector2(1, 1)), Color(core, 0.8))
 	# 몸
 	if sit:
 		draw_colored_polygon(PackedVector2Array([base + Vector2(-5 * f, 0), base + Vector2(4 * f, 0), base + Vector2(3 * f, -8), base + Vector2(-3 * f, -9)]), fur)
