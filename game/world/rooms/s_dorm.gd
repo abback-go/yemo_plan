@@ -48,4 +48,5 @@ func _init() -> void:
 		{t = "prop", kind = "rug", x = 20, y = 19, w = 8},
 		{t = "prop", kind = "painting", x = 10, y = 13, w = 2, h = 2, col = Color("#3a2a4a")},
 		{t = "sign", x = 24, y = 19, look = "note", text = "피피의 쪽지|세라, 내 실험 재료 건드리지 마. 진짜로.|…특히 초록색 병. 그거 아직 살아 있어."},
+		{t = "spawn", id = "ch3_night", x = 20, y = 19, face = "right"},
 	]
