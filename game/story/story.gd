@@ -31,6 +31,15 @@ func busy() -> bool:
 	return _busy > 0
 
 
+func busy_count() -> int:
+	return _busy
+
+
+## 지금의 진행 세대 (쓰러지거나 타이틀로 가면 바뀜). 오래 기다리는 대본이 확인용으로 씀
+func generation() -> int:
+	return _gen
+
+
 func has_script(id: String) -> bool:
 	for s in _scripts:
 		if s.has_method(id):
@@ -39,7 +48,7 @@ func has_script(id: String) -> bool:
 
 
 ## 컷신·대화 실행. 세라 조작은 끝날 때까지 잠긴다
-func run(id: String) -> void:
+func run(id: String, soft := false) -> void:
 	if id == "" or world == null:
 		return
 	for s in _scripts:
@@ -47,7 +56,10 @@ func run(id: String) -> void:
 			var gen := _gen
 			_busy += 1
 			var c := Cut.new(world)
-			c.begin()
+			if not soft and not id.begins_with("teach_"):
+				c.begin() # 멈춤 안내·방 입장 대본은 세라를 멈춰 세우지 않음 (필요하면 대본이 c.lock())
+			else:
+				c.soft()
 			await Callable(s, id).call(c)
 			if gen != _gen:
 				return
@@ -61,7 +73,7 @@ func run(id: String) -> void:
 func on_room_entered(room_id: String, _respawn: bool) -> void:
 	var id := "enter_" + room_id
 	if has_script(id):
-		run(id)
+		run(id, true)
 
 
 ## 쓰러져 부활할 때: 진행 중이던 컷신을 버린다

@@ -40,8 +40,25 @@ func setup(p_room: Room, e: Dictionary, eid: String) -> void:
 	body_entered.connect(_on_body)
 
 
+var _armed_t := 0.15 ## 방이 막 만들어졌을 때 직전 방의 위치로 잘못 닿는 것을 막음
+
+
+func _physics_process(delta: float) -> void:
+	if _armed_t > 0.0:
+		_armed_t -= delta
+		return
+	# 진입 신호를 놓쳤어도(무장 전 겹침) 지금 겹쳐 있으면 나감
+	for b in get_overlapping_bodies():
+		_on_body(b)
+
+
 func _on_body(b: Node) -> void:
+	if _armed_t > 0.0:
+		return
 	if b is Player and to_room != "":
+		var r := Rect2(Vector2(rect_t.position) * 16.0, Vector2(rect_t.size) * 16.0).grow(12.0)
+		if not r.has_point((b as Player).global_position + Vector2(0, -8)):
+			return
 		var w := World.get_world()
 		if w:
 			w.request_exit(self)

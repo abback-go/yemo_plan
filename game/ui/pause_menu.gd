@@ -62,7 +62,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	match _page:
 		"main":
-			if _menu.handle_input(event):
+			if _menu.handle_input(event) and is_inside_tree():
 				get_viewport().set_input_as_handled()
 		"goals":
 			if event.is_action_pressed("ui_cancel") or event.is_action_pressed("attack") or event.is_action_pressed("jump") or event.is_action_pressed("ui_accept"):

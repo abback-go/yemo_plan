@@ -29,6 +29,9 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if who == "hodu":
+		_draw_owl()
+		return
 	if info.is_empty():
 		info = Characters.info(who)
 	var h := float(info.get("height", 32))
@@ -155,3 +158,31 @@ func _draw() -> void:
 		draw_circle(oc + Vector2(0, -3), 3.0, Color("#9a7a58"))
 		draw_rect(Rect2(oc.x - 2, oc.y - 4, 1, 1), Color("#f0d060"))
 		draw_rect(Rect2(oc.x + 1, oc.y - 4, 1, 1), Color("#f0d060"))
+
+
+## 호두 (그레타의 부엉이 사역마): 둥근 갈색 몸, 큰 눈, 가끔 고개를 갸웃
+func _draw_owl() -> void:
+	var tilt := sin(_t * 0.7) * 0.25 if fmod(_t, 6.0) > 4.5 else 0.0
+	var bob := sin(_t * 2.0) * 0.5
+	var body := Color("#8a6a48")
+	var belly := Color("#c8a878")
+	draw_circle(Vector2(0, -7 + bob), 6.0, body)
+	draw_circle(Vector2(0, -6 + bob), 4.0, belly)
+	for i in 3:
+		draw_rect(Rect2(-2 + i * 1.5, -7 + bob + i, 1, 1), Color("#9a7a58"))
+	var hc := Vector2(0, -15 + bob)
+	draw_set_transform(hc, tilt, Vector2.ONE)
+	draw_circle(Vector2.ZERO, 5.0, body)
+	draw_colored_polygon(PackedVector2Array([Vector2(-5, -2), Vector2(-4, -7), Vector2(-2, -3)]), body)
+	draw_colored_polygon(PackedVector2Array([Vector2(5, -2), Vector2(4, -7), Vector2(2, -3)]), body)
+	var blink := _blink > 0.0
+	for sx in [-2.0, 2.0]:
+		draw_circle(Vector2(sx, -0.5), 2.0, Color("#f0e0a0"))
+		if blink:
+			draw_line(Vector2(sx - 1.5, -0.5), Vector2(sx + 1.5, -0.5), Color("#2a1a10"), 1.0)
+		else:
+			draw_circle(Vector2(sx, -0.5), 1.0, Color("#1a1008"))
+	draw_colored_polygon(PackedVector2Array([Vector2(-1, 1), Vector2(1, 1), Vector2(0, 3)]), Color("#d8a040"))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_rect(Rect2(-3, -1, 2, 1), Color("#d8a040"))
+	draw_rect(Rect2(1, -1, 2, 1), Color("#d8a040"))

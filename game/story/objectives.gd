@@ -14,7 +14,8 @@ const LIST := [
 	["ab_fox_window", "금서 구역에서 봉인 기록을 읽자", "key_recovered"],
 	["adv_done", "상층 회랑을 지나 고급마법반으로", "ab_fox_window"],
 	["met_astrid", "시계탑 꼭대기의 교장실로", "adv_done"],
-	["seal_open", "앞마당의 지하 철문으로 내려가자", "met_astrid"],
+	["s_cellar_seen", "앞마당의 지하 철문으로 내려가자", "met_astrid"],
+	["seal_open", "봉인 회랑의 촛대를 순서대로 밝히자", "s_cellar_seen"],
 	["agwi_defeated", "봉인의 방으로", "seal_open"],
 	["chapter_end", "기숙사로 돌아가 쉬자", "agwi_defeated"],
 ]

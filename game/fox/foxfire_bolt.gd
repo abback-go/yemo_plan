@@ -130,7 +130,7 @@ func _finish() -> void:
 		# 창 끝 폭발
 		var r := 2.4 * GameConst.TILE
 		for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-			if e.is_alive() and not _hit.has(e) and (e.global_position + Vector2(0, -10)).distance_to(global_position) <= r + 8.0:
+			if e.is_alive() and not _hit.has(e) and EnemyBase.dist_to_body(e, global_position) <= r + 8.0:
 				var hit := Hit.make(24, &"foxfire_heavy", global_position)
 				hit.knockback_t = 1.0
 				e.take_hit(hit)

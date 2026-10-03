@@ -7,7 +7,11 @@ extends CanvasLayer
 signal advanced
 
 const CPS := 40.0 ## 초당 글자 수
-const PANEL := Rect2(14, 262, 612, 88)
+const PANEL_BOTTOM := Rect2(14, 262, 612, 88)
+const PANEL_TOP := Rect2(14, 10, 612, 88)
+const PANEL_CENTER := Rect2(14, 136, 612, 88)
+
+static var PANEL := PANEL_BOTTOM ## 지금 쓰는 판 위치 (인물이 화면 아래쪽에 있으면 위로 올림)
 
 var _root: Control
 var _panel: PanelDraw
@@ -71,6 +75,7 @@ func is_open() -> bool:
 func show_line(who: String, text: String, expr := "normal") -> void:
 	var info := Characters.info(who)
 	var narr := who == "narration" or who == ""
+	_place_panel(narr)
 	_root.visible = true
 	_panel.color = info.get("color", Palette.UI_TEXT) if not narr else Color(0.6, 0.55, 0.75)
 	_panel.neoul = who == "neoul" or who == "neoul_god"
@@ -105,13 +110,29 @@ func show_line(who: String, text: String, expr := "normal") -> void:
 	await advanced
 
 
+## 인물들이 화면 아래쪽에 서 있으면 대화창을 위로 올려 가리지 않게 한다
+func _place_panel(narr := false) -> void:
+	var w := World.get_world()
+	var top := false
+	if w and w.player:
+		var sp := w.player.get_global_transform_with_canvas().origin
+		top = sp.y > 200.0
+	PANEL = PANEL_TOP if top else PANEL_BOTTOM
+	if narr and w and w.fade.is_black():
+		PANEL = PANEL_CENTER # 암전 중 해설은 화면 가운데
+	_portrait.position = PANEL.position + Vector2(8, 8)
+
+
 ## 고르기: 대사 아래 선택지. 고른 번호를 돌려줌
 func choose(options: Array) -> int:
 	_choices.items.clear()
 	for o in options:
 		_choices.items.append(String(o))
 	_choices.selected = 0
-	_choices.position = PANEL.position + Vector2(PANEL.size.x - 200, -18.0 * options.size() - 10)
+	if PANEL.position.y < 100:
+		_choices.position = PANEL.position + Vector2(PANEL.size.x - 200, PANEL.size.y + 12)
+	else:
+		_choices.position = PANEL.position + Vector2(PANEL.size.x - 200, -18.0 * options.size() - 10)
 	_choices.size = Vector2(190, 18.0 * options.size())
 	_choices.visible = true
 	_panel.choice_rect = Rect2(_choices.position + Vector2(-20, -6), _choices.size + Vector2(30, 10))

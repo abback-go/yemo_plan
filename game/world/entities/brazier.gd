@@ -11,6 +11,7 @@ var group := ""
 var order := 0
 var lit := false
 var style := "stone" ## stone(신계 봉화) · iron(학교 화로) · seal(봉인 촛대)
+var symbol := "" ## 받침에 새긴 문양 (순서 퍼즐 단서와 맞춰 봄): moon · fox · flame · star
 var _hurt: Area2D
 var _glow: LightGlow
 var _t := 0.0
@@ -22,6 +23,7 @@ func setup(room: Room, e: Dictionary, eid: String) -> void:
 	group = String(e.get("group", ""))
 	order = int(e.get("order", 0))
 	style = String(e.get("style", "stone"))
+	symbol = String(e.get("symbol", ""))
 	position = room.tile_pos(e) + Vector2(8, 0)
 	add_to_group(&"brazier")
 	add_to_group(&"pillar_target")
@@ -96,6 +98,22 @@ func _draw() -> void:
 			draw_rect(Rect2(-2, -18, 4, 18), Color("#3a3050"))
 			draw_rect(Rect2(-6, -22, 12, 4), Color("#5a4a78"))
 			draw_arc(Vector2(0, -10), 9.0, 0, TAU, 16, Color(0.7, 0.5, 1.0, 0.3 + 0.2 * sin(_t * 2.0)), 1.0)
+	if symbol != "":
+		# 받침에 새긴 문양 (벽화의 순서와 맞춰 봄)
+		var sc := Color(0.75, 0.6, 1.0, 0.85)
+		var c := Vector2(0, -10)
+		match symbol:
+			"moon":
+				draw_circle(c, 4.0, sc)
+				draw_circle(c + Vector2(2, -1), 3.5, Color("#3a3050"))
+			"fox":
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-4, -1), c + Vector2(-5, -5), c + Vector2(-1, -3), c + Vector2(1, -3), c + Vector2(5, -5), c + Vector2(4, -1), c + Vector2(0, 4)]), sc)
+			"flame":
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-3, 4), c + Vector2(0, -5), c + Vector2(3, 4)]), sc)
+			"star":
+				for k in 5:
+					var ang := -PI * 0.5 + TAU * k / 5.0
+					draw_line(c, c + Vector2(cos(ang), sin(ang)) * 4.0, sc, 1.0)
 	if _fail > 0.0:
 		draw_rect(Rect2(-9, -22, 18, 4), Color(1.0, 0.2, 0.2, _fail))
 	if lit:

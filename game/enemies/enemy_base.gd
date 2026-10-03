@@ -136,6 +136,17 @@ static func is_fox_hit(hit: Hit) -> bool:
 	return String(hit.kind).begins_with("fox")
 
 
+## 범위 공격용: 점 p에서 적의 몸(피격 상자)까지의 거리. 아귀처럼 큰 적도 몸 어디에 닿든 맞게 한다
+static func dist_to_body(e: Node2D, p: Vector2) -> float:
+	var be := e as EnemyBase
+	if be == null:
+		return (e.global_position + Vector2(0, -10)).distance_to(p)
+	var bs := be.body_size
+	var r := Rect2(be.global_position + Vector2(-bs.x * 0.5, -bs.y), bs)
+	var q := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
+	return q.distance_to(p)
+
+
 func take_hit(hit: Hit) -> void:
 	if not _alive:
 		return

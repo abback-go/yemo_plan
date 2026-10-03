@@ -128,14 +128,15 @@ func _input(event: InputEvent) -> void:
 				_menu.visible = true
 				_phase = 1
 		1:
-			if _menu.handle_input(event):
-				get_viewport().set_input_as_handled()
+			if _menu.handle_input(event) and is_inside_tree():
+				get_viewport().set_input_as_handled() # 장면이 바뀌었으면 이미 트리 밖
 		2:
 			if _options.handle_input(event):
 				get_viewport().set_input_as_handled()
 		3:
 			if _confirm.handle_input(event):
-				get_viewport().set_input_as_handled()
+				if is_inside_tree():
+					get_viewport().set_input_as_handled()
 			elif event.is_action_pressed("ui_cancel"):
 				_confirm.visible = false
 				_menu.visible = true

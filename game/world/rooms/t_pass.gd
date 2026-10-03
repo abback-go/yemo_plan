@@ -8,7 +8,7 @@ func _init() -> void:
 	area = "shingye"
 	theme = "shingye"
 	music = "shingye"
-	cell = Vector2i(0, 0)
+	cell = Vector2i(0, 1)
 	cells = Vector2i(2, 1)
 	map = """
 #...............................................................................

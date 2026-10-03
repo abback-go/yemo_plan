@@ -35,7 +35,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("restart"):
 		GameState.restart_run()
 		return
-	if _menu.handle_input(event):
+	if _menu.handle_input(event) and is_inside_tree():
 		get_viewport().set_input_as_handled()
 
 

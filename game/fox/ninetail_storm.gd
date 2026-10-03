@@ -51,7 +51,7 @@ func _hit_all(final: bool) -> void:
 	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
 		if not e.is_alive():
 			continue
-		if (e.global_position + Vector2(0, -10)).distance_to(c) > r + 8.0:
+		if EnemyBase.dist_to_body(e, c) > r + 8.0:
 			continue
 		var h := Hit.make(42 if final else 14, &"fox_storm", c)
 		h.breaks_charge = true

@@ -5,6 +5,7 @@ extends Interactable
 
 var text := ""
 var look := "board"
+var run := "" ## 있으면 읽는 대신 대본 실행 (금서 기록 등)
 var _t := 0.0
 
 
@@ -14,10 +15,14 @@ func setup(p_room: Room, e: Dictionary, eid: String) -> void:
 	look = String(e.get("look", "board"))
 	position = room.tile_pos(e) + Vector2(8, 0)
 	prompt = String(e.get("prompt", "읽기"))
+	run = String(e.get("run", ""))
 	z_index = -1
 
 
 func interact() -> void:
+	if run != "":
+		Story.run(run)
+		return
 	Story.read(text.split("|"))
 
 

@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/basement.ogg-f06230614937217f7f68a7f7d38cfa21
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

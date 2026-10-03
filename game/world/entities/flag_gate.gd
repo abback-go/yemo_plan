@@ -34,8 +34,19 @@ func setup(room: Room, e: Dictionary, _eid: String) -> void:
 
 
 func _on_flag(_k: String) -> void:
-	if not _open and RoomData.cond_ok(open_if):
+	var ok := RoomData.cond_ok(open_if)
+	if not _open and ok:
 		open()
+	elif _open and not ok:
+		close()
+
+
+func close() -> void:
+	_open = false
+	_shape.set_deferred("disabled", false)
+	Sfx.play(&"door", 0.0, 0.0)
+	var t := create_tween()
+	t.tween_property(self, "_anim", 0.0, 0.25)
 
 
 func open() -> void:

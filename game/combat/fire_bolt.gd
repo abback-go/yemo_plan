@@ -123,8 +123,7 @@ func _blast(pos: Vector2, direct_target: Node) -> void:
 	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
 		if e == direct_target or not e.is_alive():
 			continue
-		var c: Vector2 = e.global_position + Vector2(0, -10)
-		if c.distance_to(pos) <= r + 8.0:
+		if EnemyBase.dist_to_body(e, pos) <= r + 8.0:
 			var hit := Hit.make(tuning.heavy_blast_damage, &"blast", pos, direction)
 			hit.knockback_t = 0.8
 			e.take_hit(hit)

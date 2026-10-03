@@ -113,10 +113,11 @@ class MapDraw extends Control:
 					has_save = true
 			if has_save:
 				draw_circle(r.position + Vector2(r.size.x - 7, 7), 3.0, Color(1.0, 0.8, 0.45))
-			if cs >= 46.0:
-				var name_w := _font.get_string_size(d.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+			if cs >= 36.0:
+				var short: String = d.title.split("· ")[-1]
+				var name_w := _font.get_string_size(short, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 				if name_w < r.size.x - 4:
-					draw_string(_font, r.position + Vector2((r.size.x - name_w) * 0.5, r.size.y * 0.5 + 5), d.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT if cur else Palette.UI_DIM)
+					draw_string(_font, r.position + Vector2((r.size.x - name_w) * 0.5, r.size.y * 0.5 + 5), short, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT if cur else Palette.UI_DIM)
 			if cur:
 				var pp := r.position + _ppos * r.size
 				draw_circle(pp, 3.0 + sin(_t * 6.0), Color(1.0, 0.45, 0.35))

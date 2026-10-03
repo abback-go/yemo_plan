@@ -10,6 +10,9 @@ const KINDS := {
 	"puzzle": "res://world/entities/brazier_puzzle.gd", ## 봉화 퍼즐 처리기
 	"chaser": "res://world/entities/collapse_chaser.gd", ## 붕괴 회랑 추격
 	"hint_mural": "res://world/entities/hint_mural.gd", ## 여우창문으로만 보이는 벽화
+	"calm": "res://world/entities/calm_zone.gd", ## 봉인 결계: 안에서는 폭주 게이지가 오르지 않음
+	"event": "res://world/entities/flag_event.gd", ## 플래그가 서면 대본 실행
+	"cracked": "res://world/entities/cracked_wall.gd", ## 금 간 벽: 폭발(슬라임 자폭·폭주 폭발)로만 부서짐
 }
 
 

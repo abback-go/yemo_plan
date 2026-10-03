@@ -20,14 +20,18 @@ func _ready() -> void:
 	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
 		if not e.is_alive():
 			continue
-		var center: Vector2 = e.global_position + Vector2(0, -8)
-		if center.distance_to(global_position) <= r + 8.0:
+		if EnemyBase.dist_to_body(e, global_position) <= r + 8.0:
 			var hit := Hit.make(tuning.burst_damage, &"burst", global_position)
 			hit.knockback_t = 3.0
 			hit.breaks_charge = true
 			hit.ignores_knock_resist = true
 			hit.launch_t = 2.0
 			e.take_hit(hit)
+	# 금 간 벽도 무너뜨림 (docs/chapter1.md 12.6절)
+	for w in get_tree().get_nodes_in_group(&"cracked_wall"):
+		var wc: Vector2 = w.global_position + w.size_px * 0.5
+		if wc.distance_to(global_position) <= r + 24.0:
+			w.crack_break()
 	Fx.hitstop(tuning.hitstop_burst)
 	Fx.slowmo(0.4, 0.35)
 	Fx.shake(tuning.shake_burst_t, 0.5)

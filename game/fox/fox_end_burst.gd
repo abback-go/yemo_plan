@@ -17,7 +17,7 @@ func _ready() -> void:
 	Sfx.play(&"fox_end", 0.0, 0.0)
 	var r := RADIUS_T * GameConst.TILE
 	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-		if e.is_alive() and (e.global_position + Vector2(0, -10)).distance_to(global_position) <= r:
+		if e.is_alive() and EnemyBase.dist_to_body(e, global_position) <= r:
 			var h := Hit.make(25, &"fox_burst", global_position)
 			h.knockback_t = 2.0
 			e.take_hit(h)

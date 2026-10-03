@@ -16,6 +16,7 @@ func _init() -> void:
 	collision_mask = 0
 	monitoring = false # 세라 쪽에서 찾으므로 이 영역은 감지하지 않아도 됨
 	monitorable = true
+	add_to_group(&"enemy_attack")
 
 
 func notify_hit(player: Node) -> void:

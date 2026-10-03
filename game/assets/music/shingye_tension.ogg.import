@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/shingye_tension.ogg-c8fb27d57f8ed89c116cc5f5e
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

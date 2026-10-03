@@ -90,6 +90,14 @@ func release_script() -> void:
 	_scripted = false
 
 
+## 컷신: 특정 위치에 두고 대본이 움직이게 함 (release_script로 다시 따라다님)
+func place(pos: Vector2, dir := 1) -> void:
+	_scripted = true
+	global_position = pos
+	_vel = Vector2.ZERO
+	face(dir)
+
+
 func _physics_process(delta: float) -> void:
 	_t += delta
 	_bubble_t = maxf(_bubble_t - delta, 0.0)

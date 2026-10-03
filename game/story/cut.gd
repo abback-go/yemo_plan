@@ -13,35 +13,67 @@ extends RefCounted
 var world: World
 var player: Player
 var _released := false
+var _gen := 0
 
 
 func _init(w: World) -> void:
 	world = w
 	player = w.player
+	_gen = Story.generation()
+
+
+## 대본이 아직 유효한가 (쓰러져 부활했으면 false → 대본은 그만둘 것)
+func ok() -> bool:
+	return _gen == Story.generation() and is_instance_valid(world)
 
 
 func begin() -> void:
 	player.controls_enabled = false
 	player.halt()
+	freeze_enemies(true)
 
 
 func finish() -> void:
+	if Story.busy_count() > 1:
+		return # 방을 옮기며 다음 방의 대본에 넘겨줌 — 그쪽이 조작·HUD를 정한다
 	world.dialogue.close()
+	world.pet.release_script()
+	freeze_enemies(false)
 	if not _released:
 		player.controls_enabled = true
 	world.hud.visible = true
+
+
+## 잠그지 않고 시작 (조작은 그대로). 끝날 때 조작을 건드리지 않음
+func soft() -> void:
+	_released = true
 
 
 func release() -> void:
 	_released = true
 	world.dialogue.close()
 	player.controls_enabled = true
+	freeze_enemies(false)
 
 
 func lock() -> void:
 	_released = false
 	player.controls_enabled = false
 	player.halt()
+	freeze_enemies(true)
+
+
+## 컷신 동안 적과 적의 탄을 멈춤 (보스 등장처럼 움직여야 하면 대본에서 freeze_enemies(false))
+func freeze_enemies(on: bool) -> void:
+	if not is_instance_valid(world) or world.room == null:
+		return
+	var mode := Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT
+	for e in world.room.enemies:
+		if is_instance_valid(e):
+			e.process_mode = mode
+	for a in world.get_tree().get_nodes_in_group(&"enemy_attack"):
+		if a is EnemyProjectile:
+			a.process_mode = mode
 
 
 # ─── 대사 ───────────────────────────────────────────────
@@ -109,6 +141,51 @@ func hud(on: bool) -> void:
 	world.hud.visible = on
 
 
+func vignette(strength: float) -> void:
+	Fx.set_vignette(strength)
+
+
+## 날씨 입자 (방을 옮기면 사라짐): fox_rain(푸른 여우비) · dust(무너지는 먼지)
+func weather(kind: String) -> void:
+	var p := CPUParticles2D.new()
+	var size := world.room.size_px
+	p.position = Vector2(size.x * 0.5, -8)
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	p.emission_rect_extents = Vector2(size.x * 0.5 + 40, 4)
+	p.local_coords = false
+	p.z_index = 24
+	match kind:
+		"fox_rain":
+			p.amount = 220
+			p.lifetime = 1.1
+			p.direction = Vector2(-0.15, 1)
+			p.spread = 2.0
+			p.initial_velocity_min = 380.0
+			p.initial_velocity_max = 460.0
+			p.gravity = Vector2.ZERO
+			p.scale_amount_min = 1.0
+			p.scale_amount_max = 1.0
+			p.color = Color(0.55, 0.8, 1.0, 0.55)
+			var g := Gradient.new()
+			g.set_color(0, Color(0.6, 0.85, 1.0, 0.0))
+			g.add_point(0.15, Color(0.6, 0.85, 1.0, 0.7))
+			g.set_color(1, Color(0.6, 0.85, 1.0, 0.5))
+			p.color_ramp = g
+			p.material = Fx.add_material
+		_:
+			p.amount = 60
+			p.lifetime = 2.0
+			p.direction = Vector2.DOWN
+			p.spread = 10.0
+			p.initial_velocity_min = 40.0
+			p.initial_velocity_max = 120.0
+			p.gravity = Vector2(0, 200)
+			p.scale_amount_min = 1.0
+			p.scale_amount_max = 3.0
+			p.color = Color(0.35, 0.32, 0.42, 0.8)
+	world.effects.add_child(p)
+
+
 # ─── 인물·세라 ──────────────────────────────────────────
 
 func actor(who: String) -> Node:
@@ -120,9 +197,23 @@ func actor(who: String) -> Node:
 
 
 func walk(who: String, x_tiles: float, speed := 60.0) -> void:
+	world.dialogue.close()
 	var a := actor(who)
 	if a and a.has_method("walk_to"):
 		await a.walk_to(x_tiles * 16.0 + 8.0, speed)
+
+
+## 인물이 세라 쪽으로 걸어와 dist 타일 떨어져 섬 (세라를 바라봄)
+func approach(who: String, dist := 3.0, speed := 70.0) -> void:
+	var a := actor(who)
+	if a == null:
+		return
+	var px := player.global_position.x / 16.0
+	var side := -1.0 if a.global_position.x < player.global_position.x else 1.0
+	var room_w := world.room.size_px.x / 16.0
+	var tx := clampf(px + side * dist, 1.5, room_w - 2.5)
+	await walk(who, tx, speed)
+	face(who, 1 if player.global_position.x > a.global_position.x else -1)
 
 
 func face(who: String, dir: int) -> void:
@@ -199,6 +290,110 @@ func goto_room(room_id: String, spawn: String) -> void:
 
 func save_here(spawn: String) -> void:
 	GameState.record_at(world.room.data.id, spawn)
+
+
+## 위험한 공격이 세라 가까이 왔을 때까지 기다림 (퍼펙트 회피 안내용). 시간이 지나면 false
+func wait_for_threat(radius := 80.0, timeout := 30.0) -> bool:
+	var left := timeout
+	while left > 0.0:
+		if not is_instance_valid(player) or not player.is_alive():
+			return false
+		for a in world.get_tree().get_nodes_in_group(&"enemy_attack"):
+			var area := a as EnemyAttackArea
+			if area and area.active and area.dodgeable and area.global_position.distance_to(player.center()) < radius:
+				return true
+		await world.get_tree().physics_frame
+		left -= world.get_physics_process_delta_time()
+	return false
+
+
+## 조건이 될 때까지 기다림 (매 물리 프레임 검사)
+func wait_until(cond: Callable, timeout := 600.0) -> bool:
+	var left := timeout
+	while left > 0.0:
+		if cond.call():
+			return true
+		await world.get_tree().physics_frame
+		left -= world.get_physics_process_delta_time()
+	return false
+
+
+## 적이 쓰러지거나 체력이 hp_frac 이하가 될 때까지 기다림 (적이 사라져도 안전)
+func wait_enemy(e: EnemyBase, hp_frac := 0.0) -> void:
+	var wr: WeakRef = weakref(e)
+	while ok():
+		var o: EnemyBase = wr.get_ref()
+		if o == null or not o.is_alive() or (hp_frac > 0.0 and o.hp <= o.max_hp * hp_frac):
+			return
+		await world.get_tree().physics_frame
+
+
+## 방의 적 (종류로 찾기)
+func enemy(kind: String) -> EnemyBase:
+	if world.room == null:
+		return null
+	for e in world.room.enemies:
+		if is_instance_valid(e) and e.kind_id == kind:
+			return e
+	return null
+
+
+## 대본에서 적 등장 (eid가 같으면 처치 기록도 같음)
+func spawn_enemy(kind: String, x_t: float, y_t: float, eid: String, props := {}) -> EnemyBase:
+	var en: EnemyBase = EnemyRegistry.create(kind)
+	if en == null:
+		return null
+	en.position = Vector2(x_t * 16.0 + 8.0, y_t * 16.0)
+	en.uid = world.room.data.id + ":" + eid
+	for k in props:
+		en.set(k, props[k])
+	en.facing = -1
+	world.room.add_entity(en)
+	world.room.enemies.append(en)
+	Fx.burst(en.position + Vector2(0, -20), 30, {spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.6,
+		gradient = Palette.fade_gradient(Color(0.75, 0.45, 1.0)), add = true})
+	return en
+
+
+## 대본에서 인물 등장 (방을 다시 만들면 사라짐)
+func spawn_npc(who: String, x_t: float, y_t: float, dir := 1) -> Npc:
+	var n := Npc.new()
+	n.setup(world.room, {"who": who, "x": x_t, "y": y_t, "face": "right" if dir > 0 else "left"}, who)
+	world.room.add_entity(n)
+	world.room.actors[who] = n
+	return n
+
+
+## 인물을 타일 좌표로 옮김 (떨어지기·날기 등)
+func move(who: String, x_t: float, y_t: float, time := 0.6, trans := Tween.TRANS_SINE) -> void:
+	var a := actor(who)
+	if a == null:
+		return
+	var t := a.create_tween()
+	t.tween_property(a, "global_position", Vector2(x_t * 16.0 + 8.0, y_t * 16.0), time).set_trans(trans).set_ease(Tween.EASE_OUT)
+	await t.finished
+
+
+func hide_actor(who: String) -> void:
+	var a := actor(who)
+	if a:
+		a.visible = false
+		if a is Interactable:
+			a.process_mode = Node.PROCESS_MODE_DISABLED
+
+
+func item(title: String, desc: String) -> void:
+	world.notice.item_get(title, desc)
+	await wait(1.2)
+
+
+## 큰 장면 직후 자동 저장: 이 방에 기록 지점이 있으면 부활 지점도 이곳으로
+func save() -> void:
+	if world.room and not world.room.saves.is_empty():
+		var sid: String = world.room.saves.keys()[0]
+		GameState.record_at(world.room.data.id, sid)
+	else:
+		GameState.save_game()
 
 
 func give_potions(n: int) -> void:

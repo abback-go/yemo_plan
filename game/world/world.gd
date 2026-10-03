@@ -164,6 +164,22 @@ func _physics_process(_delta: float) -> void:
 	if room == null:
 		return
 	_update_focus()
+	_tutorial_hooks()
+
+
+## 상황에 맞춰 한 번씩 나오는 멈춤 안내 (폭주 게이지, 퍼펙트 회피)
+func _tutorial_hooks() -> void:
+	if Story.busy() or transitioning or not player.is_alive() or not player.controls_enabled or teach.is_active():
+		return
+	if player.overload >= 45.0 and not player.is_fox() and not GameState.has_flag("teach_폭주 게이지"):
+		Story.run("teach_overload")
+	elif GameState.has_flag("p_dodge_ready") and not GameState.has_flag("teach_퍼펙트 회피"):
+		for a in get_tree().get_nodes_in_group(&"enemy_attack"):
+			var area := a as EnemyAttackArea
+			if area and area.active and area.dodgeable and area.is_inside_tree() \
+					and area.global_position.distance_to(player.center()) < 72.0:
+				Story.run("teach_dodge")
+				return
 
 
 func _update_focus() -> void:
@@ -196,6 +212,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		var dbg := get_node_or_null("DebugOverlay") as CanvasLayer
 		if dbg:
 			dbg.visible = not dbg.visible
+
+
+## 1장 끝 화면. 계속 탐험하면 true
+func end_screen() -> bool:
+	var es := EndScreen.new()
+	es.name = "EndScreen"
+	add_child(es)
+	var keep: bool = await es.open()
+	es.queue_free()
+	return keep
 
 
 # ─── 쓰러짐과 부활 ──────────────────────────────────────

@@ -60,7 +60,8 @@ func _on_body(b: Node) -> void:
 		"key":
 			Story.item_get(item_name, String(text), "key")
 		"page":
-			Story.read(text.split("|"))
+			GameState.add("secrets")
+			Story.read(([item_name] if item_name != "" else []) + Array(text.split("|")))
 	queue_free()
 
 
