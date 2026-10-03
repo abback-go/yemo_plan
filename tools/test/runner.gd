@@ -50,7 +50,7 @@ func _auto_advance() -> void:
 		return
 	if w.teach.is_active():
 		var keys: Array = w.teach._wait
-		var k: String = keys[0]
+		var k: String = keys[0] if not keys.is_empty() else "jump"
 		if k == "move":
 			k = "move_right"
 		print("AUTO teach ", w.teach._draw.title, " -> ", k, " f=", frame)
