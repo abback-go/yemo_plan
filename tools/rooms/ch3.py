@@ -3,6 +3,7 @@ from roomgen import Room, room, overlay — 1장 roomgen.py와 같은 문법.
 
 지금(1단계)은 개발용 시험 방(dev_e_*)만 있다 — 지도·ROOMS에 넣지 않는다.
   dev_e_tree    세계수 마을 배경·소품·인물 전시 (elf, 3×1)
+  dev_e_stage   빈 무대 — 인물 자세·초상화 점검 (elf, 3×1)
   dev_e_cave    뿌리 동굴 배경·버섯 퍼즐·적 (elf_deep, 2×1)
   dev_e_blight  흰 역병 배경·역병 덩굴·적 (blight, 2×1)
   dev_e_hunt    사냥 시험 경기장 (elf, 1×3 세로, 가지 횃대)
@@ -67,6 +68,17 @@ def dev_e_tree():
     r.add("prop", kind="eilach_sapling", x=70, y=F, white=0.0)
     r.add("prop", kind="eilach_sapling", x=72, y=F, white=0.6)
     r.add("prop", kind="vine_curtain", x=104, y=1, w=3, h=5)
+    return r
+
+
+@room
+def dev_e_stage():
+    """빈 무대: 인물 자세·초상화 점검용 (소품 없음)"""
+    r = dev_room("dev_e_stage", "시험장 · 무대", "elf", (3, 1), "")
+    F = 19
+    r.box(wall=1, floor=4, ceil=1)
+    r.clear(1, 1, r.w - 2, 2)
+    markers(r, F)
     return r
 
 
