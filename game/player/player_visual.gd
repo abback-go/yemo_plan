@@ -20,6 +20,8 @@ var ghost := false ## 대시 잔상용 단색 모드
 var fox := 0.0 ## 여우 모드(빙의) 정도 0~1: 푸른 여우귀·불꽃 꼬리·푸른 머리끝·눈·망토
 var mimic := 0.0 ## 의태(폭주 70% 이상, 너울 동행 후): 여우 특징이 깜빡이며 비침
 var drinking := false
+var gliding := false ## 불꽃 날개 활공 중 (등에서 불꽃 날개)
+var tails := 1 ## 너울의 꼬리 수 — 여우 모드에서 이만큼 꼬리를 그림 (9 = 구미호 완전 빙의)
 var ghost_color := Color(1.0, 0.45, 0.25, 0.55)
 
 var _t := 0.0
@@ -115,7 +117,9 @@ func _draw() -> void:
 		draw_circle(_u(Vector2(0, -20)), 15.0, Color(Palette.FIRE_OUT, 0.07))
 		draw_circle(_u(Vector2(0, -22)), 10.0, Color(Palette.FIRE_MID, 0.05))
 	if fa > 0.0 and not ghost:
-		_draw_fox_tail(fa)
+		_draw_fox_tails(fa)
+	if gliding and not ghost:
+		_draw_wings()
 	_draw_cape()
 	_draw_legs()
 	_draw_back_arm()
@@ -133,12 +137,40 @@ func _draw() -> void:
 		draw_rect(Rect2(hand + Vector2(-0.5, -6), Vector2(2, 1)), Color("#c8b8a0"))
 
 
-## 푸른 불꽃 꼬리 하나 (엉덩이 뒤에서 위로 휘어 오름)
-func _draw_fox_tail(fa: float) -> void:
+## 꼬리 수만큼 부채처럼 펼침 (꼬리 1개면 1장과 같은 모습)
+func _draw_fox_tails(fa: float) -> void:
+	var n := clampi(tails, 1, 9)
+	if n == 1:
+		_draw_fox_tail(fa, 0.0, 1.0)
+		return
+	var spread := 0.22 if n <= 4 else 0.16
+	for i in n:
+		var k := float(i) - float(n - 1) * 0.5
+		_draw_fox_tail(fa, k * spread, 1.0 + (0.25 if n >= 9 else 0.0) - absf(k) * 0.04)
+
+
+## 불꽃 날개: 등에서 펼쳐진 두 장의 불꽃 날개가 천천히 퍼덕임
+func _draw_wings() -> void:
+	var base := _u(Vector2(-2, -21))
+	var flap := sin(_t * 7.0)
+	var col := FOX_BLUE if fox > 0.5 else Palette.FIRE_OUT
+	var hot := FOX_CORE if fox > 0.5 else Palette.FIRE_HOT
+	for side in [1.0, -0.6]:
+		var tip := base + Vector2(-16.0 * side, -10.0 - flap * 4.0 * side)
+		var low := base + Vector2(-13.0 * side, 4.0 + flap * 2.0)
+		draw_colored_polygon(PackedVector2Array([base, tip, base + Vector2(-9.0 * side, -2.0), low]), Color(col, 0.75 if side > 0 else 0.5))
+		draw_line(base, tip, Color(hot, 0.85), 1.0)
+		for j in 3:
+			var p := base.lerp(tip, 0.4 + j * 0.2) + Vector2(0, 2 + j * 2)
+			draw_rect(Rect2(p, Vector2(1.5, 1.5)), Color(hot, 0.7))
+
+
+## 푸른 불꽃 꼬리 하나 (엉덩이 뒤에서 위로 휘어 오름). rot: 펼침 각도, scale_k: 크기
+func _draw_fox_tail(fa: float, rot := 0.0, scale_k := 1.0) -> void:
 	var base := _u(Vector2(-3, -11))
-	var sway := sin(_t * 5.0) * 2.0
-	var mid := base + Vector2(-8, -2 + sway * 0.5)
-	var tip := base + Vector2(-12 + sway, -12)
+	var sway := sin(_t * 5.0 + rot * 6.0) * 2.0
+	var mid := base + (Vector2(-8, -2 + sway * 0.5) * scale_k).rotated(rot)
+	var tip := base + (Vector2(-12 + sway, -12) * scale_k).rotated(rot)
 	var w := 4.0
 	var pts := PackedVector2Array([base + Vector2(0, -w * 0.5), mid + Vector2(1, -w), tip, mid + Vector2(1, w), base + Vector2(0, w * 0.5)])
 	draw_colored_polygon(pts, Color(FOX_BLUE, 0.85 * fa))

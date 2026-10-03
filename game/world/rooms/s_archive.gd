@@ -49,4 +49,5 @@ func _init() -> void:
 		{t = "prop", kind = "magic_circle", x = 18, y = 19, w = 6, col = Color("#8ad0ff")},
 		{t = "light", x = 18, y = 16, r = 5, color = Color("#8ad0ff")},
 		{t = "prop", kind = "candles", x = 22, y = 19},
+		{t = "door", id = "ash", x = 23, y = 19, to = "s_ashstacks", to_id = "in", style = "iron", label = "재의 서고", cond = "cls_phoenix_sign"},
 	]

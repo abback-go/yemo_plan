@@ -1,12 +1,14 @@
 extends CanvasLayer
-## 일시정지 (Esc / 패드 Start): 계속하기 · 지도 · 목표 · 설정 · 타이틀로 (docs/chapter1.md 10절).
+## 일시정지 (Esc / 패드 Start): 계속하기 · 지도 · 퀘스트 · 마법서 · 설정 · 타이틀로 (docs/systems2.md).
 ## 프로토타입 스테이지(연습장)에서는 예전 메뉴(체크포인트에서 다시·처음부터)를 쓴다.
 
 var _root: Control
 var _menu: MenuList
 var _info: InfoDraw
 var _options: OptionsPanel
-var _page := "main" ## main · goals · options
+var _quests: QuestPanel
+var _book: SpellbookPanel
+var _page := "main" ## main · quests · spells · options
 
 
 func _ready() -> void:
@@ -30,7 +32,7 @@ func _ready() -> void:
 
 	_menu = MenuList.new()
 	if _in_world():
-		_menu.items = ["계속하기", "지도", "목표", "설정", "타이틀로"]
+		_menu.items = ["계속하기", "지도", "퀘스트", "마법서", "설정", "타이틀로"]
 	else:
 		_menu.items = ["계속하기", "체크포인트에서 다시", "처음부터", "타이틀로"]
 	_menu.position = Vector2(60, 120)
@@ -38,6 +40,16 @@ func _ready() -> void:
 	_menu.chosen.connect(_on_chosen)
 	_root.add_child(_menu)
 
+	_quests = QuestPanel.new()
+	_quests.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_quests.closed.connect(func() -> void: _set_page("main"))
+	_root.add_child(_quests)
+	_quests.visible = false
+	_book = SpellbookPanel.new()
+	_book.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_book.closed.connect(func() -> void: _set_page("main"))
+	_root.add_child(_book)
+	_book.visible = false
 	_options = OptionsPanel.new()
 	_options.position = Vector2(260, 110)
 	_options.closed.connect(func() -> void: _set_page("main"))
@@ -64,10 +76,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		"main":
 			if _menu.handle_input(event) and is_inside_tree():
 				get_viewport().set_input_as_handled()
-		"goals":
-			if event.is_action_pressed("ui_cancel") or event.is_action_pressed("attack") or event.is_action_pressed("jump") or event.is_action_pressed("ui_accept") \
-					or (event is InputEventMouseButton and event.pressed):
-				_set_page("main")
+		"quests":
+			if _quests.handle_input(event) and is_inside_tree():
+				get_viewport().set_input_as_handled()
+		"spells":
+			if _book.handle_input(event) and is_inside_tree():
 				get_viewport().set_input_as_handled()
 		"options":
 			if _options.handle_input(event):
@@ -97,8 +110,14 @@ func _set_page(page: String) -> void:
 	_info.page = page
 	_menu.visible = page == "main"
 	_options.visible = page == "options"
+	_quests.visible = page == "quests"
+	_book.visible = page == "spells"
 	if page == "options":
 		_options.open()
+	elif page == "quests":
+		_quests.open()
+	elif page == "spells":
+		_book.open()
 
 
 func _on_chosen(index: int) -> void:
@@ -119,10 +138,12 @@ func _on_chosen(index: int) -> void:
 			get_tree().paused = false
 			(get_parent() as World).map_screen.open()
 		2:
-			_set_page("goals")
+			_set_page("quests")
 		3:
-			_set_page("options")
+			_set_page("spells")
 		4:
+			_set_page("options")
+		5:
 			get_tree().paused = false
 			_root.visible = false
 			GameState.go_title()
@@ -139,6 +160,8 @@ class InfoDraw extends Control:
 		queue_redraw()
 
 	func _draw() -> void:
+		if page == "quests" or page == "spells":
+			return
 		draw_string(_font, Vector2(60, 90), "일시정지", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Palette.GOLD)
 		draw_string(_font, Vector2(60, 330), "플레이 시간 " + GameState.format_time(GameState.run_time), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 		if page == "main":
@@ -148,15 +171,14 @@ class InfoDraw extends Control:
 				draw_string(_font, Vector2(260, 148), cur, HORIZONTAL_ALIGNMENT_LEFT, 340, 12, Palette.UI_TEXT)
 			var y := 190.0
 			draw_string(_font, Vector2(260, y), "익힌 마법", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
-			var spells := ["화염탄 (X)", "불기둥 (A)"]
-			if GameState.has_ability("storm"):
-				spells.append("화염 폭풍 (S)")
-			if GameState.has_ability("double_jump"):
-				spells.append("부양 (공중 Z)")
+			var spells := ["화염탄 (X)"]
+			for sid in Spells.ORDER:
+				if Spells.learned(sid):
+					spells.append("%s Lv%d" % [String(Spells.info(sid).name), Spells.level(sid)])
 			if GameState.has_ability("fox_window"):
 				spells.append("여우창문 (D)")
 			if GameState.has_ability("fox_mode"):
-				spells.append("빙의 — 여우 모드 (폭주 시)")
+				spells.append("빙의 — 여우 모드 (꼬리 %d)" % int(GameState.flag("tails", 1)))
 			for i in spells.size():
 				draw_string(_font, Vector2(260 + (i % 2) * 170, y + 18 + (i / 2) * 16), spells[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
 		elif page == "goals":

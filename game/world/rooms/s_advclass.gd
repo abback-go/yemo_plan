@@ -56,4 +56,5 @@ func _init() -> void:
 		{t = "prop", kind = "window", x = 60, y = 10, w = 3, h = 6},
 		{t = "prop", kind = "chandelier", x = 30, y = 2, len = 3},
 		{t = "prop", kind = "chandelier", x = 56, y = 2, len = 3},
+		{t = "door", id = "duel", x = 46, y = 19, to = "s_duel", to_id = "in", style = "stair_down", label = "결투장", lock = "cls_meteor_duel_ok", lock_msg = "결투장. 베로니카 교수의 허락 없이는 내려갈 수 없다.", cond = "q_cls_meteor"},
 	]
