@@ -73,6 +73,18 @@ func _ensure_leonie(c: Cut) -> Ally:
 	return a
 
 
+## 약한 참조의 적이 사라졌거나 쓰러졌는가 (람다가 지워진 노드를 붙잡지 않게)
+func _dead(ref: WeakRef) -> bool:
+	var e := ref.get_ref() as EnemyBase
+	return e == null or not e.is_alive()
+
+
+## 약한 참조의 노드가 사라졌거나, 그 속성(문자열)이 비어 있지 않은가
+func _gone_or(ref: WeakRef, prop: String) -> bool:
+	var n := ref.get_ref() as Node
+	return n == null or String(n.get(prop)) != ""
+
+
 func _count(keys: Array) -> int:
 	var n := 0
 	for k in keys:
@@ -364,7 +376,8 @@ func k_spar(c: Cut) -> void:
 	await c.title_card("대련", "세 번 맞히거나 · 60초 버티기", 1.4)
 	sp.engaged = true
 	c.release()
-	await c.wait_until(func() -> bool: return not is_instance_valid(sp) or String(sp.get("result")) != "", 240.0)
+	var sp_ref: WeakRef = weakref(sp)
+	await c.wait_until(func() -> bool: return _gone_or(sp_ref, "result"), 240.0)
 	if not c.ok():
 		return
 	c.lock()
@@ -793,7 +806,8 @@ func k_noxis(c: Cut) -> void:
 	c.music("boss", 0.4)
 	b.engaged = true
 	c.release()
-	await c.wait_until(func() -> bool: return c.has("k_noxis_half") or not is_instance_valid(b) or not b.is_alive(), 900.0)
+	var nx_ref: WeakRef = weakref(b)
+	await c.wait_until(func() -> bool: return c.has("k_noxis_half") or _dead(nx_ref), 900.0)
 	if not c.ok():
 		return
 	c.lock()
@@ -952,11 +966,16 @@ func _duel_end(c: Cut, d: EnemyBase) -> void:
 	c.spawn_npc("k_child", 8.0, 19.0, 1)
 	await c.say("k_child", "다, 단장님…! 결투 보러 몰래 나왔는데… 무, 무서워…!", "sad")
 	c.close_box()
-	var big := KE.meteor(Vector2(9.0 * 16.0, 19.0 * 16.0), 1.6, 40.0, KE.STAR, true)
+	# 큰 별 하나가 아이 쪽으로 (붉은 원 2.2초 뒤 떨어짐) — 세라가 달려가 떨어지는 순간 방벽
+	var big := KE.meteor(Vector2(9.0 * 16.0, 19.0 * 16.0), 2.2, 40.0, KE.STAR, true)
 	big.harmless = true
 	c.emote("sera", "!")
-	await c.player_walk(10.0, 260.0)
-	c.player_face(1)
+	await c.player_walk(10.0, 420.0)
+	c.player_face(-1)
+	var big_ref: WeakRef = weakref(big)
+	await c.wait_until(func() -> bool:
+		var m := big_ref.get_ref() as Node
+		return m == null or float(m.get("_t")) >= 2.05, 3.0)
 	c.player.call("_cast_ward")
 	await c.wait(0.9)
 	c.flash(Color(1.0, 0.7, 0.4, 0.7), 0.5)
@@ -1106,7 +1125,8 @@ func _brooch_scene(c: Cut, b: EnemyBase, a: Ally) -> void:
 	if a and is_instance_valid(a):
 		a.say("하늘이…! 세라피나, 피해!")
 	c.bubble("저 큰 별은 피할 데가 없구나…!", 2.2)
-	await c.wait_until(func() -> bool: return bool(got[0]) or not is_instance_valid(b) or not b.is_alive(), 8.0)
+	var b_ref: WeakRef = weakref(b)
+	await c.wait_until(func() -> bool: return bool(got[0]) or _dead(b_ref), 8.0)
 	if not c.ok():
 		return
 	c.lock()
