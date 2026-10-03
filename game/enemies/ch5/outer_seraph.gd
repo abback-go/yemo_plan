@@ -86,11 +86,12 @@ func _ai(delta: float) -> void:
 			velocity = velocity.lerp(Vector2.ZERO, minf(delta * 5.0, 1.0))
 			face_player()
 			for i in _aim_lines.size():
-				var l: StStrike = _aim_lines[i]
+				var l: Variant = _aim_lines[i]
 				if is_instance_valid(l):
-					l.global_position = _spear_pos(i)
+					var ls: StStrike = l
+					ls.global_position = _spear_pos(i)
 					if _timer > 0.25:
-						l.to = l.global_position + (p.center() - l.global_position).normalized() * 30.0 * T
+						ls.to = ls.global_position + (p.center() - ls.global_position).normalized() * 30.0 * T
 			if _timer <= 0.0:
 				set_state("spears", 0.75)
 		"spears":
@@ -98,11 +99,12 @@ func _ai(delta: float) -> void:
 			var due := mini(int(floor((_state_len - _timer) / 0.25)) + 1, 3)
 			while _fired_n < due:
 				var i := _fired_n
-				var l2: StStrike = _aim_lines[i] if i < _aim_lines.size() else null
-				var dir := Vector2(facing, 0)
+				var l2: Variant = _aim_lines[i] if i < _aim_lines.size() else null
+				var dir := (p.center() - _spear_pos(i)).normalized()
 				if is_instance_valid(l2):
-					dir = (l2.to - l2.global_position).normalized()
-					l2.queue_free()
+					var ls2: StStrike = l2
+					dir = (ls2.to - ls2.global_position).normalized()
+					ls2.queue_free()
 				StShot.fire(_spear_pos(i), dir, 18.0 * T, "white_spear", {"radius": 4.0, "damage": 1, "cause": "outer_seraph", "life": 2.5, "hits_world": false})
 				StArt.sfx(&"holy_charge", &"sniper_shot", -4.0)
 				if not _spears.is_empty():
@@ -159,7 +161,7 @@ func _choose(p: Player) -> void:
 			_clear_aims()
 			for i in 3:
 				var from := _spear_pos(i)
-				_aim_lines.append(StStrike.spawn(from, "beam", Vector2(0, 3), _timer, {"to": p.center(), "style": "white", "damage": 0, "hold": 0.0, "fade": 0.05}))
+				_aim_lines.append(StStrike.spawn(from, "beam", Vector2(0, 3), _timer, {"to": p.center(), "style": "white", "damage": 0, "hold": 0.8, "fade": 0.05}))
 			_echo()
 		"prison":
 			set_state("prison_wind", 0.4)

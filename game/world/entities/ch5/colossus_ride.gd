@@ -78,11 +78,10 @@ func _build_body() -> void:
 	var sf: Vector2 = _pose.sf
 	var sh: Vector2 = _pose.shoulder
 	var head: Vector2 = _pose.head
-	var arm_w := h * 0.026
-	# 손바닥 위 (평평)
-	_body.add_child(_seg(hand + Vector2(-dir * h * 0.03, -h * 0.03), hand + Vector2(dir * h * 0.03, -h * 0.03)))
-	# 팔 위 (손목 → 어깨, 팔 굵기만큼 위)
-	_body.add_child(_seg(hand + Vector2(0, -arm_w - h * 0.012), sf + Vector2(0, -h * 0.034)))
+	# 손바닥 위 (평평, 손끝 쪽 절반) → 그대로 팔 위 오르막으로 이어짐 (끊김 없이 걸어 오르게)
+	var palm := hand + Vector2(0, -h * 0.03)
+	_body.add_child(_seg(palm + Vector2(dir * h * 0.035, 0), palm))
+	_body.add_child(_seg(palm, sf + Vector2(0, -h * 0.034)))
 	# 어깨 (어깨 끝 → 목)
 	_body.add_child(_seg(sf + Vector2(0, -h * 0.034), sh + Vector2(-dir * h * 0.04, -h * 0.022)))
 	# 머리 꼭대기
