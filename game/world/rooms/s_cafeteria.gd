@@ -46,4 +46,6 @@ func _init() -> void:
 		{t = "prop", kind = "potion_shelf", x = 35, y = 19, w = 3, h = 4},
 		{t = "prop", kind = "chandelier", x = 14, y = 2, len = 3},
 		{t = "prop", kind = "window", x = 20, y = 10, w = 3, h = 5},
+		{t = "prop", kind = "st_garland", x = 4, y = 6, w = 30, cond = "st_fest,!st_invaded"},
+		{t = "pickup", id = "st_ing_honey", kind = "key", x = 36, y = 19, name = "별사탕 꿀", flag = "st_ing_honey", text = "축제용 별사탕 꿀 한 병. 피피의 물약 재료다.", cond = "q_st_pippa_stall"},
 	]

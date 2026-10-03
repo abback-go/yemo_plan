@@ -47,4 +47,5 @@ func _init() -> void:
 		{t = "prop", kind = "window", x = 10, y = 11, w = 4, h = 6},
 		{t = "prop", kind = "window", x = 22, y = 11, w = 4, h = 6},
 		{t = "prop", kind = "window", x = 32, y = 11, w = 4, h = 6},
+		{t = "pickup", id = "st_ing_moss", kind = "key", x = 31, y = 14, name = "반딧불 이끼", flag = "st_ing_moss", text = "밤마다 빛나는 이끼. 피피의 물약 재료다.", cond = "q_st_pippa_stall"},
 	]

@@ -9,6 +9,12 @@ extends RefCounted
 ##   ruin_elf     불타는 세계수 마을 (이끼·나무 → 숯·마른 잎)
 ##   ruin_temple  금 간 대신전 (흰 대리석·금 → 그을린 대리석)
 ##   rise         반격의 새벽: 무너진 학교 위로 번지는 푸른 여우불 (거신들이 잠든다)
+##   st_kingdom   별의 시련 · 황도 아르덴의 밤 (회청 석재 + 가로등 불빛, 리라의 별하늘)
+##   st_elf       별의 시련 · 세계수의 밤 (이끼 낀 가지 + 별빛 잎)
+##   st_temple    별의 시련 · 성산 대신전의 밤 (흰 대리석 + 금, 종루)
+##   st_garden    별의 시련 · 별이 내린 학교 뜰 (울타리·온실 + 보랏빛 별)
+##   star_flip    별의 탑 4층(뒤집힘): star와 같은 색, 배경을 위아래로 뒤집어 그림
+##   dawn         에필로그 · 다시 세우는 학교의 아침 (복숭앗빛 하늘, 아문 하늘 흉터, 비계)
 ## 입자: stars · foxfire · blight(흰 가루) · ash · light (room_backdrop.gd _particles)
 
 const THEMES := {
@@ -74,5 +80,47 @@ const THEMES := {
 		"plat": Color("#2a3a5a"), "plat_hi": Color("#8ad0ff"), "spike": Color("#2a2e44"), "accent": Color("#6ab8ff"),
 		"sky_top": Color("#050a1c"), "sky_bottom": Color("#2a4a8a"), "far": Color("#16203c"), "mid": Color("#0e1428"),
 		"near": Color("#060810"), "fog": Color(0.45, 0.7, 1.0, 0.06), "particles": "foxfire",
+	},
+	"st_kingdom": {
+		"base": Color("#2e3346"), "deep": Color("#0b0c14"), "top": Color("#4a5068"), "top_hi": Color("#c8d0e8"),
+		"seam": Color("#1e2230"), "edge": Color("#141620"), "pattern": "stone", "cap": "none", "cap_col": Color("#000000"),
+		"plat": Color("#5a3a2a"), "plat_hi": Color("#e8a860"), "spike": Color("#3a3e50"), "accent": Color("#ffd080"),
+		"sky_top": Color("#04061a"), "sky_bottom": Color("#2a3060"), "far": Color("#1c2240"), "mid": Color("#121630"),
+		"near": Color("#070910"), "fog": Color(0.7, 0.75, 1.0, 0.04), "particles": "stars",
+	},
+	"st_elf": {
+		"base": Color("#22302a"), "deep": Color("#070b09"), "top": Color("#2e4a36"), "top_hi": Color("#9ae0a8"),
+		"seam": Color("#16201a"), "edge": Color("#0e1410"), "pattern": "plank", "cap": "moss", "cap_col": Color("#3a6a40"),
+		"plat": Color("#4a3420"), "plat_hi": Color("#c8a060"), "spike": Color("#263228"), "accent": Color("#c8ffb0"),
+		"sky_top": Color("#020814"), "sky_bottom": Color("#12304a"), "far": Color("#0e2228"), "mid": Color("#08161a"),
+		"near": Color("#030807"), "fog": Color(0.6, 1.0, 0.8, 0.04), "particles": "stars",
+	},
+	"st_temple": {
+		"base": Color("#4a4860"), "deep": Color("#12111a"), "top": Color("#6e6a84"), "top_hi": Color("#f0e6c0"),
+		"seam": Color("#302e40"), "edge": Color("#1e1c28"), "pattern": "stone", "cap": "gold", "cap_col": Color("#d8bc6a"),
+		"plat": Color("#6a5a3a"), "plat_hi": Color("#f0d080"), "spike": Color("#44425a"), "accent": Color("#fff0a0"),
+		"sky_top": Color("#06061a"), "sky_bottom": Color("#3a3460"), "far": Color("#22203c"), "mid": Color("#16142a"),
+		"near": Color("#0a0912"), "fog": Color(1.0, 0.95, 0.8, 0.04), "particles": "stars",
+	},
+	"st_garden": {
+		"base": Color("#2a2840"), "deep": Color("#0a0912"), "top": Color("#3a5040"), "top_hi": Color("#a8d8a0"),
+		"seam": Color("#1a1828"), "edge": Color("#12101c"), "pattern": "brick", "cap": "moss", "cap_col": Color("#4a7a4a"),
+		"plat": Color("#4a3a5a"), "plat_hi": Color("#c8a8ff"), "spike": Color("#34304a"), "accent": Color("#c8a8ff"),
+		"sky_top": Color("#04051a"), "sky_bottom": Color("#2a2458"), "far": Color("#1a1a38"), "mid": Color("#10102a"),
+		"near": Color("#060610"), "fog": Color(0.8, 0.75, 1.0, 0.05), "particles": "stars",
+	},
+	"dawn": {
+		"base": Color("#4a4048"), "deep": Color("#141016"), "top": Color("#6a7a5a"), "top_hi": Color("#e8d8a0"),
+		"seam": Color("#2e2830"), "edge": Color("#1e1a20"), "pattern": "brick", "cap": "moss", "cap_col": Color("#5a7a4a"),
+		"plat": Color("#7a5a3a"), "plat_hi": Color("#f0c080"), "spike": Color("#4a4048"), "accent": Color("#ffd8a0"),
+		"sky_top": Color("#34467a"), "sky_bottom": Color("#f0b890"), "far": Color("#8a7486"), "mid": Color("#5a4658"),
+		"near": Color("#2a2028"), "fog": Color(1.0, 0.85, 0.7, 0.06), "particles": "light",
+	},
+	"star_flip": {
+		"base": Color("#1d2452"), "deep": Color("#060818"), "top": Color("#2c3878"), "top_hi": Color("#c8d0ff"),
+		"seam": Color("#131a40"), "edge": Color("#0b0f2c"), "pattern": "tile", "cap": "gold", "cap_col": Color("#d8bc6a"),
+		"plat": Color("#283272"), "plat_hi": Color("#fff3c0"), "spike": Color("#2a2e66"), "accent": Color("#fff3c0"),
+		"sky_top": Color("#02041a"), "sky_bottom": Color("#18205a"), "far": Color("#101642"), "mid": Color("#0b1034"),
+		"near": Color("#05081e"), "fog": Color(0.62, 0.7, 1.0, 0.05), "particles": "stars",
 	},
 }

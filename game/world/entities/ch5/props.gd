@@ -3,15 +3,18 @@ extends RefCounted
 ## 원점은 바닥(발밑) 기준, 매달린 것(별 등롱·등불 줄·화환)은 천장 기준. 공통 키: w, h(타일), flip, front, len(매단 줄 길이 타일).
 ##
 ## 별의 탑    st_star_lantern(len) · st_const_pedestal · st_memory_crystal(lit) · st_orrery · st_telescope · st_star_chart(w,h) · st_star_shard · st_photo_frame
-## 축제       st_festival_stall(style: potion·food·star·mask) · st_garland(w) · st_lantern_string(w, sag) · st_festival_banner(h) · st_balloon_cluster · st_flower_arch · st_tea_table
+## 축제       st_festival_stall(style: potion·food·star·mask·kingdom·elf·temple) · st_garland(w) · st_lantern_string(w, sag) · st_festival_banner(h) · st_balloon_cluster · st_flower_arch · st_tea_table
 ## 침공·폐허  st_rubble(w) · st_burning_beam(w) · st_broken_bell · st_cracked_statue · st_fire(size) · st_broken_pillar(h) · st_white_growth · st_fallen_banner · st_comm_crystal(on) · st_crater(w) · st_ash_tree
 ## 에필로그   st_scaffold(w,h) · st_fox_altar
+## 2단계      st_star_door(open_if, col: k·e·tp·s·tower) 별의 문(문 개체 style="st"와 겹쳐 둠) · st_flip_sigil 중력 반전 문양
+## 공통 추가  vflip(위아래 뒤집기 — 뒤집힌 층) · st_const_pedestal(lit_if: 별의 열쇠가 꽂힘) · st_memory_crystal(seen: 본 기억이면 밝음)
 
 const KINDS := [
 	"st_star_lantern", "st_const_pedestal", "st_memory_crystal", "st_orrery", "st_telescope", "st_star_chart", "st_star_shard", "st_photo_frame",
 	"st_festival_stall", "st_garland", "st_lantern_string", "st_festival_banner", "st_balloon_cluster", "st_flower_arch", "st_tea_table",
 	"st_rubble", "st_burning_beam", "st_broken_bell", "st_cracked_statue", "st_fire", "st_broken_pillar", "st_white_growth", "st_fallen_banner",
 	"st_comm_crystal", "st_crater", "st_ash_tree", "st_scaffold", "st_fox_altar",
+	"st_star_door", "st_flip_sigil",
 ]
 const T := 16.0
 const FIRE := Color("#ff6a3a")
@@ -22,6 +25,8 @@ const FIRE_HOT := Color("#ffc870")
 static func setup_info(kind: String, p: Prop) -> Dictionary:
 	if not kind in KINDS:
 		return {}
+	if bool(p.params.get("vflip", false)):
+		p.scale.y = -1.0
 	var len := float(p.params.get("len", 3)) * T
 	match kind:
 		"st_star_lantern": return {"animated": true, "glow_pos": Vector2(0, len + 8), "glow_r": 56.0, "glow_col": StArt.STAR}
@@ -37,6 +42,8 @@ static func setup_info(kind: String, p: Prop) -> Dictionary:
 		"st_fire": return {"animated": true, "glow_pos": Vector2(0, -16), "glow_r": 60.0 * float(p.params.get("size", 1.0)), "glow_col": FIRE}
 		"st_comm_crystal": return {"animated": true, "glow_pos": Vector2(0, -26), "glow_r": 36.0, "glow_col": Color(0.6, 0.85, 1.0)}
 		"st_fox_altar": return {"animated": true, "glow_pos": Vector2(0, -22), "glow_r": 46.0, "glow_col": StArt.FOX_BLUE}
+		"st_star_door": return {"animated": true, "glow_pos": Vector2(0, -26), "glow_r": 52.0, "glow_col": _door_col(String(p.params.get("col", "tower")))}
+		"st_flip_sigil": return {"animated": true, "glow_pos": Vector2(0, -4), "glow_r": 40.0, "glow_col": StArt.STAR}
 	return {"animated": false}
 
 
@@ -74,6 +81,8 @@ static func draw(p: Prop, kind: String) -> bool:
 		"st_ash_tree": _ash_tree(p, t)
 		"st_scaffold": _scaffold(p)
 		"st_fox_altar": _fox_altar(p, t)
+		"st_star_door": _star_door(p, t)
+		"st_flip_sigil": _flip_sigil(p, t)
 	return true
 
 
@@ -137,10 +146,17 @@ static func _const_pedestal(p: Prop, t: float) -> void:
 		pts.append(oc + Vector2(cos(a) * 13.0, sin(a) * 4.0))
 	pts.append(pts[0])
 	StArt.constellation(p, pts, StArt.STAR, 0.8, 1.0)
+	# 별의 열쇠가 꽂힘 (lit_if 플래그)
+	var lit_if := String(p.params.get("lit_if", ""))
+	if lit_if != "" and RoomData.cond_ok(lit_if):
+		var kc := oc + Vector2(0, -12)
+		StArt.glow(p, kc, 18.0, StArt.STAR, 0.4 + 0.1 * sin(t * 3.0))
+		StArt.star(p, kc, 7.0, StArt.STAR_GOLD, -PI * 0.5 + t * 0.4)
+		StArt.star(p, kc, 3.5, StArt.STAR_CORE, -PI * 0.5 + t * 0.4)
 
 
 static func _memory_crystal(p: Prop, t: float) -> void:
-	var lit := bool(p.params.get("lit", false))
+	var lit := bool(p.params.get("lit", false)) or GameState.has_flag(String(p.params.get("seen", "")))
 	var c := Vector2(0, -22 + sin(t * 1.3) * 2.0)
 	var col := Color(0.78, 0.68, 1.0) if lit else Color(0.5, 0.45, 0.75)
 	var shards := [[Vector2(0, 0), 11.0, 0.0], [Vector2(-6, 4), 7.0, -0.4], [Vector2(6, 5), 6.0, 0.45]]
@@ -246,7 +262,8 @@ static func _photo_frame(p: Prop, t: float) -> void:
 
 static func _stall(p: Prop, t: float) -> void:
 	var style := String(p.params.get("style", "potion"))
-	var stripe: Color = {"potion": Color("#4aa858"), "food": Color("#d8483a"), "star": Color("#3a4aa8"), "mask": Color("#a84aa8")}.get(style, Color("#d8483a"))
+	var stripe: Color = {"potion": Color("#4aa858"), "food": Color("#d8483a"), "star": Color("#3a4aa8"), "mask": Color("#a84aa8"),
+		"kingdom": Color("#8a2a3a"), "elf": Color("#3a7a4a"), "temple": Color("#c8a040")}.get(style, Color("#d8483a"))
 	var wood := Color("#5a3e2e")
 	# 기둥·판매대
 	p.draw_rect(Rect2(-22, -40, 3, 40), wood)
@@ -276,6 +293,26 @@ static func _stall(p: Prop, t: float) -> void:
 		"star":
 			for i in 4:
 				StArt.star(p, Vector2(-14 + i * 9, -19), 3.5, StArt.STAR_GOLD, -PI * 0.5 + t * 0.5 + i)
+		"kingdom":
+			# 제국 소시지 꼬치와 방패 문장
+			for i in 4:
+				p.draw_line(Vector2(-15 + i * 7, -15), Vector2(-15 + i * 7, -27), Color("#c8b090"), 1.0)
+				p.draw_rect(Rect2(-17 + i * 7, -26, 4, 8), Color("#a85a3a"))
+			p.draw_rect(Rect2(10, -24, 7, 8), Color("#d8bc6a"))
+			p.draw_rect(Rect2(12, -22, 3, 4), Color("#8a2a3a"))
+		"elf":
+			# 꿀빵과 꽃 화분
+			for i in 3:
+				p.draw_circle(Vector2(-13 + i * 9, -17), 3.5, Color("#e8b860"))
+				p.draw_rect(Rect2(-14 + i * 9, -19, 2, 1), Color("#ffe8a0"))
+			p.draw_circle(Vector2(14, -20), 3.0, Color("#ff9ac8"))
+			p.draw_circle(Vector2(12, -18), 2.0, Color("#fff0a0"))
+		"temple":
+			# 둥근 성찬 빵과 작은 종
+			for i in 3:
+				p.draw_circle(Vector2(-12 + i * 10, -17), 4.0, Color("#f4e4c0"))
+				p.draw_line(Vector2(-14 + i * 10, -17), Vector2(-10 + i * 10, -17), Color("#c8a060"), 1.0)
+			p.draw_colored_polygon(PackedVector2Array([Vector2(10, -16), Vector2(12, -24), Vector2(16, -24), Vector2(18, -16)]), Color("#d8bc6a"))
 		_:
 			for i in 3:
 				p.draw_circle(Vector2(-12 + i * 12, -19), 4.0, Color("#f4ecd8"))
@@ -569,3 +606,89 @@ static func _fox_altar(p: Prop, t: float) -> void:
 		p.draw_colored_polygon(PackedVector2Array([c + Vector2(-2, -6), c + Vector2(-1, -9), c + Vector2(0, -6)]), Color("#d8d4cc"))
 		p.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -6), c + Vector2(1, -9), c + Vector2(2, -6)]), Color("#d8d4cc"))
 	StArt.foxfire(p, Vector2(0, -28), 4.0, t, 1.0)
+
+
+# ─── 2단계: 별의 문 · 중력 반전 문양 ────────────────────
+
+static func _door_col(k: String) -> Color:
+	match k:
+		"k": return Color("#ffb070") # 제국: 노을빛 주황
+		"e": return Color("#9af0a8") # 숲: 잎빛 초록
+		"tp": return Color("#fff0a0") # 신전: 금빛
+		"s": return Color("#c8a8ff") # 학교: 보라
+	return StArt.STAR
+
+
+## 별의 문: 별빛으로 세운 아치. 문 개체(style="st", 그림 없음)와 같은 자리에 둔다.
+## open_if 조건이 아직이면 닫힌 별자리 봉인, 맞으면 안쪽에 별의 길이 소용돌이친다. 시련을 마친 문은 done_if로 별이 꽂힘
+static func _star_door(p: Prop, t: float) -> void:
+	var col := _door_col(String(p.params.get("col", "tower")))
+	var open := RoomData.cond_ok(String(p.params.get("open_if", "")))
+	var done_if := String(p.params.get("done_if", ""))
+	var done := done_if != "" and RoomData.cond_ok(done_if)
+	var w := 18.0
+	var h := 44.0
+	# 돌 아치
+	var frame := PackedVector2Array()
+	for i in 13:
+		var a := PI + PI * i / 12.0
+		frame.append(Vector2(cos(a) * (w + 5), -h + w + sin(a) * (w + 5)))
+	frame.append(Vector2(w + 5, 0))
+	frame.append(Vector2(-w - 5, 0))
+	p.draw_colored_polygon(frame, Color("#1a1e48"))
+	var inner := PackedVector2Array()
+	for i in 13:
+		var a := PI + PI * i / 12.0
+		inner.append(Vector2(cos(a) * w, -h + w + sin(a) * w))
+	inner.append(Vector2(w, 0))
+	inner.append(Vector2(-w, 0))
+	p.draw_colored_polygon(inner, Color("#05061a") if not open else Color(col.darkened(0.75), 1.0))
+	# 아치 테두리의 별 줄
+	for i in 9:
+		var a := PI + PI * i / 8.0
+		var q := Vector2(cos(a) * (w + 2.5), -h + w + sin(a) * (w + 2.5))
+		StArt.star(p, q, 1.8, Color(col, 0.5 + 0.5 * StArt.twinkle(t, i * 1.3)), -PI * 0.5)
+	p.draw_line(Vector2(-w - 5, 0), Vector2(-w - 5, -h + w), Color(col, 0.35), 1.0)
+	p.draw_line(Vector2(w + 5, 0), Vector2(w + 5, -h + w), Color(col, 0.35), 1.0)
+	if open:
+		# 안쪽: 별의 길 (도는 별무리)
+		var c := Vector2(0, -h * 0.45)
+		StArt.glow(p, c, 22.0, col, 0.35 + 0.08 * sin(t * 2.0))
+		for i in 14:
+			var a := t * (0.9 + (i % 3) * 0.3) + i * 0.9
+			var r := 3.0 + fmod(i * 2.7 + t * 4.0, 15.0)
+			var q := c + Vector2(cos(a) * r * 0.8, sin(a) * r * 1.2)
+			p.draw_rect(Rect2(q, Vector2(1, 1)), Color(1, 1, 1, 0.8 * (1.0 - r / 18.0)))
+		StArt.star(p, c, 4.0, Color(StArt.STAR_CORE, 0.9), -PI * 0.5 + t)
+	else:
+		# 봉인: 별자리 빗장
+		var pts: Array = [Vector2(-w * 0.6, -h * 0.25), Vector2(0, -h * 0.55), Vector2(w * 0.6, -h * 0.25), Vector2(0, -h * 0.05), Vector2(-w * 0.6, -h * 0.25)]
+		StArt.constellation(p, pts, col, 0.5 + 0.2 * sin(t * 1.5), 1.5)
+	if done:
+		var kc := Vector2(0, -h - 6)
+		StArt.glow(p, kc, 12.0, StArt.STAR, 0.4)
+		StArt.star(p, kc, 5.0, StArt.STAR_GOLD, -PI * 0.5 + t * 0.5)
+	# 문턱
+	p.draw_rect(Rect2(-w - 7, -2, w * 2 + 14, 2), Color("#d8bc6a"))
+
+
+## 중력 반전 문양: 바닥에 새겨진 위아래 화살표 별 원. 밟으면 대본이 층을 뒤집는다
+static func _flip_sigil(p: Prop, t: float) -> void:
+	var k := 0.6 + 0.4 * sin(t * 3.0)
+	var c := Vector2(0, -3)
+	for i in 2:
+		var pts := PackedVector2Array()
+		var r := 18.0 - i * 6.0
+		for j in 33:
+			var a := TAU * j / 32.0 + t * (0.5 if i == 0 else -0.8)
+			pts.append(c + Vector2(cos(a) * r, sin(a) * r * 0.3))
+		p.draw_polyline(pts, Color(StArt.STAR, 0.4 * k + 0.2), 1.0)
+	# 위·아래 화살표 별
+	for s: float in [-1.0, 1.0]:
+		var ty := -14.0 - 6.0 * s + sin(t * 2.0) * 2.0 * s
+		var tip := Vector2(0, ty - 6.0 * s)
+		p.draw_colored_polygon(PackedVector2Array([tip, Vector2(-4, ty), Vector2(4, ty)]), Color(StArt.STAR, 0.5 * k))
+	StArt.star(p, Vector2(0, -14), 4.0, Color(StArt.STAR_CORE, k), -PI * 0.5 + t)
+	for i in 4:
+		var f := fmod(t * 0.5 + i * 0.25, 1.0)
+		p.draw_rect(Rect2(Vector2(sin(i * 2.0) * 10.0, -2.0 - f * 30.0), Vector2(1, 2)), Color(StArt.STAR, 0.7 * (1.0 - f)))

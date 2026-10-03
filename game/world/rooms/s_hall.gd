@@ -85,6 +85,9 @@ func _init() -> void:
 		{t = "prop", kind = "candles", x = 76, y = 42},
 		{t = "prop", kind = "painting", x = 40, y = 16, w = 4, h = 3, col = Color("#2a2a4a")},
 		{t = "sign", x = 44, y = 42, look = "board", text = "중앙 홀 안내|1층 서관: 마법반·실습장 / 1층 동관: 의무실·식당|2층 서쪽: 도서관 / 2층 동쪽: 시계탑|정문 아래: 앞마당·온실. 지하 출입 금지."},
+		{t = "prop", kind = "st_garland", x = 28, y = 24, w = 24, cond = "st_fest,!st_invaded"},
+		{t = "prop", kind = "st_festival_banner", x = 22, y = 42, h = 7, cond = "st_fest,!st_invaded"},
+		{t = "prop", kind = "st_festival_banner", x = 58, y = 42, h = 7, cond = "st_fest,!st_invaded"},
 		{t = "class_board", id = "board", x = 27, y = 42, cond = "ch1_done"},
 		{t = "trigger", id = "board_tg", x = 20, y = 36, w = 14, h = 7, run = "sys_board_intro", cond = "ch1_done,!sys_board_seen"},
 	]
