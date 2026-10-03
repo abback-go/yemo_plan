@@ -32,8 +32,15 @@ static func all() -> Array:
 	return _all
 
 
+## 지금 장(플래그 chapter)의 목표 줄 (+ 공통 sys). 앞 장의 선택 목표가 남아 HUD를 가리지 않게
+static func for_chapter(n: int) -> Array:
+	var out: Array = LIST.duplicate() if n <= 1 else ChapterRegistry.objectives_of("ch%d" % n)
+	out.append_array(ChapterRegistry.objectives_of("sys"))
+	return out
+
+
 static func current() -> String:
-	for row in all():
+	for row in for_chapter(int(GameState.flag("chapter", 1))):
 		var req: String = row[2]
 		if req != "" and not GameState.has_flag(req):
 			continue

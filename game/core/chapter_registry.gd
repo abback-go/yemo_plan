@@ -99,6 +99,12 @@ static func objectives() -> Array:
 	return _merged_array("objectives", "res://story/data_%s.gd", "OBJECTIVES")
 
 
+## 한 확장(장)의 목표 줄만 (HUD 현재 목표는 지금 장 것만 본다)
+static func objectives_of(ext: String) -> Array:
+	var a: Variant = _const("res://story/data_%s.gd" % ext, "OBJECTIVES")
+	return a if typeof(a) == TYPE_ARRAY else []
+
+
 static func script_paths() -> Array:
 	var out := []
 	for ext in EXTS:
