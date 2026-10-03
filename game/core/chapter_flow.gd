@@ -32,4 +32,7 @@ static func finish(c: Cut, n: int) -> void:
 	if Story.has_script(next):
 		Story.run(next)
 	else:
+		# 다음 장 대본이 아직 없을 때(제작 중 빌드): 검은 화면에 갇히지 않게 돌려놓음
+		c.hud(true)
+		await c.fade_in(1.0)
 		c.bubble("…다음 이야기는 아직 쓰이지 않았다니라.", 3.0)
