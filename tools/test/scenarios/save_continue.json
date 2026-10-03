@@ -1,0 +1,15 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "s_class",
+  "spawn": "east",
+  "flags": ["p_intro_done", "t_escaped", "s_woke", "hall_intro", "met_emberlyn", "ab_neoul", "ab_fox_mode", "ab_storm", "golem_done"],
+  "steps": [
+    [30, "record", "s_class", "candle"],
+    [40, "flags", "before"],
+    [50, "continue"],
+    [150, "flags", "after"],
+    [160, "status", "after"],
+    [170, "shot", "continue"],
+    [180, "quit"]
+  ]
+}

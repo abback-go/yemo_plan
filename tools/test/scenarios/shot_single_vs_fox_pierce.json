@@ -1,0 +1,30 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_lab",
+  "spawn": "start",
+  "flags": ["p_intro_done", "teach_폭주 게이지", "ab_fox_mode"],
+  "steps": [
+    [2, "godmode"],
+    [10, "spawn_enemy", "charger", 16, 19, {"max_hp": 2000, "hp": 2000}],
+    [11, "spawn_enemy", "charger", 20, 19, {"max_hp": 2000, "hp": 2000}],
+    [25, "ehp", 2000],
+    [30, "face", 1],
+    [31, "press", "attack"],
+    [36, "shot", "fly"],
+    [44, "shot", "hit"],
+    [391, "release", "attack"],
+    [392, "enemies", "normal_6s"],
+    [393, "logv", "p"],
+    [400, "ehp", 2000],
+    [401, "tp", 6, 18.5],
+    [410, "set", "fox_time", 30.0],
+    [420, "face", 1],
+    [421, "press", "attack"],
+    [428, "shot", "fox_fly"],
+    [440, "shot", "fox_hit"],
+    [422, "enemies", "x"],
+    [781, "release", "attack"],
+    [782, "enemies", "fox_6s"],
+    [790, "quit"]
+  ]
+}
