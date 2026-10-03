@@ -231,7 +231,13 @@
 ## 13. 시험
 - `python3 tools/roomgen.py check all e_` → 출력 없음(문제 0).
 - 컴파일: `check_scripts.gd` → 실패 0.
-- 시나리오(`tools/test/scenarios/`): `ch3_full`(ch3_start → 4장 카드), 적·보스 `ch3_moss_stag`·`ch3_blight_spore`·`ch3_vine_stalker`·`ch3_lantern_moth`·`ch3_elf_warden`·`ch3_white_mite`·`ch3_elarien_hunt`·`ch3_white_herald`·`ch3_isolde_duel`, 실제 방 보스전 `ch3_hunt_room`·`ch3_herald_room`, 장치 `ch3_devices`, 그림 `ch3_visuals`·`ch3_portrait`.
+- 시나리오(`tools/test/scenarios/`):
+  - `ch3_full` — ch3_start(온실) → 편지 → 숲 → … → 사도 → 장로의 집 → 기숙사의 밤 → 꼬리 3 → 달 장면 → 4장 카드. 끝에 `STATUS end … room=s_dorm busy=false … obj=` 이면 통과(SCRIPT ERROR 0).
+  - 실제 방 보스전: `ch3_hunt_room`(피격 → 경기장 나갔다 들어오면 "다시." → 몸 닿기·되쏘기 닿기 → 전령), `ch3_herald_room`(피격 → 엘라리엔 저격으로 체력 감소 → 33% 「별의…… 그릇……」 → 처치 → 끝까지), `ch3_isolde_duel`(앞마당 → 결투장 → 피격 → 절반 → 처치 → 깃털).
+  - 서브 퀘스트 6종 전달: `ch3_quests`(피오·오르티아·티엘·활터 과녁·피피·버터워스, 마도석·물약 주머니·최대 체력 확인).
+  - 방 32개 둘러보기 스크린샷: `ch3_rooms_tour` / 끝 장면·꼬투리: `ch3_moon`.
+  - 적 단독: `ch3_moss_stag`·`ch3_blight_spore`·`ch3_vine_stalker`·`ch3_lantern_moth`·`ch3_elf_warden`·`ch3_white_mite`·`ch3_elarien_hunt`·`ch3_white_herald`, 장치 `ch3_devices`, 그림 `ch3_visuals`·`ch3_portrait`.
+- 실행: `game/`에서 `xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps 60 --resolution 640x360 --script ../tools/test/runner.gd -- ../tools/test/scenarios/ch3_full.json /tmp/out`
 
 ## 14. 플레이 시간 추정 (근거)
 | 구간 | 방 | 분 |
