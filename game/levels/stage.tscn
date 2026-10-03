@@ -1,0 +1,354 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://levels/stage.gd" id="1_4se8i"]
+[ext_resource type="Script" path="res://levels/background.gd" id="2_5o3am"]
+[ext_resource type="Script" path="res://levels/block.gd" id="3_j6jrs"]
+[ext_resource type="Script" path="res://levels/section.gd" id="4_wl4d8"]
+[ext_resource type="Script" path="res://levels/checkpoint.gd" id="5_55p0m"]
+[ext_resource type="Script" path="res://levels/hint.gd" id="6_gqil8"]
+[ext_resource type="PackedScene" path="res://enemies/charger.tscn" id="7_4exr2"]
+[ext_resource type="Script" path="res://enemies/charger.gd" id="8_71ymb"]
+[ext_resource type="PackedScene" path="res://enemies/sniper.tscn" id="9_dfegf"]
+[ext_resource type="Script" path="res://enemies/sniper.gd" id="10_jv6np"]
+[ext_resource type="Script" path="res://levels/spawn_trigger.gd" id="11_uwg2b"]
+[ext_resource type="Script" path="res://levels/spawn_point.gd" id="12_fywny"]
+[ext_resource type="Script" path="res://levels/arena.gd" id="13_vgdbp"]
+[ext_resource type="Script" path="res://levels/door.gd" id="14_bxq86"]
+[ext_resource type="Script" path="res://levels/goal.gd" id="15_d5r1n"]
+[ext_resource type="PackedScene" path="res://player/player.tscn" id="16_c0buj"]
+[ext_resource type="Script" path="res://player/player.gd" id="17_ottmr"]
+[ext_resource type="Script" path="res://ui/hud.gd" id="18_72lbb"]
+[ext_resource type="Script" path="res://ui/pause_menu.gd" id="19_24t3t"]
+[ext_resource type="Script" path="res://ui/debug_overlay.gd" id="20_1e8vn"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3uarr"]
+size = Vector2(32, 192)
+
+[node name="Stage" type="Node2D" unique_id=1640198457]
+script = ExtResource("1_4se8i")
+
+[node name="Background" type="Node2D" parent="." unique_id=1868132206]
+script = ExtResource("2_5o3am")
+
+[node name="Geometry" type="Node2D" parent="." unique_id=1222663051]
+
+[node name="Floor" type="StaticBody2D" parent="Geometry" unique_id=1321825343]
+position = Vector2(0, 320)
+script = ExtResource("3_j6jrs")
+size = Vector2(3840, 40)
+
+[node name="WallLeft" type="StaticBody2D" parent="Geometry" unique_id=347416272]
+script = ExtResource("3_j6jrs")
+size = Vector2(16, 320)
+
+[node name="WallRight" type="StaticBody2D" parent="Geometry" unique_id=843451945]
+position = Vector2(3824, 0)
+script = ExtResource("3_j6jrs")
+size = Vector2(16, 320)
+
+[node name="S1_Bump" type="StaticBody2D" parent="Geometry" unique_id=1015935196]
+position = Vector2(240, 296)
+script = ExtResource("3_j6jrs")
+size = Vector2(80, 24)
+
+[node name="S1_Plat" type="StaticBody2D" parent="Geometry" unique_id=1151224962]
+position = Vector2(400, 272)
+script = ExtResource("3_j6jrs")
+size = Vector2(80, 8)
+style = 1
+one_way = true
+
+[node name="S2_Cover1" type="StaticBody2D" parent="Geometry" unique_id=653359516]
+position = Vector2(1152, 288)
+script = ExtResource("3_j6jrs")
+size = Vector2(32, 32)
+
+[node name="S2_Step1" type="StaticBody2D" parent="Geometry" unique_id=1178056918]
+position = Vector2(1216, 280)
+script = ExtResource("3_j6jrs")
+size = Vector2(64, 8)
+style = 1
+one_way = true
+
+[node name="S2_LedgeA" type="StaticBody2D" parent="Geometry" unique_id=992171766]
+position = Vector2(1296, 240)
+script = ExtResource("3_j6jrs")
+size = Vector2(128, 16)
+
+[node name="S2_Mid" type="StaticBody2D" parent="Geometry" unique_id=353408526]
+position = Vector2(1472, 256)
+script = ExtResource("3_j6jrs")
+size = Vector2(64, 8)
+style = 1
+one_way = true
+
+[node name="S2_Cover2" type="StaticBody2D" parent="Geometry" unique_id=1092431378]
+position = Vector2(1584, 288)
+script = ExtResource("3_j6jrs")
+size = Vector2(32, 32)
+
+[node name="S2_Step2" type="StaticBody2D" parent="Geometry" unique_id=1164122602]
+position = Vector2(1600, 248)
+script = ExtResource("3_j6jrs")
+size = Vector2(64, 8)
+style = 1
+one_way = true
+
+[node name="S2_LedgeB" type="StaticBody2D" parent="Geometry" unique_id=71210909]
+position = Vector2(1680, 208)
+script = ExtResource("3_j6jrs")
+size = Vector2(128, 16)
+
+[node name="S2_Exit" type="StaticBody2D" parent="Geometry" unique_id=654611216]
+position = Vector2(1888, 296)
+script = ExtResource("3_j6jrs")
+size = Vector2(64, 24)
+
+[node name="S3_Escape1" type="StaticBody2D" parent="Geometry" unique_id=778469192]
+position = Vector2(2240, 272)
+script = ExtResource("3_j6jrs")
+size = Vector2(80, 8)
+style = 1
+one_way = true
+
+[node name="S3_Escape2" type="StaticBody2D" parent="Geometry" unique_id=1050051723]
+position = Vector2(2528, 272)
+script = ExtResource("3_j6jrs")
+size = Vector2(80, 8)
+style = 1
+one_way = true
+
+[node name="S4_Ceiling" type="StaticBody2D" parent="Geometry" unique_id=1136430055]
+position = Vector2(2944, 112)
+script = ExtResource("3_j6jrs")
+size = Vector2(704, 16)
+
+[node name="S4_LedgeL" type="StaticBody2D" parent="Geometry" unique_id=1048033602]
+position = Vector2(3024, 240)
+script = ExtResource("3_j6jrs")
+size = Vector2(96, 16)
+
+[node name="S4_Mid" type="StaticBody2D" parent="Geometry" unique_id=364784502]
+position = Vector2(3216, 272)
+script = ExtResource("3_j6jrs")
+size = Vector2(96, 8)
+style = 1
+one_way = true
+
+[node name="S4_LedgeR" type="StaticBody2D" parent="Geometry" unique_id=1699038656]
+position = Vector2(3472, 240)
+script = ExtResource("3_j6jrs")
+size = Vector2(96, 16)
+
+[node name="Sections" type="Node2D" parent="." unique_id=441539606]
+
+[node name="S1" type="Node2D" parent="Sections" unique_id=666357654]
+script = ExtResource("4_wl4d8")
+title = "평지 입문"
+
+[node name="Checkpoint0" type="Area2D" parent="Sections/S1" unique_id=1610792100]
+position = Vector2(48, 320)
+script = ExtResource("5_55p0m")
+
+[node name="Hint_9" type="Node2D" parent="Sections/S1" unique_id=345650065]
+position = Vector2(144, 264)
+script = ExtResource("6_gqil8")
+text = "←→ 이동   Z 점프 (길게 누르면 높이)"
+
+[node name="Hint_23" type="Node2D" parent="Sections/S1" unique_id=1643283931]
+position = Vector2(368, 232)
+script = ExtResource("6_gqil8")
+text = "X 화염탄 — 연타하면 3타째가 강해요"
+
+[node name="Hint_37" type="Node2D" parent="Sections/S1" unique_id=2138660038]
+position = Vector2(592, 264)
+script = ExtResource("6_gqil8")
+text = "C 대시 — 붉게 빛나면 돌진 예고!"
+
+[node name="Charger" type="CharacterBody2D" parent="Sections/S1" unique_id=1862400351 instance=ExtResource("7_4exr2")]
+position = Vector2(752, 320)
+script = ExtResource("8_71ymb")
+
+[node name="S2" type="Node2D" parent="Sections" unique_id=1642675669]
+script = ExtResource("4_wl4d8")
+index = 1
+title = "높낮이"
+start_x = 960.0
+
+[node name="Checkpoint1" type="Area2D" parent="Sections/S2" unique_id=642320835]
+position = Vector2(992, 320)
+script = ExtResource("5_55p0m")
+index = 1
+
+[node name="Hint_67" type="Node2D" parent="Sections/S2" unique_id=1629645528]
+position = Vector2(1072, 248)
+script = ExtResource("6_gqil8")
+text = "A 불기둥 — 엄폐물 너머·높은 곳의 적도 맞혀요"
+
+[node name="Hint_80" type="Node2D" parent="Sections/S2" unique_id=758575826]
+position = Vector2(1280, 200)
+script = ExtResource("6_gqil8")
+text = "조준선이 하얗게 고정되면 피하세요"
+
+[node name="Hint_95" type="Node2D" parent="Sections/S2" unique_id=103656407]
+position = Vector2(1520, 216)
+script = ExtResource("6_gqil8")
+text = "점프 중에도 화염탄을 쏠 수 있어요"
+
+[node name="Sniper" type="CharacterBody2D" parent="Sections/S2" unique_id=1137720427 instance=ExtResource("9_dfegf")]
+position = Vector2(1305.6, 240)
+script = ExtResource("10_jv6np")
+
+[node name="@CharacterBody2D@21" type="CharacterBody2D" parent="Sections/S2" unique_id=1982473242 instance=ExtResource("9_dfegf")]
+position = Vector2(1689.6, 208)
+script = ExtResource("10_jv6np")
+
+[node name="S3" type="Node2D" parent="Sections" unique_id=1442125271]
+script = ExtResource("4_wl4d8")
+index = 2
+title = "돌진형 무리"
+start_x = 1952.0
+
+[node name="Checkpoint2" type="Area2D" parent="Sections/S3" unique_id=152300958]
+position = Vector2(1984, 320)
+script = ExtResource("5_55p0m")
+index = 2
+
+[node name="Hint_130" type="Node2D" parent="Sections/S3" unique_id=464525544]
+position = Vector2(2080, 264)
+script = ExtResource("6_gqil8")
+text = "S 화염 폭풍 — 가까이 온 돌진을 끊어내요"
+
+[node name="Hint_146" type="Node2D" parent="Sections/S3" unique_id=1802486261]
+position = Vector2(2336, 232)
+script = ExtResource("6_gqil8")
+text = "스킬을 연달아 쓰면 폭주! 가득 차면 나도 다쳐요"
+
+[node name="Trigger1" type="Area2D" parent="Sections/S3" unique_id=1039724829]
+position = Vector2(2144, 128)
+script = ExtResource("11_uwg2b")
+size = Vector2(32, 192)
+
+[node name="Spawn_148_20" type="Marker2D" parent="Sections/S3/Trigger1" unique_id=1996408812]
+position = Vector2(2368, 320)
+script = ExtResource("12_fywny")
+
+[node name="Trigger2" type="Area2D" parent="Sections/S3" unique_id=1189042304]
+position = Vector2(2400, 128)
+script = ExtResource("11_uwg2b")
+size = Vector2(32, 192)
+
+[node name="Spawn_166_20" type="Marker2D" parent="Sections/S3/Trigger2" unique_id=517996605]
+position = Vector2(2656, 320)
+script = ExtResource("12_fywny")
+
+[node name="Spawn_139_20" type="Marker2D" parent="Sections/S3/Trigger2" unique_id=1605915277]
+position = Vector2(2224, 320)
+script = ExtResource("12_fywny")
+delay = 1.4
+face_left = false
+
+[node name="S4" type="Node2D" parent="Sections" unique_id=527865727]
+script = ExtResource("4_wl4d8")
+index = 3
+title = "혼합 아레나"
+start_x = 2816.0
+
+[node name="Checkpoint3" type="Area2D" parent="Sections/S4" unique_id=1705772147]
+position = Vector2(2848, 320)
+script = ExtResource("5_55p0m")
+index = 3
+
+[node name="Hint_181" type="Node2D" parent="Sections/S4" unique_id=1658143479]
+position = Vector2(2896, 248)
+script = ExtResource("6_gqil8")
+text = "봉인된 방 — 지금까지 배운 것을 모두 써 보세요"
+
+[node name="Arena" type="Node2D" parent="Sections/S4" unique_id=1559228147]
+script = ExtResource("13_vgdbp")
+
+[node name="DoorLeft" type="StaticBody2D" parent="Sections/S4/Arena" unique_id=1557927509]
+position = Vector2(2944, 128)
+script = ExtResource("14_bxq86")
+size = Vector2(16, 192)
+
+[node name="DoorRight" type="StaticBody2D" parent="Sections/S4/Arena" unique_id=823359261]
+position = Vector2(3632, 128)
+script = ExtResource("14_bxq86")
+size = Vector2(16, 192)
+
+[node name="EntranceTrigger" type="Area2D" parent="Sections/S4/Arena" unique_id=1001729754]
+position = Vector2(2992, 128)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Sections/S4/Arena/EntranceTrigger" unique_id=1653171444]
+position = Vector2(16, 96)
+shape = SubResource("RectangleShape2D_3uarr")
+
+[node name="Wave1" type="Node2D" parent="Sections/S4/Arena" unique_id=1426168583]
+
+[node name="Spawn_204_20" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=1965862944]
+position = Vector2(3264, 320)
+script = ExtResource("12_fywny")
+
+[node name="Spawn_213_20" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=1086203022]
+position = Vector2(3408, 320)
+script = ExtResource("12_fywny")
+delay = 0.25
+
+[node name="Spawn_217_15" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=1070307810]
+position = Vector2(3481.6, 240)
+script = ExtResource("12_fywny")
+kind = 1
+delay = 0.5
+
+[node name="Wave2" type="Node2D" parent="Sections/S4/Arena" unique_id=818178857]
+
+[node name="Spawn_197_20" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=1615532532]
+position = Vector2(3152, 320)
+script = ExtResource("12_fywny")
+face_left = false
+
+[node name="Spawn_214_20" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=1627556477]
+position = Vector2(3424, 320)
+script = ExtResource("12_fywny")
+delay = 0.2
+
+[node name="Spawn_194_15" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=735841579]
+position = Vector2(3110.4, 240)
+script = ExtResource("12_fywny")
+kind = 1
+delay = 0.5
+face_left = false
+
+[node name="Spawn_217_15" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=2013292501]
+position = Vector2(3481.6, 240)
+script = ExtResource("12_fywny")
+kind = 1
+delay = 0.7
+
+[node name="Goal" type="Area2D" parent="Sections/S4" unique_id=1781500173]
+position = Vector2(3744, 320)
+script = ExtResource("15_d5r1n")
+
+[node name="Hint_234" type="Node2D" parent="Sections/S4" unique_id=432484198]
+position = Vector2(3744, 248)
+script = ExtResource("6_gqil8")
+text = "출구"
+
+[node name="Player" type="CharacterBody2D" parent="." unique_id=199989742 instance=ExtResource("16_c0buj")]
+position = Vector2(64, 320)
+floor_snap_length = 4.0
+script = ExtResource("17_ottmr")
+
+[node name="Effects" type="Node2D" parent="." unique_id=1897087871]
+z_index = 5
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=454226830]
+script = ExtResource("18_72lbb")
+
+[node name="PauseMenu" type="CanvasLayer" parent="." unique_id=1255517989]
+script = ExtResource("19_24t3t")
+
+[node name="DebugOverlay" type="CanvasLayer" parent="." unique_id=1421146409]
+visible = false
+script = ExtResource("20_1e8vn")
