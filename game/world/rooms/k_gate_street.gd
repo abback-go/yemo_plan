@@ -38,6 +38,9 @@ func _init() -> void:
 	entities = [
 		{t = "exit", id = "west", x = 0, y = 14, w = 1, h = 5, to = "k_embassy", to_id = "east"},
 		{t = "exit", id = "east", x = 79, y = 14, w = 1, h = 5, to = "k_market", to_id = "west"},
+		{t = "prop", kind = "k_awning", x = 10, y = 14, w = 3, col = Color("#a8323a")},
+		{t = "prop", kind = "k_awning", x = 18, y = 9, w = 3, col = Color("#2e5a8a")},
+		{t = "prop", kind = "k_awning", x = 7, y = 4, w = 2, col = Color("#2e6a5a")},
 		{t = "pickup", id = "k_stone_gate", kind = "stone", x = 7, y = 4, name = "마도석", text = "가로등 관리인이 숨겨 둔 보라 결정."},
 		{t = "door", id = "colosseum", x = 64, y = 19, to = "k_colosseum", to_id = "door", style = "grand", label = "투기장", lock = "k_spar_done", lock_msg = "투기장 — 오늘은 기사단 행사로 닫혀 있다. (기사단장과 인사한 뒤에)"},
 		{t = "npc", id = "guard", who = "k_knight", x = 71, y = 19, face = "left", talk = "npc_k_gate_guard"},

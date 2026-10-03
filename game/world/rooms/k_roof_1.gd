@@ -6,7 +6,7 @@ func _init() -> void:
 	id = "k_roof_1"
 	title = "황도 아르덴 · 지붕 위 (굴뚝 숲)"
 	area = "kingdom"
-	theme = "kingdom"
+	theme = "kingdom_roof"
 	music = "kingdom"
 	cell = Vector2i(5, 2)
 	cells = Vector2i(2, 2)

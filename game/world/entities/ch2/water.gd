@@ -15,7 +15,7 @@ var _target := 0.0
 var _t := 0.0
 var _hz: Area2D
 var _safe := Vector2.INF
-var _cool := 0.0
+var _cool := 0.5 ## 방에 막 들어온 직후(직전 방 위치가 겹쳐 보일 수 있음)에는 떠밀지 않음
 
 
 func setup(room: Room, e: Dictionary, _eid: String) -> void:
@@ -63,8 +63,10 @@ func _physics_process(delta: float) -> void:
 	_cool -= delta
 	if not (_hz.get_child(0) as CollisionShape2D).disabled and _cool <= 0.0:
 		for b in _hz.get_overlapping_bodies():
-			if b is Player:
-				_wash_out(b as Player)
+			# 실제로 수면 아래에 잠겼을 때만 (뗏목 위·수면 위 점프는 괜찮다)
+			var p := b as Player
+			if p and p.global_position.y > surface + 10.0 and rect.has_point(p.global_position + Vector2(0, -2)):
+				_wash_out(p)
 	queue_redraw()
 
 

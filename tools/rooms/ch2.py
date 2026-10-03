@@ -120,6 +120,9 @@ def k_gate_street():
     r.plat(8, 13, 14)
     r.plat(16, 21, 9)
     r.plat(5, 9, 4)
+    r.add("prop", kind="k_awning", x=10, y=14, w=3, col="#a8323a")
+    r.add("prop", kind="k_awning", x=18, y=9, w=3, col="#2e5a8a")
+    r.add("prop", kind="k_awning", x=7, y=4, w=2, col="#2e6a5a")
     stone(r, "k_stone_gate", 7, 4, "가로등 관리인이 숨겨 둔 보라 결정.")
     r.door("colosseum", 64, F, "k_colosseum", "door", style="grand", label="투기장",
            lock="k_spar_done", lock_msg="투기장 — 오늘은 기사단 행사로 닫혀 있다. (기사단장과 인사한 뒤에)")
@@ -357,7 +360,7 @@ def k_walls():
 
 @room
 def k_roof_1():
-    r = city("k_roof_1", "지붕 위 (굴뚝 숲)", (5, 2), (2, 2))
+    r = city("k_roof_1", "지붕 위 (굴뚝 숲)", (5, 2), (2, 2), theme="kingdom_roof")
     # 맨 아래: 골목 바닥 가시 (떨어지면 직전 지붕으로)
     spikes_under(r, 42, 0, 79)
     # 아래층 지붕들
@@ -394,7 +397,7 @@ def k_roof_1():
 
 @room
 def k_roof_2():
-    r = city("k_roof_2", "지붕 위 (빨래 골목)", (7, 2), (2, 1))
+    r = city("k_roof_2", "지붕 위 (빨래 골목)", (7, 2), (2, 1), theme="kingdom_roof")
     spikes_under(r, 21, 0, 79)
     r.fill(0, 19, 12, 22)           # A
     r.fill(24, 15, 34, 22)          # B
@@ -422,7 +425,7 @@ def k_roof_2():
 
 @room
 def k_roof_3():
-    r = city("k_roof_3", "지붕 위 (풍향계)", (9, 2), (2, 1))
+    r = city("k_roof_3", "지붕 위 (풍향계)", (9, 2), (2, 1), theme="kingdom_roof")
     spikes_under(r, 21, 0, 79)
     r.fill(0, 12, 10, 22)           # A (서쪽 높은 지붕)
     r.fill(28, 17, 40, 22)          # B
@@ -452,7 +455,7 @@ def k_roof_3():
 
 @room
 def k_roof_4():
-    r = city("k_roof_4", "지붕 위 (시계 거리)", (9, 3), (2, 1))
+    r = city("k_roof_4", "지붕 위 (시계 거리)", (9, 3), (2, 1), theme="kingdom_roof")
     F = 19
     r.ground(F)
     for x0, x1 in ((26, 31), (50, 55)):
@@ -594,21 +597,23 @@ def k_cathedral():
     for x0, x1, y in ((20, 26, 36), (10, 16, 30), (18, 24, 24), (54, 60, 36), (62, 68, 30), (56, 62, 24)):
         r.plat(x0, x1, y)
     # 제단 촛불 열기 → 샹들리에 위 마도석
-    r.plat(36, 44, 37)
-    r.add("updraft", id="altar_heat", x=39, y=6, w=3, h=30, style="heat", power=0.8)
+    r.fill(35, F - 2, 45, F - 1)    # 제단 단
+    r.fill(34, F - 1, 34, F - 1)
+    r.fill(46, F - 1, 46, F - 1)
+    r.add("updraft", id="altar_heat", x=39, y=6, w=3, h=34, style="heat", power=0.8)
     r.plat(38, 42, 8)
     stone(r, "k_stone_cathedral", 40, 8, "샹들리에 위에서 촛농에 덮여 있던 결정.")
     r.door("crypt", 72, F, "k_crypt", "up", style="stair_down", label="지하 묘지",
            lock="k_tower_top", lock_msg="지하 묘지로 가는 계단. '죄송합니다, 지금은 아무도 내려가실 수 없습니다.' — 사제")
     r.add("save", id="candle", x=8, y=F, style="candle")
-    r.add("npc", id="priest", who="k_priest", x=48, y=F, face="left")
+    r.add("npc", id="priest", who="k_priest", x=50, y=F, face="left")
     book(r, "k_book_3", 74, 19, "『빛의 기도서 (어린이용)』")
     r.add("event", id="book_ev", flag="k_book_3", run="k_book_got", done="k_book_3_seen")
     r.add("sign", x=28, y=F, look="board",
           text="대성당 종 치는 시각|새벽 — 다섯 번|정오 — 열두 번|저녁 — 일곱 번|(빛의 신 루멘께 드리는 기도 시간을 알리는 종입니다)")
-    r.add("prop", kind="k_altar", x=40, y=37)
-    for x in (34, 46):
-        r.add("prop", kind="k_candelabra", x=x, y=F)
+    r.add("prop", kind="k_altar", x=40, y=F - 2)
+    for x in (36, 44):
+        r.add("prop", kind="k_candelabra", x=x, y=F - 2)
     for x in (14, 20, 56, 62):
         r.add("prop", kind="k_pew", x=x, y=F, w=4)
     for x, y, w, h in ((12, 16, 4, 10), (40, 30, 6, 16), (68, 16, 4, 10)):
@@ -749,6 +754,7 @@ def k_sewer_4():
     r.exit_left("west", 1, 5, "k_sewer_5", "east")
     # 갱도 (물이 차면 뗏목이 위로)
     r.fill(40, 1, 42, 16)
+    r.fill(28, 9, 29, 16)           # 갱도 왼쪽 벽 (아래 3칸은 통로)
     r.add("k_water", id="shaft", x=30, y=6, w=10, h=14, low_y=20, low_if="!k_sw4_high", safe_x=46, safe_y=FB)
     r.add("k_raft", id="raft", x=33, y=6, w=6)
     r.add("updraft", id="current", x=30, y=4, w=10, h=16, style="star", power=0.6, on_if="k_sw4_high")

@@ -1,6 +1,7 @@
 extends RefCounted
 ## 2장 지역 테마 색 (RoomTheme와 같은 키) — docs/bible/art.md 2절
 ##   kingdom        황도 아르덴 거리·지붕 (해 질 녘): 차가운 회청 석재 + 붉은 지붕, 등불 호박색
+##   kingdom_roof   지붕 방: 같은 하늘, 붉은 기와 지형
 ##   kingdom_night  같은 거리의 밤 (황궁 광장 결투·밤 지붕): 더 깊은 남색, 달, 불 켜진 창
 ##   kingdom_in     성·대성당·투기장 실내: 회백 대리석 + 진홍 깃발, 금빛
 ##   sewer          하수도·지하 묘지: 짙은 청록, 별빛 청록 물
@@ -10,6 +11,14 @@ const THEMES := {
 	"kingdom": {
 		"base": Color("#2c3142"), "deep": Color("#0a0b11"), "top": Color("#4c5368"), "top_hi": Color("#9aa2b8"),
 		"seam": Color("#1b1e2a"), "edge": Color("#13151d"), "pattern": "stone", "cap": "none", "cap_col": Color("#000000"),
+		"plat": Color("#5e3a2a"), "plat_hi": Color("#b07a4c"), "spike": Color("#3a3d4e"), "accent": Color("#ffb45a"),
+		"sky_top": Color("#0c0f22"), "sky_bottom": Color("#4a2c3e"), "far": Color("#232840"), "mid": Color("#181c2c"),
+		"near": Color("#0b0d16"), "fog": Color(1.0, 0.72, 0.5, 0.045), "particles": "embers",
+	},
+	# 지붕 방: 붉은 기와(타일 무늬) — 하늘·배경은 kingdom과 같음 (backdrop_ch2가 kingdom으로 그림)
+	"kingdom_roof": {
+		"base": Color("#4a2224"), "deep": Color("#120708"), "top": Color("#8a3a30"), "top_hi": Color("#d8784e"),
+		"seam": Color("#2a1012"), "edge": Color("#1a0a0b"), "pattern": "tile", "cap": "none", "cap_col": Color("#000000"),
 		"plat": Color("#5e3a2a"), "plat_hi": Color("#b07a4c"), "spike": Color("#3a3d4e"), "accent": Color("#ffb45a"),
 		"sky_top": Color("#0c0f22"), "sky_bottom": Color("#4a2c3e"), "far": Color("#232840"), "mid": Color("#181c2c"),
 		"near": Color("#0b0d16"), "fog": Color(1.0, 0.72, 0.5, 0.045), "particles": "embers",

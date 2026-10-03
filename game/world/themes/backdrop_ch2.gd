@@ -8,14 +8,14 @@ extends RefCounted
 ## 방 ID(조상 Room 노드)에 따라 먼 층의 상징물 순서가 바뀐다 (시계 구역이면 시계탑이 먼저, 대성당이면 대성당이 먼저 …).
 
 const KArt := preload("res://world/entities/ch2/k_art.gd")
-const MINE := ["kingdom", "kingdom_night", "kingdom_in", "sewer", "starfall"]
+const MINE := ["kingdom", "kingdom_roof", "kingdom_night", "kingdom_in", "sewer", "starfall"]
 const ROOF := Color("#5a2226")
 const WINDOW_LIT := Color("#ffb45a")
 const GLASS := [Color("#b8323e"), Color("#d8a840"), Color("#3a5ab8"), Color("#7a3ab0"), Color("#3a8a7a")]
 
 
 static func is_animated(theme: String, depth: int) -> bool:
-	match theme:
+	match _alias(theme):
 		"kingdom", "kingdom_night":
 			return depth == 0 or depth == 1
 		"kingdom_in":
@@ -29,6 +29,11 @@ static func is_animated(theme: String, depth: int) -> bool:
 
 static func has_sky(theme: String) -> bool:
 	return theme in MINE
+
+
+## 지붕 방(kingdom_roof)은 하늘·배경을 kingdom으로 그린다 (지형 색만 다름)
+static func _alias(theme: String) -> String:
+	return "kingdom" if theme == "kingdom_roof" else theme
 
 
 static func _room_id(n: Node) -> String:
@@ -49,7 +54,7 @@ static func draw_sky(c: Control, theme: String, pal: Dictionary, t: float) -> vo
 	var top: Color = pal.sky_top
 	var bot: Color = pal.sky_bottom
 	var acc: Color = pal.accent
-	match theme:
+	match _alias(theme):
 		"kingdom":
 			KArt.stepped_grad(c, Rect2(0, 0, 640, 360), top, bot, 26, 1.5)
 			# 지평선의 노을 (호박빛이 아래에서 번진다)
@@ -159,6 +164,7 @@ static func _shooting_stars(c: CanvasItem, t: float, acc: Color) -> void:
 static func draw_layer(l: Node2D, theme: String, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> bool:
 	if not theme in MINE:
 		return false
+	theme = _alias(theme)
 	var pal := RoomTheme.get_theme(theme)
 	match theme:
 		"kingdom", "kingdom_night":

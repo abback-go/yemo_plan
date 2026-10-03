@@ -29,6 +29,7 @@ func setup(room: Room, e: Dictionary, eid: String) -> void:
 	reach_t = float(e.get("range", 12.0))
 	size_px = Vector2(float(e.get("w", 2)), float(e.get("h", 5))) * 16.0
 	position = room.tile_pos(e)
+	add_to_group(&"k_crystal_wall")
 	collision_layer = GameConst.L_WORLD
 	collision_mask = 0
 	z_index = 0
