@@ -35,6 +35,11 @@ def dev_tp_temple():
     r.fill(118, F - 3, 120, F - 1)  # 낮은 턱
     r.add("temple_bell", id="bell1", x=140, y=F, top=2, size="big", note=0)
     r.add("temple_bell", id="bell2", x=150, y=F, top=2, size="small", note=2)
+    # 빛 퍼즐 시험: (74,18) 광원 감시안(시나리오가 둠) → 거울(84) → 위의 수정(84, 6)
+    r.add("light_mirror", id="mir1", x=84, y=F, angle=135, angles=[135, 45])
+    r.add("light_crystal", id="cry1", x=84, y=6, hang=True, flag="dev_crystal")
+    r.add("gate", id="cgate", x=96, y=F - 6, w=1, h=6, open_if="dev_crystal", look="barrier")
+    r.add("seal_stone", id="seal1", x=70, y=F, h=2)
     # 소품
     props = [
         ("tp_column", 3, dict(h=15)), ("tp_brazier", 7, {}), ("tp_statue", 11, dict(h=9)),
@@ -51,11 +56,10 @@ def dev_tp_temple():
     r.add("prop", kind="tp_censer", x=26, y=2, len=3)
     r.add("prop", kind="tp_bell_small", x=46, y=2, len=3)
     r.add("prop", kind="tp_sun_relief", x=62, y=F - 9, w=4)
-    r.add("prop", kind="tp_mirror", x=80, y=F, angle=45)
-    r.add("prop", kind="tp_seal", x=95, y=F)
+    r.add("prop", kind="tp_seal", x=92, y=F)
     r.add("prop", kind="tp_wing_statue", x=112, y=F)
-    r.add("prop", kind="tp_books", x=70, y=F)
-    r.add("prop", kind="tp_altar", x=66, y=F)
+    r.add("prop", kind="tp_books", x=66, y=F)
+    r.add("prop", kind="tp_altar", x=62, y=F)
     r.add("prop", kind="tp_chain", x=124, y=2, h=5)
     r.add("prop", kind="tp_rubble", x=128, y=F, w=3)
     for x in (40, 72, 100):

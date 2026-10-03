@@ -131,6 +131,15 @@ func dev_ch4_folk(c: Cut) -> void:
 		layer.add_child(p)
 
 
+## 시험: 불꽃 방벽으로 되쏜 탄(Hit.kind = reflect)이 정면에서 맞은 것처럼 (공통 방벽이 아직 없을 때)
+func dev_ch4_reflect_hit(c: Cut) -> void:
+	for n in c.world.get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
+		var e := n as EnemyBase
+		if e and e.is_alive():
+			var h := Hit.make(150, &"reflect", e.global_position + Vector2(e.facing * 40, -18))
+			e.take_hit(h)
+
+
 func dev_ch4_clear(c: Cut) -> void:
 	_clear_dev(c)
 	c.hud(true)
