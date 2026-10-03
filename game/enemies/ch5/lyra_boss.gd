@@ -760,6 +760,24 @@ func _ai_transition(_delta: float) -> void:
 		set_state("idle", 0.0)
 
 
+# ─── 동료 지원 반응 (Ally.special이 부름) ───────────────
+
+## 강한 일격에 흔들림: 지금 공격을 끊고 sec초 동안 숨을 고른다 (전환·별의 비·쓰러짐 중엔 무시)
+func stagger(sec: float) -> void:
+	if not engaged or state in ["dormant", "transition", "rain_wind", "rain", "great_star", "dead"]:
+		return
+	_clear_aim()
+	_blade.active = false
+	_body_hit.active = false
+	_move_time = 0.0
+	_cd = maxf(_cd, 0.3)
+	set_state("recover", clampf(sec, 0.3, 2.5))
+	_pose("hurt")
+	say_line("…!", 1.0)
+	Fx.burst(global_position + Vector2(0, -22), 12, {spread = 180.0, speed_min = 30.0, speed_max = 110.0, lifetime = 0.35,
+		gradient = Palette.fade_gradient(StArt.STAR), add = true})
+
+
 # ─── 피격 ───────────────────────────────────────────────
 
 func modify_damage(hit: Hit) -> float:

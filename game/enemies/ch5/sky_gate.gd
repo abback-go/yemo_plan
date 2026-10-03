@@ -21,6 +21,7 @@ extends EnemyBase
 ##   holy_lance(sec = 5, from)  아우렐리아: 장막을 꿰뚫음 — sec초 동안 리라가 받는 피해 160%
 ##   star_shield(sec = 3)       아스트리드: 세라 둘레 별빛 결계 — sec초 동안 문의 공격이 세라에게 닿지 않음
 ##   frost_bind(sec = 4)        이졸데: 촉수를 얼림(공격 멈춤), 눈의 예고가 느려짐
+##   stagger(sec)               동료 공용(Ally.special): 다음 공격을 늦추고 리라가 움찔
 ##   fire_volley(dmg = 300)     엠버린: 떠 있는 눈 모두에 불꽃
 ##   support_target(kind) -> Vector2  그 지원이 노릴 위치 (동료가 그쪽을 바라보거나 이동)
 ##   auto_support = true         동료 시스템 없이 시험할 때: support_needed가 나면 문이 스스로 지원을 흉내 낸다
@@ -381,6 +382,17 @@ func holy_lance(sec := 5.0, from := Vector2.INF) -> void:
 	_slash_fx(src, core(), Color(1.0, 0.86, 0.45))
 	Fx.ring(core(), 8.0, 60.0, Color(1.0, 0.86, 0.45), 0.5, 3.0)
 	StArt.sfx(&"holy_charge", &"charger_charge", 2.0)
+
+
+## 동료의 강한 일격 (Ally.special이 부름): 다음 공격이 sec초 늦어지고, 촉수가 잠깐 굳고, 가운데 리라가 움찔한다
+func stagger(sec: float) -> void:
+	if not engaged or state in ["dormant", "dead"]:
+		return
+	_cd = maxf(_cd, 0.0) + clampf(sec, 0.3, 2.5)
+	frost_t = maxf(frost_t, sec * 0.5)
+	if lyra:
+		lyra.set_pose("hurt")
+	Fx.ring(core(), 6.0, 50.0, StArt.STAR, 0.4, 2.0)
 
 
 func star_shield(sec := 3.0) -> void:
