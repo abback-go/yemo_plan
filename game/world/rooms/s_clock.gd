@@ -71,5 +71,6 @@ func _init() -> void:
 		{t = "prop", kind = "chain", x = 10, y = 26, h = 8},
 		{t = "prop", kind = "bell", x = 27, y = 2},
 		{t = "sign", x = 36, y = 42, look = "board", text = "시계탑|톱니 사이로 오를 수 있는 사람은 오필리아 교수님 제자뿐.|빗자루 보관함이 열려 있으면 닫아 주세요."},
+		{t = "pickup", id = "st_ing_dew", kind = "key", x = 4, y = 30, name = "시계탑 이슬", flag = "st_ing_dew", text = "자정에 맺힌다는 시계탑 이슬. 피피의 물약 재료다.", cond = "q_st_pippa_stall"},
 		{t = "door", id = "roof", x = 12, y = 12, to = "s_observatory", to_id = "down", style = "stair_up", label = "지붕 — 별 관측대", cond = "cls_meteor_roof"},
 	]
