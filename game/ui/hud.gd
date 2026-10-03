@@ -29,6 +29,12 @@ func _ready() -> void:
 	add_child(_banner)
 
 
+func enemy_card(name_text: String, sub: String, boss := false) -> void:
+	var w := World.get_world()
+	if w:
+		w.notice.enemy_card(name_text, sub, boss)
+
+
 func banner(text: String, sec := 1.5) -> void:
 	_banner.text = text
 	if _banner_tween:
@@ -59,6 +65,9 @@ class HudDraw extends Control:
 	var _shown_combo := 0
 	var _combo_pop := 0.0
 	var _style_alpha := 0.0
+	var _obj_text := ""
+	var _obj_flash := 0.0
+	var _boss_shown := 0.0
 
 	func _ready() -> void:
 		_font = get_theme_default_font()
@@ -82,8 +91,17 @@ class HudDraw extends Control:
 			return
 		_draw_hp(p)
 		_draw_overload(p)
-		_draw_skills(p)
-		_draw_info()
+		var w := World.get_world()
+		if w:
+			_draw_potions(p)
+			_draw_fox(p)
+			_draw_skills3(p)
+			_draw_objective()
+			_draw_boss()
+			_draw_elite_bars(w)
+		else:
+			_draw_skills(p)
+			_draw_info()
 		_draw_style()
 
 	func _draw_hp(p: Player) -> void:
@@ -94,7 +112,7 @@ class HudDraw extends Control:
 		var origin := Vector2(12, 12)
 		if _hp_shake > 0.0:
 			origin += Vector2(randf_range(-1.5, 1.5), randf_range(-1, 1))
-		for i in p.tuning.max_hp:
+		for i in p.max_hp():
 			var c := origin + Vector2(i * 13, 0)
 			var full := i < p.hp
 			var pts := PackedVector2Array([c + Vector2(5, 0), c + Vector2(10, 6), c + Vector2(5, 12), c + Vector2(0, 6)])
@@ -241,3 +259,148 @@ class HudDraw extends Control:
 			var ea := a * clampf((1.2 - since) / 0.3, 0.0, 1.0)
 			draw_string_outline(_font, Vector2(right - 160, 96), sr.last_event, HORIZONTAL_ALIGNMENT_RIGHT, 160, 12, 4, Color(Palette.OUTLINE, ea))
 			draw_string(_font, Vector2(right - 160, 96), sr.last_event, HORIZONTAL_ALIGNMENT_RIGHT, 160, 12, Color(Palette.GOLD, ea))
+
+	# ─── 1장 데모용 HUD (docs/chapter1.md 10절) ─────────────
+
+	func _draw_potions(p: Player) -> void:
+		if GameState.potions_max <= 0:
+			return
+		var x := 12.0 + p.max_hp() * 13 + 8
+		for i in GameState.potions_max:
+			var full := i < GameState.potions
+			var c := Vector2(x + i * 10, 12)
+			draw_rect(Rect2(c + Vector2(1, 0), Vector2(4, 3)), Color("#c8b8a0") if full else Color("#4a4048"))
+			draw_rect(Rect2(c + Vector2(0, 3), Vector2(6, 8)), Color("#e8506a") if full else Color("#3a2a32"))
+			if full:
+				draw_rect(Rect2(c + Vector2(1, 4), Vector2(1, 3)), Color(1, 1, 1, 0.6))
+
+	## 여우 모드 남은 시간(푸른 막대) / 너울의 기운(여우 문양)
+	func _draw_fox(p: Player) -> void:
+		if not GameState.has_ability("neoul"):
+			return
+		var r := Rect2(12, 30, 72, 6)
+		if p.is_fox():
+			var k := p.fox_time / Player.FOX_DURATION
+			draw_rect(r.grow(1), Color("#0b0914"))
+			draw_rect(r, Color(0.08, 0.12, 0.25))
+			draw_rect(Rect2(r.position, Vector2(r.size.x * k, r.size.y)), Color(0.45, 0.78, 1.0).lerp(Color(0.9, 0.97, 1.0), 0.5 + 0.5 * sin(_t * 10.0)))
+			draw_string(_font, Vector2(r.end.x + 5, r.end.y + 2), "빙의", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.6, 0.88, 1.0))
+		if GameState.has_ability("fox_mode"):
+			# 너울의 기운: 작은 여우 얼굴, 차오르는 만큼 밝아짐
+			var c := Vector2(150, 33)
+			var e := p.fox_energy
+			var col := Color(0.3, 0.35, 0.5).lerp(Color(0.6, 0.88, 1.0), e)
+			if e >= 1.0:
+				col = col.lerp(Color.WHITE, 0.3 + 0.3 * sin(_t * 4.0))
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-6, -3), c + Vector2(-7, -9), c + Vector2(-2, -5), c + Vector2(2, -5), c + Vector2(7, -9), c + Vector2(6, -3), c + Vector2(0, 4)]), col)
+			if e < 1.0:
+				draw_arc(c + Vector2(0, -2), 9, -PI * 0.5, -PI * 0.5 + TAU * e, 16, Color(0.6, 0.88, 1.0, 0.8), 1.0)
+
+	func _draw_skills3(p: Player) -> void:
+		var fox := p.is_fox()
+		var slots := [
+			["A", p.pillar_cooldown_left, p.tuning.pillar_cooldown * (1.6 if fox else 1.0), true, 0],
+			["S", p.storm_cooldown_left, p.tuning.storm_cooldown * (1.2 if fox else 1.0), fox or GameState.has_ability("storm"), 1],
+		]
+		if GameState.has_ability("fox_window"):
+			slots.append(["D", 0.0, 1.0, true, 2])
+		for i in slots.size():
+			var sl: Array = slots[i]
+			var box := Rect2(640 - 34 * slots.size() + i * 34 - 2, 318, 26, 26)
+			var unlocked: bool = sl[3]
+			var left: float = sl[1]
+			var ready := unlocked and left <= 0.0
+			if i < 2:
+				if ready and not _was_ready[i]:
+					_ready_flash[i] = 1.0
+				_was_ready[i] = ready
+			draw_rect(box.grow(1), Color(0.55, 0.85, 1.0, 0.6) if fox and unlocked else Color("#0b0914"))
+			draw_rect(box, Color("#241a35") if not fox else Color("#14223a"))
+			if not unlocked:
+				draw_string(_font, box.position + Vector2(9, 18), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+			else:
+				_skill_icon3(int(sl[4]), box.get_center(), ready or int(sl[4]) == 2, fox)
+				if left > 0.0:
+					var k: float = clampf(left / float(sl[2]), 0.0, 1.0)
+					draw_rect(Rect2(box.position, Vector2(box.size.x, box.size.y * k)), Color(0, 0, 0, 0.6))
+			if i < 2 and _ready_flash[i] > 0.0:
+				draw_rect(box, Color(1, 0.9, 0.7, 0.5 * _ready_flash[i]), false, 1.0)
+			draw_string(_font, box.position + Vector2(2, -3), String(sl[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+
+	func _skill_icon3(kind: int, c: Vector2, ready: bool, fox: bool) -> void:
+		var a := 1.0 if ready else 0.5
+		var out := Color(0.35, 0.65, 1.0) if fox else Palette.FIRE_OUT
+		var hot := Color(0.85, 0.96, 1.0) if fox else Palette.FIRE_HOT
+		match kind:
+			0:
+				if fox:
+					for j in 4:
+						draw_line(c + Vector2(-7 + j * 4, -9), c + Vector2(-9 + j * 4, -1), Color(hot, a), 1.0)
+					draw_rect(Rect2(c + Vector2(-2, -2), Vector2(4, 10)), Color(out, a))
+				else:
+					draw_rect(Rect2(c + Vector2(-3, -9), Vector2(6, 16)), Color(out, a))
+					draw_rect(Rect2(c + Vector2(-1.5, -7), Vector2(3, 13)), Color(hot, a))
+				draw_line(c + Vector2(-8, 8), c + Vector2(8, 8), Color(Palette.GROUND_TOP, a), 1.0)
+			1:
+				if fox:
+					for j in 9:
+						var ang := TAU * j / 9.0
+						draw_line(c, c + Vector2(cos(ang), sin(ang)) * 9.0, Color(out, a), 2.0)
+					draw_circle(c, 3.0, Color(hot, a))
+				else:
+					for j in 3:
+						var ang2 := -0.5 + j * 0.5
+						var d := Vector2(cos(ang2), sin(ang2))
+						draw_colored_polygon(PackedVector2Array([c + Vector2(-7, -2), c + Vector2(-7, 0) + d * 16.0, c + Vector2(-7, 2)]), Color(out, a))
+					draw_circle(c + Vector2(-7, 0), 2.5, Color(hot, a))
+			2:
+				# 여우창문: 마름모 창
+				draw_colored_polygon(PackedVector2Array([c + Vector2(0, -9), c + Vector2(9, 0), c + Vector2(0, 9), c + Vector2(-9, 0)]), Color(0.55, 0.85, 1.0, 0.35 * a))
+				draw_arc(c, 5.0, 0, TAU, 12, Color(0.85, 0.96, 1.0, a), 1.0)
+
+	func _draw_objective() -> void:
+		var text := Objectives.current()
+		if text != _obj_text:
+			_obj_text = text
+			_obj_flash = 1.0
+			if text != "" and Engine.get_frames_drawn() > 60:
+				Music.jingle("jingle_quest")
+		_obj_flash = maxf(_obj_flash - get_process_delta_time(), 0.0)
+		if text == "":
+			return
+		var in_combat := StyleRank.combo >= 2 or _boss_shown > 0.0
+		var a := 0.45 if in_combat else 0.9
+		var y := 52.0
+		draw_rect(Rect2(12, y - 2, 3, 13), Color(Palette.GOLD, a))
+		draw_string(_font, Vector2(19, y + 9), text, HORIZONTAL_ALIGNMENT_LEFT, 300, 12, Color(Palette.UI_TEXT, a).lerp(Palette.GOLD, _obj_flash))
+
+	func _draw_boss() -> void:
+		var boss: EnemyBase = null
+		for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
+			if e is EnemyBase and e.is_boss and e.is_alive() and e.get("engaged") != false:
+				boss = e
+				break
+		_boss_shown = move_toward(_boss_shown, 1.0 if boss else 0.0, get_process_delta_time() * 3.0)
+		if boss == null:
+			return
+		var a := _boss_shown
+		var r := Rect2(120, 336, 400, 6)
+		draw_string(_font, Vector2(120, 330), boss.display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(Palette.UI_TEXT, a))
+		if boss.subtitle != "":
+			draw_string(_font, Vector2(520 - _font.get_string_size(boss.subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 330), boss.subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(Palette.UI_DIM, a))
+		draw_rect(r.grow(1), Color(0.03, 0.02, 0.05, a))
+		draw_rect(r, Color(0.2, 0.08, 0.1, a))
+		var k := clampf(float(boss.hp) / boss.max_hp, 0.0, 1.0)
+		draw_rect(Rect2(r.position, Vector2(r.size.x * k, r.size.y)), Color(0.85, 0.2, 0.25, a))
+		draw_rect(Rect2(r.position, Vector2(r.size.x * k, 1)), Color(1, 0.6, 0.6, a))
+
+	## 정예 적 머리 위 작은 체력바 (맞은 직후 2.5초)
+	func _draw_elite_bars(w: World) -> void:
+		var xf := w.get_viewport().get_canvas_transform()
+		for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
+			if not (e is EnemyBase) or not e.show_bar():
+				continue
+			var sp: Vector2 = xf * (e.global_position + Vector2(0, -e.body_size.y - 10))
+			var r := Rect2(sp.x - 14, sp.y, 28, 3)
+			draw_rect(r.grow(1), Color(0.03, 0.02, 0.05, 0.8))
+			draw_rect(Rect2(r.position, Vector2(r.size.x * clampf(float(e.hp) / e.max_hp, 0.0, 1.0), r.size.y)), Color(0.9, 0.3, 0.3))

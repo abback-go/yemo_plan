@@ -1,0 +1,39 @@
+class_name Objectives
+extends RefCounted
+## 현재 목표 (docs/chapter1.md 4.5절): 위에서부터 "필요 플래그는 섰고 완료 플래그는 아직인" 첫 항목.
+## [완료 플래그, 표시 문구, 필요 플래그(비우면 항상)]
+
+const LIST := [
+	["t_trial_done", "신계 깊은 곳의 보물을 찾아라", ""],
+	["t_escaped", "무너지는 신계에서 빠져나가라", "t_trial_done"],
+	["met_emberlyn", "마법반 실습에 가자 (서관 1층)", "s_woke"],
+	["ab_storm", "실습장에서 과제를 마치자", "met_emberlyn"],
+	["key_stolen", "도서관에서 봉인 기록을 찾자 (중앙 홀 2층)", "ab_storm"],
+	["ab_double_jump", "비속성마법반에서 부양을 배우자 (서관 복도 아래층)", "key_stolen"],
+	["key_recovered", "서가 미로에서 마도서를 쫓아라", "ab_double_jump"],
+	["ab_fox_window", "금서 구역에서 봉인 기록을 읽자", "key_recovered"],
+	["adv_done", "상층 회랑을 지나 고급마법반으로", "ab_fox_window"],
+	["met_astrid", "시계탑 꼭대기의 교장실로", "adv_done"],
+	["seal_open", "앞마당의 지하 철문으로 내려가자", "met_astrid"],
+	["agwi_defeated", "봉인의 방으로", "seal_open"],
+	["chapter_end", "기숙사로 돌아가 쉬자", "agwi_defeated"],
+]
+
+
+static func current() -> String:
+	for row in LIST:
+		var req: String = row[2]
+		if req != "" and not GameState.has_flag(req):
+			continue
+		if GameState.has_flag(row[0]):
+			continue
+		return row[1]
+	return ""
+
+
+static func done_list() -> Array:
+	var out := []
+	for row in LIST:
+		if GameState.has_flag(row[0]):
+			out.append(row[1])
+	return out

@@ -17,6 +17,9 @@ var cast_kind := 0 ## 0 화염탄, 1 불기둥(손이 아래로), 2 화염 폭�
 var overload_ratio := 0.0
 var overload_fuse := false
 var ghost := false ## 대시 잔상용 단색 모드
+var fox := 0.0 ## 여우 모드(빙의) 정도 0~1: 푸른 여우귀·불꽃 꼬리·푸른 머리끝·눈·망토
+var mimic := 0.0 ## 의태(폭주 70% 이상, 너울 동행 후): 여우 특징이 깜빡이며 비침
+var drinking := false
 var ghost_color := Color(1.0, 0.45, 0.25, 0.55)
 
 var _t := 0.0
@@ -68,6 +71,7 @@ func copy_pose_from(other: PlayerVisual) -> void:
 	_lean = other._lean
 	_hat_tip = other._hat_tip
 	_cape_flow = other._cape_flow
+	fox = other.fox
 
 
 # ─── 그리기 ──────────────────────────────────────────────
@@ -85,8 +89,20 @@ func _u(p: Vector2) -> Vector2:
 	return HIP + (p - HIP).rotated(_lean) + Vector2(0, bob)
 
 
+const FOX_BLUE := Color(0.45, 0.78, 1.0)
+const FOX_CORE := Color(0.85, 0.96, 1.0)
+
+
+func _fox_amount() -> float:
+	var m := mimic * (0.35 + 0.35 * sin(_t * 9.0))
+	return clampf(maxf(fox, m), 0.0, 1.0)
+
+
 func _draw() -> void:
 	var tip_col := Palette.HAIR_TIP.lerp(Palette.HAIR_GLOW, overload_ratio)
+	var fa := _fox_amount()
+	if fa > 0.0 and not ghost:
+		tip_col = tip_col.lerp(FOX_BLUE.lerp(FOX_CORE, 0.5 + 0.5 * sin(_t * 6.0)), fa)
 	if overload_ratio >= 0.7 or overload_fuse:
 		var flick := 0.5 + 0.5 * sin(_t * (30.0 if overload_fuse else 14.0))
 		tip_col = tip_col.lerp(Palette.FIRE_CORE, flick * (0.8 if overload_fuse else 0.45))
@@ -98,6 +114,8 @@ func _draw() -> void:
 		# 배경과 분리되도록 몸 뒤에 은은한 불빛
 		draw_circle(_u(Vector2(0, -20)), 15.0, Color(Palette.FIRE_OUT, 0.07))
 		draw_circle(_u(Vector2(0, -22)), 10.0, Color(Palette.FIRE_MID, 0.05))
+	if fa > 0.0 and not ghost:
+		_draw_fox_tail(fa)
 	_draw_cape()
 	_draw_legs()
 	_draw_back_arm()
@@ -105,6 +123,50 @@ func _draw() -> void:
 	_draw_head(tip_col)
 	_draw_front_arm()
 	_draw_hat()
+	if fa > 0.0 and not ghost:
+		_draw_fox_ears(fa)
+	if fox > 0.0 and not ghost:
+		_draw_fox_orbs()
+	if drinking and not ghost:
+		var hand := _arm_hand(true)
+		draw_rect(Rect2(hand + Vector2(-1, -5), Vector2(3, 5)), Color(0.85, 0.3, 0.4))
+		draw_rect(Rect2(hand + Vector2(-0.5, -6), Vector2(2, 1)), Color("#c8b8a0"))
+
+
+## 푸른 불꽃 꼬리 하나 (엉덩이 뒤에서 위로 휘어 오름)
+func _draw_fox_tail(fa: float) -> void:
+	var base := _u(Vector2(-3, -11))
+	var sway := sin(_t * 5.0) * 2.0
+	var mid := base + Vector2(-8, -2 + sway * 0.5)
+	var tip := base + Vector2(-12 + sway, -12)
+	var w := 4.0
+	var pts := PackedVector2Array([base + Vector2(0, -w * 0.5), mid + Vector2(1, -w), tip, mid + Vector2(1, w), base + Vector2(0, w * 0.5)])
+	draw_colored_polygon(pts, Color(FOX_BLUE, 0.85 * fa))
+	draw_colored_polygon(PackedVector2Array([mid + Vector2(0, -w * 0.4), tip + Vector2(1, 2), mid + Vector2(0, w * 0.4)]), Color(FOX_CORE, 0.9 * fa))
+	for i in 3:
+		var fl := tip + Vector2(sin(_t * 11.0 + i * 2.0) * 2.0, -2.0 - i * 2.0 - fmod(_t * 6.0 + i, 3.0))
+		draw_rect(Rect2(fl, Vector2(1.5, 1.5)), Color(FOX_CORE, 0.6 * fa))
+
+
+## 푸른 여우귀 (모자 챙 양옆으로 솟음)
+func _draw_fox_ears(fa: float) -> void:
+	var brim_c := _u(Vector2(0.5, -30))
+	var tw := sin(_t * 4.0) * 0.8
+	for side in [-1.0, 1.0]:
+		var b := brim_c + Vector2(side * 7.0, -0.5).rotated(_lean)
+		var tip := brim_c + Vector2(side * (11.0 + tw), -7.0).rotated(_lean)
+		var inner := brim_c + Vector2(side * 4.5, -1.0).rotated(_lean)
+		draw_colored_polygon(PackedVector2Array([b, tip, inner]), Color(0.95, 0.97, 1.0, fa))
+		draw_colored_polygon(PackedVector2Array([b.lerp(inner, 0.3), tip.lerp(b, 0.25), inner.lerp(b, 0.2)]), Color(FOX_BLUE, fa))
+
+
+## 몸 주위를 도는 여우불 셋
+func _draw_fox_orbs() -> void:
+	for i in 3:
+		var a := _t * 3.0 + TAU * i / 3.0
+		var p := _u(Vector2(0, -18)) + Vector2(cos(a) * 12.0, sin(a) * 5.0)
+		draw_circle(p, 2.5, Color(FOX_BLUE, 0.55 * fox))
+		draw_circle(p, 1.2, Color(FOX_CORE, 0.9 * fox))
 
 
 func _draw_cape() -> void:
@@ -118,8 +180,12 @@ func _draw_cape() -> void:
 		Vector2(tip_x + 3.0, tip_y + 2.5),
 		_u(Vector2(0, -12)),
 	])
-	draw_colored_polygon(pts, _c(Palette.CAPE))
-	draw_line(pts[2], pts[3], _c(Palette.CAPE_INNER), 1.0)
+	draw_colored_polygon(pts, _c(Palette.CAPE.lerp(Color(0.12, 0.2, 0.4), fox)))
+	draw_line(pts[2], pts[3], _c(Palette.CAPE_INNER.lerp(FOX_BLUE, fox)), 1.0)
+	if fox > 0.0 and not ghost:
+		for i in 3:
+			var p := pts[2].lerp(pts[3], i / 2.0) + Vector2(sin(_t * 9.0 + i) * 1.5, -1.0 - fmod(_t * 8.0 + i * 0.7, 4.0))
+			draw_rect(Rect2(p, Vector2(1.5, 1.5)), Color(FOX_CORE, 0.7 * fox))
 
 
 func _leg_offsets() -> Array[Vector2]:
@@ -234,8 +300,9 @@ func _draw_head(tip_col: Color) -> void:
 		elif blink:
 			draw_line(eye + Vector2(-1, 0.5), eye + Vector2(1, 0.5), Palette.EYE, 1.0)
 		else:
-			draw_rect(Rect2(eye + Vector2(-0.5, -1), Vector2(1.5, 2.5)), Palette.EYE)
-			draw_rect(Rect2(eye + Vector2(0.5, -1), Vector2(0.8, 0.8)), Palette.FIRE_CORE)
+			var ec := Palette.EYE.lerp(Color(0.2, 0.55, 1.0), fox)
+			draw_rect(Rect2(eye + Vector2(-0.5, -1), Vector2(1.5, 2.5)), ec)
+			draw_rect(Rect2(eye + Vector2(0.5, -1), Vector2(0.8, 0.8)), Palette.FIRE_CORE.lerp(FOX_CORE, fox))
 
 
 func _draw_front_arm() -> void:

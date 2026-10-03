@@ -15,6 +15,8 @@ const MAX_POINTS := 110.0
 const BASE := {
 	&"bolt": 1.0, &"bolt_heavy": 3.0, &"blast": 1.5, &"pillar": 5.0,
 	&"storm": 1.2, &"storm_final": 5.0, &"burst": 8.0,
+	&"foxfire": 1.5, &"foxfire_heavy": 4.0, &"fox_rain": 0.8, &"fox_pillar": 6.0, &"fox_storm": 1.0, &"fox_burst": 8.0,
+	&"fox_trail": 0.5,
 }
 
 var combo := 0

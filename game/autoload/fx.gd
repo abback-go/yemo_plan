@@ -31,6 +31,7 @@ var _flash_tween: Tween
 var _shrink_curve: Curve
 var _label_settings: LabelSettings
 var _label_settings_heavy: LabelSettings
+var _label_settings_fox: LabelSettings
 var _witch_until := 0
 var _tint_rect: ColorRect
 
@@ -86,6 +87,8 @@ func _ready() -> void:
 	_label_settings.outline_color = Color("#1a0d10")
 	_label_settings_heavy = _label_settings.duplicate()
 	_label_settings_heavy.font_color = Palette.FIRE_CORE
+	_label_settings_fox = _label_settings.duplicate()
+	_label_settings_fox.font_color = Color(0.6, 0.88, 1.0)
 
 
 func _process(_delta: float) -> void:
@@ -106,6 +109,13 @@ func _process(_delta: float) -> void:
 			_tint_rect.visible = false
 		else:
 			_set_tint(clampf(left / 0.3, 0.0, 1.0))
+
+
+## 방을 옮기거나 부활할 때: 시간·화면 효과만 원래대로 (카메라 등록은 유지)
+func reset_time() -> void:
+	var cam: Node = camera
+	reset()
+	camera = cam
 
 
 ## 씬이 바뀔 때 시간·화면 효과를 원래대로
@@ -168,7 +178,7 @@ func zoom_punch(amount: float) -> void:
 
 ## amplitude_t: 진폭 (T 단위, 기획서 5.8절)
 func shake(amplitude_t: float, duration := 0.22) -> void:
-	if camera and amplitude_t > 0.0:
+	if camera and amplitude_t > 0.0 and GameState.settings.get("shake", true):
 		camera.shake(amplitude_t * GameConst.TILE, duration)
 
 
@@ -214,7 +224,8 @@ func burst(pos: Vector2, amount: int, opts := {}) -> CPUParticles2D:
 	p.scale_amount_min = opts.get("size_min", 1.0)
 	p.scale_amount_max = opts.get("size_max", 2.5)
 	p.scale_amount_curve = _shrink_curve
-	p.color_ramp = opts.get("gradient", Palette.fire_gradient())
+	var grad: Variant = opts.get("gradient")
+	p.color_ramp = grad if grad != null else Palette.fire_gradient()
 	var box: Vector2 = opts.get("box", Vector2.ZERO)
 	if box != Vector2.ZERO:
 		p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
@@ -245,10 +256,10 @@ func ring(pos: Vector2, r_from: float, r_to: float, color: Color, duration := 0.
 	effect_parent().add_child(r)
 
 
-func damage_number(pos: Vector2, value: int, heavy := false) -> void:
+func damage_number(pos: Vector2, value: int, heavy := false, fox := false) -> void:
 	var l := Label.new()
 	l.text = str(value)
-	l.label_settings = _label_settings_heavy if heavy else _label_settings
+	l.label_settings = (_label_settings_fox if fox else (_label_settings_heavy if heavy else _label_settings))
 	l.position = pos + Vector2(randf_range(-4, 4) - 6, -8)
 	l.z_index = 20
 	effect_parent().add_child(l)

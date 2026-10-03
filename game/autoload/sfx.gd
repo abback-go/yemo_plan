@@ -18,6 +18,7 @@ func _ready() -> void:
 	for i in POOL_SIZE:
 		var p := AudioStreamPlayer.new()
 		p.volume_db = -6.0
+		p.bus = &"SFX"
 		add_child(p)
 		_players.append(p)
 	_build_all()
@@ -33,6 +34,19 @@ func play(sound: StringName, volume_db := 0.0, pitch_variation := 0.06) -> void:
 	p.stream = stream
 	p.volume_db = -6.0 + volume_db
 	p.pitch_scale = 1.0 + randf_range(-pitch_variation, pitch_variation)
+	p.play()
+
+
+## 음높이를 직접 정해 재생 (대화 목소리 삑삑음)
+func play_pitch(sound: StringName, pitch: float, volume_db := 0.0) -> void:
+	var stream: AudioStreamWAV = _streams.get(sound)
+	if stream == null:
+		return
+	var p := _players[_next]
+	_next = (_next + 1) % POOL_SIZE
+	p.stream = stream
+	p.volume_db = -6.0 + volume_db
+	p.pitch_scale = clampf(pitch, 0.3, 3.0)
 	p.play()
 
 
@@ -174,6 +188,101 @@ func _build_all() -> void:
 	_add(&"overheat", [
 		{wave = "noise", dur = 0.4, vol = 0.3, lp = 0.5, lp1 = 0.2, attack = 0.05, decay = 1.0},
 		{wave = "saw", f0 = 220, f1 = 440, dur = 0.3, vol = 0.12, lp = 0.3, decay = 1.0},
+	])
+	_add(&"blip", [
+		{wave = "square", f0 = 520, f1 = 500, dur = 0.035, vol = 0.18, lp = 0.35, decay = 2.0},
+	])
+	_add(&"block", [
+		{wave = "square", f0 = 1800, f1 = 1500, dur = 0.06, vol = 0.22, lp = 0.6, decay = 3.0},
+		{wave = "noise", dur = 0.04, vol = 0.2, lp = 0.7, decay = 4.0},
+	])
+	_add(&"reveal", [
+		{wave = "sine", f0 = 620, f1 = 1240, dur = 0.5, vol = 0.3, decay = 1.2, vib = 7.0, vib_depth = 0.02},
+		{wave = "sine", f0 = 930, f1 = 1860, dur = 0.5, vol = 0.18, decay = 1.4, delay = 0.08},
+	])
+	_add(&"pickup", [
+		{wave = "sine", f0 = 880, f1 = 880, dur = 0.12, vol = 0.3, decay = 1.5},
+		{wave = "sine", f0 = 1320, f1 = 1320, dur = 0.2, vol = 0.3, decay = 1.5, delay = 0.08},
+	])
+	_add(&"ignite", [
+		{wave = "noise", dur = 0.3, vol = 0.4, lp = 0.3, attack = 0.03, decay = 1.5},
+		{wave = "sine", f0 = 200, f1 = 320, dur = 0.25, vol = 0.3, decay = 1.6},
+	])
+	_add(&"teach", [
+		{wave = "sine", f0 = 660, f1 = 660, dur = 0.09, vol = 0.25, decay = 1.6},
+		{wave = "sine", f0 = 990, f1 = 990, dur = 0.14, vol = 0.22, decay = 1.6, delay = 0.07},
+	])
+	_add(&"fox_transform", [
+		{wave = "sine", f0 = 220, f1 = 880, dur = 0.7, vol = 0.4, decay = 0.8, vib = 6.0, vib_depth = 0.03},
+		{wave = "noise", dur = 0.7, vol = 0.3, lp = 0.2, lp1 = 0.6, attack = 0.2, decay = 1.0},
+		{wave = "sine", f0 = 1320, f1 = 1760, dur = 0.5, vol = 0.18, decay = 1.2, delay = 0.25},
+	])
+	_add(&"foxfire", [
+		{wave = "sine", f0 = 900, f1 = 1400, dur = 0.12, vol = 0.24, decay = 2.0},
+		{wave = "noise", dur = 0.1, vol = 0.18, lp = 0.5, decay = 3.0},
+	])
+	_add(&"fox_rain", [
+		{wave = "noise", dur = 0.9, vol = 0.35, lp = 0.4, attack = 0.1, decay = 1.0},
+		{wave = "sine", f0 = 1200, f1 = 600, dur = 0.8, vol = 0.15, decay = 1.2, vib = 9.0, vib_depth = 0.04},
+	])
+	_add(&"fox_storm", [
+		{wave = "noise", dur = 0.8, vol = 0.45, lp = 0.25, lp1 = 0.7, attack = 0.05, decay = 1.0},
+		{wave = "saw", f0 = 110, f1 = 440, dur = 0.7, vol = 0.22, lp = 0.3, decay = 1.2},
+		{wave = "sine", f0 = 880, f1 = 1760, dur = 0.5, vol = 0.18, decay = 1.4, delay = 0.2},
+	])
+	_add(&"fox_end", [
+		{wave = "sine", f0 = 880, f1 = 330, dur = 0.5, vol = 0.3, decay = 1.2},
+		{wave = "noise", dur = 0.4, vol = 0.2, lp = 0.3, decay = 2.0},
+	])
+	_add(&"double_jump", [
+		{wave = "sine", f0 = 500, f1 = 1000, dur = 0.14, vol = 0.25, decay = 1.8},
+		{wave = "noise", dur = 0.1, vol = 0.15, lp = 0.6, decay = 3.0},
+	])
+	_add(&"window", [
+		{wave = "sine", f0 = 740, f1 = 740, dur = 0.6, vol = 0.22, decay = 1.0, vib = 5.0, vib_depth = 0.03},
+		{wave = "sine", f0 = 1110, f1 = 1110, dur = 0.6, vol = 0.16, decay = 1.0, delay = 0.1},
+		{wave = "sine", f0 = 1480, f1 = 1480, dur = 0.5, vol = 0.12, decay = 1.0, delay = 0.2},
+	])
+	_add(&"potion", [
+		{wave = "sine", f0 = 300, f1 = 520, dur = 0.3, vol = 0.3, decay = 1.4, vib = 14.0, vib_depth = 0.06},
+		{wave = "noise", dur = 0.2, vol = 0.12, lp = 0.3, decay = 2.0, delay = 0.1},
+	])
+	_add(&"roar", [
+		{wave = "saw", f0 = 140, f1 = 70, dur = 0.9, vol = 0.4, lp = 0.2, attack = 0.08, decay = 1.0, vib = 18.0, vib_depth = 0.08},
+		{wave = "noise", dur = 0.9, vol = 0.35, lp = 0.15, attack = 0.1, decay = 1.0},
+	])
+	_add(&"slam", [
+		{wave = "sine", f0 = 110, f1 = 40, dur = 0.35, vol = 0.6, decay = 1.6},
+		{wave = "noise", dur = 0.3, vol = 0.45, lp = 0.2, decay = 2.0},
+	])
+	_add(&"whoosh", [
+		{wave = "noise", dur = 0.25, vol = 0.3, lp = 0.2, lp1 = 0.6, attack = 0.08, decay = 1.5},
+	])
+	_add(&"swing", [
+		{wave = "noise", dur = 0.18, vol = 0.3, lp = 0.5, lp1 = 0.2, decay = 1.8},
+		{wave = "saw", f0 = 300, f1 = 120, dur = 0.15, vol = 0.12, lp = 0.3, decay = 2.0},
+	])
+	_add(&"page", [
+		{wave = "noise", dur = 0.08, vol = 0.22, lp = 0.7, decay = 3.0},
+	])
+	_add(&"giggle", [
+		{wave = "sine", f0 = 900, f1 = 1100, dur = 0.07, vol = 0.18, decay = 1.6},
+		{wave = "sine", f0 = 950, f1 = 1150, dur = 0.07, vol = 0.16, decay = 1.6, delay = 0.1},
+		{wave = "sine", f0 = 1000, f1 = 1250, dur = 0.08, vol = 0.14, decay = 1.6, delay = 0.2},
+	])
+	_add(&"squish", [
+		{wave = "sine", f0 = 200, f1 = 90, dur = 0.2, vol = 0.35, decay = 1.5, vib = 20.0, vib_depth = 0.1},
+	])
+	_add(&"growl", [
+		{wave = "saw", f0 = 90, f1 = 70, dur = 0.5, vol = 0.3, lp = 0.15, decay = 1.2, vib = 22.0, vib_depth = 0.1},
+	])
+	_add(&"chain", [
+		{wave = "noise", dur = 0.15, vol = 0.3, lp = 0.8, decay = 3.0},
+		{wave = "square", f0 = 1400, f1 = 1300, dur = 0.08, vol = 0.1, lp = 0.6, decay = 3.0, delay = 0.03},
+	])
+	_add(&"crumble", [
+		{wave = "noise", dur = 0.6, vol = 0.45, lp = 0.15, decay = 1.2},
+		{wave = "sine", f0 = 80, f1 = 40, dur = 0.5, vol = 0.4, decay = 1.4},
 	])
 	_add(&"ui_move", [
 		{wave = "square", f0 = 880, f1 = 880, dur = 0.04, vol = 0.1, lp = 0.5},

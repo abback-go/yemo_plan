@@ -9,6 +9,8 @@ var _shake_amp := 0.0
 var _shake_time := 0.0
 var _shake_left := 0.0
 var _punch := 0.0
+var pan_offset := Vector2.ZERO ## 컷신 카메라 이동 (세라 기준)
+var _pan_tween: Tween
 
 
 func _ready() -> void:
@@ -31,7 +33,7 @@ func _process(delta: float) -> void:
 		var target := player.facing * tuning.look_ahead_t * GameConst.TILE * (0.7 + 0.3 * speed_k)
 		var k := 1.0 - exp(-delta * 3.0 / maxf(tuning.look_ahead_time, 0.01))
 		_look = lerpf(_look, target, k)
-		position.x = _look
+		position = Vector2(_look, -16) + pan_offset
 
 	if _shake_left > 0.0:
 		_shake_left -= real
@@ -54,3 +56,24 @@ func shake(amplitude_px: float, duration: float) -> void:
 
 func punch(amount: float) -> void:
 	_punch = maxf(_punch, amount)
+
+
+## 컷신: 전역 좌표 pos가 화면 가운데 오도록 이동
+func pan_to(pos: Vector2, time := 0.8) -> void:
+	var player := get_parent() as Node2D
+	if player == null:
+		return
+	var want := pos - player.global_position - Vector2(_look, -16)
+	if _pan_tween:
+		_pan_tween.kill()
+	_pan_tween = create_tween().set_ignore_time_scale(true)
+	_pan_tween.tween_property(self, "pan_offset", want, time).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await _pan_tween.finished
+
+
+func pan_back(time := 0.6) -> void:
+	if _pan_tween:
+		_pan_tween.kill()
+	_pan_tween = create_tween().set_ignore_time_scale(true)
+	_pan_tween.tween_property(self, "pan_offset", Vector2.ZERO, time).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await _pan_tween.finished

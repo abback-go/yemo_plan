@@ -1,13 +1,18 @@
 extends Control
-## 타이틀 화면. 브라우저는 첫 입력 전에는 소리를 막으므로 여기서 입력을 한 번 받는다.
+## 타이틀 (docs/chapter1.md 10절). 브라우저는 첫 입력 전 소리를 막으므로 "아무 키나"로 한 번 받은 뒤 메뉴를 연다.
+## 메뉴: 이어하기(기록이 있으면) · 새로 시작 · 설정 · 전투 연습장(v0.3 프로토타입)
 
 const BG := preload("res://levels/background.gd")
 
 var _t := 0.0
 var _sera: PlayerVisual
 var _font: Font
-var _started := false
+var _phase := 0 ## 0 아무 키 대기, 1 메뉴, 2 설정, 3 새로 시작 확인, 4 시작함
 var _text: Control
+var _menu: MenuList
+var _confirm: MenuList
+var _options: OptionsPanel
+var _items: Array[String] = []
 
 
 func _ready() -> void:
@@ -43,12 +48,45 @@ func _ready() -> void:
 	_sera.scale = Vector2(3, 3)
 	add_child(_sera)
 
-	# 글자는 배경 그림보다 위에 그려야 하므로 마지막 자식으로
 	_text = TitleText.new()
 	_text.title = self
 	_text.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_text)
+
+	_menu = MenuList.new()
+	_menu.position = Vector2(284, 196)
+	_menu.size = Vector2(220, 90)
+	_menu.chosen.connect(_on_menu)
+	_menu.visible = false
+	add_child(_menu)
+	_confirm = MenuList.new()
+	_confirm.items = ["아니요", "예, 새로 시작"]
+	_confirm.position = Vector2(284, 232)
+	_confirm.size = Vector2(220, 40)
+	_confirm.chosen.connect(_on_confirm)
+	_confirm.visible = false
+	add_child(_confirm)
+	_options = OptionsPanel.new()
+	_options.position = Vector2(284, 150)
+	_options.visible = false
+	_options.closed.connect(func() -> void:
+		_options.visible = false
+		_menu.visible = true
+		_phase = 1)
+	add_child(_options)
+	Music.play("title", 1.5)
+
+
+func _build_menu() -> void:
+	_items.clear()
+	if GameState.has_save():
+		_items.append("이어하기")
+	_items.append("새로 시작")
+	_items.append("설정")
+	_items.append("전투 연습장")
+	_menu.items = _items.duplicate()
+	_menu.selected = 0
 
 
 func _process(delta: float) -> void:
@@ -59,41 +97,91 @@ func _process(delta: float) -> void:
 
 
 func draw_text_on(c: CanvasItem) -> void:
-	# 글자 뒤 반투명 판 (배경의 불 켜진 창이 글자를 방해하지 않게)
 	c.draw_rect(Rect2(258, 40, 300, 268), Color(0.03, 0.02, 0.06, 0.62))
 	c.draw_rect(Rect2(258, 40, 2, 268), Color(Palette.FIRE_OUT, 0.6))
-	# 제목
 	c.draw_string(_font, Vector2(270, 92), "YEMO", HORIZONTAL_ALIGNMENT_LEFT, -1, 48, Palette.FIRE_HOT)
-	c.draw_string(_font, Vector2(272, 116), "폐급 마녀 세라 · 조작·전투 프로토타입 v0.3", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
-	# 조작법
-	var lines := [
-		"←→  이동          Z  점프 (길게 = 높이)",
-		"↓   빠른 낙하      ↓+Z 발판 내려가기",
-		"X   화염탄 (연타 3타)   C  대시",
-		"C 후 Z  멀리 뛰는 대시 점프",
-		"A   불기둥          S  화염 폭풍",
-		"Esc 일시정지        F1 디버그 표시",
-		"패드: A 점프 · X 공격 · B 대시 · LB/RB 스킬",
-	]
-	for i in lines.size():
-		c.draw_string(_font, Vector2(272, 140 + i * 16), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
-	c.draw_string(_font, Vector2(272, 256), "공격 직전에 대시로 피하면 위치 타임!", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#c9b8ff"))
-	c.draw_string(_font, Vector2(272, 272), "스킬을 연달아 쓰면 폭주 — 가득 차면 나도 다칩니다.", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.FIRE_MID)
-	if fmod(_t, 1.0) < 0.65:
-		c.draw_string(_font, Vector2(272, 296), "아무 키나 눌러 시작", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD)
+	c.draw_string(_font, Vector2(272, 116), "마녀학교와 여우신 · 1장 체험판 v0.4", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
+	c.draw_string(_font, Vector2(272, 140), "폐급 마녀 세라와 여우신 너울의 이야기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+	match _phase:
+		0:
+			if fmod(_t, 1.0) < 0.65:
+				c.draw_string(_font, Vector2(272, 230), "아무 키나 누르세요", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD)
+			c.draw_string(_font, Vector2(272, 290), "키보드 또는 게임패드", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+		1:
+			c.draw_string(_font, Vector2(272, 290), "↑↓ 고르기 · Z 확인", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+		3:
+			c.draw_string(_font, Vector2(272, 208), "기록을 지우고 처음부터 시작할까요?", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
 
 
 func _input(event: InputEvent) -> void:
-	if _started or _t < 0.3:
+	if _t < 0.3 or _phase == 4:
 		return
-	var pressed: bool = (event is InputEventKey and event.pressed and not event.echo) \
-		or (event is InputEventJoypadButton and event.pressed) \
-		or (event is InputEventMouseButton and event.pressed)
-	if pressed:
-		_started = true
-		Sfx.play(&"ui_ok", 0.0, 0.0)
-		GameState.new_run()
-		GameState.start_stage()
+	match _phase:
+		0:
+			var pressed: bool = (event is InputEventKey and event.pressed and not event.echo) \
+				or (event is InputEventJoypadButton and event.pressed) \
+				or (event is InputEventMouseButton and event.pressed)
+			if pressed:
+				get_viewport().set_input_as_handled()
+				Sfx.play(&"ui_ok", 0.0, 0.0)
+				_build_menu()
+				_menu.visible = true
+				_phase = 1
+		1:
+			if _menu.handle_input(event):
+				get_viewport().set_input_as_handled()
+		2:
+			if _options.handle_input(event):
+				get_viewport().set_input_as_handled()
+		3:
+			if _confirm.handle_input(event):
+				get_viewport().set_input_as_handled()
+			elif event.is_action_pressed("ui_cancel"):
+				_confirm.visible = false
+				_menu.visible = true
+				_phase = 1
+
+
+func _on_menu(index: int) -> void:
+	match _items[index]:
+		"이어하기":
+			_phase = 4
+			Music.stop(0.8)
+			if not GameState.continue_game():
+				_phase = 1
+		"새로 시작":
+			if GameState.has_save():
+				_menu.visible = false
+				_confirm.visible = true
+				_confirm.selected = 0
+				_phase = 3
+			else:
+				_start_new()
+		"설정":
+			_menu.visible = false
+			_options.open()
+			_options.visible = true
+			_phase = 2
+		"전투 연습장":
+			_phase = 4
+			GameState.new_run()
+			GameState.start_stage()
+
+
+func _on_confirm(index: int) -> void:
+	if index == 1:
+		GameState.delete_save()
+		_start_new()
+	else:
+		_confirm.visible = false
+		_menu.visible = true
+		_phase = 1
+
+
+func _start_new() -> void:
+	_phase = 4
+	Music.stop(1.0)
+	GameState.start_new_game()
 
 
 class TitleText extends Control:

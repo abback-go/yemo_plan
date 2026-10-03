@@ -22,6 +22,10 @@ var air_dashes_left := 0
 var pillar_cooldown_left := 0.0
 var storm_cooldown_left := 0.0
 var controls_enabled := true
+var fox_time := 0.0 ## 여우 모드(빙의) 남은 시간
+var fox_energy := 1.0 ## 너울의 기운 0~1. 가득 차 있어야 폭주가 여우 모드로 바뀜 (docs/chapter1.md 12.4절)
+var air_jumps_left := 0
+var no_overload := false ## 봉인 결계 안: 폭주 게이지가 오르지 않음
 var last_jump_height_t := 0.0 ## 직전 점프의 실제 높이 (T). 디버그 표시용
 
 # 남은 시간을 초 단위로 세는 타이머들
@@ -48,6 +52,20 @@ var _dust_timer := 0.0
 var _drop_timer := 0.0 ## 통과 발판 내려가는 중
 var _witch_cooldown := 0.0
 var _dodged_this_dash := false
+var _potion_timer := 0.0
+var _window_cooldown := 0.0
+var _safe_positions: Array = []
+var _safe_timer := 0.0
+var _hazard_cool := 0.0
+var _walk_target := INF
+var _walk_speed := 90.0
+var _fox_trail_t := 0.0
+var _emote_node: EmoteBubble
+
+const FOX_DURATION := 12.0
+const FOX_RECHARGE := 50.0
+const POTION_HEAL := 2
+const POTION_TIME := 0.6
 
 var _combo_index := 0 ## 다음에 쏠 타 (0, 1, 2 = 1·2·3타)
 var _air_hovers_left := 0
@@ -84,8 +102,11 @@ func _ready() -> void:
 	_hurtbox.collision_layer = GameConst.L_PLAYER_HURT
 	_hurtbox.collision_mask = GameConst.L_ENEMY_ATTACK
 	camera.tuning = tuning
-	hp = tuning.max_hp
+	hp = GameState.hp
 	recalculate()
+	_emote_node = EmoteBubble.new()
+	_emote_node.position = Vector2(0, -50)
+	add_child(_emote_node)
 
 
 ## tuning 값을 픽셀 단위 물리 값으로 바꾼다.
@@ -128,10 +149,118 @@ func center() -> Vector2:
 	return global_position + Vector2(0, -16)
 
 
+func max_hp() -> int:
+	return GameState.max_hp
+
+
 func heal_full() -> void:
-	if hp < tuning.max_hp:
-		hp = tuning.max_hp
-		hp_changed.emit(hp, tuning.max_hp)
+	if hp < max_hp():
+		hp = max_hp()
+		GameState.hp = hp
+		hp_changed.emit(hp, max_hp())
+
+
+## GameState의 체력을 세라에게 반영 (방 이동·기록·부활 후)
+func restore_from_state() -> void:
+	hp = clampi(GameState.hp, 1, max_hp())
+	hp_changed.emit(hp, max_hp())
+
+
+func is_fox() -> bool:
+	return fox_time > 0.0
+
+
+func can_double_jump() -> bool:
+	return GameState.has_ability("double_jump") or GameState.has_flag("temp_double_jump")
+
+
+## 방에 들어갈 때 등장 위치로
+func place_at(pos: Vector2, face: int) -> void:
+	global_position = pos
+	velocity = Vector2.ZERO
+	facing = face if face != 0 else facing
+	if state == State.DASH:
+		_end_dash()
+	if state != State.DEAD:
+		state = State.IDLE
+	_safe_positions.clear()
+	_walk_target = INF
+	_cancel_storm()
+	camera.reset_smoothing()
+
+
+## 컷신 시작: 멈춰 세움
+func halt() -> void:
+	velocity.x = 0.0
+	if state == State.DASH:
+		_end_dash()
+		velocity.x = 0.0
+	_cancel_storm()
+	_potion_timer = 0.0
+	_body.drinking = false
+
+
+func revive() -> void:
+	state = State.IDLE
+	controls_enabled = true
+	overload = 0.0
+	_overload_fuse = -1.0
+	fox_time = 0.0
+	fox_energy = 1.0
+	_hurt_iframe = 1.0
+	_visual.modulate = Color.WHITE
+	_body.fox = 0.0
+	restore_from_state()
+	Fx.set_vignette(0.0)
+
+
+## 멈춤 안내에서 누른 키를 이어서 실행
+func buffer_action(a: String) -> void:
+	match a:
+		"jump":
+			_jump_buffer_timer = tuning.jump_buffer_time
+		"attack":
+			_attack_buffer = tuning.attack_buffer_time
+		"dash":
+			if _can_dash():
+				_start_dash(0.0)
+		"skill_1":
+			if pillar_cooldown_left <= 0.0:
+				_cast_skill_1()
+		"skill_2":
+			if storm_cooldown_left <= 0.0:
+				_cast_skill_2()
+		"fox_window":
+			_open_window()
+
+
+## 컷신에서 걸어가기 (도착하면 돌아옴)
+func walk_to(x: float, speed := 90.0) -> void:
+	_walk_target = x
+	_walk_speed = speed
+	var guard := 0
+	while _walk_target != INF and guard < 600:
+		await get_tree().physics_frame
+		guard += 1
+	_walk_target = INF
+
+
+func emote(kind: String, time := 1.2) -> void:
+	_emote_node.show_emote(kind, time)
+
+
+## 가시·불꽃: 1 피해 + 직전 안전한 땅으로
+func hazard_hit() -> void:
+	if state == State.DEAD or _hazard_cool > 0.0:
+		return
+	_hazard_cool = 0.6
+	var back: Vector2 = _safe_positions[0] if not _safe_positions.is_empty() else global_position + Vector2(-facing * 32, -16)
+	if take_damage(1, &"hazard", global_position.x, true) and state != State.DEAD:
+		global_position = back
+		velocity = Vector2.ZERO
+		state = State.FALL
+		_hurt_iframe = tuning.hurt_invincible
+		camera.reset_smoothing()
 
 
 ## 적에게 공격이 맞았을 때 EnemyBase가 알려 준다
@@ -153,6 +282,15 @@ func _physics_process(delta: float) -> void:
 
 	var input_x := Input.get_axis("move_left", "move_right") if controls_enabled else 0.0
 	var down := controls_enabled and Input.is_action_pressed("move_down")
+	if _walk_target != INF:
+		var dx := _walk_target - global_position.x
+		if absf(dx) < 3.0:
+			_walk_target = INF
+			velocity.x = 0.0
+		else:
+			input_x = signf(dx) * clampf(_walk_speed / _max_speed, 0.2, 1.0)
+	if _potion_timer > 0.0:
+		input_x *= 0.3
 	if _can_act():
 		_read_action_input(input_x, down)
 
@@ -194,6 +332,12 @@ func _tick_timers(delta: float) -> void:
 	_storm_timer -= delta
 	_overload_idle += delta
 	_witch_cooldown -= delta
+	_window_cooldown -= delta
+	_hazard_cool -= delta
+	if _potion_timer > 0.0:
+		_potion_timer -= delta
+		if _potion_timer <= 0.0:
+			_finish_potion()
 	pillar_cooldown_left = maxf(pillar_cooldown_left - delta, 0.0)
 	storm_cooldown_left = maxf(storm_cooldown_left - delta, 0.0)
 	if _drop_timer > 0.0:
@@ -218,8 +362,14 @@ func _read_action_input(input_x: float, down: bool) -> void:
 	if Input.is_action_just_pressed("jump"):
 		if down and is_on_floor() and _standing_on_platform():
 			_drop_through()
+		elif not is_on_floor() and _coyote_timer <= 0.0 and air_jumps_left > 0 and can_double_jump() and state != State.DASH:
+			_double_jump()
 		else:
 			_jump_buffer_timer = tuning.jump_buffer_time
+	if Input.is_action_just_pressed("potion"):
+		_drink_potion()
+	if Input.is_action_just_pressed("fox_window"):
+		_open_window()
 	if Input.is_action_just_pressed("dash") and _can_dash():
 		_start_dash(input_x)
 	# 대시 중에도 화염탄·불기둥은 쏠 수 있다 (화염 폭풍은 자세를 잡아야 하므로 대시를 끊고 시전)
@@ -229,11 +379,14 @@ func _read_action_input(input_x: float, down: bool) -> void:
 	if wants_attack and _attack_cooldown <= 0.0 and _storm_timer <= 0.0:
 		_fire_bolt()
 	if Input.is_action_just_pressed("skill_1") and pillar_cooldown_left <= 0.0 and _storm_timer <= 0.0:
-		_cast_pillar()
+		_cast_skill_1()
 	if Input.is_action_just_pressed("skill_2") and storm_cooldown_left <= 0.0:
-		if state == State.DASH:
-			_end_dash()
-		_cast_storm()
+		if not is_fox() and not GameState.has_ability("storm"):
+			Story.toast("아직 배우지 않은 마법이다.")
+		else:
+			if state == State.DASH:
+				_end_dash()
+			_cast_skill_2()
 
 
 # ─── 이동 ───────────────────────────────────────────────
@@ -370,6 +523,13 @@ func _process_dash(delta: float) -> void:
 		_end_dash()
 		return
 	velocity = Vector2(_dash_dir * _dash_speed, 0.0)
+	if is_fox():
+		_fox_trail_t -= delta
+		if _fox_trail_t <= 0.0:
+			_fox_trail_t = 0.035
+			var tr := FoxTrail.new()
+			tr.global_position = global_position + Vector2(0, -10)
+			Fx.effect_parent().add_child(tr)
 	_afterimage_timer -= delta
 	if _afterimage_timer <= 0.0:
 		_spawn_afterimage(0.6)
@@ -389,10 +549,14 @@ func _fire_bolt() -> void:
 	if _since_shot > tuning.combo_keep_time:
 		_combo_index = 0
 	var heavy := _combo_index == 2
-	var bolt := FireBolt.new()
-	bolt.setup(facing, heavy, tuning, is_overheated())
-	bolt.global_position = to_global(Vector2(HAND.x * facing, HAND.y))
-	Fx.effect_parent().add_child(bolt)
+	var hand := to_global(Vector2(HAND.x * facing, HAND.y))
+	if is_fox():
+		FoxfireBolt.fire(hand, facing, heavy, tuning)
+	else:
+		var bolt := FireBolt.new()
+		bolt.setup(facing, heavy, tuning, is_overheated())
+		bolt.global_position = hand
+		Fx.effect_parent().add_child(bolt)
 
 	_attack_cooldown = tuning.bolt_interval_heavy if heavy else tuning.bolt_interval_light
 	_combo_index = (_combo_index + 1) % 3
@@ -401,8 +565,9 @@ func _fire_bolt() -> void:
 	_cast_pose = 0.16
 	_cast_kind = 0
 	GameState.add("bolts_fired")
-	Sfx.play(&"shoot_heavy" if heavy else &"shoot", -1.0 if heavy else -3.0)
-	Fx.burst(bolt.global_position, 8 if heavy else 4, {
+	if not is_fox():
+		Sfx.play(&"shoot_heavy" if heavy else &"shoot", -1.0 if heavy else -3.0)
+	Fx.burst(hand, 8 if heavy else 4, {
 		direction = Vector2(facing, 0), spread = 35.0, speed_min = 60.0, speed_max = 160.0,
 		lifetime = 0.15, size_min = 1.0, size_max = 2.5, gravity = Vector2.ZERO,
 	})
@@ -418,6 +583,91 @@ func _fire_bolt() -> void:
 
 
 # ─── 스킬 ───────────────────────────────────────────────
+
+func _cast_skill_1() -> void:
+	if is_fox():
+		var r := FoxRain.new()
+		r.setup(self, tuning)
+		Fx.effect_parent().add_child(r)
+		pillar_cooldown_left = tuning.pillar_cooldown * 1.6
+		_cast_pose = 0.4
+		_cast_kind = 1
+		GameState.add("pillar")
+	else:
+		_cast_pillar()
+
+
+func _cast_skill_2() -> void:
+	if is_fox():
+		var st := NineTailStorm.new()
+		st.setup(self, tuning)
+		add_child(st)
+		_storm_timer = 0.5
+		storm_cooldown_left = tuning.storm_cooldown * 1.2
+		_cast_pose = 0.6
+		_cast_kind = 2
+		if not is_on_floor():
+			velocity.y = minf(velocity.y, 0.0)
+		GameState.add("storm")
+	else:
+		_cast_storm()
+
+
+func _double_jump() -> void:
+	air_jumps_left -= 1
+	velocity.y = _jump_velocity * 0.87
+	_jump_start_y = position.y
+	_jump_peak_y = position.y
+	_squash_to(Vector2(0.75, 1.25))
+	Sfx.play(&"double_jump", -2.0)
+	# 발밑 마법진
+	Fx.ring(global_position + Vector2(0, -1), 3.0, 18.0, Color(0.75, 0.65, 1.0) if not is_fox() else Color(0.55, 0.85, 1.0), 0.25, 1.0)
+	Fx.burst(global_position, 10, {direction = Vector2.DOWN, spread = 60.0, speed_min = 30.0, speed_max = 90.0,
+		lifetime = 0.3, gradient = Palette.fade_gradient(Color(0.8, 0.75, 1.0)), gravity = Vector2.ZERO, add = true})
+
+
+func _drink_potion() -> void:
+	if _potion_timer > 0.0 or GameState.potions <= 0:
+		if GameState.potions_max > 0 and GameState.potions <= 0:
+			Story.toast("물약이 없다. 기록 지점에서 다시 채워진다.")
+		return
+	if hp >= max_hp():
+		Story.toast("체력이 가득하다.")
+		return
+	_potion_timer = POTION_TIME
+	_body.drinking = true
+	Sfx.play(&"potion", -2.0)
+
+
+func _finish_potion() -> void:
+	_body.drinking = false
+	if state == State.DEAD or GameState.potions <= 0:
+		return
+	GameState.potions -= 1
+	hp = mini(hp + POTION_HEAL, max_hp())
+	GameState.hp = hp
+	hp_changed.emit(hp, max_hp())
+	Fx.burst(center(), 18, {spread = 180.0, speed_min = 20.0, speed_max = 70.0, lifetime = 0.6,
+		gradient = Palette.fade_gradient(Color(1.0, 0.5, 0.6)), gravity = Vector2(0, -60), add = true})
+	Fx.ring(center(), 4.0, 22.0, Color(1.0, 0.6, 0.7), 0.3, 1.0)
+	if GameState.has_flag("pippa_potion"):
+		var lines := ["…딸기 맛? 아니, 이건 양말 맛이야.", "쓰다! 그래도 힘이 난다.", "피피, 대체 뭘 넣은 거야…", "어, 의외로 맛있어.", "혀가 파래졌을 것 같아."]
+		Story.toast(lines[randi() % lines.size()], 1.8)
+
+
+func _open_window() -> void:
+	if not GameState.has_ability("fox_window") or _window_cooldown > 0.0:
+		return
+	if get_tree().get_first_node_in_group(&"fox_window"):
+		return
+	var w := FoxWindow.new()
+	w.setup(self)
+	Fx.effect_parent().add_child(w)
+	_window_cooldown = FoxWindow.DURATION + 2.0
+	_cast_pose = 0.5
+	_cast_kind = 2
+	Sfx.play(&"window", -2.0, 0.0)
+
 
 func _cast_pillar() -> void:
 	var target := _find_pillar_target()
@@ -452,6 +702,18 @@ func _find_pillar_target() -> Node2D:
 		if d < best_d:
 			best_d = d
 			best = e
+	if best == null:
+		for b in get_tree().get_nodes_in_group(&"pillar_target"):
+			if not b.is_alive():
+				continue
+			var dx2: float = (b.global_position.x - global_position.x) * facing
+			var dy2: float = absf(b.global_position.y - global_position.y)
+			if dx2 < -8.0 or dx2 > range_px or dy2 > 7.0 * GameConst.TILE:
+				continue
+			var d2 := Vector2(dx2, dy2).length()
+			if d2 < best_d:
+				best_d = d2
+				best = b
 	return best
 
 
@@ -492,14 +754,68 @@ func _cancel_storm() -> void:
 # ─── 폭주 게이지 ────────────────────────────────────────
 
 func _add_overload(amount: float) -> void:
+	if is_fox() or no_overload:
+		return
 	overload = minf(overload + amount, tuning.overload_max)
 	_overload_idle = 0.0
-	if overload >= tuning.overload_max and _overload_fuse < 0.0:
+	if overload >= tuning.overload_max:
+		_on_overload_full()
+
+
+## 폭주 게이지가 가득 참: 너울이 있고 기운이 차 있으면 여우 모드, 아니면 폭주 폭발
+func _on_overload_full() -> void:
+	if GameState.has_ability("fox_mode") and fox_energy >= 1.0:
+		start_fox_mode()
+	elif _overload_fuse < 0.0:
 		_overload_fuse = tuning.overload_fuse
 		Sfx.play(&"overload_warn", 2.0, 0.0)
 
 
+## 대본에서 폭주 게이지를 강제로 채움 (P4 폭주 폭발, P7 첫 빙의)
+func force_overload_full() -> void:
+	overload = tuning.overload_max
+	_overload_idle = 0.0
+	_on_overload_full()
+
+
+func start_fox_mode() -> void:
+	overload = 0.0
+	_overload_fuse = -1.0
+	Fx.set_vignette(0.0)
+	fox_time = FOX_DURATION
+	fox_energy = 0.0
+	_hurt_iframe = maxf(_hurt_iframe, 1.0)
+	GameState.add("fox_modes")
+	var fx := FoxTransformFx.new()
+	fx.setup(self)
+	Fx.effect_parent().add_child(fx)
+	var w := World.get_world()
+	if w:
+		w.pet.merge_into_player()
+
+
+func _end_fox_mode() -> void:
+	fox_time = 0.0
+	overload = 0.0
+	var b := FoxEndBurst.new()
+	b.setup(center(), tuning)
+	Fx.effect_parent().add_child(b)
+	var w := World.get_world()
+	if w:
+		w.pet.leave_player()
+
+
 func _update_overload(delta: float) -> void:
+	if fox_time > 0.0:
+		fox_time -= delta
+		_body.fox = minf(_body.fox + delta * 4.0, 1.0)
+		if fox_time <= 0.0:
+			_end_fox_mode()
+		return
+	_body.fox = maxf(_body.fox - delta * 3.0, 0.0)
+	if fox_energy < 1.0:
+		fox_energy = minf(fox_energy + delta / FOX_RECHARGE, 1.0)
+	_body.mimic = 1.0 if GameState.has_ability("fox_mode") and is_overheated() and fox_energy >= 1.0 else 0.0
 	var heated := is_overheated()
 	if heated and not _was_overheated:
 		Sfx.play(&"overheat", -2.0, 0.0)
@@ -586,9 +902,10 @@ func take_damage(amount: int, cause: StringName, from_x: float, forced := false)
 	if not forced and is_invincible():
 		return false
 	hp = maxi(hp - amount, 0)
+	GameState.hp = hp
 	GameState.add("hits_" + String(cause))
 	StyleRank.on_hurt()
-	hp_changed.emit(hp, tuning.max_hp)
+	hp_changed.emit(hp, max_hp())
 	_hurt_iframe = tuning.hurt_invincible
 	Fx.hitstop(tuning.hitstop_hurt)
 	Fx.shake(tuning.shake_hurt_t)
@@ -615,6 +932,9 @@ func take_damage(amount: int, cause: StringName, from_x: float, forced := false)
 func _die() -> void:
 	state = State.DEAD
 	controls_enabled = false
+	fox_time = 0.0
+	_body.drinking = false
+	_potion_timer = 0.0
 	_overload_fuse = -1.0
 	Fx.set_vignette(0.0)
 	_cancel_storm()
@@ -628,7 +948,6 @@ func _die() -> void:
 	})
 	var t := create_tween().set_ignore_time_scale(true)
 	t.tween_property(_visual, "modulate:a", 0.0, 0.8).set_delay(0.3)
-	get_tree().create_timer(1.6, true, false, true).timeout.connect(GameState.restart_from_checkpoint)
 
 
 # ─── 이동 후 처리 ───────────────────────────────────────
@@ -640,6 +959,13 @@ func _after_move() -> void:
 		_coyote_timer = tuning.coyote_time
 		air_dashes_left = tuning.air_dash_count
 		_air_hovers_left = tuning.air_shot_hover_count
+		air_jumps_left = 1
+		_safe_timer -= get_physics_process_delta_time()
+		if _safe_timer <= 0.0 and state != State.HURT and _hazard_cool <= 0.0:
+			_safe_timer = 0.25
+			_safe_positions.append(global_position)
+			if _safe_positions.size() > 3:
+				_safe_positions.pop_front()
 		if not _was_on_floor:
 			_on_land()
 		elif state == State.RUN and absf(velocity.x) > _max_speed * 0.6:
@@ -730,7 +1056,7 @@ func _spawn_afterimage(alpha: float) -> void:
 	var ghost := PlayerVisual.new()
 	ghost.copy_pose_from(_body)
 	ghost.ghost = true
-	ghost.ghost_color = Color(1.0, 0.45, 0.25, alpha)
+	ghost.ghost_color = Color(1.0, 0.45, 0.25, alpha) if not is_fox() else Color(0.4, 0.75, 1.0, alpha)
 	ghost.material = Fx.add_material
 	Fx.effect_parent().add_child(ghost)
 	ghost.global_transform = _body.global_transform

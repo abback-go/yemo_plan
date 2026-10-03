@@ -9,6 +9,8 @@ var target: Node2D = null ## 따라갈 적. 없으면 처음 자리에서 솟음
 var facing := 1
 var side := 0 ## 0 = 중심 기둥, 1·2… = 연쇄 기둥 순번
 var side_dir := 0
+var blue := false ## 여우 모드(여우비 마무리)의 푸른 여우불 기둥
+var damage_override := 0
 
 var _t := 0.0
 var _erupted := false
@@ -42,6 +44,10 @@ func _ready() -> void:
 	_w = tuning.pillar_width_t * t * k
 	_h = tuning.pillar_height_t * t * k
 	_warn = tuning.pillar_warn_time if side == 0 else 0.06
+	if blue:
+		_warn = 0.12
+		_w *= 1.3
+		_h *= 1.25
 	_area = Area2D.new()
 	_area.collision_layer = GameConst.L_PLAYER_ATTACK
 	_area.collision_mask = GameConst.L_ENEMY_HURT
@@ -84,19 +90,20 @@ func _erupt() -> void:
 	Fx.shake(tuning.shake_pillar_t * (0.8 if big else 0.35), 0.25)
 	if big:
 		Fx.zoom_punch(tuning.zoom_punch * 0.8)
-		Fx.flash(Color(1.0, 0.6, 0.3, 0.18), 0.12)
+		Fx.flash(Color(1.0, 0.6, 0.3, 0.18) if not blue else Color(0.5, 0.8, 1.0, 0.22), 0.12)
 	Fx.burst(global_position + Vector2(0, -_h * 0.5), 46 if big else 20, {
 		direction = Vector2.UP, spread = 14.0, speed_min = 120.0, speed_max = 420.0,
 		lifetime = 0.55, size_min = 1.5, size_max = 4.5, gravity = Vector2(0, -80),
 		box = Vector2(_w * 0.35, _h * 0.5),
+		gradient = Palette.fade_gradient(Color(0.55, 0.85, 1.0)) if blue else null, add = true,
 	})
 	Fx.burst(global_position, 18 if big else 8, {
 		direction = Vector2.UP, spread = 85.0, speed_min = 60.0, speed_max = 180.0,
 		lifetime = 0.4, size_min = 1.5, size_max = 3.0, gravity = Vector2(0, 400),
 		gradient = Palette.fade_gradient(Palette.GROUND_TOP),
 	})
-	Fx.ring(global_position, 4.0, _w * 1.6, Palette.FIRE_HOT, 0.3, 2.0)
-	if big:
+	Fx.ring(global_position, 4.0, _w * 1.6, Palette.FIRE_HOT if not blue else Color(0.6, 0.85, 1.0), 0.3, 2.0)
+	if big and not blue:
 		_spawn_chain()
 
 
@@ -138,8 +145,12 @@ func _apply_hits() -> void:
 	for a in _area.get_overlapping_areas():
 		var e := a.get_parent()
 		if e and e.has_method("take_hit") and e.is_alive():
+			if side > 0 and e is Brazier:
+				continue # 연쇄 기둥은 봉화를 켜지 않음 (퍼즐이 꼬이지 않게)
 			var dmg := tuning.pillar_damage if side == 0 else tuning.pillar_side_damage
-			var hit := Hit.make(dmg, &"pillar", global_position + Vector2(0, 8))
+			if damage_override > 0:
+				dmg = damage_override
+			var hit := Hit.make(dmg, &"fox_pillar" if blue else &"pillar", global_position + Vector2(0, 8))
 			hit.launch_t = tuning.pillar_launch_t if side == 0 else tuning.pillar_launch_t * 0.6
 			hit.hitstop = tuning.hitstop_pillar if side == 0 else 0.03
 			hit.shake_t = tuning.shake_pillar_t if side == 0 else 0.1
@@ -183,6 +194,8 @@ func _draw() -> void:
 	var layers := [
 		[Palette.FIRE_DARK, 1.0], [Palette.FIRE_OUT, 0.8], [Palette.FIRE_HOT, 0.5], [Palette.FIRE_CORE, 0.24],
 	]
+	if blue:
+		layers = [[Color("#1a3a8a"), 1.0], [Color("#3a78e0"), 0.8], [Color("#8ad0ff"), 0.5], [Color("#eef8ff"), 0.24]]
 	for L in layers:
 		var col: Color = L[0]
 		var hw: float = w * 0.5 * float(L[1]) * width_k
