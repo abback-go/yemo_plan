@@ -138,8 +138,9 @@
     [2632, "quest", "k_greta_books"],
     [2642, "spells", "end"],
     [2652, "flags", "end"],
-    [2662, "status", "quests_end"],
-    [2666, "worldinfo", "quests_end"],
-    [2670, "quit"]
+    [2662, "run", "dev_ch2_info"],
+    [2682, "status", "quests_end"],
+    [2686, "worldinfo", "quests_end"],
+    [2690, "quit"]
   ]
 }

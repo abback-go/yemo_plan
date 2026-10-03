@@ -850,7 +850,7 @@ func k_noxis(c: Cut) -> void:
 	await c.fade_out(1.4)
 	await c.narrate("그날 밤 — 시계탑 꼭대기.")
 	c.close_box()
-	await c.goto_room("k_clocktower", "top")
+	await c.goto_room("k_clocktower", "top_save")
 	c.music("kingdom_night", 1.0)
 	await c.fade_in(1.4)
 	c.player_face(-1)
@@ -860,7 +860,7 @@ func k_noxis(c: Cut) -> void:
 	await c.say("neoul", "흥. 그 말을 기다렸느니라. 다리 건너 귀족 구역, 그 너머가 황궁이다.")
 	await c.say("neoul", "등불 든 태엽 경비병들이 깨어 있다. 들키면 싸움이 되니, 발코니 위로 가든 정면으로 가든 네 마음이니라.")
 	c.close_box()
-	c.save_here("top")
+	c.save_here("top_save")
 
 
 func enter_k_noble(c: Cut) -> void:
@@ -1212,6 +1212,7 @@ func _farewell(c: Cut) -> void:
 	c.hud(false)
 	c.music("ending", 1.0)
 	c.player_face(1)
+	c.tint(Color(0.04, 0.05, 0.18, 0.38), 0.01)
 	await c.fade_in(2.0)
 	await c.wait(0.6)
 	await c.say("sera", "…너울. 자?")
@@ -1226,6 +1227,7 @@ func _farewell(c: Cut) -> void:
 	await c.say("neoul", "…그리고 세라. 아까부터 엉덩이께가 근질거리느니라. 무언가… 돋아날 것 같구나.", "surprised")
 	c.close_box()
 	c.save_here("bed")
+	c.tint(Color(0, 0, 0, 0), 1.0)
 	await ChapterFlow.finish(c, 2)
 
 
@@ -1327,11 +1329,12 @@ func npc_leonie(c: Cut) -> void:
 				return
 	if c.has("k_beast_down"):
 		await c.say("leonie", "세라. 왔나.", "happy")
-		await c.say("leonie", "브론이 새 검을 벼려 줬다더군. 누가 별철을 구해다 줬는지는 말을 안 하던데.")
 		if Quests.done("k_bron_ore"):
+			await c.say("leonie", "브론이 새 검을 벼려 줬다. 누가 별철을 구해다 줬는지는 끝내 말을 안 하더군.")
 			await c.say("leonie", "…네 짓이로군. 고맙다. 이 검은 오래 쓰겠다.", "happy")
 		else:
 			await c.say("leonie", "검은 언젠가 부러진다. 그 전에 지킬 것을 지키면 된다.")
+			await c.say("leonie", "…브론 녀석이 별철 타령을 하던데. 시간이 나면 들어 줘라. 나한테는 말을 안 하니까.")
 	else:
 		await c.say("leonie", "할 일이 남았다. 가라.")
 
@@ -1751,4 +1754,6 @@ func dev_ch2_info(c: Cut) -> void:
 	for k in ["k_sw2_low", "k_sw3_low", "k_sw4_high", "k_gears_done", "k_crypt_open", "k_sw2_wall", "k_race_on", "k_duel_done", "k_beast_down"]:
 		if GameState.has_flag(k):
 			flags.append(k)
-	print("DEV flags ", flags, " room=", _room(c), " pos=", _ptile(c).snapped(Vector2(0.1, 0.1)))
+	print("DEV flags ", flags, " room=", _room(c), " pos=", _ptile(c).snapped(Vector2(0.1, 0.1)),
+		" chapter=", GameState.flag("chapter", 1), " tails=", GameState.flag("tails", 1), " ch2_done=", GameState.has_flag("ch2_done"),
+		" maxhp=", GameState.max_hp, " pot=", GameState.potions_max, " stones=", Spells.stones())

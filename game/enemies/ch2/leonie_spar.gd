@@ -44,7 +44,7 @@ func _build() -> void:
 	subtitle = "목검 대련 — 세 번 맞히거나 60초 버티기"
 	kind_id = "leonie_spar"
 	_setup_visual(true)
-	_slash = add_attack_area(Vector2(34, 28), Vector2(18, -18), &"leonie_spar", 1)
+	_slash = add_attack_area(Vector2(44, 30), Vector2(22, -18), &"leonie_spar", 1)
 	_slash.active = false
 	_body_hit = add_attack_area(Vector2(16, 32), Vector2(0, -18), &"leonie_spar", 1)
 	_body_hit.active = false
@@ -97,7 +97,7 @@ func _ai(delta: float) -> void:
 		S.STALK:
 			face_player()
 			pose("run" if absf(velocity.x) > 10.0 else "idle")
-			var want := signf(dx) * WALK_T * t if absf(dx) > 3.5 * t else 0.0
+			var want := signf(dx) * WALK_T * t if absf(dx) > 2.2 * t else 0.0
 			velocity.x = move_toward(velocity.x, want, 500.0 * delta)
 			if _timer <= 0.0 and is_on_floor():
 				_choose(absf(dx) / t)
@@ -109,7 +109,7 @@ func _ai(delta: float) -> void:
 				_enter(S.COMBO_HIT, 0.25)
 				velocity.x = facing * 6.0 * t
 				pose("attack" if _combo == 0 else "attack2")
-				strike(_slash, Vector2(18, -18), 0.1)
+				strike(_slash, Vector2(22, -18), 0.12)
 				KE.snd(&"sword_slash", &"swing", 0.0)
 		S.COMBO_HIT:
 			velocity.x = move_toward(velocity.x, 0.0, 900.0 * delta)
@@ -138,7 +138,7 @@ func _ai(delta: float) -> void:
 				_after_every = 0.0
 				velocity.x = 0.0
 				pose("attack")
-				strike(_slash, Vector2(16, -18), 0.1)
+				strike(_slash, Vector2(22, -18), 0.12)
 				KE.snd(&"sword_slash", &"swing", 0.0)
 				_enter(S.RECOVER, Difficulty.rest(1.0))
 		S.GUARD:

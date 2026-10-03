@@ -114,7 +114,7 @@ func _physics_process(delta: float) -> void:
 		if _shot_t <= 0.0:
 			_shot_t = period
 			var from := _heart() + Vector2(signf(p.center().x - _heart().x) * (size_px.x * 0.5 + 6.0), 0)
-			KE.shard(from, (p.center() - from).normalized(), 5.5 * GameConst.TILE, {"radius": 4.0, "life": 5.0, "cause": "crystal_wall"})
+			KE.shard(from, (p.center() - from).normalized(), 5.5 * GameConst.TILE, {"radius": 4.0, "life": 3.0, "cause": "crystal_wall", "hits_world": false})
 			KE.snd(&"star_twinkle", &"sniper_shot", -6.0)
 	else:
 		_shot_t = minf(_shot_t, 1.0)

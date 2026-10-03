@@ -562,7 +562,7 @@ def k_clocktower():
     r.fill(15, 12, 38, 13)
     r.exit_left("top", 7, 11, "k_noble", "east")
     r.add("gate", id="bridge_gate", x=2, y=7, w=1, h=5, open_if="k_duel_called", look="bars")
-    r.add("save", id="top", x=30, y=12, style="candle")
+    r.add("save", id="top_save", x=30, y=12, style="candle")
     r.add("trigger", id="top_tg", x=20, y=6, w=5, h=6, run="k_tower_top", cond="k_gears_done,!k_tower_top", once=False)
     r.add("spawn", id="wolf", x=34, y=12)
     r.add("enemy", id="liz1", kind="star_lizard", x=6, y=50)
