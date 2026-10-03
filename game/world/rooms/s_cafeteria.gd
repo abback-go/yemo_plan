@@ -46,4 +46,7 @@ func _init() -> void:
 		{t = "prop", kind = "potion_shelf", x = 35, y = 19, w = 3, h = 4},
 		{t = "prop", kind = "chandelier", x = 14, y = 2, len = 3},
 		{t = "prop", kind = "window", x = 20, y = 10, w = 3, h = 5},
+		{t = "npc", id = "k_pippa_am", who = "pippa", x = 18, y = 19, face = "left", cond = "ch1_done,!k_breakfast"},
+		{t = "npc", id = "k_isolde_am", who = "isolde", x = 21, y = 19, face = "left", cond = "ch1_done,!k_breakfast"},
+		{t = "trigger", id = "k_morning", x = 7, y = 13, w = 4, h = 6, run = "k_cafe_morning", cond = "ch1_done,!k_breakfast"},
 	]
