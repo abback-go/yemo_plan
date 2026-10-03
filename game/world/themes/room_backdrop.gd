@@ -247,7 +247,8 @@ class BackdropLayer extends Node2D:
 
 	## 이 층이 덮어야 하는 너비 (시차만큼 덜 움직이므로 방보다 좁아도 됨)
 	func _span() -> Vector2:
-		return Vector2(640 + (room_size.x - 640) * scroll + 200, 368 + (room_size.y - 368) * scroll + 120)
+		# 세로 시차는 scroll * 0.6 + 0.4 (build의 scroll_scale.y)라 세로로 긴 방은 그만큼 더 덮어야 함
+		return Vector2(640 + (room_size.x - 640) * scroll + 200, 368 + (room_size.y - 368) * (scroll * 0.6 + 0.4) + 120)
 
 	func _col() -> Color:
 		match depth:

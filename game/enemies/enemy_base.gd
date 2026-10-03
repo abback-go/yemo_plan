@@ -86,6 +86,7 @@ func is_alive() -> bool:
 
 func _physics_process(delta: float) -> void:
 	if not _alive:
+		_flash = maxf(_flash - delta, 0.0) # 쓰러진 뒤 사라지는 동안에도 흰 번쩍임은 걷힘
 		return
 	# 위치 타임 중에는 적의 시간만 느려진다: 타이머·중력·AI에 배율을 곱한 시간을 쓰고,
 	# 이동은 속도에 배율을 곱해 move_and_slide 한 뒤 되돌린다.

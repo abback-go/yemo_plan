@@ -149,7 +149,11 @@ func _draw() -> void:
 		var tw := sin(_t * (4.0 if not sit else 2.0) + ti * 0.7) * 3.0
 		var tail_base := base + Vector2(-5 * f, -5)
 		var tail_tip := tail_base + Vector2(-8 * f, -8 + tw).rotated(spread * f)
-		draw_colored_polygon(PackedVector2Array([tail_base + Vector2(0, -2), tail_base.lerp(tail_tip, 0.5) + Vector2(-2 * f, -3), tail_tip, tail_base.lerp(tail_tip, 0.5) + Vector2(2 * f, 2), tail_base + Vector2(0, 2)]), fur)
+		# 꼬리 축 기준으로 양옆을 잡아 어느 각도로 돌아도 다각형이 꼬이지 않게
+		var ax := (tail_tip - tail_base).normalized()
+		var nrm := ax.orthogonal()
+		var mid := tail_base.lerp(tail_tip, 0.5)
+		draw_colored_polygon(PackedVector2Array([tail_base + nrm * 2.0, mid + nrm * 3.5, tail_tip, mid - nrm * 2.5, tail_base - nrm * 2.0]), fur)
 		draw_circle(tail_tip, 3.0, blue)
 		draw_circle(tail_tip + Vector2(0, -1), 1.5, core)
 		draw_rect(Rect2(tail_tip + Vector2(sin(_t * 9.0 + ti), -4.0 - fmod(_t * 6.0 + ti, 3.0)), Vector2(1, 1)), Color(core, 0.8))
