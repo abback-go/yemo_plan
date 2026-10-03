@@ -1,7 +1,7 @@
 class_name IsoldeDuel
 extends EnemyBase
 ## 이졸데 폰 크레스트 — 학교 결투 대회 결승 (3장 서브 s_duel_cup, docs/chapter3.md 11절). 고급반 엘리트의 서리 마법.
-## 거리를 두는 결투가: 세라가 4칸 안으로 들어오면 서리 안개를 남기고 뒤로 미끄러져 물러난다.
+## 거리를 두는 결투가: 세라가 4칸 안으로 들어오면 서리 안개를 남기고 뒤로 미끄러져 물러나고, 9칸보다 멀면 걸어서 다가온다.
 ## 패턴 (예고는 모두 붉은색, Difficulty.telegraph):
 ##   서리 조각: 손끝에 냉기를 모았다가(0.55초) 세 갈래 얼음 조각 — 불꽃 방벽으로 되쏠 수 있다.
 ##   얼음 창: 가는 붉은 선이 세라를 따라옴(0.9초) → 흰 선 고정(0.35초) → 빠른 큰 얼음 창 (되쏠 수 있음).
@@ -15,6 +15,7 @@ enum S { IDLE, VOLLEY, LANCE_AIM, LANCE_LOCK, FLOOR, GLIDE_WARN, GLIDE, BLOOM, B
 const ICE := Color(0.72, 0.9, 1.0)
 const ICE_D := Color(0.38, 0.6, 0.85)
 const KEEP_T := 4.0 ## 이보다 가까우면 물러남
+const FAR_T := 9.0 ## 이보다 멀면 걸어서 다가옴
 const SHARD_SPEED := 250.0
 const LANCE_SPEED := 470.0
 
@@ -94,7 +95,13 @@ func _ai(delta: float) -> void:
 		return
 	match state:
 		S.IDLE, S.REST:
-			if _timer <= 0.0:
+			# 결투 거리(9칸 안)를 지킨다 — 너무 멀면 걸어서 다가옴 (화면 밖에서 쏘지 않게)
+			var dx := p.global_position.x - global_position.x
+			var far := absf(dx) > FAR_T * GameConst.TILE
+			if far:
+				velocity.x = signf(dx) * 90.0
+			_cv.walking = far
+			if _timer <= 0.0 and absf(dx) <= (FAR_T + 3.0) * GameConst.TILE:
 				_next(p)
 		S.VOLLEY:
 			_cv.set_pose("cast")
@@ -157,6 +164,8 @@ func _ai(delta: float) -> void:
 				_go(S.REST, Difficulty.rest(0.5))
 	if state in [S.IDLE, S.REST]:
 		_cv.set_pose("idle")
+	else:
+		_cv.walking = false
 
 
 func _next(p: Player) -> void:

@@ -86,7 +86,7 @@ func ch3_start(c: Cut) -> void:
 	await c.say("sera", "…아침부터 또 뭐야. 실험 재료가 살아서 도망쳤어?")
 	await c.say("pippa", "아니! 세계수 묘목이! 엘프 숲에서 선물로 받은, 온실에서 제일 소중한 애가…", "sad")
 	c.close_box()
-	await c.camera_to(Vector2(22 * 16 + 8, 19 * 16 - 30), 0.8)
+	await c.camera_to(Vector2(11 * 16 + 8, 19 * 16 - 30), 0.8)
 	await c.wait(0.4)
 	await c.say("pippa", "하얗게 굳어 가고 있어. 물도 줬고, 햇빛도 줬는데… 잎이 꼭 돌처럼.", "sad")
 	await c.say("neoul", "……이 냄새. 불도, 썩음도 아니니라. 아무것도 아닌 냄새로구나.")
@@ -679,6 +679,7 @@ func e_herald_begin(c: Cut) -> void:
 		el.visual.set_pose("kneel")
 		await c.camera_to(h.global_position + Vector2(0, -50), 1.2)
 		await c.narrate("「……불…… 꺼라…… 숲은…… 잠들어라……」")
+		c.close_box()
 		var pod := c.actor("pod")
 		if pod and pod.has_method("struggle"):
 			pod.struggle()
@@ -1232,7 +1233,7 @@ func _isolde_duel(c: Cut) -> void:
 	c.lock()
 	c.player.global_position = Vector2(20 * 16 + 8, 19 * 16)
 	c.player_face(1)
-	var b := c.spawn_enemy("isolde_duel", 60.0, 19.0, "isolde_duel", {"engaged": false})
+	var b := c.spawn_enemy("isolde_duel", 34.0, 19.0, "isolde_duel", {"engaged": false})
 	if b == null:
 		return
 	b.facing = -1
@@ -1254,7 +1255,7 @@ func _isolde_duel(c: Cut) -> void:
 	if not c.ok() or not won[0]:
 		return # 쓰러졌거나 결투장을 나감 → 앞마당의 이졸데에게 다시
 	c.lock()
-	var at := b.global_position / 16.0 if is_instance_valid(b) else Vector2(60, 19)
+	var at := b.global_position / 16.0 if is_instance_valid(b) else Vector2(34, 19)
 	await c.wait(0.6)
 	c.spawn_npc("isolde", at.x, 19.0, -1 if c.player.global_position.x < at.x * 16.0 else 1)
 	c.music("school_day", 2.0)

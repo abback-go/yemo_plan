@@ -316,10 +316,10 @@ SONG3 = ("엘프 노래 가사 · 셋째 장",
 
 
 # ─── 학교 덧붙임 (3장 아침·편지·결투 대회·밤) ─────────────
-overlay("s_greenhouse", "prop", kind="eilach_sapling", x=22, y=19, white=0.6, cond="e_start,!e_herald_done")
-overlay("s_greenhouse", "prop", kind="eilach_sapling", x=22, y=19, white=0.0, cond="e_herald_done")
-overlay("s_greenhouse", "spawn", id="ch3", x=16, y=19, face="right")
-overlay("s_greenhouse", "npc", id="pippa_gh", who="pippa", x=27, y=19, face="left", cond="e_start,!ch3_done")
+overlay("s_greenhouse", "prop", kind="eilach_sapling", x=11, y=19, white=0.6, cond="e_start,!e_herald_done")
+overlay("s_greenhouse", "prop", kind="eilach_sapling", x=11, y=19, white=0.0, cond="e_herald_done")
+overlay("s_greenhouse", "spawn", id="ch3", x=6, y=19, face="right")
+overlay("s_greenhouse", "npc", id="pippa_gh", who="pippa", x=14, y=19, face="left", cond="e_start,!ch3_done")
 overlay("s_headmaster", "trigger", id="t_ch3", x=8, y=11, w=3, h=8, run="e_headmaster", cond="e_start,!e_letter")
 overlay("s_courtyard", "npc", id="isolde_ch3", who="isolde", x=60, y=19, face="left", cond="e_start,!s_duel_won")
 overlay("s_dorm", "spawn", id="ch3_night", x=20, y=19, face="right")
@@ -502,7 +502,6 @@ def e_roots():
     r.add("prop", kind="firefly_jar", x=98, y=F)
     r.add("prop", kind="wind_chime", x=84, y=32, len=3)
     r.add("prop", kind="root_arch", x=112, y=F, w=6, h=7)
-    r.add("prop", kind="hanging_bridge", x=104, y=30, w=10, sag=2)
     lanterns(r, (10, 22, 34, 46, 62, 72, 96, 110), y=1, ln=3)
     ferns(r, (66, 86, 102, 118), F)
     r.add("sign", x=16, y=F, look="board", text="뿌리 마을 알림판|· 흰 얼룩(역병)이 묻은 열매는 먹지 말 것.|· 승강기 고장. 줄기 시장엔 뿌리 동굴로 돌아서 갈 것.|· 아이들은 꼭대기 쪽 가지에 올라가지 말 것! — 장로")
@@ -687,7 +686,8 @@ def e_trunk_market():
     r.add("prop", kind="leaf_awning", x=100, y=F - 6, w=4)
     r.add("prop", kind="round_window", x=105, y=F - 7, r=2)
     r.add("prop", kind="seed_house", x=8, y=F, w=4, h=5)
-    r.add("prop", kind="hanging_bridge", x=48, y=11, w=16, sag=3)
+    r.plat(49, 63, 11)
+    r.add("prop", kind="hanging_bridge", x=48, y=11, w=16, sag=0.25)
     r.add("prop", kind="elf_banner", x=58, y=1, h=6)
     r.add("prop", kind="wind_chime", x=112, y=1, len=6)
     lanterns(r, (18, 32, 52, 70, 88, 104), y=1, ln=3)
@@ -770,7 +770,6 @@ def e_wind_1():
     r.add("prop", kind="wind_vane", x=76, y=19)
     r.add("prop", kind="wind_chime", x=32, y=1, len=6)
     r.add("prop", kind="elf_banner", x=24, y=32, h=4)
-    r.add("prop", kind="hanging_bridge", x=46, y=19, w=10, sag=2)
     ferns(r, (3, 26, 62), F)
     return r
 
@@ -830,7 +829,6 @@ def e_wind_3():
     r.add("enemy", id="stalker3", kind="vine_stalker", x=74, y=F, face="left")
     r.add("prop", kind="wind_vane", x=18, y=F)
     r.add("prop", kind="wind_chime", x=44, y=1, len=4)
-    r.add("prop", kind="hanging_bridge", x=21, y=8, w=40, sag=4)
     r.add("prop", kind="elf_lantern", x=35, y=1, len=6)
     r.add("prop", kind="elf_lantern", x=49, y=1, len=6)
     ferns(r, (3, 8, 62, 77), F)
@@ -885,7 +883,6 @@ def e_branch_homes():
     r.add("prop", kind="herb_rack", x=74, y=F)
     r.add("prop", kind="loom", x=84, y=F)
     r.add("prop", kind="firefly_jar", x=110, y=F)
-    r.add("prop", kind="hanging_bridge", x=90, y=12, w=12, sag=2)
     r.add("prop", kind="wind_chime", x=52, y=21, len=4)
     r.add("prop", kind="elf_banner", x=96, y=21, h=5)
     lanterns(r, (8, 24, 40, 58, 76, 88, 106), y=1, ln=3)
@@ -1055,7 +1052,8 @@ def e_canopy_1():
     r.add("enemy", id="moth2", kind="lantern_moth", x=60, y=5, face="left")
     lanterns(r, (12, 29, 40, 51, 63, 72), y=1, ln=3)
     r.add("prop", kind="vine_curtain", x=46, y=1, w=4, h=6)
-    r.add("prop", kind="hanging_bridge", x=22, y=F - 3, w=14, sag=2)
+    r.plat(23, 35, F - 3)
+    r.add("prop", kind="hanging_bridge", x=22, y=F - 3, w=14, sag=0.25)
     ferns(r, (4, 24, 70, 76), F)
     return r
 
