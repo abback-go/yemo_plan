@@ -21,6 +21,9 @@ func _ready() -> void:
 	if font:
 		ThemeDB.fallback_font = font
 		ThemeDB.fallback_font_size = 12
+		var default_theme := ThemeDB.get_default_theme()
+		default_theme.default_font = font
+		default_theme.default_font_size = 12
 	new_run()
 
 
