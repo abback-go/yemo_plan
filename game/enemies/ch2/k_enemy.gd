@@ -356,9 +356,12 @@ class StarShard extends EnemyProjectile:
 		material = Fx.add_material
 
 	func _color() -> Color:
-		return tint
+		return Palette.FIRE_HOT if reflected else tint
 
 	func _draw() -> void:
+		if reflected:
+			super() # 되쏘아진 뒤에는 세라의 불빛으로
+			return
 		var prev := Vector2.ZERO
 		for i in _trail.size():
 			var p := to_local(_trail[i])
