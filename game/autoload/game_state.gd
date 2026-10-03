@@ -15,6 +15,12 @@ var stats := {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
+	# 한글 픽셀 폰트를 모든 UI의 기본 글꼴로. (프로젝트 테마로 지정하면 처음 가져오기 때
+	# 폰트보다 테마가 먼저 읽혀 오류가 나므로, 실행 시작 시점에 기본 글꼴을 바꾼다)
+	var font := load("res://assets/fonts/Galmuri11.ttf") as Font
+	if font:
+		ThemeDB.fallback_font = font
+		ThemeDB.fallback_font_size = 12
 	new_run()
 
 
