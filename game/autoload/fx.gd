@@ -10,11 +10,15 @@ void fragment() {
 	vec2 p = (UV - 0.5) * vec2(1.7778, 1.0);
 	float d = length(p);
 	float v = smoothstep(0.42, 1.0, d);
-	COLOR = vec4(tint.rgb, v * strength);
+	COLOR = vec4(tint.rgb, v * strength * 0.8);
 }
 """
 
+const WITCH_TINT := Color(0.66, 0.58, 1.0) ## 위치 타임 중 화면에 곱하는 색
+
 var camera: Node = null ## GameCamera가 스스로 등록한다
+var add_material: CanvasItemMaterial ## 가산 합성(빛이 겹칠수록 밝아짐) — 불 이펙트 공용
+var enemy_time := 1.0 ## 위치 타임 중 적·적 탄의 시간 배율 (세라는 정상 속도)
 
 var _base_time_scale := 1.0
 var _hitstop_until := 0
@@ -27,6 +31,8 @@ var _flash_tween: Tween
 var _shrink_curve: Curve
 var _label_settings: LabelSettings
 var _label_settings_heavy: LabelSettings
+var _witch_until := 0
+var _tint_rect: ColorRect
 
 
 func _ready() -> void:
@@ -52,6 +58,23 @@ func _ready() -> void:
 	_flash_rect.color = Color(1, 1, 1, 0)
 	_overlay.add_child(_flash_rect)
 
+	# 위치 타임 색조: 게임 화면 위·HUD 아래 층에서 곱하기 합성 (밝기는 살리고 보라빛만 입힘)
+	var tint_layer := CanvasLayer.new()
+	tint_layer.layer = 2
+	add_child(tint_layer)
+	_tint_rect = ColorRect.new()
+	_tint_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_tint_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tint_rect.color = Color.WHITE
+	var mul := CanvasItemMaterial.new()
+	mul.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
+	_tint_rect.material = mul
+	_tint_rect.visible = false
+	tint_layer.add_child(_tint_rect)
+
+	add_material = CanvasItemMaterial.new()
+	add_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+
 	_shrink_curve = Curve.new()
 	_shrink_curve.add_point(Vector2(0.0, 1.0))
 	_shrink_curve.add_point(Vector2(1.0, 0.0))
@@ -75,6 +98,14 @@ func _process(_delta: float) -> void:
 	if _hitstop_until > 0 and now >= _hitstop_until:
 		_hitstop_until = 0
 		Engine.time_scale = _base_time_scale
+	if _witch_until > 0:
+		var left := float(_witch_until - now) / 1000.0
+		if left <= 0.0:
+			_witch_until = 0
+			enemy_time = 1.0
+			_tint_rect.visible = false
+		else:
+			_set_tint(clampf(left / 0.3, 0.0, 1.0))
 
 
 ## 씬이 바뀔 때 시간·화면 효과를 원래대로
@@ -86,6 +117,9 @@ func reset() -> void:
 	_flash_rect.color.a = 0.0
 	set_vignette(0.0)
 	camera = null
+	_witch_until = 0
+	enemy_time = 1.0
+	_tint_rect.visible = false
 
 
 # ─── 시간 ───────────────────────────────────────────────
@@ -109,6 +143,28 @@ func slowmo(scale: float, real_sec: float) -> void:
 
 
 # ─── 화면 ───────────────────────────────────────────────
+
+## 위치 타임: 적과 적의 탄만 느려진다 (세라는 정상 속도). 실제 시간 기준.
+func witch_time(scale: float, real_sec: float) -> void:
+	enemy_time = scale
+	_witch_until = Time.get_ticks_msec() + int(real_sec * 1000.0)
+	_set_tint(1.0)
+
+
+func _set_tint(strength: float) -> void:
+	_tint_rect.visible = strength > 0.0
+	_tint_rect.color = Color.WHITE.lerp(WITCH_TINT, strength)
+
+
+func is_witch_time() -> bool:
+	return _witch_until > 0
+
+
+## 큰 타격 때 카메라를 순간 확대했다가 되돌림
+func zoom_punch(amount: float) -> void:
+	if camera and amount > 0.0:
+		camera.punch(amount)
+
 
 ## amplitude_t: 진폭 (T 단위, 기획서 5.8절)
 func shake(amplitude_t: float, duration := 0.22) -> void:
@@ -167,6 +223,8 @@ func burst(pos: Vector2, amount: int, opts := {}) -> CPUParticles2D:
 		p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
 		p.emission_sphere_radius = opts.radius
 	p.z_index = opts.get("z", 5)
+	if opts.get("add", opts.get("gradient") == null):
+		p.material = add_material # 불꽃은 기본으로 가산 합성
 	effect_parent().add_child(p)
 	p.emitting = true
 	p.finished.connect(p.queue_free)
@@ -174,8 +232,10 @@ func burst(pos: Vector2, amount: int, opts := {}) -> CPUParticles2D:
 
 
 ## 퍼져 나가는 고리
-func ring(pos: Vector2, r_from: float, r_to: float, color: Color, duration := 0.25, width := 2.0) -> void:
+func ring(pos: Vector2, r_from: float, r_to: float, color: Color, duration := 0.25, width := 2.0, additive := true) -> void:
 	var r := RingFx.new()
+	if additive:
+		r.material = add_material
 	r.position = pos
 	r.r_from = r_from
 	r.r_to = r_to

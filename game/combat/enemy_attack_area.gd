@@ -8,6 +8,7 @@ signal hit_player(player: Node)
 @export var damage := 1
 @export var cause := &"charger" ## 결과 화면의 피격 원인 (charger / sniper)
 @export var active := true
+@export var dodgeable := true ## 대시로 스치면 퍼펙트 회피(위치 타임)가 되는 공격인가. 돌진형은 돌진 중에만 true
 
 
 func _init() -> void:

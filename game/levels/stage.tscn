@@ -24,331 +24,347 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3uarr"]
 size = Vector2(32, 192)
 
-[node name="Stage" type="Node2D" unique_id=1640198457]
+[node name="Stage" type="Node2D" unique_id=131120015]
 script = ExtResource("1_4se8i")
 
-[node name="Background" type="Node2D" parent="." unique_id=1868132206]
+[node name="Background" type="Node2D" parent="." unique_id=1053489031]
 script = ExtResource("2_5o3am")
 
-[node name="Geometry" type="Node2D" parent="." unique_id=1222663051]
+[node name="Geometry" type="Node2D" parent="." unique_id=487010419]
 
-[node name="Floor" type="StaticBody2D" parent="Geometry" unique_id=1321825343]
+[node name="Floor" type="StaticBody2D" parent="Geometry" unique_id=610013142]
 position = Vector2(0, 320)
 script = ExtResource("3_j6jrs")
 size = Vector2(3840, 40)
 
-[node name="WallLeft" type="StaticBody2D" parent="Geometry" unique_id=347416272]
+[node name="WallLeft" type="StaticBody2D" parent="Geometry" unique_id=2058144953]
 script = ExtResource("3_j6jrs")
 size = Vector2(16, 320)
 
-[node name="WallRight" type="StaticBody2D" parent="Geometry" unique_id=843451945]
+[node name="WallRight" type="StaticBody2D" parent="Geometry" unique_id=20544091]
 position = Vector2(3824, 0)
 script = ExtResource("3_j6jrs")
 size = Vector2(16, 320)
 
-[node name="S1_Bump" type="StaticBody2D" parent="Geometry" unique_id=1015935196]
+[node name="S1_Bump" type="StaticBody2D" parent="Geometry" unique_id=2038625159]
 position = Vector2(240, 296)
 script = ExtResource("3_j6jrs")
 size = Vector2(80, 24)
 
-[node name="S1_Plat" type="StaticBody2D" parent="Geometry" unique_id=1151224962]
+[node name="S1_Plat" type="StaticBody2D" parent="Geometry" unique_id=497626150]
 position = Vector2(400, 272)
 script = ExtResource("3_j6jrs")
 size = Vector2(80, 8)
 style = 1
 one_way = true
 
-[node name="S2_Cover1" type="StaticBody2D" parent="Geometry" unique_id=653359516]
+[node name="S2_Cover1" type="StaticBody2D" parent="Geometry" unique_id=1611144057]
 position = Vector2(1152, 288)
 script = ExtResource("3_j6jrs")
 size = Vector2(32, 32)
 
-[node name="S2_Step1" type="StaticBody2D" parent="Geometry" unique_id=1178056918]
+[node name="S2_Step1" type="StaticBody2D" parent="Geometry" unique_id=295955013]
 position = Vector2(1216, 280)
 script = ExtResource("3_j6jrs")
 size = Vector2(64, 8)
 style = 1
 one_way = true
 
-[node name="S2_LedgeA" type="StaticBody2D" parent="Geometry" unique_id=992171766]
+[node name="S2_LedgeA" type="StaticBody2D" parent="Geometry" unique_id=873008637]
 position = Vector2(1296, 240)
 script = ExtResource("3_j6jrs")
 size = Vector2(128, 16)
 
-[node name="S2_Mid" type="StaticBody2D" parent="Geometry" unique_id=353408526]
+[node name="S2_Mid" type="StaticBody2D" parent="Geometry" unique_id=673665807]
 position = Vector2(1472, 256)
 script = ExtResource("3_j6jrs")
 size = Vector2(64, 8)
 style = 1
 one_way = true
 
-[node name="S2_Cover2" type="StaticBody2D" parent="Geometry" unique_id=1092431378]
+[node name="S2_Cover2" type="StaticBody2D" parent="Geometry" unique_id=811429517]
 position = Vector2(1584, 288)
 script = ExtResource("3_j6jrs")
 size = Vector2(32, 32)
 
-[node name="S2_Step2" type="StaticBody2D" parent="Geometry" unique_id=1164122602]
+[node name="S2_Step2" type="StaticBody2D" parent="Geometry" unique_id=1329161676]
 position = Vector2(1600, 248)
 script = ExtResource("3_j6jrs")
 size = Vector2(64, 8)
 style = 1
 one_way = true
 
-[node name="S2_LedgeB" type="StaticBody2D" parent="Geometry" unique_id=71210909]
+[node name="S2_LedgeB" type="StaticBody2D" parent="Geometry" unique_id=350368303]
 position = Vector2(1680, 208)
 script = ExtResource("3_j6jrs")
 size = Vector2(128, 16)
 
-[node name="S2_Exit" type="StaticBody2D" parent="Geometry" unique_id=654611216]
+[node name="S2_Exit" type="StaticBody2D" parent="Geometry" unique_id=1251110160]
 position = Vector2(1888, 296)
 script = ExtResource("3_j6jrs")
 size = Vector2(64, 24)
 
-[node name="S3_Escape1" type="StaticBody2D" parent="Geometry" unique_id=778469192]
+[node name="S3_Escape1" type="StaticBody2D" parent="Geometry" unique_id=746609675]
 position = Vector2(2240, 272)
 script = ExtResource("3_j6jrs")
 size = Vector2(80, 8)
 style = 1
 one_way = true
 
-[node name="S3_Escape2" type="StaticBody2D" parent="Geometry" unique_id=1050051723]
+[node name="S3_Escape2" type="StaticBody2D" parent="Geometry" unique_id=1541083526]
 position = Vector2(2528, 272)
 script = ExtResource("3_j6jrs")
 size = Vector2(80, 8)
 style = 1
 one_way = true
 
-[node name="S4_Ceiling" type="StaticBody2D" parent="Geometry" unique_id=1136430055]
+[node name="S4_Ceiling" type="StaticBody2D" parent="Geometry" unique_id=2011906811]
 position = Vector2(2944, 112)
 script = ExtResource("3_j6jrs")
 size = Vector2(704, 16)
 
-[node name="S4_LedgeL" type="StaticBody2D" parent="Geometry" unique_id=1048033602]
+[node name="S4_LedgeL" type="StaticBody2D" parent="Geometry" unique_id=370762446]
 position = Vector2(3024, 240)
 script = ExtResource("3_j6jrs")
 size = Vector2(96, 16)
 
-[node name="S4_Mid" type="StaticBody2D" parent="Geometry" unique_id=364784502]
+[node name="S4_Mid" type="StaticBody2D" parent="Geometry" unique_id=244856073]
 position = Vector2(3216, 272)
 script = ExtResource("3_j6jrs")
 size = Vector2(96, 8)
 style = 1
 one_way = true
 
-[node name="S4_LedgeR" type="StaticBody2D" parent="Geometry" unique_id=1699038656]
+[node name="S4_LedgeR" type="StaticBody2D" parent="Geometry" unique_id=1975306342]
 position = Vector2(3472, 240)
 script = ExtResource("3_j6jrs")
 size = Vector2(96, 16)
 
-[node name="Sections" type="Node2D" parent="." unique_id=441539606]
+[node name="Sections" type="Node2D" parent="." unique_id=1973904046]
 
-[node name="S1" type="Node2D" parent="Sections" unique_id=666357654]
+[node name="S1" type="Node2D" parent="Sections" unique_id=1103013778]
 script = ExtResource("4_wl4d8")
 title = "평지 입문"
 
-[node name="Checkpoint0" type="Area2D" parent="Sections/S1" unique_id=1610792100]
+[node name="Checkpoint0" type="Area2D" parent="Sections/S1" unique_id=378674962]
 position = Vector2(48, 320)
 script = ExtResource("5_55p0m")
 
-[node name="Hint_9" type="Node2D" parent="Sections/S1" unique_id=345650065]
+[node name="Hint_9" type="Node2D" parent="Sections/S1" unique_id=1441819544]
 position = Vector2(144, 264)
 script = ExtResource("6_gqil8")
-text = "←→ 이동   Z 점프 (길게 누르면 높이)"
+text = "←→ 이동   Z 점프 (길게 누르면 높이)   ↓ 빠른 낙하"
 
-[node name="Hint_23" type="Node2D" parent="Sections/S1" unique_id=1643283931]
+[node name="Hint_23" type="Node2D" parent="Sections/S1" unique_id=1094834401]
 position = Vector2(368, 232)
 script = ExtResource("6_gqil8")
-text = "X 화염탄 — 연타하면 3타째가 강해요"
+text = "X 화염탄 — 연타하면 3타째가 폭발해요   ↓+Z 발판 내려가기"
 
-[node name="Hint_37" type="Node2D" parent="Sections/S1" unique_id=2138660038]
+[node name="Hint_37" type="Node2D" parent="Sections/S1" unique_id=848535088]
 position = Vector2(592, 264)
 script = ExtResource("6_gqil8")
-text = "C 대시 — 붉게 빛나면 돌진 예고!"
+text = "C 대시 — 돌진 직전에 피하면 위치 타임!   대시 중 Z = 멀리 뛰기"
 
-[node name="Charger" type="CharacterBody2D" parent="Sections/S1" unique_id=1862400351 instance=ExtResource("7_4exr2")]
+[node name="Charger" type="CharacterBody2D" parent="Sections/S1" unique_id=529037025 instance=ExtResource("7_4exr2")]
 position = Vector2(752, 320)
 script = ExtResource("8_71ymb")
 
-[node name="S2" type="Node2D" parent="Sections" unique_id=1642675669]
+[node name="S2" type="Node2D" parent="Sections" unique_id=1195856821]
 script = ExtResource("4_wl4d8")
 index = 1
 title = "높낮이"
 start_x = 960.0
 
-[node name="Checkpoint1" type="Area2D" parent="Sections/S2" unique_id=642320835]
+[node name="Checkpoint1" type="Area2D" parent="Sections/S2" unique_id=261448878]
 position = Vector2(992, 320)
 script = ExtResource("5_55p0m")
 index = 1
 
-[node name="Hint_67" type="Node2D" parent="Sections/S2" unique_id=1629645528]
+[node name="Hint_67" type="Node2D" parent="Sections/S2" unique_id=907010682]
 position = Vector2(1072, 248)
 script = ExtResource("6_gqil8")
 text = "A 불기둥 — 엄폐물 너머·높은 곳의 적도 맞혀요"
 
-[node name="Hint_80" type="Node2D" parent="Sections/S2" unique_id=758575826]
+[node name="Hint_80" type="Node2D" parent="Sections/S2" unique_id=882441879]
 position = Vector2(1280, 200)
 script = ExtResource("6_gqil8")
 text = "조준선이 하얗게 고정되면 피하세요"
 
-[node name="Hint_95" type="Node2D" parent="Sections/S2" unique_id=103656407]
+[node name="Hint_95" type="Node2D" parent="Sections/S2" unique_id=490978399]
 position = Vector2(1520, 216)
 script = ExtResource("6_gqil8")
-text = "점프 중에도 화염탄을 쏠 수 있어요"
+text = "공중 사격은 잠시 떠 있어요 — 띄운 적을 계속 맞혀 보세요"
 
-[node name="Sniper" type="CharacterBody2D" parent="Sections/S2" unique_id=1137720427 instance=ExtResource("9_dfegf")]
+[node name="Sniper" type="CharacterBody2D" parent="Sections/S2" unique_id=621375097 instance=ExtResource("9_dfegf")]
 position = Vector2(1305.6, 240)
 script = ExtResource("10_jv6np")
 
-[node name="@CharacterBody2D@21" type="CharacterBody2D" parent="Sections/S2" unique_id=1982473242 instance=ExtResource("9_dfegf")]
+[node name="@CharacterBody2D@23" type="CharacterBody2D" parent="Sections/S2" unique_id=567105940 instance=ExtResource("9_dfegf")]
 position = Vector2(1689.6, 208)
 script = ExtResource("10_jv6np")
 
-[node name="S3" type="Node2D" parent="Sections" unique_id=1442125271]
+[node name="S3" type="Node2D" parent="Sections" unique_id=186522310]
 script = ExtResource("4_wl4d8")
 index = 2
 title = "돌진형 무리"
 start_x = 1952.0
 
-[node name="Checkpoint2" type="Area2D" parent="Sections/S3" unique_id=152300958]
+[node name="Checkpoint2" type="Area2D" parent="Sections/S3" unique_id=1638131369]
 position = Vector2(1984, 320)
 script = ExtResource("5_55p0m")
 index = 2
 
-[node name="Hint_130" type="Node2D" parent="Sections/S3" unique_id=464525544]
+[node name="Hint_130" type="Node2D" parent="Sections/S3" unique_id=1332869371]
 position = Vector2(2080, 264)
 script = ExtResource("6_gqil8")
 text = "S 화염 폭풍 — 가까이 온 돌진을 끊어내요"
 
-[node name="Hint_146" type="Node2D" parent="Sections/S3" unique_id=1802486261]
+[node name="Hint_146" type="Node2D" parent="Sections/S3" unique_id=161249867]
 position = Vector2(2336, 232)
 script = ExtResource("6_gqil8")
 text = "스킬을 연달아 쓰면 폭주! 가득 차면 나도 다쳐요"
 
-[node name="Trigger1" type="Area2D" parent="Sections/S3" unique_id=1039724829]
+[node name="Trigger1" type="Area2D" parent="Sections/S3" unique_id=1175582744]
 position = Vector2(2144, 128)
 script = ExtResource("11_uwg2b")
 size = Vector2(32, 192)
 
-[node name="Spawn_148_20" type="Marker2D" parent="Sections/S3/Trigger1" unique_id=1996408812]
-position = Vector2(2368, 320)
+[node name="Spawn_148_20" type="Marker2D" parent="Sections/S3/Trigger1" unique_id=576534764]
+position = Vector2(224, 192)
 script = ExtResource("12_fywny")
 
-[node name="Trigger2" type="Area2D" parent="Sections/S3" unique_id=1189042304]
+[node name="Spawn_155_20" type="Marker2D" parent="Sections/S3/Trigger1" unique_id=91084192]
+position = Vector2(336, 192)
+script = ExtResource("12_fywny")
+delay = 0.5
+
+[node name="Trigger2" type="Area2D" parent="Sections/S3" unique_id=793134241]
 position = Vector2(2400, 128)
 script = ExtResource("11_uwg2b")
 size = Vector2(32, 192)
 
-[node name="Spawn_166_20" type="Marker2D" parent="Sections/S3/Trigger2" unique_id=517996605]
-position = Vector2(2656, 320)
+[node name="Spawn_166_20" type="Marker2D" parent="Sections/S3/Trigger2" unique_id=1859629134]
+position = Vector2(256, 192)
 script = ExtResource("12_fywny")
 
-[node name="Spawn_139_20" type="Marker2D" parent="Sections/S3/Trigger2" unique_id=1605915277]
-position = Vector2(2224, 320)
+[node name="Spawn_139_20" type="Marker2D" parent="Sections/S3/Trigger2" unique_id=1752950437]
+position = Vector2(-176, 192)
 script = ExtResource("12_fywny")
 delay = 1.4
 face_left = false
 
-[node name="S4" type="Node2D" parent="Sections" unique_id=527865727]
+[node name="S4" type="Node2D" parent="Sections" unique_id=454770119]
 script = ExtResource("4_wl4d8")
 index = 3
 title = "혼합 아레나"
 start_x = 2816.0
 
-[node name="Checkpoint3" type="Area2D" parent="Sections/S4" unique_id=1705772147]
+[node name="Checkpoint3" type="Area2D" parent="Sections/S4" unique_id=974929025]
 position = Vector2(2848, 320)
 script = ExtResource("5_55p0m")
 index = 3
 
-[node name="Hint_181" type="Node2D" parent="Sections/S4" unique_id=1658143479]
+[node name="Hint_181" type="Node2D" parent="Sections/S4" unique_id=859875794]
 position = Vector2(2896, 248)
 script = ExtResource("6_gqil8")
-text = "봉인된 방 — 지금까지 배운 것을 모두 써 보세요"
+text = "봉인된 방 — 공격을 섞으면 랭크 상승. SS에 도전!"
 
-[node name="Arena" type="Node2D" parent="Sections/S4" unique_id=1559228147]
+[node name="Arena" type="Node2D" parent="Sections/S4" unique_id=581491097]
 script = ExtResource("13_vgdbp")
 
-[node name="DoorLeft" type="StaticBody2D" parent="Sections/S4/Arena" unique_id=1557927509]
+[node name="DoorLeft" type="StaticBody2D" parent="Sections/S4/Arena" unique_id=197341471]
 position = Vector2(2944, 128)
 script = ExtResource("14_bxq86")
 size = Vector2(16, 192)
 
-[node name="DoorRight" type="StaticBody2D" parent="Sections/S4/Arena" unique_id=823359261]
+[node name="DoorRight" type="StaticBody2D" parent="Sections/S4/Arena" unique_id=1452204268]
 position = Vector2(3632, 128)
 script = ExtResource("14_bxq86")
 size = Vector2(16, 192)
 
-[node name="EntranceTrigger" type="Area2D" parent="Sections/S4/Arena" unique_id=1001729754]
+[node name="EntranceTrigger" type="Area2D" parent="Sections/S4/Arena" unique_id=805542134]
 position = Vector2(2992, 128)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Sections/S4/Arena/EntranceTrigger" unique_id=1653171444]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Sections/S4/Arena/EntranceTrigger" unique_id=186402060]
 position = Vector2(16, 96)
 shape = SubResource("RectangleShape2D_3uarr")
 
-[node name="Wave1" type="Node2D" parent="Sections/S4/Arena" unique_id=1426168583]
+[node name="Wave1" type="Node2D" parent="Sections/S4/Arena" unique_id=1952011817]
 
-[node name="Spawn_204_20" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=1965862944]
+[node name="Spawn_204_20" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=1218135402]
 position = Vector2(3264, 320)
 script = ExtResource("12_fywny")
 
-[node name="Spawn_213_20" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=1086203022]
+[node name="Spawn_213_20" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=1342585918]
 position = Vector2(3408, 320)
 script = ExtResource("12_fywny")
 delay = 0.25
 
-[node name="Spawn_217_15" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=1070307810]
+[node name="Spawn_217_15" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=108347336]
 position = Vector2(3481.6, 240)
 script = ExtResource("12_fywny")
 kind = 1
 delay = 0.5
 
-[node name="Wave2" type="Node2D" parent="Sections/S4/Arena" unique_id=818178857]
+[node name="Spawn_196_20" type="Marker2D" parent="Sections/S4/Arena/Wave1" unique_id=2060853629]
+position = Vector2(3136, 320)
+script = ExtResource("12_fywny")
+delay = 0.4
+face_left = false
 
-[node name="Spawn_197_20" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=1615532532]
+[node name="Wave2" type="Node2D" parent="Sections/S4/Arena" unique_id=514114115]
+
+[node name="Spawn_197_20" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=1706217121]
 position = Vector2(3152, 320)
 script = ExtResource("12_fywny")
 face_left = false
 
-[node name="Spawn_214_20" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=1627556477]
+[node name="Spawn_214_20" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=1055825926]
 position = Vector2(3424, 320)
 script = ExtResource("12_fywny")
 delay = 0.2
 
-[node name="Spawn_194_15" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=735841579]
+[node name="Spawn_194_15" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=841631819]
 position = Vector2(3110.4, 240)
 script = ExtResource("12_fywny")
 kind = 1
 delay = 0.5
 face_left = false
 
-[node name="Spawn_217_15" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=2013292501]
+[node name="Spawn_217_15" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=2055150425]
 position = Vector2(3481.6, 240)
 script = ExtResource("12_fywny")
 kind = 1
 delay = 0.7
 
-[node name="Goal" type="Area2D" parent="Sections/S4" unique_id=1781500173]
+[node name="Spawn_206_20" type="Marker2D" parent="Sections/S4/Arena/Wave2" unique_id=7356267]
+position = Vector2(3296, 320)
+script = ExtResource("12_fywny")
+delay = 0.4
+
+[node name="Goal" type="Area2D" parent="Sections/S4" unique_id=1408440251]
 position = Vector2(3744, 320)
 script = ExtResource("15_d5r1n")
 
-[node name="Hint_234" type="Node2D" parent="Sections/S4" unique_id=432484198]
+[node name="Hint_234" type="Node2D" parent="Sections/S4" unique_id=35529957]
 position = Vector2(3744, 248)
 script = ExtResource("6_gqil8")
 text = "출구"
 
-[node name="Player" type="CharacterBody2D" parent="." unique_id=199989742 instance=ExtResource("16_c0buj")]
+[node name="Player" type="CharacterBody2D" parent="." unique_id=1903937714 instance=ExtResource("16_c0buj")]
 position = Vector2(64, 320)
 floor_snap_length = 4.0
 script = ExtResource("17_ottmr")
 
-[node name="Effects" type="Node2D" parent="." unique_id=1897087871]
+[node name="Effects" type="Node2D" parent="." unique_id=792632479]
 z_index = 5
 
-[node name="HUD" type="CanvasLayer" parent="." unique_id=454226830]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1017527613]
 script = ExtResource("18_72lbb")
 
-[node name="PauseMenu" type="CanvasLayer" parent="." unique_id=1255517989]
+[node name="PauseMenu" type="CanvasLayer" parent="." unique_id=1969593072]
 script = ExtResource("19_24t3t")
 
-[node name="DebugOverlay" type="CanvasLayer" parent="." unique_id=1421146409]
+[node name="DebugOverlay" type="CanvasLayer" parent="." unique_id=2100722350]
 visible = false
 script = ExtResource("20_1e8vn")

@@ -49,7 +49,11 @@ func new_run() -> void:
 		"bolts_fired": 0,
 		"bolts_hit": 0,
 		"kills": 0,
+		"perfect_dodges": 0,
+		"max_combo": 0,
+		"best_rank": 0,
 	}
+	StyleRank.reset_run()
 
 
 func add(key: String, amount := 1) -> void:
@@ -79,6 +83,8 @@ func go_title() -> void:
 func finish_run() -> void:
 	running = false
 	cleared = true
+	stats["max_combo"] = StyleRank.max_combo
+	stats["best_rank"] = StyleRank.best_rank
 	get_tree().change_scene_to_file(RESULT_SCENE)
 
 

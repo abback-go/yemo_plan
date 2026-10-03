@@ -64,19 +64,21 @@ func draw_text_on(c: CanvasItem) -> void:
 	c.draw_rect(Rect2(258, 40, 2, 268), Color(Palette.FIRE_OUT, 0.6))
 	# 제목
 	c.draw_string(_font, Vector2(270, 92), "YEMO", HORIZONTAL_ALIGNMENT_LEFT, -1, 48, Palette.FIRE_HOT)
-	c.draw_string(_font, Vector2(272, 116), "폐급 마녀 세라 · 조작·전투 프로토타입 v0.2", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
+	c.draw_string(_font, Vector2(272, 116), "폐급 마녀 세라 · 조작·전투 프로토타입 v0.3", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
 	# 조작법
 	var lines := [
 		"←→  이동          Z  점프 (길게 = 높이)",
+		"↓   빠른 낙하      ↓+Z 발판 내려가기",
 		"X   화염탄 (연타 3타)   C  대시",
+		"C 후 Z  멀리 뛰는 대시 점프",
 		"A   불기둥          S  화염 폭풍",
 		"Esc 일시정지        F1 디버그 표시",
 		"패드: A 점프 · X 공격 · B 대시 · LB/RB 스킬",
 	]
 	for i in lines.size():
-		c.draw_string(_font, Vector2(272, 150 + i * 16), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
-	c.draw_string(_font, Vector2(272, 238), "스킬을 연달아 쓰면 폭주 게이지가 찹니다.", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.FIRE_MID)
-	c.draw_string(_font, Vector2(272, 254), "가득 차면 강제 폭발 — 적도 나도 다칩니다.", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.FIRE_MID)
+		c.draw_string(_font, Vector2(272, 140 + i * 16), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+	c.draw_string(_font, Vector2(272, 256), "공격 직전에 대시로 피하면 위치 타임!", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#c9b8ff"))
+	c.draw_string(_font, Vector2(272, 272), "스킬을 연달아 쓰면 폭주 — 가득 차면 나도 다칩니다.", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.FIRE_MID)
 	if fmod(_t, 1.0) < 0.65:
 		c.draw_string(_font, Vector2(272, 296), "아무 키나 눌러 시작", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD)
 

@@ -146,6 +146,35 @@ func _build_all() -> void:
 		{wave = "tri", f0 = 784, f1 = 784, dur = 0.16, vol = 0.22, delay = 0.22},
 		{wave = "tri", f0 = 1046, f1 = 1046, dur = 0.4, vol = 0.24, delay = 0.33},
 	])
+	# v0.3 추가
+	_add(&"rank_up", [
+		{wave = "square", f0 = 660, f1 = 660, dur = 0.07, vol = 0.12, lp = 0.6},
+		{wave = "square", f0 = 990, f1 = 990, dur = 0.07, vol = 0.12, lp = 0.6, delay = 0.06},
+		{wave = "square", f0 = 1320, f1 = 1320, dur = 0.14, vol = 0.12, lp = 0.6, delay = 0.12},
+	])
+	_add(&"witch_time", [
+		{wave = "sine", f0 = 880, f1 = 880, dur = 1.2, vol = 0.22, decay = 2.5},
+		{wave = "sine", f0 = 1320, f1 = 1318, dur = 1.0, vol = 0.14, decay = 2.5, delay = 0.02},
+		{wave = "tri", f0 = 2640, f1 = 2600, dur = 0.8, vol = 0.06, decay = 3.0},
+		{wave = "noise", dur = 0.3, vol = 0.12, lp = 0.05, lp1 = 0.4, attack = 0.2, decay = 0.5},
+	])
+	_add(&"blast", [
+		{wave = "noise", dur = 0.3, vol = 0.6, lp = 0.35, lp1 = 0.08, decay = 1.6},
+		{wave = "sine", f0 = 140, f1 = 45, dur = 0.28, vol = 0.7, decay = 1.6},
+	])
+	_add(&"dash_jump", [
+		{wave = "noise", dur = 0.25, vol = 0.4, lp = 0.15, lp1 = 0.7, attack = 0.02, decay = 1.3},
+		{wave = "square", f0 = 260, f1 = 700, dur = 0.12, vol = 0.1, lp = 0.3},
+	])
+	_add(&"storm_final", [
+		{wave = "noise", dur = 0.6, vol = 0.75, lp = 0.4, lp1 = 0.06, decay = 1.3},
+		{wave = "sine", f0 = 110, f1 = 32, dur = 0.55, vol = 0.85, decay = 1.4},
+		{wave = "saw", f0 = 80, f1 = 40, dur = 0.35, vol = 0.25, lp = 0.12},
+	])
+	_add(&"overheat", [
+		{wave = "noise", dur = 0.4, vol = 0.3, lp = 0.5, lp1 = 0.2, attack = 0.05, decay = 1.0},
+		{wave = "saw", f0 = 220, f1 = 440, dur = 0.3, vol = 0.12, lp = 0.3, decay = 1.0},
+	])
 	_add(&"ui_move", [
 		{wave = "square", f0 = 880, f1 = 880, dur = 0.04, vol = 0.1, lp = 0.5},
 	])

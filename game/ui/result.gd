@@ -79,6 +79,9 @@ class ResultDraw extends Control:
 		_row(y, "대시", str(s.dashes)); y += 16
 		_row(y, "화염탄 적중", "%d / %d (%.0f%%)" % [s.bolts_hit, s.bolts_fired, acc]); y += 16
 		_row(y, "처치", str(s.kills)); y += 16
+		_row(y, "최대 콤보", str(s.get("max_combo", 0)), Palette.FIRE_HOT); y += 16
+		_row(y, "최고 스타일 랭크", StyleRank.RANKS[int(s.get("best_rank", 0))], Palette.GOLD); y += 16
+		_row(y, "위치 타임 (퍼펙트 회피)", str(s.get("perfect_dodges", 0)), Color("#c9b8ff")); y += 16
 
 		# 검증 질문 (docs/prototype.md 1.1절) — 녹화와 함께 '예/아니오/애매'로 기록
 		var qx := 330.0
@@ -88,8 +91,9 @@ class ResultDraw extends Control:
 			"Q2 좌우 조준만으로도 단조롭지 않았나?",
 			"Q3 폭주가 위험이자 보상으로 느껴졌나?",
 			"Q4 적 때문에 위치를 계속 바꿔야 했나?",
+			"Q5 이동이 빠르고 전투가 화려하게 느껴졌나?",
 		]
 		for i in qs.size():
 			draw_string(_font, Vector2(qx, 100 + i * 18), qs[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
-		draw_string(_font, Vector2(qx, 186), "→ docs/prototype.md 1.2절 1인 테스트 보정법", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+		draw_string(_font, Vector2(qx, 204), "→ docs/prototype.md 1.2절 1인 테스트 보정법", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 		draw_string(_font, Vector2(60, 330), "R 다시 하기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)

@@ -70,18 +70,24 @@ func is_alive() -> bool:
 func _physics_process(delta: float) -> void:
 	if not _alive:
 		return
-	_t += delta
+	# 위치 타임 중에는 적의 시간만 느려진다: 타이머·중력·AI에 배율을 곱한 시간을 쓰고,
+	# 이동은 속도에 배율을 곱해 move_and_slide 한 뒤 되돌린다.
+	var et := Fx.enemy_time
+	var d := delta * et
+	_t += d
 	_flash = maxf(_flash - delta, 0.0)
 	if not is_on_floor():
-		velocity.y = minf(velocity.y + _gravity * delta, 600.0)
+		velocity.y = minf(velocity.y + _gravity * d, 600.0)
 	if _knock_timer > 0.0:
-		_knock_timer -= delta
+		_knock_timer -= d
 		velocity.x = _knock_vel * clampf(_knock_timer / 0.14, 0.0, 1.0)
 	elif not is_on_floor() and _airborne_spin != 0.0:
-		velocity.x = move_toward(velocity.x, 0.0, 200.0 * delta)
+		velocity.x = move_toward(velocity.x, 0.0, 200.0 * d)
 	else:
-		_ai(delta)
+		_ai(d)
+	velocity *= et
 	move_and_slide()
+	velocity /= et
 	if is_on_floor() and _airborne_spin != 0.0:
 		_airborne_spin = 0.0
 		_on_landed_from_launch()
@@ -104,12 +110,18 @@ func _resists_knockback(_hit: Hit) -> bool:
 func take_hit(hit: Hit) -> void:
 	if not _alive:
 		return
+	var airborne := not is_on_floor()
 	hp -= hit.damage
 	_flash = tuning.enemy_flash_time + 0.03
 	var heavy := hit.damage >= 25
 	Fx.damage_number(global_position + Vector2(0, -body_size.y - 4), hit.damage, heavy)
 	Fx.hitstop(hit.hitstop)
 	Fx.shake(hit.shake_t)
+	Fx.zoom_punch(hit.zoom)
+	StyleRank.register_hit(hit.kind, airborne)
+	var p := player()
+	if p:
+		p.on_hit_landed(hit)
 	if hit.kind == &"bolt" or hit.kind == &"bolt_heavy":
 		Sfx.play(&"hit_heavy" if heavy else &"hit", -2.0 if heavy else -4.0)
 	var dir := hit.dir_from(global_position)
@@ -120,6 +132,9 @@ func take_hit(hit: Hit) -> void:
 	if hit.launch_t > 0.0:
 		velocity.y = -sqrt(2.0 * _gravity * hit.launch_t * GameConst.TILE)
 		_airborne_spin = float(dir)
+	elif airborne and _airborne_spin != 0.0 and tuning.juggle_lift_t > 0.0:
+		# 띄워 맞히기: 공중에 뜬 적은 화염탄에 맞을 때마다 조금씩 다시 떠올라 공중에 머문다
+		velocity.y = minf(velocity.y, -sqrt(2.0 * _gravity * tuning.juggle_lift_t * GameConst.TILE))
 	if hp <= 0:
 		_die(dir)
 
@@ -132,19 +147,21 @@ func _on_hit(_hit: Hit, _dir: int) -> void:
 func _die(dir: int) -> void:
 	_alive = false
 	GameState.add("kills")
+	StyleRank.on_kill()
+	Fx.hitstop(tuning.hitstop_kill)
 	defeated.emit(self)
 	Sfx.play(&"enemy_die")
 	var c := global_position + Vector2(0, -body_size.y / 2.0)
-	Fx.burst(c, 26, {
-		spread = 180.0, speed_min = 40.0, speed_max = 160.0, damping = 60.0, lifetime = 0.7,
-		gradient = Palette.soul_gradient(), size_min = 1.5, size_max = 3.0, gravity = Vector2(0, -40),
-		direction = Vector2(dir, -0.5),
+	Fx.burst(c, 34, {
+		spread = 180.0, speed_min = 40.0, speed_max = 190.0, damping = 60.0, lifetime = 0.8,
+		gradient = Palette.soul_gradient(), size_min = 1.5, size_max = 3.5, gravity = Vector2(0, -40),
+		direction = Vector2(dir, -0.5), add = true,
 	})
 	Fx.burst(c, 12, {
 		spread = 180.0, speed_min = 30.0, speed_max = 90.0, lifetime = 0.5,
 		size_min = 1.0, size_max = 2.5, gravity = Vector2(0, 100),
 	})
-	Fx.ring(c, 4.0, 22.0, Palette.ENEMY_SOUL, 0.3, 2.0)
+	Fx.ring(c, 4.0, 30.0, Palette.ENEMY_SOUL, 0.35, 2.0)
 	collision_layer = 0
 	_hurtbox.set_deferred("monitorable", false)
 	for c2 in get_children():

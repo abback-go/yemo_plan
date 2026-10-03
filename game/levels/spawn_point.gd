@@ -17,19 +17,28 @@ const SCENES := {
 
 ## parent 아래에 소환진을 띄우고 0.5초 뒤 적을 만든다. 만들어진 적을 callback으로 알려 준다.
 func spawn(parent: Node, callback: Callable) -> void:
-	var portal := SpawnPortal.new()
-	portal.global_position = global_position
-	portal.on_done = func() -> void:
-		var e: EnemyBase = SCENES[kind].instantiate()
-		e.position = parent.to_local(global_position) if parent is Node2D else global_position
-		e.facing = -1 if face_left else 1
-		parent.add_child(e)
-		callback.call(e)
+	# 소환진은 실제로 띄울 때 만든다 (기다리는 사이 씬이 바뀌어도 고아 노드가 남지 않음)
 	var start := func() -> void:
-		if is_instance_valid(parent):
-			Fx.effect_parent().add_child(portal)
+		if not is_instance_valid(parent):
+			return
+		var portal := SpawnPortal.new()
+		portal.global_position = global_position
+		portal.on_done = func() -> void:
+			var e: EnemyBase = SCENES[kind].instantiate()
+			e.position = parent.to_local(global_position) if parent is Node2D else global_position
+			e.facing = -1 if face_left else 1
+			parent.add_child(e)
+			callback.call(e)
+		Fx.effect_parent().add_child(portal)
 	if delay > 0.0:
-		get_tree().create_timer(delay, false).timeout.connect(start)
+		# 자식 Timer라 씬이 바뀌면 함께 사라져, 사라진 parent로 소환하지 않는다
+		var timer := Timer.new()
+		timer.one_shot = true
+		timer.wait_time = delay
+		timer.timeout.connect(start)
+		timer.timeout.connect(timer.queue_free)
+		add_child(timer)
+		timer.start()
 	else:
 		start.call()
 

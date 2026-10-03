@@ -1,7 +1,9 @@
 class_name Player
 extends CharacterBody2D
 ## 세라 — 이동·점프·대시 + 화염탄 3타, 불기둥, 화염 폭풍, 폭주 게이지, 체력·피격·사망.
-## 원점(0, 0)은 발밑. 수치는 전부 core/tuning.tres (docs/prototype.md 5절).
+## v0.3: 빠른 이동, 대시 점프, 최고점 체공, 빠른 낙하, 발판 내려가기, 천장 모서리 보정,
+##       대시 중 사격, 공중 체공 사격, 퍼펙트 회피(위치 타임), 과열 강화 (docs/prototype.md 14절).
+## 원점(0, 0)은 발밑. 수치는 전부 core/tuning.tres.
 
 signal hp_changed(hp: int, max_hp: int)
 signal died
@@ -28,6 +30,7 @@ var _jump_buffer_timer := 0.0
 var _dash_timer := 0.0
 var _dash_cooldown_timer := 0.0
 var _dash_iframe := 0.0
+var _since_dash := 99.0 ## 대시가 끝난 뒤 흐른 시간 (대시 점프 판정)
 var _hurt_iframe := 0.0
 var _hurt_timer := 0.0
 var _stun_timer := 0.0
@@ -42,10 +45,16 @@ var _overload_idle := 99.0
 var _overload_fuse := -1.0 ## 0 이상이면 폭발까지 남은 시간
 var _pulse_timer := 0.0
 var _dust_timer := 0.0
+var _drop_timer := 0.0 ## 통과 발판 내려가는 중
+var _witch_cooldown := 0.0
+var _dodged_this_dash := false
 
 var _combo_index := 0 ## 다음에 쏠 타 (0, 1, 2 = 1·2·3타)
+var _air_hovers_left := 0
 var _dash_dir := 1
+var _dash_jumping := false
 var _was_on_floor := true
+var _was_overheated := false
 var _fall_speed := 0.0
 var _jump_start_y := 0.0
 var _jump_peak_y := 0.0
@@ -110,6 +119,11 @@ func overload_fusing() -> bool:
 	return _overload_fuse >= 0.0
 
 
+## 폭주 게이지 70% 이상: 화염탄이 강해지는 과열 상태 (위험을 감수한 보상)
+func is_overheated() -> bool:
+	return overload_ratio() >= tuning.overload_warn_ratio or _overload_fuse >= 0.0
+
+
 func center() -> Vector2:
 	return global_position + Vector2(0, -16)
 
@@ -118,6 +132,12 @@ func heal_full() -> void:
 	if hp < tuning.max_hp:
 		hp = tuning.max_hp
 		hp_changed.emit(hp, tuning.max_hp)
+
+
+## 적에게 공격이 맞았을 때 EnemyBase가 알려 준다
+func on_hit_landed(_hit: Hit) -> void:
+	if tuning.hit_refreshes_air_dash and not is_on_floor():
+		air_dashes_left = maxi(air_dashes_left, tuning.air_dash_count)
 
 
 # ─── 매 프레임 ──────────────────────────────────────────
@@ -132,24 +152,27 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var input_x := Input.get_axis("move_left", "move_right") if controls_enabled else 0.0
+	var down := controls_enabled and Input.is_action_pressed("move_down")
 	if _can_act():
-		_read_action_input(input_x)
+		_read_action_input(input_x, down)
 
 	match state:
 		State.DASH:
 			_process_dash(delta)
 		State.HURT, State.STUN:
 			velocity.x = move_toward(velocity.x, 0.0, _decel * 0.5 * delta)
-			_apply_gravity(delta)
+			_apply_gravity(delta, false)
 		_:
 			if input_x != 0.0 and _storm_timer <= 0.0:
 				facing = 1 if input_x > 0.0 else -1
 			_process_run(input_x, delta)
 			_process_jump()
-			_apply_gravity(delta)
+			_apply_gravity(delta, down)
 
 	_fall_speed = velocity.y
+	var vy_before := velocity.y
 	move_and_slide()
+	_corner_correction(vy_before)
 	_after_move()
 	_update_state()
 	_check_hurtbox()
@@ -162,6 +185,7 @@ func _tick_timers(delta: float) -> void:
 	_jump_buffer_timer -= delta
 	_dash_cooldown_timer -= delta
 	_dash_iframe -= delta
+	_since_dash += delta
 	_hurt_iframe -= delta
 	_attack_cooldown -= delta
 	_attack_buffer -= delta
@@ -169,8 +193,13 @@ func _tick_timers(delta: float) -> void:
 	_cast_pose -= delta
 	_storm_timer -= delta
 	_overload_idle += delta
+	_witch_cooldown -= delta
 	pillar_cooldown_left = maxf(pillar_cooldown_left - delta, 0.0)
 	storm_cooldown_left = maxf(storm_cooldown_left - delta, 0.0)
+	if _drop_timer > 0.0:
+		_drop_timer -= delta
+		if _drop_timer <= 0.0:
+			collision_mask = GameConst.L_WORLD | GameConst.L_PLATFORM
 	if state == State.HURT:
 		_hurt_timer -= delta
 		if _hurt_timer <= 0.0:
@@ -185,13 +214,15 @@ func _can_act() -> bool:
 	return controls_enabled and state != State.HURT and state != State.STUN and state != State.DEAD
 
 
-func _read_action_input(input_x: float) -> void:
+func _read_action_input(input_x: float, down: bool) -> void:
 	if Input.is_action_just_pressed("jump"):
-		_jump_buffer_timer = tuning.jump_buffer_time
+		if down and is_on_floor() and _standing_on_platform():
+			_drop_through()
+		else:
+			_jump_buffer_timer = tuning.jump_buffer_time
 	if Input.is_action_just_pressed("dash") and _can_dash():
 		_start_dash(input_x)
-	if state == State.DASH:
-		return
+	# 대시 중에도 화염탄·불기둥은 쏠 수 있다 (화염 폭풍은 자세를 잡아야 하므로 대시를 끊고 시전)
 	if Input.is_action_just_pressed("attack"):
 		_attack_buffer = tuning.attack_buffer_time
 	var wants_attack := _attack_buffer > 0.0 or Input.is_action_pressed("attack")
@@ -200,6 +231,8 @@ func _read_action_input(input_x: float) -> void:
 	if Input.is_action_just_pressed("skill_1") and pillar_cooldown_left <= 0.0 and _storm_timer <= 0.0:
 		_cast_pillar()
 	if Input.is_action_just_pressed("skill_2") and storm_cooldown_left <= 0.0:
+		if state == State.DASH:
+			_end_dash()
 		_cast_storm()
 
 
@@ -208,36 +241,91 @@ func _read_action_input(input_x: float) -> void:
 func _process_run(input_x: float, delta: float) -> void:
 	var mult := tuning.storm_move_mult if _storm_timer > 0.0 else 1.0
 	var target := input_x * _max_speed * mult
-	var rate := _accel if input_x != 0.0 else _decel
-	velocity.x = move_toward(velocity.x, target, rate * delta)
+	var over := absf(velocity.x) > _max_speed and signf(velocity.x) == signf(input_x)
+	if over:
+		# 대시 점프 등으로 최고 속도를 넘었으면 관성을 살려 천천히 줄인다
+		var over_decel := tuning.over_speed_decel_t if is_on_floor() else tuning.over_speed_air_decel_t
+		velocity.x = move_toward(velocity.x, target, over_decel * GameConst.TILE * delta)
+	else:
+		var rate := _accel if input_x != 0.0 else _decel
+		if not is_on_floor() and input_x == 0.0:
+			rate *= 0.35 # 공중에서 손을 떼면 미끄러지듯 관성 유지
+		velocity.x = move_toward(velocity.x, target, rate * delta)
 
 
 func _process_jump() -> void:
 	if _jump_buffer_timer > 0.0 and _coyote_timer > 0.0:
-		velocity.y = _jump_velocity
-		_jump_start_y = position.y
-		_jump_peak_y = position.y
-		_jump_buffer_timer = 0.0
-		_coyote_timer = 0.0
-		_squash_to(Vector2(0.8, 1.2))
-		Sfx.play(&"jump", -4.0)
-		Fx.burst(global_position, 5, {
-			direction = Vector2.UP, spread = 70.0, speed_min = 20.0, speed_max = 50.0, lifetime = 0.25,
-			gradient = Palette.fade_gradient(Palette.GROUND_TOP), size_min = 1.0, size_max = 2.0, gravity = Vector2(0, 60),
-		})
-		if not Input.is_action_pressed("jump"):
-			velocity.y = maxf(velocity.y, _jump_cut_velocity)
+		var dash_jump := _since_dash <= tuning.dash_jump_window and _was_on_floor
+		_do_jump(dash_jump)
 	if Input.is_action_just_released("jump") and velocity.y < _jump_cut_velocity:
 		velocity.y = _jump_cut_velocity
 
 
-func _apply_gravity(delta: float) -> void:
+func _do_jump(dash_jump: bool) -> void:
+	velocity.y = _jump_velocity
+	_jump_start_y = position.y
+	_jump_peak_y = position.y
+	_jump_buffer_timer = 0.0
+	_coyote_timer = 0.0
+	_squash_to(Vector2(0.75, 1.25))
+	if dash_jump:
+		# 대시 점프: 대시 속도를 이어받아 멀리 뛴다
+		velocity.x = _dash_dir * tuning.dash_jump_speed_t * GameConst.TILE
+		_dash_jumping = true
+		Sfx.play(&"dash_jump", -2.0)
+		Fx.ring(global_position + Vector2(0, -2), 2.0, 16.0, Palette.FIRE_HOT, 0.2, 1.0)
+	else:
+		Sfx.play(&"jump", -4.0)
+	Fx.burst(global_position, 6, {
+		direction = Vector2.UP, spread = 70.0, speed_min = 20.0, speed_max = 60.0, lifetime = 0.25,
+		gradient = Palette.fade_gradient(Palette.GROUND_TOP), size_min = 1.0, size_max = 2.0, gravity = Vector2(0, 60),
+	})
+	if not Input.is_action_pressed("jump"):
+		velocity.y = maxf(velocity.y, _jump_cut_velocity)
+
+
+func _apply_gravity(delta: float, fast_fall: bool) -> void:
 	if is_on_floor():
 		return
 	var g := _gravity
+	var max_fall := _max_fall_speed
 	if velocity.y > 0.0:
 		g *= tuning.fall_gravity_multiplier
-	velocity.y = minf(velocity.y + g * delta, _max_fall_speed)
+	# 최고점 근처에서 점프를 누르고 있으면 중력 절반 → 공중에서 조준할 여유
+	if absf(velocity.y) < tuning.apex_hang_speed_t * GameConst.TILE and Input.is_action_pressed("jump"):
+		g *= 0.5
+	if fast_fall and velocity.y > 0.0:
+		g *= 1.4
+		max_fall = tuning.fast_fall_speed_t * GameConst.TILE
+	velocity.y = minf(velocity.y + g * delta, max_fall)
+
+
+func _standing_on_platform() -> bool:
+	for i in get_slide_collision_count():
+		var c := get_slide_collision(i)
+		if c.get_normal().y < -0.7 and c.get_collider() is Block and c.get_collider().one_way:
+			return true
+	return false
+
+
+func _drop_through() -> void:
+	collision_mask = GameConst.L_WORLD
+	_drop_timer = 0.22
+	position.y += 2.0
+	velocity.y = maxf(velocity.y, 60.0)
+
+
+## 점프하다 천장 모서리에 머리가 살짝 걸리면 옆으로 밀어 주어 계속 오르게 한다
+func _corner_correction(vy_before: float) -> void:
+	if vy_before >= 0.0 or not is_on_ceiling():
+		return
+	for d in range(1, tuning.corner_correction_px + 1):
+		for s in [-1, 1]:
+			var shifted := global_transform.translated(Vector2(s * d, 0))
+			if not test_move(shifted, Vector2(0, -3)):
+				position.x += s * d
+				velocity.y = vy_before
+				return
 
 
 # ─── 대시 ───────────────────────────────────────────────
@@ -259,24 +347,40 @@ func _start_dash(input_x: float) -> void:
 	_dash_timer = tuning.dash_duration
 	_dash_iframe = tuning.dash_invincible_time
 	_afterimage_timer = 0.0
+	_dodged_this_dash = false
+	_dash_jumping = false
 	_cancel_storm()
 	state = State.DASH
 	GameState.add("dashes")
 	Sfx.play(&"dash")
+	Fx.burst(global_position + Vector2(-_dash_dir * 4, -8), 8, {
+		direction = Vector2(-_dash_dir, 0), spread = 25.0, speed_min = 60.0, speed_max = 160.0, lifetime = 0.25,
+		size_min = 1.0, size_max = 2.0, gravity = Vector2.ZERO,
+	})
 
 
 func _process_dash(delta: float) -> void:
 	_dash_timer -= delta
+	# 땅 대시 중 점프 → 대시 점프
+	if _jump_buffer_timer > 0.0 and is_on_floor():
+		_end_dash()
+		_do_jump(true)
+		return
 	if _dash_timer <= 0.0:
-		state = State.FALL
-		_dash_cooldown_timer = tuning.dash_cooldown
-		velocity.x = _dash_dir * _max_speed
+		_end_dash()
 		return
 	velocity = Vector2(_dash_dir * _dash_speed, 0.0)
 	_afterimage_timer -= delta
 	if _afterimage_timer <= 0.0:
-		_spawn_afterimage()
-		_afterimage_timer = tuning.dash_duration / 3.0
+		_spawn_afterimage(0.6)
+		_afterimage_timer = tuning.dash_duration / 4.0
+
+
+func _end_dash() -> void:
+	state = State.FALL
+	_dash_cooldown_timer = tuning.dash_cooldown
+	_since_dash = 0.0
+	velocity.x = _dash_dir * _max_speed
 
 
 # ─── 화염탄 3타 ─────────────────────────────────────────
@@ -286,7 +390,7 @@ func _fire_bolt() -> void:
 		_combo_index = 0
 	var heavy := _combo_index == 2
 	var bolt := FireBolt.new()
-	bolt.setup(facing, heavy, tuning)
+	bolt.setup(facing, heavy, tuning, is_overheated())
 	bolt.global_position = to_global(Vector2(HAND.x * facing, HAND.y))
 	Fx.effect_parent().add_child(bolt)
 
@@ -294,18 +398,23 @@ func _fire_bolt() -> void:
 	_combo_index = (_combo_index + 1) % 3
 	_since_shot = 0.0
 	_attack_buffer = 0.0
-	_cast_pose = 0.18
+	_cast_pose = 0.16
 	_cast_kind = 0
 	GameState.add("bolts_fired")
 	Sfx.play(&"shoot_heavy" if heavy else &"shoot", -1.0 if heavy else -3.0)
-	Fx.burst(bolt.global_position, 6 if heavy else 3, {
-		direction = Vector2(facing, 0), spread = 35.0, speed_min = 40.0, speed_max = 110.0,
-		lifetime = 0.15, size_min = 1.0, size_max = 2.0, gravity = Vector2.ZERO,
+	Fx.burst(bolt.global_position, 8 if heavy else 4, {
+		direction = Vector2(facing, 0), spread = 35.0, speed_min = 60.0, speed_max = 160.0,
+		lifetime = 0.15, size_min = 1.0, size_max = 2.5, gravity = Vector2.ZERO,
 	})
-	if heavy:
-		# 3타 반동: 뒤로 살짝 밀림
+	# 공중 사격: 낙하를 잠깐 멈춰 떠 있게 한다 (착지 전까지 정해진 횟수)
+	if not is_on_floor() and state != State.DASH and _air_hovers_left > 0 and velocity.y > -20.0:
+		velocity.y = minf(velocity.y, tuning.air_shot_hover_speed_t * GameConst.TILE)
+		_air_hovers_left -= 1
+	if heavy and state != State.DASH:
+		# 3타 반동: 뒤로 밀림
 		velocity.x = -facing * 2.0 * tuning.heavy_recoil_t * GameConst.TILE / 0.1
-		_squash_to(Vector2(1.1, 0.92))
+		_squash_to(Vector2(1.12, 0.9))
+		Fx.shake(tuning.shake_light_t)
 
 
 # ─── 스킬 ───────────────────────────────────────────────
@@ -318,7 +427,7 @@ func _cast_pillar() -> void:
 	else:
 		pos = _ground_point(global_position.x + facing * tuning.pillar_fallback_t * GameConst.TILE)
 	var p := FirePillar.new()
-	p.setup(pos, target, tuning)
+	p.setup(pos, target, tuning, facing)
 	Fx.effect_parent().add_child(p)
 	pillar_cooldown_left = tuning.pillar_cooldown
 	_cast_pose = 0.3
@@ -327,7 +436,7 @@ func _cast_pillar() -> void:
 	_add_overload(tuning.pillar_overload)
 
 
-## 바라보는 방향 7T 안, 땅에 서 있는 가장 가까운 적
+## 바라보는 방향 사거리 안, 땅에 서 있는 가장 가까운 적
 func _find_pillar_target() -> Node2D:
 	var best: Node2D = null
 	var best_d := INF
@@ -337,7 +446,7 @@ func _find_pillar_target() -> Node2D:
 			continue
 		var dx: float = (e.global_position.x - global_position.x) * facing
 		var dy: float = absf(e.global_position.y - global_position.y)
-		if dx < -8.0 or dx > range_px or dy > 6.0 * GameConst.TILE:
+		if dx < -8.0 or dx > range_px or dy > 7.0 * GameConst.TILE:
 			continue
 		var d := Vector2(dx, dy).length()
 		if d < best_d:
@@ -365,6 +474,10 @@ func _cast_storm() -> void:
 	storm_cooldown_left = tuning.storm_cooldown
 	_cast_pose = tuning.storm_duration + 0.1
 	_cast_kind = 2
+	# 시전 반동: 뒤로 밀려나며 내뿜는다
+	velocity.x = -facing * 2.0 * tuning.storm_recoil_t * GameConst.TILE / 0.2
+	if not is_on_floor():
+		velocity.y = minf(velocity.y, 0.0)
 	GameState.add("storm")
 	_add_overload(tuning.storm_overload)
 
@@ -387,6 +500,15 @@ func _add_overload(amount: float) -> void:
 
 
 func _update_overload(delta: float) -> void:
+	var heated := is_overheated()
+	if heated and not _was_overheated:
+		Sfx.play(&"overheat", -2.0, 0.0)
+		Fx.ring(center(), 4.0, 26.0, Palette.FIRE_OUT, 0.3, 1.0)
+		var hud := get_tree().get_first_node_in_group(&"hud")
+		if hud:
+			hud.banner("과열! 화염탄 강화", 0.8)
+	_was_overheated = heated
+
 	if _overload_fuse >= 0.0:
 		_overload_fuse -= delta
 		Fx.set_vignette(0.5 + 0.5 * (1.0 - _overload_fuse / tuning.overload_fuse))
@@ -395,11 +517,11 @@ func _update_overload(delta: float) -> void:
 		return
 	if _overload_idle > tuning.overload_decay_delay and overload > 0.0:
 		overload = maxf(overload - tuning.overload_decay_rate * delta, 0.0)
-	if overload_ratio() >= tuning.overload_warn_ratio:
+	if heated:
 		_pulse_timer -= delta
 		if _pulse_timer <= 0.0:
 			_pulse_timer = 0.45
-			Sfx.play(&"overload_pulse", -4.0, 0.0)
+			Sfx.play(&"overload_pulse", -6.0, 0.0)
 	else:
 		_pulse_timer = 0.0
 
@@ -417,19 +539,44 @@ func _trigger_burst() -> void:
 	if state != State.DEAD:
 		state = State.STUN
 		_stun_timer = tuning.burst_stun
-		velocity = Vector2(0, -140)
+		velocity = Vector2(0, -180)
 
 
-# ─── 피격·사망 ──────────────────────────────────────────
+# ─── 피격·사망·퍼펙트 회피 ──────────────────────────────
 
 func _check_hurtbox() -> void:
+	var areas := _hurtbox.get_overlapping_areas()
+	if _dash_iframe > 0.0:
+		# 대시 무적 중 공격이 몸을 스치면 퍼펙트 회피 → 위치 타임
+		if not _dodged_this_dash and tuning.perfect_dodge_enabled and _witch_cooldown <= 0.0:
+			for a in areas:
+				if a is EnemyAttackArea and a.active and a.dodgeable:
+					_perfect_dodge()
+					break
+		return
 	if is_invincible():
 		return
-	for a in _hurtbox.get_overlapping_areas():
+	for a in areas:
 		if a is EnemyAttackArea and a.active:
 			if take_damage(a.damage, a.cause, a.global_position.x):
 				a.notify_hit(self)
 			return
+
+
+func _perfect_dodge() -> void:
+	_dodged_this_dash = true
+	_witch_cooldown = tuning.witch_time_cooldown
+	_dash_iframe = maxf(_dash_iframe, 0.25)
+	Fx.witch_time(tuning.witch_time_scale, tuning.witch_time_duration)
+	Fx.ring(center(), 6.0, 60.0, Color(0.7, 0.55, 1.0), 0.45, 2.0, false)
+	Fx.flash(Color(0.6, 0.45, 1.0, 0.3), 0.15)
+	Fx.zoom_punch(tuning.zoom_punch)
+	Sfx.play(&"witch_time")
+	StyleRank.bonus("위치 타임!", 12.0)
+	GameState.add("perfect_dodges")
+	var hud := get_tree().get_first_node_in_group(&"hud")
+	if hud:
+		hud.banner("위치 타임!", 0.9)
 
 
 ## forced = 무적 시간과 상관없이 받는 피해 (폭주 자기 피해)
@@ -440,14 +587,15 @@ func take_damage(amount: int, cause: StringName, from_x: float, forced := false)
 		return false
 	hp = maxi(hp - amount, 0)
 	GameState.add("hits_" + String(cause))
+	StyleRank.on_hurt()
 	hp_changed.emit(hp, tuning.max_hp)
 	_hurt_iframe = tuning.hurt_invincible
 	Fx.hitstop(tuning.hitstop_hurt)
 	Fx.shake(tuning.shake_hurt_t)
 	Fx.flash(Color(1.0, 0.1, 0.1, 0.32), 0.18)
 	Sfx.play(&"hurt")
-	Fx.burst(center(), 10, {
-		spread = 180.0, speed_min = 40.0, speed_max = 120.0, lifetime = 0.35,
+	Fx.burst(center(), 12, {
+		spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.35,
 		gradient = Palette.fade_gradient(Palette.HP), size_min = 1.0, size_max = 2.5,
 	})
 	if hp <= 0:
@@ -460,7 +608,7 @@ func take_damage(amount: int, cause: StringName, from_x: float, forced := false)
 		var dir := signf(global_position.x - from_x)
 		if dir == 0.0:
 			dir = -facing
-		velocity = Vector2(dir * 2.0 * tuning.hurt_knockback_t * GameConst.TILE / tuning.hurt_stun, -120.0)
+		velocity = Vector2(dir * 2.0 * tuning.hurt_knockback_t * GameConst.TILE / tuning.hurt_stun, -140.0)
 	return true
 
 
@@ -474,8 +622,8 @@ func _die() -> void:
 	GameState.add("deaths")
 	died.emit()
 	Fx.slowmo(0.3, 0.7)
-	Fx.burst(center(), 40, {
-		spread = 180.0, speed_min = 40.0, speed_max = 200.0, lifetime = 0.9, damping = 80.0,
+	Fx.burst(center(), 50, {
+		spread = 180.0, speed_min = 40.0, speed_max = 220.0, lifetime = 0.9, damping = 80.0,
 		size_min = 1.5, size_max = 3.5, gravity = Vector2(0, -50),
 	})
 	var t := create_tween().set_ignore_time_scale(true)
@@ -491,33 +639,43 @@ func _after_move() -> void:
 	if on_floor:
 		_coyote_timer = tuning.coyote_time
 		air_dashes_left = tuning.air_dash_count
+		_air_hovers_left = tuning.air_shot_hover_count
 		if not _was_on_floor:
 			_on_land()
 		elif state == State.RUN and absf(velocity.x) > _max_speed * 0.6:
 			_dust_timer -= get_physics_process_delta_time()
 			if _dust_timer <= 0.0:
-				_dust_timer = 0.14
+				_dust_timer = 0.09
 				Fx.burst(global_position + Vector2(-facing * 3, 0), 2, {
-					direction = Vector2(-facing, -1), spread = 30.0, speed_min = 10.0, speed_max = 30.0,
+					direction = Vector2(-facing, -1), spread = 30.0, speed_min = 15.0, speed_max = 40.0,
 					lifetime = 0.3, gradient = Palette.fade_gradient(Color(Palette.GROUND_TOP, 0.7)),
 					size_min = 1.0, size_max = 2.0, gravity = Vector2(0, -10),
 				})
 	_was_on_floor = on_floor
+	# 빠르게 움직일 때 옅은 잔상 (대시 점프, 최고 속도 질주)
+	if state != State.DASH and (absf(velocity.x) > _max_speed * 1.15 or _dash_jumping):
+		_afterimage_timer -= get_physics_process_delta_time()
+		if _afterimage_timer <= 0.0:
+			_afterimage_timer = 0.05
+			_spawn_afterimage(0.3)
 
 
 func _on_land() -> void:
-	var impact := clampf(_fall_speed / _max_fall_speed, 0.0, 1.0)
+	_dash_jumping = false
+	var impact := clampf(_fall_speed / _max_fall_speed, 0.0, 1.5)
 	_squash_to(Vector2(1.15 + impact * 0.2, 0.85 - impact * 0.15))
 	last_jump_height_t = (_jump_start_y - _jump_peak_y) / GameConst.TILE
 	_jump_start_y = position.y
 	_jump_peak_y = position.y
 	if impact > 0.25:
 		Sfx.play(&"land", -6.0 + impact * 4.0)
-		Fx.burst(global_position, 4 + int(impact * 6.0), {
-			direction = Vector2.UP, spread = 85.0, speed_min = 20.0, speed_max = 50.0 + impact * 40.0,
+		Fx.burst(global_position, 4 + int(impact * 8.0), {
+			direction = Vector2.UP, spread = 85.0, speed_min = 20.0, speed_max = 50.0 + impact * 50.0,
 			lifetime = 0.3, gradient = Palette.fade_gradient(Palette.GROUND_TOP), size_min = 1.0, size_max = 2.0,
 			gravity = Vector2(0, 80),
 		})
+	if impact > 1.1:
+		Fx.shake(0.1, 0.12) # 빠른 낙하 착지
 
 
 func _update_state() -> void:
@@ -536,7 +694,7 @@ func _update_visual(delta: float) -> void:
 	_body.pose = state as PlayerVisual.Pose
 	_body.speed_x = velocity.x * facing
 	_body.speed_y = velocity.y
-	_body.cast = clampf(_cast_pose / 0.18, 0.0, 1.0) if _cast_pose > 0.0 else 0.0
+	_body.cast = clampf(_cast_pose / 0.16, 0.0, 1.0) if _cast_pose > 0.0 else 0.0
 	_body.cast_kind = _cast_kind
 	_body.overload_ratio = overload_ratio()
 	_body.overload_fuse = _overload_fuse >= 0.0
@@ -568,10 +726,12 @@ func _squash_to(amount: Vector2) -> void:
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
-func _spawn_afterimage() -> void:
+func _spawn_afterimage(alpha: float) -> void:
 	var ghost := PlayerVisual.new()
 	ghost.copy_pose_from(_body)
 	ghost.ghost = true
+	ghost.ghost_color = Color(1.0, 0.45, 0.25, alpha)
+	ghost.material = Fx.add_material
 	Fx.effect_parent().add_child(ghost)
 	ghost.global_transform = _body.global_transform
 	ghost.z_index = -1

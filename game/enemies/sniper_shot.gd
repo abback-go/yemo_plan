@@ -32,8 +32,9 @@ func _physics_process(delta: float) -> void:
 	_trail.push_front(global_position)
 	if _trail.size() > 6:
 		_trail.pop_back()
-	global_position += dir * speed * delta
-	_life -= delta
+	var d := delta * Fx.enemy_time # 위치 타임 중엔 탄도 느려진다
+	global_position += dir * speed * d
+	_life -= d
 	if _life <= 0.0:
 		queue_free()
 	queue_redraw()

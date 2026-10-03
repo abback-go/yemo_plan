@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## 화면 정보 (docs/prototype.md 8절): 좌상단 체력 5칸 + 폭주 게이지, 우하단 스킬 2개와 재사용 대기,
-## 우상단 구간·시간, 가운데 알림 문구(banner).
+## 우상단 구간·시간 + 콤보·스타일 랭크(v0.3, 14절), 가운데 알림 문구(banner).
 
 var _draw_node: HudDraw
 var _banner: Label
@@ -43,21 +43,37 @@ func banner(text: String, sec := 1.5) -> void:
 
 
 class HudDraw extends Control:
+	## 랭크별 글자색 (D C B A S SS)
+	const RANK_COLORS := [
+		Color("#8a7fa3"), Color("#c9b8ff"), Color("#ffb347"), Color("#ff5a2a"), Color("#ffd27a"), Color("#fff4d6"),
+	]
+
 	var _t := 0.0
 	var _shown_hp := -1
 	var _hp_shake := 0.0
 	var _ready_flash := [0.0, 0.0]
 	var _was_ready := [true, true]
 	var _font: Font
+	var _shown_rank := 0
+	var _rank_pop := 0.0
+	var _shown_combo := 0
+	var _combo_pop := 0.0
+	var _style_alpha := 0.0
 
 	func _ready() -> void:
 		_font = get_theme_default_font()
 
 	func _process(delta: float) -> void:
-		_t += delta
-		_hp_shake = maxf(_hp_shake - delta, 0.0)
+		# 히트스톱·슬로모션 중에도 HUD 연출은 실제 시간으로
+		var real := delta / maxf(Engine.time_scale, 0.0001)
+		_t += real
+		_hp_shake = maxf(_hp_shake - real, 0.0)
 		for i in 2:
-			_ready_flash[i] = maxf(_ready_flash[i] - delta * 3.0, 0.0)
+			_ready_flash[i] = maxf(_ready_flash[i] - real * 3.0, 0.0)
+		_rank_pop = maxf(_rank_pop - real * 4.0, 0.0)
+		_combo_pop = maxf(_combo_pop - real * 8.0, 0.0)
+		var active := StyleRank.points > 0.5 or StyleRank.combo >= 2
+		_style_alpha = move_toward(_style_alpha, 1.0 if active else 0.0, real * 4.0)
 		queue_redraw()
 
 	func _draw() -> void:
@@ -68,6 +84,7 @@ class HudDraw extends Control:
 		_draw_overload(p)
 		_draw_skills(p)
 		_draw_info()
+		_draw_style()
 
 	func _draw_hp(p: Player) -> void:
 		if _shown_hp != p.hp:
@@ -108,6 +125,10 @@ class HudDraw extends Control:
 		draw_line(Vector2(mark_x, r.position.y - 1), Vector2(mark_x, r.end.y + 1), Color(1, 1, 1, 0.5), 1.0)
 		var label_col := Palette.DANGER if warn else Palette.UI_DIM
 		draw_string(_font, Vector2(r.end.x + 5, r.end.y + 2), "폭주", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, label_col)
+		if p.is_overheated():
+			# 과열: 화염탄 강화 중임을 알림 (위험을 감수한 보상)
+			var hot := Palette.FIRE_HOT.lerp(Palette.FIRE_CORE, 0.5 + 0.5 * sin(_t * 18.0))
+			draw_string(_font, Vector2(r.end.x + 33, r.end.y + 2), "과열!", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, hot)
 
 	func _draw_skills(p: Player) -> void:
 		var skills := [
@@ -158,3 +179,65 @@ class HudDraw extends Control:
 		var time_text := GameState.format_time(GameState.run_time)
 		draw_string(_font, Vector2(420, 20), sec_text, HORIZONTAL_ALIGNMENT_RIGHT, 160, 12, Palette.UI_DIM)
 		draw_string(_font, Vector2(586, 20), time_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
+
+	## 우상단 콤보 수 + 스타일 랭크 글자 + 랭크 진행 막대 + 최근 보너스 문구
+	func _draw_style() -> void:
+		var sr := StyleRank
+		if sr.rank != _shown_rank:
+			if sr.rank > _shown_rank:
+				_rank_pop = 1.0
+			_shown_rank = sr.rank
+		if sr.combo > _shown_combo:
+			_combo_pop = 1.0
+		_shown_combo = sr.combo
+		if _style_alpha <= 0.0:
+			return
+		var a := _style_alpha
+		var right := 628.0
+
+		# 랭크 글자 (36px). 오를 때 크게 튀고, S 이상은 떨린다
+		var col: Color = RANK_COLORS[sr.rank]
+		if sr.rank >= 5:
+			col = col.lerp(Palette.FIRE_OUT, 0.5 + 0.5 * sin(_t * 20.0))
+		var text := sr.rank_name()
+		var size := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 36)
+		var center := Vector2(right - size.x * 0.5, 50)
+		if sr.rank >= 4:
+			center += Vector2(randf_range(-0.8, 0.8), randf_range(-0.8, 0.8))
+		var sc := 1.0 + _rank_pop * 0.7
+		draw_set_transform(center, -0.12 * _rank_pop, Vector2(sc, sc))
+		var origin := Vector2(-size.x * 0.5, 12)
+		draw_string_outline(_font, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 36, 6, Color(Palette.OUTLINE, a))
+		draw_string(_font, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Color(col, a))
+		draw_set_transform(Vector2.ZERO)
+
+		# 랭크 이름 + 진행 막대
+		draw_string_outline(_font, Vector2(right - 90, 76), StyleRank.NAMES[sr.rank], HORIZONTAL_ALIGNMENT_RIGHT, 90, 12, 4, Color(Palette.OUTLINE, a))
+		draw_string(_font, Vector2(right - 90, 76), StyleRank.NAMES[sr.rank], HORIZONTAL_ALIGNMENT_RIGHT, 90, 12, Color(col, a))
+		var bar := Rect2(right - 56, 80, 56, 3)
+		draw_rect(bar.grow(1), Color(Palette.OUTLINE, a))
+		draw_rect(bar, Color(0.16, 0.12, 0.2, a))
+		draw_rect(Rect2(bar.position, Vector2(bar.size.x * sr.progress_in_rank(), bar.size.y)), Color(col, a))
+
+		# 콤보 수 (2 이상일 때). 끊기기까지 남은 시간을 아래 막대로
+		if sr.combo >= 2:
+			var cx := right - 60.0
+			var num := str(sr.combo)
+			var csc := 1.0 + _combo_pop * 0.35
+			var nsize := _font.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, 24)
+			draw_set_transform(Vector2(cx - nsize.x * 0.5, 44), 0.0, Vector2(csc, csc))
+			draw_string_outline(_font, Vector2(-nsize.x * 0.5, 8), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, 5, Color(Palette.OUTLINE, a))
+			draw_string(_font, Vector2(-nsize.x * 0.5, 8), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(Palette.UI_TEXT, a))
+			draw_set_transform(Vector2.ZERO)
+			draw_string_outline(_font, Vector2(cx - 60, 64), "HIT", HORIZONTAL_ALIGNMENT_RIGHT, 60, 12, 4, Color(Palette.OUTLINE, a))
+			draw_string(_font, Vector2(cx - 60, 64), "HIT", HORIZONTAL_ALIGNMENT_RIGHT, 60, 12, Color(Palette.FIRE_HOT, a))
+			var cbar := Rect2(cx - 28, 68, 28, 2)
+			draw_rect(cbar, Color(0.16, 0.12, 0.2, a))
+			draw_rect(Rect2(cbar.position, Vector2(cbar.size.x * sr.combo_ratio(), cbar.size.y)), Color(Palette.FIRE_HOT, a))
+
+		# 최근 보너스 문구 (예: 위치 타임!) 1.2초
+		var since := Time.get_ticks_msec() / 1000.0 - sr.last_event_time
+		if sr.last_event != "" and since < 1.2:
+			var ea := a * clampf((1.2 - since) / 0.3, 0.0, 1.0)
+			draw_string_outline(_font, Vector2(right - 160, 96), sr.last_event, HORIZONTAL_ALIGNMENT_RIGHT, 160, 12, 4, Color(Palette.OUTLINE, ea))
+			draw_string(_font, Vector2(right - 160, 96), sr.last_event, HORIZONTAL_ALIGNMENT_RIGHT, 160, 12, Color(Palette.GOLD, ea))

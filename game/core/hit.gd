@@ -9,9 +9,10 @@ var breaks_charge := false ## 돌진 중인 적의 돌진을 끊는가 (화염 �
 var ignores_knock_resist := false ## 돌진 중 넉백 저항을 무시하는가
 var hitstop := 0.0 ## 멈춤 연출 시간 (s)
 var shake_t := 0.0 ## 화면 흔들림 진폭 (T)
+var zoom := 0.0 ## 카메라 순간 확대 비율
 var direction := 0 ## 넉백 방향 -1/1. 0이면 source_pos 기준으로 계산
 var source_pos := Vector2.ZERO
-var kind := &"" ## bolt, bolt_heavy, pillar, storm, burst
+var kind := &"" ## bolt, bolt_heavy, blast, pillar, storm, storm_final, burst
 
 
 static func make(p_damage: int, p_kind: StringName, p_source: Vector2, p_direction := 0) -> Hit:

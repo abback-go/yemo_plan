@@ -65,6 +65,11 @@ func _on_spawned(e: EnemyBase) -> void:
 func _on_enemy_defeated(_e: EnemyBase) -> void:
 	_alive -= 1
 	if _alive <= 0:
+		if _wave == _waves.size() - 1:
+			# 마지막 한 마리: 슬로모션 + 확대로 마무리 (v0.3)
+			Fx.slowmo(0.25, 0.7)
+			Fx.zoom_punch(0.1)
+			Fx.flash(Color(1.0, 0.9, 0.7, 0.35), 0.4)
 		get_tree().create_timer(1.0, false).timeout.connect(_next_wave)
 
 

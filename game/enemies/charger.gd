@@ -34,6 +34,7 @@ func _ready() -> void:
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
+	_contact.dodgeable = state == S.CHARGE # 걷는 몸에 부딪힌 건 회피가 아니다
 	match state:
 		S.PATROL:
 			velocity.x = facing * tuning.charger_patrol_speed_t * t
