@@ -290,3 +290,35 @@ ch5_start ─ st_fest ─ st_fest_seen(광장) ─ st_fest_ready(교장의 사�
 
 지루한 반복을 피한 장치: 시련마다 다른 동료·다른 적·다른 구조(거리 / 세로 가지 / 기둥 회랑 / 별자리 퍼즐), 탑 층마다 다른 장치(별자리 다리 2·정령 회랑·중력 반전·3체), 절망은 싸움보다 도망과 장면, 반격은 거신을 타는 새 이동.
 감정 곡선: 축제(가장 밝음) → 리라 방문(첫 충격) → 시련(동료와의 신뢰) → 탑의 기억(이해) → 진실(배신감) → 침공·절망(가장 어두움, 통하지 않는 공격) → 어둠의 대화("세라야") → 반격(모두가 다시 일어섬) → 최종전(모두의 지원) → 에필로그(차와 사진).
+
+## 14. 시험 (실행한 것)
+- `godot --headless --script ../tools/test/check_scripts.gd` → **301개 실패 0**
+- `python3 tools/roomgen.py check all st_` / `check all r5_` / `check all s_`(덧붙임 포함) → **문제 0**
+- 시나리오 (`tools/test/runner.gd`, 화면 640×360, 고정 60fps):
+  - `ch5_full.json` — 4장 끝 상태에서 `ch5_start` → 축제(부탁 다섯 완료, 불사조 수업 게시판 "들을 수 있음") → 저녁·리라 방문 → 시련 넷 → 탑(별자리 다리 둘·기억 일곱·중력 반전·교장의 봉인) → 리라 4페이즈·별의 비·진실·침공 → 무너진 학교(사도·학생 데려가기·통신과 환상 셋) → 절망 → 어둠·아홉 꼬리 → 반격 → 거신 → 하늘 → 하늘의 문 4페이즈·봉인 → 에필로그(다시 세우기 완료) → 차 → **엔딩 크레디트 → ChapterFlow.finish(c, 5)** → 목표 줄 "모든 이야기가 끝났다…"(ch5_done). **SCRIPT ERROR 0**, 대기 시간 초과 0.
+  - `ch5_story_tower_lyra.json` (탑·리라 결전·진실까지), `ch5_story_final_gate.json` (반격·하늘의 문·에필로그·크레디트), `ch5_climb_colossus.json` (가장 큰 거신의 팔을 실제 조작으로 걸어 올라 발사 트리거까지) — 모두 SCRIPT ERROR 0.
+  - 1단계 시험(`ch5_lyra_boss`·`ch5_sky_gate`·`ch5_constructs`·`ch5_wisp_seraph`·`ch5_colossus`·`ch5_awaken_ride`·`ch5_themes`·`ch5_props`·`ch5_portrait`)은 1단계 보고 그대로.
+- 스크린숏으로 본 것: 방 34개 순회, 축제·리라 방문, 시련 넷의 결투와 별자리 다리, 탑의 뒤집힌 층, 리라 결전·진실, 무너진 학교·환상·절망, 어둠의 각성, 반격, 거신 타기·오르기, 하늘의 문 동료 지원, 에필로그.
+
+## 15. 요청 사항 (공용 파일 — 5장 담당은 고치지 않음)
+1. **`game/player/player_visual.gd` `_draw_fox_tail`**: 꼬리 9개(5장 최종 구간 상시 여우 모드)에서 꼬리 다각형이 꼬여 `ERROR: Invalid polygon data, triangulation failed.`가 매 프레임 쏟아짐(그림은 그 꼬리만 빠짐). 폭 방향을 꼬리 방향에 맞춰 돌리면 해결:
+   ```gdscript
+   	var w := 4.0
+   	var nrm := (tip - base).normalized().orthogonal() * w
+   	var pts := PackedVector2Array([base - nrm * 0.5, mid - nrm, tip, mid + nrm, base + nrm * 0.5])
+   ```
+2. **`game/fox/neoul_pet.gd` 152행 꼬리 다각형**: 꼬리 4개 이상에서 같은 오류(4장 끝부터). 같은 방식으로:
+   ```gdscript
+   		var mid := tail_base.lerp(tail_tip, 0.5)
+   		var nrm := (tail_tip - tail_base).normalized().orthogonal() * 2.0
+   		draw_colored_polygon(PackedVector2Array([tail_base - nrm, mid - nrm * 1.5, tail_tip, mid + nrm * 1.5, tail_base + nrm]), fur)
+   ```
+3. (선택) `game/ui/map_screen.gd` 지역 이름 사전: 5장 환상 방은 영역 `vision`(장면 중에만 머묾, 지도를 열 수 없음)이라 이름이 필요 없지만, 넣는다면 `"vision": "같은 시각"`.
+4. 2~4장 인물(`leonie`·`elarien`·`aurelia`)의 그림·초상화는 각 장 데이터에 있다는 전제로 쓴다. 이 브랜치 단독 실행에서는 학생 모습으로 대신 보인다(통합 뒤 정상).
+
+## 16. 남은 문제 · 다음에 다듬을 것
+- 시험 시나리오에서 하늘의 문 체력을 한꺼번에 깎을 때(`ehpf`) 한 번 `ERROR: Parameter "body->get_space()" is null.`(엔진 오류, 대본 오류 아님)이 찍힘. 실제 플레이 경로에서는 재현하지 못함.
+- 어둠의 각성 꼬리(1단계 그림)가 꽃잎처럼 보이는 편. 중간 층 거신이 밝은 회색이라 무너진 학교 실내 방에서 눈에 많이 띔(의도한 압박감이지만 더 어둡게 할 여지).
+- 별의 시련 결투장의 큰 구조체·리라·하늘의 문은 초보자 난이도로만 시험(보통 난이도 수치 밸런스는 체력값만 정본대로, 실제 손 플레이 시간은 미측정 — 13절은 추정).
+- 거신 타기(`st_colossus_2`)의 실제 조작 통과는 1단계 시험장(`dev_st_ride`)에서만 확인. 2단계 방에서는 장면·트리거 흐름만 시험.
+- 2~4장 방에 별의 시련을 덧붙이는 대신 시련 방을 새로 만들었다(제국·세계수·대신전의 밤 테마). 통합 뒤 원하면 각 장의 전이진 도착 방에 `st_star_door`(문간으로 가는 별의 문)를 덧붙일 수 있다.
