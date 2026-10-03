@@ -626,11 +626,5 @@ func enter_s_dorm(c: Cut) -> void:
 	await c.fade_out(2.0)
 	c.flag("chapter_end")
 	c.save_here("bed")
-	c.save()
-	var keep := await c.world.end_screen()
-	if not keep:
-		GameState.go_title()
-		return
-	c.hud(true)
-	await c.fade_in(1.0)
-	c.bubble("…자, 학교를 좀 더 둘러볼까. 숨긴 게 많은 학교니라.", 3.0)
+	# 1장 끝 → 너울·저장 → "2장" 카드 → ch2_start (ChapterFlow, docs/systems2.md 7절)
+	await ChapterFlow.finish(c, 1)

@@ -3,6 +3,7 @@ extends EnemyAttackArea
 ## 적의 탄 공용 (저격탄을 일반화). 직선·포물선(gravity)·약한 유도(homing) 지원.
 ## style: fireball(붉은 불덩이) · foxwisp(도깨비불의 초록 불) · page(책장) · rock(돌탄) · dark(검은 불덩이) · seed(씨앗) · beam(광선탄)
 ## 위치 타임 중엔 느려지고, 대시 무적으로 스치면 퍼펙트 회피가 된다.
+## 불꽃 방벽에 닿으면 reflect()로 세라의 공격이 되어 되날아간다(Hit.kind = reflect) — docs/systems2.md 3절.
 
 var dir := Vector2.LEFT
 var speed := 200.0
@@ -16,6 +17,8 @@ var _vel := Vector2.ZERO
 var _t := 0.0
 var _trail: Array[Vector2] = []
 var _spin := 0.0
+var reflected := false
+var _reflect_damage := 0
 
 
 func setup(pos: Vector2, p_dir: Vector2, p_speed: float, p_style := "fireball", opts := {}) -> void:
@@ -45,6 +48,7 @@ func _ready() -> void:
 		body_entered.connect(func(_b: Node) -> void: pop())
 	hit_player.connect(func(_p: Node) -> void: pop())
 	z_index = 4
+	add_to_group(&"enemy_projectile")
 	if style in ["fireball", "foxwisp", "dark", "beam"]:
 		material = Fx.add_material
 
@@ -71,7 +75,53 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 
+## 불꽃 방벽: 세라의 불로 되쏜다. 이후로는 세라를 해치지 않고 적의 피격 판정을 찾는다
+func reflect(new_dir: Vector2, dmg: int) -> void:
+	if reflected or not active:
+		return
+	reflected = true
+	active = false
+	_reflect_damage = dmg
+	homing = 0.0
+	grav = 0.0
+	life = 2.0
+	_vel = new_dir.normalized() * maxf(speed, 240.0) * 1.35
+	collision_layer = 0
+	set_deferred("monitoring", true)
+	collision_mask = GameConst.L_ENEMY_HURT | (GameConst.L_WORLD if hits_world else 0)
+	area_entered.connect(_on_reflected_area)
+	material = Fx.add_material
+
+
+func _on_reflected_area(area: Area2D) -> void:
+	if not reflected:
+		return
+	var target := area.get_parent()
+	if target == null or not target.has_method("take_hit"):
+		return
+	if target.has_method("is_alive") and not target.is_alive():
+		return
+	var h := Hit.make(_reflect_damage, &"reflect", global_position, int(signf(_vel.x)))
+	h.knockback_t = 1.2
+	h.hitstop = 0.06
+	h.shake_t = 0.15
+	target.take_hit(h)
+	Sfx.play(&"hit_heavy", -4.0)
+	_finish_reflect()
+
+
+func _finish_reflect() -> void:
+	reflected = false
+	Fx.burst(global_position, 12, {spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.3,
+		gradient = Palette.fade_gradient(Palette.FIRE_HOT), add = true})
+	Fx.ring(global_position, 3.0, 18.0, Palette.FIRE_HOT, 0.2, 2.0)
+	queue_free()
+
+
 func pop(quiet := false) -> void:
+	if reflected:
+		_finish_reflect()
+		return
 	if not active:
 		return
 	active = false
@@ -85,6 +135,8 @@ func pop(quiet := false) -> void:
 
 
 func _color() -> Color:
+	if reflected:
+		return Palette.FIRE_HOT
 	match style:
 		"foxwisp": return Color(0.55, 1.0, 0.7)
 		"page": return Color("#e8dcc0")
