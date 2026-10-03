@@ -32,7 +32,7 @@ func setup(room: Room, e: Dictionary, _eid: String) -> void:
 	_cv.setup(who)
 	_cv.position = Vector2(0, -6)
 	_cv.scale = Vector2(0.8, 0.8)
-	_cv.modulate = Color(0.55, 0.55, 0.7, 0.85)
+	_cv.modulate = Color(0.78, 0.82, 0.98, 0.95)
 	add_child(_cv)
 	_cv.set_pose("hurt")
 	_shell = Shell.new()
@@ -90,7 +90,7 @@ class Shell extends Node2D:
 			draw_line(top + Vector2(3, 0), top + Vector2(0, -10), Color(LINE, 0.6), 1.0)
 		# 육각 고치: 세로로 긴 육각형 두 겹 (반투명 — 안의 피오가 비침)
 		var hx := PackedVector2Array([Vector2(0, -46), Vector2(15, -36), Vector2(15, -10), Vector2(0, 0), Vector2(-15, -10), Vector2(-15, -36)])
-		var a := 0.55 * (1.0 - k)
+		var a := 0.42 * (1.0 - k)
 		draw_colored_polygon(hx, Color(WHITE, a))
 		var inner := PackedVector2Array()
 		for p in hx:

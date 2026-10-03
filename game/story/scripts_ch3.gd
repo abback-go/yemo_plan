@@ -854,10 +854,7 @@ func npc_ortia(c: Cut) -> void:
 		return
 	if st == 1:
 		if n >= 2:
-			await c.say("ortia", "오오, 달잎에 이슬까지. …향이 좋구먼.", "happy")
-			await c.say("ortia", "답례일세. 이 주머니면 물약을 하나 더 넣고 다닐 수 있을 게야. 젊을 땐 늘 하나가 모자라거든.", "happy")
-			c.close_box()
-			await c.quest_done("e_ortia_tea")
+			await e_ortia_tea_done(c)
 		else:
 			await c.say("ortia", "달잎은 달샘에, 이슬은 수관 높은 잎에 고인다네. (%d/2)" % n)
 		return
@@ -871,6 +868,13 @@ func npc_ortia(c: Cut) -> void:
 		await c.say("ortia", "잠재우는 불이라… 그분과 똑같은 말을 하는구먼.", "happy")
 	else:
 		await c.say("ortia", "티엘은 줄기 시장 오른쪽 끝 공방에 있다네. 달샘은 가지 마을 위쪽 끝이고.")
+
+
+func e_ortia_tea_done(c: Cut) -> void:
+	await c.say("ortia", "오오, 달잎에 이슬까지. …향이 좋구먼.", "happy")
+	await c.say("ortia", "답례일세. 이 주머니면 물약을 하나 더 넣고 다닐 수 있을 게야. 젊을 땐 늘 하나가 모자라거든.", "happy")
+	c.close_box()
+	await c.quest_done("e_ortia_tea")
 
 
 func npc_fio(c: Cut) -> void:
@@ -896,14 +900,19 @@ func npc_fio(c: Cut) -> void:
 	elif st == 2:
 		await c.say("fio", "씨앗 심을 화분 찾는 중이야! 별 돋으면 누나한테 제일 먼저 보여 줄게!", "happy")
 		return
-	if _n(SEEDS) >= 5:
-		await c.say("fio", "우와아! 다섯 개 다! 누나 최고!", "happy")
-		await c.say("fio", "선물이야! 그리고 비밀 하나 알려 줄게…")
-		await c.say("fio", "가지 마을 왼쪽 위 끝에, 벽이 가끔 반짝이는 데가 있어. 여우 눈으로 보면 뭐가 보일걸?", "happy")
-		c.close_box()
-		await c.quest_done("e_fio_seeds")
-	else:
+	await e_fio_seeds_done(c)
+
+
+## 씨앗 돌려주기 (퀘스트 talk 갈고리 — 다른 장의 피오 대사 덮어쓰기보다 먼저)
+func e_fio_seeds_done(c: Cut) -> void:
+	if _n(SEEDS) < 5:
 		await c.say("fio", "지금 %d개야! 마을, 우리 집, 시장, 바람길, 가지 마을!" % _n(SEEDS))
+		return
+	await c.say("fio", "우와아! 다섯 개 다! 누나 최고!", "happy")
+	await c.say("fio", "선물이야! 그리고 비밀 하나 알려 줄게…")
+	await c.say("fio", "가지 마을 왼쪽 위 끝에, 벽이 가끔 반짝이는 데가 있어. 여우 눈으로 보면 뭐가 보일걸?", "happy")
+	c.close_box()
+	await c.quest_done("e_fio_seeds")
 
 
 func npc_fio_mom(c: Cut) -> void:
@@ -925,10 +934,7 @@ func npc_tiel(c: Cut) -> void:
 		st = 1
 	if st == 1:
 		if n >= 3:
-			await c.say("tiel", "다 고쳤어?! 와… 진짜로? 어쩐지 바람 소리가 달라졌다 했어!", "surprised")
-			await c.say("tiel", "이건 수고비! 바람길 바닥에서 주운 보라 돌인데, 마녀들은 이런 거 좋아하지?", "happy")
-			c.close_box()
-			await c.quest_done("e_tiel_valve")
+			await e_tiel_valve_done(c)
 		else:
 			await c.say("tiel", "녹슨 밸브는 바람길 굴마다 하나씩이야. 세 번 데우면 풀려! (%d/3)" % n)
 			await c.say("tiel", "고친 밸브는 숨은 바람을 되살려. 위로 올려 주는 바람 말이야. 어디로 데려갈진 나도 몰라!", "happy")
@@ -937,6 +943,21 @@ func npc_tiel(c: Cut) -> void:
 		await c.say("tiel", "꼭대기 바람이 깨끗해졌어! 이제 새 밸브 설계도를 그릴 수 있겠다!", "happy")
 	else:
 		await c.say("tiel", "바람길은 시장 오른쪽 끝 계단! 밸브는 데우면 돈다, 기억하지?")
+
+
+func e_tiel_valve_done(c: Cut) -> void:
+	await c.say("tiel", "다 고쳤어?! 와… 진짜로? 어쩐지 바람 소리가 달라졌다 했어!", "surprised")
+	await c.say("tiel", "이건 수고비! 바람길 바닥에서 주운 보라 돌인데, 마녀들은 이런 거 좋아하지?", "happy")
+	c.close_box()
+	await c.quest_done("e_tiel_valve")
+
+
+## 활터 퀘스트 갈고리: 활터에서만 시험, 다른 곳의 엘라리엔은 안내만
+func e_archery_talk(c: Cut) -> void:
+	if c.world.room.data.id == "e_archery":
+		await _archery(c)
+	else:
+		await c.say("elarien", "활터는 가지 마을 아래 가지 끝이다. 과녁이 기다린다.")
 
 
 func npc_elarien(c: Cut) -> void:
@@ -1125,10 +1146,7 @@ func npc_pippa_ch3(c: Cut) -> void:
 		return
 	if st == 1:
 		if n >= 3:
-			await c.say("pippa", "우와아! 반짝반짝해! …냄새는 좀 꾸리하지만!", "happy")
-			await c.say("pippa", "이거 받아! 연금술 재료 사려고 모은 거지만… 네가 더 잘 쓸 거야.", "happy")
-			c.close_box()
-			await c.quest_done("e_pippa_moss")
+			await e_pippa_moss_done(c)
 		else:
 			await c.say("pippa", "빛이끼는 세계수 뿌리 동굴 어딘가! 숨은 구석도 꼭 봐! (%d/3)" % n)
 		return
@@ -1136,6 +1154,13 @@ func npc_pippa_ch3(c: Cut) -> void:
 		await c.say("pippa", "묘목이 다시 초록이 됐어! 잎이 막 반짝여! 네 덕분이야, 세라!", "happy")
 	else:
 		await c.say("pippa", "묘목은 내가 지키고 있을게. 넌 엘프 숲 잘 다녀와!", "happy")
+
+
+func e_pippa_moss_done(c: Cut) -> void:
+	await c.say("pippa", "우와아! 반짝반짝해! …냄새는 좀 꾸리하지만!", "happy")
+	await c.say("pippa", "이거 받아! 연금술 재료 사려고 모은 거지만… 네가 더 잘 쓸 거야.", "happy")
+	c.close_box()
+	await c.quest_done("e_pippa_moss")
 
 
 func npc_butterworth_ch3(c: Cut) -> void:
@@ -1150,14 +1175,18 @@ func npc_butterworth_ch3(c: Cut) -> void:
 		return
 	if st == 1:
 		if c.has("e_honey_got"):
-			await c.say("butterworth", "이 빛깔 좀 봐라! 진짜 숲 꿀이구나!", "happy")
-			await c.say("butterworth", "자, 꿀 바른 숲빵이다. 먹고 쑥쑥 크거라!", "happy")
-			c.close_box()
-			await c.quest_done("e_honey")
+			await e_honey_done(c)
 		else:
 			await c.say("butterworth", "꿀은 오래된 벌집에 있단다. 사람 발길 안 닿는 숨겨진 곳 말이야.")
 		return
 	await c.say("butterworth", "숲빵 맛있었지? 배고프면 언제든 오너라.", "happy")
+
+
+func e_honey_done(c: Cut) -> void:
+	await c.say("butterworth", "이 빛깔 좀 봐라! 진짜 숲 꿀이구나!", "happy")
+	await c.say("butterworth", "자, 꿀 바른 숲빵이다. 먹고 쑥쑥 크거라!", "happy")
+	c.close_box()
+	await c.quest_done("e_honey")
 
 
 func npc_astrid_ch3(c: Cut) -> void:
@@ -1236,6 +1265,7 @@ func _isolde_duel(c: Cut) -> void:
 	await c.say("isolde", "아니거든! 이건 우승 상품. 수호의 깃털. …내가 받으려던 건데.", "angry")
 	c.close_box()
 	await c.quest_done("s_duel_cup")
+	c.flag("s_duel_won")
 	c.save()
 
 
@@ -1328,6 +1358,24 @@ func dev_ch3_near_herald(c: Cut) -> void:
 	if e:
 		c.player.global_position = Vector2(e.global_position.x - 6.0 * 16.0, c.player.global_position.y)
 		c.player.facing = 1
+
+
+## 시험: 끝 장면(달 위의 그림자)만
+func dev_ch3_moon(c: Cut) -> void:
+	await Ch3MoonScene.play(c.world, 6.5)
+
+
+## 시험: 사도의 둥지 꼬투리 꿈틀 → 깨짐
+func dev_ch3_pod(c: Cut) -> void:
+	var pod := c.actor("pod")
+	if pod == null:
+		return
+	await c.camera_to(pod.global_position + Vector2(0, -20), 0.4)
+	pod.struggle()
+	await c.wait(1.0)
+	await pod.crack()
+	await c.wait(0.5)
+	await c.camera_back(0.3)
 
 
 ## 시험: 동료 저격 — 백색 사도의 수정 눈을 깸

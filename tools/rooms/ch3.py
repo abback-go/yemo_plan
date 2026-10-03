@@ -321,7 +321,7 @@ overlay("s_greenhouse", "prop", kind="eilach_sapling", x=22, y=19, white=0.0, co
 overlay("s_greenhouse", "spawn", id="ch3", x=16, y=19, face="right")
 overlay("s_greenhouse", "npc", id="pippa_gh", who="pippa", x=27, y=19, face="left", cond="e_start,!ch3_done")
 overlay("s_headmaster", "trigger", id="t_ch3", x=8, y=11, w=3, h=8, run="e_headmaster", cond="e_start,!e_letter")
-overlay("s_courtyard", "npc", id="isolde_ch3", who="isolde", x=60, y=19, face="left", cond="e_start,!ch3_done")
+overlay("s_courtyard", "npc", id="isolde_ch3", who="isolde", x=60, y=19, face="left", cond="e_start,!s_duel_won")
 overlay("s_dorm", "spawn", id="ch3_night", x=20, y=19, face="right")
 
 

@@ -1,6 +1,6 @@
 class_name Ch3MoonScene
 extends CanvasLayer
-## 3장 끝 장면 (docs/chapter3.md 2절 9번·12절): 학교 위 높은 달 — 달 가장자리에 걸터앉은 그림자가 학교를 내려다본다.
+## 3장 끝 장면 (docs/chapter3.md 2절 9번·12절): 학교 위 높은 초승달 — 달의 굽이에 걸터앉은 그림자가 학교를 내려다본다.
 ## 커다란 초승달 모자, 바람에 길게 날리는 머리, 둘레를 천천히 도는 작은 별 일곱(별의 마녀의 표지).
 ## 마지막에 그림자의 눈이 보랏빛으로 한 번 반짝인다. 대사는 없다(4장 끝에서 정체가 드러남).
 ##   await Ch3MoonScene.play(world, 6.5)
@@ -58,62 +58,75 @@ func _paint() -> void:
 		var p := Vector2(rng.randf_range(0, 640), rng.randf_range(0, 250))
 		var tw := 0.4 + 0.6 * absf(sin(_t * rng.randf_range(0.6, 2.2) + i))
 		c.draw_rect(Rect2(p, Vector2.ONE * (2.0 if i % 13 == 0 else 1.0)), Color(0.85, 0.85, 1.0, a * tw * 0.8))
-	# 달 (천천히 내려옴)
+	# 초승달 (천천히 내려옴) — 둥근 달에서 오른쪽 위로 비켜 난 원을 파낸 모양
 	var drift := (1.0 - clampf(_t / 6.0, 0.0, 1.0)) * 12.0
-	var mc := Vector2(430, 120 - drift)
+	var mc := Vector2(440, 150 - drift)
 	var mr := 74.0
 	for i in 6:
 		c.draw_circle(mc, mr + 40.0 - i * 6.0, Color(0.9, 0.88, 0.7, a * 0.03 * (i + 1)))
-	c.draw_circle(mc, mr, Color(Color("#f2ecd2"), a))
-	c.draw_circle(mc + Vector2(-18, -14), 14.0, Color(Color("#e0d8b8"), a))
-	c.draw_circle(mc + Vector2(22, 18), 20.0, Color(Color("#e4dcbc"), a))
-	c.draw_circle(mc + Vector2(-26, 30), 9.0, Color(Color("#ddd4b2"), a))
-	c.draw_circle(mc + Vector2(30, -30), 7.0, Color(Color("#e2dab8"), a))
-	# 그림자: 달 왼쪽 아래 가장자리에 걸터앉음
-	var base := mc + Vector2(-50, 52)
+	var c2 := mc + Vector2(28, -22)
+	c.draw_colored_polygon(_crescent(mc, mr, c2, 64.0, 40), Color(Color("#f2ecd2"), a))
+	for cr in [[Vector2(-46, 10), 9.0], [Vector2(-30, 40), 7.0], [Vector2(-52, -22), 6.0], [Vector2(-14, 58), 5.0]]:
+		c.draw_circle(mc + cr[0], cr[1], Color(Color("#e0d8b8"), a))
+	# 그림자: 초승달 아래쪽 안쪽 굽이에 걸터앉아, 왼쪽 아래(학교)를 내려다본다. 오른쪽 위 가장자리에 달빛 테두리
+	var seat := mc + Vector2(4, 38)
 	var ink := Color(0.03, 0.03, 0.08, a)
-	# 다리 (달 아래로 늘어뜨림, 살짝 흔들)
-	var sw := sin(_t * 1.3) * 2.0
-	c.draw_line(base + Vector2(-2, 0), base + Vector2(-8 + sw, 26), ink, 4.0)
-	c.draw_line(base + Vector2(4, 0), base + Vector2(2 - sw, 24), ink, 4.0)
-	# 로브 몸
-	c.draw_colored_polygon(PackedVector2Array([base + Vector2(-10, 2), base + Vector2(12, 2), base + Vector2(6, -26), base + Vector2(-4, -28)]), ink)
-	# 머리
-	var head := base + Vector2(1, -34)
-	c.draw_circle(head, 7.0, ink)
-	# 긴 머리 (바람에 왼쪽으로 길게 — 끝에 달빛이 비침)
-	var hair := PackedVector2Array([head + Vector2(-5, -2)])
-	for k in 9:
-		var f := float(k + 1) / 9.0
-		hair.append(head + Vector2(-8 - f * 70.0, 4 + f * 30.0 + sin(_t * 1.6 + f * 4.0) * 5.0 * f))
-	for k in range(8, -1, -1):
-		var f := float(k + 1) / 9.0
-		hair.append(head + Vector2(-6 - f * 66.0, 10 + f * 34.0 + sin(_t * 1.6 + f * 4.0 + 0.4) * 5.0 * f))
-	c.draw_colored_polygon(hair, ink)
-	for k in 6:
-		var f := float(k + 2) / 8.0
-		var hp := head + Vector2(-8 - f * 66.0, 8 + f * 32.0 + sin(_t * 1.6 + f * 4.0) * 5.0 * f)
-		c.draw_rect(Rect2(hp, Vector2(1, 1)), Color(0.85, 0.85, 1.0, a * (0.4 + 0.4 * sin(_t * 3.0 + k))))
-	# 커다란 초승달 모자 (끝이 말려 별이 매달림)
-	var hb := head + Vector2(0, -4)
-	c.draw_colored_polygon(PackedVector2Array([hb + Vector2(-16, 2), hb + Vector2(16, 2), hb + Vector2(4, -6), hb + Vector2(-4, -6)]), ink)
-	var tip := PackedVector2Array([hb + Vector2(-5, -5), hb + Vector2(5, -5), hb + Vector2(10, -20), hb + Vector2(20, -30), hb + Vector2(26, -26),
-		hb + Vector2(22, -22), hb + Vector2(12, -18)])
-	c.draw_colored_polygon(Geometry2D.convex_hull(tip), ink)
-	var star := hb + Vector2(27, -20 + sin(_t * 2.0) * 1.5)
-	c.draw_line(hb + Vector2(25, -26), star, Color(0.6, 0.6, 0.8, a * 0.6), 1.0)
+	var rim := Color(1.0, 0.93, 0.7, a * 0.6)
+	var sw := sin(_t * 1.3) * 1.5
+	var head := seat + Vector2(-6, -25)
+	var hb := head + Vector2(1, -4)
+	var hair := PackedVector2Array()
+	for k in 11:
+		var f := float(k) / 10.0
+		hair.append(head + Vector2(5.0 + f * 40.0 + sin(_t * 1.6 + f * 4.0) * 4.0 * f, -2.0 + f * 30.0 - f * f * 8.0))
+	for k in range(9, -1, -1):
+		var f := float(k) / 10.0
+		var o := head + Vector2(5.0 + f * 40.0 + sin(_t * 1.6 + f * 4.0) * 4.0 * f, -2.0 + f * 30.0 - f * f * 8.0)
+		hair.append(o + Vector2(-3.0, 6.0) * (1.0 - f * 0.85))
+	var tip := Geometry2D.convex_hull(PackedVector2Array([hb + Vector2(-5, -5), hb + Vector2(5, -6), hb + Vector2(9, -18), hb + Vector2(18, -28),
+		hb + Vector2(26, -25), hb + Vector2(21, -21), hb + Vector2(12, -16)]))
+	var figure := func(off: Vector2, col: Color) -> void:
+		# 다리: 초승달 앞면으로 늘어뜨림 (무릎 굽힘, 한쪽이 흔들)
+		c.draw_line(seat + off + Vector2(-3, 0), seat + off + Vector2(-10, 6), col, 3.5)
+		c.draw_line(seat + off + Vector2(-10, 6), seat + off + Vector2(-9 + sw, 19), col, 3.0)
+		c.draw_line(seat + off + Vector2(2, 1), seat + off + Vector2(-5, 8), col, 3.5)
+		c.draw_line(seat + off + Vector2(-5, 8), seat + off + Vector2(-3 - sw, 20), col, 3.0)
+		# 드레스 로브 (몸을 앞으로 숙임) + 무릎 위 팔
+		var robe := PackedVector2Array([Vector2(-9, 3), Vector2(14, 5), Vector2(7, -6), Vector2(0, -20), Vector2(-8, -19)])
+		for i in robe.size():
+			robe[i] += seat + off
+		c.draw_colored_polygon(robe, col)
+		c.draw_line(seat + off + Vector2(-6, -16), seat + off + Vector2(-12, 1), col, 2.5)
+		c.draw_circle(head + off, 6.0, col)
+		var hh := hair.duplicate()
+		for i in hh.size():
+			hh[i] += off
+		c.draw_colored_polygon(hh, col)
+		c.draw_colored_polygon(PackedVector2Array([hb + off + Vector2(-18, 3), hb + off + Vector2(15, -2), hb + off + Vector2(5, -6), hb + off + Vector2(-5, -5)]), col)
+		var tt := tip.duplicate()
+		for i in tt.size():
+			tt[i] += off
+		c.draw_colored_polygon(tt, col)
+	figure.call(Vector2(1, -1), rim)
+	figure.call(Vector2.ZERO, ink)
+	for k in 7:
+		var f := float(k + 2) / 9.0
+		var hp := head + Vector2(3.0 + f * 40.0 + sin(_t * 1.6 + f * 4.0) * 4.0 * f, 1.0 + f * 30.0 - f * f * 8.0)
+		c.draw_rect(Rect2(hp, Vector2(1, 1)), Color(0.9, 0.9, 1.0, a * (0.4 + 0.45 * sin(_t * 3.0 + k * 1.7))))
+	var star := hb + Vector2(27, -18 + sin(_t * 2.0) * 1.5)
+	c.draw_line(hb + Vector2(25, -25), star, Color(0.6, 0.6, 0.8, a * 0.6), 1.0)
 	_star(c, star, 3.0, Color(1.0, 0.95, 0.7, a))
 	# 둘레를 도는 작은 별 일곱
 	for i in 7:
 		var ang := _t * 0.5 + TAU * i / 7.0
-		var sp := base + Vector2(0, -20) + Vector2(cos(ang) * 34.0, sin(ang) * 12.0)
+		var sp := seat + Vector2(0, -14) + Vector2(cos(ang) * 36.0, sin(ang) * 12.0)
 		var front := sin(ang) > 0.0
 		_star(c, sp, 1.6 if front else 1.1, Color(0.85, 0.82, 1.0, a * (0.9 if front else 0.45)))
-	# 눈 — 마지막에 보랏빛으로 한 번
+	# 눈 — 마지막에 보랏빛으로 한 번 (학교 쪽을 봄)
 	var glint := clampf((_t - 3.6) / 0.4, 0.0, 1.0) * clampf((5.2 - _t) / 0.6, 0.0, 1.0)
 	if glint > 0.0:
-		c.draw_circle(head + Vector2(3, 0), 1.3, Color(0.75, 0.55, 1.0, a * glint))
-		c.draw_circle(head + Vector2(3, 0), 4.0 * glint, Color(0.7, 0.5, 1.0, a * glint * 0.25))
+		c.draw_circle(head + Vector2(-4, 1), 1.3, Color(0.75, 0.55, 1.0, a * glint))
+		c.draw_circle(head + Vector2(-4, 1), 4.0 * glint, Color(0.7, 0.5, 1.0, a * glint * 0.25))
 	# 학교 실루엣 (아래)
 	var sch := Color(0.02, 0.02, 0.05, a)
 	c.draw_rect(Rect2(0, 300, 640, 60), sch)
@@ -123,6 +136,27 @@ func _paint() -> void:
 	c.draw_rect(Rect2(218, 176, 14, 14), Color(0.9, 0.8, 0.5, a * 0.35))
 	for w in [[80, 270], [100, 270], [290, 262], [330, 262], [370, 262], [430, 280], [540, 256]]:
 		c.draw_rect(Rect2(w[0], w[1], 4, 6), Color(1.0, 0.8, 0.45, a * (0.5 + 0.2 * sin(_t * 2.0 + w[0]))))
+
+
+## 초승달 다각형: 원(c1, r1)에서 원(c2, r2)를 파낸 모양의 경계 (바깥 호 → 안쪽 호)
+func _crescent(c1: Vector2, r1: float, c2: Vector2, r2: float, n: int) -> PackedVector2Array:
+	var d := c1.distance_to(c2)
+	var u := (c2 - c1) / d
+	var aa := (r1 * r1 - r2 * r2 + d * d) / (2.0 * d)
+	var hh := sqrt(maxf(r1 * r1 - aa * aa, 0.0))
+	var p := c1 + u * aa
+	var i1 := p + Vector2(-u.y, u.x) * hh
+	var back := (-u).angle()
+	var dout := acos(clampf((i1 - c1).normalized().dot(-u), -1.0, 1.0))
+	var din := acos(clampf((i1 - c2).normalized().dot(-u), -1.0, 1.0))
+	var out := PackedVector2Array()
+	for k in n + 1:
+		var t := back + lerpf(-dout, dout, float(k) / n)
+		out.append(c1 + Vector2(cos(t), sin(t)) * r1)
+	for k in range(n - 1, 0, -1):
+		var t := back + lerpf(-din, din, float(k) / n)
+		out.append(c2 + Vector2(cos(t), sin(t)) * r2)
+	return out
 
 
 func _star(c: Control, p: Vector2, r: float, col: Color) -> void:
