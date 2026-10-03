@@ -1,6 +1,7 @@
 extends Control
 ## 타이틀 (docs/chapter1.md 10절). 브라우저는 첫 입력 전 소리를 막으므로 "아무 키나"로 한 번 받은 뒤 메뉴를 연다.
 ## 메뉴: 이어하기(기록이 있으면) · 새로 시작 · 설정 · 전투 연습장(v0.3 프로토타입)
+## 홈 화면 웹앱(오프라인 캐시)에 새 버전이 받아져 있으면 맨 위에 "새 버전으로 업데이트"가 생긴다.
 
 const BG := preload("res://levels/background.gd")
 
@@ -76,10 +77,19 @@ func _ready() -> void:
 		_phase = 1)
 	add_child(_options)
 	Music.play("title", 1.5)
+	if OS.has_feature("web"):
+		JavaScriptBridge.pwa_update_available.connect(_on_pwa_update)
+
+
+func _on_pwa_update() -> void:
+	if _phase == 1:
+		_build_menu()
 
 
 func _build_menu() -> void:
 	_items.clear()
+	if OS.has_feature("web") and JavaScriptBridge.pwa_needs_update():
+		_items.append("새 버전으로 업데이트")
 	if GameState.has_save():
 		_items.append("이어하기")
 	_items.append("새로 시작")
@@ -102,15 +112,20 @@ func draw_text_on(c: CanvasItem) -> void:
 	c.draw_string(_font, Vector2(270, 92), "YEMO", HORIZONTAL_ALIGNMENT_LEFT, -1, 48, Palette.FIRE_HOT)
 	c.draw_string(_font, Vector2(272, 116), "마녀학교와 여우신 · 1장 체험판 v0.4", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
 	c.draw_string(_font, Vector2(272, 140), "폐급 마녀 세라와 여우신 너울의 이야기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+	c.draw_string(_font, Vector2(420, 350), "빌드 " + BuildInfo.COMMIT, HORIZONTAL_ALIGNMENT_RIGHT, 210, 12, Color(Palette.UI_DIM, 0.6))
 	match _phase:
 		0:
 			if fmod(_t, 1.0) < 0.65:
-				c.draw_string(_font, Vector2(272, 230), "아무 키나 누르세요", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD)
-			c.draw_string(_font, Vector2(272, 290), "키보드 또는 게임패드", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+				c.draw_string(_font, Vector2(272, 230), "화면을 누르세요" if _touch_screen() else "아무 키나 누르세요", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD)
+			c.draw_string(_font, Vector2(272, 290), "터치 · 키보드 · 게임패드" if _touch_screen() else "키보드 또는 게임패드", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 		1:
-			c.draw_string(_font, Vector2(272, 290), "↑↓ 고르기 · Z 확인", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+			c.draw_string(_font, Vector2(272, 290), "눌러서 고르기" if TouchControls.active else "↑↓ 고르기 · Z 확인", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 		3:
 			c.draw_string(_font, Vector2(272, 208), "기록을 지우고 처음부터 시작할까요?", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
+
+
+func _touch_screen() -> bool:
+	return TouchControls.active or DisplayServer.is_touchscreen_available()
 
 
 func _input(event: InputEvent) -> void:
@@ -145,6 +160,9 @@ func _input(event: InputEvent) -> void:
 
 func _on_menu(index: int) -> void:
 	match _items[index]:
+		"새 버전으로 업데이트":
+			_phase = 4
+			JavaScriptBridge.pwa_update() # 새 캐시로 바꾸고 다시 불러온다 (기록은 그대로)
 		"이어하기":
 			_phase = 4
 			Music.stop(0.8)

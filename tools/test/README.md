@@ -36,6 +36,9 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `record` 방 위치 · `continue` | 기록 → 이어하기 시험 |
 | `status` / `worldinfo` / `logv` / `enemies` / `flags` 표시 | 상태 출력 |
 | `shot` 이름 | 스크린샷 PNG |
+| `touch`/`untouch` 번호 x y · `drag` 번호 x y | 손가락 누름·뗌·끌기 (화면 좌표 640×360, 번호 = 손가락 index) |
+| `touchinfo` | 터치 조작 상태 (터치 모드·표시 여부·눌린 동작·조이스틱 방향) |
+| `setting` 키 값 · `potions` 개수 | 설정 값 지정(저장된 설정이 시험에 끼어들지 않게) · 물약 수 |
 | `quit` | 종료 |
 
 ## 시나리오 (scenarios/)
@@ -50,6 +53,8 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `drop_through.json` | 통과 발판 ↓+Z |
 | `room_bounds_haetae.json` | 보스전 중 방 밖으로 못 나감 |
 | `agwi_pace.json` | 아귀를 제자리 사격으로 깎는 속도 |
+| `touch_controls.json` | 터치: 조이스틱(대각선 아래로 달려도 ↓ 아님), ↓+점프 발판 내려가기, 공격 누르고 있기, 지도·일시정지·설정(버튼 크기), 멈춤 안내 버튼, 대화 탭 넘기기. 끝에 `after_dialogue ... busy=false paused=false` 이면 통과 |
+| `title_touch.json` | 터치: 타이틀 탭 → 설정 → 돌아가기 → 새로 시작 → 확인 (저장 기록이 있을 때 기준 좌표) |
 
 ## 웹 빌드 연기 시험
 ```bash
@@ -57,6 +62,18 @@ $G --headless --export-release "Web" /tmp/web/index.html
 (cd /tmp/web && python3 -m http.server 8766 &)
 node ../tools/test/web_smoke.mjs /tmp/out    # 타이틀 → 새로 시작 → 안내 → 지도 → 일시정지, 콘솔 로그 출력
 ```
+
+## 모바일(터치·오프라인) 웹 시험
+```bash
+$G --headless --export-release "Web" /tmp/web/index.html
+sed -i 's/cache.addAll(CACHED_FILES)/cache.addAll(FULL_CACHE)/' /tmp/web/index.service.worker.js   # 배포(web-build.yml)와 같게
+(cd /tmp/web && python3 -m http.server 8766 &)
+node ../tools/test/web_mobile.mjs /tmp/out
+```
+가로 태블릿(CSS 1280×800, 픽셀 비율 1.5, 터치)으로 타이틀 탭 → 새로 시작 → 대화 탭 → 조이스틱+점프 두 손가락 → 일시정지 → **인터넷을 끊고 다시 열기**. 출력의 `SW ... files`에 `index.wasm`·`index.pck`가 있고 `OFFLINE title`이 게임 제목이면 통과(오프라인 안내 페이지면 제목이 "YEMO — 오프라인").
+
+## 웹앱 아이콘
+`$G --headless --script ../tools/make_icons.gd` (game/ 에서) → `game/assets/icon/icon_{144,180,512}.png`
 
 ## 방 도달 검사
 ```bash

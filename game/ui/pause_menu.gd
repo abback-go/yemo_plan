@@ -65,12 +65,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _menu.handle_input(event) and is_inside_tree():
 				get_viewport().set_input_as_handled()
 		"goals":
-			if event.is_action_pressed("ui_cancel") or event.is_action_pressed("attack") or event.is_action_pressed("jump") or event.is_action_pressed("ui_accept"):
+			if event.is_action_pressed("ui_cancel") or event.is_action_pressed("attack") or event.is_action_pressed("jump") or event.is_action_pressed("ui_accept") \
+					or (event is InputEventMouseButton and event.pressed):
 				_set_page("main")
 				get_viewport().set_input_as_handled()
 		"options":
 			if _options.handle_input(event):
 				get_viewport().set_input_as_handled()
+
+
+func is_open() -> bool:
+	return _root.visible
 
 
 func _toggle() -> void:
@@ -164,4 +169,4 @@ class InfoDraw extends Control:
 			for d in Objectives.done_list():
 				draw_string(_font, Vector2(60, y2), "✓ " + String(d), HORIZONTAL_ALIGNMENT_LEFT, 520, 12, Palette.UI_DIM)
 				y2 += 16
-			draw_string(_font, Vector2(60, 310), "Z 돌아가기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+			draw_string(_font, Vector2(60, 310), "눌러서 돌아가기" if TouchControls.active else "Z 돌아가기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)

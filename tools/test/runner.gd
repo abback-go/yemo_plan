@@ -189,6 +189,25 @@ func _process(_d: float) -> bool:
 				ev.pressed = true
 				Input.parse_input_event(ev)
 				_release_next.append(s[2])
+			"touch", "untouch":
+				# [frame, "touch"|"untouch", index, x, y] — 화면 좌표(640×360 창)로 손가락 누름/뗌
+				var te := InputEventScreenTouch.new()
+				te.index = int(s[2])
+				te.position = Vector2(float(s[3]), float(s[4]))
+				te.pressed = s[1] == "touch"
+				Input.parse_input_event(te)
+			"drag":
+				var de := InputEventScreenDrag.new()
+				de.index = int(s[2])
+				de.position = Vector2(float(s[3]), float(s[4]))
+				Input.parse_input_event(de)
+			"touchinfo":
+				var tc = root.get_node("TouchControls")
+				var held := []
+				for a in ["move_left", "move_right", "move_up", "move_down", "jump", "attack", "dash", "skill_1", "skill_2", "fox_window", "potion", "map", "pause"]:
+					if Input.is_action_pressed(a):
+						held.append(a)
+				print("TOUCH f=", frame, " ms=", Time.get_ticks_msec(), " active=", tc.active, " shown=", tc.shown, " input=", held, " stick=", tc.stick_state().on, " ", tc.stick_state().dirs)
 			"spawn_enemy":
 				# [frame, "spawn_enemy", kind, x_tile, y_tile, {props}]
 				var en = load("res://enemies/enemy_registry.gd").create(s[2])
@@ -246,6 +265,13 @@ func _process(_d: float) -> bool:
 				w.go(s[2], s[3])
 			"abil":
 				root.get_node("GameState").unlock_ability(s[2])
+			"setting":
+				# [frame, "setting", 키, 값] — 저장된 설정이 시험에 끼어들지 않게
+				root.get_node("GameState").settings[s[2]] = s[3]
+			"potions":
+				var gsp = root.get_node("GameState")
+				gsp.potions_max = int(s[2])
+				gsp.potions = int(s[2])
 			"hp":
 				var p := get_first_node_in_group("player")
 				p.hp = int(s[2])

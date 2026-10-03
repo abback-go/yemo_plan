@@ -1,6 +1,7 @@
 class_name MenuList
 extends Control
 ## 위아래로 고르고 확인하는 간단한 메뉴 (일시정지·결과 화면 공용). 키보드·패드 모두 사용.
+## 터치(마우스로 흉내 낸 탭)·마우스로 항목을 누르면 바로 고른다.
 
 signal chosen(index: int)
 
@@ -25,6 +26,14 @@ func _process(delta: float) -> void:
 func handle_input(event: InputEvent) -> bool:
 	if not is_visible_in_tree() or items.is_empty():
 		return false
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var i := item_at((make_input_local(event) as InputEventMouseButton).position)
+		if i < 0:
+			return false
+		selected = i
+		Sfx.play(&"ui_ok", 0.0, 0.0)
+		chosen.emit(i)
+		return true
 	if event.is_action_pressed("ui_up"):
 		selected = (selected - 1 + items.size()) % items.size()
 		Sfx.play(&"ui_move", 0.0, 0.0)
@@ -38,6 +47,17 @@ func handle_input(event: InputEvent) -> bool:
 		chosen.emit(selected)
 		return true
 	return false
+
+
+## 지역 좌표의 점이 몇 번째 항목 줄 위인가 (없으면 -1). 손가락으로 누르기 쉽게 줄 높이 전체 + 왼쪽 화살표 자리까지
+func item_at(local: Vector2) -> int:
+	var w := size.x
+	for it in items:
+		w = maxf(w, _font.get_string_size(it, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x + 8.0)
+	if local.x < -18.0 or local.x > w:
+		return -1
+	var i := int(floor((local.y + 2.0) / line_height))
+	return i if i >= 0 and i < items.size() else -1
 
 
 func _draw() -> void:

@@ -47,6 +47,9 @@ jobs:
           unzip -q -j templates.tpz templates/web_nothreads_release.zip templates/version.txt -d "$dest"
           rm templates.tpz
 
+      - name: Write build id into the game (title shows it)
+        run: sed -i "s/^const COMMIT := .*/const COMMIT := \"${GITHUB_SHA::7}\"/" game/core/build_info.gd
+
       - name: Export web build
         run: |
           chmod +x ~/godot/godot
@@ -55,6 +58,15 @@ jobs:
           ~/godot/godot --headless --import
           ~/godot/godot --headless --export-release "Web" ../build/web/index.html
           test -f ../build/web/index.wasm
+
+      # 홈 화면 웹앱(오프라인): Godot 기본 서비스 워커는 설치할 때 index.wasm·index.pck를 저장하지 않는다.
+      # 그러면 첫 접속 뒤 바로 오프라인으로 열거나, 새 버전이 받아진 뒤 오프라인으로 열 때 게임이 안 뜬다.
+      # 설치 단계에서 전부 저장하게 바꾼다 (바뀌지 않았으면 실패).
+      - name: Cache the whole game on service worker install
+        run: |
+          sw=build/web/index.service.worker.js
+          sed -i 's/cache.addAll(CACHED_FILES)/cache.addAll(FULL_CACHE)/' "$sw"
+          grep -q 'cache.addAll(FULL_CACHE)' "$sw"
 
       - name: Write build info
         run: echo "${GITHUB_REF_NAME} ${GITHUB_SHA::7} $(date -u +%Y-%m-%dT%H:%MZ)" > build/web/version.txt

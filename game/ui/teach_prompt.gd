@@ -41,6 +41,11 @@ func is_active() -> bool:
 	return _active
 
 
+## 풀리려면 눌러야 하는 동작들 (터치 버튼을 깜빡여 알려 줌)
+func wanted() -> Array:
+	return _wait if _active else []
+
+
 ## keys: 보여 줄 동작 이름들, wait: 눌러야 풀리는 동작(비우면 keys와 같음). 누른 동작 이름을 돌려줌
 func ask(title: String, text: String, keys: Array, wait: Array = []) -> String:
 	_wait = wait if not wait.is_empty() else keys
@@ -48,7 +53,10 @@ func ask(title: String, text: String, keys: Array, wait: Array = []) -> String:
 	_draw.text = text
 	_draw.keys = []
 	for k in keys:
-		_draw.keys.append([KEY_LABEL.get(k, k), PAD_LABEL.get(k, "")])
+		if TouchControls.active:
+			_draw.keys.append([TouchControls.TOUCH_LABEL.get(k, k), ""])
+		else:
+			_draw.keys.append([KEY_LABEL.get(k, k), PAD_LABEL.get(k, "")])
 	_draw.t = 0.0
 	_root.visible = true
 	_active = true

@@ -95,7 +95,8 @@ class HudDraw extends Control:
 		if w:
 			_draw_potions(p)
 			_draw_fox(p)
-			_draw_skills3(p)
+			if not TouchControls.shown:
+				_draw_skills3(p)
 			_draw_objective()
 			_draw_boss()
 			_draw_elite_bars(w)
@@ -384,10 +385,10 @@ class HudDraw extends Control:
 		if boss == null:
 			return
 		var a := _boss_shown
-		var r := Rect2(120, 336, 400, 6)
-		draw_string(_font, Vector2(120, 330), boss.display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(Palette.UI_TEXT, a))
+		var r := Rect2(110, 336, 340, 6) if TouchControls.shown else Rect2(120, 336, 400, 6) # 터치 버튼과 겹치지 않게
+		draw_string(_font, Vector2(r.position.x, 330), boss.display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(Palette.UI_TEXT, a))
 		if boss.subtitle != "":
-			draw_string(_font, Vector2(520 - _font.get_string_size(boss.subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 330), boss.subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(Palette.UI_DIM, a))
+			draw_string(_font, Vector2(r.end.x - _font.get_string_size(boss.subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 330), boss.subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(Palette.UI_DIM, a))
 		draw_rect(r.grow(1), Color(0.03, 0.02, 0.05, a))
 		draw_rect(r, Color(0.2, 0.08, 0.1, a))
 		var k := clampf(float(boss.hp) / boss.max_hp, 0.0, 1.0)

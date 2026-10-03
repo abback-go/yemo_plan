@@ -36,7 +36,7 @@ var running := false
 var stats := {}
 var settings := {
 	"master": 0.9, "music": 0.75, "sfx": 0.85,
-	"fullscreen": false, "shake": true, "damage_numbers": true,
+	"fullscreen": false, "shake": true, "damage_numbers": true, "touch_scale": 1,
 }
 
 

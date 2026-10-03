@@ -53,6 +53,11 @@ func ability_get(title: String, keys: String, desc: String) -> void:
 	get_tree().paused = false
 
 
+## 터치: 화면 탭으로 확인할 수 있는가
+func accepts_tap() -> bool:
+	return _waiting
+
+
 func _input(event: InputEvent) -> void:
 	if not _waiting or event.is_echo():
 		return

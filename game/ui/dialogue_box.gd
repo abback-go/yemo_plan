@@ -72,6 +72,11 @@ func is_open() -> bool:
 
 
 ## 한 줄 보여 주고 플레이어가 넘길 때까지 기다린다
+## 터치: 화면 탭으로 넘길 수 있는가 (선택지가 떠 있으면 선택지를 직접 누른다)
+func accepts_tap() -> bool:
+	return _root.visible and _waiting and not _choices.visible
+
+
 func show_line(who: String, text: String, expr := "normal") -> void:
 	var info := Characters.info(who)
 	var narr := who == "narration" or who == ""

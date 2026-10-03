@@ -37,6 +37,11 @@ func open() -> void:
 	Sfx.play(&"ui_move", 0.0, 0.0)
 
 
+## 터치: 화면 탭으로 닫기
+func accepts_tap() -> bool:
+	return _open
+
+
 func close() -> void:
 	_open = false
 	_root.visible = false
@@ -47,7 +52,7 @@ func _input(event: InputEvent) -> void:
 	if not _open or event.is_echo() or Time.get_ticks_msec() - _opened_at < 150:
 		return
 	if event.is_action_pressed("map") or event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel") \
-			or event.is_action_pressed("attack") or event.is_action_pressed("dash"):
+			or event.is_action_pressed("attack") or event.is_action_pressed("dash") or event.is_action_pressed("ui_accept"):
 		get_viewport().set_input_as_handled()
 		close()
 
@@ -84,7 +89,7 @@ class MapDraw extends Control:
 		draw_rect(Rect2(0, 0, 640, 360), Color(0.02, 0.015, 0.04, 0.94))
 		var title := "신계" if _area == "shingye" else "마녀학교"
 		draw_string(_font, Vector2(24, 30), "지도 — " + title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD)
-		draw_string(_font, Vector2(24, 344), "Tab 닫기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+		draw_string(_font, Vector2(24, 344), "눌러서 닫기" if TouchControls.active else "Tab 닫기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 		# 격자 범위
 		var mn := Vector2i(999, 999)
 		var mx := Vector2i(-999, -999)

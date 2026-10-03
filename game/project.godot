@@ -13,6 +13,7 @@ config_version=5
 config/name="Yemo Prototype"
 run/main_scene="res://ui/title.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://assets/icon/icon_180.png"
 
 [autoload]
 
@@ -22,6 +23,7 @@ Fx="*res://autoload/fx.gd"
 StyleRank="*res://autoload/style_rank.gd"
 Music="*res://autoload/music.gd"
 Story="*res://story/story.gd"
+TouchControls="*res://autoload/touch_controls.gd"
 
 [display]
 
