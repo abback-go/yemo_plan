@@ -111,13 +111,22 @@
 | 여우비 | 맑은 날 내리는 비. '호랑이 장가가는 날' | [후보] 기술명, 날씨 이벤트 |
 | 기타 | 구미호, 불여우, 여우고개, 여우누이 | [후보] 기술·지역·보스 이름 |
 
-## 11. 외부 규정 메모
+## 11. 아트 방향
+
+- 제작 방식: AI로 초안 생성 → 개발자가 직접 마무리 수정 [확정]
+- 화풍·비율 레퍼런스: **INARI** (1HP STUDIO, 한국. 2026-01 Steam 데모 공개, 2026년 출시 예정) [후보]
+  - 관찰 포인트: 화면 대비 작은 캐릭터 · 어두운 저채도 배경 + 강한 단일 강조색 · 굵은 덩어리 형태의 배경 픽셀 · 가늘고 긴 직선형 공격 궤적
+- 캐릭터 픽셀 높이: 프로토타입에서 후보 크기 2종을 비교한 뒤, **프로토타입 종료 시점**에 결정 [미정]
+
+## 12. 외부 규정 메모
 
 - **Steam AI 공개 규정** (2026-01-16 개정): 플레이어가 직접 접하는 생성형 AI 콘텐츠(게임 내 아트, 마케팅 이미지 포함)는 공개 대상. 코드 보조 등 내부 효율 도구는 공개 불필요. 저작권 책임은 개발자에게 있음.
 
-## 12. 미정 / 논의 대기
+## 13. 미정 / 논의 대기
 
 - [x] 엔진 선정 → Godot 4 확정
+- [ ] 캐릭터 픽셀 높이 — 프로토타입 종료 시점에 결정 (§11)
+- [ ] INARI와의 차별화 포인트 정리 (동양풍·여우 모티프 겹침)
 - [ ] 주인공 이름·나이·성격·외형
 - [ ] 여우신 이름
 - [ ] 메인 갈등, 최강의 마녀의 역할
@@ -138,3 +147,4 @@
 - Godot 4.7.2 릴리스: https://gamedev.net/news/5172-godot-engine-472-stable-released/
 - Godot 콘솔 지원 문서: https://github.com/godotengine/godot-docs/blob/4.5/tutorials/platform/consoles.rst
 - Godot C# 플랫폼 지원: https://github.com/godotengine/godot-docs/blob/master/tutorials/scripting/c_sharp/index.rst
+- INARI (1HP STUDIO): https://www.gematsu.com/2026/01/pixel-art-high-speed-kunai-action-platformer-inari-announced-for-pc , https://nichegamer.com/inari-announced/
