@@ -1,0 +1,31 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "s_clock",
+  "spawn": "west1",
+  "flags": ["ab_neoul", "ab_double_jump", "ab_wings"],
+  "steps": [
+    [2, "auto", true],
+    [3, "godmode"],
+    [30, "waitidle", 600],
+    [40, "tp", 6, 38],
+    [101, "bgperf", "warm"],
+    [222, "perf", "B_hz0"],
+    [223, "bgperf", "B_hz0"],
+    [224, "shot", "s_clock_B"],
+    [227, "tp", 6, 8],
+    [288, "bgperf", "warm"],
+    [409, "perf", "T_hz0"],
+    [410, "bgperf", "T_hz0"],
+    [411, "shot", "s_clock_T"],
+    [414, "bghz", 30],
+    [415, "tp", 6, 38],
+    [476, "bgperf", "warm"],
+    [597, "perf", "B_hz30"],
+    [598, "bgperf", "B_hz30"],
+    [602, "tp", 6, 8],
+    [663, "bgperf", "warm"],
+    [784, "perf", "T_hz30"],
+    [785, "bgperf", "T_hz30"],
+    [791, "quit"]
+  ]
+}

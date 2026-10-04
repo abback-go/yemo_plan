@@ -5,19 +5,20 @@ extends RefCounted
 ##   elf_deep  뿌리 동굴: 아치처럼 휘어진 거대한 뿌리, 청록 버섯 빛, 빛 구슬이 맺힌 실(반딧불 애벌레), 포자.
 ##   blight    흰 역병: 하얗게 굳은 나무, 직선·삼각형으로만 갈라지는 금, 육각 수정, 하늘의 기하학 문양(바깥 신들의 언어).
 ##
-## 구조: 각 층(먼 0·중간 1·가까운 2·전경 3)은 정적 그림을 한 번만 그린다(is_animated = false → 매 프레임 다시 그리지 않음).
-## 움직이는 것(수액 맥동·등불 흔들림·바람길 띠·덩굴·버섯 빛·떠다니는 조각)은 그 층의 자식 Anim 노드가 따로 그린다.
-## → 무거운 정적 그림 + 가벼운 움직임 (웹·모바일 대비).
+## 구조: 각 층(먼 0·중간 1·가까운 2·전경 3)은 정적 그림을 한 번만 그린다(l = Pen, backdrop_kit.gd).
+## 움직이는 것(수액 맥동·등불 흔들림·바람길 띠·덩굴·버섯 빛·떠다니는 조각)은 그 층의 자식 Anim 노드가 정적 그림 **위에** 따로 그린다
+## (l.add_post — 다른 장의 l.anim과 달리 정적 그림 사이에 끼지 않는다. 3장은 처음부터 이렇게 그렸다).
 
 const MINE := ["elf", "elf_deep", "blight"]
 const SAP := Color("#c8ff7a")
 const WINDOW := Color("#f2ffc0")
 const MUSH := Color("#5affd0")
 const WHITE := Color("#f0f0ff")
+const Kit := preload("res://world/themes/backdrop_kit.gd")
 
 
-static func is_animated(_theme: String, _depth: int) -> bool:
-	return false
+static func has_theme(theme: String) -> bool:
+	return theme in MINE
 
 
 static func has_sky(theme: String) -> bool:
@@ -26,44 +27,44 @@ static func has_sky(theme: String) -> bool:
 
 ## 시차 층이 실제로 덮어야 하는 크기. RoomBackdrop._span()은 세로도 가로 시차 배율로 계산해서
 ## 아주 높은 방(세계수 세로 방)에서는 아래가 비므로, 세로 시차 배율(scroll×0.6+0.4)로 다시 잡는다.
-static func _cover(l: Node2D, span: Vector2) -> Vector2:
-	var rs: Vector2 = l.get("room_size")
-	var sc: float = l.get("scroll")
+static func _cover(l, span: Vector2) -> Vector2:
+	var rs: Vector2 = l.room_size
+	var sc: float = l.scroll
 	var need_y := 368.0 + maxf(rs.y - 368.0, 0.0) * (sc * 0.6 + 0.4) + 160.0
 	return Vector2(span.x, maxf(span.y, need_y))
-
-
-static func _th(l: Node2D) -> Dictionary:
-	return l.get("theme")
 
 
 # ═══════════════════════════════════════════════════════
 # 하늘 (화면 고정 640×360, 매 프레임)
 # ═══════════════════════════════════════════════════════
 
-static func draw_sky(c: Control, theme: String, pal: Dictionary, t: float) -> void:
+## c = Pen (방 진입 때 한 번). t를 쓰는 것만 c.anim
+static func draw_sky(c, theme: String, pal: Dictionary, _t: float) -> void:
 	var top: Color = pal.sky_top
 	var bot: Color = pal.sky_bottom
-	for i in 24:
-		var k := float(i) / 23.0
-		c.draw_rect(Rect2(0, i * 15, 640, 16), top.lerp(bot, pow(k, 1.3)))
+	Kit.stepped_grad(c, Rect2(0, 0, 640, 360), top, bot, 24, 1.3)
 	match theme:
 		"elf":
-			_sky_elf(c, pal, t)
+			_sky_elf(c, pal)
 		"elf_deep":
-			_sky_deep(c, pal, t)
+			_sky_deep(c, pal)
 		"blight":
-			_sky_blight(c, pal, t)
+			_sky_blight(c, pal)
 
 
-static func _sky_elf(c: Control, _pal: Dictionary, t: float) -> void:
+static func _sky_elf(c, _pal: Dictionary) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3101
 	# 별 (수관 틈으로 보이는 밤하늘)
+	var sp := PackedVector2Array()
+	var spd := PackedFloat64Array()
 	for i in 46:
-		var p := Vector2(rng.randf() * 640, rng.randf() * 170)
-		var tw := 0.35 + 0.65 * absf(sin(t * rng.randf_range(0.4, 1.6) + i))
-		c.draw_rect(Rect2(p, Vector2.ONE * (2 if i % 11 == 0 else 1)), Color(0.9, 1.0, 0.85, 0.45 * tw))
+		sp.append(Vector2(rng.randf() * 640, rng.randf() * 170))
+		spd.append(rng.randf_range(0.4, 1.6))
+	c.anim(Rect2(0, 0, 642, 172), func(cv: CanvasItem, t: float) -> void:
+		for i in 46:
+			var tw := 0.35 + 0.65 * absf(sin(t * spd[i] + i))
+			cv.draw_rect(Rect2(sp[i], Vector2.ONE * (2 if i % 11 == 0 else 1)), Color(0.9, 1.0, 0.85, 0.45 * tw)))
 	# 달 (연둣빛 달무리)
 	var mc := Vector2(492, 78)
 	for r in [74.0, 54.0, 40.0]:
@@ -85,40 +86,51 @@ static func _sky_elf(c: Control, _pal: Dictionary, t: float) -> void:
 	# 빛줄기: 수관 틈에서 비스듬히 떨어지는 달빛
 	for i in 4:
 		var x0 := 90.0 + i * 150.0 + rng.randf_range(-20, 20)
-		var a := 0.022 + 0.014 * sin(t * 0.35 + i * 1.7)
 		var w0 := rng.randf_range(16, 30)
-		c.draw_colored_polygon(PackedVector2Array([Vector2(x0, -10), Vector2(x0 + w0, -10), Vector2(x0 + w0 + 120, 360), Vector2(x0 + 50, 360)]), Color(0.86, 1.0, 0.7, a))
+		var shaft := PackedVector2Array([Vector2(x0, -10), Vector2(x0 + w0, -10), Vector2(x0 + w0 + 120, 360), Vector2(x0 + 50, 360)])
+		c.anim(Kit.Pen._bounds(shaft, 1.0), func(cv: CanvasItem, t: float) -> void:
+			var a := 0.022 + 0.014 * sin(t * 0.35 + i * 1.7)
+			cv.draw_colored_polygon(shaft, Color(0.86, 1.0, 0.7, a)))
 
 
-static func _sky_deep(c: Control, _pal: Dictionary, t: float) -> void:
+static func _sky_deep(c, _pal: Dictionary) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3102
 	# 동굴 안쪽 아득한 곳의 버섯 빛 (흐릿한 점)
+	var dp := PackedVector2Array()
+	var dr := PackedFloat64Array()
+	var ds := PackedFloat64Array()
 	for i in 34:
-		var p := Vector2(rng.randf() * 640, 60 + rng.randf() * 280)
-		var r := rng.randf_range(1.0, 3.5)
-		var k := 0.5 + 0.5 * sin(t * rng.randf_range(0.3, 0.9) + i)
-		c.draw_circle(p, r * 3.0, Color(MUSH, 0.025 * k))
-		c.draw_circle(p, r * 0.6, Color(MUSH, 0.25 * k))
+		dp.append(Vector2(rng.randf() * 640, 60 + rng.randf() * 280))
+		dr.append(rng.randf_range(1.0, 3.5))
+		ds.append(rng.randf_range(0.3, 0.9))
+	c.anim(Rect2(-12, 48, 664, 304), func(cv: CanvasItem, t: float) -> void:
+		for i in 34:
+			var p := dp[i]
+			var r: float = dr[i]
+			var k := 0.5 + 0.5 * sin(t * ds[i] + i)
+			cv.draw_circle(p, r * 3.0, Color(MUSH, 0.025 * k))
+			cv.draw_circle(p, r * 0.6, Color(MUSH, 0.25 * k)))
 	for i in 5:
 		c.draw_rect(Rect2(0, 250 + i * 22, 640, 22), Color(0.3, 1.0, 0.85, 0.012 + i * 0.006))
 
 
-static func _sky_blight(c: Control, _pal: Dictionary, t: float) -> void:
+static func _sky_blight(c, _pal: Dictionary) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3103
 	# 하늘에 새겨진 거대한 기하학 문양 (천천히 돈다) — 원 + 육각형 + 삼각형 두 개 + 가운데 세로 틈(눈)
 	var cc := Vector2(330, 120)
-	var rot := t * 0.03
-	var a := 0.07 + 0.03 * sin(t * 0.5)
-	c.draw_arc(cc, 150, 0, TAU, 64, Color(WHITE, a * 0.7), 1.0)
-	c.draw_arc(cc, 112, 0, TAU, 64, Color(WHITE, a * 0.5), 1.0)
-	_poly_line(c, cc, 150, 6, rot, Color(WHITE, a), 1.0)
-	_poly_line(c, cc, 112, 3, -rot * 1.5, Color(WHITE, a * 0.9), 1.0)
-	_poly_line(c, cc, 112, 3, -rot * 1.5 + PI, Color(WHITE, a * 0.9), 1.0)
-	var eye := 0.5 + 0.5 * sin(t * 0.21)
-	c.draw_colored_polygon(PackedVector2Array([cc + Vector2(0, -40), cc + Vector2(4 + 3 * eye, 0), cc + Vector2(0, 40), cc + Vector2(-4 - 3 * eye, 0)]), Color(WHITE, 0.10 + 0.06 * eye))
-	c.draw_line(cc + Vector2(0, -36), cc + Vector2(0, 36), Color(1, 1, 1, 0.25 + 0.2 * eye), 1.0)
+	c.anim(Kit.bb_circle(cc, 152.0), func(cv: CanvasItem, t: float) -> void:
+		var rot := t * 0.03
+		var a := 0.07 + 0.03 * sin(t * 0.5)
+		cv.draw_arc(cc, 150, 0, TAU, 64, Color(WHITE, a * 0.7), 1.0)
+		cv.draw_arc(cc, 112, 0, TAU, 64, Color(WHITE, a * 0.5), 1.0)
+		_poly_line(cv, cc, 150, 6, rot, Color(WHITE, a), 1.0)
+		_poly_line(cv, cc, 112, 3, -rot * 1.5, Color(WHITE, a * 0.9), 1.0)
+		_poly_line(cv, cc, 112, 3, -rot * 1.5 + PI, Color(WHITE, a * 0.9), 1.0)
+		var eye := 0.5 + 0.5 * sin(t * 0.21)
+		cv.draw_colored_polygon(PackedVector2Array([cc + Vector2(0, -40), cc + Vector2(4 + 3 * eye, 0), cc + Vector2(0, 40), cc + Vector2(-4 - 3 * eye, 0)]), Color(WHITE, 0.10 + 0.06 * eye))
+		cv.draw_line(cc + Vector2(0, -36), cc + Vector2(0, 36), Color(1, 1, 1, 0.25 + 0.2 * eye), 1.0))
 	# 하늘의 금: 직선으로만 꺾이는 흰 선
 	for i in 5:
 		var p := Vector2(rng.randf() * 640, rng.randf() * 140)
@@ -132,14 +144,15 @@ static func _sky_blight(c: Control, _pal: Dictionary, t: float) -> void:
 	for i in 6:
 		c.draw_rect(Rect2(0, 250 + i * 18, 640, 18), Color(0.95, 0.95, 1.0, 0.02 + i * 0.008))
 	# 이따금 화면을 가로지르는 흰 선 (지직)
-	var g := fmod(t, 5.3)
-	if g < 0.12:
-		var gy := 40.0 + fmod(floorf(t / 5.3) * 97.0, 260.0)
-		c.draw_rect(Rect2(0, gy, 640, 1), Color(1, 1, 1, 0.35))
-		c.draw_rect(Rect2(120, gy + 3, 300, 1), Color(1, 1, 1, 0.18))
+	c.anim(Rect2(0, 38, 640, 268), func(cv: CanvasItem, t: float) -> void:
+		var g := fmod(t, 5.3)
+		if g < 0.12:
+			var gy := 40.0 + fmod(floorf(t / 5.3) * 97.0, 260.0)
+			cv.draw_rect(Rect2(0, gy, 640, 1), Color(1, 1, 1, 0.35))
+			cv.draw_rect(Rect2(120, gy + 3, 300, 1), Color(1, 1, 1, 0.18)))
 
 
-static func _poly_line(c: CanvasItem, center: Vector2, r: float, n: int, rot: float, col: Color, w: float) -> void:
+static func _poly_line(c, center: Vector2, r: float, n: int, rot: float, col: Color, w: float) -> void:
 	var pts := PackedVector2Array()
 	for i in n + 1:
 		var ang := rot + TAU * i / n
@@ -151,7 +164,7 @@ static func _poly_line(c: CanvasItem, center: Vector2, r: float, n: int, rot: fl
 # 시차 층
 # ═══════════════════════════════════════════════════════
 
-static func draw_layer(l: Node2D, theme: String, depth: int, span: Vector2, rng: RandomNumberGenerator, _t: float) -> bool:
+static func draw_layer(l, theme: String, depth: int, span: Vector2, rng: RandomNumberGenerator, _t: float) -> bool:
 	if not theme in MINE:
 		return false
 	var sp := _cover(l, span)
@@ -176,16 +189,18 @@ static func draw_layer(l: Node2D, theme: String, depth: int, span: Vector2, rng:
 				1: _blight_mid(l, sp, rng, anim)
 				2: _blight_near(l, sp, rng, anim)
 				_: _blight_front(l, sp, rng, anim)
-	if not l.has_meta("ch3_anim") and anim.has_items():
-		l.set_meta("ch3_anim", true)
-		l.add_child.call_deferred(anim)
+	# 층마다 한 번만 불리므로 움직일 것이 없으면 바로 버린다 (예전에는 매 그리기마다 새 Anim이 버려져 남았다)
+	if anim.has_items():
+		l.add_post(anim)
+	else:
+		anim.free()
 	return true
 
 
 # ─── 공용 모양 ──────────────────────────────────────────
 
 ## 굵기가 줄어드는 휜 가지 (점 목록을 따라 사다리꼴을 이어 그림). 윗면 점들을 돌려준다(집·등불 놓을 자리)
-static func _limb(l: Node2D, pts: PackedVector2Array, w0: float, w1: float, col: Color, hi: Color) -> PackedVector2Array:
+static func _limb(l, pts: PackedVector2Array, w0: float, w1: float, col: Color, hi: Color) -> PackedVector2Array:
 	var tops := PackedVector2Array()
 	var n := pts.size()
 	for i in n - 1:
@@ -220,7 +235,7 @@ static func _curve(a: Vector2, b: Vector2, lift: float, n := 12) -> PackedVector
 
 
 ## 둥근 잎 덩어리 (원 여러 개)
-static func _foliage(l: Node2D, c: Vector2, r: float, col: Color, rng: RandomNumberGenerator, n := 6) -> void:
+static func _foliage(l, c: Vector2, r: float, col: Color, rng: RandomNumberGenerator, n := 6) -> void:
 	for i in n:
 		var a := TAU * i / n + rng.randf_range(-0.3, 0.3)
 		l.draw_circle(c + Vector2(cos(a) * r * 0.55, sin(a) * r * 0.35), r * rng.randf_range(0.45, 0.7), col)
@@ -228,7 +243,7 @@ static func _foliage(l: Node2D, c: Vector2, r: float, col: Color, rng: RandomNum
 
 
 ## 엘프 집 (꼬투리 모양 몸 + 잎 지붕 + 둥근 창·둥근 문). s = 크기 배율, 발밑(가지 윗면) 기준
-static func _pod_house(l: Node2D, base: Vector2, s: float, col: Color, roof: Color, lit: float, rng: RandomNumberGenerator) -> void:
+static func _pod_house(l, base: Vector2, s: float, col: Color, roof: Color, lit: float, rng: RandomNumberGenerator) -> void:
 	var w := 22.0 * s
 	var h := 18.0 * s
 	var c := base + Vector2(0, -h * 0.5)
@@ -264,7 +279,7 @@ static func _pod_house(l: Node2D, base: Vector2, s: float, col: Color, roof: Col
 
 
 ## 흔들다리 (현수선 + 판자 + 난간 밧줄)
-static func _bridge(l: Node2D, a: Vector2, b: Vector2, sag: float, col: Color, rope: Color) -> void:
+static func _bridge(l, a: Vector2, b: Vector2, sag: float, col: Color, rope: Color) -> void:
 	var n := maxi(int(a.distance_to(b) / 6.0), 4)
 	var prev := a
 	var prev_r := a + Vector2(0, -9)
@@ -314,8 +329,8 @@ static func _veins(rng: RandomNumberGenerator, x0: float, x1: float, y_bot: floa
 # elf — 세계수 마을
 # ═══════════════════════════════════════════════════════
 
-static func _elf_far(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
-	var col: Color = _th(l).far
+static func _elf_far(l, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
+	var col: Color = l.theme.far
 	var haze := Color("#1d3a2b")
 	# 멀리 다른 줄기들 (안개 속, 거의 하늘색)
 	for i in 2:
@@ -458,8 +473,8 @@ static func _elf_far(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: A
 		my += 368.0
 
 
-static func _elf_mid(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
-	var col: Color = _th(l).mid
+static func _elf_mid(l, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
+	var col: Color = l.theme.mid
 	var bark := col.darkened(0.12)
 	var wood := Color("#2b2216")
 	var moss := Color(0.42, 0.62, 0.26, 0.55)
@@ -517,8 +532,8 @@ static func _elf_mid(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: A
 		ry += rng.randf_range(110, 190)
 
 
-static func _elf_near(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
-	var col: Color = _th(l).near
+static func _elf_near(l, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
+	var col: Color = l.theme.near
 	# 위에서 늘어진 잎 덩어리 + 덩굴
 	var x := rng.randf_range(0, 120)
 	while x < sp.x:
@@ -546,7 +561,7 @@ static func _elf_near(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: 
 		anim.sparks.append({"pos": Vector2(rng.randf() * sp.x, rng.randf() * sp.y), "ph": rng.randf() * 6.0, "col": SAP, "drift": true})
 
 
-static func _elf_front(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
+static func _elf_front(l, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
 	var dark := Color(0.012, 0.025, 0.015, 0.94)
 	var x := rng.randf_range(0, 260)
 	while x < sp.x:
@@ -569,7 +584,7 @@ static func _elf_front(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim:
 # ═══════════════════════════════════════════════════════
 
 ## 아치처럼 휜 뿌리 (두꺼운 띠)
-static func _root_arch(l: Node2D, a: Vector2, b: Vector2, lift: float, w: float, col: Color) -> PackedVector2Array:
+static func _root_arch(l, a: Vector2, b: Vector2, lift: float, w: float, col: Color) -> PackedVector2Array:
 	var pts := PackedVector2Array()
 	for i in 17:
 		var k := float(i) / 16.0
@@ -588,7 +603,7 @@ static func _root_arch(l: Node2D, a: Vector2, b: Vector2, lift: float, w: float,
 	return pts
 
 
-static func _mushroom(l: Node2D, base: Vector2, s: float, stem: Color, cap: Color, glow: float) -> void:
+static func _mushroom(l, base: Vector2, s: float, stem: Color, cap: Color, glow: float) -> void:
 	l.draw_rect(Rect2(base.x - 1.5 * s, base.y - 8 * s, 3 * s, 8 * s), stem)
 	var capp := PackedVector2Array()
 	for i in 9:
@@ -605,7 +620,7 @@ static func _mushroom(l: Node2D, base: Vector2, s: float, stem: Color, cap: Colo
 
 
 ## 버섯 무더기 (큰 것 하나 + 작은 것들)
-static func _mush_cluster(l: Node2D, base: Vector2, s: float, col: Color, rng: RandomNumberGenerator) -> void:
+static func _mush_cluster(l, base: Vector2, s: float, col: Color, rng: RandomNumberGenerator) -> void:
 	var cap := Color("#15524a").lerp(col, 0.3)
 	_mushroom(l, base, s, col.lightened(0.12), cap, 1.0)
 	for k in rng.randi_range(2, 4):
@@ -613,8 +628,8 @@ static func _mush_cluster(l: Node2D, base: Vector2, s: float, col: Color, rng: R
 		_mushroom(l, base + off, s * rng.randf_range(0.4, 0.7), col.lightened(0.1), cap.lightened(0.05), 0.8)
 
 
-static func _deep_far(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
-	var col: Color = _th(l).far
+static func _deep_far(l, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
+	var col: Color = l.theme.far
 	var wall := col.darkened(0.45)
 	l.draw_rect(Rect2(-60, -60, sp.x + 120, sp.y + 120), wall)
 	# 동굴 벽의 얼룩 (흙·바위 덩어리) + 이끼 빛 점
@@ -659,8 +674,8 @@ static func _deep_far(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: 
 		my += 368.0
 
 
-static func _deep_mid(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
-	var col: Color = _th(l).mid
+static func _deep_mid(l, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
+	var col: Color = l.theme.mid
 	var root := col.lerp(Color("#1c2622"), 0.5)
 	var y := rng.randf_range(160, 240)
 	while y < sp.y + 60.0:
@@ -693,8 +708,8 @@ static func _deep_mid(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: 
 		x += rng.randf_range(40, 110)
 
 
-static func _deep_near(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
-	var col: Color = _th(l).near
+static func _deep_near(l, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
+	var col: Color = l.theme.near
 	# 아래: 큰 버섯 실루엣 (주름이 빛남)
 	var gy := 320.0
 	while gy < sp.y + 60.0:
@@ -717,7 +732,7 @@ static func _deep_near(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim:
 		cx += rng.randf_range(160, 320)
 
 
-static func _deep_front(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, _anim: Anim) -> void:
+static func _deep_front(l, sp: Vector2, rng: RandomNumberGenerator, _anim: Anim) -> void:
 	var dark := Color(0.008, 0.02, 0.022, 0.94)
 	var x := rng.randf_range(0, 280)
 	while x < sp.x:
@@ -738,7 +753,7 @@ static func _deep_front(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, _ani
 # ═══════════════════════════════════════════════════════
 
 ## 하얗게 굳은 나무: 줄기는 곧고 가지는 60도로만 꺾인다
-static func _petrified_tree(l: Node2D, base: Vector2, h: float, w: float, col: Color, line: Color, rng: RandomNumberGenerator, cracks: Array) -> void:
+static func _petrified_tree(l, base: Vector2, h: float, w: float, col: Color, line: Color, rng: RandomNumberGenerator, cracks: Array) -> void:
 	var top := base + Vector2(rng.randf_range(-8, 8), -h)
 	l.draw_colored_polygon(PackedVector2Array([base + Vector2(-w * 0.5, 0), top + Vector2(-w * 0.18, 0), top + Vector2(w * 0.18, 0), base + Vector2(w * 0.5, 0)]), col)
 	l.draw_line(base + Vector2(w * 0.3, 0), top + Vector2(w * 0.1, 0), col.lightened(0.12), 2.0)
@@ -768,7 +783,7 @@ static func _petrified_tree(l: Node2D, base: Vector2, h: float, w: float, col: C
 
 
 ## 육각 수정 (세로로 긴 육각기둥 + 빛나는 면)
-static func _crystal(l: Node2D, base: Vector2, h: float, w: float, ang: float, col: Color, hi: Color) -> void:
+static func _crystal(l, base: Vector2, h: float, w: float, ang: float, col: Color, hi: Color) -> void:
 	var d := Vector2(sin(ang), -cos(ang))
 	var n := Vector2(d.y, -d.x) * -1.0
 	var tip := base + d * h
@@ -779,8 +794,8 @@ static func _crystal(l: Node2D, base: Vector2, h: float, w: float, ang: float, c
 	l.draw_line(base, tip, hi, 1.0)
 
 
-static func _blight_far(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
-	var col: Color = _th(l).far
+static func _blight_far(l, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
+	var col: Color = l.theme.far
 	var gy := 300.0
 	while gy < sp.y + 120.0:
 		var x := rng.randf_range(-20, 60)
@@ -795,8 +810,8 @@ static func _blight_far(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim
 		gy += 368.0
 
 
-static func _blight_mid(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
-	var col: Color = _th(l).mid
+static func _blight_mid(l, sp: Vector2, rng: RandomNumberGenerator, anim: Anim) -> void:
+	var col: Color = l.theme.mid
 	var gy := 320.0
 	while gy < sp.y + 120.0:
 		var x := rng.randf_range(0, 120)
@@ -822,8 +837,8 @@ static func _blight_mid(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, anim
 		anim.shards.append({"pos": Vector2(rng.randf() * sp.x, rng.randf() * sp.y), "s": rng.randf_range(3, 7), "ph": rng.randf() * 6.0, "n": 3 if rng.randf() < 0.6 else 6})
 
 
-static func _blight_near(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, _anim: Anim) -> void:
-	var col: Color = _th(l).near
+static func _blight_near(l, sp: Vector2, rng: RandomNumberGenerator, _anim: Anim) -> void:
+	var col: Color = l.theme.near
 	var gy := 330.0
 	while gy < sp.y + 80.0:
 		var x := rng.randf_range(-20, 160)
@@ -846,7 +861,7 @@ static func _blight_near(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, _an
 		cx += rng.randf_range(200, 420)
 
 
-static func _blight_front(l: Node2D, sp: Vector2, rng: RandomNumberGenerator, _anim: Anim) -> void:
+static func _blight_front(l, sp: Vector2, rng: RandomNumberGenerator, _anim: Anim) -> void:
 	var dark := Color(0.02, 0.02, 0.026, 0.94)
 	var x := rng.randf_range(0, 300)
 	while x < sp.x:
@@ -878,6 +893,7 @@ class Anim extends Node2D:
 	var cracks: Array = [] ## PackedVector2Array — 역병 금 맥동
 	var shards: Array = [] ## {pos, s, ph, n} — 떠다니는 기하학 조각
 	var _t := 0.0
+	var _tick := Kit.Ticker.new()
 
 	func has_items() -> bool:
 		return not (veins.is_empty() and lanterns.is_empty() and windows.is_empty() and ribbons.is_empty() and vines.is_empty() \
@@ -888,7 +904,8 @@ class Anim extends Node2D:
 
 	func _process(delta: float) -> void:
 		_t += delta
-		queue_redraw()
+		if _tick.step(delta):
+			queue_redraw()
 
 	func _draw() -> void:
 		var t := _t
