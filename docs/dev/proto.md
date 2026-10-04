@@ -1,6 +1,6 @@
 # 전투 시제품 (새 조작 훈련장) — `game/proto/`
 
-타이틀 → **전투 시제품 (새 조작)**. 본편과 따로 도는 훈련장(허수아비만, 능력 전부 해금, Tab 시험 패널)이다.
+타이틀 → **전투 시제품 (새 조작)**, 또는 웹 주소 https://abback-go.github.io/yemo_plan/?proto 로 바로. 본편과 따로 도는 훈련장(허수아비만, 능력 전부 해금, Tab 시험 패널)이다.
 조작·마법 결정 기록은 [../design/controls_skills.md](../design/controls_skills.md). 본편 코드(`player/`·`world/`)는 건드리지 않는다.
 
 | 파일 | 하는 일 |
@@ -39,5 +39,5 @@
 
 ### 측정 (`PBench`)
 - 데스크톱/헤드리스: `PBENCH=1 godot --fixed-fps 60 res://proto/proto_arena.tscn` → `PBENCH 단계 frame=… p95=… max=… draws=…` 줄이 찍히고 끝나면 종료.
-- 웹: 주소 뒤에 `?pbench`를 붙이고 타이틀 → 전투 시제품. 브라우저 콘솔에 같은 줄이 찍힌다.
+- 웹: https://abback-go.github.io/yemo_plan/?proto&pbench (시제품으로 바로 들어가 측정). 브라우저 콘솔에 같은 줄이 찍힌다.
 - 단계: blank(아무것도 안 그림) · noscript(그림은 그대로, 스크립트 멈춤) · idle · claw · foxrain · asura · laser · meteor · phoenix · bind · fox_dash · all(전부 겹침).
