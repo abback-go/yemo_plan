@@ -73,11 +73,13 @@ func _draw_status() -> void:
 		var col := PData.FIRE_HOT.lerp(Color("#ff2a1a"), g)
 		if full:
 			col = col.lerp(PData.FIRE_CORE, 0.5 + 0.5 * sin(_t * 8.0))
+		elif g >= 0.9: # 봉인 직전 경고
+			col = col.lerp(Color(1, 1, 1), 0.3 + 0.3 * sin(_t * 14.0))
 		draw_rect(Rect2(bx + Vector2(1, 1), Vector2(98 * g, 7)), col)
 		draw_line(bx + Vector2(70, 1), bx + Vector2(70, 8), Color(1, 1, 1, 0.25), 1.0) # 70%: 불티가 이는 지점
 		draw_rect(Rect2(bx, Vector2(100, 9)), Color(1, 0.55, 0.3, 0.55 + (0.4 * sin(_t * 8.0) if full else 0.0)), false, 1.0)
 		if full:
-			_text(go + Vector2(28, 22), "Space 변신!", PData.FIRE_HOT, 10)
+			_text(go + Vector2(28, 22), "마법 봉인 · Space 변신!", PData.FIRE_HOT, 10)
 	# 물약
 	var po := o + Vector2(0, 46)
 	for i in sera.potions_max:
@@ -117,7 +119,7 @@ func _draw_slots() -> void:
 		var x := x0 + i * (w + gap) + 6.0 * float(groups[i]) # 키 묶음(등급)마다 살짝 떨어뜨림
 		var r := Rect2(x, y0, w, w)
 		var fox_line: bool = s.line == "fox"
-		var lack := false
+		var lack := sera.overloaded() # 폭주 봉인: 모든 칸이 어두워짐
 		draw_rect(r, Color(0.1, 0.07, 0.16))
 		draw_rect(r.grow(-1), Color(0.18, 0.12, 0.28) if not fox_line else Color(0.1, 0.14, 0.3))
 		_icon(String(s.id), r.get_center(), lack)
@@ -185,13 +187,13 @@ func _icon(id: String, c: Vector2, dim: bool) -> void:
 const KEY_GUIDE_GRADE := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
 	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["C", "대시 (변신 중 = 의태 돌진)"], ["폭주", "마법을 쓰거나 발톱으로 때리면 참"],
-	["Space", "변신 (폭주 게이지 가득)"], ["G", "물약"],
+	["Space", "변신 (폭주 가득 = 마법 봉인 해제)"], ["G", "물약"],
 	["A", "초급: 파이어볼 · ↓여우비"], ["S", "중급: 열선(꾹) · ↑대유성 · ↓난무"], ["D", "대마법: 바인드 · ↑불사조"], ["↑", "석등에서 쉬기"],
 ]
 const KEY_GUIDE_DIRECT := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
 	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["Shift", "대시 (변신 중 = 의태 돌진)"], ["폭주", "마법을 쓰거나 발톱으로 때리면 참"],
-	["Space", "변신 (폭주 게이지 가득)"], ["G", "물약"],
+	["Space", "변신 (폭주 가득 = 마법 봉인 해제)"], ["G", "물약"],
 	["A S F", "파이어볼·여우비·발톱 난무"], ["Q W", "압축 열선(꾹)·대유성"], ["E R", "불사조·너울 바인드"], ["↑", "석등에서 쉬기"],
 ]
 

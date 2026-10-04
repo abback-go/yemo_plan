@@ -28,6 +28,14 @@ static func _pal(fox: bool) -> Array:
 
 static func try_cast(sera: PSera, id: String) -> bool:
 	var s := PData.spell(id)
+	# 폭주 봉인: 게이지가 가득 차면 변신(너울에게 넘기기) 전까지 마법이 막힌다 — 누르면 넘치는 마력이 튐
+	if sera.overloaded():
+		last_fail = id
+		last_fail_t = 0.5
+		PVfx.sparks(_hand(sera), 14, PData.FIRE_HOT, 160.0, 0.35)
+		Fx.shake(0.06, 0.08)
+		Sfx.play(&"overload_warn", -8.0)
+		return false
 	if float(sera.cooldowns.get(id, 0.0)) > 0.0:
 		last_fail = id
 		last_fail_t = 0.35

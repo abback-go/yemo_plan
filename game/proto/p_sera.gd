@@ -101,6 +101,11 @@ func is_fox() -> bool:
 	return fox_time > 0.0
 
 
+## 폭주 봉인 중인가 (게이지 가득 + 아직 변신 안 함 → 마법 사용 불가, 발톱·대시·이동은 됨)
+func overloaded() -> bool:
+	return gauge >= 1.0 and not is_fox()
+
+
 func invulnerable() -> bool:
 	return _iframe > 0.0 or _shield_t > 0.0 or st == St.ASURA or st == St.DEAD or _cast_invuln \
 		or (st == St.DASH and PState.evade) or st == St.MIMIC
