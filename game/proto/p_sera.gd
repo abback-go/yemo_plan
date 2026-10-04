@@ -4,7 +4,7 @@ extends CharacterBody2D
 ## 상태 하나(st)로 나눈다: 보통(달리기·점프·벽·활공·발톱), 대시, 의태 돌진, 집중, 시전 잠김, 압축(열선), 난무(아수라),
 ## 마시기, 피격, 쓰러짐. 체력은 반 칸 단위(hp2)라 쉬움 난이도의 "받는 피해 절반"을 그대로 표현한다.
 
-enum St { NORMAL, DASH, MIMIC, FOCUS, CAST, CHARGE, ASURA, DRINK, HURT, DEAD }
+enum St { NORMAL, DASH, MIMIC, FOCUS, CAST, CHARGE, ASURA, DRINK, HURT, DEAD, SHIELD }
 
 const GROUP := &"p_sera"
 const SIZE := Vector2(10, 32)
@@ -41,7 +41,6 @@ var _gliding := false
 var _glide_ready := false ## 2단 점프를 쓴 뒤 다시 누르면 활공
 var _was_floor := true
 var _run_dust := 0.0
-var _mimic_cd := 0.0
 var _mimic_hit := {}
 
 # 전투
@@ -74,7 +73,7 @@ static func find(tree: SceneTree) -> PSera:
 func _ready() -> void:
 	add_to_group(GROUP)
 	collision_layer = 2
-	collision_mask = 1 | 8 # 8 = 여우 장막(의태 돌진 중에는 통과)
+	collision_mask = 1
 	floor_snap_length = 4.0
 	var cs := CollisionShape2D.new()
 	var rs := RectangleShape2D.new()
@@ -140,6 +139,8 @@ func _physics_process(delta: float) -> void:
 			_drink(delta)
 		St.HURT:
 			_hurt(delta)
+		St.SHIELD:
+			_shield(delta)
 		St.DEAD:
 			velocity = Vector2.ZERO
 	var was := is_on_floor()
@@ -154,7 +155,6 @@ func _physics_process(delta: float) -> void:
 
 func _timers(delta: float) -> void:
 	_dash_cd = maxf(_dash_cd - delta, 0.0)
-	_mimic_cd = maxf(_mimic_cd - delta, 0.0)
 	_claw_cd = maxf(_claw_cd - delta, 0.0)
 	_claw_buf = maxf(_claw_buf - delta, 0.0)
 	_claw_combo_t = maxf(_claw_combo_t - delta, 0.0)
@@ -167,8 +167,6 @@ func _timers(delta: float) -> void:
 	shield_cd = maxf(shield_cd - delta, 0.0)
 	if _shield_t > 0.0:
 		_shield_t -= delta
-		if _shield_t <= 0.0 and is_instance_valid(_shield_fx):
-			_shield_fx.queue_free()
 	for id: String in cooldowns.keys():
 		cooldowns[id] = maxf(float(cooldowns[id]) - delta, 0.0)
 	if PState.no_cooldown:
@@ -281,10 +279,10 @@ func _normal(delta: float) -> void:
 ## 보통 상태에서 받는 행동 입력 (대시·발톱·집중·방패·의태·변신·물약·마법)
 func _actions(on_floor: bool) -> void:
 	if Input.is_action_just_pressed("pr_dash") and _dash_cd <= 0.0 and (on_floor or (PState.evade and _air_dash)):
-		_start_dash()
-		return
-	if Input.is_action_just_pressed("pr_mimic") and _mimic_cd <= 0.0:
-		_start_mimic()
+		if is_fox():
+			_start_mimic() # 변신 중 대시 = 의태 돌진
+		else:
+			_start_dash()
 		return
 	if Input.is_action_just_pressed("pr_claw"):
 		_claw_buf = 0.15 # 쿨이 막 끝나기 전에 눌러도 이어지게
@@ -293,6 +291,7 @@ func _actions(on_floor: bool) -> void:
 		_claw()
 	if Input.is_action_just_pressed("pr_shield") and shield_cd <= 0.0:
 		_start_shield()
+		return
 	if Input.is_action_just_pressed("pr_transform") and gauge >= 1.0 and not is_fox():
 		_start_transform()
 	if Input.is_action_just_pressed("pr_potion") and potions > 0 and hp2 < PData.MAX_HEARTS * 2 and on_floor:
@@ -383,35 +382,43 @@ func _dash(_delta: float) -> void:
 		velocity.x = _dash_dir * _run_speed()
 
 
-# ─── 의태 돌진 (작은 여우가 되어 뚫고 지나감) ─────────
+# ─── 의태 돌진 = 변신 중 대시 (거대한 여우 정령이 감싸고 뛰어듦: 적·탄 관통, 피해, 무적) ───
 
 func _start_mimic() -> void:
 	_go(St.MIMIC)
 	_dash_dir = facing if _axis() == 0 else _axis()
 	facing = _dash_dir
-	_mimic_cd = PData.MIMIC_COOLDOWN
+	_dash_cd = PData.DASH_COOLDOWN
+	if not is_on_floor():
+		_air_dash = false
+	_gliding = false
 	_mimic_hit.clear()
-	collision_mask = 1 # 여우 장막 통과
+	var sp := PVfx.SpiritDash.new()
+	sp.dir = _dash_dir
+	sp.follow = self
+	PVfx.add(sp, global_position, true)
 	var paw := PVfx.FoxPaw.new()
 	paw.dir = _dash_dir
-	paw.size = 1.4
-	PVfx.add(paw, global_position + Vector2(0, -8), true)
-	PVfx.sparks(global_position + Vector2(0, -10), 16, PData.FOX_HOT, 140.0, 0.4)
-	Sfx.play(&"fox_transform", -8.0)
+	paw.size = 1.6
+	PVfx.add(paw, global_position + Vector2(-_dash_dir * 6, -6), true)
+	PVfx.sparks(global_position + Vector2(0, -18), 18, PData.FOX_HOT, 160.0, 0.4)
+	Sfx.play(&"dash", -2.0)
+	Sfx.play(&"fox_transform", -10.0)
+	Fx.shake(0.08, 0.1)
 
 
 func _mimic(_delta: float) -> void:
 	velocity = Vector2(_dash_dir * PData.MIMIC_SPEED, 0.0)
 	if randf() < 0.8:
-		PVfx.embers(global_position + Vector2(-_dash_dir * 8, -6), 2, true, 30.0)
-	var r := Rect2(global_position + Vector2(-10, -16), Vector2(20, 16))
+		PVfx.embers(global_position + Vector2(-_dash_dir * 20, -24), 3, true, 40.0, Vector2(20, 14))
+	var x0 := global_position.x + (-34.0 if _dash_dir > 0 else -76.0)
+	var r := Rect2(Vector2(x0, global_position.y - 70), Vector2(110, 70))
 	for d: PDummy in PDummy.all(get_tree()):
 		if not _mimic_hit.has(d) and r.intersects(d.hit_rect()):
 			_mimic_hit[d] = true
 			d.take_hit(int(PData.MIMIC_DAMAGE * (PData.FOX_DAMAGE if is_fox() else 1.0)), global_position, {"fox": true})
 			PVfx.sparks(d.center(), 8, PData.FOX_HOT, 100.0)
 	if st_t >= PData.MIMIC_TIME:
-		collision_mask = 1 | 8
 		_go(St.NORMAL)
 		velocity.x = _dash_dir * _run_speed()
 		PVfx.sparks(global_position + Vector2(0, -10), 10, PData.FOX_HOT, 90.0)
@@ -431,7 +438,7 @@ func _claw() -> void:
 	slash.aim = _claw_aim
 	slash.step = _claw_step
 	slash.fox = is_fox()
-	slash.reach = PData.CLAW_REACH + 1.5 * float(PState.tails - 1)
+	slash.reach = PData.CLAW_REACH + 2.25 * float(PState.tails - 1)
 	slash.follow = self
 	slash.offset = _claw_origin() - global_position
 	PVfx.add(slash, _claw_origin())
@@ -453,7 +460,7 @@ func _claw_origin() -> Vector2:
 
 
 func _claw_rect() -> Rect2:
-	var reach := (PData.CLAW_REACH + 1.5 * float(PState.tails - 1)) * (1.25 if is_fox() else 1.0)
+	var reach := (PData.CLAW_REACH + 2.25 * float(PState.tails - 1)) * (1.25 if is_fox() else 1.0)
 	var h := PData.CLAW_HEIGHT * (1.2 if is_fox() else 1.0)
 	match _claw_aim:
 		-1:
@@ -535,15 +542,33 @@ func _focus(delta: float) -> void:
 
 # ─── 방패 · 변신 · 물약 ────────────────────────────────
 
+## 여우방패: 거대한 여우 정령이 방패로 앞을 1.5초 막고(무적), 방패를 내리며 막은 피해만큼 커진 할퀴기로 반격
 func _start_shield() -> void:
+	_go(St.SHIELD)
 	_shield_t = PData.SHIELD_TIME
-	shield_cd = PData.SHIELD_COOLDOWN
+	shield_cd = PData.SHIELD_TIME + PData.SHIELD_COOLDOWN
+	_gliding = false
 	if is_instance_valid(_shield_fx):
 		_shield_fx.queue_free()
-	_shield_fx = PSpells.ShieldFx.new()
-	_shield_fx.set("owner_sera", self)
-	PVfx.add(_shield_fx, center(), true)
-	Sfx.play(&"ward", -4.0)
+	var fx := PSpells.ShieldSpirit.new()
+	fx.owner_sera = self
+	fx.fox = is_fox()
+	fx.dir = facing
+	_shield_fx = fx
+	PVfx.add(fx, global_position, true)
+	Sfx.play(&"ward", -2.0)
+	Fx.shake(0.08, 0.1)
+
+
+func _shield(delta: float) -> void:
+	velocity.x = move_toward(velocity.x, 0.0, PData.RUN_DECEL * delta)
+	velocity.y = minf(velocity.y + PData.GRAVITY * delta, PData.FALL_MAX)
+	if st_t >= PData.SHIELD_TIME:
+		art.claw_step = 2 # 정령과 같이 휘두르는 팔 동작
+		art.claw_k = 0.0
+		_claw_aim = 0
+		_claw_cd = 0.2
+		_go(St.NORMAL)
 
 
 func _start_transform() -> void:
@@ -647,8 +672,9 @@ func _asura(delta: float) -> void:
 func take_damage(hearts_n: int, from: Vector2) -> bool:
 	if invulnerable():
 		if _shield_t > 0.0:
-			Fx.ring(center(), 8, 18, PData.FOX_HOT, 0.2)
-			Sfx.play(&"block", -4.0)
+			if is_instance_valid(_shield_fx):
+				(_shield_fx as PSpells.ShieldSpirit).absorb(hearts_n)
+			Sfx.play(&"block", -2.0)
 			return true
 		return false
 	var units := hearts_n * 2
@@ -736,7 +762,9 @@ func _animate(delta: float) -> void:
 		St.DASH:
 			p = "dash"
 		St.MIMIC:
-			p = "mimic"
+			p = "dash"
+		St.SHIELD:
+			p = "shield"
 		St.FOCUS:
 			p = "focus"
 		St.CAST:

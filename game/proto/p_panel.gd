@@ -63,7 +63,7 @@ func _change(d: int) -> void:
 		"tails":
 			PState.tails = clampi(PState.tails + d, 1, 9)
 		"mana_max":
-			PState.mana_max = clampi(PState.mana_max + d, 3, 5)
+			PState.mana_max = clampi(PState.mana_max + d, 5, 7)
 		"infinite_mana":
 			PState.infinite_mana = not PState.infinite_mana
 		"no_cooldown":

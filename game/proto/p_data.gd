@@ -35,17 +35,16 @@ const WALL_JUMP_LOCK := 0.14 ## 벽 점프 직후 방향 입력을 잠깐 무시
 const GLIDE_FALL := 45.0
 const GLIDE_SPEED := 165.0
 
-const MIMIC_SPEED := 560.0 ## 의태 돌진 (작은 여우)
-const MIMIC_TIME := 0.30 ## 약 10.5타일
-const MIMIC_COOLDOWN := 2.0
-const MIMIC_DAMAGE := 12
+const MIMIC_SPEED := 520.0 ## 의태 돌진 = 변신 중 대시 (거대 여우 정령, 관통·피해·무적, 대시와 같은 간격)
+const MIMIC_TIME := 0.24 ## 약 7.8타일
+const MIMIC_DAMAGE := 18
 
 # ─── 발톱 (같은 위력 3연타, 모션만 바뀜) ───
 const CLAW_COOLDOWN := 0.26
 const CLAW_COOLDOWN_FOX := 0.18
 const CLAW_ACTIVE := 0.07
 const CLAW_DAMAGE := 21
-const CLAW_REACH := 30.0 ## 앞으로 (꼬리마다 +1.5)
+const CLAW_REACH := 45.0 ## 앞으로 (꼬리마다 +2.25) — 사용자 요청으로 1.5배
 const CLAW_HEIGHT := 26.0
 const CLAW_RECOIL := 120.0 ## 맞히면 세라가 뒤로 조금
 const CLAW_HITSTOP := 0.045
@@ -55,8 +54,10 @@ const CLAW_GAUGE := 0.075 ## 맞힐 때마다 변신 게이지
 const MAX_HEARTS := 5
 const HURT_IFRAME := 1.0
 const HURT_KNOCK := Vector2(150, -170)
-const SHIELD_TIME := 1.0
-const SHIELD_COOLDOWN := 2.5
+const SHIELD_TIME := 1.5 ## 거대 여우 정령이 방패로 앞을 막는 시간(무적)
+const SHIELD_COOLDOWN := 3.0 ## 할퀴기까지 끝난 뒤부터
+const SHIELD_SWIPE_BASE := 40.0 ## 방패를 내린 뒤 정령 할퀴기 기본 피해
+const SHIELD_SWIPE_PER_HEART := 45.0 ## 막은 피해 1칸마다 더하는 피해
 const POTION_HEAL := 2
 const POTION_TIME := 0.8
 
@@ -68,14 +69,13 @@ const FOX_MANA_REGEN := 4.0 ## 변신 중 저절로 1칸 차는 시간
 const TRANSFORM_BASE := 10.0 ## 꼬리 1개 10초 → 9개 15초
 const FOX_DAMAGE := 1.3
 
-## 마법 8종 — 키·소모 칸·쿨·레벨 상한·이름. 피해는 각 마법 함수가 레벨 배율을 곱해 쓴다.
+## 마법 7종 (초급 2 · 중급 3 · 대마법 2) — 키·소모 칸·쿨·레벨 상한·이름. 피해는 각 마법 함수가 레벨 배율을 곱해 쓴다.
 const SPELLS := [
 	{"id": "fireball", "name": "파이어볼", "key": "A", "cost": 1, "cd": 1.2, "max_lv": 4, "line": "fire", "grade": "초급"},
 	{"id": "foxrain", "name": "여우비", "key": "S", "cost": 1, "cd": 1.6, "max_lv": 4, "line": "fox", "grade": "초급"},
-	{"id": "rising", "name": "솟는 불꽃", "key": "D", "cost": 2, "cd": 6.0, "max_lv": 3, "line": "fire", "grade": "중급"},
 	{"id": "asura", "name": "여우불 발톱 난무", "key": "F", "cost": 2, "cd": 7.0, "max_lv": 3, "line": "fox", "grade": "중급"},
 	{"id": "laser", "name": "압축 열선", "key": "Q", "cost": 2, "cd": 6.0, "max_lv": 3, "line": "fire", "grade": "중급"},
-	{"id": "meteor", "name": "대유성", "key": "W", "cost": 3, "cd": 45.0, "max_lv": 2, "line": "fire", "grade": "대마법"},
+	{"id": "meteor", "name": "대유성", "key": "W", "cost": 2, "cd": 8.0, "max_lv": 3, "line": "fire", "grade": "중급"},
 	{"id": "phoenix", "name": "불사조", "key": "E", "cost": 3, "cd": 55.0, "max_lv": 2, "line": "fire", "grade": "대마법"},
 	{"id": "bind", "name": "너울 바인드", "key": "R", "cost": 3, "cd": 50.0, "max_lv": 2, "line": "fox", "grade": "대마법"},
 ]

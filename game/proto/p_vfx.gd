@@ -90,7 +90,7 @@ class ClawSlash extends Base:
 	var offset := Vector2.ZERO
 
 	func _init() -> void:
-		life = 0.16
+		life = 0.18
 		z_index = 6
 
 	func _tick(_d: float) -> void:
@@ -114,6 +114,8 @@ class ClawSlash extends Base:
 		var a0 := mid - span / 2 * sweep
 		var a1 := lerpf(a0, mid + span / 2 * sweep, grow)
 		_arc_layers(a0, a1, sweep, grow, fade, base_col, glow_col, R, 12.0 if step == 2 else 11.0)
+		var tip := Vector2(cos(a1), sin(a1)) * R * 0.78
+		PVfx.fire_paw(self, tip, (Vector2(-sin(a1), cos(a1)) * sweep).angle(), R / 44.0, fox, fade * clampf(grow * 3.0, 0.0, 1.0))
 
 	## 앞 베기 3타: 1타 = 위-뒤에서 앞-아래로 내려 긋는 대각선, 2타 = 몸 앞을 가로지르는 수평, 3타 = 아래-뒤에서 앞-위로 올려 긋는 대각선.
 	## 몸을 감싸는 납작한 타원 궤적(기울기·납작함)을 돌려서 그린다 — 수직 반원이 아니라 옆·대각선으로 휘두르는 모양.
@@ -129,6 +131,11 @@ class ClawSlash extends Base:
 		draw_set_transform(Vector2.ZERO, tilt * dir, Vector2(dir, flat))
 		_arc_layers(a0, a1, sweep, grow, fade, base_col, glow_col, rr, 13.0 if s == 2 else 12.0)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		# 휘두르는 끝에 붙은 커다란 여우손(불꽃 발) — 궤적 위 점과 진행 방향을 같은 기울기·납작함으로 옮겨 계산
+		var rot := tilt * dir
+		var q := Vector2(dir * cos(a1), flat * sin(a1)) * rr * 0.78
+		var tq := Vector2(dir * -sin(a1), flat * cos(a1)) * sweep
+		PVfx.fire_paw(self, q.rotated(rot), tq.rotated(rot).angle(), rr / 44.0, fox, fade * clampf(grow * 3.0, 0.0, 1.0))
 
 	## 빛 → 흰 초승달 → 안쪽 발톱 자국 세 줄 → 끝 속도선
 	func _arc_layers(a0: float, a1: float, sweep: float, grow: float, fade: float, base_col: Color, glow_col: Color, R: float, w: float) -> void:
@@ -143,6 +150,101 @@ class ClawSlash extends Base:
 			for i in 3:
 				var off := tip + tang.orthogonal() * (i - 1) * 3.0
 				draw_line(off, off + tang * (10.0 + i * 4.0) * fade, Color(base_col, 0.6 * fade), 1.0)
+
+
+## 커다란 여우손(불꽃 발) — p에서 ang 방향으로 발톱을 세운 손. 평소 = 붉은 불, 변신 = 푸른 여우불. 손목엔 금 팔찌.
+## 발톱 참격이 "여우손으로 할퀸다"는 느낌을 주는 의태 이펙트(사용자 참고: 불꽃 주먹 + 금 팔찌).
+static func fire_paw(c: CanvasItem, p: Vector2, ang: float, s: float, fox_fire: bool, a: float) -> void:
+	if a <= 0.02:
+		return
+	var core := PData.FOX_CORE if fox_fire else PData.FIRE_CORE
+	var hot := PData.FOX_HOT if fox_fire else PData.FIRE_HOT
+	var mid := PData.FOX_MID if fox_fire else PData.FIRE_MID
+	var dark := PData.FOX_DARK if fox_fire else PData.FIRE_DARK
+	c.draw_set_transform(p, ang, Vector2(s, s))
+	# 뒤로 날리는 불꽃 혀가 달린 불의 기운
+	var aura := PackedVector2Array()
+	for i in 18:
+		var t2 := float(i) / 18.0 * TAU
+		var back := cos(t2) < -0.2
+		var r := 1.0 + (0.55 if back else 0.18) * float(i % 2)
+		aura.append(Vector2(-2.0 + cos(t2) * 19.0 * r * (1.25 if back else 1.0), sin(t2) * 13.0 * r))
+	safe_poly(c, aura, Color(dark, 0.45 * a))
+	safe_poly(c, _ellipse(Vector2(-1, 0), 16.0, 11.5), Color(mid, 0.7 * a))
+	# 손바닥 + 발가락 넷 + 세운 발톱
+	safe_poly(c, _ellipse(Vector2(-3, 0), 9.5, 8.5), Color(hot, 0.95 * a))
+	safe_poly(c, _ellipse(Vector2(-3, 0), 5.5, 4.5), Color(core, a))
+	for ty: float in [-8.5, -3.0, 3.0, 8.5]:
+		var tp := Vector2(8.0 if absf(ty) > 5.0 else 10.5, ty)
+		safe_poly(c, _ellipse(tp, 3.4, 3.0), Color(hot, a))
+		spike(c, tp + Vector2(2.0, 0), Vector2(1.0, ty * 0.03).normalized(), 12.0, 2.8, Color(core, a))
+	# 손목의 금 팔찌 두 줄
+	var gold := Color(1.0, 0.8, 0.3, a)
+	c.draw_line(Vector2(-13, -9), Vector2(-13, 9), gold, 3.0)
+	c.draw_line(Vector2(-17, -8), Vector2(-17, 8), Color(gold, 0.7 * a), 1.5)
+	c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+static func _ellipse(cen: Vector2, rx: float, ry: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in 14:
+		var t2 := float(i) / 14.0 * TAU
+		pts.append(cen + Vector2(cos(t2) * rx, sin(t2) * ry))
+	return pts
+
+
+## 의태 돌진(변신 중 대시): 세라를 감싸고 앞으로 뛰어드는 거대한 푸른 여우 정령 + 뒤로 감기는 바람 줄기
+class SpiritDash extends Base:
+	var dir := 1
+	var follow: Node2D
+
+	func _init() -> void:
+		life = PData.MIMIC_TIME + 0.22
+		z_index = 7
+		fox = true
+
+	func _tick(_d: float) -> void:
+		if is_instance_valid(follow) and t < PData.MIMIC_TIME:
+			global_position = follow.global_position
+
+	func _draw() -> void:
+		var run := clampf(t / PData.MIMIC_TIME, 0.0, 1.0)
+		var a := clampf(t / 0.05, 0.0, 1.0) * (1.0 - clampf((t - PData.MIMIC_TIME) / 0.22, 0.0, 1.0))
+		var core := PData.FOX_CORE
+		var hot := PData.FOX_HOT
+		var mid := PData.FOX_MID
+		var dark := PData.FOX_DARK
+		var stretch := 1.0 + 0.15 * sin(run * PI)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(dir * stretch, 1.0))
+		# 뒤로 감기는 바람 줄기(긴 초승달 여러 겹)
+		for i in 6:
+			var r := 70.0 + i * 13.0
+			var y := -30.0 + (float(i) - 2.5) * 7.0
+			PVfx.crescent(self, Vector2(20, y + r * 0.0), r, PI - 0.55 + i * 0.03, PI + 0.5 - i * 0.05, 5.0 - i * 0.5, Color(hot if i % 2 == 0 else mid, 0.55 * a), 18)
+		# 흩날리는 꼬리 셋
+		for i in 3:
+			var wv := sin(t * 26.0 + i * 1.7) * 6.0
+			var ty := -32.0 + (float(i) - 1.0) * 10.0
+			PVfx.safe_poly(self, PackedVector2Array([Vector2(-26, ty - 6), Vector2(-62, ty - 12 + wv), Vector2(-96, ty - 4 + wv * 1.5), Vector2(-64, ty + 4 + wv), Vector2(-26, ty + 6)]), Color(mid, 0.6 * a))
+			PVfx.safe_poly(self, PackedVector2Array([Vector2(-30, ty - 2), Vector2(-70, ty - 4 + wv), Vector2(-30, ty + 3)]), Color(hot, 0.7 * a))
+		# 몸통 (앞으로 쭉 뻗은 도약 자세)
+		var body := PackedVector2Array([Vector2(-34, -40), Vector2(0, -50), Vector2(34, -48), Vector2(44, -36), Vector2(30, -22), Vector2(-6, -20), Vector2(-32, -24)])
+		PVfx.safe_poly(self, body, Color(dark, 0.55 * a))
+		PVfx.safe_poly(self, PackedVector2Array([Vector2(-26, -40), Vector2(4, -46), Vector2(32, -44), Vector2(24, -32), Vector2(-20, -30)]), Color(mid, 0.6 * a))
+		# 머리·귀·주둥이(벌린 턱)·빛나는 눈
+		PVfx.safe_poly(self, PackedVector2Array([Vector2(30, -50), Vector2(36, -72), Vector2(44, -54), Vector2(52, -70), Vector2(54, -50), Vector2(76, -42), Vector2(56, -36), Vector2(72, -30), Vector2(46, -28), Vector2(32, -36)]), Color(hot, 0.8 * a))
+		PVfx.safe_poly(self, PackedVector2Array([Vector2(36, -48), Vector2(54, -46), Vector2(70, -41), Vector2(48, -38)]), Color(core, 0.85 * a))
+		draw_circle(Vector2(52, -46), 2.4, Color(1, 1, 1, a))
+		# 앞다리는 앞으로, 뒷다리는 뒤로 쭉
+		draw_line(Vector2(28, -26), Vector2(62, -12), Color(hot, 0.8 * a), 5.0)
+		draw_line(Vector2(20, -24), Vector2(52, -6), Color(mid, 0.7 * a), 4.0)
+		draw_line(Vector2(-24, -26), Vector2(-60, -14), Color(hot, 0.8 * a), 5.0)
+		draw_line(Vector2(-18, -24), Vector2(-50, -8), Color(mid, 0.7 * a), 4.0)
+		# 빛의 결 (몸을 가로지르는 흰 선)
+		for i in 4:
+			var y := -44.0 + i * 5.5
+			draw_line(Vector2(-30 + i * 6, y), Vector2(40 - i * 4, y - 2), Color(core, 0.55 * a), 1.0)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## 맞힌 자리의 하얀 섬광 (가시 별 + 짧은 선)

@@ -1,6 +1,6 @@
 class_name PHud
 extends Control
-## 훈련장 HUD — 결정: 왼쪽 위 체력 하트·마나 칸·변신 게이지·물약, 아래 가운데 마법 8칸 퀵슬롯(키 글자·쿨 가림·마나 부족).
+## 훈련장 HUD — 결정: 왼쪽 위 체력 하트·마나 칸·변신 게이지·물약, 아래 가운데 마법 7칸 퀵슬롯(키 글자·쿨 가림·마나 부족).
 ## H = 조작 안내 켜기/끄기, Tab = 시험 패널.
 
 var sera: PSera
@@ -113,7 +113,7 @@ func _heart(p: Vector2, half: int, col: Color) -> void:
 		draw_rect(Rect2(p + Vector2(2, 2), Vector2(2, 2)), Color(1, 1, 1, 0.7))
 
 
-# ─── 아래 가운데: 마법 8칸 ────────────────────────────
+# ─── 아래 가운데: 마법 7칸 ────────────────────────────
 
 func _draw_slots() -> void:
 	var n := PData.SPELLS.size()
@@ -169,10 +169,6 @@ func _icon(id: String, c: Vector2, dim: bool) -> void:
 				var x := -7 + i * 4.6
 				draw_line(c + Vector2(x, -8 + i % 2 * 3), c + Vector2(x + 1, 2 + i % 2 * 3), fh, 2.0)
 			draw_line(c + Vector2(-9, 8), c + Vector2(9, 8), fx, 1.0)
-		"rising":
-			for i in 3:
-				var x := -7 + i * 7
-				draw_colored_polygon(PackedVector2Array([c + Vector2(x - 3, 8), c + Vector2(x, -8 + i % 2 * 4), c + Vector2(x + 3, 8)]), fire if i != 1 else hot)
 		"asura":
 			for i in 3:
 				var ang := i * 2.1
@@ -201,9 +197,9 @@ func _icon(id: String, c: Vector2, dim: bool) -> void:
 
 const KEY_GUIDE := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
-	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["C", "대시 (회피술: 공중·무적)"], ["V 꾹", "서서 집중 → 마나"],
-	["Shift", "여우방패 (1초 무적)"], ["B", "의태 돌진 (장막 통과)"], ["Space", "변신 (게이지 가득)"], ["G", "물약"],
-	["A S D F", "파이어볼·여우비·솟는불꽃·난무"], ["Q", "압축 열선 (꾹 눌렀다 떼기)"], ["W E R", "대유성·불사조·너울 바인드"], ["↑", "석등에서 쉬기"],
+	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["Shift", "대시 (변신 중 = 의태 돌진)"], ["V 꾹", "서서 집중 → 마나"],
+	["C", "여우방패 1.5초 → 할퀴기 반격"], ["Space", "변신 (게이지 가득)"], ["G", "물약"],
+	["A S F", "파이어볼·여우비·발톱 난무"], ["Q W", "압축 열선(꾹)·대유성"], ["E R", "불사조·너울 바인드"], ["↑", "석등에서 쉬기"],
 ]
 
 

@@ -1,6 +1,6 @@
 extends Node2D
 ## 전투 시제품 훈련장 (타이틀 → "전투 시제품"). 데모 본편과 따로 돌아간다.
-## 구역: 여우 석등(쉬기) · 허수아비 마당(작은 둘·갑옷 하나·매달린 모래주머니) · 발판 · 벽 점프 굴뚝 · 여우 장막(의태 돌진) · 발사대.
+## 구역: 여우 석등(쉬기) · 허수아비 마당(작은 둘·갑옷 하나·매달린 모래주머니) · 발판 · 벽 점프 굴뚝 · 발사대.
 
 const W := 1440.0
 const FLOOR := 400.0
@@ -82,7 +82,7 @@ func dbg(key: String, value: Variant) -> void:
 
 
 # ═══════════════════════════════════════════════════════════
-# 지형 (사각형 몸체) — 바닥·천장·양 벽·발판·벽 점프 굴뚝·여우 장막
+# 지형 (사각형 몸체) — 바닥·천장·양 벽·발판·벽 점프 굴뚝
 # ═══════════════════════════════════════════════════════════
 
 var _solids: Array[Rect2] = []
@@ -115,8 +115,6 @@ func _build_world() -> void:
 	_solid(Rect2(840, 168, 18, FLOOR - 168))
 	_solid(Rect2(914, 200, 18, FLOOR - 200 - 40)) # 오른쪽 벽은 아래가 뚫려 들어갈 수 있게
 	_solid(Rect2(840, 152, 200, 16)) # 꼭대기
-	# 여우 장막 (의태 돌진으로만 통과)
-	_solid(Rect2(1100, FLOOR - 64, 10, 64), 8)
 
 
 func _build_props() -> void:
@@ -208,13 +206,6 @@ func _draw() -> void:
 	# 바닥 무늬
 	for i in int(W / 32.0):
 		draw_line(Vector2(i * 32.0, FLOOR + 3), Vector2(i * 32.0, FLOOR + 15), Color("#2c2540"), 1.0)
-	# 여우 장막 (푸른 불 커튼)
-	for i in 6:
-		var y := FLOOR - 64 + i * 11
-		var wob := sin(_t * 8.0 + i) * 2.0
-		draw_line(Vector2(1105 + wob, y), Vector2(1105 - wob, y + 11), Color(PData.FOX_HOT, 0.8), 3.0)
-	draw_rect(Rect2(1098, FLOOR - 66, 14, 66), Color(PData.FOX_MID, 0.18))
-	_label(Vector2(1078, FLOOR - 74), "여우 장막 (B)")
 	# 여우 석등
 	var l := _lantern
 	draw_rect(Rect2(l + Vector2(-8, -6), Vector2(16, 6)), Color("#6b6f7d"))

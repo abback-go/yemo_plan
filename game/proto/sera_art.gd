@@ -91,9 +91,6 @@ func step(delta: float) -> void:
 func _draw() -> void:
 	if blink_hidden:
 		return
-	if pose == "mimic":
-		_draw_little_fox()
-		return
 	var lean := 0.0 ## 상체 기울기 (+ = 앞으로)
 	var bob := 0.0
 	var squash := Vector2.ONE
@@ -607,27 +604,6 @@ func _draw_focus_glow(hip: Vector2) -> void:
 	draw_circle(c, r, Color(PData.FIRE_HOT, 0.6 * focus_k))
 	draw_circle(c, r * 0.45, Color(PData.FIRE_CORE, 0.9 * focus_k))
 	draw_arc(Vector2(0, -20), 18.0 + sin(t * 5.0) * 1.5, 0, TAU, 30, Color(PData.FIRE_HOT, 0.25 * focus_k), 1.0)
-
-
-## 의태 돌진: 작은 푸른 불 여우
-func _draw_little_fox() -> void:
-	var run := sin(t * 40.0)
-	var body := PackedVector2Array([Vector2(-7, -6), Vector2(3, -8), Vector2(7, -6), Vector2(6, -3), Vector2(-6, -2)])
-	_poly_outlined(body, FUR)
-	# 머리·귀·주둥이
-	_poly_outlined(PackedVector2Array([Vector2(4, -9), Vector2(9, -10), Vector2(13, -7), Vector2(8, -4), Vector2(4, -5)]), FUR)
-	draw_colored_polygon(PackedVector2Array([Vector2(5, -9.5), Vector2(6, -14), Vector2(8, -10)]), FUR)
-	draw_colored_polygon(PackedVector2Array([Vector2(6, -10), Vector2(6.4, -13), Vector2(7.4, -10.2)]), PData.FOX_MID)
-	draw_rect(Rect2(9, -8.4, 1.2, 1.2), OUT)
-	# 다리 (빠르게)
-	for i in 2:
-		var ph := run * (1 if i == 0 else -1)
-		draw_line(Vector2(-4 + i * 7, -3), Vector2(-4 + i * 7 + ph * 2.5, 0), OUT, 2.0)
-	# 꼬리 + 불꽃 꼬리
-	_poly_outlined(PackedVector2Array([Vector2(-6, -6), Vector2(-14, -10), Vector2(-18, -8), Vector2(-13, -5), Vector2(-6, -3)]), FUR)
-	draw_circle(Vector2(-17, -8.5), 2.5, Color(PData.FOX_HOT, 0.85))
-	for i in 4:
-		draw_circle(Vector2(-8 - i * 5, -5 + sin(t * 30.0 + i) * 1.5), 2.6 - i * 0.5, Color(PData.FOX_MID, 0.45 - i * 0.09))
 
 
 # ─── 도움 함수 ──────────────────────────────────────────
