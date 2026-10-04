@@ -242,15 +242,10 @@ func flee() -> void:
 
 func _finish_flee() -> void:
 	_alive = false
-	if not respawns:
-		GameState.mark_killed(uid)
+	_record_defeat("", false) # 도망: 처치 표시만 (kills·등급은 세지 않음 — 예전 동작 그대로), defeated 대신 fled
 	if fled_flag != "":
 		GameState.set_flag(fled_flag)
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
-	for c in get_children():
-		if c is EnemyAttackArea:
-			(c as EnemyAttackArea).active = false
+	_disable_body()
 	fled.emit()
 	KE.star_burst(global_position + Vector2(0, -20), 40, STAR, 200.0, 1.0)
 	Fx.ring(global_position + Vector2(0, -20), 6.0, 60.0, STAR, 0.5, 2.0)
