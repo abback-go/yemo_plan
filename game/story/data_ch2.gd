@@ -1,7 +1,27 @@
 extends RefCounted
 ## 2장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절).
 
-## 인물: 1장 Characters.DB와 같은 키 (+ 전용 그림 "draw"·"portrait")
+## 장 정보 (ChapterRegistry 머리 주석의 CHAPTER 설명)
+const CHAPTER := {
+	"n": 2,
+	"title": ["2장", "제국의 검"],
+	"tails_at_end": 2,
+	"areas": {"kingdom": "황도 아르덴"},
+	"warps": [["kingdom", "k_embassy", "warp", "아르덴 제국 — 공관", "warp_kingdom"]],
+	"credits": [
+		"# 아르덴 제국",
+		"제국제일검 레오니 발렌하르트",
+		"은사자 기사단 카엘 · 빵집의 미아 · 대장장이 브론",
+		"",
+	],
+}
+
+## 대본 파일 (Story가 이 순서로 읽는다)
+const SCRIPTS := [
+	"res://story/scripts_ch2.gd",
+]
+
+## 인물: data_ch1.gd CHARACTERS와 같은 키 (+ 전용 그림 "draw"·"portrait")
 ## 강자·주요 인물은 전용 그림, 시민은 CharacterVisual 기본 값. 이름 표기는 docs/bible/characters.md.
 const CHARACTERS := {
 	# 2장 강자 — 은사자 기사단장 (전용 몸·초상화, 키 40)

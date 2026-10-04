@@ -2,7 +2,25 @@ extends RefCounted
 ## 5장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절).
 ## 인물 그림 · 방 목록 · 메인 목표 줄 · 퀘스트 (설계와 실제: docs/chapter5.md 7절 이후).
 
-## 인물: 1장 Characters.DB와 같은 키 (+ 전용 그림 "draw"·"portrait"). 같은 ID면 키를 덮어씀.
+## 장 정보 (ChapterRegistry 머리 주석의 CHAPTER 설명)
+const CHAPTER := {
+	"n": 5,
+	"title": ["5장", "별의 마녀"],
+	"last": true,
+	"areas": {"star": "별의 탑", "vision": "같은 시각"},
+	"credits": [
+		"# 별의 마녀",
+		"리라",
+		"",
+	],
+}
+
+## 대본 파일 (Story가 이 순서로 읽는다)
+const SCRIPTS := [
+	"res://story/scripts_ch5.gd",
+]
+
+## 인물: data_ch1.gd CHARACTERS와 같은 키 (+ 전용 그림 "draw"·"portrait"). 같은 ID면 키를 덮어씀.
 ##   lyra       별의 마녀 (새 인물). 일반 그림 키는 전용 그림이 없을 때를 위한 대비값.
 ##   astrid     1장 DB 항목(이름·색·목소리)은 그대로 두고 전용 그림만 덧붙임 → 1장부터 새 그림으로 보인다.
 ##   neoul_god  너울 본모습의 초상화만 새로 (몸은 컷신 actor·5장 각성 장치가 그림)

@@ -1,9 +1,29 @@
 extends RefCounted
 ## 4장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절, docs/chapter4.md 7절).
 
+## 장 정보 (ChapterRegistry 머리 주석의 CHAPTER 설명)
+const CHAPTER := {
+	"n": 4,
+	"title": ["4장", "황금창의 수호자"],
+	"tails_at_end": 4,
+	"areas": {"temple": "루멘 대신전"},
+	"warps": [["temple", "tp_road", "warp", "성산 — 순례길", "warp_temple"]],
+	"credits": [
+		"# 루멘 대신전",
+		"수호자 아우렐리아",
+		"베네딕타 대사제 · 루카 · 그레고르",
+		"",
+	],
+}
+
+## 대본 파일 (Story가 이 순서로 읽는다)
+const SCRIPTS := [
+	"res://story/scripts_ch4.gd",
+]
+
 const SPECIAL := "res://characters/special/"
 
-## 인물: 1장 Characters.DB와 같은 키 (+ 전용 그림 "draw"·"portrait")
+## 인물: data_ch1.gd CHARACTERS와 같은 키 (+ 전용 그림 "draw"·"portrait")
 ## 아우렐리아는 전용 그림(aurelia_draw/portrait). 폭주 판은 "aurelia_berserk"(같은 그림, "berserk": true — 하얀 눈·금 간 광륜·흰금 불꽃).
 ## 신전 사람들(베네딕타·루카·그레고르·수도사·사제·순례자·성가대)은 temple_folk_draw/portrait가 "look" 값으로 그린다.
 const CHARACTERS := {

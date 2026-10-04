@@ -4,6 +4,11 @@ extends RefCounted
 ##   spell(배울 마법) · unlock(잠김 해제 조건: 플래그 식 + "mana>=N") · unlock_text(잠김일 때 보이는 문구)
 ## 단계마다 그 인물에게 말을 걸면 talk의 대본이 먼저 실행된다(Quests.talk_hook).
 
+## 대본 파일 (Story가 이 순서로 읽는다). sys는 장이 아니라 CHAPTER가 없다
+const SCRIPTS := [
+	"res://story/scripts_sys.gd",
+]
+
 const CHARACTERS := {
 	"shadow_sera": {
 		"name": "불 속의 나", "color": Color("#c84a6a"), "voice": 0.9,

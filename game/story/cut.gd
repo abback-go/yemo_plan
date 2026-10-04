@@ -575,5 +575,5 @@ func spell_learned(id: String) -> void:
 ## 엔딩 크레디트 (점프·공격을 누르고 있으면 빨리)
 func credits(lines: Array = [], sec := 45.0) -> void:
 	if lines.is_empty():
-		lines = Credits.LINES
+		lines = Credits.lines()
 	await world.cinema.credits(lines, sec)

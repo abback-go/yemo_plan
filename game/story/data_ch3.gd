@@ -1,9 +1,29 @@
 extends RefCounted
 ## 3장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절, docs/chapter3.md).
 
+## 장 정보 (ChapterRegistry 머리 주석의 CHAPTER 설명)
+const CHAPTER := {
+	"n": 3,
+	"title": ["3장", "세계수의 눈"],
+	"tails_at_end": 3,
+	"areas": {"elf": "세계수 에일라흐"},
+	"warps": [["elf", "e_gate", "warp", "엘프의 숲 — 입구", "warp_elf"]],
+	"credits": [
+		"# 세계수 에일라흐",
+		"세계수의 눈 엘라리엔",
+		"오르티아 장로 · 피오 · 티엘",
+		"",
+	],
+}
+
+## 대본 파일 (Story가 이 순서로 읽는다)
+const SCRIPTS := [
+	"res://story/scripts_ch3.gd",
+]
+
 const SP := "res://characters/special/"
 
-## 인물: 1장 Characters.DB와 같은 키 (+ 전용 그림 "draw"·"portrait").
+## 인물: data_ch1.gd CHARACTERS와 같은 키 (+ 전용 그림 "draw"·"portrait").
 ## 전용 그림이 있어도 일반 값(robe·hair 등)을 함께 둔다 — 다른 곳(1장 기본 그림·초상화)이 읽어도 깨지지 않게.
 const CHARACTERS := {
 	"elarien": {

@@ -2,12 +2,6 @@ extends Node
 ## 이야기 진행 (오토로드 Story). 컷신·대화·읽기·안내를 실행하고, 방에 들어올 때의 이벤트를 부른다.
 ## 대본은 story/scripts_*.gd 의 메서드 (이름 = 실행 ID). 메서드는 Cut을 받아 await로 순서대로 진행한다.
 
-const SCRIPT_FILES := [
-	"res://story/scripts_prologue.gd",
-	"res://story/scripts_school.gd",
-	"res://story/scripts_npc.gd",
-]
-
 var world: World
 var _busy := 0
 var _scripts: Array = []
@@ -16,9 +10,7 @@ var _gen := 0 ## 부활·타이틀 이동 시 진행 중이던 컷신을 무효�
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	var paths: Array = SCRIPT_FILES.duplicate()
-	paths.append_array(ChapterRegistry.script_paths())
-	for path in paths:
+	for path in ChapterRegistry.script_paths():
 		if ResourceLoader.exists(path):
 			_scripts.append((load(path) as GDScript).new())
 

@@ -1,37 +1,14 @@
 class_name Credits
 extends RefCounted
 ## 엔딩 크레디트 줄 (# 으로 시작하면 제목 줄). 5장 대본이 c.credits()로 띄운다.
+## 가운데 인물 소개는 각 story/data_<장>.gd 의 CHAPTER.credits를 장 순서로 이어 붙인다 (장을 더하면 거기에).
 
-const LINES := [
+const HEAD := [
 	"# 마녀학교와 여우신",
 	"",
-	"# 세라피나",
-	"폐급이라 불리던 불의 마녀",
-	"",
-	"# 너울",
-	"동방 신계의 여우신 · 아홉 꼬리",
-	"",
-	"# 마녀학교",
-	"아스트리드 녹턴 교장 · 엠버린 애시그로브 교수",
-	"오필리아 페더웰 교수 · 베로니카 손 교수",
-	"피피 시슬윅 · 이졸데 폰 크레스트",
-	"그레타 잉크웰과 호두 · 미라벨 · 버터워스 아주머니",
-	"",
-	"# 아르덴 제국",
-	"제국제일검 레오니 발렌하르트",
-	"은사자 기사단 카엘 · 빵집의 미아 · 대장장이 브론",
-	"",
-	"# 세계수 에일라흐",
-	"세계수의 눈 엘라리엔",
-	"오르티아 장로 · 피오 · 티엘",
-	"",
-	"# 루멘 대신전",
-	"수호자 아우렐리아",
-	"베네딕타 대사제 · 루카 · 그레고르",
-	"",
-	"# 별의 마녀",
-	"리라",
-	"",
+]
+
+const TAIL := [
 	"",
 	"# 만든 이",
 	"기획 · 개발: abback-go 와 Claude",
@@ -44,3 +21,11 @@ const LINES := [
 	"",
 	"…구슬은 조금만 더 맡겨 두마.",
 ]
+
+
+static func lines() -> Array:
+	var out: Array = HEAD.duplicate()
+	for d: Dictionary in ChapterRegistry.chapters():
+		out.append_array(d.get("credits", []))
+	out.append_array(TAIL)
+	return out
