@@ -40,6 +40,8 @@ var _glide_ready := false ## 2단 점프를 쓴 뒤 다시 누르면 활공
 var _was_floor := true
 var _run_dust := 0.0
 var _mimic_hit := {}
+var _fall_speed := 0.0
+var _ray := PhysicsRayQueryParameters2D.new()
 
 # 전투
 var _claw_cd := 0.0
@@ -144,6 +146,7 @@ func _physics_process(delta: float) -> void:
 		St.DEAD:
 			velocity = Vector2.ZERO
 	var was := is_on_floor()
+	_fall_speed = maxf(velocity.y, 0.0)
 	move_and_slide()
 	if is_on_floor() and not _was_floor and st != St.DEAD:
 		_land()
@@ -332,6 +335,7 @@ func _wall_jump() -> void:
 
 
 func _land() -> void:
+	art.land_k = clampf(_fall_speed / 330.0, 0.35, 1.0)
 	PVfx.dust(global_position, 5, 1.0, 10.0)
 	Sfx.play(&"land", -10.0)
 
@@ -361,10 +365,7 @@ func _start_dash() -> void:
 func _dash(_delta: float) -> void:
 	var dur := PData.DASH_TIME * (1.2 if is_fox() else 1.0)
 	velocity = Vector2(_dash_dir * PData.DASH_SPEED, 0.0)
-	var sl := PVfx.SpeedLine.new()
-	sl.dir = _dash_dir
-	sl.fox = is_fox()
-	PVfx.add(sl, global_position + Vector2(-_dash_dir * 4, randf_range(-24, -6)))
+	PVfx.speed_line(global_position + Vector2(-_dash_dir * 4, randf_range(-24, -6)), _dash_dir, is_fox())
 	if st_t >= dur:
 		_go(St.NORMAL)
 		velocity.x = _dash_dir * _run_speed()
@@ -473,6 +474,10 @@ func _claw_hits() -> void:
 		var fl := PVfx.HitFlash.new()
 		fl.dir = facing
 		fl.fox = is_fox()
+		var cut: float = [0.55, -0.08, -0.6][art.claw_step % 3] if _claw_aim == 0 else (PI / 2 + 0.3)
+		fl.cut = cut * facing if _claw_aim == 0 else cut
+		if facing < 0 and _claw_aim == 0:
+			fl.cut = PI - cut
 		PVfx.add(fl, hp)
 		PVfx.sparks(hp, 6, PData.FOX_HOT if is_fox() else Color(1, 0.95, 0.85), 150.0, 0.25, Vector2(facing, -0.3), 50.0)
 		add_gauge(PData.OD_CLAW)
@@ -542,6 +547,9 @@ func _start_transform() -> void:
 	Fx.flash(Color(0.6, 0.85, 1.0, 0.5), 0.2)
 	Fx.shake(0.15, 0.25)
 	Fx.ring(center(), 6, 60, PData.FOX_HOT, 0.4, 3.0)
+	var tb := PVfx.TransformBurst.new()
+	tb.tails = PState.tails
+	PVfx.add(tb, global_position, true)
 	PVfx.sparks(center(), 40, PData.FOX_HOT, 220.0, 0.6)
 	PVfx.embers(global_position + Vector2(0, -10), 24, true, 120.0, Vector2(10, 12))
 	Sfx.play(&"fox_transform")
@@ -598,14 +606,9 @@ func _charge(delta: float) -> void:
 	velocity.x = move_toward(velocity.x, float(ax) * PData.RUN_SPEED * 0.3, PData.RUN_ACCEL * delta)
 	velocity.y = minf(velocity.y + PData.GRAVITY * delta * (0.5 if not is_on_floor() else 1.0), PData.FALL_MAX * 0.5)
 	if randf() < 0.7:
-		var m := PVfx.Mote.new()
 		var ang := randf() * TAU
 		var hand := global_position + Vector2(facing * 11, -25)
-		m.from = hand + Vector2(cos(ang), sin(ang)) * randf_range(14, 26)
-		m.to = self
-		m.to_off = Vector2(facing * 11, -25)
-		m.life = 0.25
-		PVfx.add(m, m.from, true)
+		PVfx.mote_to(hand + Vector2(cos(ang), sin(ang)) * randf_range(14, 26), hand)
 	if not Input.is_action_pressed(PState.spell_action("laser")) or charge_t >= 2.0:
 		PSpells.fire_laser(self, clampf(charge_t, 0.5, 2.0))
 		lock_cast(0.25)
@@ -708,6 +711,15 @@ func rest() -> void:
 func _animate(delta: float) -> void:
 	_flip.scale.x = float(facing)
 	var a := art
+	# 그림자: 발밑에서 아래로 광선 한 번 (바닥까지 거리)
+	if is_on_floor():
+		a.shadow_y = 0.0
+	else:
+		_ray.from = global_position
+		_ray.to = global_position + Vector2(0, 90)
+		_ray.collision_mask = 1
+		var hit := get_world_2d().direct_space_state.intersect_ray(_ray)
+		a.shadow_y = (hit.position.y - global_position.y) if hit else 999.0
 	a.vel = velocity
 	a.tails = PState.tails
 	a.fox = is_fox()

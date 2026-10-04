@@ -56,6 +56,8 @@ var blink_hidden := false ## 무적 깜빡임
 var focus_k := 0.0 ## 집중 세기 0~1
 var charge_k := 0.0 ## 열선 압축 0~1
 var od := 0.0 ## 폭주 게이지 0~1 (70%부터 몸에 불티, 가득 차면 손의 불꽃이 커짐)
+var land_k := 0.0 ## 착지 눌림 1→0
+var shadow_y := 0.0 ## 발밑에서 바닥까지 거리 (그림자 위치, 멀수록 작고 옅게)
 
 var _hair := Vector2.ZERO ## 머리카락 끝 흔들림(용수철)
 var _hair_v := Vector2.ZERO
@@ -63,6 +65,8 @@ var _cape := Vector2.ZERO ## 코트 꼬리 자락 흔들림
 var _cape_v := Vector2.ZERO
 var _blink := 0.0
 var _next_blink := 2.0
+var pd := PDraw.new() ## 묶음 그리기 (그림 전체가 그리기 호출 1번)
+static var _face := PackedVector2Array() ## 얼굴 윤곽 (늘 같아서 한 번만 계산)
 
 
 func step(delta: float) -> void:
@@ -84,6 +88,7 @@ func step(delta: float) -> void:
 		_blink = 0.12
 		_next_blink = randf_range(2.2, 4.2)
 	_blink = maxf(_blink - delta, 0.0)
+	land_k = maxf(land_k - delta * 6.0, 0.0)
 	queue_redraw()
 
 
@@ -130,30 +135,40 @@ func _draw() -> void:
 		"asura":
 			lean = 0.1
 			bob = sin(t * 30.0) * 0.6
-	var hip := Vector2(0, HIP_Y + bob)
+	if land_k > 0.0:
+		var e := sin(land_k * PI * 0.5)
+		squash *= Vector2(1.0 + 0.16 * e, 1.0 - 0.16 * e)
+	var hip := Vector2(0, (HIP_Y + bob) * squash.y)
+	# 바닥 그림자
+	if shadow_y < 90.0:
+		var sk := 1.0 - shadow_y / 90.0
+		pd.draw_set_transform(Vector2(0, shadow_y), 0.0, Vector2(1.0, 0.25))
+		pd.glow(Vector2.ZERO, 9.0 + 3.0 * sk, Color(0, 0, 0, 0.5 * sk), 0.0)
+		pd.draw_set_transform(Vector2.ZERO)
 	# 뒤쪽부터: 긴 뒷머리·코트 꼬리 자락 → 여우 꼬리 → 활공 날개 → 다리 → 몸
-	draw_set_transform(hip, lean, squash)
+	pd.draw_set_transform(hip, lean, squash)
 	_draw_hair_back()
 	_draw_coat_tail()
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if fox:
 		_draw_tails(lean)
 	if pose == "glide":
 		_draw_wings()
-	draw_set_transform(Vector2(0, bob), 0.0, squash)
+	pd.draw_set_transform(Vector2(0, bob), 0.0, squash)
 	_draw_legs(lean)
-	draw_set_transform(hip, lean, squash)
+	pd.draw_set_transform(hip, lean, squash)
 	_draw_arm(false) # 뒤쪽 팔
 	_draw_torso()
 	_draw_head()
 	_draw_arm(true) # 앞쪽 팔
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if fox:
 		_draw_aura()
 	elif od >= 0.7:
 		_draw_overdrive()
 	if focus_k > 0.0:
 		_draw_focus_glow(hip)
+	pd.flush(self)
 
 
 # ─── 다리 ───────────────────────────────────────────────
@@ -221,25 +236,25 @@ func _leg(hip: Vector2, a: float, kn: float, front: bool) -> void:
 	var sa := a - kn
 	var foot := knee + Vector2(sin(sa), cos(sa)) * SHIN
 	var col := TIGHTS if front else TIGHTS.darkened(0.35)
-	draw_line(hip, knee, OUT, 3.6)
-	draw_line(knee, foot, OUT, 3.2)
-	draw_line(hip, knee, col, 2.3)
-	draw_line(knee, foot, col, 1.9)
+	pd.draw_line(hip, knee, OUT, 3.6)
+	pd.draw_line(knee, foot, OUT, 3.2)
+	pd.draw_line(hip, knee, col, 2.3)
+	pd.draw_line(knee, foot, col, 1.9)
 	if fox:
 		# 여우 발: 흰 털 + 발톱
 		var fur := FUR if front else FUR_SH
-		draw_colored_polygon(PackedVector2Array([foot + Vector2(-2.0, -2.6), foot + Vector2(1.8, -2.8), foot + Vector2(3.8, -0.5), foot + Vector2(3.4, 0.8), foot + Vector2(-2.2, 0.8)]), OUT)
-		draw_colored_polygon(PackedVector2Array([foot + Vector2(-1.4, -2.0), foot + Vector2(1.6, -2.2), foot + Vector2(3.0, -0.3), foot + Vector2(2.6, 0.2), foot + Vector2(-1.5, 0.2)]), fur)
+		pd.draw_colored_polygon(PackedVector2Array([foot + Vector2(-2.0, -2.6), foot + Vector2(1.8, -2.8), foot + Vector2(3.8, -0.5), foot + Vector2(3.4, 0.8), foot + Vector2(-2.2, 0.8)]), OUT)
+		pd.draw_colored_polygon(PackedVector2Array([foot + Vector2(-1.4, -2.0), foot + Vector2(1.6, -2.2), foot + Vector2(3.0, -0.3), foot + Vector2(2.6, 0.2), foot + Vector2(-1.5, 0.2)]), fur)
 		for i in 3:
-			draw_line(foot + Vector2(1.0 + i * 1.0, 0.2), foot + Vector2(1.7 + i * 1.1, 1.4), PData.FOX_HOT, 0.9)
+			pd.draw_line(foot + Vector2(1.0 + i * 1.0, 0.2), foot + Vector2(1.7 + i * 1.1, 1.4), PData.FOX_HOT, 0.9)
 	else:
 		# 앞코가 뾰족한 검은 구두 + 굽 + 발목의 붉은 장미
-		draw_colored_polygon(PackedVector2Array([foot + Vector2(-1.8, -2.0), foot + Vector2(1.2, -2.0), foot + Vector2(4.0, 0.0), foot + Vector2(3.6, 1.0), foot + Vector2(-1.9, 1.0)]), OUT)
-		draw_colored_polygon(PackedVector2Array([foot + Vector2(-1.2, -1.4), foot + Vector2(1.0, -1.4), foot + Vector2(3.0, -0.1), foot + Vector2(2.8, 0.3), foot + Vector2(-1.3, 0.3)]), SHOE)
-		draw_line(foot + Vector2(0.4, -1.1), foot + Vector2(2.2, -0.2), Color(1, 1, 1, 0.2), 0.7) # 구두 광택
+		pd.draw_colored_polygon(PackedVector2Array([foot + Vector2(-1.8, -2.0), foot + Vector2(1.2, -2.0), foot + Vector2(4.0, 0.0), foot + Vector2(3.6, 1.0), foot + Vector2(-1.9, 1.0)]), OUT)
+		pd.draw_colored_polygon(PackedVector2Array([foot + Vector2(-1.2, -1.4), foot + Vector2(1.0, -1.4), foot + Vector2(3.0, -0.1), foot + Vector2(2.8, 0.3), foot + Vector2(-1.3, 0.3)]), SHOE)
+		pd.draw_line(foot + Vector2(0.4, -1.1), foot + Vector2(2.2, -0.2), Color(1, 1, 1, 0.2), 0.7) # 구두 광택
 		if front:
-			draw_circle(foot + Vector2(-0.3, -2.0), 1.05, OUT)
-			draw_circle(foot + Vector2(-0.3, -2.0), 0.75, ROSE)
+			pd.draw_circle(foot + Vector2(-0.3, -2.0), 1.05, OUT)
+			pd.draw_circle(foot + Vector2(-0.3, -2.0), 0.75, ROSE)
 
 
 # ─── 몸통 (엉덩이 기준) ─────────────────────────────────
@@ -249,24 +264,24 @@ func _draw_torso() -> void:
 	# 치마: 검은 레이스 단 → 아래 단 → 위 단 (층층이 프릴)
 	_poly_outlined(_frill(Vector2(-2.8, -2.6), Vector2(3.0, -2.6), Vector2(-5.6 + sway, 5.6), Vector2(5.8 + sway, 5.8), 4, 1.0), LACE)
 	_poly_outlined(_frill(Vector2(-2.8, -2.8), Vector2(3.0, -2.8), Vector2(-5.0 + sway, 4.6), Vector2(5.4 + sway, 4.8), 4, 0.9), SKIRT)
-	PVfx.safe_poly(self, PackedVector2Array([Vector2(-2.6, -2.6), Vector2(-1.2, -2.6), Vector2(-2.8 + sway, 4.6), Vector2(-4.8 + sway, 4.6)]), SKIRT_SH)
+	PVfx.safe_poly(pd, PackedVector2Array([Vector2(-2.6, -2.6), Vector2(-1.2, -2.6), Vector2(-2.8 + sway, 4.6), Vector2(-4.8 + sway, 4.6)]), SKIRT_SH)
 	_poly_outlined(_frill(Vector2(-2.6, -3.2), Vector2(2.8, -3.2), Vector2(-4.2 + sway * 0.6, 1.8), Vector2(4.6 + sway * 0.6, 2.0), 3, 0.8), SKIRT)
-	PVfx.safe_poly(self, PackedVector2Array([Vector2(1.0, -3.0), Vector2(2.6, -3.0), Vector2(4.4 + sway * 0.6, 1.8), Vector2(2.0 + sway * 0.6, 1.8)]), SKIRT_HI)
+	PVfx.safe_poly(pd, PackedVector2Array([Vector2(1.0, -3.0), Vector2(2.6, -3.0), Vector2(4.4 + sway * 0.6, 1.8), Vector2(2.0 + sway * 0.6, 1.8)]), SKIRT_HI)
 	# 코트 몸판 (몸에 붙는 재킷, 앞은 허리에서 끊김)
 	_poly_outlined(PackedVector2Array([Vector2(-2.8, -13.0), Vector2(3.0, -13.0), Vector2(2.7, -8.6), Vector2(2.3, -4.6),
 		Vector2(2.2, -2.6), Vector2(-2.5, -2.8), Vector2(-2.6, -8.6)]), COAT)
-	PVfx.safe_poly(self, PackedVector2Array([Vector2(0.0, -12.4), Vector2(2.6, -12.4), Vector2(2.4, -8.6), Vector2(2.0, -3.2), Vector2(0.2, -3.2)]), COAT_HI)
-	PVfx.safe_poly(self, PackedVector2Array([Vector2(-2.6, -12.4), Vector2(-1.6, -12.4), Vector2(-1.8, -3.2), Vector2(-2.3, -3.2)]), COAT_SH)
+	PVfx.safe_poly(pd, PackedVector2Array([Vector2(0.0, -12.4), Vector2(2.6, -12.4), Vector2(2.4, -8.6), Vector2(2.0, -3.2), Vector2(0.2, -3.2)]), COAT_HI)
+	PVfx.safe_poly(pd, PackedVector2Array([Vector2(-2.6, -12.4), Vector2(-1.6, -12.4), Vector2(-1.8, -3.2), Vector2(-2.3, -3.2)]), COAT_SH)
 	# 금장: 앞섶 테두리 + 두 줄 단추 + 허리띠
-	draw_polyline(PackedVector2Array([Vector2(2.7, -12.6), Vector2(2.5, -8.6), Vector2(2.1, -3.2)]), GOLD, 0.8)
+	pd.draw_polyline(PackedVector2Array([Vector2(2.7, -12.6), Vector2(2.5, -8.6), Vector2(2.1, -3.2)]), GOLD, 0.8)
 	for y: float in [-10.6, -8.4, -6.2]:
-		draw_circle(Vector2(0.7, y), 0.5, GOLD)
-		draw_circle(Vector2(1.9, y), 0.5, GOLD)
-	draw_line(Vector2(-2.5, -3.6), Vector2(2.3, -3.6), GOLD_D, 0.9)
+		pd.draw_circle(Vector2(0.7, y), 0.5, GOLD)
+		pd.draw_circle(Vector2(1.9, y), 0.5, GOLD)
+	pd.draw_line(Vector2(-2.5, -3.6), Vector2(2.3, -3.6), GOLD_D, 0.9)
 	# 높은 깃(금 테) + 붉은 넥타이
 	_poly_outlined(PackedVector2Array([Vector2(-1.8, -14.4), Vector2(1.8, -14.4), Vector2(2.8, -12.8), Vector2(-2.2, -12.8)]), COAT)
-	draw_line(Vector2(-1.7, -14.2), Vector2(1.9, -14.2), GOLD, 0.7)
-	PVfx.safe_poly(self, PackedVector2Array([Vector2(1.2, -12.9), Vector2(2.9, -12.9), Vector2(2.2, -11.2)]), CUFF)
+	pd.draw_line(Vector2(-1.7, -14.2), Vector2(1.9, -14.2), GOLD, 0.7)
+	PVfx.safe_poly(pd, PackedVector2Array([Vector2(1.2, -12.9), Vector2(2.9, -12.9), Vector2(2.2, -11.2)]), CUFF)
 
 
 ## 위 변은 곧게, 아래 변은 n번 물결치는 프릴 다각형
@@ -286,8 +301,8 @@ func _draw_coat_tail() -> void:
 	var f := Vector2(-3.8 + c.x * 0.8, 9.6 + c.y + flap)
 	var g := Vector2(-6.4 + c.x, 6.8 + c.y * 0.8 - flap)
 	_poly_outlined(PackedVector2Array([Vector2(-2.4, -6.0), Vector2(1.2, -3.4), e, f, g, Vector2(-4.6 + c.x * 0.5, 0.6 + c.y * 0.3), Vector2(-3.0, -3.6)]), COAT)
-	PVfx.safe_poly(self, PackedVector2Array([Vector2(-2.0, -2.0), e + Vector2(-0.4, -1.0), f + Vector2(0.1, -1.4), Vector2(-3.4 + c.x * 0.6, 4.0 + c.y * 0.5)]), COAT_IN)
-	draw_polyline(PackedVector2Array([e, f, g]), GOLD, 0.8)
+	PVfx.safe_poly(pd, PackedVector2Array([Vector2(-2.0, -2.0), e + Vector2(-0.4, -1.0), f + Vector2(0.1, -1.4), Vector2(-3.4 + c.x * 0.6, 4.0 + c.y * 0.5)]), COAT_IN)
+	pd.draw_polyline(PackedVector2Array([e, f, g]), GOLD, 0.8)
 
 
 # ─── 팔 ─────────────────────────────────────────────────
@@ -364,26 +379,26 @@ func _draw_arm(front: bool) -> void:
 	var hand := elbow + d2 * 4.6
 	var sleeve := COAT_HI if front else COAT_SH
 	# 소매(남색) → 금 소맷단 → 붉은 커프스 → 검은 장갑
-	draw_line(sh, elbow, OUT, 3.2)
-	draw_line(elbow, hand, OUT, 3.0)
-	draw_line(sh, elbow, sleeve, 2.0)
-	draw_line(elbow, hand - d2 * 2.0, sleeve, 1.8)
-	draw_line(hand - d2 * 2.1, hand - d2 * 1.3, GOLD if front else GOLD_D, 1.9)
-	draw_line(hand - d2 * 1.3, hand - d2 * 0.6, CUFF if front else CUFF.darkened(0.3), 1.8)
-	draw_circle(hand, 1.5, OUT)
-	draw_circle(hand, 1.0, GLOVE if front else GLOVE.darkened(0.3))
+	pd.draw_line(sh, elbow, OUT, 3.2)
+	pd.draw_line(elbow, hand, OUT, 3.0)
+	pd.draw_line(sh, elbow, sleeve, 2.0)
+	pd.draw_line(elbow, hand - d2 * 2.0, sleeve, 1.8)
+	pd.draw_line(hand - d2 * 2.1, hand - d2 * 1.3, GOLD if front else GOLD_D, 1.9)
+	pd.draw_line(hand - d2 * 1.3, hand - d2 * 0.6, CUFF if front else CUFF.darkened(0.3), 1.8)
+	pd.draw_circle(hand, 1.5, OUT)
+	pd.draw_circle(hand, 1.0, GLOVE if front else GLOVE.darkened(0.3))
 	if fox or pose in ["claw", "claw_up", "claw_down"]:
 		_draw_claws(hand, d2, front)
 	elif pose not in ["drink", "cast", "charge"]:
 		_draw_hand_fire(hand, front)
 	if front and pose in ["cast", "charge"]:
 		var r := 2.5 + 7.0 * charge_k
-		draw_circle(hand + d2 * 2.0, r + 1.5, Color(PData.FIRE_MID, 0.35))
-		draw_circle(hand + d2 * 2.0, r, Color(PData.FIRE_HOT, 0.8))
-		draw_circle(hand + d2 * 2.0, r * 0.5, PData.FIRE_CORE)
+		pd.draw_circle(hand + d2 * 2.0, r + 1.5, Color(PData.FIRE_MID, 0.35))
+		pd.draw_circle(hand + d2 * 2.0, r, Color(PData.FIRE_HOT, 0.8))
+		pd.draw_circle(hand + d2 * 2.0, r * 0.5, PData.FIRE_CORE)
 	if front and pose == "drink":
-		draw_rect(Rect2(hand + Vector2(-1.3, -3.6), Vector2(2.6, 4.0)), OUT)
-		draw_rect(Rect2(hand + Vector2(-0.8, -3.1), Vector2(1.6, 3.0)), Color("#e0405a"))
+		pd.draw_rect(Rect2(hand + Vector2(-1.3, -3.6), Vector2(2.6, 4.0)), OUT)
+		pd.draw_rect(Rect2(hand + Vector2(-0.8, -3.1), Vector2(1.6, 3.0)), Color("#e0405a"))
 
 
 ## 손 둘레를 맴도는 작은 불꽃 (참고 그림: 손에 불이 감김)
@@ -394,10 +409,10 @@ func _draw_hand_fire(hand: Vector2, front: bool) -> void:
 		var ang := t * 7.0 + i * TAU / 3.0 + (0.0 if front else 1.0)
 		var p := hand + Vector2(cos(ang) * 2.4, sin(ang) * 1.1 - 0.6) * big
 		var behind := sin(ang) < 0.0
-		draw_circle(p, 0.85 * big, Color(PData.FIRE_MID, a * (0.45 if behind else 0.85)))
-		draw_circle(p + Vector2(0, -0.5), 0.45 * big, Color(PData.FIRE_HOT, a * (0.45 if behind else 1.0)))
+		pd.draw_circle(p, 0.85 * big, Color(PData.FIRE_MID, a * (0.45 if behind else 0.85)))
+		pd.draw_circle(p + Vector2(0, -0.5), 0.45 * big, Color(PData.FIRE_HOT, a * (0.45 if behind else 1.0)))
 	var lick := (1.4 + sin(t * 13.0 + (0.0 if front else 2.0)) * 0.5) * big
-	PVfx.safe_poly(self, PackedVector2Array([hand + Vector2(-0.9, -0.7), hand + Vector2(0.3, -2.0 - lick), hand + Vector2(1.0, -0.7)]), Color(PData.FIRE_HOT, a * 0.8))
+	PVfx.safe_poly(pd, PackedVector2Array([hand + Vector2(-0.9, -0.7), hand + Vector2(0.3, -2.0 - lick), hand + Vector2(1.0, -0.7)]), Color(PData.FIRE_HOT, a * 0.8))
 
 
 ## 손끝의 발톱 — 평소엔 휘두를 때만 반투명 여우 발톱(의태), 변신 중엔 늘 푸른 불 발톱
@@ -408,7 +423,7 @@ func _draw_claws(hand: Vector2, d: Vector2, front: bool) -> void:
 	for i in 3:
 		var base := hand + n * (float(i) - 1.0) * 1.1 + d * 0.7
 		var tip := base + d * (4.4 if fox else 3.4) + n * (float(i) - 1.0) * 0.5 + d.orthogonal() * -1.0
-		PVfx.spike(self, base, (tip - base), (tip - base).length(), 1.2, col if front else Color(col, a * 0.6))
+		PVfx.spike(pd, base, (tip - base), (tip - base).length(), 1.2, col if front else Color(col, a * 0.6))
 
 
 # ─── 머리 ───────────────────────────────────────────────
@@ -421,38 +436,38 @@ func _draw_hair_back() -> void:
 		Vector2(-1.2 + h.x * 0.4, -6.4 + h.y * 0.4), Vector2(-2.8 + h.x * 0.9, -2.4 + h.y), Vector2(-4.2 + h.x, -4.0 + h.y * 0.9),
 		Vector2(-4.8 + h.x * 0.7, -9.0 + h.y * 0.6), Vector2(-4.4 + h.x * 0.3, -14.0 + h.y * 0.2)])
 	_poly_outlined(pts, HAIR)
-	PVfx.safe_poly(self, PackedVector2Array([Vector2(-3.8 + h.x * 0.3, -13.6), Vector2(-2.2 + h.x * 0.5, -9.0 + h.y * 0.4),
+	PVfx.safe_poly(pd, PackedVector2Array([Vector2(-3.8 + h.x * 0.3, -13.6), Vector2(-2.2 + h.x * 0.5, -9.0 + h.y * 0.4),
 		Vector2(-2.9 + h.x * 0.9, -3.2 + h.y), Vector2(-4.0 + h.x, -4.4 + h.y * 0.9), Vector2(-4.4 + h.x * 0.7, -9.0 + h.y * 0.6)]), HAIR_SH)
-	draw_line(Vector2(-2.6 + h.x * 0.2, -15.0), Vector2(-3.0 + h.x * 0.7, -7.0 + h.y * 0.5), HAIR_HI.darkened(0.15), 0.7)
+	pd.draw_line(Vector2(-2.6 + h.x * 0.2, -15.0), Vector2(-3.0 + h.x * 0.7, -7.0 + h.y * 0.5), HAIR_HI.darkened(0.15), 0.7)
 
 
 func _draw_head() -> void:
 	var hc := HEAD
 	var h := _hair
 	# 목 + 얼굴 (작고 갸름하게, 턱이 살짝 앞으로)
-	draw_rect(Rect2(hc + Vector2(-0.7, 2.6), Vector2(1.6, 2.0)), SKIN_SH)
-	var face := PackedVector2Array()
-	for i in 16:
-		var a := float(i) / 16.0 * TAU
-		var s := sin(a)
-		face.append(hc + Vector2(cos(a) * 3.3 + (0.6 * s if s > 0 else 0.0), s * 3.4 + (0.6 * s * s if s > 0 else 0.0)))
-	_poly_outlined(face, SKIN)
-	PVfx.safe_poly(self, PackedVector2Array([hc + Vector2(-3.2, 0), hc + Vector2(-2.0, 3.2), hc + Vector2(-3.3, 1.4)]), SKIN_SH)
+	pd.draw_rect(Rect2(hc + Vector2(-0.7, 2.6), Vector2(1.6, 2.0)), SKIN_SH)
+	if _face.is_empty():
+		for i in 16:
+			var a := float(i) / 16.0 * TAU
+			var s := sin(a)
+			_face.append(hc + Vector2(cos(a) * 3.3 + (0.6 * s if s > 0 else 0.0), s * 3.4 + (0.6 * s * s if s > 0 else 0.0)))
+	_poly_outlined(_face, SKIN)
+	PVfx.safe_poly(pd, PackedVector2Array([hc + Vector2(-3.2, 0), hc + Vector2(-2.0, 3.2), hc + Vector2(-3.3, 1.4)]), SKIN_SH)
 	# 눈 (오른쪽을 봄 — 앞눈 하나가 또렷하게, 뒷눈은 가늘게). 차분하고 자신 있는 눈매
 	var hurt := pose == "hurt"
 	var closed := _blink > 0.0 or pose == "focus"
 	_eye(hc + Vector2(1.9, 0.6), closed, hurt)
 	if not closed and not hurt:
-		draw_line(hc + Vector2(-0.9, -0.4), hc + Vector2(-0.9, 1.0), OUT, 0.9)
+		pd.draw_line(hc + Vector2(-0.9, -0.4), hc + Vector2(-0.9, 1.0), OUT, 0.9)
 	# 입
 	if pose in ["claw", "dash", "asura", "cast", "charge", "hurt"]:
-		draw_line(hc + Vector2(1.6, 2.8), hc + Vector2(2.8, 2.6), OUT, 0.8)
+		pd.draw_line(hc + Vector2(1.6, 2.8), hc + Vector2(2.8, 2.6), OUT, 0.8)
 	# 앞머리 (옆으로 쓸어 넘긴 붉은 머리)
 	var fr := PackedVector2Array([hc + Vector2(-3.8, 0.4), hc + Vector2(-3.6, -3.2), hc + Vector2(-1.2, -4.6), hc + Vector2(2.0, -4.4),
 		hc + Vector2(4.0, -2.6), hc + Vector2(4.2, 0.6), hc + Vector2(3.2, -1.0), hc + Vector2(2.4, 0.0), hc + Vector2(1.8, -2.0),
 		hc + Vector2(0.4, -0.8), hc + Vector2(-0.4, -2.4), hc + Vector2(-1.8, -0.8), hc + Vector2(-2.4, -2.2), hc + Vector2(-3.0, 0.8)])
 	_poly_outlined(fr, HAIR)
-	PVfx.safe_poly(self, PackedVector2Array([hc + Vector2(-1.6, -3.8), hc + Vector2(1.6, -3.8), hc + Vector2(2.6, -3.0), hc + Vector2(-0.6, -3.0)]), HAIR_HI)
+	PVfx.safe_poly(pd, PackedVector2Array([hc + Vector2(-1.6, -3.8), hc + Vector2(1.6, -3.8), hc + Vector2(2.6, -3.0), hc + Vector2(-0.6, -3.0)]), HAIR_HI)
 	_draw_braid(hc, h)
 	_draw_leaf(hc + Vector2(3.0, -2.4), -0.9)
 	_draw_leaf(hc + Vector2(3.0, -2.4), 0.3)
@@ -470,12 +485,12 @@ func _draw_braid(hc: Vector2, h: Vector2) -> void:
 	for i in 5:
 		pts.append(a.lerp(b, float(i) / 4.0) + Vector2(0.35 if i % 2 == 0 else -0.35, 0))
 	for p: Vector2 in pts:
-		draw_circle(p, 1.3, OUT)
+		pd.draw_circle(p, 1.3, OUT)
 	for i in pts.size():
 		var p: Vector2 = pts[i]
-		draw_circle(p, 0.9, HAIR if i % 2 == 0 else HAIR_SH.lightened(0.2))
+		pd.draw_circle(p, 0.9, HAIR if i % 2 == 0 else HAIR_SH.lightened(0.2))
 	# 묶음 끈 + 머리끝 술
-	draw_line(b + Vector2(-0.9, 0.9), b + Vector2(0.9, 0.9), GOLD_D, 0.9)
+	pd.draw_line(b + Vector2(-0.9, 0.9), b + Vector2(0.9, 0.9), GOLD_D, 0.9)
 	_poly_outlined(PackedVector2Array([b + Vector2(-0.9, 1.2), b + Vector2(1.0, 1.2), b + Vector2(0.7 + h.x * 0.05, 3.2), b + Vector2(-0.5 + h.x * 0.08, 2.8)]), HAIR)
 
 
@@ -488,19 +503,19 @@ func _draw_leaf(p: Vector2, ang: float) -> void:
 
 func _eye(c: Vector2, closed: bool, hurt: bool) -> void:
 	if closed:
-		draw_line(c + Vector2(-1.0, 0.3), c + Vector2(1.1, 0.1), OUT, 0.9)
+		pd.draw_line(c + Vector2(-1.0, 0.3), c + Vector2(1.1, 0.1), OUT, 0.9)
 		return
 	if hurt:
-		draw_line(c + Vector2(-0.9, -0.9), c + Vector2(0.9, 0.9), OUT, 0.9)
-		draw_line(c + Vector2(-0.9, 0.9), c + Vector2(0.9, -0.9), OUT, 0.9)
+		pd.draw_line(c + Vector2(-0.9, -0.9), c + Vector2(0.9, 0.9), OUT, 0.9)
+		pd.draw_line(c + Vector2(-0.9, 0.9), c + Vector2(0.9, -0.9), OUT, 0.9)
 		return
 	var iris := PData.FOX_HOT if fox else EYE
-	draw_rect(Rect2(c + Vector2(-0.9, -1.1), Vector2(1.9, 2.4)), OUT)
-	draw_rect(Rect2(c + Vector2(-0.5, -0.5), Vector2(1.2, 1.6)), iris)
-	draw_rect(Rect2(c + Vector2(-0.5, -0.5), Vector2(0.5, 0.5)), Color(1, 1, 1, 0.9))
+	pd.draw_rect(Rect2(c + Vector2(-0.9, -1.1), Vector2(1.9, 2.4)), OUT)
+	pd.draw_rect(Rect2(c + Vector2(-0.5, -0.5), Vector2(1.2, 1.6)), iris)
+	pd.draw_rect(Rect2(c + Vector2(-0.5, -0.5), Vector2(0.5, 0.5)), Color(1, 1, 1, 0.9))
 	# 윗눈꺼풀 선 + 바깥 속눈썹 (반쯤 내리깐 차분한 눈매)
-	draw_line(c + Vector2(-1.1, -1.1), c + Vector2(1.3, -1.3), OUT, 0.9)
-	draw_line(c + Vector2(1.1, -1.3), c + Vector2(1.7, -0.7), OUT, 0.8)
+	pd.draw_line(c + Vector2(-1.1, -1.1), c + Vector2(1.3, -1.3), OUT, 0.9)
+	pd.draw_line(c + Vector2(1.1, -1.3), c + Vector2(1.7, -0.7), OUT, 0.8)
 
 
 func _draw_hat(hc: Vector2) -> void:
@@ -516,7 +531,7 @@ func _draw_hat(hc: Vector2) -> void:
 	for i in 10:
 		var a := float(i) / 9.0 * PI
 		rim.append(bc + Vector2(cos(a) * 6.8, sin(a) * 1.3).rotated(tilt))
-	draw_polyline(rim, GOLD_D, 0.6)
+	pd.draw_polyline(rim, GOLD_D, 0.6)
 	# 원뿔: 위로 가다 뒤(왼쪽)로 꺾임, 끝이 흔들림
 	var sway := sin(t * 2.2) * 0.6 + _hair.x * 0.2
 	var cone := PackedVector2Array([
@@ -524,13 +539,13 @@ func _draw_hat(hc: Vector2) -> void:
 		bc + Vector2(0.8, -7.6), bc + Vector2(-1.8 + sway * 0.5, -9.6), bc + Vector2(-5.0 + sway, -10.0),
 		bc + Vector2(-7.4 + sway * 1.3, -8.4), bc + Vector2(-3.8 + sway * 0.6, -8.4), bc + Vector2(-1.8, -6.4), bc + Vector2(-2.4, -3.4)])
 	_poly_outlined(cone, HAT)
-	PVfx.safe_poly(self, PackedVector2Array([bc + Vector2(1.2, -0.8), bc + Vector2(2.8, -1.0), bc + Vector2(1.8, -4.4), bc + Vector2(0.5, -6.8), bc + Vector2(0.3, -4.2)]), HAT_HI)
+	PVfx.safe_poly(pd, PackedVector2Array([bc + Vector2(1.2, -0.8), bc + Vector2(2.8, -1.0), bc + Vector2(1.8, -4.4), bc + Vector2(0.5, -6.8), bc + Vector2(0.3, -4.2)]), HAT_HI)
 	# 금 띠 + 장미
-	PVfx.safe_poly(self, PackedVector2Array([bc + Vector2(-3.4, -0.6).rotated(tilt), bc + Vector2(3.3, -0.9).rotated(tilt), bc + Vector2(3.0, -2.1).rotated(tilt), bc + Vector2(-3.1, -1.8).rotated(tilt)]), GOLD)
+	PVfx.safe_poly(pd, PackedVector2Array([bc + Vector2(-3.4, -0.6).rotated(tilt), bc + Vector2(3.3, -0.9).rotated(tilt), bc + Vector2(3.0, -2.1).rotated(tilt), bc + Vector2(-3.1, -1.8).rotated(tilt)]), GOLD)
 	var rp := bc + Vector2(2.3, -1.5).rotated(tilt)
-	draw_circle(rp, 1.35, OUT)
-	draw_circle(rp, 1.0, ROSE)
-	draw_circle(bc + Vector2(-7.4 + sway * 1.3, -8.0), 0.9, GOLD)
+	pd.draw_circle(rp, 1.35, OUT)
+	pd.draw_circle(rp, 1.0, ROSE)
+	pd.draw_circle(bc + Vector2(-7.4 + sway * 1.3, -8.0), 0.9, GOLD)
 
 
 func _draw_ears(hc: Vector2) -> void:
@@ -543,9 +558,9 @@ func _draw_ears(hc: Vector2) -> void:
 		var l := base + Vector2(-1.9, 0.5).rotated(ang)
 		var r := base + Vector2(1.9, 0.5).rotated(ang)
 		_poly_outlined(PackedVector2Array([l, tip, r]), FUR if side > 0 else FUR_SH)
-		draw_colored_polygon(PackedVector2Array([base + Vector2(-0.8, 0).rotated(ang), base + (tip - base) * 0.7, base + Vector2(0.8, 0).rotated(ang)]), Color("#f3b6c8"))
-		draw_colored_polygon(PackedVector2Array([base + (tip - base) * 0.68 + Vector2(-0.9, 0).rotated(ang), tip, base + (tip - base) * 0.68 + Vector2(0.9, 0).rotated(ang)]), PData.FOX_MID)
-		draw_circle(tip, 1.1 + sin(t * 9.0 + side) * 0.3, Color(PData.FOX_HOT, 0.6))
+		pd.draw_colored_polygon(PackedVector2Array([base + Vector2(-0.8, 0).rotated(ang), base + (tip - base) * 0.7, base + Vector2(0.8, 0).rotated(ang)]), Color("#f3b6c8"))
+		pd.draw_colored_polygon(PackedVector2Array([base + (tip - base) * 0.68 + Vector2(-0.9, 0).rotated(ang), tip, base + (tip - base) * 0.68 + Vector2(0.9, 0).rotated(ang)]), PData.FOX_MID)
+		pd.draw_circle(tip, 1.1 + sin(t * 9.0 + side) * 0.3, Color(PData.FOX_HOT, 0.6))
 
 
 # ─── 변신: 꼬리·불꽃 ────────────────────────────────────
@@ -561,7 +576,9 @@ func _draw_tails(lean: float) -> void:
 		var length := 18.0 - absf(spread) * 3.0
 		var left := PackedVector2Array()
 		var right := PackedVector2Array()
-		var segs := 8
+		var ol := PackedVector2Array()
+		var orr := PackedVector2Array()
+		var segs := 6
 		var tip := root
 		for s in segs + 1:
 			var f := float(s) / float(segs)
@@ -571,14 +588,16 @@ func _draw_tails(lean: float) -> void:
 			var nrm := Vector2(-sin(ang), cos(ang))
 			left.append(p + nrm * w)
 			right.append(p - nrm * w)
+			ol.append(p + nrm * (w + 0.7))
+			orr.append(p - nrm * (w + 0.7))
 			tip = p
-		right.reverse()
-		left.append_array(right)
-		_poly_outlined(left, FUR if i % 2 == 0 else FUR_SH)
+		# 윤곽(조금 넓은 띠) → 흰 털(뿌리) → 끝으로 갈수록 푸른 여우불
+		pd.strip(ol, orr, OUT)
+		var fur := FUR if i % 2 == 0 else FUR_SH
+		pd.strip_grad(left, right, fur, fur.lerp(PData.FOX_HOT, 0.55))
 		# 끝: 푸른 불 털 끝
-		draw_circle(tip, 3.0, Color(PData.FOX_MID, 0.8))
-		draw_circle(tip, 2.0 + sin(t * 10.0 + i) * 0.4, PData.FOX_HOT)
-		draw_circle(tip + Vector2(0.5, -2.2), 1.1, Color(PData.FOX_CORE, 0.9))
+		pd.glow(tip, 4.0 + sin(t * 10.0 + i) * 0.5, Color(PData.FOX_HOT, 0.95), 0.25)
+		pd.draw_rect(Rect2(tip + Vector2(0, -2.6), Vector2(1, 1)), PData.FOX_CORE)
 
 
 func _draw_aura() -> void:
@@ -587,7 +606,7 @@ func _draw_aura() -> void:
 		var x := sin(ph * 1.7 + i) * 7.0
 		var y := -6.0 - fmod(ph * 10.0, 36.0)
 		var a := 0.5 * (1.0 - fmod(ph * 10.0, 36.0) / 36.0)
-		draw_circle(Vector2(x, y), 1.3, Color(PData.FOX_HOT, a))
+		pd.draw_circle(Vector2(x, y), 1.3, Color(PData.FOX_HOT, a))
 
 
 ## 폭주 70% 이상: 몸에서 붉은 불티가 피어오름 (가득 차면 더 많이 + 손의 불꽃이 커짐)
@@ -598,8 +617,8 @@ func _draw_overdrive() -> void:
 		var rise := fmod(ph * 14.0, 40.0)
 		var x := sin(ph * 1.9 + i) * 7.0
 		var a := (0.75 if od >= 1.0 else 0.5) * (1.0 - rise / 40.0)
-		draw_circle(Vector2(x, -4.0 - rise), 1.2, Color(PData.FIRE_HOT, a))
-		draw_circle(Vector2(x, -4.0 - rise), 0.6, Color(PData.FIRE_CORE, a))
+		pd.draw_circle(Vector2(x, -4.0 - rise), 1.2, Color(PData.FIRE_HOT, a))
+		pd.draw_circle(Vector2(x, -4.0 - rise), 0.6, Color(PData.FIRE_CORE, a))
 
 
 func _draw_wings() -> void:
@@ -609,25 +628,21 @@ func _draw_wings() -> void:
 		var flap := sin(t * 8.0 + side) * 2.0
 		var col := Color(PData.FIRE_MID, 0.55 if side == 0 else 0.8)
 		var pts := PackedVector2Array([hip, hip + Vector2(-16, -8 + flap - side * 3), hip + Vector2(-22, -2 + flap), hip + Vector2(-15, 1 + flap * 0.5), hip + Vector2(-19, 5 + flap * 0.3), hip + Vector2(-6, 3)])
-		PVfx.safe_poly(self, pts, col)
-		draw_polyline(PackedVector2Array([hip, hip + Vector2(-16, -8 + flap - side * 3), hip + Vector2(-22, -2 + flap)]), Color(PData.FIRE_HOT, 0.9), 1.0)
+		PVfx.safe_poly(pd, pts, col)
+		pd.draw_polyline(PackedVector2Array([hip, hip + Vector2(-16, -8 + flap - side * 3), hip + Vector2(-22, -2 + flap)]), Color(PData.FIRE_HOT, 0.9), 1.0)
 
 
 func _draw_focus_glow(hip: Vector2) -> void:
 	var c := hip + Vector2(2.5, -9)
 	var r := 3.0 + focus_k * 3.0 + sin(t * 14.0) * 0.6
-	draw_circle(c, r + 3, Color(PData.FIRE_MID, 0.25 * focus_k))
-	draw_circle(c, r, Color(PData.FIRE_HOT, 0.6 * focus_k))
-	draw_circle(c, r * 0.45, Color(PData.FIRE_CORE, 0.9 * focus_k))
-	draw_arc(Vector2(0, -20), 18.0 + sin(t * 5.0) * 1.5, 0, TAU, 30, Color(PData.FIRE_HOT, 0.25 * focus_k), 1.0)
+	pd.draw_circle(c, r + 3, Color(PData.FIRE_MID, 0.25 * focus_k))
+	pd.draw_circle(c, r, Color(PData.FIRE_HOT, 0.6 * focus_k))
+	pd.draw_circle(c, r * 0.45, Color(PData.FIRE_CORE, 0.9 * focus_k))
+	pd.draw_arc(Vector2(0, -20), 18.0 + sin(t * 5.0) * 1.5, 0, TAU, 30, Color(PData.FIRE_HOT, 0.25 * focus_k), 1.0)
 
 
 # ─── 도움 함수 ──────────────────────────────────────────
 
+## 윤곽: 바깥으로 0.6px 넓힌 같은 모양을 먼저 검게 깔고 그 위에 채움 (PDraw.outlined — 같은 모양은 기억해 둠)
 func _poly_outlined(pts: PackedVector2Array, col: Color) -> void:
-	if pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
-		return
-	draw_colored_polygon(pts, col)
-	var loop := pts.duplicate()
-	loop.append(pts[0])
-	draw_polyline(loop, OUT, 1.0)
+	pd.outlined(pts, col, OUT, 0.6)

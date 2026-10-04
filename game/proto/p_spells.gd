@@ -6,12 +6,12 @@ extends RefCounted
 ## 변신 중에는 모두 푸른 여우불 판(크기 ×1.25, 피해 ×1.3).
 
 ## 가산 합성 노드 안에서 어두운 것(바위·먼지)을 그리는 일반 합성 자식 층
-class NormalLayer extends Node2D:
+class NormalLayer extends PDraw.Canvas:
 	var fn: Callable
 
-	func _draw() -> void:
+	func _paint() -> void:
 		if fn.is_valid():
-			fn.call(self)
+			fn.call(pd)
 
 
 static var last_fail := "" ## HUD가 칸을 빨갛게 번쩍이게 (마법 ID)
@@ -42,6 +42,10 @@ static func try_cast(sera: PSera, id: String) -> bool:
 		Sfx.play(&"block", -10.0)
 		return false
 	sera.add_gauge(float(PData.OD_SPELL.get(String(s.grade), 0.0)))
+	var sig := PVfx.CastSigil.new()
+	sig.setup(["초급", "중급", "대마법"].find(String(s.grade)), s.line == "fox" or sera.is_fox())
+	sig.follow = sera
+	PVfx.add(sig, sera.global_position, true)
 	if not PState.no_cooldown:
 		sera.cooldowns[id] = PState.spell_cd(id)
 	match id:
@@ -122,7 +126,7 @@ static func _fireball(sera: PSera) -> void:
 	PVfx.sparks(_hand(sera), 6, _pal(fb.fox)[1], 90.0, 0.2, Vector2(sera.facing, 0), 40.0)
 
 
-class Fireball extends Node2D:
+class Fireball extends PDraw.Canvas:
 	var sera: PSera
 	var fox := false
 	var dir := 1
@@ -133,11 +137,16 @@ class Fireball extends Node2D:
 	var t := 0.0
 	var _hit := {}
 	var small := false ## 각성 갈래 불덩이
+	var _floor_y := INF ## 아래 바닥 높이 (바닥에 비치는 불빛)
 
 	func _ready() -> void:
 		z_index = 6
 		if vel == Vector2.ZERO:
 			vel = Vector2(dir * 330.0, 0)
+		var q := PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2(0, 80), 1)
+		var hit := get_world_2d().direct_space_state.intersect_ray(q)
+		if hit:
+			_floor_y = hit.position.y
 
 	func _process(delta: float) -> void:
 		t += delta
@@ -172,6 +181,8 @@ class Fireball extends Node2D:
 		ex.fox = fox
 		ex.size = rad
 		PVfx.add(ex, global_position, true)
+		PVfx.sparks(global_position, 10 if not small else 4, pal[1], 220.0, 0.35)
+		PVfx.smoke(global_position, 4 if not small else 2, rad * 0.4)
 		Fx.shake(0.08 if not small else 0.04, 0.12)
 		Sfx.play(&"explode", -6.0 if not small else -12.0)
 		if awake and not small and is_instance_valid(sera):
@@ -187,7 +198,7 @@ class Fireball extends Node2D:
 				PVfx.add(f, global_position)
 		queue_free()
 
-	func _draw() -> void:
+	func _paint() -> void:
 		var pal := PSpells._pal(fox)
 		var s := scale_k
 		var back := -vel.normalized()
@@ -209,13 +220,21 @@ class Fireball extends Node2D:
 				var wob := sin(t * 27.0 + k * 1.3 + layer) * 2.2 * s * f
 				pts.append(back * ll * f - side * (lw * (1.0 - f) + wob) * (1 if k % 2 == 1 else 0.55))
 			pts.append(-side * lw)
-			PVfx.safe_poly(self, pts, col)
-		# 몸통: 바깥 짙은 불 → 밝은 → 흰 중심
-		draw_circle(Vector2.ZERO, 8.5 * s, Color(pal[2], 0.9))
-		draw_circle(back * -1.0, 6.6 * s, pal[1])
-		draw_circle(back * -1.6, 4.2 * s, pal[0])
-		# 바깥 빛
-		draw_circle(Vector2.ZERO, 13.0 * s, Color(pal[2], 0.18))
+			PVfx.safe_poly(pd, pts, col)
+		# 몸통: 바깥 짙은 불 → 밝은 → 흰 중심 (일렁임)
+		var pulse := 1.0 + 0.08 * sin(t * 40.0)
+		pd.draw_circle(Vector2.ZERO, 8.5 * s * pulse, Color(pal[2], 0.9))
+		pd.draw_circle(back * -1.0, 6.6 * s, pal[1])
+		pd.draw_circle(back * -1.6, 4.2 * s * pulse, pal[0])
+		# 부드러운 빛무리
+		pd.glow(Vector2.ZERO, 24.0 * s, Color(pal[2], 0.32))
+		# 바닥에 비치는 불빛 (가까울수록 진하게)
+		var dy := _floor_y - global_position.y
+		if dy < 80.0:
+			var k := 1.0 - dy / 80.0
+			pd.draw_set_transform(Vector2(0, dy), 0.0, Vector2(1.0, 0.22))
+			pd.glow(Vector2.ZERO, 34.0 * s, Color(pal[2], 0.35 * k))
+			pd.draw_set_transform(Vector2.ZERO)
 
 
 ## 불 조각 고리 폭발 (참고: 파이어볼 위 그림)
@@ -229,20 +248,24 @@ class Explosion extends PVfx.Base:
 		for i in 14:
 			_shards.append([randf() * TAU, randf_range(0.7, 1.15), randf_range(0.6, 1.4)])
 
-	func _draw() -> void:
+	func _paint() -> void:
 		var kk := k()
 		var pal := PSpells._pal(fox)
 		var R := size * (0.5 + kk * 0.8)
 		var a := 1.0 - kk
-		# 중심 섬광
-		draw_circle(Vector2.ZERO, size * 0.8 * (1.0 - kk * 0.5), Color(pal[1], 0.7 * a))
-		draw_circle(Vector2.ZERO, size * 0.5 * (1.0 - kk), Color(pal[0], a))
+		# 큰 빛무리 + 중심 섬광
+		pd.glow(Vector2.ZERO, size * 2.4 * (0.6 + kk * 0.6), Color(pal[2], 0.45 * a * a))
+		pd.draw_circle(Vector2.ZERO, size * 0.8 * (1.0 - kk * 0.5), Color(pal[1], 0.7 * a))
+		pd.draw_circle(Vector2.ZERO, size * 0.5 * (1.0 - kk), Color(pal[0], a))
+		# 충격파 고리 (빠르게 퍼짐)
+		var sw := 1.0 - pow(1.0 - minf(kk * 2.5, 1.0), 2.0)
+		pd.draw_arc(Vector2.ZERO, size * (0.4 + 1.3 * sw), 0, TAU, 32, Color(pal[0], 0.8 * (1.0 - sw)), 3.0 * (1.0 - sw) + 0.5)
 		# 고리 모양으로 흩어지는 불 조각(초승달 조각)
 		for sh: Array in _shards:
 			var ang := float(sh[0]) + kk * 0.6
 			var rr := R * float(sh[1])
-			PVfx.crescent(self, Vector2.ZERO, rr, ang, ang + 0.45 * float(sh[2]), 4.0 * a + 1.0, Color(pal[2], a))
-		draw_arc(Vector2.ZERO, R * 1.05, 0, TAU, 28, Color(pal[1], 0.6 * a), 1.5)
+			PVfx.crescent(pd, Vector2.ZERO, rr, ang, ang + 0.45 * float(sh[2]), 4.0 * a + 1.0, Color(pal[2], a))
+		pd.draw_arc(Vector2.ZERO, R * 1.05, 0, TAU, 28, Color(pal[1], 0.6 * a), 1.5)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -273,7 +296,7 @@ static func _foxrain(sera: PSera) -> void:
 
 
 ## 여우비 (참고: 박일표의 여우비) — 하늘에서 비스듬히 꽂히는 날카로운 빛 바늘 + 흘러내리는 불꽃 리본(붉은·주황·푸른 불)
-class FoxRainFx extends Node2D:
+class FoxRainFx extends PDraw.Canvas:
 	var sera: PSera
 	var fox_form := false
 	var awake := false
@@ -373,7 +396,7 @@ class FoxRainFx extends Node2D:
 		_solid.queue_redraw()
 
 	## 리본: 위에서 쏟아져 내려와 흐르다 위로 걷힘. 가장자리는 뾰족한 불 혀
-	func _draw_ribbons(c: CanvasItem) -> void:
+	func _draw_ribbons(c: PDraw) -> void:
 		var head := clampf(t / 0.22, 0.0, 1.0) # 아래 끝이 내려온 정도
 		var tail := clampf((t - DUR + 0.15) / 0.35, 0.0, 1.0) # 위 끝이 걷힌 정도
 		if tail >= 1.0:
@@ -401,7 +424,7 @@ class FoxRainFx extends Node2D:
 				left.append_array(right)
 				PVfx.safe_poly(c, left, Color(cols[layer], 0.92))
 
-	func _draw() -> void:
+	func _paint() -> void:
 		var core := Color(0.8, 0.95, 1.0) if fox_form else Color(1.0, 0.93, 0.5)
 		var glow := Color(PData.FOX_MID, 0.35) if fox_form else Color(1.0, 0.8, 0.3, 0.35)
 		for nd: Array in needles:
@@ -413,22 +436,22 @@ class FoxRainFx extends Node2D:
 			var back := p - dir * l
 			var n := dir.orthogonal()
 			if float(nd[3]) < 0.0:
-				draw_line(back - dir * 26.0, back, Color(glow, 0.18), 1.0) # 빠르게 나는 자국
-			draw_line(back, p, Color(glow, glow.a * a), 4.0)
+				pd.draw_line(back - dir * 26.0, back, Color(glow, 0.18), 1.0) # 빠르게 나는 자국
+			pd.draw_line(back, p, Color(glow, glow.a * a), 4.0)
 			# 날카로운 바늘: 뒤쪽이 넓고 끝이 뾰족한 가는 삼각형
-			PVfx.safe_poly(self, PackedVector2Array([back + n * 3.0, p, back - n * 3.0, back - dir * 4.0]), Color(core, a))
-			draw_line(back.lerp(p, 0.2), p, Color(1, 1, 1, a), 1.0)
+			PVfx.safe_poly(pd, PackedVector2Array([back + n * 3.0, p, back - n * 3.0, back - dir * 4.0]), Color(core, a))
+			pd.draw_line(back.lerp(p, 0.2), p, Color(1, 1, 1, a), 1.0)
 		for f: Array in foxes:
 			_draw_fox(Vector2(f[0], f[1]))
 
 	func _draw_fox(p: Vector2) -> void:
 		# 뛰어내리는 작은 불여우 (머리 아래)
 		var c := Color(PData.FOX_HOT, 0.85)
-		PVfx.safe_poly(self, PackedVector2Array([p + Vector2(-3, -10), p + Vector2(3, -10), p + Vector2(4, -2), p + Vector2(0, 2), p + Vector2(-4, -2)]), c)
-		PVfx.safe_poly(self, PackedVector2Array([p + Vector2(-3, -1), p + Vector2(-5, 3), p + Vector2(-1, 0)]), c)
-		PVfx.safe_poly(self, PackedVector2Array([p + Vector2(3, -1), p + Vector2(5, 3), p + Vector2(1, 0)]), c)
-		PVfx.safe_poly(self, PackedVector2Array([p + Vector2(-2, -10), p + Vector2(0, -20), p + Vector2(2, -10)]), Color(PData.FOX_MID, 0.6))
-		draw_circle(p + Vector2(0, -4), 1.2, PData.FOX_CORE)
+		PVfx.safe_poly(pd, PackedVector2Array([p + Vector2(-3, -10), p + Vector2(3, -10), p + Vector2(4, -2), p + Vector2(0, 2), p + Vector2(-4, -2)]), c)
+		PVfx.safe_poly(pd, PackedVector2Array([p + Vector2(-3, -1), p + Vector2(-5, 3), p + Vector2(-1, 0)]), c)
+		PVfx.safe_poly(pd, PackedVector2Array([p + Vector2(3, -1), p + Vector2(5, 3), p + Vector2(1, 0)]), c)
+		PVfx.safe_poly(pd, PackedVector2Array([p + Vector2(-2, -10), p + Vector2(0, -20), p + Vector2(2, -10)]), Color(PData.FOX_MID, 0.6))
+		pd.draw_circle(p + Vector2(0, -4), 1.2, PData.FOX_CORE)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -448,7 +471,7 @@ static func _asura(sera: PSera) -> void:
 	Sfx.play(&"fox_storm", -4.0)
 
 
-class Asura extends Node2D:
+class Asura extends PDraw.Canvas:
 	var sera: PSera
 	var dur := 2.4
 	var dmg := 9.0
@@ -503,20 +526,20 @@ class Asura extends Node2D:
 			queue_free()
 		queue_redraw()
 
-	func _draw() -> void:
+	func _paint() -> void:
 		for m: Array in smoke:
 			var a: float = 1.0 - m[1] / 0.5
-			draw_circle(m[0] + Vector2(0, -m[1] * 12.0), m[2] * (0.6 + m[1]), Color(0.1, 0.08, 0.16, 0.35 * a))
+			pd.draw_circle(m[0] + Vector2(0, -m[1] * 12.0), m[2] * (0.6 + m[1]), Color(0.1, 0.08, 0.16, 0.35 * a))
 		for s: Array in slashes:
 			var kk: float = s[4] / 0.18
 			var a := 1.0 - kk
 			var a0: float = s[2]
 			var sweep: float = s[3] * s[5]
 			var a1 := a0 + sweep * minf(kk * 2.2, 1.0)
-			PVfx.crescent(self, s[0], s[1] + 3.0, a0, a1, 8.0, Color(PData.FOX_MID, 0.45 * a), 16)
-			PVfx.crescent(self, s[0], s[1], a0, a1, 5.0, Color(PData.FOX_CORE, 0.95 * a), 16)
+			PVfx.crescent(pd, s[0], s[1] + 3.0, a0, a1, 8.0, Color(PData.FOX_MID, 0.45 * a), 16)
+			PVfx.crescent(pd, s[0], s[1], a0, a1, 5.0, Color(PData.FOX_CORE, 0.95 * a), 16)
 		if t < dur:
-			draw_arc(Vector2.ZERO, 40.0 * (1.25 if big else 1.0), 0, TAU, 32, Color(PData.FOX_HOT, 0.12), 6.0)
+			pd.draw_arc(Vector2.ZERO, 40.0 * (1.25 if big else 1.0), 0, TAU, 32, Color(PData.FOX_HOT, 0.12), 6.0)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -540,7 +563,7 @@ static func fire_laser(sera: PSera, charge: float) -> void:
 	Sfx.play(&"blast", -2.0 + 3.0 * k)
 
 
-class Laser extends Node2D:
+class Laser extends PDraw.Canvas:
 	var sera: PSera
 	var fox := false
 	var awake := false
@@ -582,19 +605,21 @@ class Laser extends Node2D:
 			queue_free()
 		queue_redraw()
 
-	func _draw() -> void:
+	func _paint() -> void:
 		var pal := PSpells._pal(fox)
 		var on := t < dur
 		var a := 1.0 if on else clampf(1.0 - (t - dur) / 0.25, 0.0, 1.0)
 		var grow := clampf(t / 0.08, 0.0, 1.0)
 		var th := thick * (0.6 + 0.4 * grow) * (1.0 + 0.08 * sin(t * 60.0)) * a
 		var L := length * grow
-		draw_set_transform(Vector2.ZERO, 0.0 if dir > 0 else PI, Vector2.ONE)
-		# 바깥 빛 → 주황 → 노랑 → 흰 중심
-		draw_rect(Rect2(0, -th * 0.9, L, th * 1.8), Color(pal[2], 0.25 * a))
-		draw_rect(Rect2(0, -th * 0.55, L, th * 1.1), Color(pal[2], 0.8 * a))
-		draw_rect(Rect2(0, -th * 0.35, L, th * 0.7), Color(pal[1], 0.95 * a))
-		draw_rect(Rect2(0, -th * 0.16, L, th * 0.32), Color(pal[0], a))
+		pd.draw_set_transform(Vector2.ZERO, 0.0 if dir > 0 else PI, Vector2.ONE)
+		# 위아래로 번지는 부드러운 빛 → 주황 → 노랑 → 흰 중심
+		pd.rect_grad(Rect2(0, -th * 2.4, L, th * 1.5), Color(pal[2], 0.0), Color(pal[2], 0.3 * a))
+		pd.rect_grad(Rect2(0, th * 0.9, L, th * 1.5), Color(pal[2], 0.3 * a), Color(pal[2], 0.0))
+		pd.draw_rect(Rect2(0, -th * 0.9, L, th * 1.8), Color(pal[2], 0.25 * a))
+		pd.draw_rect(Rect2(0, -th * 0.55, L, th * 1.1), Color(pal[2], 0.8 * a))
+		pd.draw_rect(Rect2(0, -th * 0.35, L, th * 0.7), Color(pal[1], 0.95 * a))
+		pd.draw_rect(Rect2(0, -th * 0.16, L, th * 0.32), Color(pal[0], a))
 		# 나선 화염 고리 (빛줄기를 감아 도는 두 가닥)
 		var pitch := 26.0
 		var n := int(L / pitch * 2.0)
@@ -603,23 +628,23 @@ class Laser extends Node2D:
 			var ph := x * 0.24 - t * 18.0
 			var ry := th * 0.95
 			var rx := th * 0.35
-			draw_set_transform(Vector2(x, 0) if dir > 0 else Vector2(-x, 0), 0.0 if dir > 0 else PI, Vector2.ONE)
-			draw_arc(Vector2.ZERO, ry, ph, ph + 1.6, 10, Color(pal[1], 0.85 * a), 1.6)
-			draw_set_transform(Vector2.ZERO, 0.0 if dir > 0 else PI, Vector2.ONE)
+			pd.draw_set_transform(Vector2(x, 0) if dir > 0 else Vector2(-x, 0), 0.0 if dir > 0 else PI, Vector2.ONE)
+			pd.draw_arc(Vector2.ZERO, ry, ph, ph + 1.6, 10, Color(pal[1], 0.85 * a), 1.6)
+			pd.draw_set_transform(Vector2.ZERO, 0.0 if dir > 0 else PI, Vector2.ONE)
 		for i in 2:
 			var pts := PackedVector2Array()
 			for s in 40:
 				var x := L * float(s) / 39.0
 				pts.append(Vector2(x, sin(x * 0.12 - t * 30.0 + i * PI) * th * 0.85))
-			draw_polyline(pts, Color(pal[1], 0.7 * a), 1.5)
+			pd.draw_polyline(pts, Color(pal[1], 0.7 * a), 1.5)
 		# 손끝 충격파
 		var mz := 6.0 + th * 0.9
-		draw_circle(Vector2.ZERO, mz, Color(pal[1], 0.8 * a))
-		draw_circle(Vector2.ZERO, mz * 0.55, Color(pal[0], a))
+		pd.draw_circle(Vector2.ZERO, mz, Color(pal[1], 0.8 * a))
+		pd.draw_circle(Vector2.ZERO, mz * 0.55, Color(pal[0], a))
 		for i in 6:
 			var ang := float(i) / 6.0 * TAU + t * 10.0
-			PVfx.spike(self, Vector2.ZERO, Vector2(cos(ang), sin(ang)), mz * 1.8, 3.0, Color(pal[0], 0.7 * a))
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			PVfx.spike(pd, Vector2.ZERO, Vector2(cos(ang), sin(ang)), mz * 1.8, 3.0, Color(pal[0], 0.7 * a))
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		# 각성: 바닥에 남는 불길
 		for tr: Array in _trail:
 			if tr[1] < 1.5:
@@ -628,7 +653,7 @@ class Laser extends Node2D:
 				for i in 18:
 					var x := float(i) * 30.0 * float(dir)
 					var hh := 6.0 + 4.0 * sin(t * 20.0 + i)
-					PVfx.safe_poly(self, PackedVector2Array([Vector2(x - 6, y), Vector2(x, y - hh), Vector2(x + 6, y)]), Color(pal[2], 0.7 * fa))
+					PVfx.safe_poly(pd, PackedVector2Array([Vector2(x - 6, y), Vector2(x, y - hh), Vector2(x + 6, y)]), Color(pal[2], 0.7 * fa))
 				break
 
 
@@ -651,7 +676,7 @@ static func _meteor(sera: PSera) -> void:
 	Sfx.play(&"sky_crack", -2.0)
 
 
-class Meteor extends Node2D:
+class Meteor extends PDraw.Canvas:
 	var sera: PSera
 	var fox := false
 	var awake := false
@@ -728,7 +753,7 @@ class Meteor extends Node2D:
 			_fire_sea = 3.0
 
 	## 일반 합성: 운석의 검은 바위 몸통·흙먼지·파편
-	func _draw_solid(c: CanvasItem) -> void:
+	func _draw_solid(c: PDraw) -> void:
 		if t >= SIGIL and t < IMPACT:
 			var p := _pos()
 			var rock := Color("#2a120c") if not fox else Color("#0c1630")
@@ -746,66 +771,80 @@ class Meteor extends Node2D:
 				c.draw_circle(_land + Vector2(x * (1.0 + kk * 0.5), -10), BLAST * 0.14 * (1.0 + kk), Color(0.22, 0.14, 0.12, 0.6 * (1.0 - kk)))
 		for d: Array in debris:
 			c.draw_rect(Rect2(d[0], Vector2(4, 4)), Color(0.25, 0.15, 0.12, 1.0 - float(d[2]) / 1.2))
+		# 그을린 자국 (천천히 사라짐)
+		if t >= IMPACT:
+			var sa := clampf(1.0 - (t - IMPACT - 0.9) / 0.6, 0.0, 1.0)
+			c.draw_set_transform(_land + Vector2(0, 1), 0.0, Vector2(1.0, 0.16))
+			c.glow(Vector2.ZERO, BLAST * 0.6, Color(0.04, 0.02, 0.03, 0.85 * sa), 0.0)
+			c.draw_set_transform(Vector2.ZERO)
 
-	func _draw() -> void:
+	func _paint() -> void:
 		var pal := PSpells._pal(fox)
 		# ① 세라 뒤쪽 하늘의 마법진 (운석이 빠져나오는 문)
 		var ca := clampf(t / 0.2, 0.0, 1.0) * clampf((IMPACT + 0.1 - t) / 0.3, 0.0, 1.0)
 		if ca > 0.0:
-			draw_set_transform(_start + Vector2(0, 30), 0.0, Vector2(1.0, 0.45))
+			pd.draw_set_transform(_start + Vector2(0, 30), 0.0, Vector2(1.0, 0.45))
 			for i in 3:
 				var r := 54.0 + i * 18.0
 				var sp := t * (1.2 - i * 0.3) * (1 if i % 2 == 0 else -1)
-				draw_arc(Vector2.ZERO, r, sp, sp + TAU, 40, Color(pal[1], 0.8 * ca), 2.0)
+				pd.draw_arc(Vector2.ZERO, r, sp, sp + TAU, 40, Color(pal[1], 0.8 * ca), 2.0)
 			for i in 10:
 				var a := float(i) / 10.0 * TAU - t
-				PVfx.spike(self, Vector2(cos(a), sin(a)) * 74.0, Vector2(cos(a), sin(a)), 12.0, 4.0, Color(pal[0], 0.8 * ca))
-			draw_circle(Vector2.ZERO, 50.0, Color(pal[2], 0.2 * ca))
-			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+				PVfx.spike(pd, Vector2(cos(a), sin(a)) * 74.0, Vector2(cos(a), sin(a)), 12.0, 4.0, Color(pal[0], 0.8 * ca))
+			pd.draw_circle(Vector2.ZERO, 50.0, Color(pal[2], 0.2 * ca))
+			pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		# ② 떨어지는 거대 운석 + 불타는 긴 꼬리
 		if t >= SIGIL and t < IMPACT:
 			var p := _pos()
 			var dir := (_land - _start).normalized()
 			var side := dir.orthogonal()
 			var fl := sin(t * 30.0) * 6.0
-			PVfx.safe_poly(self, PackedVector2Array([p + side * R * 1.25, p - dir * R * 4.2 + side * (R * 0.5 + fl), p - dir * R * 5.2, p - dir * R * 4.2 - side * (R * 0.5 - fl), p - side * R * 1.25]), Color(pal[3], 0.55))
-			PVfx.safe_poly(self, PackedVector2Array([p + side * R * 1.0, p - dir * R * 3.2 + side * R * 0.3, p - dir * R * 3.8, p - dir * R * 3.2 - side * R * 0.3, p - side * R * 1.0]), Color(pal[2], 0.75))
-			PVfx.safe_poly(self, PackedVector2Array([p + side * R * 0.7, p - dir * R * 2.2, p - side * R * 0.7]), Color(pal[1], 0.9))
-			draw_circle(p, R * 1.45, Color(pal[2], 0.22))
-			draw_circle(p, R * 1.12, Color(pal[1], 0.35))
+			PVfx.safe_poly(pd, PackedVector2Array([p + side * R * 1.25, p - dir * R * 4.2 + side * (R * 0.5 + fl), p - dir * R * 5.2, p - dir * R * 4.2 - side * (R * 0.5 - fl), p - side * R * 1.25]), Color(pal[3], 0.55))
+			PVfx.safe_poly(pd, PackedVector2Array([p + side * R * 1.0, p - dir * R * 3.2 + side * R * 0.3, p - dir * R * 3.8, p - dir * R * 3.2 - side * R * 0.3, p - side * R * 1.0]), Color(pal[2], 0.75))
+			PVfx.safe_poly(pd, PackedVector2Array([p + side * R * 0.7, p - dir * R * 2.2, p - side * R * 0.7]), Color(pal[1], 0.9))
+			pd.draw_circle(p, R * 1.45, Color(pal[2], 0.22))
+			pd.draw_circle(p, R * 1.12, Color(pal[1], 0.35))
 			# 바위 테두리의 달아오른 금 (일반 합성 바위 위로 비침)
 			for i in 6:
 				var a := float(i) / 6.0 * TAU + t * 2.0
 				var q := p + Vector2(cos(a), sin(a)) * R * 0.5
-				draw_line(q, q + Vector2(cos(a + 0.6), sin(a + 0.6)) * R * 0.45, Color(pal[1], 0.9), 2.0)
-			draw_arc(p, R * 0.98, 0, TAU, 32, Color(pal[0], 0.8), 2.0)
+				pd.draw_line(q, q + Vector2(cos(a + 0.6), sin(a + 0.6)) * R * 0.45, Color(pal[1], 0.9), 2.0)
+			pd.draw_arc(p, R * 0.98, 0, TAU, 32, Color(pal[0], 0.8), 2.0)
 			# 앞쪽 공기가 달아오르는 충격파 고깔
-			draw_arc(p + dir * R * 0.4, R * 1.2, dir.angle() - 1.1, dir.angle() + 1.1, 16, Color(pal[0], 0.6), 3.0)
+			pd.draw_arc(p + dir * R * 0.4, R * 1.2, dir.angle() - 1.1, dir.angle() + 1.1, 16, Color(pal[0], 0.6), 3.0)
 		# ③ 폭발: 앞쪽 절반을 덮는 불의 돔 + 불기둥 + 충격파 고리
 		if t >= IMPACT:
 			var age := t - IMPACT
 			var kk := clampf(age / 1.3, 0.0, 1.0)
 			var a := 1.0 - kk
+			pd.glow(_land + Vector2(0, -30), BLAST * 1.9, Color(pal[2], 0.3 * a))
+			# 땅에 갈라진 불빛 금 (그을린 자국 위)
+			var crack_a := clampf(1.0 - (age - 0.9) / 0.6, 0.0, 1.0)
+			for i in 9:
+				var ang := float(i) / 9.0 * TAU + 0.3
+				var d := Vector2(cos(ang), sin(ang) * 0.16)
+				var l := BLAST * (0.35 + 0.2 * sin(i * 3.1))
+				pd.line2(_land + d * 8.0, _land + d * l, Color(pal[1], 0.9 * crack_a), Color(pal[2], 0.0), 2.0, 0.5)
 			var grow := 1.0 - pow(1.0 - minf(age / 0.25, 1.0), 3.0)
 			var rad := BLAST * grow
-			draw_circle(_land + Vector2(0, -rad * 0.25), rad * 1.05, Color(pal[3], 0.45 * a))
-			draw_circle(_land + Vector2(0, -rad * 0.25), rad * 0.8, Color(pal[2], 0.55 * a))
-			draw_circle(_land + Vector2(0, -rad * 0.3), rad * 0.5 * (1.0 - kk * 0.5), Color(pal[1], 0.85 * a))
-			draw_circle(_land + Vector2(0, -rad * 0.3), rad * 0.25 * (1.0 - kk), Color(pal[0], a))
+			pd.draw_circle(_land + Vector2(0, -rad * 0.25), rad * 1.05, Color(pal[3], 0.45 * a))
+			pd.draw_circle(_land + Vector2(0, -rad * 0.25), rad * 0.8, Color(pal[2], 0.55 * a))
+			pd.draw_circle(_land + Vector2(0, -rad * 0.3), rad * 0.5 * (1.0 - kk * 0.5), Color(pal[1], 0.85 * a))
+			pd.draw_circle(_land + Vector2(0, -rad * 0.3), rad * 0.25 * (1.0 - kk), Color(pal[0], a))
 			var h := BLAST * 1.6 * minf(age * 4.0, 1.0)
-			PVfx.safe_poly(self, PackedVector2Array([_land + Vector2(-50, 0), _land + Vector2(-18, -h), _land + Vector2(0, -h * 1.12), _land + Vector2(18, -h), _land + Vector2(50, 0)]), Color(pal[1], 0.75 * a))
-			PVfx.safe_poly(self, PackedVector2Array([_land + Vector2(-20, 0), _land + Vector2(0, -h), _land + Vector2(20, 0)]), Color(pal[0], 0.9 * a))
+			PVfx.safe_poly(pd, PackedVector2Array([_land + Vector2(-50, 0), _land + Vector2(-18, -h), _land + Vector2(0, -h * 1.12), _land + Vector2(18, -h), _land + Vector2(50, 0)]), Color(pal[1], 0.75 * a))
+			PVfx.safe_poly(pd, PackedVector2Array([_land + Vector2(-20, 0), _land + Vector2(0, -h), _land + Vector2(20, 0)]), Color(pal[0], 0.9 * a))
 			for i in 3:
 				var rr := BLAST * (0.4 + kk * (1.1 + i * 0.25))
-				draw_set_transform(_land + Vector2(0, -4), 0.0, Vector2(1.0, 0.22))
-				draw_arc(Vector2.ZERO, rr, 0, TAU, 40, Color(pal[1], 0.8 * a * (1.0 - i * 0.25)), 3.0)
-				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+				pd.draw_set_transform(_land + Vector2(0, -4), 0.0, Vector2(1.0, 0.22))
+				pd.draw_arc(Vector2.ZERO, rr, 0, TAU, 40, Color(pal[1], 0.8 * a * (1.0 - i * 0.25)), 3.0)
+				pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			for i in 14:
 				var ang := -PI + float(i) / 13.0 * PI
 				var d := Vector2(cos(ang), sin(ang))
-				PVfx.spike(self, _land + d * rad * 0.6, d, rad * 0.5 * a, 6.0 * a + 1.0, Color(pal[1], 0.8 * a))
+				PVfx.spike(pd, _land + d * rad * 0.6, d, rad * 0.5 * a, 6.0 * a + 1.0, Color(pal[1], 0.8 * a))
 		for d: Array in debris:
-			draw_rect(Rect2(d[0], Vector2(2, 2)), Color(pal[1], 1.0 - float(d[2]) / 1.2))
+			pd.draw_rect(Rect2(d[0], Vector2(2, 2)), Color(pal[1], 1.0 - float(d[2]) / 1.2))
 		# 각성: 앞쪽 땅에 남는 불바다
 		if _fire_sea > 0.0:
 			var fa := minf(_fire_sea, 1.0)
@@ -813,8 +852,8 @@ class Meteor extends Node2D:
 			for i in int(fr.size.x / 14.0):
 				var x := fr.position.x + i * 14.0
 				var hh := 10.0 + 7.0 * sin(t * 14.0 + i * 1.7)
-				PVfx.safe_poly(self, PackedVector2Array([Vector2(x, ground_y), Vector2(x + 7, ground_y - hh), Vector2(x + 14, ground_y)]), Color(pal[2], 0.75 * fa))
-				PVfx.safe_poly(self, PackedVector2Array([Vector2(x + 4, ground_y), Vector2(x + 7, ground_y - hh * 0.5), Vector2(x + 10, ground_y)]), Color(pal[1], 0.9 * fa))
+				PVfx.safe_poly(pd, PackedVector2Array([Vector2(x, ground_y), Vector2(x + 7, ground_y - hh), Vector2(x + 14, ground_y)]), Color(pal[2], 0.75 * fa))
+				PVfx.safe_poly(pd, PackedVector2Array([Vector2(x + 4, ground_y), Vector2(x + 7, ground_y - hh * 0.5), Vector2(x + 10, ground_y)]), Color(pal[1], 0.9 * fa))
 
 
 # ═══════════════════════════════════════════════════════════
@@ -841,7 +880,7 @@ static func _phoenix(sera: PSera) -> void:
 
 ## 불사조 (참고 그림): 화면이 붉게 물들고 → 룬·톱니 마법진이 화면 가득 겹쳐 돌고 → 바닥에서 불붙은 결정 가시가 솟고 →
 ## 가운데에 흰 금빛 불사조가 날개를 펴고 나타났다가 → 뒤로 크게 돌아 화면 전체를 찢으며 가로지른다(피해). 부활 때는 세라 자리에서 솟음.
-class Phoenix extends Node2D:
+class Phoenix extends PDraw.Canvas:
 	var sera: PSera
 	var fox := false
 	var awake := false
@@ -952,7 +991,7 @@ class Phoenix extends Node2D:
 		return clampf(t / 0.25, 0.0, 1.0) * clampf((END - t) / 0.45, 0.0, 1.0)
 
 	# ── 일반 합성 층: 붉은 화면 + 결정 가시 몸통 ──
-	func _draw_solid(c: CanvasItem) -> void:
+	func _draw_solid(c: PDraw) -> void:
 		var a := _fade()
 		var tint := Color(0.12, 0.03, 0.12) if fox else Color(0.22, 0.02, 0.02)
 		c.draw_rect(view.grow(40), Color(tint, 0.55 * a))
@@ -979,14 +1018,14 @@ class Phoenix extends Node2D:
 		var back := 1.0 + 0.25 * sin(k * PI) # 살짝 솟구쳤다 자리 잡음
 		return k * back * clampf((END - 0.1 - t) / 0.4, 0.0, 1.0)
 
-	func _draw() -> void:
+	func _paint() -> void:
 		var pal := PSpells._pal(fox)
 		if not revive_mode:
 			var a := _fade()
 			# 가운데 큰 빛무리
 			var cc := view.get_center() + Vector2(0, -20)
-			draw_circle(cc, 150.0, Color(pal[3], 0.10 * a))
-			draw_circle(cc, 90.0, Color(pal[2], 0.10 * a))
+			pd.draw_circle(cc, 150.0, Color(pal[3], 0.10 * a))
+			pd.draw_circle(cc, 90.0, Color(pal[2], 0.10 * a))
 			for ci: Array in circles:
 				var k := clampf((t - float(ci[2])) / 0.22, 0.0, 1.0)
 				if k <= 0.0:
@@ -1001,11 +1040,11 @@ class Phoenix extends Node2D:
 				var h := float(cr[1]) * k
 				var base := Vector2(float(cr[0]), ground_y + 2.0)
 				var tip := base + Vector2(sin(float(cr[3])) * h, -h)
-				draw_polyline(PackedVector2Array([base + Vector2(-float(cr[2]), 0), tip, base + Vector2(float(cr[2]), 0)]), Color(pal[1], 0.7 * a), 1.0)
+				pd.draw_polyline(PackedVector2Array([base + Vector2(-float(cr[2]), 0), tip, base + Vector2(float(cr[2]), 0)]), Color(pal[1], 0.7 * a), 1.0)
 				var fl := 5.0 + sin(t * 18.0 + float(cr[0])) * 2.0
-				PVfx.safe_poly(self, PackedVector2Array([tip + Vector2(-3, 2), tip + Vector2(0, -fl * 2.0), tip + Vector2(3, 2)]), Color(pal[1], 0.8 * a))
-				draw_circle(tip, 2.5, Color(pal[0], 0.8 * a))
-				draw_circle(base + Vector2(0, -2), float(cr[2]) * 1.4, Color(pal[2], 0.18 * a))
+				PVfx.safe_poly(pd, PackedVector2Array([tip + Vector2(-3, 2), tip + Vector2(0, -fl * 2.0), tip + Vector2(3, 2)]), Color(pal[1], 0.8 * a))
+				pd.draw_circle(tip, 2.5, Color(pal[0], 0.8 * a))
+				pd.draw_circle(base + Vector2(0, -2), float(cr[2]) * 1.4, Color(pal[2], 0.18 * a))
 		# 찢어진 화면 자국: 지나간 길을 따라 조각 사각형(방향이 꺾여도 안전)
 		for i in range(1, trail.size()):
 			var e0: Array = trail[i - 1]
@@ -1017,10 +1056,10 @@ class Phoenix extends Node2D:
 			var age := t - float(e1[1])
 			var w := (1.0 - age / 0.5) * 20.0
 			var n := (p1 - p0).normalized().orthogonal()
-			draw_line(p0, p1, Color(pal[2], 0.45), w * 2.0)
-			draw_line(p0, p1, Color(pal[1], 0.7), w)
-			draw_line(p0, p1, Color(pal[0], 0.9), maxf(w * 0.3, 1.0))
-			draw_line(p0 + n * w, p1 + n * w, Color(pal[0], 0.8), 1.0) # 찢긴 화면 가장자리
+			pd.draw_line(p0, p1, Color(pal[2], 0.45), w * 2.0)
+			pd.draw_line(p0, p1, Color(pal[1], 0.7), w)
+			pd.draw_line(p0, p1, Color(pal[0], 0.9), maxf(w * 0.3, 1.0))
+			pd.draw_line(p0 + n * w, p1 + n * w, Color(pal[0], 0.8), 1.0) # 찢긴 화면 가장자리
 		# 불사조 본체
 		if revive_mode:
 			_draw_side(_pos(), -PI / 2, 1.0, 1.7, 1.0)
@@ -1038,9 +1077,9 @@ class Phoenix extends Node2D:
 	func _rune_circle(c: Vector2, r: float, rot: float, a: float, kind: int, pal: Array) -> void:
 		var gold := Color(pal[1], 0.85 * a)
 		var dim := Color(pal[2], 0.55 * a)
-		draw_circle(c, r, Color(pal[3], 0.08 * a))
-		draw_arc(c, r, 0, TAU, 48, gold, 1.5)
-		draw_arc(c, r * 0.84, 0, TAU, 40, dim, 1.0)
+		pd.draw_circle(c, r, Color(pal[3], 0.08 * a))
+		pd.draw_arc(c, r, 0, TAU, 48, gold, 1.5)
+		pd.draw_arc(c, r * 0.84, 0, TAU, 40, dim, 1.0)
 		# 바깥 톱니
 		var teeth := maxi(int(r / 3.2), 8)
 		for i in teeth:
@@ -1048,7 +1087,7 @@ class Phoenix extends Node2D:
 			var d := Vector2(cos(ang), sin(ang))
 			var tn := d.orthogonal()
 			var tw := minf(1.4, r * 0.03)
-			PVfx.safe_poly(self, PackedVector2Array([c + d * r - tn * tw, c + d * (r + 3.5) - tn * tw * 0.7, c + d * (r + 3.5) + tn * tw * 0.7, c + d * r + tn * tw]), gold)
+			PVfx.safe_poly(pd, PackedVector2Array([c + d * r - tn * tw, c + d * (r + 3.5) - tn * tw * 0.7, c + d * (r + 3.5) + tn * tw * 0.7, c + d * r + tn * tw]), gold)
 		# 고리 사이의 룬 글자 (짧은 획 묶음)
 		var runes := maxi(int(r / 4.0), 8)
 		for i in runes:
@@ -1057,11 +1096,11 @@ class Phoenix extends Node2D:
 			var tn := d.orthogonal()
 			var m := c + d * r * 0.92
 			var hsh := (i * 7 + kind * 3) % 4
-			draw_line(m - d * 2.0, m + d * 2.0, gold, 1.0)
+			pd.draw_line(m - d * 2.0, m + d * 2.0, gold, 1.0)
 			if hsh != 0:
-				draw_line(m + d * (2.0 - hsh), m + d * (2.0 - hsh) + tn * 2.0, gold, 1.0)
+				pd.draw_line(m + d * (2.0 - hsh), m + d * (2.0 - hsh) + tn * 2.0, gold, 1.0)
 			if hsh == 2:
-				draw_line(m - d * 2.0, m - d * 2.0 - tn * 1.5, gold, 1.0)
+				pd.draw_line(m - d * 2.0, m - d * 2.0 - tn * 1.5, gold, 1.0)
 		# 안쪽 별 무늬: 0 = 육망성, 1 = 오망성, 2 = 겹친 사각
 		var rr := r * 0.78
 		var r0 := -rot * 1.3
@@ -1070,7 +1109,7 @@ class Phoenix extends Node2D:
 			for j in 6:
 				var ang := r0 + float((j * 2) % 5) * TAU / 5.0 - PI / 2.0
 				star.append(c + Vector2(cos(ang), sin(ang)) * rr)
-			draw_polyline(star, dim, 1.0)
+			pd.draw_polyline(star, dim, 1.0)
 		else:
 			var corners := 3 if kind == 0 else 4
 			for k in 2:
@@ -1078,16 +1117,16 @@ class Phoenix extends Node2D:
 				for j in corners + 1:
 					var ang := r0 + float(k) * PI / float(corners) + float(j) * TAU / float(corners)
 					poly.append(c + Vector2(cos(ang), sin(ang)) * rr)
-				draw_polyline(poly, dim, 1.0)
-		draw_arc(c, r * 0.4, 0, TAU, 24, gold, 1.0)
-		draw_circle(c, r * 0.12, Color(pal[0], 0.6 * a))
+				pd.draw_polyline(poly, dim, 1.0)
+		pd.draw_arc(c, r * 0.4, 0, TAU, 24, gold, 1.0)
+		pd.draw_circle(c, r * 0.12, Color(pal[0], 0.6 * a))
 
 	## 정면 불사조 (나타날 때): 위로 펼친 큰 날개, 흰 금빛 몸, 아래로 흘러내리는 꼬리깃
 	func _draw_front(p: Vector2, s: float, a: float) -> void:
 		var pal := PSpells._pal(fox)
 		var flap := sin(t * 7.0) * 0.12
-		draw_circle(p, 60.0 * s, Color(pal[2], 0.12 * a))
-		draw_circle(p, 30.0 * s, Color(pal[1], 0.2 * a))
+		pd.draw_circle(p, 60.0 * s, Color(pal[2], 0.12 * a))
+		pd.draw_circle(p, 30.0 * s, Color(pal[1], 0.2 * a))
 		# 꼬리깃 5가닥
 		for i in 5:
 			var sx := (float(i) - 2.0) * 0.5
@@ -1095,7 +1134,7 @@ class Phoenix extends Node2D:
 			var tail := PackedVector2Array([Vector2(-3, 6), Vector2(sx * 10.0 - 3.0 + sw, 26), Vector2(sx * 22.0 + sw * 1.5, 48 - absf(sx) * 8.0), Vector2(sx * 10.0 + 3.0 + sw, 26), Vector2(3, 6)])
 			for j in tail.size():
 				tail[j] = p + tail[j] * s
-			PVfx.safe_poly(self, tail, Color(pal[2 if i % 2 == 0 else 1], 0.75 * a))
+			PVfx.safe_poly(pd, tail, Color(pal[2 if i % 2 == 0 else 1], 0.75 * a))
 		# 날개 (3겹: 바깥 진한 불 → 밝은 불 → 흰빛)
 		for side in [-1.0, 1.0]:
 			for layer in 3:
@@ -1110,36 +1149,36 @@ class Phoenix extends Node2D:
 					if i < 7:
 						pts.append(p + valley * s)
 				pts.append(p + Vector2(side * 4.0, 10.0) * s * ls)
-				PVfx.safe_poly(self, pts, col)
+				PVfx.safe_poly(pd, pts, col)
 		# 몸 + 머리 + 볏
-		PVfx.safe_poly(self, PackedVector2Array([p + Vector2(0, -16) * s, p + Vector2(6, -4) * s, p + Vector2(4, 12) * s, p + Vector2(0, 18) * s, p + Vector2(-4, 12) * s, p + Vector2(-6, -4) * s]), Color(pal[1], a))
-		PVfx.safe_poly(self, PackedVector2Array([p + Vector2(0, -12) * s, p + Vector2(3, -3) * s, p + Vector2(0, 10) * s, p + Vector2(-3, -3) * s]), Color(pal[0], a))
+		PVfx.safe_poly(pd, PackedVector2Array([p + Vector2(0, -16) * s, p + Vector2(6, -4) * s, p + Vector2(4, 12) * s, p + Vector2(0, 18) * s, p + Vector2(-4, 12) * s, p + Vector2(-6, -4) * s]), Color(pal[1], a))
+		PVfx.safe_poly(pd, PackedVector2Array([p + Vector2(0, -12) * s, p + Vector2(3, -3) * s, p + Vector2(0, 10) * s, p + Vector2(-3, -3) * s]), Color(pal[0], a))
 		for i in 3:
 			var cx := (float(i) - 1.0) * 3.0
-			PVfx.safe_poly(self, PackedVector2Array([p + Vector2(cx - 1.5, -15) * s, p + Vector2(cx * 2.0, -27 + absf(cx)) * s, p + Vector2(cx + 1.5, -15) * s]), Color(pal[1], 0.9 * a))
-		draw_circle(p + Vector2(0, -14) * s, 3.5 * s, Color(pal[0], a))
+			PVfx.safe_poly(pd, PackedVector2Array([p + Vector2(cx - 1.5, -15) * s, p + Vector2(cx * 2.0, -27 + absf(cx)) * s, p + Vector2(cx + 1.5, -15) * s]), Color(pal[1], 0.9 * a))
+		pd.draw_circle(p + Vector2(0, -14) * s, 3.5 * s, Color(pal[0], a))
 
 	## 옆모습 불사조 (날아갈 때)
 	func _draw_side(p: Vector2, rot: float, face: float, sc: float, a: float) -> void:
 		var pal := PSpells._pal(fox)
 		var flap := sin(t * 16.0)
-		draw_set_transform(p, rot, Vector2(face, 1.0) * sc)
-		draw_circle(Vector2.ZERO, 34.0, Color(pal[2], 0.16 * a))
+		pd.draw_set_transform(p, rot, Vector2(face, 1.0) * sc)
+		pd.draw_circle(Vector2.ZERO, 34.0, Color(pal[2], 0.16 * a))
 		for side in [-1, 1]:
 			var wing := PackedVector2Array([Vector2(4, 0), Vector2(-10, side * (-20 - flap * 10)), Vector2(-38, side * (-38 - flap * 14)),
 				Vector2(-58, side * (-30 - flap * 10)), Vector2(-40, side * (-16 - flap * 4)), Vector2(-52, side * (-10 - flap * 2)), Vector2(-18, side * -4)])
-			PVfx.safe_poly(self, wing, Color(pal[2], 0.85 * a))
+			PVfx.safe_poly(pd, wing, Color(pal[2], 0.85 * a))
 			var inner := PackedVector2Array([Vector2(2, 0), Vector2(-12, side * (-16 - flap * 8)), Vector2(-34, side * (-28 - flap * 11)), Vector2(-20, side * -6)])
-			PVfx.safe_poly(self, inner, Color(pal[1], 0.95 * a))
-			draw_polyline(PackedVector2Array([Vector2(-10, side * (-20 - flap * 10)), Vector2(-38, side * (-38 - flap * 14)), Vector2(-58, side * (-30 - flap * 10))]), Color(pal[0], a), 1.5)
+			PVfx.safe_poly(pd, inner, Color(pal[1], 0.95 * a))
+			pd.draw_polyline(PackedVector2Array([Vector2(-10, side * (-20 - flap * 10)), Vector2(-38, side * (-38 - flap * 14)), Vector2(-58, side * (-30 - flap * 10))]), Color(pal[0], a), 1.5)
 		for i in 3:
 			var tail := PackedVector2Array([Vector2(-10, 0), Vector2(-40 - i * 10, (i - 1) * 6 + sin(t * 9.0 + i) * 4), Vector2(-70 - i * 14, (i - 1) * 10 + sin(t * 7.0 + i) * 7), Vector2(-44 - i * 10, (i - 1) * 3)])
-			PVfx.safe_poly(self, tail, Color(pal[1 if i == 1 else 2], 0.8 * a))
-		PVfx.safe_poly(self, PackedVector2Array([Vector2(16, -2), Vector2(6, -6), Vector2(-12, -3), Vector2(-12, 3), Vector2(6, 5)]), Color(pal[1], a))
-		PVfx.safe_poly(self, PackedVector2Array([Vector2(14, -2), Vector2(6, -4), Vector2(-8, -1), Vector2(6, 3)]), Color(pal[0], a))
-		PVfx.safe_poly(self, PackedVector2Array([Vector2(16, -2), Vector2(22, 0), Vector2(16, 2)]), Color(pal[0], a))
-		PVfx.safe_poly(self, PackedVector2Array([Vector2(12, -4), Vector2(8, -12), Vector2(4, -5)]), Color(pal[0], a))
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			PVfx.safe_poly(pd, tail, Color(pal[1 if i == 1 else 2], 0.8 * a))
+		PVfx.safe_poly(pd, PackedVector2Array([Vector2(16, -2), Vector2(6, -6), Vector2(-12, -3), Vector2(-12, 3), Vector2(6, 5)]), Color(pal[1], a))
+		PVfx.safe_poly(pd, PackedVector2Array([Vector2(14, -2), Vector2(6, -4), Vector2(-8, -1), Vector2(6, 3)]), Color(pal[0], a))
+		PVfx.safe_poly(pd, PackedVector2Array([Vector2(16, -2), Vector2(22, 0), Vector2(16, 2)]), Color(pal[0], a))
+		PVfx.safe_poly(pd, PackedVector2Array([Vector2(12, -4), Vector2(8, -12), Vector2(4, -5)]), Color(pal[0], a))
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## 쓰러질 때 부활 (불사조가 세라 자리에서 솟아오름, 주변을 밀쳐 냄)
@@ -1176,7 +1215,7 @@ static func _bind(sera: PSera) -> void:
 	Fx.shake(0.2, 0.4)
 
 
-class Bind extends Node2D:
+class Bind extends PDraw.Canvas:
 	var sera: PSera
 	var view := Rect2()
 	var awake := false
@@ -1268,7 +1307,7 @@ class Bind extends Node2D:
 		return clampf(t / 0.45, 0.0, 1.0) * clampf((END - t) / 0.6, 0.0, 1.0)
 
 	# ── 일반 합성: 어두워지는 화면 + 참격 가장자리의 먹빛 ──
-	func _draw_solid(c: CanvasItem) -> void:
+	func _draw_solid(c: PDraw) -> void:
 		c.draw_rect(view.grow(40), Color(0.01, 0.02, 0.08, 0.5 * _fade()))
 		for s: Array in _streaks:
 			var g := _streak_k(s)
@@ -1287,7 +1326,7 @@ class Bind extends Node2D:
 			return Vector2.ZERO
 		return Vector2(clampf(age / 0.06, 0.0, 1.0), 1.0 - clampf((age - 0.1) / (STREAK_LIFE - 0.1), 0.0, 1.0))
 
-	func _draw() -> void:
+	func _paint() -> void:
 		var pal := PSpells._pal(true)
 		var a := _fade()
 		var appear := clampf(t / BIND_AT, 0.0, 1.0)
@@ -1303,10 +1342,10 @@ class Bind extends Node2D:
 					continue
 				var tp: Vector2 = (d as PDummy).center()
 				var from := c + Vector2(0, 30) * s
-				draw_line(from, tp, Color(pal[1], 0.4 * ca), 2.0)
+				pd.draw_line(from, tp, Color(pal[1], 0.4 * ca), 2.0)
 				for i in 5:
-					draw_circle(from.lerp(tp, float(i + 1) / 6.0), 2.2, Color(pal[0], 0.6 * ca))
-				draw_arc(tp, 22.0 + sin(t * 8.0) * 2.0, 0, TAU, 20, Color(pal[1], 0.6 * ca), 2.0)
+					pd.draw_circle(from.lerp(tp, float(i + 1) / 6.0), 2.2, Color(pal[0], 0.6 * ca))
+				pd.draw_arc(tp, 22.0 + sin(t * 8.0) * 2.0, 0, TAU, 20, Color(pal[1], 0.6 * ca), 2.0)
 		# 참격: 푸른 빛 날 + 흰 심 (먹빛 가장자리는 일반 합성 층)
 		for st: Array in _streaks:
 			var g := _streak_k(st)
@@ -1315,16 +1354,16 @@ class Bind extends Node2D:
 			var p0: Vector2 = st[0]
 			var p1: Vector2 = (st[0] as Vector2).lerp(st[1], g.x)
 			var w: float = float(st[3]) * g.y
-			PVfx.blade(self, p0, p1, w * 1.5, Color(pal[2], 0.55))
-			PVfx.blade(self, p0, p1, w, Color(pal[1], 0.85))
-			PVfx.blade(self, p0, p1, w * 0.35, Color(pal[0], 1.0))
+			PVfx.blade(pd, p0, p1, w * 1.5, Color(pal[2], 0.55))
+			PVfx.blade(pd, p0, p1, w, Color(pal[1], 0.85))
+			PVfx.blade(pd, p0, p1, w * 0.35, Color(pal[0], 1.0))
 
 	## 아홉 꼬리 여우신 (정면): 날개처럼 펼친 꼬리 아홉, 불꽃 갈기, 빛나는 눈, 가슴의 문양
 	func _draw_fox_god(c: Vector2, s: float, a: float, pal: Array) -> void:
 		if a <= 0.01:
 			return
-		draw_circle(c + Vector2(0, -20) * s, 170.0 * s, Color(pal[3], 0.12 * a))
-		draw_circle(c + Vector2(0, -30) * s, 90.0 * s, Color(pal[2], 0.15 * a))
+		pd.draw_circle(c + Vector2(0, -20) * s, 170.0 * s, Color(pal[3], 0.12 * a))
+		pd.draw_circle(c + Vector2(0, -30) * s, 90.0 * s, Color(pal[2], 0.15 * a))
 		# 꼬리 아홉: 몸 뒤에서 양옆·위로 부채꼴, 가운데가 통통하고 끝이 말려 올라가는 여우 꼬리 (끝은 흰 불꽃)
 		for i in 9:
 			var f := float(i) / 8.0
@@ -1347,39 +1386,40 @@ class Bind extends Node2D:
 				left.append(p + n * w)
 				right.append(p - n * w)
 				tip = p
-			right.reverse()
-			left.append_array(right)
-			PVfx.safe_poly(self, left, Color(pal[3], 0.45 * a))
-			var inner := PackedVector2Array()
+			# 띠로 바로 그림(삼각분할 없음): 바깥 짙은 털 → 안쪽 → 끝 흰 불
+			pd.strip(left, right, Color(pal[3], 0.45 * a))
+			var il := PackedVector2Array()
+			var ir := PackedVector2Array()
 			for k in left.size():
-				inner.append(root.lerp(left[k], 0.9))
-			PVfx.safe_poly(self, inner, Color(pal[2], 0.4 * a))
-			draw_circle(tip, 13.0 * s, Color(pal[1], 0.55 * a))
-			draw_circle(tip, 7.0 * s, Color(pal[0], 0.8 * a))
+				il.append(root.lerp(left[k], 0.9))
+				ir.append(root.lerp(right[k], 0.9))
+			pd.strip_grad(il, ir, Color(pal[2], 0.3 * a), Color(pal[1], 0.5 * a))
+			pd.glow(tip, 16.0 * s, Color(pal[1], 0.6 * a), 0.1)
+			pd.draw_circle(tip, 7.0 * s, Color(pal[0], 0.8 * a))
 		# 몸통 (가슴·앞다리)
-		PVfx.safe_poly(self, PackedVector2Array([c + Vector2(-34, -40) * s, c + Vector2(34, -40) * s, c + Vector2(26, 40) * s, c + Vector2(14, 90) * s,
+		PVfx.safe_poly(pd, PackedVector2Array([c + Vector2(-34, -40) * s, c + Vector2(34, -40) * s, c + Vector2(26, 40) * s, c + Vector2(14, 90) * s,
 			c + Vector2(-14, 90) * s, c + Vector2(-26, 40) * s]), Color(pal[2], 0.7 * a))
-		PVfx.safe_poly(self, PackedVector2Array([c + Vector2(-14, -30) * s, c + Vector2(14, -30) * s, c + Vector2(8, 60) * s, c + Vector2(-8, 60) * s]), Color(pal[1], 0.7 * a))
+		PVfx.safe_poly(pd, PackedVector2Array([c + Vector2(-14, -30) * s, c + Vector2(14, -30) * s, c + Vector2(8, 60) * s, c + Vector2(-8, 60) * s]), Color(pal[1], 0.7 * a))
 		# 가슴의 여우 문양(빛나는 고리)
-		draw_arc(c + Vector2(0, 0) * s, 14.0 * s, 0, TAU, 20, Color(pal[0], 0.9 * a), 2.0)
-		draw_circle(c, 6.0 * s, Color(pal[0], 0.9 * a))
+		pd.draw_arc(c + Vector2(0, 0) * s, 14.0 * s, 0, TAU, 20, Color(pal[0], 0.9 * a), 2.0)
+		pd.draw_circle(c, 6.0 * s, Color(pal[0], 0.9 * a))
 		# 머리: 큰 세모 귀 둘 + 넓은 뺨 + 아래로 뾰족한 주둥이 (정면 여우 얼굴)
 		var h := c + Vector2(0, -78) * s
 		for side in [-1.0, 1.0]:
-			PVfx.safe_poly(self, PackedVector2Array([h + Vector2(side * 10, -26) * s, h + Vector2(side * 48, -86) * s, h + Vector2(side * 42, -14) * s]), Color(pal[1], 0.9 * a))
-			PVfx.safe_poly(self, PackedVector2Array([h + Vector2(side * 18, -26) * s, h + Vector2(side * 42, -70) * s, h + Vector2(side * 36, -20) * s]), Color(pal[3], 0.7 * a))
+			PVfx.safe_poly(pd, PackedVector2Array([h + Vector2(side * 10, -26) * s, h + Vector2(side * 48, -86) * s, h + Vector2(side * 42, -14) * s]), Color(pal[1], 0.9 * a))
+			PVfx.safe_poly(pd, PackedVector2Array([h + Vector2(side * 18, -26) * s, h + Vector2(side * 42, -70) * s, h + Vector2(side * 36, -20) * s]), Color(pal[3], 0.7 * a))
 			# 뺨의 털 (옆으로 뻗은 불꽃)
-			PVfx.spike(self, h + Vector2(side * 34, 4) * s, Vector2(side, 0.5).normalized(), 26.0 * s, 14.0 * s, Color(pal[1], 0.75 * a))
-		PVfx.safe_poly(self, PackedVector2Array([h + Vector2(-40, -24) * s, h + Vector2(0, -36) * s, h + Vector2(40, -24) * s, h + Vector2(36, 6) * s,
+			PVfx.spike(pd, h + Vector2(side * 34, 4) * s, Vector2(side, 0.5).normalized(), 26.0 * s, 14.0 * s, Color(pal[1], 0.75 * a))
+		PVfx.safe_poly(pd, PackedVector2Array([h + Vector2(-40, -24) * s, h + Vector2(0, -36) * s, h + Vector2(40, -24) * s, h + Vector2(36, 6) * s,
 			h + Vector2(14, 30) * s, h + Vector2(0, 50) * s, h + Vector2(-14, 30) * s, h + Vector2(-36, 6) * s]), Color(pal[1], 0.9 * a))
-		PVfx.safe_poly(self, PackedVector2Array([h + Vector2(-20, 4) * s, h + Vector2(20, 4) * s, h + Vector2(0, 48) * s]), Color(pal[0], 0.8 * a))
-		draw_circle(h + Vector2(0, 46) * s, 4.0 * s, Color(pal[3], a))
+		PVfx.safe_poly(pd, PackedVector2Array([h + Vector2(-20, 4) * s, h + Vector2(20, 4) * s, h + Vector2(0, 48) * s]), Color(pal[0], 0.8 * a))
+		pd.draw_circle(h + Vector2(0, 46) * s, 4.0 * s, Color(pal[3], a))
 		# 이마의 불꽃 무늬
-		PVfx.spike(self, h + Vector2(0, -16) * s, Vector2(0, -1), 30.0 * s, 9.0 * s, Color(pal[0], 0.9 * a))
+		PVfx.spike(pd, h + Vector2(0, -16) * s, Vector2(0, -1), 30.0 * s, 9.0 * s, Color(pal[0], 0.9 * a))
 		# 날카롭게 치켜올라간 빛나는 눈
 		for side in [-1.0, 1.0]:
 			var e := h + Vector2(side * 17, -6) * s
-			PVfx.safe_poly(self, PackedVector2Array([e + Vector2(-side * 10, 4) * s, e + Vector2(side * 12, -6) * s, e + Vector2(side * 5, 5) * s]), Color(1, 1, 1, a))
+			PVfx.safe_poly(pd, PackedVector2Array([e + Vector2(-side * 10, 4) * s, e + Vector2(side * 12, -6) * s, e + Vector2(side * 5, 5) * s]), Color(1, 1, 1, a))
 
 
 # ═══════════════════════════════════════════════════════════
@@ -1387,7 +1427,7 @@ class Bind extends Node2D:
 # 방패를 내리며 막은 피해만큼 커진 거대한 할퀴기로 반격한다. 평소 = 붉은 불, 변신 = 푸른 여우불.
 # ═══════════════════════════════════════════════════════════
 
-class ShieldSpirit extends Node2D:
+class ShieldSpirit extends PDraw.Canvas:
 	var owner_sera: PSera
 	var fox := false
 	var dir := 1
@@ -1433,10 +1473,10 @@ class ShieldSpirit extends Node2D:
 		Sfx.play(&"swing", -2.0)
 		Sfx.play(&"blast", -6.0 + absorbed)
 
-	func _draw() -> void:
+	func _paint() -> void:
 		var pal := PSpells._pal(fox)
 		var gold := Color(1.0, 0.8, 0.3)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2(dir, 1.0))
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(dir, 1.0))
 		var appear := 1.0 - pow(1.0 - clampf(t / 0.15, 0.0, 1.0), 3.0)
 		var guard := t < PData.SHIELD_TIME
 		var st := t - PData.SHIELD_TIME
@@ -1464,9 +1504,9 @@ class ShieldSpirit extends Node2D:
 				tip = q
 			rp.reverse()
 			lp.append_array(rp)
-			PVfx.safe_poly(self, lp, Color(pal[3], 0.5 * aa))
-			draw_circle(tip, 6.0 * sc, Color(pal[1], 0.7 * aa))
-			draw_circle(tip, 3.0 * sc, Color(pal[0], 0.9 * aa))
+			PVfx.safe_poly(pd, lp, Color(pal[3], 0.5 * aa))
+			pd.draw_circle(tip, 6.0 * sc, Color(pal[1], 0.7 * aa))
+			pd.draw_circle(tip, 3.0 * sc, Color(pal[0], 0.9 * aa))
 		# 몸: 일렁이는 불꽃 기둥 (바깥 → 안쪽 → 흰 결)
 		for layer in 3:
 			var shrink: float = [1.0, 0.68, 0.36][layer]
@@ -1482,37 +1522,37 @@ class ShieldSpirit extends Node2D:
 				rpts.append(o + Vector2(half + jit * 0.6, y) * sc)
 			rpts.reverse()
 			lpts.append_array(rpts)
-			PVfx.safe_poly(self, lpts, col)
+			PVfx.safe_poly(pd, lpts, col)
 		for i in 4:
 			var x := (float(i) - 1.5) * 5.0
-			draw_line(o + Vector2(x, -6) * sc, o + Vector2(x * 0.6, -64) * sc, Color(pal[0], 0.35 * aa), 1.0)
+			pd.draw_line(o + Vector2(x, -6) * sc, o + Vector2(x * 0.6, -64) * sc, Color(pal[0], 0.35 * aa), 1.0)
 		# 머리: 큰 귀 둘 + 앞으로 뻗은 주둥이 + 빛나는 눈 (옆모습)
 		var hd := o + Vector2(2, -86) * sc
-		PVfx.safe_poly(self, PackedVector2Array([hd + Vector2(-10, -8) * sc, hd + Vector2(-8, -34) * sc, hd + Vector2(0, -14) * sc]), Color(pal[1], 0.85 * aa))
-		PVfx.safe_poly(self, PackedVector2Array([hd + Vector2(2, -12) * sc, hd + Vector2(10, -36) * sc, hd + Vector2(12, -10) * sc]), Color(pal[1], 0.85 * aa))
-		PVfx.safe_poly(self, PackedVector2Array([hd + Vector2(-14, -6) * sc, hd + Vector2(8, -14) * sc, hd + Vector2(16, -6) * sc, hd + Vector2(32, 2) * sc,
+		PVfx.safe_poly(pd, PackedVector2Array([hd + Vector2(-10, -8) * sc, hd + Vector2(-8, -34) * sc, hd + Vector2(0, -14) * sc]), Color(pal[1], 0.85 * aa))
+		PVfx.safe_poly(pd, PackedVector2Array([hd + Vector2(2, -12) * sc, hd + Vector2(10, -36) * sc, hd + Vector2(12, -10) * sc]), Color(pal[1], 0.85 * aa))
+		PVfx.safe_poly(pd, PackedVector2Array([hd + Vector2(-14, -6) * sc, hd + Vector2(8, -14) * sc, hd + Vector2(16, -6) * sc, hd + Vector2(32, 2) * sc,
 			hd + Vector2(14, 10) * sc, hd + Vector2(-8, 12) * sc, hd + Vector2(-16, 4) * sc]), Color(pal[2], 0.8 * aa))
-		PVfx.safe_poly(self, PackedVector2Array([hd + Vector2(0, -4) * sc, hd + Vector2(28, 2) * sc, hd + Vector2(8, 6) * sc]), Color(pal[0], 0.8 * aa))
-		PVfx.safe_poly(self, PackedVector2Array([hd + Vector2(4, -6) * sc, hd + Vector2(14, -8) * sc, hd + Vector2(10, -3) * sc]), Color(1, 1, 1, aa))
+		PVfx.safe_poly(pd, PackedVector2Array([hd + Vector2(0, -4) * sc, hd + Vector2(28, 2) * sc, hd + Vector2(8, 6) * sc]), Color(pal[0], 0.8 * aa))
+		PVfx.safe_poly(pd, PackedVector2Array([hd + Vector2(4, -6) * sc, hd + Vector2(14, -8) * sc, hd + Vector2(10, -3) * sc]), Color(1, 1, 1, aa))
 		if guard:
 			# 방패: 여우 문장이 새겨진 큰 연 모양 방패를 앞에 세움 (세라보다 큼)
 			var sp := o + Vector2(30, -44) * sc
 			var shield := PackedVector2Array([sp + Vector2(-6, -44) * sc, sp + Vector2(14, -38) * sc, sp + Vector2(18, 0) * sc, sp + Vector2(10, 34) * sc, sp + Vector2(-2, 46) * sc, sp + Vector2(-10, 30) * sc, sp + Vector2(-12, -30) * sc])
 			var fl := _flash
-			PVfx.safe_poly(self, shield, Color(pal[2].lerp(Color.WHITE, fl * 0.6), (0.75 + 0.2 * fl) * appear))
+			PVfx.safe_poly(pd, shield, Color(pal[2].lerp(Color.WHITE, fl * 0.6), (0.75 + 0.2 * fl) * appear))
 			var rim := shield.duplicate()
 			rim.append(shield[0])
-			draw_polyline(rim, Color(gold, 0.9 * appear), 2.0)
+			pd.draw_polyline(rim, Color(gold, 0.9 * appear), 2.0)
 			# 문장: 여우 얼굴 + 불꽃
-			PVfx.safe_poly(self, PackedVector2Array([sp + Vector2(-4, -12) * sc, sp + Vector2(-2, -22) * sc, sp + Vector2(2, -14) * sc, sp + Vector2(6, -22) * sc, sp + Vector2(8, -12) * sc, sp + Vector2(2, 2) * sc]), Color(pal[0], 0.9 * appear))
-			draw_arc(sp + Vector2(2, -6) * sc, 16.0 * sc, 0, TAU, 20, Color(gold, 0.6 * appear), 1.5)
+			PVfx.safe_poly(pd, PackedVector2Array([sp + Vector2(-4, -12) * sc, sp + Vector2(-2, -22) * sc, sp + Vector2(2, -14) * sc, sp + Vector2(6, -22) * sc, sp + Vector2(8, -12) * sc, sp + Vector2(2, 2) * sc]), Color(pal[0], 0.9 * appear))
+			pd.draw_arc(sp + Vector2(2, -6) * sc, 16.0 * sc, 0, TAU, 20, Color(gold, 0.6 * appear), 1.5)
 			# 방패 앞 빛의 벽(완전히 막음) + 흡수 표시(막을수록 밝아짐)
 			var wall := 0.25 + 0.1 * sin(t * 20.0) + 0.12 * float(mini(absorbed, 5))
-			draw_line(sp + Vector2(22, -50) * sc, sp + Vector2(22, 50) * sc, Color(pal[1], wall * appear), 3.0)
+			pd.draw_line(sp + Vector2(22, -50) * sc, sp + Vector2(22, 50) * sc, Color(pal[1], wall * appear), 3.0)
 			for i in mini(absorbed, 5):
-				draw_circle(o + Vector2(-4, -50 + i * 9) * sc, 3.0, Color(pal[0], 0.9))
+				pd.draw_circle(o + Vector2(-4, -50 + i * 9) * sc, 3.0, Color(pal[0], 0.9))
 			# 팔: 방패를 받침
-			draw_line(o + Vector2(10, -56) * sc, sp + Vector2(-6, -8) * sc, Color(pal[1], 0.7 * aa), 6.0 * sc)
+			pd.draw_line(o + Vector2(10, -56) * sc, sp + Vector2(-6, -8) * sc, Color(pal[1], 0.7 * aa), 6.0 * sc)
 		else:
 			# 반격: 방패를 내리고 옆으로 세 줄 가로베기 (막은 만큼 길고 굵어짐)
 			var p := _power()
@@ -1526,17 +1566,17 @@ class ShieldSpirit extends Node2D:
 				var p0 := o + Vector2(-34, y + 6)
 				var p1 := o + Vector2(lerpf(-34.0, reach, k), y - 4)
 				var w := 15.0 * p
-				PVfx.blade(self, p0, p1, w * 1.6, Color(pal[3], 0.5 * a), -0.6)
-				PVfx.blade(self, p0, p1, w, Color(pal[1], 0.85 * a), -0.6)
-				PVfx.blade(self, p0, p1, w * 0.3, Color(pal[0], a), -0.6)
+				PVfx.blade(pd, p0, p1, w * 1.6, Color(pal[3], 0.5 * a), -0.6)
+				PVfx.blade(pd, p0, p1, w, Color(pal[1], 0.85 * a), -0.6)
+				PVfx.blade(pd, p0, p1, w * 0.3, Color(pal[0], a), -0.6)
 				# 뒤로 흩날리는 바람 결
 				for j in 2:
 					var yy := y + (float(j) - 0.5) * w * 1.4
-					draw_line(o + Vector2(-50 - j * 10, yy), o + Vector2(lerpf(-50.0, reach * 0.6, k), yy - 3), Color(pal[1], 0.35 * a), 1.0)
+					pd.draw_line(o + Vector2(-50 - j * 10, yy), o + Vector2(lerpf(-50.0, reach * 0.6, k), yy - 3), Color(pal[1], 0.35 * a), 1.0)
 				if i == 1:
 					tip = p1
 			# 가운데 줄 끝의 커다란 정령 손 (앞으로 발톱을 세움)
-			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			if tip != Vector2.ZERO:
-				PVfx.fire_paw(self, Vector2(tip.x * dir, tip.y), 0.0 if dir > 0 else PI, 1.4 * p, fox, a)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+				PVfx.fire_paw(pd, Vector2(tip.x * dir, tip.y), 0.0 if dir > 0 else PI, 1.4 * p, fox, a)
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

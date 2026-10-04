@@ -10,7 +10,6 @@ var sera: PSera
 var hud: PHud
 var panel: PPanel
 var _lantern := Vector2(64, FLOOR)
-var _t := 0.0
 
 
 func _ready() -> void:
@@ -22,12 +21,14 @@ func _ready() -> void:
 	fx.name = "Effects"
 	fx.z_index = 5
 	add_child(fx)
-	_build_background()
 	_build_world()
+	var scenery := PScenery.build(self, _solids, _lantern)
 	_build_props()
 	sera = PSera.new()
 	sera.position = Vector2(150, FLOOR)
 	add_child(sera)
+	(scenery.live as PScenery.HallLive).sera = sera
+	(scenery.vignette as PScenery.Vignette).sera = sera
 	sera.set_respawn(Vector2(90, FLOOR))
 	var cam := PCamera.new()
 	cam.target = sera
@@ -51,10 +52,13 @@ func _ready() -> void:
 	panel.sera = sera
 	top.add_child(panel)
 	Music.play("boss")
+	if PBench.wanted():
+		var b := PBench.new()
+		b.arena = self
+		add_child(b)
 
 
 func _process(delta: float) -> void:
-	_t += delta
 	if Input.is_action_just_pressed("pr_exit") and not panel.visible:
 		Fx.reset()
 		GameState.go_title()
@@ -63,7 +67,6 @@ func _process(delta: float) -> void:
 	if sera.global_position.distance_to(_lantern) < 26.0 and Input.is_action_just_pressed("pr_up") and sera.st == PSera.St.NORMAL and sera.is_on_floor():
 		sera.rest()
 		sera.set_respawn(_lantern + Vector2(24, 0))
-	queue_redraw()
 
 
 ## 시험 실행기 eval용: PState 값 바꾸기 (eval "dbg('tails', 9)")
@@ -126,107 +129,6 @@ func _build_props() -> void:
 		d.setup(String(spec[0]))
 		d.position = spec[1]
 		add_child(d)
-
-
-# ═══════════════════════════════════════════════════════════
-# 배경 (한 번만 그리는 정적 그림 + 먼 층은 시차)
-# ═══════════════════════════════════════════════════════════
-
-func _build_background() -> void:
-	var sky := CanvasLayer.new()
-	sky.layer = -10
-	add_child(sky)
-	var sky_draw := SkyDraw.new()
-	sky.add_child(sky_draw)
-	var far := Parallax2D.new()
-	far.scroll_scale = Vector2(0.35, 0.6)
-	far.z_index = -8
-	add_child(far)
-	var far_draw := FarDraw.new()
-	far.add_child(far_draw)
-
-
-class SkyDraw extends Node2D:
-	func _draw() -> void:
-		var top := Color("#140b24")
-		var bot := Color("#4a2a4e")
-		for i in 24:
-			var f := float(i) / 23.0
-			draw_rect(Rect2(0, i * 15, 640, 16), top.lerp(bot, f * f))
-		# 달과 별
-		draw_circle(Vector2(520, 70), 26.0, Color(1.0, 0.92, 0.8, 0.12))
-		draw_circle(Vector2(520, 70), 18.0, Color("#f6e7c8"))
-		draw_circle(Vector2(526, 64), 15.0, Color("#e6d2ae"))
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 7
-		for i in 70:
-			var p := Vector2(rng.randf() * 640, rng.randf() * 200)
-			draw_rect(Rect2(p, Vector2(1, 1)), Color(1, 1, 1, rng.randf_range(0.3, 0.9)))
-
-
-class FarDraw extends Node2D:
-	func _draw() -> void:
-		# 먼 학교 첨탑 실루엣
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 11
-		var col := Color("#26173a")
-		var col2 := Color("#1c1030")
-		for i in 14:
-			var x := i * 90.0 + rng.randf_range(-20, 20)
-			var w := rng.randf_range(30, 60)
-			var h := rng.randf_range(80, 170)
-			draw_rect(Rect2(x, 330 - h, w, h + 100), col)
-			draw_colored_polygon(PackedVector2Array([Vector2(x - 4, 330 - h), Vector2(x + w / 2, 330 - h - rng.randf_range(30, 60)), Vector2(x + w + 4, 330 - h)]), col2)
-			for k in 3:
-				if rng.randf() < 0.6:
-					draw_rect(Rect2(x + w / 2 - 2, 340 - h + k * 26, 4, 7), Color(1, 0.75, 0.4, 0.55))
-		draw_rect(Rect2(-200, 330, 1600, 200), Color("#1a0f28"))
-
-
-func _draw() -> void:
-	# 실내 훈련장 벽(뒤판) — 아치와 기둥
-	draw_rect(Rect2(16, CEIL, W - 32, FLOOR - CEIL), Color("#2b1c3c", 0.55))
-	for i in 12:
-		var x := 40.0 + i * 120.0
-		draw_rect(Rect2(x, CEIL, 14, FLOOR - CEIL), Color("#22162f"))
-		draw_arc(Vector2(x + 67, CEIL + 70), 52.0, PI, TAU, 18, Color("#3a2850"), 3.0)
-	# 깃발
-	for i in 6:
-		var x := 120.0 + i * 220.0
-		var sway := sin(_t * 1.6 + i) * 2.0
-		draw_colored_polygon(PackedVector2Array([Vector2(x, CEIL + 4), Vector2(x + 24, CEIL + 4), Vector2(x + 24 + sway, CEIL + 54), Vector2(x + 12 + sway, CEIL + 46), Vector2(x + sway, CEIL + 54)]), Color("#7a1f33"))
-		draw_circle(Vector2(x + 12 + sway * 0.6, CEIL + 24), 5.0, Color("#f4c95d", 0.8))
-	# 지형 몸체 그림
-	for r in _solids:
-		draw_rect(r, Color("#3d3450"))
-		draw_rect(Rect2(r.position, Vector2(r.size.x, 3)), Color("#6e6286"))
-		var y := r.position.y + 10
-		while y < r.end.y and y < FLOOR + 60:
-			draw_line(Vector2(r.position.x, y), Vector2(r.end.x, y), Color("#2c2540"), 1.0)
-			y += 12
-	# 바닥 무늬
-	for i in int(W / 32.0):
-		draw_line(Vector2(i * 32.0, FLOOR + 3), Vector2(i * 32.0, FLOOR + 15), Color("#2c2540"), 1.0)
-	# 여우 석등
-	var l := _lantern
-	draw_rect(Rect2(l + Vector2(-8, -6), Vector2(16, 6)), Color("#6b6f7d"))
-	draw_rect(Rect2(l + Vector2(-3, -22), Vector2(6, 16)), Color("#7d8191"))
-	draw_colored_polygon(PackedVector2Array([l + Vector2(-10, -22), l + Vector2(10, -22), l + Vector2(6, -34), l + Vector2(-6, -34)]), Color("#8a8f9c"))
-	draw_colored_polygon(PackedVector2Array([l + Vector2(-12, -34), l + Vector2(12, -34), l + Vector2(0, -42)]), Color("#6b6f7d"))
-	var g := 0.7 + 0.3 * sin(_t * 5.0)
-	draw_circle(l + Vector2(0, -28), 8.0, Color(PData.FOX_MID, 0.25 * g))
-	draw_circle(l + Vector2(0, -28), 3.0, Color(PData.FOX_HOT, g))
-	if sera and sera.global_position.distance_to(l) < 26.0:
-		_label(l + Vector2(-16, -50), "↑ 쉬기")
-	# 구역 표지
-	_label(Vector2(250, FLOOR - 70), "허수아비 마당")
-	_label(Vector2(842, 140), "벽 점프 굴뚝 ↑")
-
-
-func _label(p: Vector2, s: String) -> void:
-	var f := ThemeDB.fallback_font
-	draw_string(f, p + Vector2(1, 1), s, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0, 0, 0, 0.6))
-	draw_string(f, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 0.9, 0.7, 0.75))
 
 
 ## 카메라: 세라를 따라가며 진행 방향을 조금 앞서 보여 줌. Fx가 흔들기·확대에 쓰는 shake/punch를 제공
