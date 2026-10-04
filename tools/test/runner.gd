@@ -369,6 +369,9 @@ func _process(_d: float) -> bool:
 			"autokill":
 				# [frame, "autokill", n] — n프레임마다 보스 아닌 적을 모두 처치 (0 = 끔)
 				_autokill = int(s[2])
+			"perf":
+				# [frame, "perf", 이름] — 프레임 시간·그리기 호출·노드 수
+				print("PERF ", s[2], " fps=", Engine.get_frames_per_second(), " process_ms=", snappedf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.01), " physics_ms=", snappedf(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, 0.01), " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objects=", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " nodes=", Performance.get_monitor(Performance.OBJECT_NODE_COUNT), " room=", get_first_node_in_group("world").room.data.id)
 			"quit":
 				return true
 	return false
