@@ -16,9 +16,14 @@ const CHAPTER := {
 	],
 }
 
-## 대본 파일 (Story가 이 순서로 읽는다)
+## 대본 파일 (Story가 이 순서로 읽는다). 장면(지역)마다 한 파일, 장 공용 도우미는 story/ch4/common.gd(목록에 넣지 않음),
+## 시험용 dev_ 대본은 story/dev/. 웹 내보내기에서 폴더 나열을 믿을 수 없어 하나하나 적는다
 const SCRIPTS := [
-	"res://story/scripts_ch4.gd",
+	"res://story/ch4/road.gd",
+	"res://story/ch4/trials.gd",
+	"res://story/ch4/spire.gd",
+	"res://story/ch4/people.gd",
+	"res://story/dev/ch4.gd",
 ]
 
 const SPECIAL := "res://characters/special/"

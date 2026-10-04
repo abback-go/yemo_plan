@@ -26,9 +26,11 @@ const CHAPTER := {
 
 ## 대본 파일 (Story가 이 순서로 읽는다. 같은 대본 ID가 두 파일에 있으면 앞 파일이 이기고 오류를 남김)
 const SCRIPTS := [
-	"res://story/scripts_prologue.gd",
-	"res://story/scripts_school.gd",
-	"res://story/scripts_npc.gd",
+	"res://story/ch1/prologue.gd",
+	"res://story/ch1/school_morning.gd",
+	"res://story/ch1/school_library.gd",
+	"res://story/ch1/school_seal.gd",
+	"res://story/ch1/npc.gd",
 ]
 
 ## 등장인물: 이름, 이름 색, 목소리(대화 삑삑음 높이), 작은 몸 그림 값, 초상화 값 (docs/chapter1.md 6절).

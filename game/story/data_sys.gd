@@ -6,7 +6,10 @@ extends RefCounted
 
 ## 대본 파일 (Story가 이 순서로 읽는다). sys는 장이 아니라 CHAPTER가 없다
 const SCRIPTS := [
-	"res://story/scripts_sys.gd",
+	"res://story/sys/board_wings.gd",
+	"res://story/sys/ward.gd",
+	"res://story/sys/meteor.gd",
+	"res://story/sys/phoenix.gd",
 ]
 
 const CHARACTERS := {

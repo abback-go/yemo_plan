@@ -325,6 +325,12 @@ func teach(title: String, text: String, keys: Array, wait_for: Array = []) -> St
 	return got
 
 
+## 다른 대본(ID)을 이 컷 그대로 이어서 실행 — 같은 파일의 대본이면 await 대본(c)와 같다.
+## 대본이 다른 파일(장면)에 있을 때 쓴다: await c.call_script("k_spar")
+func call_script(id: String) -> void:
+	await Story.call_in(id, self)
+
+
 func goto_room(room_id: String, spawn: String) -> void:
 	await world.go(room_id, spawn)
 	player.controls_enabled = false
