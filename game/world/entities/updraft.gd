@@ -11,7 +11,9 @@ var power := 1.0
 var on_if := ""
 var _t := 0.0
 var _on := true
+var _cond_dirty := true ## on_if를 다시 볼 차례 (처음 + GameState.flag_changed마다) — 매 프레임 문자열을 나누지 않게
 var _streaks: Array = []
+var _player: Player
 
 
 func setup(room: Room, e: Dictionary, _eid: String) -> void:
@@ -31,6 +33,12 @@ func setup(room: Room, e: Dictionary, _eid: String) -> void:
 	rng.seed = hash(room.data.id) + int(x * 31 + y)
 	for i in maxi(int(w * h / 3.0), 6):
 		_streaks.append([rng.randf(), rng.randf(), rng.randf_range(0.6, 1.4)])
+	if on_if != "":
+		GameState.flag_changed.connect(_on_flag)
+
+
+func _on_flag(_key: String) -> void:
+	_cond_dirty = true
 
 
 func is_on() -> bool:
@@ -39,14 +47,20 @@ func is_on() -> bool:
 
 func _physics_process(delta: float) -> void:
 	_t += delta
-	_on = RoomData.cond_ok(on_if)
+	# 조건은 예전처럼 물리 프레임 처음에 평가하되, 플래그가 바뀐 뒤에만 (빈 조건은 언제나 참)
+	if _cond_dirty:
+		_cond_dirty = false
+		_on = RoomData.cond_ok(on_if)
 	if _on:
-		var p := get_tree().get_first_node_in_group(GameConst.GROUP_PLAYER) as Player
-		if p:
-			var c := p.global_position + Vector2(0, -12)
+		if not is_instance_valid(_player):
+			_player = get_tree().get_first_node_in_group(GameConst.GROUP_PLAYER) as Player
+		if _player:
+			var c := _player.global_position + Vector2(0, -12)
 			if rect.grow_individual(4, 24, 4, 0).has_point(c):
-				p.apply_updraft(power, rect.position.y)
-	queue_redraw()
+				_player.apply_updraft(power, rect.position.y)
+	# 빛줄기는 화면(+여유) 근처일 때만 다시 그림 (시간 _t는 계속 흐름)
+	if Prop.near_view(self, Rect2(global_position + rect.position, rect.size).grow(32.0)):
+		queue_redraw()
 
 
 func _col() -> Color:
