@@ -1,5 +1,5 @@
 extends RefCounted
-## 4장 소품 그림 (Prop이 1장 목록에 없는 kind를 여기로 넘김). 모든 이름은 tp_ 로 시작한다.
+## 4장 소품 그림 (Prop이 아래 PROPS 표로 kind를 찾아 draw(p, kind)를 부름). 모든 이름은 tp_ 로 시작한다.
 ## 원점: 서 있는 것은 발밑(바닥 행), 매달린 것(tp_bell·tp_bell_small·tp_censer·tp_chain·tp_banner·tp_flags)은 천장 행.
 ##
 ##   tp_column (h)        대리석 기둥 — 금빛 머리·받침
@@ -54,50 +54,64 @@ const STONE := Color("#5a5e74")
 const STONE_LIGHT := Color("#8a8ea6")
 
 
-## 빛·움직임 정보: {animated, glow_pos, glow_r, glow_col}
-static func setup_info(kind: String, p: Prop) -> Dictionary:
-	if not kind.begins_with("tp_"):
-		return {}
-	var warm := Color(1.0, 0.8, 0.45)
-	var gold := Color(1.0, 0.88, 0.55)
-	match kind:
-		"tp_brazier":
-			return {"animated": true, "glow_pos": Vector2(0, -30), "glow_r": 72.0, "glow_col": gold}
-		"tp_candles":
-			return {"animated": true, "glow_pos": Vector2(0, -16), "glow_r": 52.0, "glow_col": warm}
-		"tp_candelabra":
-			return {"animated": true, "glow_pos": Vector2(0, -46), "glow_r": 64.0, "glow_col": warm}
-		"tp_books":
-			return {"animated": true, "glow_pos": Vector2(8, -18), "glow_r": 34.0, "glow_col": warm}
-		"tp_censer":
-			return {"animated": true, "glow_pos": Vector2(0, float(p.params.get("len", 3)) * 16.0 + 10.0), "glow_r": 26.0, "glow_col": warm}
-		"tp_font":
-			return {"animated": true, "glow_pos": Vector2(0, -16), "glow_r": 40.0, "glow_col": Color(0.75, 0.88, 1.0)}
-		"tp_glass":
-			return {"animated": true, "glow_pos": Vector2(0, -p.h * 8.0), "glow_r": 26.0 * p.w, "glow_col": gold}
-		"tp_mirror":
-			return {"animated": true, "glow_pos": Vector2(0, -28), "glow_r": 28.0, "glow_col": Color(1.0, 0.95, 0.85)}
-		"tp_lantern":
-			return {"animated": true, "glow_pos": Vector2(10, -38), "glow_r": 52.0, "glow_col": warm}
-		"tp_shrine":
-			return {"animated": true, "glow_pos": Vector2(0, -22), "glow_r": 34.0, "glow_col": warm}
-		"tp_altar":
-			return {"animated": true, "glow_pos": Vector2(0, -24), "glow_r": 44.0, "glow_col": gold}
-		"tp_statue":
-			return {"animated": true, "glow_pos": Vector2(0, -p.h * 16.0 * 0.86), "glow_r": 30.0 + p.h * 2.0, "glow_col": gold}
-		"tp_sun_relief":
-			return {"animated": true, "glow_pos": Vector2(0, -p.w * 8.0), "glow_r": p.w * 12.0, "glow_col": gold}
-		"tp_seal":
-			return {"animated": true, "glow_pos": Vector2(0, -16), "glow_r": 40.0, "glow_col": gold}
-		"tp_bell", "tp_bell_small", "tp_banner", "tp_flags", "tp_lectern", "tp_wing_statue":
-			return {"animated": true}
-	return {"animated": false}
+## 소품 표 (Prop이 합침): kind → {anim, glow, split} — 뜻은 world/entities/base_props.gd 머리 참고.
+const WARM := Color(1.0, 0.8, 0.45)
+const HOLY := Color(1.0, 0.88, 0.55)
+const PROPS := {
+	"tp_column": {},
+	"tp_broken_column": {},
+	"tp_brazier": {"anim": true, "glow": [Vector2(0, -30), 72.0, HOLY]},
+	"tp_mirror": {"anim": true, "glow": [Vector2(0, -28), 28.0, Color(1.0, 0.95, 0.85)]},
+	"tp_bell": {"anim": true},
+	"tp_bell_small": {"anim": true},
+	"tp_candles": {"anim": true, "glow": [Vector2(0, -16), 52.0, WARM]},
+	"tp_candelabra": {"anim": true, "glow": [Vector2(0, -46), 64.0, WARM]},
+	"tp_pew": {},
+	"tp_lectern": {"anim": true},
+	"tp_scrolls": {},
+	"tp_books": {"anim": true, "glow": [Vector2(8, -18), 34.0, WARM]},
+	"tp_statue": {"anim": true, "split": true, "glow": &"_glow_statue"},
+	"tp_wing_statue": {"anim": true},
+	"tp_banner": {"anim": true},
+	"tp_glass": {"anim": true, "glow": &"_glow_glass"},
+	"tp_sun_relief": {"anim": true, "glow": &"_glow_sun_relief"},
+	"tp_altar": {"anim": true, "glow": [Vector2(0, -24), 44.0, HOLY]},
+	"tp_font": {"anim": true, "glow": [Vector2(0, -16), 40.0, Color(0.75, 0.88, 1.0)]},
+	"tp_censer": {"anim": true, "glow": &"_glow_censer"},
+	"tp_chain": {},
+	"tp_scaffold": {},
+	"tp_stairs_broken": {},
+	"tp_rubble": {},
+	"tp_cairn": {},
+	"tp_flags": {"anim": true},
+	"tp_lantern": {"anim": true, "glow": [Vector2(10, -38), 52.0, WARM]},
+	"tp_pine": {},
+	"tp_shrine": {"anim": true, "glow": [Vector2(0, -22), 34.0, WARM]},
+	"tp_seal": {"anim": true, "glow": [Vector2(0, -16), 40.0, HOLY]},
+	"tp_great_gate": {},
+}
+
+
+# ─── 크기·값에 따라 달라지는 빛 (PROPS의 glow = &"함수") ──────
+
+static func _glow_statue(p: Prop) -> Array:
+	return [Vector2(0, -p.h * 16.0 * 0.86), 30.0 + p.h * 2.0, HOLY]
+
+
+static func _glow_glass(p: Prop) -> Array:
+	return [Vector2(0, -p.h * 8.0), 26.0 * p.w, HOLY]
+
+
+static func _glow_sun_relief(p: Prop) -> Array:
+	return [Vector2(0, -p.w * 8.0), p.w * 12.0, HOLY]
+
+
+static func _glow_censer(p: Prop) -> Array:
+	return [Vector2(0, float(p.params.get("len", 3)) * 16.0 + 10.0), 26.0, WARM]
 
 
 ## 그렸으면 true
 static func draw(p: Prop, kind: String) -> bool:
-	if not kind.begins_with("tp_"):
-		return false
 	var t := p.time()
 	match kind:
 		"tp_column": _column(p, p.h if p.h > 1.0 else 10.0, false)
@@ -275,7 +289,7 @@ static func _books(c: Prop, t: float) -> void:
 
 static func _hanging_bell(c: Prop, t: float, length: float, size: float, swing: float) -> void:
 	c.draw_rect(Rect2(-size * 0.4, -2, size * 0.8, 3), WOOD_DARK)
-	ART.bell(c, Vector2(0, 0), length, size, sin(t * 1.1 + c.position.x * 0.01) * swing, ART.BELL_METAL, 0.0, 0.5)
+	ART.bell(c, Vector2(0, 0), length, size, sin(t * 1.1 + c.anchor.x * 0.01) * swing, ART.BELL_METAL, 0.0, 0.5)
 
 
 static func _censer(c: Prop, t: float, length: float) -> void:
@@ -362,7 +376,7 @@ static func _scrolls(c: Prop, w_t: float, h_t: float) -> void:
 	c.draw_rect(Rect2(x0, -H, 2, H), WOOD)
 	c.draw_rect(Rect2(x0 + W - 2, -H, 2, H), WOOD)
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(c.position.x * 13.0 + c.position.y)
+	rng.seed = int(c.anchor.x * 13.0 + c.anchor.y)
 	var tags: Array[Color] = [Color("#a83040"), Color("#3a5aa8"), Color("#c8a040"), Color("#4a8a5a")]
 	var y := -H + 15.0
 	while y < -2.0:
@@ -382,13 +396,15 @@ static func _scrolls(c: Prop, w_t: float, h_t: float) -> void:
 
 # ─── 석상·성물 ─────────────────────────────────────────
 
+## 루멘 석상. split: 금빛 관(알파가 일렁임)과 그 뒤에 겹쳐 그리는 것만 움직임 층 (ART.lumen_statue의 part)
 static func _statue(c: Prop, h_t: float, pose: int, t: float) -> void:
 	var H := h_t * 16.0
-	c.draw_rect(Rect2(-H * 0.2, -10, H * 0.4, 10), MARBLE_DARK)
-	c.draw_rect(Rect2(-H * 0.2, -10, H * 0.4, 1), GOLD)
-	c.draw_rect(Rect2(-H * 0.17, -8, H * 0.34, 1), MARBLE_DARK.darkened(0.2))
+	if c.static_part():
+		c.draw_rect(Rect2(-H * 0.2, -10, H * 0.4, 10), MARBLE_DARK)
+		c.draw_rect(Rect2(-H * 0.2, -10, H * 0.4, 1), GOLD)
+		c.draw_rect(Rect2(-H * 0.17, -8, H * 0.34, 1), MARBLE_DARK.darkened(0.2))
 	var crown := Color(GOLD, 0.85 + 0.15 * sin(t * 1.5))
-	ART.lumen_statue(c, Vector2(0, -8), H - 8.0, MARBLE, MARBLE_LIGHT, crown, pose, -1.0)
+	ART.lumen_statue(c, Vector2(0, -8), H - 8.0, MARBLE, MARBLE_LIGHT, crown, pose, -1.0, c.layer)
 
 
 static func _wing_statue(c: Prop, t: float) -> void:
@@ -416,7 +432,7 @@ static func _wing_statue(c: Prop, t: float) -> void:
 
 static func _banner(c: Prop, t: float, h_t: float) -> void:
 	var H := h_t * 16.0
-	var sw := sin(t * 1.2 + c.position.x * 0.02) * 2.0
+	var sw := sin(t * 1.2 + c.anchor.x * 0.02) * 2.0
 	c.draw_rect(Rect2(-14, 0, 28, 3), GOLD_DARK)
 	c.draw_rect(Rect2(-14, 0, 28, 1), GOLD_LIGHT)
 	c.draw_circle(Vector2(-14, 1.5), 2.0, GOLD)
@@ -568,7 +584,7 @@ static func _stairs_broken(c: Prop, w_t: float) -> void:
 
 static func _rubble(c: Prop, w_t: float) -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(c.position.x * 3.0 + 7.0)
+	rng.seed = int(c.anchor.x * 3.0 + 7.0)
 	var W := w_t * 16.0
 	for i in int(w_t * 3.0) + 2:
 		var x := rng.randf_range(-W * 0.5, W * 0.5)

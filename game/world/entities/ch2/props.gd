@@ -1,5 +1,5 @@
 extends RefCounted
-## 2장 소품 그림 (Prop이 1장 목록에 없는 kind를 여기로 넘김). 모든 kind는 "k_" 접두사(다른 장과 겹치지 않게).
+## 2장 소품 그림 (Prop이 아래 PROPS 표로 kind를 찾아 draw(p, kind)를 부름). 모든 kind는 "k_" 접두사(다른 장과 겹치지 않게).
 ## 원점: 바닥에 서는 것은 발밑(가운데), 매달린 것(깃발·등불·간판·차양·깃발 줄)은 매다는 점, 벽에 붙는 톱니·시계는 중심.
 ## 공통 키: w, h(타일), flip, front, col(색), glow(빛 세기 0~1)
 ##
@@ -27,82 +27,96 @@ const AMBER := Color("#ffb45a")
 const TEAL := Color("#6af0e0")
 const VIOLET := Color("#c89aff")
 
-const ANIMATED := ["k_lamp", "k_chimney", "k_bunting", "k_sign", "k_banner", "k_flag", "k_dummy", "k_glass", "k_candelabra",
-	"k_pipe", "k_grate", "k_crystal", "k_meteor", "k_gear", "k_forge", "k_fountain", "k_lantern", "k_cult_circle", "k_clock",
-	"k_laundry", "k_altar", "k_stall"]
+## 소품 표 (Prop이 합침): kind → {anim: 매 프레임 다시 그림, glow: [위치, 반지름, 색] 또는 &"함수"(p → 같은 배열, 빈 배열 = 빛 없음),
+## split: 정적 부분은 한 번·움직이는 부분만 다시 그림(그림 함수가 p.static_part()/p.anim_part()로 나눔)} — base_props.gd 머리 참고.
+## anim이 아니면 처음 한 번만 그린다(k_window처럼 그림이 t를 써도 멈춘 채로 보임).
+const PROPS := {
+	"k_stall": {"anim": true, "split": true},
+	"k_awning": {},
+	"k_crates": {},
+	"k_barrel": {},
+	"k_lamp": {"anim": true, "split": true, "glow": &"_glow_lamp"},
+	"k_chimney": {"anim": true},
+	"k_bunting": {"anim": true},
+	"k_sign": {"anim": true},
+	"k_window": {"glow": &"_glow_window"},
+	"k_cart": {},
+	"k_flowers": {},
+	"k_laundry": {"anim": true},
+	"k_noticeboard": {},
+	"k_fountain": {"anim": true, "glow": [Vector2(0, -12), 50.0, Color(0.6, 0.85, 1.0)]},
+	"k_bread": {},
+	"k_forge": {"anim": true, "glow": [Vector2(-8, -16), 70.0, Color(1.0, 0.5, 0.2)]},
+	"k_anvil": {},
+	"k_banner": {"anim": true},
+	"k_flag": {"anim": true},
+	"k_rack": {},
+	"k_dummy": {"anim": true},
+	"k_statue_leonie": {"glow": [Vector2(0, -6), 30.0, AMBER]},
+	"k_statue_lion": {},
+	"k_glass": {"anim": true, "glow": &"_glow_glass"},
+	"k_pew": {},
+	"k_candelabra": {"anim": true, "glow": [Vector2(0, -34), 50.0, Color(1.0, 0.8, 0.5)]},
+	"k_altar": {"anim": true, "glow": [Vector2(0, -30), 46.0, Color(1.0, 0.88, 0.55)]},
+	"k_bell": {},
+	"k_lantern": {"anim": true, "glow": &"_glow_lantern"},
+	"k_portcullis": {},
+	"k_gear": {"anim": true},
+	"k_clock": {"anim": true},
+	"k_pipe": {"anim": true, "glow": &"_glow_pipe"},
+	"k_grate": {"anim": true, "glow": &"_glow_grate"},
+	"k_valve": {},
+	"k_crystal": {"anim": true, "glow": &"_glow_crystal"},
+	"k_meteor": {"anim": true, "glow": &"_glow_meteor"},
+	"k_rubble": {},
+	"k_cult_circle": {"anim": true, "glow": &"_glow_cult_circle"},
+}
 
 
-## 빛·움직임 정보: {animated, glow_pos, glow_r, glow_col} — 이 장 소품이 아니면 {}
-static func setup_info(kind: String, p: Prop) -> Dictionary:
-	if not kind.begins_with("k_"):
-		return {}
-	var info := {"animated": kind in ANIMATED}
-	match kind:
-		"k_lamp":
-			info.glow_pos = Vector2(0, -p.h * T + 8)
-			info.glow_r = 64.0
-			info.glow_col = AMBER
-		"k_lantern":
-			info.glow_pos = Vector2(0, float(p.params.get("len", 2)) * T + 10)
-			info.glow_r = 54.0
-			info.glow_col = AMBER
-		"k_candelabra":
-			info.glow_pos = Vector2(0, -34)
-			info.glow_r = 50.0
-			info.glow_col = Color(1.0, 0.8, 0.5)
-		"k_forge":
-			info.glow_pos = Vector2(-8, -16)
-			info.glow_r = 70.0
-			info.glow_col = Color(1.0, 0.5, 0.2)
-		"k_glass":
-			info.glow_pos = Vector2(0, -p.h * T * 0.5)
-			info.glow_r = 40.0 + p.w * 14.0
-			info.glow_col = Color(1.0, 0.75, 0.6)
-		"k_crystal":
-			info.glow_pos = Vector2(0, -p.h * T * 0.5)
-			info.glow_r = 30.0 + p.h * 12.0
-			info.glow_col = Color(p.params.get("col", VIOLET))
-		"k_meteor":
-			info.glow_pos = Vector2(0, -p.h * T * 0.5)
-			info.glow_r = 50.0 + p.w * 8.0
-			info.glow_col = VIOLET
-		"k_grate":
-			info.glow_pos = Vector2(0, -p.h * T * 0.5)
-			info.glow_r = 30.0 + p.w * 10.0
-			info.glow_col = TEAL
-		"k_cult_circle":
-			info.glow_pos = Vector2(0, -4)
-			info.glow_r = p.w * T * 0.7
-			info.glow_col = VIOLET
-		"k_altar":
-			info.glow_pos = Vector2(0, -30)
-			info.glow_r = 46.0
-			info.glow_col = Color(1.0, 0.88, 0.55)
-		"k_window":
-			if bool(p.params.get("lit", true)):
-				info.glow_pos = Vector2(0, -p.h * T * 0.5)
-				info.glow_r = 30.0 + p.w * 8.0
-				info.glow_col = AMBER
-		"k_pipe":
-			if bool(p.params.get("drip", true)):
-				info.glow_pos = Vector2(0, -2)
-				info.glow_r = 30.0
-				info.glow_col = TEAL
-		"k_fountain":
-			info.glow_pos = Vector2(0, -12)
-			info.glow_r = 50.0
-			info.glow_col = Color(0.6, 0.85, 1.0)
-		"k_statue_leonie":
-			info.glow_pos = Vector2(0, -6)
-			info.glow_r = 30.0
-			info.glow_col = AMBER
-	return info
+# ─── 크기·값에 따라 달라지는 빛 (PROPS의 glow = &"함수") ──────
+
+static func _glow_lamp(p: Prop) -> Array:
+	return [Vector2(0, -p.h * T + 8), 64.0, AMBER]
+
+
+static func _glow_lantern(p: Prop) -> Array:
+	return [Vector2(0, float(p.params.get("len", 2)) * T + 10), 54.0, AMBER]
+
+
+static func _glow_glass(p: Prop) -> Array:
+	return [Vector2(0, -p.h * T * 0.5), 40.0 + p.w * 14.0, Color(1.0, 0.75, 0.6)]
+
+
+static func _glow_crystal(p: Prop) -> Array:
+	return [Vector2(0, -p.h * T * 0.5), 30.0 + p.h * 12.0, Color(p.params.get("col", VIOLET))]
+
+
+static func _glow_meteor(p: Prop) -> Array:
+	return [Vector2(0, -p.h * T * 0.5), 50.0 + p.w * 8.0, VIOLET]
+
+
+static func _glow_grate(p: Prop) -> Array:
+	return [Vector2(0, -p.h * T * 0.5), 30.0 + p.w * 10.0, TEAL]
+
+
+static func _glow_cult_circle(p: Prop) -> Array:
+	return [Vector2(0, -4), p.w * T * 0.7, VIOLET]
+
+
+static func _glow_window(p: Prop) -> Array:
+	if not bool(p.params.get("lit", true)):
+		return []
+	return [Vector2(0, -p.h * T * 0.5), 30.0 + p.w * 8.0, AMBER]
+
+
+static func _glow_pipe(p: Prop) -> Array:
+	if not bool(p.params.get("drip", true)):
+		return []
+	return [Vector2(0, -2), 30.0, TEAL]
 
 
 ## 그렸으면 true
 static func draw(p: Prop, kind: String) -> bool:
-	if not kind.begins_with("k_"):
-		return false
 	var t := p.time()
 	match kind:
 		"k_stall": _stall(p, t)
@@ -160,12 +174,32 @@ static func _outline_rect(p: Prop, r: Rect2, fill: Color, line := Color("#0a080e
 
 # ─── 거리·시장 ──────────────────────────────────────────
 
-## 시장 노점: 줄무늬 차양 + 판매대 + 물건
+## 시장 노점: 줄무늬 차양 + 판매대 + 물건. split: 별 상품의 깜빡임과 매달린 등불만 움직임 층에서 다시 그린다
+## (움직이는 것과 겹치는 정적 그림이 없어서 자식 층이 위에 그려도 원래와 같은 그림)
 static func _stall(p: Prop, t: float) -> void:
 	var w := (p.w if p.w > 1.0 else 4.0) * T
 	var col := _col(p, Color("#a8323a"))
 	var goods := String(p.params.get("goods", "bread"))
 	var hw := w * 0.5
+	var top := -52.0
+	if p.static_part():
+		_stall_static(p, w, hw, col, goods, top)
+	if not p.anim_part():
+		return
+	if goods == "star":
+		# 별 조각 부적 (별 신도가 파는 수상한 것)
+		for i in int(w / 10.0):
+			var gp := Vector2(-hw + 6 + i * 10, -22)
+			var k := 0.6 + 0.4 * sin(t * 3.0 + i)
+			KArt.star4(p, gp, 2.5 * k + 1.0, Color(VIOLET, 0.6 + 0.4 * k))
+	# 매달린 등불
+	var lc := Vector2(hw - 8, top + 16 + sin(t * 1.4) * 0.5)
+	p.draw_line(Vector2(hw - 8, top + 10), lc, IRON, 1.0)
+	p.draw_rect(Rect2(lc.x - 2, lc.y, 5, 6), Color(AMBER, 0.9))
+	p.draw_rect(Rect2(lc.x - 2, lc.y - 1, 5, 1), IRON)
+
+
+static func _stall_static(p: Prop, w: float, hw: float, col: Color, goods: String, top: float) -> void:
 	# 뒤 기둥
 	p.draw_rect(Rect2(-hw + 2, -46, 3, 46), WOOD_D)
 	p.draw_rect(Rect2(hw - 5, -46, 3, 46), WOOD_D)
@@ -175,7 +209,7 @@ static func _stall(p: Prop, t: float) -> void:
 	for i in int(w / 8.0):
 		p.draw_rect(Rect2(-hw + i * 8 + 3, -13, 1, 12), WOOD_D)
 	p.draw_rect(Rect2(-hw, -18, w, 1), WOOD_L.lightened(0.2))
-	# 물건
+	# 물건 (별 상품은 움직임 층)
 	match goods:
 		"bread":
 			for i in int(w / 10.0):
@@ -201,14 +235,7 @@ static func _stall(p: Prop, t: float) -> void:
 			# 걸린 천
 			for i in 3:
 				p.draw_rect(Rect2(-hw + 8 + i * 12, -40, 6, 14 - i * 2), cc[(i + 1) % cc.size()])
-		"star":
-			# 별 조각 부적 (별 신도가 파는 수상한 것)
-			for i in int(w / 10.0):
-				var gp := Vector2(-hw + 6 + i * 10, -22)
-				var k := 0.6 + 0.4 * sin(t * 3.0 + i)
-				KArt.star4(p, gp, 2.5 * k + 1.0, Color(VIOLET, 0.6 + 0.4 * k))
 	# 차양 (줄무늬, 물결 모양 끝)
-	var top := -52.0
 	var aw := PackedVector2Array([Vector2(-hw - 4, top + 10), Vector2(-hw + 2, top), Vector2(hw - 2, top), Vector2(hw + 4, top + 10)])
 	p.draw_colored_polygon(aw, col)
 	var stripes := int(w / 8.0)
@@ -224,11 +251,6 @@ static func _stall(p: Prop, t: float) -> void:
 		var sx := -hw - 4 + i * (w + 8) / (stripes + 1)
 		p.draw_circle(Vector2(sx + (w + 8) / (stripes + 1) * 0.5, top + 10), (w + 8) / (stripes + 1) * 0.5, col if i % 2 == 0 else Color("#ece0c8"))
 	p.draw_line(Vector2(-hw + 2, top), Vector2(hw - 2, top), col.lightened(0.25), 1.0)
-	# 매달린 등불
-	var lc := Vector2(hw - 8, top + 16 + sin(t * 1.4) * 0.5)
-	p.draw_line(Vector2(hw - 8, top + 10), lc, IRON, 1.0)
-	p.draw_rect(Rect2(lc.x - 2, lc.y, 5, 6), Color(AMBER, 0.9))
-	p.draw_rect(Rect2(lc.x - 2, lc.y - 1, 5, 1), IRON)
 
 
 ## 벽에 붙은 차양 (원점 = 위 가운데)
@@ -287,24 +309,27 @@ static func _barrel(p: Prop) -> void:
 		p.draw_rect(Rect2(-5, -19, 10, 1), Color(0.5, 0.75, 0.9))
 
 
-## 가로등: 쇠기둥 + 유리 등불 (불꽃 흔들림)
+## 가로등: 쇠기둥 + 유리 등불 (불꽃 흔들림). split: 불빛 사각형 둘만 움직임 층 (뒤에 그리는 쇠틀과 겹치지 않음)
 static func _lamp(p: Prop, t: float) -> void:
 	var h := (p.h if p.h > 1.0 else 4.0) * T
-	p.draw_rect(Rect2(-5, -4, 10, 4), IRON)
-	p.draw_rect(Rect2(-2, -h + 10, 4, h - 10), IRON)
-	p.draw_rect(Rect2(-1, -h + 10, 1, h - 12), IRON_L)
-	p.draw_rect(Rect2(-3, -h * 0.5, 6, 2), IRON_L)
-	# 등불 갓
 	var top := -h + 10
-	p.draw_colored_polygon(PackedVector2Array([Vector2(-7, top - 12), Vector2(7, top - 12), Vector2(4, top - 17), Vector2(-4, top - 17)]), IRON)
-	p.draw_rect(Rect2(-1, top - 20, 2, 3), IRON)
-	var fl := 0.85 + 0.15 * sin(t * 9.0) + 0.05 * sin(t * 23.0)
-	p.draw_rect(Rect2(-5, top - 12, 10, 12), Color(AMBER.darkened(0.3), 0.9))
-	p.draw_rect(Rect2(-4, top - 11, 8, 10), Color(AMBER, fl))
-	p.draw_rect(Rect2(-2, top - 8, 4, 6), Color(1.0, 0.95, 0.75, fl))
-	p.draw_rect(Rect2(-5, top - 12, 1, 12), IRON)
-	p.draw_rect(Rect2(4, top - 12, 1, 12), IRON)
-	p.draw_rect(Rect2(-6, top - 1, 12, 2), IRON)
+	if p.static_part():
+		p.draw_rect(Rect2(-5, -4, 10, 4), IRON)
+		p.draw_rect(Rect2(-2, -h + 10, 4, h - 10), IRON)
+		p.draw_rect(Rect2(-1, -h + 10, 1, h - 12), IRON_L)
+		p.draw_rect(Rect2(-3, -h * 0.5, 6, 2), IRON_L)
+		# 등불 갓
+		p.draw_colored_polygon(PackedVector2Array([Vector2(-7, top - 12), Vector2(7, top - 12), Vector2(4, top - 17), Vector2(-4, top - 17)]), IRON)
+		p.draw_rect(Rect2(-1, top - 20, 2, 3), IRON)
+		p.draw_rect(Rect2(-5, top - 12, 10, 12), Color(AMBER.darkened(0.3), 0.9))
+	if p.anim_part():
+		var fl := 0.85 + 0.15 * sin(t * 9.0) + 0.05 * sin(t * 23.0)
+		p.draw_rect(Rect2(-4, top - 11, 8, 10), Color(AMBER, fl))
+		p.draw_rect(Rect2(-2, top - 8, 4, 6), Color(1.0, 0.95, 0.75, fl))
+	if p.static_part():
+		p.draw_rect(Rect2(-5, top - 12, 1, 12), IRON)
+		p.draw_rect(Rect2(4, top - 12, 1, 12), IRON)
+		p.draw_rect(Rect2(-6, top - 1, 12, 2), IRON)
 
 
 ## 지붕 위 굴뚝 + 연기
@@ -318,28 +343,53 @@ static func _chimney(p: Prop, t: float) -> void:
 		p.draw_rect(Rect2(-7 + (4 if row % 2 == 0 else 0), y, 1, 4), brick.darkened(0.3))
 	p.draw_rect(Rect2(-9, -h - 3, 18, 4), brick.lightened(0.12))
 	p.draw_rect(Rect2(-5, -h - 2, 10, 2), Color("#1a0e0c"))
-	KArt.smoke(p, Vector2(0, -h - 4), t, float(int(p.position.x) % 97) / 97.0, Color(0.68, 0.66, 0.74, 0.3), 1.2, 7)
+	KArt.smoke(p, Vector2(0, -h - 4), t, float(int(p.anchor.x) % 97) / 97.0, Color(0.68, 0.66, 0.74, 0.3), 1.2, 7)
 	p.draw_rect(Rect2(-4, -h - 2, 8, 1), Color(1.0, 0.5, 0.2, 0.4 + 0.2 * sin(t * 6.0)))
 
 
-## 장식 깃발 줄 (원점 = 왼쪽 매다는 점, w = 오른쪽 끝까지 타일)
+## 장식 깃발 줄 (원점 = 왼쪽 매다는 점, w = 오른쪽 끝까지 타일).
+## 깃발 하나에 선 둘·삼각형 하나라 명령이 수백 개 → 삼각형 배열 한 번으로 그린다(매 프레임 움직임).
+## 선은 draw_line(굵기 1)과 같은 사각형(RendererCanvasCull::canvas_item_add_line 계산)·같은 색 정밀도(Prop.line_color)이고
+## 그리는 순서도 같아서 픽셀까지 같다. 색은 처음 한 번만 만든다(line_color가 느림).
+static var _bunting_cols := {} ## 깃발 수 n → 꼭짓점 색 (모양과 달리 색은 안 변함)
+
+
 static func _bunting(p: Prop, t: float) -> void:
 	var w := (p.w if p.w > 1.0 else 6.0) * T
 	var sag := float(p.params.get("sag", 1.0)) * T
-	var cols := [Color("#b8323a"), Color("#e0b040"), Color("#3a62b0"), Color("#ece4d4")]
 	var n := int(w / 10.0)
-	var sway := sin(t * 1.1) * 2.0
+	var amp := sag + sin(t * 1.1) * 2.0
+	var cs: PackedColorArray = _bunting_cols.get(n, PackedColorArray())
+	var make_cols := cs.is_empty()
+	var cols := [Color("#b8323a"), Color("#e0b040"), Color("#3a62b0"), Color("#ece4d4")]
+	var line_col := Prop.line_color(Color("#2a2420")) if make_cols else Color()
+	var pts := PackedVector2Array()
 	var prev := Vector2.ZERO
 	for i in range(1, n + 1):
 		var k := float(i) / n
-		var pt := Vector2(w * k, sin(k * PI) * (sag + sway))
-		p.draw_line(prev, pt, Color("#2a2420"), 1.0)
+		var pt := Vector2(w * k, sin(k * PI) * amp)
+		# 줄 한 마디 (draw_line 사각형)
+		var o := (prev - pt).orthogonal().normalized() * 0.5
+		pts.append_array([prev + o, prev - o, pt - o, prev + o, pt - o, pt + o])
+		if make_cols:
+			cs.append_array([line_col, line_col, line_col, line_col, line_col, line_col])
 		if i < n:
-			var fc: Color = cols[i % cols.size()]
+			# 깃발 삼각형 + 밝은 테두리 선
 			var f := sin(t * 3.0 + i * 0.9) * 1.5
-			p.draw_colored_polygon(PackedVector2Array([pt + Vector2(-3, 0), pt + Vector2(3, 0), pt + Vector2(f, 8)]), fc)
-			p.draw_line(pt + Vector2(-3, 0), pt + Vector2(f * 0.5, 4), fc.lightened(0.25), 1.0)
+			var a := pt + Vector2(-3, 0)
+			var b := pt + Vector2(f * 0.5, 4)
+			var o2 := (a - b).orthogonal().normalized() * 0.5
+			pts.append_array([a, pt + Vector2(3, 0), pt + Vector2(f, 8), a + o2, a - o2, b - o2, a + o2, b - o2, b + o2])
+			if make_cols:
+				var fc: Color = cols[i % cols.size()]
+				var hl := Prop.line_color(fc.lightened(0.25))
+				cs.append_array([fc, fc, fc, hl, hl, hl, hl, hl, hl])
 		prev = pt
+	if pts.is_empty():
+		return
+	if make_cols:
+		_bunting_cols[n] = cs
+	RenderingServer.canvas_item_add_triangle_array(p.get_canvas_item(), PackedInt32Array(), pts, cs)
 
 
 ## 매달린 가게 간판 (원점 = 벽 쪽 받침대). icon: bread·anvil·sword·potion·inn·star
@@ -388,7 +438,7 @@ static func _window(p: Prop, t: float) -> void:
 	var lit := bool(p.params.get("lit", true))
 	var r := Rect2(-w * 0.5, -h, w, h)
 	p.draw_rect(r.grow(2.0), Color("#2a2028"))
-	var fl := 0.85 + 0.15 * sin(t * 1.3 + p.position.x)
+	var fl := 0.85 + 0.15 * sin(t * 1.3 + p.anchor.x)
 	p.draw_rect(r, Color(AMBER, fl) if lit else Color("#141820"))
 	if lit:
 		p.draw_rect(Rect2(r.position + Vector2(2, 2), Vector2(w * 0.35, h * 0.4)), Color(1.0, 0.92, 0.7, 0.6 * fl))
@@ -839,7 +889,7 @@ static func _bell(p: Prop) -> void:
 ## 매달린 등불 (원점 = 천장)
 static func _lantern(p: Prop, t: float) -> void:
 	var len := float(p.params.get("len", 2)) * T
-	var sway := sin(t * 1.4 + p.position.x * 0.03) * 1.5
+	var sway := sin(t * 1.4 + p.anchor.x * 0.03) * 1.5
 	var c := Vector2(sway, len + 8)
 	p.draw_line(Vector2.ZERO, c + Vector2(0, -8), IRON, 1.0)
 	p.draw_colored_polygon(PackedVector2Array([c + Vector2(-6, -6), c + Vector2(6, -6), c + Vector2(3, -10), c + Vector2(-3, -10)]), IRON)
@@ -976,9 +1026,9 @@ static func _valve(p: Prop) -> void:
 static func _crystal(p: Prop, t: float) -> void:
 	var h := (p.h if p.h > 1.0 else 2.0) * T
 	var col := _col(p, VIOLET)
-	var k := 0.75 + 0.25 * sin(t * 1.6 + p.position.x * 0.05)
-	KArt.crystal(p, Vector2.ZERO, h, col, k, int(p.position.x) % 5)
-	KArt.twinkles(p, Rect2(-h * 0.5, -h * 1.1, h, h), 4, t, Color(1, 0.95, 1.0, 0.8), int(p.position.x))
+	var k := 0.75 + 0.25 * sin(t * 1.6 + p.anchor.x * 0.05)
+	KArt.crystal(p, Vector2.ZERO, h, col, k, int(p.anchor.x) % 5)
+	KArt.twinkles(p, Rect2(-h * 0.5, -h * 1.1, h, h), 4, t, Color(1, 0.95, 1.0, 0.8), int(p.anchor.x))
 
 
 ## 운석 조각: 검은 바위 + 빛나는 보라 균열
@@ -997,14 +1047,14 @@ static func _meteor(p: Prop, t: float) -> void:
 	p.draw_line(Vector2(-w * 0.1, -h * 0.45), Vector2(-w * 0.15, -h * 0.08), crack, 1.0)
 	p.draw_line(Vector2(w * 0.1, -h * 0.55), Vector2(w * 0.25, -h * 0.1), crack, 1.0)
 	p.draw_circle(Vector2(0, -h * 0.6), 2.0, Color(1, 0.95, 1.0, k))
-	KArt.twinkles(p, Rect2(-w * 0.6, -h * 1.4, w * 1.2, h), 5, t, Color(VIOLET.lightened(0.4), 0.8), int(p.position.x))
+	KArt.twinkles(p, Rect2(-w * 0.6, -h * 1.4, w * 1.2, h), 5, t, Color(VIOLET.lightened(0.4), 0.8), int(p.anchor.x))
 
 
 ## 무너진 돌무더기 (w 타일)
 static func _rubble(p: Prop) -> void:
 	var w := (p.w if p.w > 1.0 else 3.0) * T
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(p.position.x * 13.0 + p.position.y)
+	rng.seed = int(p.anchor.x * 13.0 + p.anchor.y)
 	var x := -w * 0.5
 	while x < w * 0.5:
 		var s := rng.randf_range(4, 10)

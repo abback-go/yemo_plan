@@ -1,5 +1,5 @@
 extends RefCounted
-## 5장 소품 그림 (Prop이 1장 목록에 없는 kind를 여기로 넘김). 모두 "st_" 접두사 (다른 장 소품과 이름이 겹치지 않게).
+## 5장 소품 그림 (Prop이 아래 PROPS 표로 kind를 찾아 draw(p, kind)를 부름). 모두 "st_" 접두사 (다른 장 소품과 이름이 겹치지 않게).
 ## 원점은 바닥(발밑) 기준, 매달린 것(별 등롱·등불 줄·화환)은 천장 기준. 공통 키: w, h(타일), flip, front, len(매단 줄 길이 타일).
 ##
 ## 별의 탑    st_star_lantern(len) · st_const_pedestal · st_memory_crystal(lit) · st_orrery · st_telescope · st_star_chart(w,h) · st_star_shard · st_photo_frame
@@ -9,48 +9,72 @@ extends RefCounted
 ## 2단계      st_star_door(open_if, col: k·e·tp·s·tower) 별의 문(문 개체 style="st"와 겹쳐 둠) · st_flip_sigil 중력 반전 문양
 ## 공통 추가  vflip(위아래 뒤집기 — 뒤집힌 층) · st_const_pedestal(lit_if: 별의 열쇠가 꽂힘) · st_memory_crystal(seen: 본 기억이면 밝음)
 
-const KINDS := [
-	"st_star_lantern", "st_const_pedestal", "st_memory_crystal", "st_orrery", "st_telescope", "st_star_chart", "st_star_shard", "st_photo_frame",
-	"st_festival_stall", "st_garland", "st_lantern_string", "st_festival_banner", "st_balloon_cluster", "st_flower_arch", "st_tea_table",
-	"st_rubble", "st_burning_beam", "st_broken_bell", "st_cracked_statue", "st_fire", "st_broken_pillar", "st_white_growth", "st_fallen_banner",
-	"st_comm_crystal", "st_crater", "st_ash_tree", "st_scaffold", "st_fox_altar",
-	"st_star_door", "st_flip_sigil",
-]
 const T := 16.0
 const FIRE := Color("#ff6a3a")
 const FIRE_HOT := Color("#ffc870")
 
 
-## 빛·움직임 정보: {animated, glow_pos, glow_r, glow_col} — 이 장 소품이 아니면 {}
-static func setup_info(kind: String, p: Prop) -> Dictionary:
-	if not kind in KINDS:
-		return {}
-	if bool(p.params.get("vflip", false)):
-		p.scale.y = -1.0
-	var len := float(p.params.get("len", 3)) * T
-	match kind:
-		"st_star_lantern": return {"animated": true, "glow_pos": Vector2(0, len + 8), "glow_r": 56.0, "glow_col": StArt.STAR}
-		"st_const_pedestal": return {"animated": true, "glow_pos": Vector2(0, -30), "glow_r": 50.0, "glow_col": StArt.STAR}
-		"st_memory_crystal": return {"animated": true, "glow_pos": Vector2(0, -22), "glow_r": 44.0 if bool(p.params.get("lit", false)) else 28.0, "glow_col": Color(0.8, 0.7, 1.0)}
-		"st_orrery": return {"animated": true, "glow_pos": Vector2(0, -24), "glow_r": 30.0, "glow_col": StArt.STAR_GOLD}
-		"st_star_shard": return {"animated": true, "glow_pos": Vector2(0, -8), "glow_r": 40.0, "glow_col": StArt.STAR}
-		"st_festival_stall": return {"animated": true, "glow_pos": Vector2(0, -26), "glow_r": 48.0, "glow_col": Color(1.0, 0.75, 0.45)}
-		"st_lantern_string", "st_garland": return {"animated": true}
-		"st_festival_banner", "st_balloon_cluster", "st_flower_arch", "st_fallen_banner", "st_white_growth", "st_crater", "st_tea_table", "st_star_chart", "st_photo_frame":
-			return {"animated": true}
-		"st_burning_beam": return {"animated": true, "glow_pos": Vector2(0, -14), "glow_r": 22.0 * maxf(p.w, 2.0), "glow_col": FIRE}
-		"st_fire": return {"animated": true, "glow_pos": Vector2(0, -16), "glow_r": 60.0 * float(p.params.get("size", 1.0)), "glow_col": FIRE}
-		"st_comm_crystal": return {"animated": true, "glow_pos": Vector2(0, -26), "glow_r": 36.0, "glow_col": Color(0.6, 0.85, 1.0)}
-		"st_fox_altar": return {"animated": true, "glow_pos": Vector2(0, -22), "glow_r": 46.0, "glow_col": StArt.FOX_BLUE}
-		"st_star_door": return {"animated": true, "glow_pos": Vector2(0, -26), "glow_r": 52.0, "glow_col": _door_col(String(p.params.get("col", "tower")))}
-		"st_flip_sigil": return {"animated": true, "glow_pos": Vector2(0, -4), "glow_r": 40.0, "glow_col": StArt.STAR}
-	return {"animated": false}
+## 소품 표 (Prop이 합침): kind → {anim, glow, split} — 뜻은 world/entities/base_props.gd 머리 참고.
+## DEFAULTS는 이 장의 모든 kind에 깔리는 값: vflip = 방 데이터의 vflip 키(위아래 뒤집기 — 뒤집힌 층)를 받는다.
+const DEFAULTS := {"vflip": true}
+const PROPS := {
+	"st_star_lantern": {"anim": true, "glow": &"_glow_star_lantern"},
+	"st_const_pedestal": {"anim": true, "glow": [Vector2(0, -30), 50.0, StArt.STAR]},
+	"st_memory_crystal": {"anim": true, "glow": &"_glow_memory_crystal"},
+	"st_orrery": {"anim": true, "glow": [Vector2(0, -24), 30.0, StArt.STAR_GOLD]},
+	"st_telescope": {},
+	"st_star_chart": {"anim": true},
+	"st_star_shard": {"anim": true, "glow": [Vector2(0, -8), 40.0, StArt.STAR]},
+	"st_photo_frame": {"anim": true},
+	"st_festival_stall": {"anim": true, "glow": [Vector2(0, -26), 48.0, Color(1.0, 0.75, 0.45)]},
+	"st_garland": {"anim": true},
+	"st_lantern_string": {"anim": true},
+	"st_festival_banner": {"anim": true},
+	"st_balloon_cluster": {"anim": true},
+	"st_flower_arch": {"anim": true},
+	"st_tea_table": {"anim": true},
+	"st_rubble": {},
+	"st_burning_beam": {"anim": true, "glow": &"_glow_burning_beam"},
+	"st_broken_bell": {},
+	"st_cracked_statue": {},
+	"st_fire": {"anim": true, "glow": &"_glow_fire"},
+	"st_broken_pillar": {},
+	"st_white_growth": {"anim": true},
+	"st_fallen_banner": {"anim": true},
+	"st_comm_crystal": {"anim": true, "glow": [Vector2(0, -26), 36.0, Color(0.6, 0.85, 1.0)]},
+	"st_crater": {"anim": true},
+	"st_ash_tree": {},
+	"st_scaffold": {},
+	"st_fox_altar": {"anim": true, "glow": [Vector2(0, -22), 46.0, StArt.FOX_BLUE]},
+	"st_star_door": {"anim": true, "glow": &"_glow_star_door"},
+	"st_flip_sigil": {"anim": true, "glow": [Vector2(0, -4), 40.0, StArt.STAR]},
+}
+
+
+# ─── 크기·값에 따라 달라지는 빛 (PROPS의 glow = &"함수") ──────
+
+static func _glow_star_lantern(p: Prop) -> Array:
+	return [Vector2(0, float(p.params.get("len", 3)) * T + 8), 56.0, StArt.STAR]
+
+
+static func _glow_memory_crystal(p: Prop) -> Array:
+	return [Vector2(0, -22), 44.0 if bool(p.params.get("lit", false)) else 28.0, Color(0.8, 0.7, 1.0)]
+
+
+static func _glow_burning_beam(p: Prop) -> Array:
+	return [Vector2(0, -14), 22.0 * maxf(p.w, 2.0), FIRE]
+
+
+static func _glow_fire(p: Prop) -> Array:
+	return [Vector2(0, -16), 60.0 * float(p.params.get("size", 1.0)), FIRE]
+
+
+static func _glow_star_door(p: Prop) -> Array:
+	return [Vector2(0, -26), 52.0, _door_col(String(p.params.get("col", "tower")))]
 
 
 ## 그렸으면 true
 static func draw(p: Prop, kind: String) -> bool:
-	if not kind in KINDS:
-		return false
 	var t := p.time()
 	match kind:
 		"st_star_lantern": _star_lantern(p, t)
@@ -120,7 +144,7 @@ static func _star_lantern(p: Prop, t: float) -> void:
 	StArt.star(p, c, 8.0, Color(StArt.STAR_GOLD, 0.95), -PI * 0.5 + sway)
 	StArt.star(p, c, 4.5, StArt.STAR_CORE, -PI * 0.5 + sway)
 	p.draw_rect(Rect2(tip + Vector2(-2, -1), Vector2(4, 2)), Color("#c8a860"))
-	var tw := StArt.twinkle(t, p.position.x)
+	var tw := StArt.twinkle(t, p.anchor.x)
 	StArt.sparkle(p, c + Vector2(6, -6), 3.0, StArt.STAR, tw)
 
 
@@ -428,7 +452,7 @@ static func _tea_table(p: Prop, t: float) -> void:
 static func _rubble(p: Prop) -> void:
 	var ww := maxf(p.w, 2.0) * T
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(p.position.x * 13.0 + p.position.y)
+	rng.seed = int(p.anchor.x * 13.0 + p.anchor.y)
 	var stone := Color(p.theme.base).lightened(0.05)
 	for i in int(ww / 5.0):
 		var x := rng.randf_range(-ww * 0.5, ww * 0.5)
