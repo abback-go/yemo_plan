@@ -13,6 +13,7 @@
 | [enemies.md](enemies.md) | EnemyBase·도우미·상태 시계·보스 도구·예고 위험 지대·효과(Fx)·공격 종류 | 적·보스·탄·효과 |
 | [player.md](player.md) | 세라(파사드 + 컴포넌트)·마법 시전·수치(tuning)·문구 | 조작감·마법·능력·수치 |
 | [characters.md](characters.md) | 인물 그림·초상화·NPC·동료·말풍선 | 인물 추가·동료 추가 |
+| [proto.md](proto.md) | 전투 시제품(새 조작 훈련장, `game/proto/`) 파일 구성 | 새 조작·마법 이펙트 시험 |
 | [../../tools/test/README.md](../../tools/test/README.md) | 시나리오 실행기 명령·시나리오 목록·웹 시험 | 시험을 돌리거나 새로 만들 때 |
 
 ## 2. 전체 구조

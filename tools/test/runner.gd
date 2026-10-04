@@ -438,7 +438,10 @@ func _process(_d: float) -> bool:
 				if ex.parse(String(s[2])) != OK:
 					print("EVAL parse error: ", ex.get_error_text())
 				else:
-					print("EVAL ", s[2], " -> ", ex.execute([], get_first_node_in_group("world")))
+					var base: Object = get_first_node_in_group("world")
+					if base == null:
+						base = current_scene # 월드가 아닌 장면(전투 시제품 훈련장 등)
+					print("EVAL ", s[2], " -> ", ex.execute([], base))
 			"quit":
 				return true
 	return false
