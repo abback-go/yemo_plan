@@ -63,7 +63,7 @@ func title_card(title: String, sub := "", sec := 2.5, small := "") -> void:
 
 ## 장 카드: "2장" + 제목 (징글)
 func chapter_card(n: int) -> void:
-	var t: Array = ChapterFlow.TITLES.get(n, ["", ""])
+	var t: Array = ChapterFlow.title(n)
 	Music.jingle("jingle_chapter")
 	await title_card(String(t[1]), String(t[2]) if t.size() > 2 else "", 3.2, String(t[0]))
 

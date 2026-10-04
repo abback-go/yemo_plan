@@ -4,7 +4,6 @@ extends RefCounted
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
 ##   CHARACTERS 인물 ID → {name, color, voice, 몸 그림 값(robe·hair…), draw·portrait(전용 그림 경로)}
-##   ROOMS      이 장의 방 ID (지도·검사용)
 ##   OBJECTIVES [완료 플래그, HUD 문구, 필요 조건(Cond 식, ""=항상)] — 위에서부터 "조건 참·완료 아직"인 첫 줄이 현재 목표
 ##   QUESTS     ID → {title, giver, kind(side·class·main), chapter, need(Cond 식), desc, steps[문구…],
 ##              talk[[단계, 인물, 대본 ID]…], reward{stones, potion_slot, heart, feather, text}}
@@ -119,18 +118,6 @@ const CHARACTERS := {
 }
 
 ## 이 장의 방 ID (지도·검사용) — docs/chapter3.md 8절 지도
-const ROOMS := [
-	"e_gate", "e_border_1", "e_border_2", "e_border_3", "e_border_4",
-	"e_roots", "e_elder_hall", "e_roots_homes",
-	"e_cave_1", "e_cave_2", "e_hollow", "e_cave_3",
-	"e_trunk_market", "e_workshop", "e_trunk_lift",
-	"e_wind_1", "e_wind_2", "e_wind_3",
-	"e_branch_homes", "e_archery", "e_moonwell", "e_secret_grove",
-	"e_blight_1", "e_blight_2", "e_blight_3",
-	"e_canopy_1", "e_canopy_2", "e_canopy_3", "e_hunt_arena",
-	"e_crown_1", "e_crown_2", "e_crown_nest",
-]
-
 ## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] — docs/chapter3.md 10절
 const OBJECTIVES := [
 	["e_letter", "교장실로 가자 (중앙 홀 2층 오른쪽 → 시계탑 꼭대기)", "e_start"],

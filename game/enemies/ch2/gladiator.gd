@@ -239,8 +239,7 @@ func _throw_net() -> void:
 func net_caught() -> void:
 	var p := player()
 	if p:
-		p.state = Player.State.STUN
-		p.set("_stun_timer", NET_BIND)
+		p.stun(NET_BIND)
 	if state in [S.STALK, S.NET_THROW, S.RECOVER]:
 		face_player()
 		_enter(S.THRUST_WINDUP, Difficulty.telegraph(THRUST_WINDUP * 0.8))

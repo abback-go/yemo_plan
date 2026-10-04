@@ -5,7 +5,6 @@ extends RefCounted
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
 ##   CHARACTERS 인물 ID → {name, color, voice, 몸 그림 값(robe·hair…), draw·portrait(전용 그림 경로)}
-##   ROOMS      이 장의 방 ID (지도·검사용)
 ##   OBJECTIVES [완료 플래그, HUD 문구, 필요 조건(Cond 식, ""=항상)] — 위에서부터 "조건 참·완료 아직"인 첫 줄이 현재 목표
 ##   QUESTS     ID → {title, giver, kind(side·class·main), chapter, need(Cond 식), desc, steps[문구…],
 ##              talk[[단계, 인물, 대본 ID]…], reward{stones, potion_slot, heart, feather, text}}
@@ -61,15 +60,6 @@ const CHARACTERS := {
 
 ## 이 장의 방 ID (지도·검사용). st_ = 별의 탑 영역 + 학교 영역의 축제 광장·다시 세우는 안뜰, r5_ = 침공으로 무너진 학교,
 ## r5_vision_* = 통신이 울릴 때 잠깐 보여 주는 같은 시각의 제국·세계수·대신전 (영역 "vision", 장면 전용)
-const ROOMS := [
-	"st_festival", "st_rebuild",
-	"st_crossroads", "st_trial_k1", "st_trial_k", "st_trial_e1", "st_trial_e", "st_trial_tp1", "st_trial_tp", "st_trial_s1", "st_trial_s",
-	"st_tower_1", "st_tower_2", "st_tower_3", "st_tower_4", "st_tower_4r", "st_tower_5", "st_tower_top",
-	"r5_clock", "r5_hall", "r5_westcorr", "r5_library", "r5_dorm", "r5_courtyard",
-	"r5_vision_k", "r5_vision_e", "r5_vision_tp",
-	"st_void", "r5_courtyard_rise", "st_colossus_1", "st_colossus_2", "st_colossus_3", "st_sky_1", "st_skygate",
-]
-
 ## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] — 위에서부터 "필요는 섰고 완료는 아직"인 첫 줄
 const OBJECTIVES := [
 	["st_fest_seen", "축제 날이다! 앞마당 오른쪽 끝의 축제 광장에 가 보자", "st_fest"],

@@ -4,7 +4,6 @@ extends RefCounted
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
 ##   CHARACTERS 인물 ID → {name, color, voice, 몸 그림 값(robe·hair…), draw·portrait(전용 그림 경로)}
-##   ROOMS      이 장의 방 ID (지도·검사용)
 ##   OBJECTIVES [완료 플래그, HUD 문구, 필요 조건(Cond 식, ""=항상)] — 위에서부터 "조건 참·완료 아직"인 첫 줄이 현재 목표
 ##   QUESTS     ID → {title, giver, kind(side·class·main), chapter, need(Cond 식), desc, steps[문구…],
 ##              talk[[단계, 인물, 대본 ID]…], reward{stones, potion_slot, heart, feather, text}}
@@ -122,14 +121,6 @@ const CHARACTERS := {
 }
 
 ## 이 장의 방 ID (지도·검사용) — tools/rooms/ch4.py, docs/chapter4.md 7.2절
-const ROOMS := [
-	"tp_road", "tp_road_1", "tp_road_2", "tp_cave", "tp_road_3", "tp_hut", "tp_road_4",
-	"tp_gate", "tp_cloister", "tp_garden", "tp_choir", "tp_nave", "tp_monk_cells",
-	"tp_mirror_1", "tp_mirror_2", "tp_mirror_3", "tp_bell_1", "tp_bell_2", "tp_bell_3",
-	"tp_archive_1", "tp_scriptorium", "tp_archive_2", "tp_crypt_1", "tp_crypt_2",
-	"tp_sanctum", "tp_spire_1", "tp_spire_2", "tp_spire_3", "tp_spire_4", "tp_spire_5", "tp_spire_top",
-]
-
 ## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] — 3장 끝(ch3_done)에서 이어짐 (docs/chapter4.md 7.9절)
 const OBJECTIVES := [
 	["tp_arrived", "앞마당에서 교장 선생님의 이야기를 듣자", "ch3_done"],

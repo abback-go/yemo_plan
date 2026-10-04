@@ -182,7 +182,7 @@ static func layer_script(theme_name: String) -> GDScript:
 	if not _layer_owner.has(theme_name):
 		_layer_owner[theme_name] = null
 		for s in ChapterRegistry.backdrop_scripts():
-			if s.has_theme(theme_name):
+			if s != Ch1 and s.has_theme(theme_name): # backdrop_ch1.gd는 기본값(null)이라 확장 목록에서 뺀다
 				_layer_owner[theme_name] = s
 				break
 	return _layer_owner[theme_name]
@@ -192,7 +192,7 @@ static func sky_script(theme_name: String) -> GDScript:
 	if not _sky_owner.has(theme_name):
 		_sky_owner[theme_name] = null
 		for s in ChapterRegistry.backdrop_scripts():
-			if s.has_sky(theme_name):
+			if s != Ch1 and s.has_sky(theme_name):
 				_sky_owner[theme_name] = s
 				break
 	return _sky_owner[theme_name]

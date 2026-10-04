@@ -1,7 +1,7 @@
 class_name PlayerHealth
 extends RefCounted
 ## 세라 체력 — 회복, 피격(무적 시간·넉백·경직), 가시·불꽃, 퍼펙트 회피(위치 타임), 사망, 불사조 Lv3 부활.
-## 체력 값은 Player.hp(대본이 직접 읽고 씀), 피격 무적은 Player._hurt_iframe(바깥이 문자열로 씀 — 이름 고정).
+## 체력 값은 Player.hp(대본이 직접 읽고 씀), 피격 무적은 Player._hurt_iframe(바깥은 grant_iframes·set_iframes로).
 
 var p: Player
 var hazard_cool := 0.0 ## 가시·불꽃 연속 피해 막기 (이 동안은 안전한 땅도 기록하지 않음)

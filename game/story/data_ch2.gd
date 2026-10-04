@@ -4,7 +4,6 @@ extends RefCounted
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
 ##   CHARACTERS 인물 ID → {name, color, voice, 몸 그림 값(robe·hair…), draw·portrait(전용 그림 경로)}
-##   ROOMS      이 장의 방 ID (지도·검사용)
 ##   OBJECTIVES [완료 플래그, HUD 문구, 필요 조건(Cond 식, ""=항상)] — 위에서부터 "조건 참·완료 아직"인 첫 줄이 현재 목표
 ##   QUESTS     ID → {title, giver, kind(side·class·main), chapter, need(Cond 식), desc, steps[문구…],
 ##              talk[[단계, 인물, 대본 ID]…], reward{stones, potion_slot, heart, feather, text}}
@@ -149,18 +148,6 @@ const CHARACTERS := {
 }
 
 ## 이 장의 방 ID (지도·검사용) — tools/rooms/ch2.py (docs/chapter2.md 7.1절)
-const ROOMS := [
-	"k_embassy", "k_gate_street", "k_market", "k_bakery", "k_smithy", "k_market_alley",
-	"k_knights_yard", "k_barracks", "k_walls",
-	"k_roof_1", "k_roof_2", "k_roof_3", "k_roof_4",
-	"k_clock_street", "k_gearworks", "k_clocktower",
-	"k_cathedral", "k_crypt",
-	"k_sewer_1", "k_sewer_2", "k_sewer_3", "k_sewer_4", "k_sewer_5", "k_cult_den",
-	"k_colosseum", "k_arena",
-	"k_noble", "k_palace_gate", "k_palace_plaza",
-	"k_oldquarter_1", "k_oldquarter_2", "k_oldquarter_3", "k_crater",
-]
-
 ## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] (docs/chapter2.md 7.3절)
 const OBJECTIVES := [
 	["k_breakfast", "식당에서 아침을 먹자 (동관 복도 → 아래층)", "ch1_done"],

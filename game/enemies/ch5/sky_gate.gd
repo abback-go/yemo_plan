@@ -431,7 +431,7 @@ func _tick_shield() -> void:
 			Fx.effect_parent().add_child(_shield_node)
 		_shield_node.global_position = p.center()
 		_shield_node.set("k", minf(shield_t, 1.0))
-		p.set("_hurt_iframe", maxf(float(p.get("_hurt_iframe")), 0.1))
+		p.grant_iframes(0.1)
 		for a in get_tree().get_nodes_in_group(&"enemy_attack"):
 			if a is EnemyProjectile and (a as Node2D).global_position.distance_to(p.center()) < 30.0:
 				(a as EnemyProjectile).pop()

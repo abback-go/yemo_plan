@@ -4,7 +4,6 @@ extends RefCounted
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
 ##   CHARACTERS 인물 ID → {name, color, voice, 몸 그림 값(robe·hair…), draw·portrait(전용 그림 경로)}
-##   ROOMS      이 장의 방 ID (지도·검사용)
 ##   OBJECTIVES [완료 플래그, HUD 문구, 필요 조건(Cond 식, ""=항상)] — 위에서부터 "조건 참·완료 아직"인 첫 줄이 현재 목표
 ##   QUESTS     ID → {title, giver, kind(side·class·main), chapter, need(Cond 식), desc, steps[문구…],
 ##              talk[[단계, 인물, 대본 ID]…], reward{stones, potion_slot, heart, feather, text}}
@@ -124,17 +123,6 @@ const CHARACTERS := {
 		"name": "", "color": Color("#c8c0d8"), "voice": 0.0,
 	},
 }
-
-## 이 장의 방 ID (지도·검사용)
-const ROOMS := [
-	# 신계 (프롤로그)
-	"t_pass", "t_forest", "t_stairs", "t_trial", "t_throne", "t_collapse", "t_gate",
-	# 마녀학교
-	"s_infirmary", "s_dorm", "s_eastcorr", "s_hall", "s_westcorr", "s_class", "s_training",
-	"s_nonelem", "s_levcourse", "s_library", "s_stacks", "s_archive", "s_gallery", "s_advclass",
-	"s_clock", "s_headmaster", "s_courtyard", "s_greenhouse", "s_cafeteria", "s_alchemy",
-	"s_cellar", "s_sealcorr", "s_sealroom",
-]
 
 ## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건(Cond 식, 비우면 항상)]
 ## 위에서부터 "필요 조건은 참이고 완료 플래그는 아직인" 첫 줄이 HUD 현재 목표 (Objectives.current)

@@ -72,7 +72,7 @@ func _vision(c: Cut, room_id: String, who: String, pose: String, _caption: Strin
 	await c.fade_out(0.6)
 	c.hud(false)
 	c.letterbox(true)
-	c.player.set("_hurt_iframe", 999.0)
+	c.player.set_iframes(999.0)
 	await c.goto_room(room_id, "view")
 	c.lock()
 	await c.fade_out(0.01)
@@ -96,7 +96,7 @@ func _vision(c: Cut, room_id: String, who: String, pose: String, _caption: Strin
 	await c.goto_room(back, "comm")
 	_pet_away(c, false)
 	c.lock()
-	c.player.set("_hurt_iframe", 1.0)
+	c.player.set_iframes(1.0)
 	c.letterbox(false)
 	c.hud(true)
 

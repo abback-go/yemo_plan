@@ -52,12 +52,8 @@ func _on_body(b: Node) -> void:
 		GameState.set_flag(set_flag)
 	match kind:
 		"feather":
-			GameState.max_hp += 1
-			GameState.hp = GameState.max_hp
+			Rewards.add_max_hp(1)
 			GameState.add("secrets")
-			var w := World.get_world()
-			if w:
-				w.player.restore_from_state()
 			Story.item_get("수호의 깃털", "최대 체력이 1 늘었다.", "feather")
 		"moonherb":
 			Story.item_get("월광초", "달빛을 머금은 약초. 피피가 찾던 것이다.", "herb")

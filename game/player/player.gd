@@ -55,8 +55,8 @@ var ward_cooldown_left: float:
 
 # 바깥이 문자열 set("…")으로 직접 쓰는 이름 — 바꾸면 오류 없이 동작만 사라진다 (docs/dev/player.md 함정).
 # 새 코드는 grant_iframes·set_iframes·stun을 쓴다.
-var _hurt_iframe := 0.0 ## 피격 뒤 무적 남은 시간 (시험 godmode·scripts_ch5·sky_gate·ally)
-var _stun_timer := 0.0 ## 경직 남은 시간 (gladiator)
+var _hurt_iframe := 0.0 ## 피격 뒤 무적 남은 시간 (바깥은 grant_iframes·set_iframes 사용; ally가 읽음)
+var _stun_timer := 0.0 ## 경직 남은 시간 (바깥은 stun())
 var _ward_time := 0.0 ## 불꽃 방벽 남은 시간 = 무적 (시나리오 ch4_full·ch4_mirrors)
 
 var motor: PlayerMotor

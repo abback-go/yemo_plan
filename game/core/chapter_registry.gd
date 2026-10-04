@@ -5,12 +5,12 @@ extends RefCounted
 ##
 ## 확장 ID(EXTS)마다 다음 파일이 있으면 읽는다 (없으면 건너뜀). 순서 = EXTS 순서 (뒤가 같은 키를 덮어씀):
 ##   res://story/data_<ext>.gd            CHAPTER(장 정보, 아래), SCRIPTS(대본 파일 목록), CHARACTERS(인물),
-##                                        ROOMS(방 ID 목록), OBJECTIVES(메인 목표 줄), QUESTS(퀘스트)
+##                                        OBJECTIVES(메인 목표 줄), QUESTS(퀘스트)
 ##   res://enemies/<ext>/registry.gd      const KINDS (적 종류 → 스크립트 경로)
 ##   res://world/entities/<ext>/entities.gd  const KINDS (방 개체 종류 → 스크립트 경로)
-##   res://world/entities/<ext>/props.gd  static func setup_info(kind, prop) -> Dictionary, static func draw(prop, kind) -> bool
+##   res://world/entities/<ext>/props.gd  const PROPS (kind → {anim, glow, split}), static func draw(prop, kind) (docs/dev/world.md)
 ##   res://world/themes/themes_<ext>.gd   const THEMES (테마 ID → 색 사전, RoomTheme와 같은 키)
-##   res://world/themes/backdrop_<ext>.gd static func draw_layer/draw_sky/is_animated (RoomBackdrop 참고)
+##   res://world/themes/backdrop_<ext>.gd static func has_theme/has_sky/draw_layer/draw_sky (docs/dev/backdrop.md; ch1은 기본 배경이라 RoomBackdrop이 직접 씀)
 ##   res://allies/<ext>_allies.gd         const KINDS (동료 종류 → 스크립트 경로)
 ##
 ## CHAPTER (장마다 하나, sys에는 없음):
@@ -116,8 +116,6 @@ static func quests() -> Dictionary:
 	return _merged_dict("quests", DATA, "QUESTS")
 
 
-static func rooms() -> Array:
-	return _merged_array("rooms", DATA, "ROOMS")
 
 
 static func objectives() -> Array:

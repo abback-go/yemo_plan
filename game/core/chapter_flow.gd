@@ -9,15 +9,6 @@ static func title(n: int) -> Array:
 	return ChapterRegistry.chapter(n).get("title", ["", ""])
 
 
-## 예전 이름 (ui/cinema.gd가 TITLES.get(n, …)으로 읽는다). 새 코드는 title(n)
-static var TITLES: Dictionary:
-	get:
-		var out := {}
-		for d: Dictionary in ChapterRegistry.chapters():
-			out[int(d.get("n", 0))] = d.get("title", ["", ""])
-		return out
-
-
 static func current() -> int:
 	return int(GameState.flag("chapter", 1))
 
