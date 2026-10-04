@@ -43,7 +43,7 @@ func open() -> bool:
 	]
 	_draw.t = 0.0
 	_root.visible = true
-	_opened_at = Time.get_ticks_msec()
+	_opened_at = Fx.now_ms()
 	get_tree().paused = true
 	Music.jingle("jingle_quest")
 	var keep: bool = await done
@@ -57,7 +57,7 @@ func _on_chosen(i: int) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not _root.visible or event.is_echo() or Time.get_ticks_msec() - _opened_at < 1500:
+	if not _root.visible or event.is_echo() or Fx.now_ms() - _opened_at < 1500:
 		return
 	if _menu.handle_input(event) and is_inside_tree():
 		get_viewport().set_input_as_handled()

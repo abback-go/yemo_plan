@@ -12,6 +12,8 @@ G="$1"; OUT="$2"; shift 2
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SC="$ROOT/tools/test/scenarios"
 JOBS="${JOBS:-3}"; TIMEOUT="${TIMEOUT:-900}"
+# 시간 효과(히트스톱·슬로모션·안내 지연 등)를 실제 시간이 아니라 프레임 수로 → 컴퓨터가 바빠도 결과가 같다 (Fx.now_ms)
+export FRAME_CLOCK=1
 mkdir -p "$OUT"
 pats=("$@"); [ ${#pats[@]} -eq 0 ] && pats=('*')
 list=()

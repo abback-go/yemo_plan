@@ -30,7 +30,7 @@ func open() -> void:
 	if _open:
 		return
 	_open = true
-	_opened_at = Time.get_ticks_msec()
+	_opened_at = Fx.now_ms()
 	_draw.refresh()
 	_root.visible = true
 	get_tree().paused = true
@@ -49,7 +49,7 @@ func close() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not _open or event.is_echo() or Time.get_ticks_msec() - _opened_at < 150:
+	if not _open or event.is_echo() or Fx.now_ms() - _opened_at < 150:
 		return
 	if event.is_action_pressed("map") or event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel") \
 			or event.is_action_pressed("attack") or event.is_action_pressed("dash") or event.is_action_pressed("ui_accept"):

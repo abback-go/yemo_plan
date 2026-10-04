@@ -65,7 +65,7 @@ func register_hit(kind: StringName, airborne: bool) -> void:
 
 func bonus(text: String, amount: float) -> void:
 	last_event = text
-	last_event_time = Time.get_ticks_msec() / 1000.0
+	last_event_time = Fx.now_ms() / 1000.0
 	_timer = TUNING.combo_timeout
 	_add(amount)
 

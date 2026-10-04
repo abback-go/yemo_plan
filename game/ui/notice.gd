@@ -44,7 +44,7 @@ func ability_get(title: String, keys: String, desc: String) -> void:
 	_draw.ability = [title, keys, desc]
 	_draw.ability_t = 0.0
 	_waiting = true
-	_opened_at = Time.get_ticks_msec()
+	_opened_at = Fx.now_ms()
 	get_tree().paused = true
 	Music.jingle("jingle_ability")
 	Sfx.play(&"reveal", 0.0, 0.0)
@@ -61,7 +61,7 @@ func accepts_tap() -> bool:
 func _input(event: InputEvent) -> void:
 	if not _waiting or event.is_echo():
 		return
-	if Time.get_ticks_msec() - _opened_at < 900:
+	if Fx.now_ms() - _opened_at < 900:
 		return
 	if event.is_action_pressed("jump") or event.is_action_pressed("attack") or event.is_action_pressed("ui_accept"):
 		get_viewport().set_input_as_handled()

@@ -20,7 +20,7 @@ const MARCH_PERIOD := 3.6 ## 중간 층 거신 한 걸음 주기의 두 배(두 
 
 
 static func march_clock() -> float:
-	return Time.get_ticks_msec() / 1000.0
+	return Fx.now_ms() / 1000.0
 
 
 ## 중간 층 거신의 발이 막 닿았는가 (흔들림 장치가 묻는다). 직전 확인 시각 이후 0.25/0.75 위상을 지났으면 true

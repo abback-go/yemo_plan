@@ -52,7 +52,7 @@ func open() -> void:
 			break
 	_root.visible = true
 	_open = true
-	_opened_at = Time.get_ticks_msec()
+	_opened_at = Fx.now_ms()
 	get_tree().paused = true
 	Sfx.play(&"menu_open", -2.0, 0.0)
 
@@ -86,7 +86,7 @@ func _apply() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not _open or event.is_echo() or Time.get_ticks_msec() - _opened_at < 200:
+	if not _open or event.is_echo() or Fx.now_ms() - _opened_at < 200:
 		return
 	var handled := true
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:

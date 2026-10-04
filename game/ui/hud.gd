@@ -259,7 +259,7 @@ class HudDraw extends Control:
 			draw_rect(Rect2(cbar.position, Vector2(cbar.size.x * sr.combo_ratio(), cbar.size.y)), Color(Palette.FIRE_HOT, a))
 
 		# 최근 보너스 문구 (예: 위치 타임!) 1.2초
-		var since := Time.get_ticks_msec() / 1000.0 - sr.last_event_time
+		var since := Fx.now_ms() / 1000.0 - sr.last_event_time
 		if sr.last_event != "" and since < 1.2:
 			var ea := a * clampf((1.2 - since) / 0.3, 0.0, 1.0)
 			draw_string_outline(_font, Vector2(right - 160, 96), sr.last_event, HORIZONTAL_ALIGNMENT_RIGHT, 160, 12, 4, Color(Palette.OUTLINE, ea))
@@ -451,7 +451,7 @@ class HudDraw extends Control:
 		# 첫 빙의 지점 (대본이 boss에 fox_mark를 달아 둔 동안): 푸른 눈금 + "빙의"
 		if boss.has_meta("fox_mark"):
 			var mx: float = r.position.x + r.size.x * float(boss.get_meta("fox_mark"))
-			var blue := Color(0.55, 0.85, 1.0, a * (0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.008)))
+			var blue := Color(0.55, 0.85, 1.0, a * (0.75 + 0.25 * sin(Fx.now_ms() * 0.008)))
 			draw_rect(Rect2(mx - 1, r.position.y - 4, 2, r.size.y + 8), blue)
 			draw_string(_font, Vector2(mx - 10, r.end.y + 13), "빙의", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, blue)
 

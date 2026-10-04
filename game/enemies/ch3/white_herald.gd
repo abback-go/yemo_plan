@@ -308,7 +308,7 @@ func add_summon(kind: String, at: Vector2) -> void:
 	else:
 		e = BlightSpore.new()
 	e.position = at
-	e.uid = uid + ":add%d" % Time.get_ticks_msec()
+	e.uid = uid + ":add%d" % Fx.now_ms()
 	e.respawns = true
 	e.facing = -1
 	w.room.add_entity(e)

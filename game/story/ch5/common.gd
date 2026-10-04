@@ -36,7 +36,7 @@ func _phase(c: Cut) -> String:
 
 
 func _now() -> float:
-	return Time.get_ticks_msec() / 1000.0
+	return Fx.now_ms() / 1000.0
 
 
 func _leave_all(c: Cut) -> void:

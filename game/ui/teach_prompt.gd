@@ -60,7 +60,7 @@ func ask(title: String, text: String, keys: Array, wait: Array = []) -> String:
 	_draw.t = 0.0
 	_root.visible = true
 	_active = true
-	_opened_at = Time.get_ticks_msec()
+	_opened_at = Fx.now_ms()
 	get_tree().paused = true
 	Sfx.play(&"teach", -4.0, 0.0)
 	var got: String = await answered
@@ -70,7 +70,7 @@ func ask(title: String, text: String, keys: Array, wait: Array = []) -> String:
 func _input(event: InputEvent) -> void:
 	if not _active or event.is_echo():
 		return
-	if Time.get_ticks_msec() - _opened_at < 350:
+	if Fx.now_ms() - _opened_at < 350:
 		return # 실수로 바로 넘어가지 않게
 	for a in _wait:
 		var hit := false
