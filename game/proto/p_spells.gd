@@ -36,6 +36,7 @@ static func try_cast(sera: PSera, id: String) -> bool:
 		return false
 	if not PState.infinite_mana:
 		sera.mana -= float(cost)
+	sera.add_gauge(float(cost) * PData.GAUGE_PER_MANA)
 	if not PState.no_cooldown:
 		sera.cooldowns[id] = float(s.cd)
 	match id:
@@ -69,8 +70,6 @@ static func hit_rect(sera: PSera, r: Rect2, dmg: float, fox: bool, once: Diction
 		o["fox"] = fox
 		d.take_hit(int(round(dmg)), r.get_center(), o)
 		n += 1
-	if n > 0:
-		sera.add_gauge(minf(0.012 * n, 0.04))
 	return n
 
 
@@ -88,8 +87,6 @@ static func hit_circle(sera: PSera, c: Vector2, rad: float, dmg: float, fox: boo
 		o["fox"] = fox
 		d.take_hit(int(round(dmg)), c, o)
 		n += 1
-	if n > 0:
-		sera.add_gauge(minf(0.012 * n, 0.04))
 	return n
 
 

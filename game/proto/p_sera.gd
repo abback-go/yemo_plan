@@ -1,10 +1,10 @@
 class_name PSera
 extends CharacterBody2D
 ## 훈련장 세라 (새 조작 시제품). 결정 기록: docs/design/controls_skills.md
-## 상태 하나(st)로 나눈다: 보통(달리기·점프·벽·활공·발톱), 대시, 의태 돌진, 집중, 시전 잠김, 압축(열선), 난무(아수라),
+## 상태 하나(st)로 나눈다: 보통(달리기·점프·벽·활공·발톱), 대시, 의태 돌진, 시전 잠김, 압축(열선), 난무(아수라),
 ## 마시기, 피격, 쓰러짐. 체력은 반 칸 단위(hp2)라 쉬움 난이도의 "받는 피해 절반"을 그대로 표현한다.
 
-enum St { NORMAL, DASH, MIMIC, FOCUS, CAST, CHARGE, ASURA, DRINK, HURT, DEAD, SHIELD }
+enum St { NORMAL, DASH, MIMIC, CAST, CHARGE, ASURA, DRINK, HURT, DEAD, SHIELD }
 
 const GROUP := &"p_sera"
 const SIZE := Vector2(10, 32)
@@ -19,7 +19,7 @@ var _flip: Node2D
 
 # 자원
 var hp2 := PData.MAX_HEARTS * 2 ## 반 칸 단위
-var mana := 0.0 ## 칸 (소수 = 차는 중)
+var mana := 5.0 ## 칸 (소수 = 차는 중) — 처음엔 가득
 var gauge := 0.0 ## 변신 게이지 0~1
 var fox_time := 0.0 ## 변신 남은 시간
 var potions := 2
@@ -57,7 +57,6 @@ var shield_cd := 0.0
 var _iframe := 0.0
 var _cast_lock := 0.0
 var _cast_invuln := false
-var _focus_acc := 0.0
 var _mote_t := 0.0
 var charge_t := 0.0 ## 열선 압축 시간
 var asura_t := 0.0
@@ -127,8 +126,6 @@ func _physics_process(delta: float) -> void:
 			_dash(delta)
 		St.MIMIC:
 			_mimic(delta)
-		St.FOCUS:
-			_focus(delta)
 		St.CAST:
 			_cast(delta)
 		St.CHARGE:
@@ -173,10 +170,11 @@ func _timers(delta: float) -> void:
 		cooldowns.clear()
 	if PState.infinite_mana:
 		mana = float(PState.mana_max)
+	if st != St.DEAD:
+		add_mana(delta / (PData.MANA_REGEN_FOX if is_fox() else PData.MANA_REGEN))
 	mana = minf(mana, float(PState.mana_max))
 	if fox_time > 0.0:
 		fox_time -= delta
-		mana = minf(mana + delta / PData.FOX_MANA_REGEN, float(PState.mana_max))
 		if fox_time <= 0.0:
 			_end_transform()
 	if _claw_active > 0.0:
@@ -276,7 +274,7 @@ func _normal(delta: float) -> void:
 	_actions(on_floor)
 
 
-## 보통 상태에서 받는 행동 입력 (대시·발톱·집중·방패·의태·변신·물약·마법)
+## 보통 상태에서 받는 행동 입력 (대시·발톱·변신·물약·마법)
 func _actions(on_floor: bool) -> void:
 	if Input.is_action_just_pressed("pr_dash") and _dash_cd <= 0.0 and (on_floor or (PState.evade and _air_dash)):
 		if is_fox():
@@ -296,11 +294,6 @@ func _actions(on_floor: bool) -> void:
 		velocity.x = 0.0
 		Sfx.play(&"potion", -6.0)
 		return
-	if Input.is_action_pressed("pr_focus") and on_floor and absf(velocity.x) < 30.0 and _axis() == 0:
-		if mana < float(PState.mana_max) - 0.001:
-			_go(St.FOCUS)
-			_focus_acc = 0.0
-			return
 	var spell := PState.spell_pressed()
 	if spell != "":
 		PSpells.try_cast(self, spell)
@@ -484,7 +477,7 @@ func _claw_hits() -> void:
 		fl.fox = is_fox()
 		PVfx.add(fl, hp)
 		PVfx.sparks(hp, 6, PData.FOX_HOT if is_fox() else Color(1, 0.95, 0.85), 150.0, 0.25, Vector2(facing, -0.3), 50.0)
-		add_gauge(PData.CLAW_GAUGE)
+		add_mana(PState.claw_mana())
 	if hit_any:
 		Fx.hitstop(PData.CLAW_HITSTOP)
 		Fx.shake(0.06, 0.08)
@@ -497,6 +490,19 @@ func _claw_hits() -> void:
 			velocity.y = minf(velocity.y, 30.0)
 
 
+## 마나 채우기 (발톱 타격·저절로). 한 칸이 새로 차면 HUD가 반짝인다
+func add_mana(v: float) -> void:
+	var cap := float(PState.mana_max)
+	if mana >= cap:
+		return
+	var before := int(floor(mana + 0.0001))
+	mana = minf(mana + v, cap)
+	if int(floor(mana + 0.0001)) > before:
+		mana_pip.emit()
+		Sfx.play_pitch(&"blip", 1.0 + 0.1 * floor(mana), -10.0)
+
+
+## 변신 게이지: 마나를 쓸 때 찬다 (PSpells.try_cast가 부름). 변신 중에는 차지 않음
 func add_gauge(v: float) -> void:
 	if is_fox():
 		return
@@ -505,36 +511,6 @@ func add_gauge(v: float) -> void:
 	if before < 1.0 and gauge >= 1.0:
 		Sfx.play(&"star_twinkle", -6.0)
 		Fx.ring(center(), 6, 24, PData.FOX_HOT, 0.3)
-
-
-# ─── 집중 (서서 모으기, 맞으면 끊김) ─────────────────────
-
-func _focus(delta: float) -> void:
-	velocity.x = move_toward(velocity.x, 0.0, PData.RUN_DECEL * delta)
-	velocity.y += PData.GRAVITY * delta
-	if not Input.is_action_pressed("pr_focus") or _axis() != 0 or not is_on_floor():
-		_go(St.NORMAL)
-		return
-	var per := PState.focus_full_time() / 3.0
-	var before := int(floor(mana + 0.0001))
-	mana = minf(mana + delta / per, float(PState.mana_max))
-	var after := int(floor(mana + 0.0001))
-	if after > before:
-		PVfx.add(PVfx.FocusPulse.new(), center(), true)
-		Sfx.play_pitch(&"blip", 1.0 + 0.15 * after, -2.0)
-		mana_pip.emit()
-	_mote_t -= delta
-	if _mote_t <= 0.0:
-		_mote_t = 0.05
-		var m := PVfx.Mote.new()
-		var ang := randf() * TAU
-		m.from = center() + Vector2(cos(ang), sin(ang)) * randf_range(22, 34)
-		m.to = self
-		m.to_off = Vector2(facing * 2.5, -25)
-		PVfx.add(m, m.from, true)
-	if mana >= float(PState.mana_max) - 0.0001:
-		Sfx.play(&"reveal", -4.0)
-		_go(St.NORMAL)
 
 
 # ─── 방패 · 변신 · 물약 ────────────────────────────────
@@ -688,8 +664,6 @@ func take_damage(hearts_n: int, from: Vector2) -> bool:
 	Fx.shake(0.18, 0.2)
 	Fx.flash(Color(1, 0.3, 0.3, 0.25), 0.15)
 	Sfx.play(&"hurt")
-	if st == St.FOCUS and PState.difficulty == 0:
-		return true # 쉬움: 집중이 끊기지 않음
 	_gliding = false
 	if hp2 <= 0:
 		if revive > 0:
@@ -732,6 +706,7 @@ func _die() -> void:
 ## 여우 석등에서 쉬기: 체력·물약 회복
 func rest() -> void:
 	hp2 = PData.MAX_HEARTS * 2
+	mana = float(PState.mana_max)
 	potions = potions_max
 	_respawn = global_position
 	PVfx.embers(global_position + Vector2(0, -8), 20, true, 70.0, Vector2(8, 4))
@@ -751,7 +726,7 @@ func _animate(delta: float) -> void:
 	a.flash = maxf(a.flash - delta * 5.0, 0.0)
 	a.modulate = Color(1, 1, 1).lerp(Color(3, 3, 3), a.flash * 0.6)
 	a.blink_hidden = _iframe > 0.0 and st != St.DEAD and int(_iframe * 18.0) % 2 == 0
-	a.focus_k = move_toward(a.focus_k, 1.0 if st == St.FOCUS else 0.0, delta * 5.0)
+	a.focus_k = 0.0
 	a.charge_k = clampf(charge_t / 2.0, 0.0, 1.0) if st == St.CHARGE else 0.0
 	if _claw_cd > 0.0 or _claw_active > 0.0:
 		a.claw_k = minf(a.claw_k + delta / 0.16, 1.0)
@@ -763,8 +738,6 @@ func _animate(delta: float) -> void:
 			p = "dash"
 		St.SHIELD:
 			p = "shield"
-		St.FOCUS:
-			p = "focus"
 		St.CAST:
 			p = "cast"
 		St.CHARGE:

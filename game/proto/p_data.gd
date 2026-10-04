@@ -48,7 +48,7 @@ const CLAW_REACH := 45.0 ## 앞으로 (꼬리마다 +2.25) — 사용자 요청�
 const CLAW_HEIGHT := 26.0
 const CLAW_RECOIL := 120.0 ## 맞히면 세라가 뒤로 조금
 const CLAW_HITSTOP := 0.045
-const CLAW_GAUGE := 0.075 ## 맞힐 때마다 변신 게이지
+const CLAW_MANA := 0.25 ## 발톱으로 적을 하나 맞힐 때마다 차는 마나(칸)
 
 # ─── 생존 ───
 const MAX_HEARTS := 5
@@ -61,9 +61,10 @@ const SHIELD_SWIPE_PER_HEART := 45.0 ## 막은 피해 1칸마다 더하는 피�
 const POTION_HEAL := 2
 const POTION_TIME := 0.8
 
-# ─── 집중·마나 ───
-const FOCUS_FULL_BASE := 3.0 ## 3칸이 차는 시간(꼬리 9개면 약 2초)
-const FOX_MANA_REGEN := 4.0 ## 변신 중 저절로 1칸 차는 시간
+# ─── 마나 (서서 충전 없음: 때리면 빠르게 + 가만히 있어도 천천히) ───
+const MANA_REGEN := 4.0 ## 저절로 1칸 차는 시간(초)
+const MANA_REGEN_FOX := 2.5 ## 변신 중
+const GAUGE_PER_MANA := 0.125 ## 마나 1칸을 쓸 때마다 차는 변신 게이지 (8칸 쓰면 변신)
 
 # ─── 변신 ───
 const TRANSFORM_BASE := 10.0 ## 꼬리 1개 10초 → 9개 15초
