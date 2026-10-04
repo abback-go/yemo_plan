@@ -208,7 +208,7 @@ class IceSpikes extends TelegraphHazard:
 - **Gradient는 Palette 캐시로.** `Gradient.new()`를 프레임마다 하지 말 것. `fade_gradient` 2만 번: 29~33ms → 9.9ms.
 - 짧은 간격으로 계속 뿜는 곳(해태 숨결 0.035초마다 2개, charger 꼬리, fire_bolt·phoenix 2프레임마다)은 풀 덕분에 노드 생성이 없어졌다. 켜 둔 방출기 하나로 바꾸면 더 줄지만 전역 난수 소비가 달라져 다른 무작위 동작이 바뀌므로 하지 않았다.
 - 폭주 비네트는 세기 0이면 숨긴다(전체 화면 셰이더 생략).
-- 무거운 그림: `sky_gate_visual.gd`(GateVisual)과 `colossus.gd`의 `ColossusVisual`은 보스전·절망 구간에서만 생긴다. 측정값은 리팩터 보고서 참고.
+- 무거운 그림: `sky_gate_visual.gd`(GateVisual)은 `_draw` 한 번에 평균 3~5ms, `colossus.gd`의 `ColossusVisual`은 0.2~1.4ms였다(ch5_sky_gate·ch5_colossus 시나리오, CPU를 여럿이 나눠 쓰는 상태라 실제보다 크게 나옴). 보스전·절망 구간에서만 생기고 늘 화면 안이라 생략할 수 없다. 줄이려면 변하지 않는 부분(고리 바깥 하늘·금)을 따로 한 번만 그리는 자식 노드로 나누는 방법이 있다 — 그림이 같게 나오는지 스크린샷으로 확인하며 할 것.
 
 ---
 
