@@ -313,10 +313,19 @@ func _draw_arm(front: bool) -> void:
 			ang = -1.4
 			bend = 0.2
 		"claw":
+			# 1타: 위-뒤 → 앞-아래 대각선 / 2타: 가슴 앞으로 접었다 앞으로 쭉 가로 베기 / 3타: 아래-뒤 → 앞-위 올려 베기
+			var k := clampf(claw_k * 2.2, 0.0, 1.0)
 			if front:
-				var s := (1.0 if claw_step % 2 == 0 else -1.0)
-				ang = lerpf(-2.6 * s + 1.0, 1.4 * s + 0.4, clampf(claw_k * 2.0, 0.0, 1.0)) * -1.0 + (0.0 if s > 0 else -0.6)
-				bend = 0.1
+				match claw_step % 3:
+					0:
+						ang = lerpf(-3.7, -0.6, k)
+						bend = 0.15
+					1:
+						ang = lerpf(-0.7, -1.6, k)
+						bend = lerpf(2.4, 0.0, k)
+					_:
+						ang = lerpf(0.7, -2.4, k)
+						bend = 0.1
 			else:
 				ang = 0.6
 		"claw_up":

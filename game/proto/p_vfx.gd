@@ -104,24 +104,39 @@ class ClawSlash extends Base:
 		var base_col := PData.FOX_CORE if fox else Color(1, 1, 1)
 		var glow_col := PData.FOX_MID if fox else Color(0.75, 0.88, 1.0)
 		var R := (reach + 6.0) * (1.25 if fox else 1.0)
-		# 방향별 각도: 앞(dir) / 위 / 아래. step마다 위→아래·아래→위로 휘두름
-		var mid := 0.0 if dir > 0 else PI
-		if aim == -1:
-			mid = -PI / 2
-		elif aim == 1:
-			mid = PI / 2
-		var span := 2.3 if aim == 0 else 2.0
-		var sweep := (1.0 if (step % 2 == 0) else -1.0) * (dir if aim == 0 else 1)
+		if aim == 0:
+			_draw_swing(grow, fade, base_col, glow_col, R)
+			return
+		# 위·아래 베기: 머리 위/발밑으로 둥글게
+		var mid := -PI / 2 if aim == -1 else PI / 2
+		var span := 2.0
+		var sweep := 1.0 if (step % 2 == 0) else -1.0
 		var a0 := mid - span / 2 * sweep
 		var a1 := lerpf(a0, mid + span / 2 * sweep, grow)
-		var ctr := Vector2.ZERO
-		# 은은한 바깥 빛 → 흰 초승달 → 안쪽 발톱 자국 세 줄
-		PVfx.crescent(self, ctr, R + 4, a0, a1, 15.0, Color(glow_col, 0.3 * fade))
-		PVfx.crescent(self, ctr, R, a0, a1, 12.0 if step == 2 else 11.0, Color(base_col, 0.96 * fade))
+		_arc_layers(a0, a1, sweep, grow, fade, base_col, glow_col, R, 12.0 if step == 2 else 11.0)
+
+	## 앞 베기 3타: 1타 = 위-뒤에서 앞-아래로 내려 긋는 대각선, 2타 = 몸 앞을 가로지르는 수평, 3타 = 아래-뒤에서 앞-위로 올려 긋는 대각선.
+	## 몸을 감싸는 납작한 타원 궤적(기울기·납작함)을 돌려서 그린다 — 수직 반원이 아니라 옆·대각선으로 휘두르는 모양.
+	func _draw_swing(grow: float, fade: float, base_col: Color, glow_col: Color, R: float) -> void:
+		var s := step % 3
+		var tilt: float = [0.55, -0.08, -0.6][s] # + = 앞쪽이 아래로
+		var flat: float = [0.42, 0.3, 0.42][s] # 타원 세로 납작함
+		var a0: float = [-2.75, -2.9, 2.75][s] # 뒤쪽에서 시작
+		var a_end: float = [0.75, 0.85, -0.75][s] # 앞쪽 지나 끝
+		var rr := R * (1.12 if s == 1 else 1.0) * (1.1 if s == 2 else 1.0)
+		var sweep := signf(a_end - a0)
+		var a1 := lerpf(a0, a_end, grow)
+		draw_set_transform(Vector2.ZERO, tilt * dir, Vector2(dir, flat))
+		_arc_layers(a0, a1, sweep, grow, fade, base_col, glow_col, rr, 13.0 if s == 2 else 12.0)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	## 빛 → 흰 초승달 → 안쪽 발톱 자국 세 줄 → 끝 속도선
+	func _arc_layers(a0: float, a1: float, sweep: float, grow: float, fade: float, base_col: Color, glow_col: Color, R: float, w: float) -> void:
+		PVfx.crescent(self, Vector2.ZERO, R + 4, a0, a1, w + 4.0, Color(glow_col, 0.3 * fade), 22)
+		PVfx.crescent(self, Vector2.ZERO, R, a0, a1, w, Color(base_col, 0.96 * fade), 22)
 		for i in 3:
 			var rr := R - 10.0 - i * 3.2
-			PVfx.crescent(self, ctr, rr, lerpf(a0, a1, 0.15), lerpf(a0, a1, 0.92), 1.6, Color(glow_col, 0.75 * fade), 12)
-		# 끝에서 뻗는 속도선
+			PVfx.crescent(self, Vector2.ZERO, rr, lerpf(a0, a1, 0.15), lerpf(a0, a1, 0.92), 1.6, Color(glow_col, 0.75 * fade), 14)
 		if grow > 0.6:
 			var tip := Vector2(cos(a1), sin(a1)) * R
 			var tang := Vector2(-sin(a1), cos(a1)) * sweep

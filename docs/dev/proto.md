@@ -15,4 +15,4 @@
 | `p_hud.gd` · `p_panel.gd` · `p_arena.gd` | HUD(하트·마나·게이지·마법 칸·H 조작 안내), Tab 시험 패널, 훈련장 지형·카메라 |
 
 - 가산 합성(빛) 효과 안에서 어두운 것(붉은 화면·바위·결정·불꽃 리본)은 `PSpells.NormalLayer` 자식에 그린다(`z_index = -1`이면 빛 뒤).
-- 시험: `tools/test/scenarios/proto_*.json` (moves·spells·extra·revive·dbg·fx2) — 실행기 사용법은 tools/test/README.md.
+- 시험: `tools/test/scenarios/proto_*.json` (moves·claw·spells·extra·revive·dbg·fx2) — 실행기 사용법은 tools/test/README.md.
