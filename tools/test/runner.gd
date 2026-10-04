@@ -75,6 +75,9 @@ var _world_flags: Array = []
 func _process(_d: float) -> bool:
 	if not _loaded:
 		_loaded = true
+		# FRAME_CLOCK=1: 히트스톱 등 시간 효과를 프레임 수로 재서 바쁜 컴퓨터에서도 결과가 같게 (Fx.frame_clock)
+		if OS.get_environment("FRAME_CLOCK") == "1":
+			root.get_node("Fx").frame_clock = true
 		var gs = root.get_node("GameState")
 		if _world_room != "":
 			gs.new_game()
