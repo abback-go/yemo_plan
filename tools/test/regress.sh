@@ -34,9 +34,10 @@ printf '%s\n' "${list[@]}" | xargs -P "$JOBS" -I{} bash -c 'run_one {}'
 	for n in "${list[@]}"; do
 		log="$OUT/$n.log"
 		se=$(grep -c 'SCRIPT ERROR' "$log")
-		# 오디오 장치 없음(가상 화면) 오류는 환경 탓이라 뺀다
-		ee=$(grep '^ERROR' "$log" | grep -vc 'audio\|Audio\|ALSA\|PulseAudio')
-		echo "== $n rc=$(cat "$OUT/$n.rc") script_err=$se engine_err=$ee"
+		# 오디오 장치 없음(가상 화면)·종료 시 자원 정리 오류는 환경 탓이라 뺀다 (오류 줄 + 다음 "at:" 줄로 판단)
+		ee=$(awk '/^ERROR/{e=$0; getline n; if ((e n) !~ /audio|ALSA|still in use at exit/) c++} END{print c+0}' "$log")
+		wt=$(grep -c "WAIT TIMEOUT" "$log")
+		echo "== $n rc=$(cat "$OUT/$n.rc") script_err=$se engine_err=$ee wait_timeout=$wt"
 		grep -E '^(STATUS|WORLD) ' "$log" | sed -E 's/ f=[0-9]+//'
 	done
 } > "$OUT/summary.txt"
