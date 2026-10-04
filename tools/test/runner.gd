@@ -27,6 +27,8 @@ func _initialize() -> void:
 	_world_flags = json.get("flags", [])
 	# 배경 움직임 다시 그리기 상한: 시험은 기본 0(매 프레임)이라 픽셀 비교가 안정적. 성능 시나리오는 "bg_hz": 30 처럼 지정
 	load("res://world/themes/backdrop_kit.gd").Ticker.hz = float(json.get("bg_hz", 0))
+	# 정적 배경 텍스처 굽기 (기본 켬). "bake_bg": false 면 예전처럼 명령을 직접 그림 — 구운 그림과 픽셀 비교용
+	load("res://world/themes/backdrop_kit.gd").BAKE = bool(json.get("bake_bg", true))
 
 
 var _release_next: Array = []
@@ -430,6 +432,13 @@ func _process(_d: float) -> bool:
 				print("BGPERF ", s[2], " frames=", nf, " anim_draw_us_per_frame=", snappedf(float(st.anim_us) / nf, 0.1), " anim_items_per_frame=", snappedf(float(st.anim_n) / nf, 0.1), " anim_draws_per_frame=", snappedf(float(st.anim_draws) / nf, 0.01), " static_draw_us=", st.static_us, " static_cmds_drawn=", st.static_n, " recorded_static=", st.static_cmds, " recorded_anim=", st.anim_items, " room=", get_first_node_in_group("world").room.data.id)
 				st.reset()
 				_bg_f0 = frame
+			"eval":
+				# [frame, "eval", "식"] — World를 바탕으로 GDScript 식 하나 실행·출력 (성능 원인 찾기 등: "room.get_node('Background').set('visible', false)")
+				var ex := Expression.new()
+				if ex.parse(String(s[2])) != OK:
+					print("EVAL parse error: ", ex.get_error_text())
+				else:
+					print("EVAL ", s[2], " -> ", ex.execute([], get_first_node_in_group("world")))
 			"quit":
 				return true
 	return false

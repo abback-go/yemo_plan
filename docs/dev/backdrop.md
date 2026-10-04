@@ -136,3 +136,10 @@ Pen은 명령마다 level을 정한다(64px 격자 칸 단위로 겹침을 판�
    - `tools/test/scenarios/perf_market.json` 등 `perf_*` 시나리오를 돌린다.
    - `BGPERF` 줄에서 `anim_draw_us_per_frame`(동적 그리기 시간), `anim_items_per_frame`(그린 동적 항목), `recorded_static/anim`(기록 수)을 본다. `PERF` 줄에서 `draw_calls`·`objects`를 본다.
    - 헤드리스(`--headless`)로 돌리면 렌더링 없이 GDScript 비용만 볼 수 있다.
+
+### 정적 조각 텍스처 굽기 (2026-10-04 추가)
+- 다시 그리지 않아도 **그리기 명령 수만큼 매 프레임 그리기 호출**이 생긴다(렌더러가 기록된 명령을 재생). 4장 신전 서고(`temple_dark`)는 정적 명령이 수천 개라 그리기 호출 5,200회/프레임 → 웹에서 거의 멈춤.
+- 그래서 `backdrop_kit.gd`의 `mount()`가 정적 조각(StaticPart)마다 `SubViewport`(UPDATE_ONCE)에 **한 번** 그려 `Sprite2D` 하나로 붙인다(`_bake`). 투명 바탕에 섞어 그린 결과는 premultiplied라 Sprite는 `BLEND_MODE_PREMULT_ALPHA`.
+- 결과: 신전 기록실 그리기 호출 5,207 → 718, 그림은 다각형 가장자리 몇 픽셀의 반올림(대부분 색 차이 1) 말고 같다(`ch2/4/5_backdrops·themes`, `ch3_visuals`로 비교).
+- 끄기: `BackdropKit.BAKE = false` (시나리오 `"bake_bg": false`) — 그림 비교·문제 확인용. 범위가 2048px를 넘는 조각(범위를 모르는 `fn` 등)은 굽지 않고 직접 그린다(`BAKE_MAX`).
+- 굽는 비용은 방에 들어올 때 한 번. 조각 하나 최대 320px 폭이라 텍스처 메모리는 방마다 수 MB.

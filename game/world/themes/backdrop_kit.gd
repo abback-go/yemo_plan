@@ -74,6 +74,7 @@ class Pen extends RefCounted:
 	var post: Array[Node] = [] ## 모든 부분 위에 붙일 노드 (3장 Anim)
 	var procs: Array[Callable] = [] ## 매 프레임 부를 것 (node, t)
 	var commands := 0 ## 기록한 정적 명령 수 (계측용)
+	var bounds := {} ## 정적 자리 key → 그 조각 명령들의 범위(층 좌표) — 텍스처로 구울 크기
 	var anims := 0 ## 기록한 동적 항목 수 (계측용)
 
 	var _xf := Transform2D.IDENTITY
@@ -168,6 +169,7 @@ class Pen extends RefCounted:
 		_mark(_gs, r, key)
 		var chunks: Dictionary = _level_slot(lv)
 		var c := key - lv * KEYS
+		bounds[key] = (bounds[key] as Rect2).merge(b) if bounds.has(key) else b
 		if not chunks.has(c):
 			chunks[c] = []
 		var list: Array = chunks[c]
@@ -278,6 +280,49 @@ class AnimPart extends Node2D:
 		Stats.add_anim(Time.get_ticks_usec() - t0, n)
 
 
+## 정적 조각을 텍스처로 한 번 구워 붙인다 (true). 그림 명령이 수천 개인 배경(4장 신전 서고 등)은 다시 그리지 않아도
+## 매 프레임 명령 수만큼 그리기 호출이 생겨 웹에서 크게 느려진다 → 조각마다 SubViewport에 한 번 그려 Sprite 하나로 보인다.
+## 끄면 예전처럼 StaticPart가 명령을 직접 그린다(그림 비교용)
+static var BAKE := true
+const BAKE_MAX := 2048 ## 이보다 큰 조각(범위를 모르는 fn 등)은 굽지 않고 직접 그린다
+
+
+static func _bakeable(r: Rect2) -> bool:
+	return r.size.x >= 1.0 and r.size.y >= 1.0 and r.size.x <= BAKE_MAX and r.size.y <= BAKE_MAX
+
+
+## sp의 그림을 r(층 좌표) 크기 텍스처에 한 번 그리고, 같은 자리에 Sprite2D로 붙인다.
+## 투명 바탕에 섞어 그린 결과는 색이 알파로 곱해진 상태(premultiplied)라 Sprite는 PREMULT_ALPHA로 그려야 색이 같다
+static func _bake(owner: CanvasItem, sp: StaticPart, r: Rect2) -> void:
+	var org := r.position.floor()
+	var size := Vector2i((r.end - org).ceil())
+	var vp := SubViewport.new()
+	vp.name = sp.name + "_bake"
+	vp.size = size
+	vp.transparent_bg = true
+	vp.disable_3d = true
+	vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	sp.position = -org
+	vp.add_child(sp)
+	owner.add_child(vp)
+	var spr := Sprite2D.new()
+	spr.name = sp.name
+	spr.centered = false
+	spr.position = org
+	spr.texture = vp.get_texture()
+	spr.material = _premult_material()
+	owner.add_child(spr)
+
+
+static var _premult: CanvasItemMaterial
+static func _premult_material() -> CanvasItemMaterial:
+	if _premult == null:
+		_premult = CanvasItemMaterial.new()
+		_premult.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+	return _premult
+
+
 ## 기록을 owner의 자식 노드로 붙인다 (level 순서 = 그리는 순서). 동적 부분 목록을 돌려준다
 static func mount(owner: CanvasItem, pen: Pen, cull: bool) -> Array[AnimPart]:
 	var out: Array[AnimPart] = []
@@ -290,7 +335,11 @@ static func mount(owner: CanvasItem, pen: Pen, cull: bool) -> Array[AnimPart]:
 				var sp := StaticPart.new()
 				sp.name = "Static%d_%d" % [i, c]
 				sp.cmds = chunks[c]
-				owner.add_child(sp)
+				var r: Rect2 = pen.bounds.get(i * Pen.KEYS + c, ALL)
+				if BAKE and _bakeable(r):
+					_bake(owner, sp, r)
+				else:
+					owner.add_child(sp)
 		else:
 			var lv: Array = pen.levels[i]
 			if lv.is_empty():
