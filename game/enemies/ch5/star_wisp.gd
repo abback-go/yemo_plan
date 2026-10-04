@@ -91,7 +91,7 @@ func _add_line(partner: Node) -> void:
 
 ## 별자리 선의 상태: 0 꺼짐 · 1 예고 · 2 켜짐
 func line_state() -> int:
-	var ph := fmod(Time.get_ticks_msec() / 1000.0 + float(absi(hash(link)) % 97) * 0.03, CYCLE)
+	var ph := fmod(Fx.now_ms() / 1000.0 + float(absi(hash(link)) % 97) * 0.03, CYCLE) # Fx.now_ms: 게임에선 실제 시간, 시험에선 프레임 기준
 	if ph < OFF_T:
 		return 0
 	if ph < OFF_T + Difficulty.telegraph(WARN_T):

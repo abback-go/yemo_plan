@@ -98,15 +98,15 @@ func _ready() -> void:
 	_label_settings_fox.font_color = Color(0.6, 0.88, 1.0)
 
 
-## 시간 효과가 쓰는 현재 시각 (ms)
-func _now_ms() -> int:
+## 시간 효과가 쓰는 현재 시각 (ms). 시험(FRAME_CLOCK=1)에서는 프레임 수 기준이라, 실제 시간이 필요한 연출도 이것을 쓰면 시험 결과가 흔들리지 않는다
+func now_ms() -> int:
 	if frame_clock:
 		return Engine.get_process_frames() * 1000 / 60
 	return Time.get_ticks_msec()
 
 
 func _process(_delta: float) -> void:
-	var now := _now_ms()
+	var now := now_ms()
 	if _slowmo_until > 0 and now >= _slowmo_until:
 		_slowmo_until = 0
 		_base_time_scale = 1.0
@@ -152,7 +152,7 @@ func reset() -> void:
 func hitstop(sec: float) -> void:
 	if sec <= 0.0:
 		return
-	var until := _now_ms() + int(sec * 1000.0)
+	var until := now_ms() + int(sec * 1000.0)
 	if until <= _hitstop_until:
 		return
 	_hitstop_until = until
@@ -161,7 +161,7 @@ func hitstop(sec: float) -> void:
 
 func slowmo(scale: float, real_sec: float) -> void:
 	_base_time_scale = scale
-	_slowmo_until = _now_ms() + int(real_sec * 1000.0)
+	_slowmo_until = now_ms() + int(real_sec * 1000.0)
 	if _hitstop_until == 0:
 		Engine.time_scale = scale
 
@@ -171,7 +171,7 @@ func slowmo(scale: float, real_sec: float) -> void:
 ## 위치 타임: 적과 적의 탄만 느려진다 (세라는 정상 속도). 실제 시간 기준.
 func witch_time(scale: float, real_sec: float) -> void:
 	enemy_time = scale
-	_witch_until = _now_ms() + int(real_sec * 1000.0)
+	_witch_until = now_ms() + int(real_sec * 1000.0)
 	_set_tint(1.0)
 
 
