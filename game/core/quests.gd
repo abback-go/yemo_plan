@@ -57,28 +57,7 @@ static func complete(id: String) -> Array:
 	if state(id) == 2:
 		return []
 	GameState.set_flag("q_" + id, 2)
-	var out: Array = []
-	var r: Dictionary = def(id).get("reward", {})
-	var n_st := int(r.get("stones", 0))
-	if n_st > 0:
-		Spells.add_stones(n_st)
-		out.append("마도석 %d개" % n_st)
-	var n_pot := int(r.get("potion_slot", 0))
-	if n_pot > 0:
-		GameState.potions_max += n_pot
-		GameState.potions = GameState.potions_max
-		out.append("물약 최대 +%d" % n_pot)
-	var n_heart := int(r.get("heart", 0)) + int(r.get("feather", 0))
-	if n_heart > 0:
-		GameState.max_hp += n_heart
-		GameState.hp = GameState.max_hp
-		var w := World.get_world()
-		if w:
-			w.player.restore_from_state()
-		out.append("최대 체력 +%d" % n_heart)
-	var txt := String(r.get("text", ""))
-	if txt != "":
-		out.append(txt)
+	var out := Rewards.grant(def(id).get("reward", {}))
 	GameState.add("quests_done")
 	return out
 
@@ -90,7 +69,7 @@ static func available_for(who: String) -> String:
 		if String(d.get("giver", "")) != who or state(id) != 0 or String(d.get("kind", "side")) == "class":
 			continue
 		var need := String(d.get("need", ""))
-		if need != "" and not RoomData.cond_ok(need):
+		if not Cond.ok(need):
 			continue
 		return id
 	return ""
@@ -141,4 +120,51 @@ static func talk_hook(who: String) -> String:
 			var hh: Array = h
 			if hh.size() >= 3 and int(hh[0]) == step(id) and String(hh[1]) == who:
 				return String(hh[2])
+	return ""
+
+
+# ─── 마법 수업 (kind = "class") — 수업 게시판 창(ClassBoardUI)·게시판 "!"(class_board)이 부른다 ───
+
+static var _class_by_spell := {} ## 마법 ID → 수업 퀘스트 ID (데이터가 상수라 한 번 만듦 — 게시판이 매 프레임 물음)
+
+
+## 마법 ID → 그 마법의 수업 퀘스트 ID ("" = 수업 없음, 1장 기본)
+static func class_of(spell: String) -> String:
+	if _class_by_spell.is_empty():
+		for id in all():
+			var d: Dictionary = all()[id]
+			var sp := String(d.get("spell", ""))
+			if String(d.get("kind", "")) == "class" and not _class_by_spell.has(sp):
+				_class_by_spell[sp] = id # 같은 마법의 수업이 둘이면 앞의 것 (예전 선형 탐색과 같음)
+	return String(_class_by_spell.get(spell, ""))
+
+
+## 수업 상태: 0 습득 · 1 진행 중 · 2 신청 가능 · 3 잠김
+static func class_status(spell: String) -> int:
+	var q := class_of(spell)
+	# 수업 중엔 임시로 쓸 수 있어서(temp_) learned가 참 — 진행 중을 먼저 본다
+	if q != "" and state(q) == 1:
+		return 1
+	if Spells.learned(spell):
+		return 0
+	if q == "":
+		return 3
+	if Cond.ok(String(def(q).get("unlock", ""))):
+		return 2
+	return 3
+
+
+## 새로 신청할 수 있는 수업이 있는가 (게시판 "!")
+static func has_new_class() -> bool:
+	for sp in Spells.ORDER:
+		if class_status(sp) == 2:
+			return true
+	return false
+
+
+## 진행 중인 수업의 마법 ID ("" = 없음)
+static func active_class() -> String:
+	for sp in Spells.ORDER:
+		if class_status(sp) == 1:
+			return sp
 	return ""

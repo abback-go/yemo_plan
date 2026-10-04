@@ -5,7 +5,7 @@ extends RefCounted
 
 const ORDER := ["pillar", "storm", "levitate", "wings", "ward", "meteor", "phoenix"]
 
-## slot: as(A·S 칸) · f(고급 칸) · passive(상시)
+## slot: as(A·S 칸) · f(고급 칸) · passive(상시). keys: 수업을 마쳐 배울 때 알림 창의 조작 안내 (Cut.spell_learned)
 const DATA := {
 	"pillar": {
 		"name": "불기둥", "short": "불기둥", "grade": 0, "slot": "as", "ability": "", "teacher": "엠버린 교수",
@@ -24,24 +24,36 @@ const DATA := {
 	},
 	"wings": {
 		"name": "불꽃 날개", "short": "날개", "grade": 1, "slot": "passive", "ability": "wings", "teacher": "오필리아 교수",
+		"keys": "공중에서 Z를 다시 누르고 있기",
 		"desc": "공중에서 점프를 다시 누르고 있으면 불꽃 날개로 활공한다. 굴뚝 열기·바람길 같은 상승 기류를 타고 솟아오른다.",
 		"lv": ["활공 · 상승 기류 타기", "활공이 빨라지고 기류를 더 세게 탄다", "활공 중 아래로 불씨가 떨어져 적을 태운다"],
 	},
 	"ward": {
 		"name": "불꽃 방벽", "short": "방벽", "grade": 1, "slot": "as", "ability": "ward", "teacher": "엠버린 교수",
+		"keys": "마법서에서 A·S 칸에 끼우기",
 		"desc": "잠깐 불의 원을 두른다. 그 사이엔 다치지 않고, 날아온 탄은 되쏘며, 닿은 적은 불에 덴다.",
 		"lv": ["0.5초, 되쏜 탄 150 · 화상 120, 재사용 2.5초", "0.65초, 되쏘기 +25%, 재사용 2.1초", "막는 순간 주위에 불꽃 폭발 200, 재사용 1.8초"],
 	},
 	"meteor": {
 		"name": "유성 낙화", "short": "유성", "grade": 2, "slot": "f", "ability": "meteor", "teacher": "베로니카 교수",
+		"keys": "F (패드 R3)",
 		"desc": "하늘로 떠올라 모든 마력을 하늘에 바친다. 붉게 물든 하늘에서 유성이 쏟아진다.",
 		"lv": ["유성 7개(220) + 큰 유성 600, 재사용 40초", "유성 10개, 재사용 34초", "유성 15개 + 땅에 불바다, 재사용 30초"],
 	},
 	"phoenix": {
 		"name": "불사조", "short": "불사조", "grade": 2, "slot": "f", "ability": "phoenix", "teacher": "그레타 (금서)",
+		"keys": "F (패드 R3)",
 		"desc": "몸에서 거대한 불사조가 솟아 화면을 세 번 가른다. 불사조의 불은 세라를 치유한다.",
 		"lv": ["세 번 가르기(각 400) + 체력 1 회복, 재사용 60초", "체력 2 회복, 재사용 50초", "부활의 불꽃: 준비된 채 쓰러지면 체력 3으로 되살아남, 재사용 45초"],
 	},
+}
+
+## 1장 능력 습득 알림 (Cut.learn): 능력 ID → [이름, 조작, 설명]. 마법서 설명(DATA.desc)과 문구가 다르다 — 습득 순간용
+const ABILITY_TEXT := {
+	"storm": ["화염 폭풍", "S (패드 RB)", "앞쪽으로 몰아치는 불길. 가까운 적을 날려 보내고\n돌진하는 적을 끊어 낸다."],
+	"double_jump": ["부양", "공중에서 Z (패드 A)", "공중에서 한 번 더 뛰어오른다.\n높은 곳에 닿을 수 있다."],
+	"fox_window": ["여우창문", "D (패드 Y)", "손으로 여우 모양 창을 만들어 들여다본다.\n둔갑한 것의 참모습 — 환영 벽과 숨은 발판이 드러난다."],
+	"fox_mode": ["빙의 — 여우 모드", "폭주 게이지가 가득 차면 자동", "너울이 폭주를 받아 다스린다. 12초 동안 푸른 여우불의 기술.\n쓰고 나면 너울의 기운이 다시 차오를 때까지 기다려야 한다."],
 }
 
 const GRADE_NAMES := ["초급", "중급", "고급"]
@@ -57,6 +69,11 @@ const WARD_CD := [2.5, 2.1, 1.8]
 
 static func info(id: String) -> Dictionary:
 	return DATA.get(id, {})
+
+
+## 능력 습득 알림 문구 [이름, 조작, 설명] (표에 없으면 [ID, "", ""])
+static func ability_text(ability: String) -> Array:
+	return ABILITY_TEXT.get(ability, [ability, "", ""])
 
 
 static func learned(id: String) -> bool:

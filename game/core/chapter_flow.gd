@@ -1,16 +1,21 @@
 class_name ChapterFlow
 extends RefCounted
 ## 장 흐름 (docs/systems2.md 7절). 장마다 다른 게임처럼 끊기지 않게: 장 끝 대본 → 꼬리 연출 → 저장 → 다음 장 카드 → chN_start.
+## 장 제목·꼬리 수·마지막 장은 각 story/data_<장>.gd 의 CHAPTER (ChapterRegistry) — 여기는 읽기만 한다.
 
-const TITLES := {
-	1: ["1장", "폐급 마녀와 여우신"],
-	2: ["2장", "제국의 검"],
-	3: ["3장", "세계수의 눈"],
-	4: ["4장", "황금창의 수호자"],
-	5: ["5장", "별의 마녀"],
-}
-## 장이 끝날 때 너울의 꼬리 수 (docs/bible/progression.md 3절)
-const TAILS_AT_END := {2: 2, 3: 3, 4: 4}
+
+## 장 카드 제목 [장 표시, 부제] (없는 장이면 ["", ""])
+static func title(n: int) -> Array:
+	return ChapterRegistry.chapter(n).get("title", ["", ""])
+
+
+## 예전 이름 (ui/cinema.gd가 TITLES.get(n, …)으로 읽는다). 새 코드는 title(n)
+static var TITLES: Dictionary:
+	get:
+		var out := {}
+		for d: Dictionary in ChapterRegistry.chapters():
+			out[int(d.get("n", 0))] = d.get("title", ["", ""])
+		return out
 
 
 static func current() -> int:
@@ -19,10 +24,12 @@ static func current() -> int:
 
 ## 장 끝 대본의 마지막 줄: await ChapterFlow.finish(c, N)
 static func finish(c: Cut, n: int) -> void:
+	var info := ChapterRegistry.chapter(n)
 	GameState.set_flag("ch%d_done" % n)
-	if TAILS_AT_END.has(n) and int(GameState.flag("tails", 1)) < int(TAILS_AT_END[n]):
-		await c.tails(int(TAILS_AT_END[n]))
-	if n >= 5:
+	var tails := int(info.get("tails_at_end", 0))
+	if tails > 0 and int(GameState.flag("tails", 1)) < tails:
+		await c.tails(tails)
+	if bool(info.get("last", false)):
 		GameState.save_game()
 		return
 	GameState.set_flag("chapter", n + 1)

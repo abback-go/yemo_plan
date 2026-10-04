@@ -80,17 +80,6 @@ func size_px() -> Vector2:
 	return Vector2(cols(), row_count()) * GameConst.TILE
 
 
-## 개체 조건 검사: "a,!b" → a 플래그가 서 있고 b는 없을 때
+## 개체 조건 검사: "a,!b" → a 플래그가 서 있고 b는 없을 때. 해석은 Cond.ok 하나 (core/cond.gd — 문법 설명)
 static func cond_ok(cond: String) -> bool:
-	if cond == "":
-		return true
-	for tok in cond.split(","):
-		var t := tok.strip_edges()
-		if t == "":
-			continue
-		if t.begins_with("!"):
-			if GameState.has_flag(t.substr(1)):
-				return false
-		elif not GameState.has_flag(t):
-			return false
-	return true
+	return Cond.ok(cond)

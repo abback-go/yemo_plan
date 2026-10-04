@@ -1,9 +1,44 @@
 extends RefCounted
 ## 3장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절, docs/chapter3.md).
+## 형식 (모든 data_<장>.gd 공통 — 자세히: docs/dev/story.md "데이터 형식"):
+##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
+##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
+##   CHARACTERS 인물 ID → {name, color, voice, 몸 그림 값(robe·hair…), draw·portrait(전용 그림 경로)}
+##   ROOMS      이 장의 방 ID (지도·검사용)
+##   OBJECTIVES [완료 플래그, HUD 문구, 필요 조건(Cond 식, ""=항상)] — 위에서부터 "조건 참·완료 아직"인 첫 줄이 현재 목표
+##   QUESTS     ID → {title, giver, kind(side·class·main), chapter, need(Cond 식), desc, steps[문구…],
+##              talk[[단계, 인물, 대본 ID]…], reward{stones, potion_slot, heart, feather, text}}
+##              수업(kind = "class")은 + spell(마법 ID), unlock(Cond 식), unlock_text
+
+## 장 정보 (ChapterRegistry 머리 주석의 CHAPTER 설명)
+const CHAPTER := {
+	"n": 3,
+	"title": ["3장", "세계수의 눈"],
+	"tails_at_end": 3,
+	"areas": {"elf": "세계수 에일라흐"},
+	"warps": [["elf", "e_gate", "warp", "엘프의 숲 — 입구", "warp_elf"]],
+	"credits": [
+		"# 세계수 에일라흐",
+		"세계수의 눈 엘라리엔",
+		"오르티아 장로 · 피오 · 티엘",
+		"",
+	],
+}
+
+## 대본 파일 (Story가 이 순서로 읽는다). 장면(지역)마다 한 파일, 장 공용 도우미는 story/ch3/common.gd(목록에 넣지 않음),
+## 시험용 dev_ 대본은 story/dev/. 웹 내보내기에서 폴더 나열을 믿을 수 없어 하나하나 적는다
+const SCRIPTS := [
+	"res://story/ch3/border.gd",
+	"res://story/ch3/trunk.gd",
+	"res://story/ch3/crown.gd",
+	"res://story/ch3/people.gd",
+	"res://story/ch3/school_npc.gd",
+	"res://story/dev/ch3.gd",
+]
 
 const SP := "res://characters/special/"
 
-## 인물: 1장 Characters.DB와 같은 키 (+ 전용 그림 "draw"·"portrait").
+## 인물: data_ch1.gd CHARACTERS와 같은 키 (+ 전용 그림 "draw"·"portrait").
 ## 전용 그림이 있어도 일반 값(robe·hair 등)을 함께 둔다 — 다른 곳(1장 기본 그림·초상화)이 읽어도 깨지지 않게.
 const CHARACTERS := {
 	"elarien": {
@@ -96,7 +131,7 @@ const ROOMS := [
 	"e_crown_1", "e_crown_2", "e_crown_nest",
 ]
 
-## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 플래그] — docs/chapter3.md 10절
+## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] — docs/chapter3.md 10절
 const OBJECTIVES := [
 	["e_letter", "교장실로 가자 (중앙 홀 2층 오른쪽 → 시계탑 꼭대기)", "e_start"],
 	["e_arrived", "앞마당 전이진으로 엘프의 숲에 가자", "e_letter"],

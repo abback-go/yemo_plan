@@ -1,7 +1,43 @@
 extends RefCounted
 ## 2장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절).
+## 형식 (모든 data_<장>.gd 공통 — 자세히: docs/dev/story.md "데이터 형식"):
+##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
+##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
+##   CHARACTERS 인물 ID → {name, color, voice, 몸 그림 값(robe·hair…), draw·portrait(전용 그림 경로)}
+##   ROOMS      이 장의 방 ID (지도·검사용)
+##   OBJECTIVES [완료 플래그, HUD 문구, 필요 조건(Cond 식, ""=항상)] — 위에서부터 "조건 참·완료 아직"인 첫 줄이 현재 목표
+##   QUESTS     ID → {title, giver, kind(side·class·main), chapter, need(Cond 식), desc, steps[문구…],
+##              talk[[단계, 인물, 대본 ID]…], reward{stones, potion_slot, heart, feather, text}}
+##              수업(kind = "class")은 + spell(마법 ID), unlock(Cond 식), unlock_text
 
-## 인물: 1장 Characters.DB와 같은 키 (+ 전용 그림 "draw"·"portrait")
+## 장 정보 (ChapterRegistry 머리 주석의 CHAPTER 설명)
+const CHAPTER := {
+	"n": 2,
+	"title": ["2장", "제국의 검"],
+	"tails_at_end": 2,
+	"areas": {"kingdom": "황도 아르덴"},
+	"warps": [["kingdom", "k_embassy", "warp", "아르덴 제국 — 공관", "warp_kingdom"]],
+	"credits": [
+		"# 아르덴 제국",
+		"제국제일검 레오니 발렌하르트",
+		"은사자 기사단 카엘 · 빵집의 미아 · 대장장이 브론",
+		"",
+	],
+}
+
+## 대본 파일 (Story가 이 순서로 읽는다). 장면(지역)마다 한 파일, 장 공용 도우미는 story/ch2/common.gd(목록에 넣지 않음),
+## 시험용 dev_ 대본은 story/dev/. 웹 내보내기에서 폴더 나열을 믿을 수 없어 하나하나 적는다
+const SCRIPTS := [
+	"res://story/ch2/school.gd",
+	"res://story/ch2/market.gd",
+	"res://story/ch2/city.gd",
+	"res://story/ch2/duel.gd",
+	"res://story/ch2/people.gd",
+	"res://story/ch2/school_npc.gd",
+	"res://story/dev/ch2.gd",
+]
+
+## 인물: data_ch1.gd CHARACTERS와 같은 키 (+ 전용 그림 "draw"·"portrait")
 ## 강자·주요 인물은 전용 그림, 시민은 CharacterVisual 기본 값. 이름 표기는 docs/bible/characters.md.
 const CHARACTERS := {
 	# 2장 강자 — 은사자 기사단장 (전용 몸·초상화, 키 40)
@@ -125,7 +161,7 @@ const ROOMS := [
 	"k_oldquarter_1", "k_oldquarter_2", "k_oldquarter_3", "k_crater",
 ]
 
-## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 플래그] (docs/chapter2.md 7.3절)
+## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] (docs/chapter2.md 7.3절)
 const OBJECTIVES := [
 	["k_breakfast", "식당에서 아침을 먹자 (동관 복도 → 아래층)", "ch1_done"],
 	["ab_wings", "중앙 홀 수업 게시판에서 '불꽃 날개' 수업을 듣자", "k_breakfast"],
