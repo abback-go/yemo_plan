@@ -28,17 +28,11 @@ func _build() -> void:
 	set_state("idle", 0.7)
 
 
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
-
-
 func _ai(delta: float) -> void:
 	_tick(delta)
 	var gk := 1.25 if grand else 1.0
-	_place(_charge_area, Vector2(14, -18) * gk)
-	_place(_thrust, Vector2(28, -20) * gk)
+	place_area(_charge_area, Vector2(14, -18) * gk)
+	place_area(_thrust, Vector2(28, -20) * gk)
 	var p := player()
 	if not engaged or p == null or not p.is_alive():
 		velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)

@@ -30,6 +30,7 @@ enum S {
 	GUARD, STAGGER, PHASE, DOWN,
 }
 
+const HaloDisc := preload("res://enemies/ch4/aurelia_halo_disc.gd")
 const H := preload("res://enemies/ch4/holy.gd")
 const VIS := preload("res://enemies/ch4/aurelia_boss_visual.gd")
 const T := 16.0
@@ -63,6 +64,7 @@ const LINES_P3: Array[String] = ["물러—나—십시오.", "빛을… 더럽�
 
 var state: S = S.DORMANT
 var phase := 1
+const PHASE_AT: Array[float] = [0.66, 0.33] ## 1→2, 2→3 페이즈 문턱 (체력 비율, 한 방에 넘지 못함)
 var berserk := false
 var halo_out := false ## 광륜을 던진 동안 (그림에서 머리 뒤 광륜을 숨김)
 var charge_dir := 1
@@ -362,7 +364,7 @@ func _ai(delta: float) -> void:
 
 
 func _cadence(base: float) -> float:
-	return base * (0.75 if phase == 3 else (0.9 if phase == 2 else 1.0))
+	return base * BossKit.phase_mult(phase, [1.0, 0.9, 0.75])
 
 
 func _to_idle(wait: float) -> void:
@@ -413,13 +415,7 @@ func _choose(p: Player) -> void:
 				pool.append("judgment")
 			else:
 				pool.append_array(["charge", "halo", "rain", "charge"])
-	pool.erase(_last)
-	if pool.is_empty():
-		pool.append("thrust")
-	if not test_queue.is_empty():
-		pool.clear()
-		pool.append(String(test_queue.pop_front()))
-	var pick: String = pool[randi() % pool.size()]
+	var pick := BossKit.pick_attack(pool, _last, test_queue, "thrust")
 	_last = pick
 	match pick:
 		"thrust":
@@ -785,16 +781,9 @@ func take_hit(hit: Hit) -> void:
 	super(hit)
 	if not _alive or hp <= 0:
 		return
-	var t2 := int(max_hp * 0.66)
-	var t3 := int(max_hp * 0.33)
-	if phase == 1 and hp <= t2:
-		if before > t2:
-			hp = t2
-		_start_phase(2)
-	elif phase == 2 and hp <= t3:
-		if before > t3:
-			hp = t3
-		_start_phase(3)
+	var n := BossKit.phase_cross(self, phase, before, PHASE_AT)
+	if n > 0:
+		_start_phase(n)
 
 
 func _start_phase(n: int) -> void:
@@ -902,10 +891,7 @@ func _die(_dir: int) -> void:
 	jud_wave = -1.0
 	_alive = false
 	hp = 0
-	if not respawns:
-		GameState.mark_killed(uid)
-	GameState.add("kills")
-	StyleRank.on_kill()
+	_record_defeat()
 	Fx.hitstop(0.2)
 	Fx.slowmo(0.35, 0.8)
 	Fx.shake(0.8, 0.8)
@@ -926,11 +912,8 @@ func _physics_process(delta: float) -> void:
 	super(delta)
 	if not _alive:
 		_t += delta
-		_flash = maxf(_flash - delta, 0.0)
-		if not is_on_floor():
-			velocity.y = minf(velocity.y + _gravity * delta, 600.0)
-			velocity.x = 0.0
-			move_and_slide()
+		_flash = maxf(_flash - delta, 0.0) # 기반도 줄이므로 2배 빠르게 걷힌다 (예전 동작 그대로)
+		_post_death_fall(delta)
 		if _visual:
 			_visual.queue_redraw()
 
@@ -938,100 +921,3 @@ func _physics_process(delta: float) -> void:
 # ═══════════════════════════════════════════════════════════
 # 던진 광륜 (원반처럼 날아갔다 돌아옴). 불꽃 방벽으로 되쏘면 주인을 친다
 # ═══════════════════════════════════════════════════════════
-
-class HaloDisc extends EnemyAttackArea:
-	var boss: AureliaBoss
-	var white := false
-	var delay := 0.0
-	var start := Vector2.ZERO
-	var lane_y := 0.0
-	var dir := 1.0
-	var range_px := 200.0
-	var speed := 260.0
-	var reflected := false
-	var _t := 0.0
-	var _x := 0.0
-	var _out := true
-	var _spin := 0.0
-	var _reflect_dmg := 150
-
-	func _ready() -> void:
-		cause = &"aurelia_halo"
-		damage = 1
-		dodgeable = true
-		active = false
-		z_index = 6
-		material = Fx.add_material
-		add_to_group(&"enemy_projectile")
-		var cs := CollisionShape2D.new()
-		var c := CircleShape2D.new()
-		c.radius = 9.0
-		cs.shape = c
-		add_child(cs)
-		global_position = start
-		visible = false
-
-	func reflect(_new_dir: Vector2, dmg: int) -> void:
-		if reflected or not active:
-			return
-		reflected = true
-		active = false
-		_reflect_dmg = dmg
-		Sfx.play(&"reflect", 0.0, 0.0)
-
-	func _physics_process(delta: float) -> void:
-		var d := delta * Fx.enemy_time
-		_t += d
-		_spin += d * 18.0
-		if _t < delay:
-			return
-		if not visible:
-			visible = true
-			active = true
-			_x = 0.0
-			Sfx.play(&"whoosh", -2.0, 0.1)
-		if boss == null or not is_instance_valid(boss) or not boss.is_alive():
-			queue_free()
-			return
-		if reflected:
-			# 되쏘아짐: 주인에게 날아가 맞힘
-			var to := boss.global_position + Vector2(0, -26)
-			global_position = global_position.move_toward(to, 520.0 * delta)
-			if global_position.distance_to(to) < 10.0:
-				boss.halo_reflected_hit(_reflect_dmg * 2)
-				Fx.ring(global_position, 4.0, 40.0, Color(1.0, 0.75, 0.4), 0.3, 3.0)
-				queue_free()
-			queue_redraw()
-			return
-		var y := lerpf(start.y, lane_y, clampf((_t - delay) / 0.2, 0.0, 1.0))
-		if _out:
-			_x += speed * d * (1.0 - clampf(_x / range_px, 0.0, 0.85))
-			global_position = Vector2(start.x + dir * _x, y)
-			if _x >= range_px * 0.97:
-				_out = false
-		else:
-			# 돌아옴: 주인 손으로
-			var home := boss.global_position + Vector2(0, -30)
-			global_position = global_position.move_toward(Vector2(home.x, lane_y if absf(global_position.x - home.x) > 24.0 else home.y), speed * 1.1 * d)
-			if global_position.distance_to(home) < 12.0:
-				queue_free()
-				return
-		if Engine.get_physics_frames() % 2 == 0:
-			Fx.burst(global_position, 2, {spread = 180.0, speed_min = 10.0, speed_max = 40.0, lifetime = 0.3,
-				gradient = Palette.fade_gradient(Color(1, 1, 1) if white else Color(1.0, 0.86, 0.45)), size_min = 1.0, size_max = 2.0,
-				gravity = Vector2.ZERO, add = true})
-		queue_redraw()
-
-	func _draw() -> void:
-		var gold := Color(1.0, 0.86, 0.45) if not white else Color(1.0, 0.98, 0.9)
-		if reflected:
-			gold = Color(1.0, 0.6, 0.3)
-		draw_circle(Vector2.ZERO, 13.0, Color(gold, 0.15))
-		draw_arc(Vector2.ZERO, 9.0, 0, TAU, 24, Color(gold, 0.95), 2.5)
-		draw_arc(Vector2.ZERO, 6.0, 0, TAU, 18, Color(gold, 0.5), 1.0)
-		for i in 10:
-			var a := _spin + TAU * i / 10.0
-			draw_line(Vector2(cos(a), sin(a)) * 10.0, Vector2(cos(a), sin(a)) * 13.5, Color(gold, 0.85), 1.0)
-		if white:
-			draw_line(Vector2(-7, -3), Vector2(2, 1), Color.WHITE, 1.0)
-			draw_line(Vector2(2, 1), Vector2(5, 6), Color.WHITE, 1.0)

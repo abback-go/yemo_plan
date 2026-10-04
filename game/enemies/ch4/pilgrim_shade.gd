@@ -27,8 +27,7 @@ var free_flag := ""
 var line := ""
 var look := 0 ## 옷 모양 (그림)
 var freed_k := 0.0 ## 풀려나는 진행도 (그림)
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _say_t := 3.0
 var _grab: EnemyAttackArea
 var _freed_done := false
@@ -54,20 +53,19 @@ func _build() -> void:
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 func _go(s: S, time := 0.0) -> void:
 	state = s
-	_timer = time
-	_dur = time
+	_clock.enter(time)
 
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
 	var cs := _grab.get_child(0) as CollisionShape2D
 	cs.position = Vector2(12 * facing, -16)
-	_timer -= delta
+	_clock.tick(delta)
 	var p := player()
 	if state == S.FREED:
 		velocity.x = 0.0
@@ -83,34 +81,27 @@ func _ai(delta: float) -> void:
 	match state:
 		S.WANDER:
 			facing = 1 if dx >= 0.0 else -1
-			var want := facing * WALK_T * t if absf(dx) > 1.5 * t and not _ledge_ahead() else 0.0
+			var want := facing * WALK_T * t if absf(dx) > 1.5 * t and not ledge_ahead(10.0, 16.0) else 0.0
 			velocity.x = move_toward(velocity.x, want, 300.0 * delta)
-			if absf(dx) < REACH_T * t and absf(p.global_position.y - global_position.y) < 2.5 * t and _timer <= 0.0:
+			if absf(dx) < REACH_T * t and absf(p.global_position.y - global_position.y) < 2.5 * t and _clock.done():
 				_go(S.REACH, Difficulty.telegraph(REACH_TIME))
 				velocity.x = 0.0
 				H.snd(&"growl", &"growl", -10.0)
 		S.REACH:
 			velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
-			if _timer <= 0.0:
+			if _clock.done():
 				_go(S.GRAB, GRAB_TIME)
 				_grab.active = true
 				H.snd(&"whoosh", &"whoosh", -6.0)
 		S.GRAB:
 			velocity.x = facing * GRAB_SPEED_T * t
-			if _timer <= 0.0 or is_on_wall() or _ledge_ahead():
+			if _clock.done() or is_on_wall() or ledge_ahead(10.0, 16.0):
 				_grab.active = false
 				_go(S.SOB, SOB_TIME)
 		S.SOB:
 			velocity.x = move_toward(velocity.x, 0.0, 800.0 * delta)
-			if _timer <= 0.0:
+			if _clock.done():
 				_go(S.WANDER, Difficulty.rest(0.8))
-
-
-func _ledge_ahead() -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(facing * 10, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 16), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
 
 
 func _float_text(text: String, col: Color) -> void:
@@ -137,19 +128,12 @@ func _die(_dir: int) -> void:
 		return
 	_freed_done = true
 	_alive = false
-	if not respawns:
-		GameState.mark_killed(uid)
-	GameState.add("kills")
+	_record_defeat()
 	GameState.add("tp_shades_freed")
-	StyleRank.on_kill()
 	defeated.emit(self)
 	_go(S.FREED, FREED_TIME)
 	velocity = Vector2.ZERO
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
-	for c in get_children():
-		if c is EnemyAttackArea:
-			(c as EnemyAttackArea).active = false
+	_disable_body()
 	if free_flag != "":
 		GameState.set_flag(free_flag)
 	H.snd(&"reveal", &"reveal", -2.0)

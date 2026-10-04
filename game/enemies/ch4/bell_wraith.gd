@@ -25,8 +25,7 @@ var state: S = S.DRIFT
 var bell_crack := 0.0 ## 유령 종 금 (그림)
 var stun_left := 0.0
 var rings: Array = [] ## [{c: Vector2, r: float, alive: bool}] (그림이 읽음)
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _home := Vector2.INF
 var _triple_left := 0
 var _drift_phase := 0.0
@@ -54,17 +53,16 @@ func _ready() -> void:
 	add_to_group(&"bell_wraith")
 	collision_mask = 0
 	_drift_phase = randf() * TAU
-	_timer = 1.2
+	_clock.left = 1.2
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 func _go(s: S, time := 0.0) -> void:
 	state = s
-	_timer = time
-	_dur = time
+	_clock.enter(time)
 
 
 ## 진짜 종이 울림 (TempleBell이 부름)
@@ -90,7 +88,7 @@ func _ai(delta: float) -> void:
 	if _home == Vector2.INF:
 		_home = global_position
 	var t := GameConst.TILE
-	_timer -= delta
+	_clock.tick(delta)
 	_tick_rings(delta)
 	var p := player()
 	# 떠돌기 (멈췄을 땐 바닥으로 내려앉음)
@@ -99,7 +97,7 @@ func _ai(delta: float) -> void:
 		var fy := H.floor_below(space, global_position + Vector2(0, -4), 12.0 * t)
 		var target_y := fy if fy != INF else global_position.y
 		velocity = Vector2(0, (target_y - global_position.y) * 4.0)
-		if _timer <= 0.0:
+		if _clock.done():
 			stun_left = 0.0
 			_go(S.RECOVER, 0.6)
 		return
@@ -118,7 +116,7 @@ func _ai(delta: float) -> void:
 	velocity = (target + Vector2(0, bob) - global_position) * (0.8 if not still else 0.2)
 	match state:
 		S.DRIFT:
-			if _timer <= 0.0 and p and p.is_alive() and engaged and global_position.distance_to(p.global_position) < 13.0 * t:
+			if _clock.done() and p and p.is_alive() and engaged and global_position.distance_to(p.global_position) < 13.0 * t:
 				if randf() < 0.35:
 					_triple_left = 3
 					_go(S.TRIPLE, Difficulty.telegraph(0.5))
@@ -126,7 +124,7 @@ func _ai(delta: float) -> void:
 					_go(S.RAISE, Difficulty.telegraph(RAISE_TIME))
 				H.snd(&"bell_small", &"blip", -6.0)
 		S.RAISE:
-			if _timer <= 0.0:
+			if _clock.done():
 				_go(S.TOLL, 0.5)
 				_emit_ring(1.0)
 				var tw := create_tween()
@@ -135,10 +133,10 @@ func _ai(delta: float) -> void:
 					if _alive and state != S.STUNNED:
 						_emit_ring(0.9))
 		S.TOLL:
-			if _timer <= 0.0:
+			if _clock.done():
 				_go(S.RECOVER, 0.5)
 		S.TRIPLE:
-			if _timer <= 0.0:
+			if _clock.done():
 				_emit_ring(0.55)
 				_triple_left -= 1
 				if _triple_left <= 0:
@@ -146,7 +144,7 @@ func _ai(delta: float) -> void:
 				else:
 					_go(S.TRIPLE, TRIPLE_GAP)
 		S.RECOVER:
-			if _timer <= 0.0:
+			if _clock.done():
 				_go(S.DRIFT, Difficulty.rest(randf_range(REST.x, REST.y)))
 
 

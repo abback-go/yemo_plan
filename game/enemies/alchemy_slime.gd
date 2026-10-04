@@ -46,6 +46,7 @@ var _slam_area: EnemyAttackArea
 func _build() -> void:
 	max_hp = 380
 	body_size = Vector2(34, 24)
+	cull_offscreen = false # 화면 밖 생략 안 함: 착지 표시가 몸에서 멀리 그려짐
 	display_name = "연금 슬라임"
 	subtitle = "실패한 과제물"
 	kind_id = "alchemy_slime"

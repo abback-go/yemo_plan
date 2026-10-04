@@ -343,10 +343,7 @@ func _start_rain(p: Player) -> void:
 
 
 func _floor_at(from: Vector2) -> Vector2:
-	var space := get_world_2d().direct_space_state
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 12.0 * GameConst.TILE), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	var r := space.intersect_ray(q)
-	return Vector2.INF if r.is_empty() else (r.position as Vector2)
+	return ray_point(from, from + Vector2(0, 12.0 * GameConst.TILE))
 
 
 ## 발밑 바람 (가까이 온 세라를 밀어냄): 붉은 고리 예고 → 바람
@@ -541,30 +538,24 @@ class Pips extends Node2D:
 
 
 ## 화살비 표시: 바닥에 붉은 표시(점점 진해짐) → 하늘에서 화살 한 대
-class RainMark extends Node2D:
-	var dur := 1.2
-	var _t := 0.0
-	var _fired := false
-
+class RainMark extends TelegraphHazard:
 	func setup(at: Vector2, p_dur: float) -> void:
 		global_position = at
-		dur = p_dur
+		delay = p_dur
+		life = 0.5
+		use_enemy_time = true
+		in_physics = false
+		end_inclusive = false
 		z_index = 4
 
-	func _process(delta: float) -> void:
-		_t += delta * Fx.enemy_time
-		if not _fired and _t >= dur:
-			_fired = true
-			var a := ElfArrow.new()
-			a.setup(global_position + Vector2(randf_range(-6, 6), -15.0 * GameConst.TILE), Vector2(0.04, 1), 34.0 * GameConst.TILE,
-				{"style": "rain", "cause": "elarien_rain", "life": 1.2})
-			Fx.effect_parent().add_child(a)
-		if _t > dur + 0.5:
-			queue_free()
-		queue_redraw()
+	func _on_fire() -> void:
+		var a := ElfArrow.new()
+		a.setup(global_position + Vector2(randf_range(-6, 6), -15.0 * GameConst.TILE), Vector2(0.04, 1), 34.0 * GameConst.TILE,
+			{"style": "rain", "cause": "elarien_rain", "life": 1.2})
+		Fx.effect_parent().add_child(a)
 
 	func _draw() -> void:
-		var k := clampf(_t / dur, 0.0, 1.0)
+		var k := clampf(_t / delay, 0.0, 1.0)
 		var pulse := 0.6 + 0.4 * sin(_t * 28.0)
 		var w := 18.0 - 6.0 * k
 		draw_rect(Rect2(-w * 0.5, -2, w, 2), Color(Palette.DANGER, (0.3 + 0.6 * k) * pulse))

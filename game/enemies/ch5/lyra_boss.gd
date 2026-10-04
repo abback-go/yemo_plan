@@ -228,8 +228,8 @@ func _ai(delta: float) -> void:
 		if k >= 1.0:
 			_move_time = 0.0
 	velocity = Vector2.ZERO
-	_place(_blade, Vector2(20, -20))
-	_place(_body_hit, Vector2(6, -20))
+	place_area(_blade, Vector2(20, -20))
+	place_area(_body_hit, Vector2(6, -20))
 	var want_dim := 0.0
 	if state in ["ilseom", "rain_wind", "rain", "great_star"]:
 		want_dim = 0.55
@@ -272,12 +272,6 @@ func _ai(delta: float) -> void:
 				3: _ai_p3(delta, p)
 				4: _ai_p4(delta, p)
 				_: _ai_finale(delta, p)
-
-
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
 
 
 func _choose(p: Player) -> void:
@@ -803,18 +797,15 @@ func take_hit(hit: Hit) -> void:
 
 ## 페이즈 문턱은 한 방에 넘지 못한다 (전환 연출을 반드시 거침). 대본·시험이 체력을 직접 바꿔도 _ai에서 다시 확인
 func _check_phase(before: int) -> void:
-	var marks := [[1, P2_AT, 2], [2, P3_AT, 3], [3, P4_AT, 4], [4, FINALE_AT, 5]]
-	for m in marks:
-		var ph: int = m[0]
-		var at := int(max_hp * float(m[1]))
-		if phase == ph and _pending_phase == 0 and hp <= at:
-			if before > at:
-				hp = at
-			_pending_phase = m[2]
-			if state in ["idle", "recover"]:
-				_start_transition(_pending_phase)
-				_pending_phase = 0
-			break
+	if _pending_phase != 0:
+		return
+	var n := BossKit.phase_cross(self, phase, before, [P2_AT, P3_AT, P4_AT, FINALE_AT])
+	if n == 0:
+		return
+	_pending_phase = n
+	if state in ["idle", "recover"]:
+		_start_transition(_pending_phase)
+		_pending_phase = 0
 
 
 func _on_blocked(hit: Hit) -> void:
@@ -841,11 +832,8 @@ func _die(_dir: int) -> void:
 	_blade.active = false
 	_body_hit.active = false
 	_alive = false
-	if not respawns:
-		GameState.mark_killed(uid)
-	GameState.add("kills")
-	_hurtbox.set_deferred("monitorable", false)
-	collision_layer = 0
+	_record_defeat("kills", false) # 등급 처치는 세지 않는다 (예전 동작 그대로)
+	_disable_body(false) # 판정 셋은 위에서 직접 껐다
 	Fx.hitstop(0.25)
 	Fx.slowmo(0.35, 0.9)
 	Fx.flash(Color(1.0, 0.96, 0.85, 0.6), 0.6)
@@ -859,11 +847,7 @@ func _die(_dir: int) -> void:
 
 
 func _ground_at(x: float, from_y: float) -> float:
-	var q := PhysicsRayQueryParameters2D.create(Vector2(x, from_y), Vector2(x, from_y + 20.0 * T), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	var r := get_world_2d().direct_space_state.intersect_ray(q)
-	if r.is_empty():
-		return floor_y
-	return (r["position"] as Vector2).y
+	return floor_y_at(x, from_y, from_y + 20.0 * T, floor_y)
 
 
 ## 배경을 어둡게 하는 막 (일섬·별의 비) + 하늘의 별자리 + 1페이즈 준비된 별 + 말풍선

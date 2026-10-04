@@ -13,17 +13,12 @@ const OUT := Color("#07060c")
 
 ## 효과음: docs/systems2.md 9절의 새 이름이 있으면 그것, 없으면 비슷한 1장 소리
 static func snd(name: StringName, fallback: StringName = &"", vol := 0.0, pv := 0.06) -> void:
-	if Sfx.has_sound(name):
-		Sfx.play(name, vol, pv)
-	elif fallback != &"" and Sfx.has_sound(fallback):
-		Sfx.play(fallback, vol, pv)
+	EnemyBase.play_sfx(name, fallback, vol, pv)
 
 
+## 두 색 사이 Gradient (같은 색이면 캐시된 같은 자원 — Palette.cached_gradient)
 static func grad(c0: Color, c1: Color) -> Gradient:
-	var g := Gradient.new()
-	g.offsets = PackedFloat32Array([0.0, 1.0])
-	g.colors = PackedColorArray([c0, c1])
-	return g
+	return Palette.cached_gradient(PackedFloat32Array([0.0, 1.0]), PackedColorArray([c0, c1]))
 
 
 ## 별가루 폭발 (가산 합성)
@@ -60,9 +55,11 @@ class Vis extends Node2D:
 	var flip := true
 
 	func _process(_d: float) -> void:
-		if enemy and flip and is_instance_valid(enemy):
+		var live := enemy != null and is_instance_valid(enemy)
+		if live and flip:
 			scale.x = float(enemy.facing)
-		queue_redraw()
+		if not live or enemy.should_redraw(): # 화면에서 먼 적은 다시 그리지 않음
+			queue_redraw()
 
 	func _draw() -> void:
 		if fn.is_valid():
@@ -103,10 +100,7 @@ class StarPillar extends EnemyAttackArea:
 		KE_snd(&"star_twinkle", &"pillar_warn", -6.0)
 
 	func KE_snd(n: StringName, fb: StringName, vol: float) -> void:
-		if Sfx.has_sound(n):
-			Sfx.play(n, vol)
-		elif Sfx.has_sound(fb):
-			Sfx.play(fb, vol)
+		EnemyBase.play_sfx(n, fb, vol)
 
 	func _physics_process(delta: float) -> void:
 		_t += delta * Fx.enemy_time

@@ -65,7 +65,7 @@ func _enter(s: S, dur := 0.0) -> void:
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
 	var sz := 0.6 if small else 1.0
-	_place(_stab, Vector2(18, -8) * sz)
+	place_area(_stab, Vector2(18, -8) * sz)
 	_timer -= delta
 	var p := player()
 	if not engaged or p == null or not p.is_alive():
@@ -160,18 +160,7 @@ func _start_dash(adx: float) -> void:
 
 
 func _ledge(dir: int) -> bool:
-	if dir == 0:
-		return false
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(dir * body_size.x * 0.6, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 20), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
-
-
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
+	return dir != 0 and ledge_at(dir, body_size.x * 0.6)
 
 
 func _resists_knockback(_hit: Hit) -> bool:

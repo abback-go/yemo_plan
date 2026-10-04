@@ -164,13 +164,7 @@ func _physics_process(delta: float) -> void:
 
 ## 체력 0: 죽지 않고 무릎 꿇음 — 영혼 폭발 대신 조용히 사라지고 대본이 같은 자리에 인물을 세운다
 func _die(_dir: int) -> void:
-	_alive = false
-	defeated.emit(self)
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
-	for c2 in get_children():
-		if c2 is EnemyAttackArea:
-			c2.active = false
+	_defeat_quiet("", false, false, 0.0) # 결투: 처치 표시·통계·등급을 남기지 않는다 (예전 동작 그대로)
 	for pr in get_tree().get_nodes_in_group(&"enemy_projectile"):
 		if pr.has_method("pop"):
 			pr.pop(true)
@@ -182,33 +176,25 @@ func _die(_dir: int) -> void:
 	t.tween_callback(queue_free)
 
 
-class ShadowSpikes extends Node2D:
-	var delay := 0.55
+class ShadowSpikes extends TelegraphHazard:
 	var hand := false
-	var _t := 0.0
-	var _area: EnemyAttackArea
-	var _done := false
+
+	func _init() -> void:
+		delay = 0.55
 
 	func _ready() -> void:
 		z_index = 3
-		_area = EnemyAttackArea.with_rect(Vector2(36 if not hand else 18, 36), Vector2(0, -18))
-		_area.active = false
-		_area.cause = &"veronica"
-		add_child(_area)
+		hit_time = 0.35
+		life = 0.6
+		area = EnemyAttackArea.with_rect(Vector2(36 if not hand else 18, 36), Vector2(0, -18))
+		area.active = false
+		area.cause = &"veronica"
+		add_child(area)
 
-	func _physics_process(delta: float) -> void:
-		_t += delta
-		if _t >= delay and not _done:
-			_done = true
-			_area.active = true
-			Sfx.play(&"slam", -8.0, 0.1)
-			Fx.burst(global_position, 10, {direction = Vector2.UP, spread = 30.0, speed_min = 60.0, speed_max = 140.0, lifetime = 0.35,
-				gradient = Palette.fade_gradient(Color(0.5, 0.25, 0.75))})
-		if _t >= delay + 0.35:
-			_area.active = false
-		if _t >= delay + 0.6:
-			queue_free()
-		queue_redraw()
+	func _on_fire() -> void:
+		Sfx.play(&"slam", -8.0, 0.1)
+		Fx.burst(global_position, 10, {direction = Vector2.UP, spread = 30.0, speed_min = 60.0, speed_max = 140.0, lifetime = 0.35,
+			gradient = Palette.fade_gradient(Color(0.5, 0.25, 0.75))})
 
 	func _draw() -> void:
 		var w := 36.0 if not hand else 18.0

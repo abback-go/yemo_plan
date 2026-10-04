@@ -32,8 +32,8 @@ const STAGGER_TIME := 2.5
 const PRAY_TIME := 0.8
 const SHIELD_FRONT := Vector2(13, -18) ## 방패 위치 (오른쪽을 볼 때)
 const REFLECT_SPEED := 300.0
-const BLOCK_KINDS: Array[StringName] = [&"bolt", &"bolt_heavy"]
-const PIERCE_KINDS: Array[StringName] = [&"pillar", &"fox_pillar", &"blast", &"meteor", &"phoenix", &"ally", &"ward"]
+const BLOCK_KINDS := Hit.FIRE_BOLTS
+const PIERCE_KINDS := Hit.PASS_SHIELD_MONK
 
 var state: S = S.ADVANCE
 var shield_hp := 1.0 ## 0이면 깨짐 (그림이 읽음)
@@ -52,6 +52,7 @@ var _glyph_t := 0.0
 func _build() -> void:
 	max_hp = HP
 	body_size = Vector2(18, 34)
+	cull_offscreen = false # 화면 밖 생략 안 함: 충격파를 그림 노드가 멀리까지 그림
 	knock_mult = 0.4
 	launch_mult = 0.5
 	display_name = "성갑 수도사"
@@ -112,9 +113,9 @@ func _ai(delta: float) -> void:
 			else:
 				_behind_t = 0.0
 			var want := 0.0
-			if ahead and adx > KEEP_T * t and not _ledge_ahead():
+			if ahead and adx > KEEP_T * t and not ledge_ahead(12.0, 16.0):
 				want = facing * WALK_T * t
-			elif ahead and adx < 2.0 * t and not _ledge_behind():
+			elif ahead and adx < 2.0 * t and not ledge_at(-facing, 12.0, 16.0):
 				want = -facing * WALK_T * 0.6 * t
 			velocity.x = move_toward(velocity.x, want, 400.0 * delta)
 			if _cd <= 0.0 and ahead and absf(p.global_position.y - global_position.y) < 3.0 * t:
@@ -150,7 +151,7 @@ func _ai(delta: float) -> void:
 				H.snd(&"holy_hit", &"charger_charge", -4.0)
 		S.PUSH:
 			velocity.x = facing * PUSH_SPEED_T * t
-			if _timer <= 0.0 or is_on_wall() or _ledge_ahead():
+			if _timer <= 0.0 or is_on_wall() or ledge_ahead(12.0, 16.0):
 				_push.active = false
 				velocity.x = facing * 2.0 * t
 				_go(S.PUSH_RECOVER, PUSH_RECOVER)
@@ -237,36 +238,8 @@ func wave_positions() -> Array:
 	return out
 
 
-func _ledge_ahead() -> bool:
-	return _ledge(facing)
-
-
-func _ledge_behind() -> bool:
-	return _ledge(-facing)
-
-
-func _ledge(dir: int) -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(dir * 12, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 16), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
-
-
-## 맞은 쪽: 1 = 정면(방패 쪽), -1 = 등, 0 = 정중앙(몸 안에서 터진 것)
-func _hit_side(hit: Hit) -> int:
-	var from := 0.0
-	if hit.direction != 0:
-		from = -float(hit.direction)
-	else:
-		var dxs := hit.source_pos.x - global_position.x
-		if absf(dxs) < 6.0:
-			return 0
-		from = signf(dxs)
-	return 1 if from == float(facing) else -1
-
-
 func modify_damage(hit: Hit) -> float:
-	var front := _hit_side(hit) > 0
+	var front := hit_side(hit, 6.0) > 0
 	var mult := 1.5 if state == S.STAGGER else 1.0
 	if hit.kind == &"reflect":
 		if front and shield_up():
@@ -332,7 +305,7 @@ func _resists_knockback(hit: Hit) -> bool:
 
 
 func _on_hit(hit: Hit, _dir: int) -> void:
-	if state == S.ADVANCE and _hit_side(hit) < 0:
+	if state == S.ADVANCE and hit_side(hit, 6.0) < 0:
 		_behind_t = maxf(_behind_t, NOTICE_BEHIND * 0.5) # 등을 맞으면 조금 빨리 돌아본다
 
 

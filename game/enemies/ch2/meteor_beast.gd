@@ -103,17 +103,11 @@ func progress() -> float:
 
 
 func _tg(sec: float) -> float:
-	return Difficulty.telegraph(sec * (0.8 if phase >= 3 else 1.0))
+	return Difficulty.telegraph(sec * BossKit.phase_mult(phase, [1.0, 1.0, 0.8]))
 
 
 func _rest(sec: float) -> float:
-	return Difficulty.rest(sec * (0.75 if phase >= 3 else 1.0))
-
-
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
+	return Difficulty.rest(sec * BossKit.phase_mult(phase, [1.0, 1.0, 0.75]))
 
 
 ## 동료 레오니의 다리 베기: sec초 동안 무너져 핵을 드러낸다
@@ -152,7 +146,7 @@ func is_staggered() -> bool:
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
 	_timer -= delta
-	_place(_horn, Vector2(70, -40))
+	place_area(_horn, Vector2(70, -40))
 	var p := player()
 	_contact.active = engaged and _alive and state != S.DORMANT
 	if state == S.DORMANT:
@@ -364,17 +358,11 @@ func _resists_knockback(_hit: Hit) -> bool:
 
 func _die(dir: int) -> void:
 	_alive = false
-	if not respawns:
-		GameState.mark_killed(uid)
-	GameState.add("kills")
+	_record_defeat("kills", false) # 등급 처치는 세지 않는다 (예전 동작 그대로)
 	_enter(S.DEFEATED, 0.0)
 	_rain_left = 0
 	defeated.emit(self)
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
-	for c in get_children():
-		if c is EnemyAttackArea:
-			(c as EnemyAttackArea).active = false
+	_disable_body()
 	Fx.hitstop(0.25)
 	Fx.slowmo(0.3, 1.2)
 	Fx.flash(Color(1, 1, 1, 0.6), 0.4)

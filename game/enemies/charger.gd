@@ -40,7 +40,7 @@ func _ai(delta: float) -> void:
 			velocity.x = facing * tuning.charger_patrol_speed_t * t
 			var too_far := (facing > 0 and global_position.x > _home_x + patrol_range_t * t) \
 				or (facing < 0 and global_position.x < _home_x - patrol_range_t * t)
-			if too_far or is_on_wall() or _ledge_ahead():
+			if too_far or is_on_wall() or ledge_ahead(14.0, 14.0):
 				facing = -facing
 			if _sees_player():
 				_start_windup()
@@ -62,7 +62,7 @@ func _ai(delta: float) -> void:
 				})
 			var traveled := absf(global_position.x - _charge_start_x)
 			var hit_wall := is_on_wall() and _charge_frames > 2
-			if traveled >= tuning.charger_charge_distance_t * t or hit_wall or _ledge_ahead():
+			if traveled >= tuning.charger_charge_distance_t * t or hit_wall or ledge_ahead(14.0, 14.0):
 				_start_recover(hit_wall)
 		S.RECOVER, S.STAGGER:
 			velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
@@ -83,16 +83,7 @@ func _sees_player() -> bool:
 		return false
 	if absf(p.global_position.y - global_position.y) > 2.5 * GameConst.TILE:
 		return false
-	var space := get_world_2d().direct_space_state
-	var q := PhysicsRayQueryParameters2D.create(global_position + Vector2(0, -8), p.center(), GameConst.L_WORLD)
-	return space.intersect_ray(q).is_empty()
-
-
-func _ledge_ahead() -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(facing * 14, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 14), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
+	return has_los(global_position + Vector2(0, -8), p.center())
 
 
 func _face_player() -> void:

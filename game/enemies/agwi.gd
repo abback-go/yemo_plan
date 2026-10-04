@@ -832,12 +832,7 @@ func _spawn_hand(p: Player, i: int) -> void:
 
 
 func _ground_below(pos: Vector2) -> float:
-	var q := PhysicsRayQueryParameters2D.create(pos + Vector2(0, -4), pos + Vector2(0, 12.0 * T), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	var r := get_world_2d().direct_space_state.intersect_ray(q)
-	if r.is_empty():
-		return floor_y
-	var hit: Vector2 = r["position"]
-	return hit.y
+	return floor_y_at(pos.x, pos.y - 4.0, pos.y + 12.0 * T, floor_y)
 
 
 func _tick_hands(delta: float) -> void:

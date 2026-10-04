@@ -14,6 +14,7 @@ var _timer := 0.0
 func _build() -> void:
 	max_hp = tuning.sniper_hp
 	body_size = Vector2(14, 26)
+	cull_offscreen = false # 화면 밖 생략 안 함: 조준선이 화면을 가로지름
 	_visual = SniperVisual.new()
 	_visual.enemy = self
 	add_child(_visual)
@@ -61,9 +62,7 @@ func _in_range(p: Player) -> bool:
 
 
 func _has_los(p: Player) -> bool:
-	var space := get_world_2d().direct_space_state
-	var q := PhysicsRayQueryParameters2D.create(eye(), p.center(), GameConst.L_WORLD)
-	return space.intersect_ray(q).is_empty()
+	return has_los(eye(), p.center())
 
 
 func _ray_end(from: Vector2, dir: Vector2) -> Vector2:

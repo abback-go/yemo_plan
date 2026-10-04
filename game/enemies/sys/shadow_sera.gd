@@ -136,13 +136,7 @@ func _draw() -> void:
 
 ## 체력 0: 죽지 않고 무릎 꿇음 — 영혼 폭발 대신 조용히 사라지고 대본이 같은 자리에 인물을 세운다
 func _die(_dir: int) -> void:
-	_alive = false
-	defeated.emit(self)
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
-	for c2 in get_children():
-		if c2 is EnemyAttackArea:
-			c2.active = false
+	_defeat_quiet("", false, false, 0.0) # 결투: 처치 표시·통계·등급을 남기지 않는다 (예전 동작 그대로)
 	for pr in get_tree().get_nodes_in_group(&"enemy_projectile"):
 		if pr.has_method("pop"):
 			pr.pop(true)
@@ -154,26 +148,20 @@ func _die(_dir: int) -> void:
 	t.tween_callback(queue_free)
 
 
-class _ShadowPillar extends Node2D:
-	var _t := 0.0
-	var _area: EnemyAttackArea
-
+class _ShadowPillar extends TelegraphHazard:
 	func _ready() -> void:
 		z_index = 3
-		_area = EnemyAttackArea.with_rect(Vector2(24, 90), Vector2(0, -45))
-		_area.cause = &"shadow"
-		add_child(_area)
+		delay = 0.0
+		hit_time = 0.3
+		life = 0.5
+		end_inclusive = false
+		_done = true # 예고 없이 만들자마자 터진다 (판정도 처음부터 켜짐)
+		area = EnemyAttackArea.with_rect(Vector2(24, 90), Vector2(0, -45))
+		area.cause = &"shadow"
+		add_child(area)
 		Sfx.play(&"pillar", -6.0, 0.1)
 		Fx.burst(global_position, 16, {direction = Vector2.UP, spread = 20.0, speed_min = 100.0, speed_max = 240.0, lifetime = 0.5,
 			gradient = Palette.fade_gradient(Color(0.45, 0.2, 0.65))})
-
-	func _physics_process(delta: float) -> void:
-		_t += delta
-		if _t > 0.3:
-			_area.active = false
-		if _t > 0.5:
-			queue_free()
-		queue_redraw()
 
 	func _draw() -> void:
 		var k := clampf(1.0 - _t / 0.5, 0.0, 1.0)

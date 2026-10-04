@@ -80,16 +80,10 @@ func progress() -> float:
 	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
 
 
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
-
-
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
 	_timer -= delta
-	_place(_bite, Vector2(16, -10))
+	place_area(_bite, Vector2(16, -10))
 	var p := player()
 	if not engaged or p == null or not p.is_alive():
 		velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
@@ -157,7 +151,7 @@ func _ai(delta: float) -> void:
 			_contact.dodgeable = true
 			if int(_t * 25.0) % 2 == 0:
 				KE.star_burst(global_position + Vector2(-facing * 12.0, -10), 2, STIG, 40.0, 0.3)
-			if absf(global_position.x - _dash_start) > DASH_MAX_T * t or is_on_wall() or _ledge():
+			if absf(global_position.x - _dash_start) > DASH_MAX_T * t or is_on_wall() or ledge_ahead(16.0):
 				_bite.active = false
 				_contact.dodgeable = false
 				_enter(S.SKID, Difficulty.rest(SKID_TIME))
@@ -219,13 +213,6 @@ func _hop_back() -> void:
 	velocity.y = -260.0
 	velocity.x = -facing * 140.0
 	KE.snd(&"jump", &"jump", -6.0)
-
-
-func _ledge() -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(facing * 16, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 20), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
 
 
 func _resists_knockback(hit: Hit) -> bool:

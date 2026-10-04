@@ -106,8 +106,8 @@ func _reveal(ambush: bool) -> void:
 
 func _ai(delta: float) -> void:
 	velocity.x = 0.0
-	_place(_lash1, Vector2(REACH1 * 8.0 + 6, -14))
-	_place(_lash2, Vector2(REACH2 * 8.0 + 4, -14))
+	place_area(_lash1, Vector2(REACH1 * 8.0 + 6, -14))
+	place_area(_lash2, Vector2(REACH2 * 8.0 + 4, -14))
 	_timer -= delta
 	var p := player()
 	if state == S.HIDDEN:
@@ -208,12 +208,6 @@ func _ground_at(x: float) -> bool:
 		return false
 	var q2 := PhysicsRayQueryParameters2D.create(Vector2(x, global_position.y - 24), Vector2(x, global_position.y - 9), GameConst.L_WORLD)
 	return space.intersect_ray(q2).is_empty()
-
-
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
 
 
 func modify_damage(_hit: Hit) -> float:

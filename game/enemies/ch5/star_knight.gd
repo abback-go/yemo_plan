@@ -18,7 +18,7 @@ const COMBO_HIT := 0.12
 const GUARD_TIME := 1.4
 const WAVE_WIND := 0.6
 const IAI_WIND := 1.3
-const UNBLOCKABLE: Array[StringName] = [&"pillar", &"fox_pillar", &"storm", &"storm_final", &"blast", &"ward", &"reflect", &"meteor", &"phoenix", &"fox_storm", &"ally"]
+const UNBLOCKABLE := Hit.PASS_SHIELD_STAR_KNIGHT
 
 var _slash: EnemyAttackArea
 var _dash_area: EnemyAttackArea
@@ -39,17 +39,11 @@ func _build() -> void:
 	set_state("idle", 0.6)
 
 
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
-
-
 func _ai(delta: float) -> void:
 	_tick(delta)
 	_since_guard += delta
-	_place(_slash, Vector2(18, -18) * (1.25 if grand else 1.0))
-	_place(_dash_area, Vector2(6, -16))
+	place_area(_slash, Vector2(18, -18) * (1.25 if grand else 1.0))
+	place_area(_dash_area, Vector2(6, -16))
 	var p := player()
 	if not engaged or p == null or not p.is_alive():
 		velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)

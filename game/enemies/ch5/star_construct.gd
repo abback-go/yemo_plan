@@ -69,36 +69,10 @@ func star_blink(to: Vector2) -> void:
 	StArt.sfx(&"star_twinkle", &"reveal", -4.0)
 
 
-## 바닥 높이 (발 아래로 광선)
+## 바닥 높이 (발 아래로 광선, 20칸까지). 없으면 지금 발 높이. 벽 x는 EnemyBase.wall_x
 func ground_y(x: float, from_y := INF) -> float:
 	var y0 := global_position.y - 8.0 if from_y == INF else from_y
-	var q := PhysicsRayQueryParameters2D.create(Vector2(x, y0), Vector2(x, y0 + 20.0 * GameConst.TILE), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	var r := get_world_2d().direct_space_state.intersect_ray(q)
-	if r.is_empty():
-		return global_position.y
-	return (r["position"] as Vector2).y
-
-
-## facing 쪽으로 reach 안에서 벽 바로 앞 x
-func wall_x(reach: float, y_off := -10.0) -> float:
-	var from := global_position + Vector2(0, y_off)
-	var to := from + Vector2(facing * reach, 0)
-	var q := PhysicsRayQueryParameters2D.create(from, to, GameConst.L_WORLD)
-	var r := get_world_2d().direct_space_state.intersect_ray(q)
-	if r.is_empty():
-		return to.x
-	return (r["position"] as Vector2).x - facing * 10.0
-
-
-func ledge_ahead(dist := 14.0) -> bool:
-	return ledge_at(facing, dist)
-
-
-## dir 쪽(1 오른쪽, -1 왼쪽) 발밑이 비었는가
-func ledge_at(dir: int, dist := 14.0) -> bool:
-	var from := global_position + Vector2(dir * dist, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 20), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return get_world_2d().direct_space_state.intersect_ray(q).is_empty()
+	return floor_y_at(x, y0, y0 + 20.0 * GameConst.TILE, global_position.y)
 
 
 ## 별가루로 흩어지며 사라짐

@@ -92,19 +92,13 @@ func _speed() -> float:
 	return 1.3 if hype > 0.0 else 1.0
 
 
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
-
-
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
 	var sp := _speed()
 	_timer -= delta * sp
 	hype = maxf(hype - delta, 0.0)
 	_taunt_cd -= delta
-	_place(_spear, Vector2(28, -24))
+	place_area(_spear, Vector2(28, -24))
 	var p := player()
 	_contact.active = engaged and _alive
 	if not engaged or p == null or not p.is_alive():
@@ -271,7 +265,7 @@ func modify_damage(_hit: Hit) -> float:
 
 func _on_hit(hit: Hit, _dir: int) -> void:
 	if state == S.TAUNT:
-		_taunt_hits += 2 if hit.kind in [&"bolt_heavy", &"pillar", &"storm_final", &"blast", &"reflect", &"meteor", &"phoenix", &"ward"] else 1
+		_taunt_hits += 2 if hit.kind in Hit.HEAVY_GLADIATOR else 1
 		if _taunt_hits >= 2:
 			_enter(S.FLUSTER, FLUSTER_TIME)
 			velocity.x = -facing * 80.0

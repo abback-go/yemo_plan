@@ -87,18 +87,12 @@ func progress() -> float:
 	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
 
 
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
-
-
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
 	_timer -= delta
 	_key_rot += delta * (2.0 if state == S.PATROL else 5.0)
-	_place(_thrust, Vector2(24, -20))
-	_place(_sweep, Vector2(22, -20))
+	place_area(_thrust, Vector2(24, -20))
+	place_area(_sweep, Vector2(22, -20))
 	var p := player()
 	if not engaged or p == null:
 		velocity.x = 0.0
@@ -106,7 +100,7 @@ func _ai(delta: float) -> void:
 	match state:
 		S.PATROL:
 			velocity.x = facing * WALK_T * t
-			if (facing > 0 and global_position.x > home_x + patrol * t) or (facing < 0 and global_position.x < home_x - patrol * t) or is_on_wall() or _ledge():
+			if (facing > 0 and global_position.x > home_x + patrol * t) or (facing < 0 and global_position.x < home_x - patrol * t) or is_on_wall() or ledge_ahead(12.0, 18.0):
 				velocity.x = 0.0
 				_enter(S.LOOK, LOOK_TIME)
 			if int(_t * 4.0) % 2 == 0 and int((_t - delta) * 4.0) % 2 == 1:
@@ -140,7 +134,7 @@ func _ai(delta: float) -> void:
 				KE.snd(&"spear", &"charger_charge", 0.0)
 		S.THRUST:
 			velocity.x = facing * THRUST_SPEED_T * t
-			if _timer <= 0.0 or is_on_wall() or _ledge():
+			if _timer <= 0.0 or is_on_wall() or ledge_ahead(12.0, 18.0):
 				_thrust.active = false
 				velocity.x = facing * 2.0 * t
 				_enter(S.RECOVER, Difficulty.rest(RECOVER_TIME))
@@ -206,8 +200,7 @@ func _sees(p: Player) -> bool:
 	var ang := absf(wrapf(to.angle() - Vector2(facing, 0.12).angle(), -PI, PI))
 	if ang > VIEW_ANGLE:
 		return false
-	var q := PhysicsRayQueryParameters2D.create(eye, p.center(), GameConst.L_WORLD)
-	return get_world_2d().direct_space_state.intersect_ray(q).is_empty()
+	return has_los(eye, p.center())
 
 
 func _alert() -> void:
@@ -225,34 +218,14 @@ func _alert() -> void:
 		hud.banner("들켰다!", 1.0)
 
 
-func _ledge() -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(facing * 12, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 18), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
-
-
-## 맞은 쪽: 1 정면, -1 등
-func _side(hit: Hit) -> int:
-	var from := 0.0
-	if hit.direction != 0:
-		from = -float(hit.direction)
-	else:
-		var dxs := hit.source_pos.x - global_position.x
-		if absf(dxs) < 4.0:
-			return 1
-		from = signf(dxs)
-	return 1 if from == float(facing) else -1
-
-
 func modify_damage(hit: Hit) -> float:
-	if hit.kind in [&"pillar", &"fox_pillar", &"blast", &"meteor", &"phoenix", &"storm_final"]:
+	if hit.kind in Hit.PASS_SHIELD_WATCHMAN:
 		return 1.0
-	return KEY_MULT if _side(hit) < 0 else FRONT_MULT
+	return KEY_MULT if hit_side(hit, 4.0, 1) < 0 else FRONT_MULT
 
 
 func _on_hit(hit: Hit, _dir: int) -> void:
-	if _side(hit) < 0:
+	if hit_side(hit, 4.0, 1) < 0:
 		# 태엽 열쇠 명중: 불꽃·톱니 튐
 		Fx.burst(global_position + Vector2(-facing * 10.0, -24), 10, {spread = 120.0, direction = Vector2(-facing, -0.5), speed_min = 60.0,
 			speed_max = 150.0, lifetime = 0.35, gradient = Palette.fade_gradient(BRASS_L), size_min = 1.0, size_max = 2.0, gravity = Vector2(0, 300)})

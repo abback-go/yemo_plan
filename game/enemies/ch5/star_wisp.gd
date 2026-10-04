@@ -24,6 +24,7 @@ var _visual_node: StarWispVisual
 func _build() -> void:
 	max_hp = 450
 	body_size = Vector2(14, 14)
+	cull_offscreen = false # 화면 밖 생략 안 함: 짝과 잇는 별자리 선
 	display_name = "별 정령"
 	subtitle = "리라의 졸린 사역마"
 	kind_id = "star_wisp"
