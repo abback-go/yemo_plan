@@ -1,5 +1,6 @@
 extends RoomData
 ## 자동 생성: tools/roomgen.py — 직접 고치지 말고 생성기를 고친 뒤 다시 만들 것
+## 정의: tools/roomgen.py s_levcourse()
 
 
 func _init() -> void:
@@ -47,5 +48,6 @@ func _init() -> void:
 		{t = "prop", kind = "pillar", x = 34, y = 19, h = 17},
 		{t = "prop", kind = "pillar", x = 58, y = 19, h = 17},
 		{t = "sign", x = 74, y = 19, look = "board", text = "부양 실습실|떠 있는 등불 다섯 개를 모두 모으면 합격.|떨어져도 다치지 않게 바닥을 푹신하게 해 두었단다~ (거짓말) — 오필리아"},
+		# 덧붙임(overlay): tools/rooms/sys.py
 		{t = "door", id = "tower", x = 3, y = 19, to = "s_windtower", to_id = "in", style = "iron", label = "바람의 탑", cond = "cls_wings_open"},
 	]

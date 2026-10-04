@@ -1,5 +1,6 @@
 extends RoomData
 ## 자동 생성: tools/roomgen.py — 직접 고치지 말고 생성기를 고친 뒤 다시 만들 것
+## 정의: tools/rooms/sys.py s_windtower()
 
 
 func _init() -> void:
@@ -106,5 +107,6 @@ func _init() -> void:
 		{t = "prop", kind = "banner", x = 26, y = 43, h = 6, col = Color("#5a4a8a")},
 		{t = "prop", kind = "banner", x = 12, y = 24, h = 6, col = Color("#8a5a7a")},
 		{t = "sign", x = 27, y = 65, look = "board", text = "바람의 탑|날개를 펴고(공중에서 점프를 길게) 바람을 타렴~|등불 다섯 개를 모두 밝히면 꼭대기 종이 울린단다. 떨어져도 바람이 받아 줄 거야~ (아마도) — 오필리아"},
+		# 덧붙임(overlay): tools/rooms/ch2.py
 		{t = "event", id = "k_wings_ev", flag = "ab_wings", run = "k_after_wings", done = "k_after_wings_seen", cond = "ch1_done"},
 	]

@@ -11,7 +11,7 @@ from roomgen import Room, room, overlay — 1장 roomgen.py와 같은 문법.
   dev_e_crown   백색 사도 둥지 (blight, 2×1, 엄호 가지)
   dev_e_border  경계의 숲 저격 구간·바람 밸브·옆바람 시험 (elf, 3×1)
 """
-from roomgen import Room, room, overlay  # noqa: F401
+from roomgen import Room, room, overlay, boxed_room, hanging_row, stone, note  # noqa: F401
 
 
 def dev_room(rid, title, theme, cells, music=""):
@@ -220,14 +220,11 @@ AREA = "elf"
 
 
 def elf(rid, title, cell, cells, theme="elf", music="elf", dark=0.0, ceil=1, floor=4):
-    r = Room(rid, title, AREA, theme, music, cell, cells, dark)
-    r.box(wall=1, floor=floor, ceil=ceil)
-    return r
+    return boxed_room(rid, title, AREA, theme, music, cell, cells, dark, ceil, floor)
 
 
 def lanterns(r, xs, y=1, ln=2):
-    for i, x in enumerate(xs):
-        r.add("prop", kind="elf_lantern", x=x, y=y, len=ln + (i % 3))
+    hanging_row(r, "elf_lantern", xs, y, ln, 3)
 
 
 def ferns(r, xs, y):
@@ -250,14 +247,6 @@ def blight(r, spots):
             r.add("prop", kind="blight_tree", x=x, y=y, h=s)
         else:
             r.add("prop", kind="blight_growth", x=x, y=y, w=s)
-
-
-def stone(r, sid, x, y):
-    r.add("pickup", id=sid, kind="stone", x=x, y=y, name="마도석")
-
-
-def note(r, nid, x, y, title, text):
-    r.add("pickup", id=nid, kind="note", x=x, y=y, name=title, text=text)
 
 
 def item(r, iid, x, y, name, flag, text):

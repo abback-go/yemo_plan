@@ -1,5 +1,6 @@
 extends RoomData
 ## 자동 생성: tools/roomgen.py — 직접 고치지 말고 생성기를 고친 뒤 다시 만들 것
+## 정의: tools/roomgen.py s_training()
 
 
 func _init() -> void:
@@ -53,6 +54,7 @@ func _init() -> void:
 		{t = "prop", kind = "torch", x = 66, y = 13},
 		{t = "prop", kind = "banner", x = 40, y = 1, h = 6, col = Color("#8a3a1e")},
 		{t = "sign", x = 67, y = 19, look = "board", text = "실습장 수칙|하나, 과녁 외의 것에 불을 붙이지 말 것.|둘, 훈련 골렘은 교사의 허락 없이 깨우지 말 것."},
+		# 덧붙임(overlay): tools/rooms/sys.py
 		{t = "orb_turret", id = "ot0", x = 3, y = 19, period = 3.0, phase = 0.0, on_if = "ward_trial_on,!ward_targets", cond = "ch1_done"},
 		{t = "reflect_target", id = "rt0", x = 5, y = 19, group = "ward", done_flag = "ward_targets", cond = "ch1_done,!ward_targets"},
 		{t = "orb_turret", id = "ot1", x = 36, y = 13, period = 3.0, phase = 0.9, on_if = "ward_trial_on,!ward_targets", cond = "ch1_done"},
