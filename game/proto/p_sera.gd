@@ -166,8 +166,6 @@ func _timers(delta: float) -> void:
 		cooldowns[id] = maxf(float(cooldowns[id]) - delta, 0.0)
 	if PState.no_cooldown:
 		cooldowns.clear()
-	if st != St.DEAD:
-		add_gauge(PData.OD_PER_SEC * delta)
 	if fox_time > 0.0:
 		fox_time -= delta
 		if fox_time <= 0.0:
@@ -485,7 +483,7 @@ func _claw_hits() -> void:
 			velocity.y = minf(velocity.y, 30.0)
 
 
-## 폭주 게이지: 시간·마법 사용·발톱 적중·피격으로 찬다 (시험 배율 × 쉬움 배율). 변신 중에는 차지 않음
+## 폭주 게이지: 마법 사용·발톱 적중으로만 찬다 (시험 배율 × 쉬움 배율). 변신 중에는 차지 않음
 func add_gauge(v: float) -> void:
 	if is_fox():
 		return
@@ -639,7 +637,6 @@ func take_damage(hearts_n: int, from: Vector2) -> bool:
 	if PState.difficulty == 0:
 		units = maxi(units / 2, 1)
 	hp2 -= units
-	add_gauge(PData.OD_HURT)
 	_iframe = PData.HURT_IFRAME
 	var dir := -1 if from.x > global_position.x else 1
 	velocity = Vector2(dir * PData.HURT_KNOCK.x, PData.HURT_KNOCK.y)
