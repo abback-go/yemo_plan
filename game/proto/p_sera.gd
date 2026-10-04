@@ -657,7 +657,7 @@ func take_damage(hearts_n: int, from: Vector2) -> bool:
 	if hp2 <= 0:
 		if revive > 0:
 			revive = 0
-			hp2 = 6
+			hp2 = (PData.REVIVE_HEARTS_AWAKE if PState.awakened("phoenix") else PData.REVIVE_HEARTS) * 2
 			PSpells.phoenix_revive(self)
 			_go(St.NORMAL)
 		else:

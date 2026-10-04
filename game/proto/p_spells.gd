@@ -1145,8 +1145,6 @@ class Phoenix extends Node2D:
 ## 쓰러질 때 부활 (불사조가 세라 자리에서 솟아오름, 주변을 밀쳐 냄)
 static func phoenix_revive(sera: PSera) -> void:
 	var awake := PState.awakened("phoenix")
-	if awake:
-		sera.hp2 = PData.MAX_HEARTS * 2
 	var p := Phoenix.new()
 	p.sera = sera
 	p.fox = sera.is_fox()

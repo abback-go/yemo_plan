@@ -58,6 +58,8 @@ const SHIELD_COOLDOWN := 3.0 ## 할퀴기까지 끝난 뒤부터
 const SHIELD_SWIPE_BASE := 40.0 ## 방패를 내린 뒤 정령 할퀴기 기본 피해
 const SHIELD_SWIPE_PER_HEART := 45.0 ## 막은 피해 1칸마다 더하는 피해
 const POTION_HEAL := 2
+const REVIVE_HEARTS := 1 ## 불사조 부활: 하트 1칸 (각성 2칸)
+const REVIVE_HEARTS_AWAKE := 2
 const POTION_TIME := 0.8
 
 # ─── 폭주 게이지 (마나 없음 — 마법은 쿨타임만. 넘치는 마력이 차오르고, 가득 차면 Space로 너울에게 넘겨 변신) ───
