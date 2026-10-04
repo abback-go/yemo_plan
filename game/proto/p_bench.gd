@@ -57,6 +57,8 @@ func _process(_d: float) -> void:
 		return
 	if _pf > 10:
 		_ft.append(now - _t_last)
+		if now - _t_last > (250000 if OS.has_feature("web") else 100000):
+			print("PBENCH spike %s frame=%d %.0fms" % [PHASES[_phase][0], _pf, (now - _t_last) / 1000.0])
 		_dc.append(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
 	_t_last = now
 	var name: String = PHASES[_phase][0]
