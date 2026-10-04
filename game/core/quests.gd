@@ -125,13 +125,18 @@ static func talk_hook(who: String) -> String:
 
 # ─── 마법 수업 (kind = "class") — 수업 게시판 창(ClassBoardUI)·게시판 "!"(class_board)이 부른다 ───
 
+static var _class_by_spell := {} ## 마법 ID → 수업 퀘스트 ID (데이터가 상수라 한 번 만듦 — 게시판이 매 프레임 물음)
+
+
 ## 마법 ID → 그 마법의 수업 퀘스트 ID ("" = 수업 없음, 1장 기본)
 static func class_of(spell: String) -> String:
-	for id in all():
-		var d: Dictionary = all()[id]
-		if String(d.get("kind", "")) == "class" and String(d.get("spell", "")) == spell:
-			return id
-	return ""
+	if _class_by_spell.is_empty():
+		for id in all():
+			var d: Dictionary = all()[id]
+			var sp := String(d.get("spell", ""))
+			if String(d.get("kind", "")) == "class" and not _class_by_spell.has(sp):
+				_class_by_spell[sp] = id # 같은 마법의 수업이 둘이면 앞의 것 (예전 선형 탐색과 같음)
+	return String(_class_by_spell.get(spell, ""))
 
 
 ## 수업 상태: 0 습득 · 1 진행 중 · 2 신청 가능 · 3 잠김

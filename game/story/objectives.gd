@@ -17,13 +17,16 @@ static func for_chapter(n: int) -> Array:
 	return out
 
 
+## HUD가 매 프레임 부른다 — for_chapter처럼 배열을 만들지 않고 지금 장 줄 → sys 줄 차례로 본다
 static func current() -> String:
-	for row in for_chapter(int(GameState.flag("chapter", 1))):
-		if not Cond.ok(String(row[2])):
-			continue
-		if GameState.has_flag(row[0]):
-			continue
-		return row[1]
+	var n := maxi(int(GameState.flag("chapter", 1)), 1)
+	for rows: Array in [ChapterRegistry.objectives_of("ch%d" % n), ChapterRegistry.objectives_of("sys")]:
+		for row in rows:
+			if not Cond.ok(String(row[2])):
+				continue
+			if GameState.has_flag(row[0]):
+				continue
+			return row[1]
 	return ""
 
 

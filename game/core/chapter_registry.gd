@@ -124,10 +124,13 @@ static func objectives() -> Array:
 	return _merged_array("objectives", DATA, "OBJECTIVES")
 
 
-## 한 확장(장)의 목표 줄만 (HUD 현재 목표는 지금 장 것만 본다)
+## 한 확장(장)의 목표 줄만 (HUD 현재 목표는 지금 장 것만 본다 — 매 프레임 불려서 캐시)
 static func objectives_of(ext: String) -> Array:
-	var a: Variant = _const(DATA % ext, "OBJECTIVES")
-	return a if typeof(a) == TYPE_ARRAY else []
+	var key := "objectives_" + ext
+	if not _cache.has(key):
+		var a: Variant = _const(DATA % ext, "OBJECTIVES")
+		_cache[key] = a if typeof(a) == TYPE_ARRAY else []
+	return _cache[key]
 
 
 ## 대본 파일 경로 (data의 SCRIPTS를 EXTS 순서로). 웹 내보내기에서 폴더 나열을 믿을 수 없어서 명시 목록
