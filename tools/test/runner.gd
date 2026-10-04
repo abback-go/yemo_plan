@@ -41,6 +41,18 @@ var _dc_n := 0
 var _dc_nodes: Array = []
 
 
+## 스크립트 class_name이 cls인 노드를 모두 모음 (find_children은 스크립트 클래스를 못 찾음)
+func _collect_script_class(n: Node, cls: String, out: Array) -> void:
+	var sc: Script = n.get_script()
+	while sc != null:
+		if sc.get_global_name() == cls:
+			out.append(n)
+			break
+		sc = sc.get_base_script()
+	for c in n.get_children():
+		_collect_script_class(c, cls, out)
+
+
 func _tap(a: String) -> void:
 	var ev := InputEventAction.new()
 	ev.action = a
@@ -395,7 +407,8 @@ func _process(_d: float) -> bool:
 				_dc_name = String(s[2])
 				_dc_left = int(s[4])
 				_dc_n = 0
-				_dc_nodes = current_scene.find_children("*", String(s[3]), true, false)
+				_dc_nodes = []
+				_collect_script_class(current_scene, String(s[3]), _dc_nodes)
 				for n in _dc_nodes:
 					n.draw.connect(func() -> void: _dc_n += 1)
 			"perf":
