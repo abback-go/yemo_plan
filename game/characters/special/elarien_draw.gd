@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://characters/special/elarien_palette.gd"
 ## 엘라리엔 전용 몸 그림 (docs/bible/characters.md 3절 · art.md 3절) — 키 36px, 일반 인물보다 세부 2배.
 ## 낮게 묶은 긴 연금빛-초록 머리(가닥 셋이 따로 흔들림), 긴 귀, 초록 눈, 주근깨, 잎새 무늬 두건 망토(잎 모양 밑단이 물결),
 ## 붕대 감은 손가락, 키만 한 흰 장궁(금 잎 장식, 빛 반사 점이 지나감), 흰 깃 화살통.
@@ -10,31 +10,20 @@ extends RefCounted
 ## 조준 각도: v.set_meta("aim_ang", 라디안) — 0 = 앞, 음수 = 위. 보스·동료가 정한다.
 ## 원점 발밑, +x가 바라보는 쪽 (부모가 scale.x로 뒤집음).
 
-const HAIR := Color("#d6e29e")
-const HAIR_SH := Color("#98a866")
 const HAIR_HI := Color("#f4fcd2")
-const SKIN := Color("#f3dac6")
 const SKIN_SH := Color("#d4ad96")
 const FRECKLE := Color("#c48e70")
-const EYE := Color("#36b85a")
 const CLOAK := Color("#2f5230")
 const CLOAK_SH := Color("#1b3320")
 const CLOAK_HI := Color("#74a052")
 const LEAF_PAT := Color("#5e8f44")
 const TRIM := Color("#a8924c")
-const TUNIC := Color("#cdc8a4")
 const TUNIC_SH := Color("#99946f")
-const LEATHER := Color("#6b4a2b")
 const LEATHER_SH := Color("#43301b")
 const LEGS := Color("#37321f")
 const BOOT := Color("#5a3d22")
 const BOOT_HI := Color("#7d5a36")
-const BOW := Color("#f2eee2")
-const BOW_SH := Color("#bdb5a0")
 const BOW_HI := Color("#ffffff")
-const GOLD := Color("#e6bf4e")
-const GOLD_HI := Color("#fff0a0")
-const WRAP := Color("#f2eee2")
 const SHAFT := Color("#c8a878")
 const FLETCH := Color("#ffffff")
 const TIP := Color("#c8d4dc")

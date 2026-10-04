@@ -1,30 +1,19 @@
-extends RefCounted
+extends "res://characters/special/elarien_palette.gd"
 ## 엘라리엔 대화 초상화 (72×72) — 낮게 묶어 어깨 앞으로 넘긴 긴 연금빛-초록 머리, 긴 귀(표정 따라 움직임),
 ## 초록 눈, 콧등·볼의 주근깨, 내려 쓴 잎새 무늬 두건, 금 잎 망토 고정쇠, 옆으로 솟은 흰 장궁의 윗날개(금 잎 장식).
 ## expr: normal · happy · angry · sad · surprised · smirk(건조한 비웃음 — 한쪽 입꼬리) · focus(시위를 볼까지 당김, 한 눈 감음)
 ##       hurt(다침) · tired(지침)
 
-const HAIR := Color("#d6e29e")
-const HAIR_SH := Color("#98a866")
 const HAIR_DK := Color("#6e7c46")
 const HAIR_HI := Color("#f6fdd6")
-const SKIN := Color("#f3dac6")
 const SKIN_SH := Color("#d9b49c")
 const SKIN_DK := Color("#b88a72")
 const FRECKLE := Color("#d9a68c")
-const EYE := Color("#36b85a")
 const EYE_DK := Color("#1e6a34")
 const CLOAK := Color("#3c5a2d")
 const CLOAK_SH := Color("#263d1d")
 const CLOAK_HI := Color("#618646")
 const LEAF_PAT := Color("#52763c")
-const TUNIC := Color("#cdc8a4")
-const LEATHER := Color("#6b4a2b")
-const BOW := Color("#f2eee2")
-const BOW_SH := Color("#bdb5a0")
-const GOLD := Color("#e6bf4e")
-const GOLD_HI := Color("#fff0a0")
-const WRAP := Color("#f2eee2")
 const LINE := Color("#3a2a20")
 const BROW := Color("#8a8a52")
 

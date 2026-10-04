@@ -3,7 +3,7 @@ extends RefCounted
 
 
 static func draw_portrait(p: Portrait, _info: Dictionary, _expr: String, t: float, _talking: bool, _blinking: bool) -> void:
-	p.call("_draw_person", Characters.info("sera"))
+	p.draw_person(Characters.info("sera"))
 	p.draw_rect(Rect2(0, 0, 72, 72), Color(0.06, 0.02, 0.1, 0.72))
 	# 눈 자리에서 새어 나오는 붉은 빛 (좌우로 길게)
 	var glow := 0.6 + 0.4 * sin(t * 3.0)

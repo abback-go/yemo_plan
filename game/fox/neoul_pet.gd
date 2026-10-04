@@ -23,7 +23,7 @@ var _glow: LightGlow
 func _ready() -> void:
 	z_index = 2
 	_font = ThemeDB.fallback_font
-	_glow = LightGlow.make(Vector2(0, -8), 26.0, Color(0.55, 0.85, 1.0), 0.25)
+	_glow = LightGlow.make(Vector2(0, -8), 26.0, FoxPalette.GLOW, 0.25)
 	_glow.z_index = -1
 	add_child(_glow)
 
@@ -45,16 +45,16 @@ func snap_to_player() -> void:
 func merge_into_player() -> void:
 	_merged = true
 	Fx.burst(global_position + Vector2(0, -6), 14, {spread = 180.0, speed_min = 30.0, speed_max = 80.0, lifetime = 0.4,
-		gradient = Palette.fade_gradient(Color(0.6, 0.85, 1.0)), add = true})
+		gradient = Palette.fade_gradient(FoxPalette.SPARK), add = true})
 
 
 func leave_player() -> void:
 	_merged = false
 	snap_to_player()
 	Fx.burst(global_position + Vector2(0, -6), 14, {spread = 180.0, speed_min = 30.0, speed_max = 80.0, lifetime = 0.4,
-		gradient = Palette.fade_gradient(Color(0.6, 0.85, 1.0)), add = true})
+		gradient = Palette.fade_gradient(FoxPalette.SPARK), add = true})
 	if randf() < 0.6:
-		var lines := ["…후우. 꼬리 하나로는 이 정도니라.", "다음엔 좀 더 아껴 쓰거라.", "배고프다. 기운을 썼더니.", "흥, 이 정도야 껌이니라."]
+		var lines := PlayerText.NEOUL_FOX_END
 		bubble(lines[randi() % lines.size()], 2.6)
 
 
@@ -74,7 +74,7 @@ func face(dir: int) -> void:
 
 
 func emote(kind: String, _time := 1.2) -> void:
-	bubble({"!": "!", "?": "?", "...": "…", "heart": "♥", "note": "♪", "anger": "#"}.get(kind, kind), 1.2)
+	bubble(BubbleDraw.glyph(kind, "pet"), 1.2)
 
 
 ## 컷신: 특정 x로 걸어가기
@@ -115,7 +115,7 @@ func _physics_process(delta: float) -> void:
 	if to.length() > 260.0:
 		global_position = target # 너무 멀어지면 순간이동 (여우니까)
 		Fx.burst(global_position + Vector2(0, -6), 8, {spread = 180.0, speed_min = 20.0, speed_max = 60.0, lifetime = 0.3,
-			gradient = Palette.fade_gradient(Color(0.6, 0.85, 1.0)), add = true})
+			gradient = Palette.fade_gradient(FoxPalette.SPARK), add = true})
 	_vel = _vel.lerp(to * 7.0, minf(delta * 8.0, 1.0))
 	global_position += _vel * delta
 	if absf(_vel.x) > 8.0:
@@ -190,9 +190,5 @@ func _draw() -> void:
 	# 말풍선
 	if _bubble_t > 0.0 and _bubble != "":
 		var a := clampf(_bubble_t * 4.0, 0.0, 1.0)
-		var w := _font.get_string_size(_bubble, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 10
-		var p := Vector2(-w * 0.5, -40)
-		draw_rect(Rect2(p, Vector2(w, 16)), Color(0.02, 0.05, 0.1, 0.85 * a))
-		draw_rect(Rect2(p, Vector2(w, 1)), Color(blue, 0.9 * a))
-		draw_colored_polygon(PackedVector2Array([Vector2(-3, -24), Vector2(3, -24), Vector2(0, -20)]), Color(0.02, 0.05, 0.1, 0.85 * a))
-		draw_string(_font, p + Vector2(5, 12), _bubble, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.75, 0.9, 1.0, a))
+		BubbleDraw.draw_speech(self, _font, _bubble, -40.0, Color(0.02, 0.05, 0.1, 0.85 * a), Color(0.75, 0.9, 1.0, a),
+			Color(0, 0, 0, 0), Color(blue, 0.9 * a), -24.0)

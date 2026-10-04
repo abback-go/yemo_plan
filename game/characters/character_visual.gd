@@ -2,6 +2,12 @@ class_name CharacterVisual
 extends Node2D
 ## 학교 인물들의 작은 몸 그림 (코드 그래픽). 원점은 발밑, +x가 바라보는 쪽(부모가 scale.x로 뒤집음).
 ## Characters.DB의 값(옷·머리·모자·장식)으로 인물마다 다르게 그린다. 숨쉬기·눈 깜빡임·걷기·말하기 움직임.
+## 성능: 화면(카메라) 밖이면 다시 그리지 않는다(docs/dev/characters.md 성능 규칙).
+## 그릴 때 상태를 쌓는 전용 그림(스프링 등)은 그 스크립트에 const KEEP_DRAWING := true를 두면 늘 그린다.
+
+## 화면 밖 이 거리(px, 노드 배율을 곱함)까지는 계속 그린다 — 그림이 원점에서 뻗는 최대 범위보다 크게.
+const CULL_MARGIN := 96.0
+const CULL_MARGIN_CUSTOM := 192.0 ## 전용 그림(창·광륜·날개가 멀리 뻗음)
 
 var who := "student_a"
 var info := {}
@@ -12,6 +18,7 @@ var talking := false
 var pose := ""
 var pose_t := 0.0
 var _custom: GDScript = null
+var _keep_drawing := false ## 전용 그림이 그릴 때 상태를 쌓음 → 화면 밖에서도 그림
 var _t := 0.0
 var _blink := 0.0
 var _phase := 0.0
@@ -22,8 +29,10 @@ func setup(p_who: String) -> void:
 	info = Characters.info(who)
 	_t = randf() * 5.0
 	_custom = null
+	_keep_drawing = false
 	if info.has("draw") and ResourceLoader.exists(String(info.draw)):
 		_custom = load(String(info.draw)) as GDScript
+		_keep_drawing = bool(_custom.get_script_constant_map().get("KEEP_DRAWING", false))
 
 
 func set_pose(p: String) -> void:
@@ -53,7 +62,16 @@ func _process(delta: float) -> void:
 	_blink -= delta
 	if _blink < -3.2 - fmod(_t, 1.7):
 		_blink = 0.12
-	queue_redraw()
+	if _keep_drawing or _near_screen():
+		queue_redraw()
+
+
+## 화면 안이거나 가까운가 (밖에 있는 동안의 그림은 보이지 않으므로 갱신을 건너뛴다)
+func _near_screen() -> bool:
+	var xf := get_global_transform_with_canvas()
+	var k := maxf(absf(xf.x.x) + absf(xf.y.x), absf(xf.x.y) + absf(xf.y.y))
+	var m := (CULL_MARGIN_CUSTOM if _custom != null else CULL_MARGIN) * maxf(k, 1.0)
+	return get_viewport_rect().grow(m).has_point(xf.origin)
 
 
 func _draw() -> void:

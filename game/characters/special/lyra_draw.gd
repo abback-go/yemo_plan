@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://characters/special/lyra_palette.gd"
 ## 리라 — 별의 마녀 몸 그림 (docs/bible/characters.md 3절 5장, art.md 3절). 키 40px, 늘 떠 있다(발밑에서 약 5px).
 ## 바닥까지 끌리는 은백색 머리(별가루가 반짝), 보랏빛 눈(눈동자에 작은 별), 별자리 금실 자수의 깊은 남색 드레스 로브,
 ## 끝이 초승달처럼 말려 별이 매달린 거대한 모자, 몸 둘레를 도는 작은 별 7개. 3단 명암, 머리카락 물리(움직이면 뒤로 흩날림).
@@ -8,28 +8,22 @@ extends RefCounted
 ##   그 밖: charge → spear_charge, aim → bow_draw, attack2 → sword_attack. 모르는 자세는 idle.
 ## 원점은 발밑(바닥), +x가 바라보는 쪽. 부모가 좌우를 뒤집는다.
 
+## 그릴 때 meta에 스프링 상태를 쌓는다 → 화면 밖에서도 매 프레임 그려야 다시 보일 때 같은 모습 (CharacterVisual)
+const KEEP_DRAWING := true
 const HAIR := Color("#e7eaf8")
 const HAIR_SH := Color("#aeb3da")
 const HAIR_DEEP := Color("#7c82b8")
-const HAIR_HI := Color("#ffffff")
 const SKIN := Color("#f8e8e2")
 const SKIN_SH := Color("#e4c6c8")
 const EYE := Color("#a070e8")
 const EYE_DEEP := Color("#5a3a9a")
 const LASH := Color("#2a2040")
-const ROBE := Color("#1c2256")
 const ROBE_SH := Color("#0f1338")
-const ROBE_HI := Color("#34428e")
 const LINING := Color("#5a3490")
 const CAPE := Color("#141842")
 const HAT := Color("#181c4a")
-const HAT_SH := Color("#0c0e2c")
 const HAT_HI := Color("#323e8c")
-const GOLD := Color("#ecd28a")
 const GOLD_SH := Color("#a88a4a")
-const STAR := Color("#fff3c0")
-const STAR_CORE := Color("#fffbea")
-const WHITE_GOD := Color("#f4f6ff")
 
 ## 드레스 자수 별자리 (치마 안의 u 0~1 가로, v 0~1 세로)
 const EMB := [Vector2(0.25, 0.22), Vector2(0.45, 0.38), Vector2(0.35, 0.62), Vector2(0.62, 0.55), Vector2(0.78, 0.8), Vector2(0.55, 0.9)]
@@ -221,9 +215,9 @@ static func draw_body(v: CharacterVisual) -> void:
 
 	# 바닥 그림자 (떠 있을수록 옅고 작게)
 	var sh_a := 0.32 - fl * 0.015
-	v.draw_colored_polygon(_ellipse(Vector2(0, 0), 11.0 - fl * 0.3, 2.2, 12), Color(0.02, 0.02, 0.06, maxf(sh_a, 0.08)))
+	v.draw_colored_polygon(DrawKit.ellipse(Vector2(0, 0), 11.0 - fl * 0.3, 2.2, 12), Color(0.02, 0.02, 0.06, maxf(sh_a, 0.08)))
 	if fl > 1.0:
-		v.draw_colored_polygon(_ellipse(Vector2(0, 0), 6.0, 1.2, 10), Color(STAR, 0.08 + 0.04 * sin(t * 2.0)))
+		v.draw_colored_polygon(DrawKit.ellipse(Vector2(0, 0), 6.0, 1.2, 10), Color(STAR, 0.08 + 0.04 * sin(t * 2.0)))
 
 	# 뒤의 빛 (별빛 기운 / 빙의된 흰 기하학 광륜)
 	var glow: float = st.glow
@@ -280,14 +274,6 @@ static func draw_body(v: CharacterVisual) -> void:
 
 
 # ─── 도우미 ─────────────────────────────────────────────
-
-static func _ellipse(c: Vector2, rx: float, ry: float, n: int) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in n:
-		var a := TAU * i / n
-		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
-	return pts
-
 
 static func _strip(v: CanvasItem, pts: Array, widths: Array, col: Color) -> void:
 	## 가운데 선과 굵기로 띠 다각형 (머리카락 가닥·모자 고깔)
@@ -884,7 +870,7 @@ static func _draw_down(v: CanvasItem, t: float, st: Dictionary) -> void:
 	v.draw_line(hc + Vector2(0, 0), hc + Vector2(2.5, 0.5), LASH, 1.0)
 	# 떨어진 모자 (초승달 끝이 바닥에)
 	var hat_c := g + Vector2(20, -2)
-	v.draw_colored_polygon(_ellipse(hat_c, 9.0, 2.0, 12), HAT_SH)
+	v.draw_colored_polygon(DrawKit.ellipse(hat_c, 9.0, 2.0, 12), HAT_SH)
 	v.draw_colored_polygon(PackedVector2Array([hat_c + Vector2(-4, -1), hat_c + Vector2(4, -1), hat_c + Vector2(13, -7), hat_c + Vector2(9, -9)]), HAT)
 	StArt.star(v, hat_c + Vector2(13, -3), 2.0, Color(STAR, 0.7), 0.3)
 	# 꺼져 가는 별들 (바닥 가까이)

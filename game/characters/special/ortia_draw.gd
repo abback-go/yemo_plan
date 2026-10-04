@@ -1,22 +1,12 @@
-extends RefCounted
+extends "res://characters/special/ortia_palette.gd"
 ## 오르티아 장로 (세계수의 드루이드) 전용 몸 그림 — 키 34px, 등이 조금 굽은 늙은 엘프.
 ## 땅에 끌릴 듯한 흰 머리(이끼·작은 꽃이 엮임), 처진 긴 귀, 늘 웃는 듯 감은 눈, 나무껍질색 로브 + 이끼 망토,
 ## 살아 있는 가지 지팡이(새순 + 빛나는 씨앗), 가끔 지팡이 끝에 앉았다 가는 이끼 참새.
 ## 자세: idle · walk · special/cast(지팡이를 들어 씨앗이 밝게) · kneel(기도) · 그 밖 idle
 
-const HAIR := Color("#e6e6da")
-const HAIR_SH := Color("#b2b4a4")
-const SKIN := Color("#e8ccb6")
 const SKIN_SH := Color("#c09a84")
-const ROBE := Color("#5a4430")
 const ROBE_SH := Color("#3a2c1e")
-const MANTLE := Color("#4a6a36")
-const MANTLE_SH := Color("#2e4622")
-const MOSS := Color("#6a9a44")
-const STAFF := Color("#6a5034")
 const STAFF_HI := Color("#8a6c48")
-const SAP := Color("#c8ff7a")
-const LINE := Color("#5a3e2e")
 
 
 static func draw_body(v: CharacterVisual) -> void:

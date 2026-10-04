@@ -1,27 +1,17 @@
-extends RefCounted
+extends "res://characters/special/leonie_palette.gd"
 ## 레오니 대화 초상화 (72×72). Portrait가 draw_portrait를 부른다.
 ## 짙은 남색 단발(옆 가르마, 끝이 뾰족하게 갈라짐) + 화면 왼쪽 귀 뒤로 땋아 내린 가는 머리(붉은 끈),
 ## 날카로운 금빛 눈, 콧등을 가로지르는 흉터, 은빛 어깨갑·흉갑·목가리개, 진홍 망토 깃과 은사자 여밈.
 ## 표정: normal(담담) · stern(엄격 — 눈썹이 내려앉고 입을 다묾) · happy(드문 작은 미소) · angry · sad · surprised
 
-const KArt := preload("res://world/entities/ch2/k_art.gd")
-const OUT := Color("#07060c")
-const HAIR := Color("#1e2748")
 const HAIR_L := Color("#405090")
 const HAIR_D := Color("#0c1020")
-const SKIN := Color("#f2d2be")
 const SKIN_D := Color("#d6aa96")
 const SKIN_L := Color("#fde8da")
 const EYE := Color("#f0b02a")
 const EYE_L := Color("#ffe07a")
 const EYE_D := Color("#9a5a10")
 const SCAR := Color("#d98a84")
-const ARMOR := Color("#a6adc0")
-const ARMOR_L := Color("#e6eaf2")
-const ARMOR_D := Color("#5a6078")
-const CAPE := Color("#a01e2c")
-const CAPE_L := Color("#d23a44")
-const CAPE_D := Color("#5c0e18")
 const BROW := Color("#141a30")
 const LID := Color("#2a1e28")
 const MOUTH := Color("#9a4a46")

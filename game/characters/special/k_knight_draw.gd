@@ -17,8 +17,7 @@ const PLUME := Color("#c8303a")
 
 
 static func _seg(v: CanvasItem, a: Vector2, b: Vector2, w: float, col: Color) -> void:
-	v.draw_line(a, b, OUT, w + 2.0)
-	v.draw_line(a, b, col, w)
+	DrawKit.seg(v, a, b, w, col, OUT)
 
 
 static func draw_body(v: CharacterVisual) -> void:

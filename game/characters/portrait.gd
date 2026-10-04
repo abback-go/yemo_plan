@@ -8,6 +8,8 @@ var expr := "normal"
 var talking := false
 var _t := 0.0
 var _blink := 0.0
+var _custom: GDScript = null ## 전용 초상화 스크립트 (info.portrait) — who가 바뀔 때만 다시 찾는다
+var _custom_for := "" ## _custom을 찾은 who ("" = 아직)
 
 
 func set_speaker(p_who: String, p_expr: String) -> void:
@@ -32,8 +34,13 @@ func _draw() -> void:
 	for i in 6:
 		draw_rect(Rect2(0, 72 - i * 12, 72, 12), Color(accent, 0.03 + i * 0.012))
 	# 강자 등 전용 초상화: static func draw_portrait(p: Portrait, info, expr, t, talking, blinking) — 72×72 안에
-	if info.has("portrait") and ResourceLoader.exists(String(info.portrait)):
-		(load(String(info.portrait)) as GDScript).draw_portrait(self, info, expr, _t, talking, _blink > 0.0)
+	if _custom_for != who:
+		_custom_for = who
+		_custom = null
+		if info.has("portrait") and ResourceLoader.exists(String(info.portrait)):
+			_custom = load(String(info.portrait)) as GDScript
+	if _custom != null:
+		_custom.draw_portrait(self, info, expr, _t, talking, _blink > 0.0)
 		draw_rect(Rect2(0, 0, 72, 72), Color(accent, 0.8), false, 1.0)
 		return
 	match who:
@@ -46,7 +53,7 @@ func _draw() -> void:
 		"narration":
 			pass
 		_:
-			_draw_person(info)
+			draw_person(info)
 	draw_rect(Rect2(0, 0, 72, 72), Color(accent, 0.8), false, 1.0)
 
 
@@ -54,7 +61,13 @@ func _bob() -> float:
 	return sin(_t * 2.0) * 0.6 + (sin(_t * 18.0) * 0.5 if talking else 0.0)
 
 
+## 옛 이름 (special 초상화가 문자열로 부르던 것) — 새 코드는 draw_person
 func _draw_person(info: Dictionary) -> void:
+	draw_person(info)
+
+
+## 기본 사람 초상화 (Characters 값: 옷·머리·눈·장식). 전용 초상화가 얼굴 바탕으로 불러 쓴다.
+func draw_person(info: Dictionary) -> void:
 	var robe: Color = info.robe
 	var robe2: Color = info.robe2
 	var skin: Color = info.skin
@@ -97,8 +110,8 @@ func _draw_person(info: Dictionary) -> void:
 	if expr in ["happy", "surprised"] or "apron" in extra:
 		draw_rect(Rect2(fc.x - 11, fc.y + 5, 4, 2), Color(1.0, 0.5, 0.5, 0.35))
 		draw_rect(Rect2(fc.x + 7, fc.y + 5, 4, 2), Color(1.0, 0.5, 0.5, 0.35))
-	_eyes(fc, eye)
-	_mouth(fc)
+	draw_eyes(fc, eye)
+	draw_mouth(fc)
 	# 앞머리
 	var bangs := PackedVector2Array([
 		fc + Vector2(-15, 2), fc + Vector2(-14, -10), fc + Vector2(-6, -16), fc + Vector2(6, -16), fc + Vector2(14, -10),
@@ -151,6 +164,11 @@ func _draw_person(info: Dictionary) -> void:
 
 
 func _eyes(fc: Vector2, eye: Color) -> void:
+	draw_eyes(fc, eye)
+
+
+## 표정별 눈·눈썹 (fc = 얼굴 중심). 전용 초상화가 불러 쓴다.
+func draw_eyes(fc: Vector2, eye: Color) -> void:
 	var l := fc + Vector2(-6, 2)
 	var r := fc + Vector2(6, 2)
 	var brow := Color(0.15, 0.1, 0.12)
@@ -188,6 +206,11 @@ func _eyes(fc: Vector2, eye: Color) -> void:
 
 
 func _mouth(fc: Vector2) -> void:
+	draw_mouth(fc)
+
+
+## 표정별 입 (말하는 중이면 여닫음). 전용 초상화가 불러 쓴다.
+func draw_mouth(fc: Vector2) -> void:
 	var m := fc + Vector2(0, 10)
 	var col := Color("#8a3a3a")
 	var open := talking and int(_t * 12.0) % 2 == 0
