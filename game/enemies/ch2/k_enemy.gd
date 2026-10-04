@@ -16,9 +16,9 @@ static func snd(name: StringName, fallback: StringName = &"", vol := 0.0, pv := 
 	EnemyBase.play_sfx(name, fallback, vol, pv)
 
 
-## 두 색 사이 Gradient (같은 색이면 캐시된 같은 자원 — Palette.cached_gradient)
+## 두 색 사이 Gradient (같은 색이면 캐시된 같은 자원 — Palette.grad2)
 static func grad(c0: Color, c1: Color) -> Gradient:
-	return Palette.cached_gradient(PackedFloat32Array([0.0, 1.0]), PackedColorArray([c0, c1]))
+	return Palette.grad2(c0, c1)
 
 
 ## 별가루 폭발 (가산 합성)

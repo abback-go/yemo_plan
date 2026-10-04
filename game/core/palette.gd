@@ -67,6 +67,8 @@ const GOLD := Color("#ffd27a")
 
 const _GRAD_CACHE_MAX := 512 ## 색이 계속 변하는 호출(보간 색 등)로 캐시가 끝없이 커지지 않게 이만큼 넘으면 비운다
 static var _grad_cache := {}
+static var _fade_cache := {}
+static var _grad2_cache := {} ## c0 → {c1 → Gradient}
 static var _fire_grad: Gradient
 static var _soul_grad: Gradient
 
@@ -103,6 +105,29 @@ static func soul_gradient() -> Gradient:
 	return _soul_grad
 
 
-## 색 c에서 같은 색 투명으로
+## 두 색 사이 (c0 → c1). 장별 도우미 KE.grad가 쓴다
+static func grad2(c0: Color, c1: Color) -> Gradient:
+	var inner: Dictionary = _grad2_cache.get(c0, {})
+	var g: Gradient = inner.get(c1)
+	if g == null:
+		if _grad2_cache.size() >= _GRAD_CACHE_MAX:
+			_grad2_cache.clear()
+		g = Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 1.0])
+		g.colors = PackedColorArray([c0, c1])
+		inner[c1] = g
+		_grad2_cache[c0] = inner
+	return g
+
+
+## 색 c에서 같은 색 투명으로 (가장 많이 불려서 색 하나를 키로 바로 찾는다)
 static func fade_gradient(c: Color) -> Gradient:
-	return cached_gradient(PackedFloat32Array([0.0, 1.0]), PackedColorArray([c, Color(c, 0.0)]))
+	var g: Gradient = _fade_cache.get(c)
+	if g == null:
+		if _fade_cache.size() >= _GRAD_CACHE_MAX:
+			_fade_cache.clear()
+		g = Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 1.0])
+		g.colors = PackedColorArray([c, Color(c, 0.0)])
+		_fade_cache[c] = g
+	return g

@@ -287,10 +287,11 @@ func _recycle_burst(p: CPUParticles2D) -> void:
 
 
 func _return_burst(p: CPUParticles2D) -> void:
-	if not is_instance_valid(p) or p.is_queued_for_deletion() or p.emitting:
+	# 부모가 없으면 이미 풀에 있다 (finished가 두 번 와도 한 번만 넣음). emitting은 보지 않는다:
+	# 입자가 모두 일찍 죽으면 방출 주기가 끝나기 전에도 finished가 오는데, 예전엔 그때도 바로 지웠다.
+	if not is_instance_valid(p) or p.is_queued_for_deletion() or p.get_parent() == null:
 		return
-	if p.get_parent():
-		p.get_parent().remove_child(p)
+	p.get_parent().remove_child(p)
 	if _burst_pool.size() < BURST_POOL_MAX:
 		_burst_pool.append(p)
 	else:
