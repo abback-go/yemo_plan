@@ -32,8 +32,7 @@ const CRYSTAL := Color("#c89aff")
 var state: S = S.FALL
 var surf := Vector2.UP ## 붙어 있는 면에서 바깥으로 향하는 방향 (바닥이면 위)
 var roll_dir := 1 ## 면을 따라 도는 방향 (+1: 면을 왼쪽에 두고 시계 방향)
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _shots := 0
 var _spin := 0.0
 var _stuck := 0.0
@@ -70,12 +69,11 @@ func _ready() -> void:
 
 func _enter(s: S, d: float) -> void:
 	state = s
-	_timer = d
-	_dur = d
+	_clock.enter(d)
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 ## 면을 따라 가는 방향
@@ -95,7 +93,7 @@ func _ray(from: Vector2, to: Vector2) -> Dictionary:
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
-	_timer -= delta
+	_clock.tick(delta)
 	_turn_cd -= delta
 	_contact.active = engaged and _alive
 	_contact.dodgeable = state == S.ROLL
@@ -120,11 +118,11 @@ func _ai(delta: float) -> void:
 				_enter(S.ROLL, randf_range(ROLL_TIME.x, ROLL_TIME.y))
 		S.ROLL:
 			_roll(delta, ROLL_SPEED_T * t)
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.BRAKE, BRAKE_TIME)
 		S.BRAKE:
-			_roll(delta, ROLL_SPEED_T * t * clampf(_timer / BRAKE_TIME, 0.0, 1.0))
-			if _timer <= 0.0:
+			_roll(delta, ROLL_SPEED_T * t * clampf(_clock.left / BRAKE_TIME, 0.0, 1.0))
+			if _clock.done():
 				velocity = Vector2.ZERO
 				_enter(S.UNCURL, Difficulty.telegraph(UNCURL_TIME))
 				KE.snd(&"star_twinkle", &"pillar_warn", -4.0)
@@ -132,25 +130,25 @@ func _ai(delta: float) -> void:
 			velocity = _press()
 			if p:
 				facing = 1 if p.global_position.x >= global_position.x else -1
-			if _timer <= 0.0:
+			if _clock.done():
 				_shots = 0
 				_enter(S.FIRE, 0.0)
 		S.FIRE:
 			velocity = _press()
-			if _timer <= 0.0:
+			if _clock.done():
 				_fire()
 				_shots += 1
-				_timer = SHOT_GAP
+				_clock.left = SHOT_GAP
 				if _shots >= 3:
 					_enter(S.OPEN, Difficulty.rest(OPEN_TIME))
 		S.OPEN, S.FLIPPED:
 			velocity = _press()
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.CURL, CURL_TIME)
 				KE.snd(&"crumble", &"crumble", -10.0)
 		S.CURL:
 			velocity = _press()
-			if _timer <= 0.0:
+			if _clock.done():
 				_face_roll_toward_player()
 				_enter(S.ROLL, randf_range(ROLL_TIME.x, ROLL_TIME.y))
 

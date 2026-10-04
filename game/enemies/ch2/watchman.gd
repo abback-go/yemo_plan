@@ -39,8 +39,7 @@ var patrol := 5.0 ## 순찰 반경(타일). 방 데이터에서 바꿀 수 있�
 var alarm_flag := "" ## 들켰을 때 세울 플래그
 var state: S = S.PATROL
 var home_x := 0.0
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _turn_to := 1
 var _lost := 0.0
 var _key_rot := 0.0
@@ -79,17 +78,16 @@ func _ready() -> void:
 
 func _enter(s: S, d: float) -> void:
 	state = s
-	_timer = d
-	_dur = d
+	_clock.enter(d)
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
-	_timer -= delta
+	_clock.tick(delta)
 	_key_rot += delta * (2.0 if state == S.PATROL else 5.0)
 	place_area(_thrust, Vector2(24, -20))
 	place_area(_sweep, Vector2(22, -20))
@@ -111,36 +109,36 @@ func _ai(delta: float) -> void:
 			velocity.x = 0.0
 			if _sees(p):
 				_alert()
-			elif _timer <= 0.0:
+			elif _clock.done():
 				facing = -facing
 				_enter(S.PATROL, 0.0)
 		S.ALERT:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.ADVANCE, 0.8)
 		S.ADVANCE:
 			_combat(delta, p)
 		S.TURN:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				facing = _turn_to
 				_enter(S.ADVANCE, 0.3)
 		S.THRUST_WINDUP:
 			velocity.x = move_toward(velocity.x, 0.0, 800.0 * delta)
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.THRUST, THRUST_TIME)
 				_thrust.active = true
 				_thrust.dodgeable = true
 				KE.snd(&"spear", &"charger_charge", 0.0)
 		S.THRUST:
 			velocity.x = facing * THRUST_SPEED_T * t
-			if _timer <= 0.0 or is_on_wall() or ledge_ahead(12.0, 18.0):
+			if _clock.done() or is_on_wall() or ledge_ahead(12.0, 18.0):
 				_thrust.active = false
 				velocity.x = facing * 2.0 * t
 				_enter(S.RECOVER, Difficulty.rest(RECOVER_TIME))
 		S.SWEEP_WINDUP:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.SWEEP, SWEEP_TIME)
 				_sweep.active = true
 				_sweep.dodgeable = true
@@ -149,12 +147,12 @@ func _ai(delta: float) -> void:
 				KE.debris(global_position + Vector2(facing * 34.0, 0), 8, Color("#9a9aa8"), Vector2(-facing, -1), 120.0)
 		S.SWEEP:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				_sweep.active = false
 				_enter(S.RECOVER, Difficulty.rest(RECOVER_TIME))
 		S.RECOVER, S.STAGGER:
 			velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.ADVANCE, Difficulty.rest(0.5))
 
 
@@ -179,7 +177,7 @@ func _combat(delta: float, p: Player) -> void:
 			return
 	else:
 		_lost = 0.0
-	if _timer > 0.0 or absf(p.global_position.y - global_position.y) > 3.0 * t:
+	if _clock.left > 0.0 or absf(p.global_position.y - global_position.y) > 3.0 * t:
 		return
 	if absf(dx) < 2.8 * t:
 		_enter(S.SWEEP_WINDUP, Difficulty.telegraph(SWEEP_WINDUP))

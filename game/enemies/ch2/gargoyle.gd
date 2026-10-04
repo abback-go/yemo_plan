@@ -29,8 +29,7 @@ var perch := Vector2.ZERO
 var target := Vector2.ZERO
 var _from := Vector2.ZERO
 var _ctrl := Vector2.ZERO
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _rest := 0.0
 var _contact: EnemyAttackArea
 var _dive_area: EnemyAttackArea
@@ -70,17 +69,16 @@ func _ready() -> void:
 
 func _enter(s: S, d: float) -> void:
 	state = s
-	_timer = d
-	_dur = d
+	_clock.enter(d)
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
-	_timer -= delta
+	_clock.tick(delta)
 	_rest -= delta
 	velocity = Vector2.ZERO
 	_contact.active = engaged and state != S.PERCH and _alive
@@ -97,19 +95,19 @@ func _ai(delta: float) -> void:
 			if p and p.is_alive():
 				facing = 1 if p.global_position.x >= global_position.x else -1
 				# 예고 동안 착지점이 세라를 따라감 (마지막 0.15초엔 고정)
-				if _timer > 0.15:
+				if _clock.left > 0.15:
 					_aim(p)
-			if _timer <= 0.0:
+			if _clock.done():
 				_start_dive()
 		S.DIVE:
 			var k := progress()
 			var e := k * k
 			global_position = _bezier(_from, _ctrl, target, e)
-			if _timer <= 0.0:
+			if _clock.done():
 				_land()
 		S.STUCK:
-			global_position = target + Vector2(sin(_t * 30.0) * (1.0 if _timer < 0.4 else 0.3), 0)
-			if _timer <= 0.0:
+			global_position = target + Vector2(sin(_t * 30.0) * (1.0 if _clock.left < 0.4 else 0.3), 0)
+			if _clock.done():
 				_enter(S.RETURN, RETURN_TIME)
 				_from = global_position
 				_ctrl = (global_position + perch) * 0.5 + Vector2(-facing * 3.0 * t, -2.0 * t)
@@ -118,7 +116,7 @@ func _ai(delta: float) -> void:
 		S.RETURN:
 			var k2 := progress()
 			global_position = _bezier(_from, _ctrl, perch, 1.0 - pow(1.0 - k2, 2.0))
-			if _timer <= 0.0:
+			if _clock.done():
 				global_position = perch
 				_enter(S.PERCH, 0.0)
 				_rest = Difficulty.rest(REST_AFTER)

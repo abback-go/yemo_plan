@@ -32,8 +32,7 @@ const FUR_D := Color("#0c0a14")
 const STIG := Color("#c89aff")
 
 var state: S = S.PROWL
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _pounce_to := Vector2.ZERO
 var _pounce_from := Vector2.ZERO
 var _dash_start := 0.0
@@ -72,17 +71,16 @@ func _ready() -> void:
 
 func _enter(s: S, d: float) -> void:
 	state = s
-	_timer = d
-	_dur = d
+	_clock.enter(d)
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
-	_timer -= delta
+	_clock.tick(delta)
 	place_area(_bite, Vector2(16, -10))
 	var p := player()
 	if not engaged or p == null or not p.is_alive():
@@ -108,13 +106,13 @@ func _ai(delta: float) -> void:
 			elif adx < KEEP_MIN_T * t:
 				want = -signf(dx) * RUN_T * 0.7 * t
 			velocity.x = move_toward(velocity.x, want, 900.0 * delta)
-			if adx < 2.2 * t and is_on_floor() and _timer < 0.5:
+			if adx < 2.2 * t and is_on_floor() and _clock.left < 0.5:
 				_hop_back()
-			elif _timer <= 0.0 and is_on_floor():
+			elif _clock.done() and is_on_floor():
 				_choose()
 		S.HOWL:
 			velocity.x = move_toward(velocity.x, 0.0, 900.0 * delta)
-			if _timer <= 0.0:
+			if _clock.done():
 				var fx := p.global_position.x
 				_pounce_to = Vector2(fx, KE.floor_at(self, fx, p.global_position.y))
 				var warn := Difficulty.telegraph(PILLAR_WARN)
@@ -126,20 +124,20 @@ func _ai(delta: float) -> void:
 		S.POUNCE_WAIT:
 			velocity.x = 0.0
 			face_player()
-			if _timer <= 0.0:
+			if _clock.done():
 				_start_pounce()
 		S.POUNCE:
-			if is_on_floor() and _dur - _timer > 0.1:
+			if is_on_floor() and _clock.dur - _clock.left > 0.1:
 				_land()
-			elif _timer < -1.0:
+			elif _clock.left < -1.0:
 				_land()
 		S.LAND:
 			velocity.x = move_toward(velocity.x, 0.0, 700.0 * delta)
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.PROWL, randf_range(PROWL_TIME.x, PROWL_TIME.y))
 		S.CROUCH:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.DASH, 0.0)
 				_dash_start = global_position.x
 				_bite.active = true
@@ -160,10 +158,10 @@ func _ai(delta: float) -> void:
 			velocity.x = move_toward(velocity.x, 0.0, 900.0 * delta)
 			if int(_t * 30.0) % 2 == 0 and absf(velocity.x) > 20.0:
 				KE.debris(global_position + Vector2(facing * 8.0, 0), 2, Color("#7a7490"), Vector2(-facing, -1), 60.0)
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.PROWL, randf_range(PROWL_TIME.x, PROWL_TIME.y))
 		S.HOP:
-			if is_on_floor() and _dur - _timer > 0.1:
+			if is_on_floor() and _clock.dur - _clock.left > 0.1:
 				_enter(S.PROWL, 0.3)
 
 

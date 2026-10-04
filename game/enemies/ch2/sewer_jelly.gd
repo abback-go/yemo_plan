@@ -28,8 +28,7 @@ const TEAL := Color("#6af0e0")
 
 var state: S = S.DRIFT
 var floor_y := 0.0
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _hover_y := 0.0
 var _contact: EnemyAttackArea
 var _zap: EnemyAttackArea
@@ -67,17 +66,16 @@ func _ready() -> void:
 
 func _enter(s: S, d: float) -> void:
 	state = s
-	_timer = d
-	_dur = d
+	_clock.enter(d)
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
-	_timer -= delta
+	_clock.tick(delta)
 	var p := player()
 	floor_y = KE.floor_at(self, global_position.x, floor_y, 96.0)
 	_hover_y = floor_y - HOVER_T * t
@@ -90,7 +88,7 @@ func _ai(delta: float) -> void:
 			var want := signf(dx) * DRIFT_T * t if absf(dx) > 1.5 * t else 0.0
 			velocity.x = move_toward(velocity.x, want, 120.0 * delta)
 			velocity.y = (_hover_y + sin(_t * 2.0) * 4.0 - global_position.y) * 3.0
-			if _timer <= 0.0 and absf(dx) < 12.0 * t:
+			if _clock.done() and absf(dx) < 12.0 * t:
 				_enter(S.CHARGE, Difficulty.telegraph(CHARGE_TIME))
 				KE.snd(&"star_twinkle", &"overload_warn", -8.0)
 		S.CHARGE:
@@ -98,27 +96,27 @@ func _ai(delta: float) -> void:
 			velocity.y = (_hover_y - 4.0 - global_position.y) * 4.0
 			if int(_t * 20.0) % 2 == 0:
 				_spark(global_position + Vector2(randf_range(-10, 10), -12 + randf_range(-8, 8)))
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.DROP, DROP_TIME)
 		S.DROP:
 			velocity.x = 0.0
-			velocity.y = (floor_y - global_position.y) / maxf(_timer, 0.02)
-			if _timer <= 0.0 or is_on_floor():
+			velocity.y = (floor_y - global_position.y) / maxf(_clock.left, 0.02)
+			if _clock.done() or is_on_floor():
 				global_position.y = floor_y
 				_pulse()
 		S.PULSE:
 			velocity = Vector2.ZERO
-			if _timer <= 0.0:
+			if _clock.done():
 				_zap.active = false
 				_enter(S.OPEN, Difficulty.rest(OPEN_TIME))
 		S.OPEN:
 			velocity = Vector2.ZERO
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.RISE, RISE_TIME)
 		S.RISE:
 			velocity.x = 0.0
 			velocity.y = (_hover_y - global_position.y) * 3.5
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.DRIFT, randf_range(DRIFT_TIME.x, DRIFT_TIME.y))
 
 
