@@ -47,6 +47,22 @@ jobs:
           unzip -q -j templates.tpz templates/web_nothreads_release.zip templates/version.txt -d "$dest"
           rm templates.tpz
 
+      # 정적 검사: 방 생성물이 생성기와 같은지, 방 도달 문제 0, 스크립트 전부 컴파일 (docs/dev/README.md 검증 절)
+      - name: Check generated rooms and room reachability
+        run: |
+          python3 tools/roomgen.py > /dev/null
+          git diff --exit-code --stat -- game/world/rooms
+          python3 tools/roomgen.py check all | tee /tmp/roomcheck.txt
+          test ! -s /tmp/roomcheck.txt
+
+      - name: Compile all scripts
+        run: |
+          chmod +x ~/godot/godot
+          cd game
+          ~/godot/godot --headless --import > /dev/null 2>&1 || true
+          ~/godot/godot --headless --script ../tools/test/check_scripts.gd | tee /tmp/check.txt
+          grep -q "failures: 0" /tmp/check.txt
+
       - name: Write build id into the game (title shows it)
         run: sed -i "s/^const COMMIT := .*/const COMMIT := \"${GITHUB_SHA::7}\"/" game/core/build_info.gd
 
