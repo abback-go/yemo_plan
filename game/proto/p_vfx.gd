@@ -193,6 +193,25 @@ static func _ellipse(cen: Vector2, rx: float, ry: float) -> PackedVector2Array:
 	return pts
 
 
+## 양 끝이 뾰족하고 살짝 휜 칼날 모양 띠 (참격 줄기). bow = 휨 정도(굵기 대비)
+static func blade(c: CanvasItem, p0: Vector2, p1: Vector2, w: float, col: Color, bow := 0.35) -> void:
+	if w < 0.4 or p0.distance_to(p1) < 2.0:
+		return
+	var d := (p1 - p0).normalized()
+	var n := d.orthogonal()
+	var top := PackedVector2Array()
+	var bot := PackedVector2Array()
+	for i in 9:
+		var f := float(i) / 8.0
+		var q := p0.lerp(p1, f) + n * sin(f * PI) * w * bow
+		var ww := w * pow(sin(f * PI), 0.7)
+		top.append(q + n * ww * 0.5)
+		bot.append(q - n * ww * 0.5)
+	bot.reverse()
+	top.append_array(bot)
+	safe_poly(c, top, col)
+
+
 ## 의태 돌진(변신 중 대시): 세라를 감싸고 앞으로 뛰어드는 거대한 푸른 여우 정령 + 뒤로 감기는 바람 줄기
 class SpiritDash extends Base:
 	var dir := 1

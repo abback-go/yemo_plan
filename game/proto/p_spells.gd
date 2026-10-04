@@ -1215,7 +1215,7 @@ class Bind extends Node2D:
 		if t >= SLASH_FROM and t < FINALE:
 			_next -= delta
 			while _next <= 0.0:
-				_next += 0.06 if awake else 0.085
+				_next += 0.055 if awake else 0.075
 				_slash_once()
 		if not _finale and t >= FINALE:
 			_finale = true
@@ -1239,24 +1239,26 @@ class Bind extends Node2D:
 
 	func _slash_once() -> void:
 		var live: Array = _targets.filter(func(d: Variant) -> bool: return is_instance_valid(d))
-		var c: Vector2
+		# 참격은 화면 전체를 가로지름: 절반은 붙잡힌 적을 지나고, 절반은 화면 아무 곳이나 가른다
+		var c := view.position + Vector2(randf_range(0.1, 0.9) * view.size.x, randf_range(0.15, 0.85) * view.size.y)
 		var tgt: PDummy = null
-		if live.is_empty():
-			c = view.get_center() + Vector2(randf_range(-160, 160), randf_range(-40, 90))
-		else:
+		if not live.is_empty() and randf() < 0.6:
 			tgt = live[randi() % live.size()]
 			c = tgt.center() + Vector2(randf_range(-10, 10), randf_range(-12, 12))
-		var ang := randf_range(0.25, 0.85) * (1.0 if randf() < 0.5 else -1.0) + (PI if randf() < 0.5 else 0.0)
+		var ang := randf_range(0.08, 0.8) * (1.0 if randf() < 0.5 else -1.0) + (PI if randf() < 0.5 else 0.0)
 		var d := Vector2(cos(ang), sin(ang))
-		var half := randf_range(80.0, 140.0)
-		var w := randf_range(10.0, 17.0)
+		var half := randf_range(0.5, 0.8) * view.size.x
+		var w := randf_range(12.0, 22.0)
 		# 네 번에 한 번은 발톱 자국 셋(나란한 세 줄)
 		var n := 3 if randi() % 4 == 0 else 1
 		for i in n:
 			var off := d.orthogonal() * (float(i) - float(n - 1) * 0.5) * 12.0
 			_streaks.append([c - d * half + off, c + d * half + off, t + i * 0.02, w * (0.75 if n > 1 else 1.0)])
-		if tgt:
-			tgt.take_hit(int(dmg), c, {"fox": true})
+		for dd in live:
+			var q: Vector2 = (dd as PDummy).center()
+			var rel := q - c
+			if dd == tgt or (absf(rel.dot(d)) < half and absf(rel.dot(d.orthogonal())) < 18.0):
+				(dd as PDummy).take_hit(int(dmg), q, {"fox": true})
 			if randf() < 0.3:
 				Fx.shake(0.06, 0.06)
 		if randf() < 0.5:
@@ -1276,7 +1278,7 @@ class Bind extends Node2D:
 			var p1: Vector2 = s[1]
 			var d := (p1 - p0).normalized()
 			var n := d.orthogonal()
-			_blade(c, p0 + n * float(s[3]) * 0.55, p0.lerp(p1, g.x) + n * float(s[3]) * 0.55, float(s[3]) * 0.7 * g.y, Color(0.0, 0.01, 0.04, 0.85))
+			PVfx.blade(c, p0 + n * float(s[3]) * 0.55, p0.lerp(p1, g.x) + n * float(s[3]) * 0.55, float(s[3]) * 0.7 * g.y, Color(0.0, 0.01, 0.04, 0.85))
 
 	## x = 그어진 정도, y = 굵기 배율(사라지며 가늘어짐)
 	func _streak_k(s: Array) -> Vector2:
@@ -1284,24 +1286,6 @@ class Bind extends Node2D:
 		if age < 0.0:
 			return Vector2.ZERO
 		return Vector2(clampf(age / 0.06, 0.0, 1.0), 1.0 - clampf((age - 0.1) / (STREAK_LIFE - 0.1), 0.0, 1.0))
-
-	## 양 끝이 뾰족한 칼날 모양 띠
-	func _blade(c: CanvasItem, p0: Vector2, p1: Vector2, w: float, col: Color) -> void:
-		if w < 0.4 or p0.distance_to(p1) < 2.0:
-			return
-		var d := (p1 - p0).normalized()
-		var n := d.orthogonal()
-		var top := PackedVector2Array()
-		var bot := PackedVector2Array()
-		for i in 9:
-			var f := float(i) / 8.0
-			var q := p0.lerp(p1, f) + n * sin(f * PI) * w * 0.35 # 살짝 휜 날
-			var ww := w * pow(sin(f * PI), 0.7)
-			top.append(q + n * ww * 0.5)
-			bot.append(q - n * ww * 0.5)
-		bot.reverse()
-		top.append_array(bot)
-		PVfx.safe_poly(c, top, col)
 
 	func _draw() -> void:
 		var pal := PSpells._pal(true)
@@ -1331,9 +1315,9 @@ class Bind extends Node2D:
 			var p0: Vector2 = st[0]
 			var p1: Vector2 = (st[0] as Vector2).lerp(st[1], g.x)
 			var w: float = float(st[3]) * g.y
-			_blade(self, p0, p1, w * 1.5, Color(pal[2], 0.55))
-			_blade(self, p0, p1, w, Color(pal[1], 0.85))
-			_blade(self, p0, p1, w * 0.35, Color(pal[0], 1.0))
+			PVfx.blade(self, p0, p1, w * 1.5, Color(pal[2], 0.55))
+			PVfx.blade(self, p0, p1, w, Color(pal[1], 0.85))
+			PVfx.blade(self, p0, p1, w * 0.35, Color(pal[0], 1.0))
 
 	## 아홉 꼬리 여우신 (정면): 날개처럼 펼친 꼬리 아홉, 불꽃 갈기, 빛나는 눈, 가슴의 문양
 	func _draw_fox_god(c: Vector2, s: float, a: float, pal: Array) -> void:
@@ -1441,8 +1425,8 @@ class ShieldSpirit extends Node2D:
 		if not is_instance_valid(owner_sera):
 			return
 		var dmg := (PData.SHIELD_SWIPE_BASE + PData.SHIELD_SWIPE_PER_HEART * float(absorbed)) * (PData.FOX_DAMAGE if fox else 1.0)
-		var w := 120.0 * _power()
-		var x0 := global_position.x + (-10.0 if dir > 0 else -w + 10.0)
+		var w := 180.0 * _power()
+		var x0 := global_position.x + (-20.0 if dir > 0 else -w + 20.0)
 		PSpells.hit_rect(owner_sera, Rect2(Vector2(x0, global_position.y - 100.0 * _power()), Vector2(w, 100.0 * _power())), dmg, fox, {}, {"heavy": true, "launch": 1.5})
 		Fx.shake(0.25 + 0.05 * absorbed, 0.25)
 		Fx.hitstop(0.06)
@@ -1530,22 +1514,29 @@ class ShieldSpirit extends Node2D:
 			# 팔: 방패를 받침
 			draw_line(o + Vector2(10, -56) * sc, sp + Vector2(-6, -8) * sc, Color(pal[1], 0.7 * aa), 6.0 * sc)
 		else:
-			# 반격: 방패를 내리고 거대한 할퀴기 (막은 만큼 커짐)
-			var k := clampf(st / 0.12, 0.0, 1.0)
+			# 반격: 방패를 내리고 옆으로 세 줄 가로베기 (막은 만큼 길고 굵어짐)
 			var p := _power()
-			var cc := o + Vector2(20, -50)
-			var r := 70.0 * p
-			var a0 := -2.3
-			var a1 := lerpf(a0, 1.0, k)
+			var reach := 170.0 * p
+			var tip := Vector2.ZERO
 			for i in 3:
-				var rr := r - i * 12.0 * p
-				PVfx.crescent(self, cc, rr + 6.0, a0, a1, 16.0 * p, Color(pal[3], 0.45 * a), 22)
-				PVfx.crescent(self, cc, rr, a0, a1, 10.0 * p, Color(pal[1], 0.85 * a), 22)
-				PVfx.crescent(self, cc, rr - 2.0, a0 + 0.2, a1, 3.0 * p, Color(pal[0], a), 22)
-			# 휘두르는 끝의 커다란 정령 손
-			var tip := cc + Vector2(cos(a1), sin(a1)) * r * 0.8
+				var k := clampf((st - i * 0.025) / 0.11, 0.0, 1.0)
+				if k <= 0.0:
+					continue
+				var y := (-30.0 - i * 22.0) * p
+				var p0 := o + Vector2(-34, y + 6)
+				var p1 := o + Vector2(lerpf(-34.0, reach, k), y - 4)
+				var w := 15.0 * p
+				PVfx.blade(self, p0, p1, w * 1.6, Color(pal[3], 0.5 * a), -0.6)
+				PVfx.blade(self, p0, p1, w, Color(pal[1], 0.85 * a), -0.6)
+				PVfx.blade(self, p0, p1, w * 0.3, Color(pal[0], a), -0.6)
+				# 뒤로 흩날리는 바람 결
+				for j in 2:
+					var yy := y + (float(j) - 0.5) * w * 1.4
+					draw_line(o + Vector2(-50 - j * 10, yy), o + Vector2(lerpf(-50.0, reach * 0.6, k), yy - 3), Color(pal[1], 0.35 * a), 1.0)
+				if i == 1:
+					tip = p1
+			# 가운데 줄 끝의 커다란 정령 손 (앞으로 발톱을 세움)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			var world_tip := Vector2(tip.x * dir, tip.y)
-			var tang := Vector2(-sin(a1) * dir, cos(a1))
-			PVfx.fire_paw(self, world_tip, tang.angle(), 1.4 * p, fox, a)
+			if tip != Vector2.ZERO:
+				PVfx.fire_paw(self, Vector2(tip.x * dir, tip.y), 0.0 if dir > 0 else PI, 1.4 * p, fox, a)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
