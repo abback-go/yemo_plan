@@ -1,0 +1,31 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_e_tree",
+  "spawn": "start",
+  "flags": ["p_intro_done", "ab_neoul", "teach_폭주 게이지", "chapter"],
+  "steps": [
+    [2, "godmode"],
+    [3, "auto", true],
+    [10, "tp", 6, 19],
+    [100, "shot", "tree_a"],
+    [110, "tp", 24, 19],
+    [190, "shot", "tree_b"],
+    [200, "tp", 52, 19],
+    [280, "shot", "tree_npc"],
+    [290, "tp", 80, 19],
+    [370, "shot", "tree_c"],
+    [380, "tp", 104, 19],
+    [460, "shot", "tree_d"],
+    [470, "go", "dev_e_cave", "start"],
+    [530, "tp", 14, 19],
+    [610, "shot", "cave_a"],
+    [620, "tp", 56, 19],
+    [700, "shot", "cave_b"],
+    [710, "go", "dev_e_blight", "start"],
+    [770, "tp", 14, 19],
+    [850, "shot", "blight_a"],
+    [860, "tp", 60, 19],
+    [940, "shot", "blight_b"],
+    [950, "quit"]
+  ]
+}
