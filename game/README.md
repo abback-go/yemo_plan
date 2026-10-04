@@ -93,6 +93,8 @@
 **`core/tuning.tres` 한 파일**에 이동·점프·대시·화염탄·스킬·폭주·체력·타격감·카메라·적 수치가 모두 있다.
 FileSystem 패널에서 클릭 → Inspector에서 수정 → 다시 실행. 사지방 PC는 재부팅 시 초기화되므로, 마음에 드는 값은 메모해서 알려 주면 저장소에 반영한다.
 
+**코드 구조·고치는 법**은 저장소의 `docs/dev/README.md`(구조도, "무엇을 바꾸려면 어디를" 표, 검증 절차). 대사는 `story/<장>/*.gd`, 장 정보·퀘스트·인물은 `story/data_<장>.gd`, 적 수치는 각 적 파일 머리 상수.
+
 ## 폰트
 
 `assets/fonts/Galmuri11.ttf` — 갈무리11, SIL Open Font License 1.1 (`assets/fonts/README.md`)
