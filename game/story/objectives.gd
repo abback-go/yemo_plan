@@ -34,7 +34,8 @@ static func all() -> Array:
 
 ## 지금 장(플래그 chapter)의 목표 줄 (+ 공통 sys). 앞 장의 선택 목표가 남아 HUD를 가리지 않게
 static func for_chapter(n: int) -> Array:
-	var out: Array = LIST.duplicate() if n <= 1 else ChapterRegistry.objectives_of("ch%d" % n)
+	# 장별 OBJECTIVES는 상수(읽기 전용)라 반드시 복사해서 이어 붙인다
+	var out: Array = LIST.duplicate() if n <= 1 else ChapterRegistry.objectives_of("ch%d" % n).duplicate()
 	out.append_array(ChapterRegistry.objectives_of("sys"))
 	return out
 

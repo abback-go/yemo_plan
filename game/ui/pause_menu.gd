@@ -32,11 +32,11 @@ func _ready() -> void:
 
 	_menu = MenuList.new()
 	if _in_world():
-		_menu.items = ["계속하기", "지도", "퀘스트", "마법서", "설정", "타이틀로"]
+		_menu.items = ["계속하기", "지도", "퀘스트", "마법서", "설정", "저장 코드 복사", "타이틀로"]
 	else:
 		_menu.items = ["계속하기", "체크포인트에서 다시", "처음부터", "타이틀로"]
 	_menu.position = Vector2(60, 120)
-	_menu.size = Vector2(200, 100)
+	_menu.size = Vector2(200, 130)
 	_menu.chosen.connect(_on_chosen)
 	_root.add_child(_menu)
 
@@ -144,6 +144,10 @@ func _on_chosen(index: int) -> void:
 		4:
 			_set_page("options")
 		5:
+			# 마지막 기록을 글자로 — 다른 컴퓨터·태블릿에서 이어하기 (사지방 PC는 재부팅하면 기록이 지워짐)
+			SaveCodeUI.show_code(GameState.export_code())
+			Story.toast("저장 코드를 복사했다. (마지막 기록 지점 기준)", 3.0)
+		6:
 			get_tree().paused = false
 			_root.visible = false
 			GameState.go_title()

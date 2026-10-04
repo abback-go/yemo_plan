@@ -241,6 +241,59 @@ func load_game() -> bool:
 	return true
 
 
+# ─── 저장 코드 (컴퓨터가 바뀌어도 이어하기: 기록을 글자로 옮겨 다른 기기에 붙여 넣음) ───
+
+const CODE_PREFIX := "YEMO1-"
+
+
+## 마지막 기록(이어하기로 불러올 그 상태)을 저장 코드로. 기록 파일이 없으면 지금 상태로
+func export_code() -> String:
+	var json := ""
+	if has_save():
+		var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+		if f:
+			json = f.get_as_text()
+			f.close()
+	if json == "":
+		save_game()
+		var f2 := FileAccess.open(SAVE_PATH, FileAccess.READ)
+		if f2:
+			json = f2.get_as_text()
+			f2.close()
+	var raw := json.to_utf8_buffer()
+	var comp := raw.compress(FileAccess.COMPRESSION_DEFLATE)
+	return CODE_PREFIX + str(raw.size()) + "-" + Marshalls.raw_to_base64(comp)
+
+
+## 저장 코드를 기록 파일로 되돌린다 (성공하면 true — 그다음 continue_game()으로 이어하기)
+func import_code(code: String) -> bool:
+	var c := code.strip_edges().replace(" ", "").replace("\n", "").replace("\r", "").replace("\t", "")
+	if not c.begins_with(CODE_PREFIX):
+		return false
+	c = c.substr(CODE_PREFIX.length())
+	var dash := c.find("-")
+	if dash <= 0:
+		return false
+	var size := c.substr(0, dash).to_int()
+	if size <= 0 or size > 4 * 1024 * 1024:
+		return false
+	var comp := Marshalls.base64_to_raw(c.substr(dash + 1))
+	if comp.is_empty():
+		return false
+	var raw := comp.decompress(size, FileAccess.COMPRESSION_DEFLATE)
+	if raw.size() != size:
+		return false
+	var data: Variant = JSON.parse_string(raw.get_string_from_utf8())
+	if typeof(data) != TYPE_DICTIONARY or not (data as Dictionary).has("flags"):
+		return false
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(JSON.stringify(data))
+	f.close()
+	return true
+
+
 func delete_save() -> void:
 	if has_save():
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))

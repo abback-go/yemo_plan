@@ -369,6 +369,16 @@ func _process(_d: float) -> bool:
 			"autokill":
 				# [frame, "autokill", n] — n프레임마다 보스 아닌 적을 모두 처치 (0 = 끔)
 				_autokill = int(s[2])
+			"savecode":
+				# [frame, "savecode"] — 마지막 기록을 저장 코드로 출력
+				print("SAVECODE ", root.get_node("GameState").export_code())
+			"importcode":
+				# [frame, "importcode", 코드] — 저장 코드로 이어하기
+				var gsc = root.get_node("GameState")
+				var ok: bool = gsc.import_code(String(s[2]))
+				print("IMPORT ok=", ok)
+				if ok:
+					gsc.continue_game()
 			"perf":
 				# [frame, "perf", 이름] — 프레임 시간·그리기 호출·노드 수
 				print("PERF ", s[2], " fps=", Engine.get_frames_per_second(), " process_ms=", snappedf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.01), " physics_ms=", snappedf(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, 0.01), " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objects=", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " nodes=", Performance.get_monitor(Performance.OBJECT_NODE_COUNT), " room=", get_first_node_in_group("world").room.data.id)

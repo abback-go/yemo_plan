@@ -14,6 +14,8 @@ var _menu: MenuList
 var _confirm: MenuList
 var _options: OptionsPanel
 var _items: Array[String] = []
+var _code_msg := ""
+var _code_msg_t := 0.0
 
 
 func _ready() -> void:
@@ -56,8 +58,8 @@ func _ready() -> void:
 	add_child(_text)
 
 	_menu = MenuList.new()
-	_menu.position = Vector2(284, 196)
-	_menu.size = Vector2(220, 90)
+	_menu.position = Vector2(284, 178)
+	_menu.size = Vector2(220, 110)
 	_menu.chosen.connect(_on_menu)
 	_menu.visible = false
 	add_child(_menu)
@@ -93,6 +95,7 @@ func _build_menu() -> void:
 	if GameState.has_save():
 		_items.append("이어하기")
 	_items.append("새로 시작")
+	_items.append("저장 코드로 이어하기")
 	_items.append("설정")
 	_items.append("전투 연습장")
 	_menu.items = _items.duplicate()
@@ -101,6 +104,7 @@ func _build_menu() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_code_msg_t = maxf(_code_msg_t - delta, 0.0)
 	_sera.overload_ratio = 0.3 + 0.3 * sin(_t * 0.8)
 	_sera.update_pose(delta)
 	_text.queue_redraw()
@@ -119,7 +123,9 @@ func draw_text_on(c: CanvasItem) -> void:
 				c.draw_string(_font, Vector2(272, 230), "화면을 누르세요" if _touch_screen() else "아무 키나 누르세요", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD)
 			c.draw_string(_font, Vector2(272, 290), "터치 · 키보드 · 게임패드" if _touch_screen() else "키보드 또는 게임패드", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 		1:
-			c.draw_string(_font, Vector2(272, 290), "눌러서 고르기" if TouchControls.active else "↑↓ 고르기 · Z 확인", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+			c.draw_string(_font, Vector2(272, 300), "눌러서 고르기" if TouchControls.active else "↑↓ 고르기 · Z 확인", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+			if _code_msg_t > 0.0:
+				c.draw_multiline_string(_font, Vector2(272, 322), _code_msg, HORIZONTAL_ALIGNMENT_LEFT, 280, 12, 2, Color(1.0, 0.55, 0.45, minf(_code_msg_t, 1.0)))
 		3:
 			c.draw_string(_font, Vector2(272, 208), "기록을 지우고 처음부터 시작할까요?", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
 
@@ -176,6 +182,19 @@ func _on_menu(index: int) -> void:
 				_phase = 3
 			else:
 				_start_new()
+		"저장 코드로 이어하기":
+			var code := SaveCodeUI.ask_code()
+			if code.strip_edges() == "":
+				return
+			if GameState.import_code(code):
+				_phase = 4
+				Music.stop(0.8)
+				if not GameState.continue_game():
+					_phase = 1
+			else:
+				_code_msg = "저장 코드가 올바르지 않아요. YEMO1- 부터 끝까지 전부 붙여 넣었는지 확인해 주세요."
+				_code_msg_t = 5.0
+				Sfx.play(&"block", -2.0, 0.0)
 		"설정":
 			_menu.visible = false
 			_options.open()

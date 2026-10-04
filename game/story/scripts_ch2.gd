@@ -903,6 +903,17 @@ func k_duel(c: Cut) -> void:
 	if c.has("k_duel_done") or not c.has("k_duel_called"):
 		return
 	c.lock()
+	# 결투는 이겼는데 뒷장면(별비·아이·합류) 도중 꺼졌던 기록: 결투 없이 뒷장면부터
+	if c.has("k_duel_won"):
+		await c.player_walk(52.0)
+		c.player_face(-1)
+		var ln0 := c.actor("leonie") as Npc
+		if ln0:
+			ln0.global_position.x = 49.0 * 16.0
+			ln0.face(1)
+			ln0.visual.set_pose("kneel")
+		await _duel_end(c, null)
+		return
 	c.music("", 1.0)
 	await c.player_walk(52.0)
 	c.player_face(-1)
@@ -932,6 +943,9 @@ func k_duel(c: Cut) -> void:
 	await c.wait_enemy(d)
 	if not c.ok():
 		return
+	# 이긴 즉시 기록 — 뒷장면 도중 꺼져도 결투를 다시 하지 않게
+	c.flag("k_duel_won")
+	GameState.save_game()
 	await _duel_end(c, d)
 
 
