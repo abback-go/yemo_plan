@@ -20,6 +20,8 @@ func _initialize() -> void:
 	scene_path = json.scene
 	steps = json.steps
 	_cp = int(json.get("checkpoint", 0))
+	# 전역 난수를 고정해 실행마다 결과가 같게 (리팩터 전후 비교용, tools/test/regress.sh)
+	seed(int(json.get("seed", 20261004)))
 	_world_room = String(json.get("room", ""))
 	_world_spawn = String(json.get("spawn", "start"))
 	_world_flags = json.get("flags", [])
