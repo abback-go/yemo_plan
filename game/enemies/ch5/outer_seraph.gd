@@ -235,7 +235,8 @@ class SeraphVisual extends Node2D:
 	func _process(_d: float) -> void:
 		if enemy:
 			scale.x = float(enemy.facing)
-		queue_redraw()
+		if enemy == null or enemy.should_redraw(): # 화면에서 먼 적은 다시 그리지 않음
+			queue_redraw()
 
 	func _draw() -> void:
 		if enemy == null:

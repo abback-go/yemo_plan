@@ -26,6 +26,10 @@ var launch_mult := 1.0 ## 띄우기 배율 (0 = 뜨지 않음)
 var respawns := false ## true면 처치 기록을 남기지 않음 (보스 재도전 등은 방 쪽에서 처리)
 var contact_damage := 1
 var engaged := true ## 보스: 대본이 전투 시작을 알릴 때까지 false로 두고 기다림 (HUD 체력바도 이때부터)
+## 화면(카메라 사각형 + redraw_margin) 밖이면 그림 노드를 다시 그리지 않는다 (should_redraw).
+## 그림이 몸에서 멀리 뻗는 적(조준선·빛줄기·착지 표시 등)은 _build에서 false로 끈다. 보스는 늘 다시 그린다.
+var cull_offscreen := true
+var redraw_margin := 96.0 ## px. 몸 밖으로 삐져나온 그림(무기·꼬리)까지 덮을 만큼
 
 var _alive := true
 var _flash := 0.0
@@ -112,7 +116,7 @@ func _physics_process(delta: float) -> void:
 	if is_on_floor() and _airborne_spin != 0.0:
 		_airborne_spin = 0.0
 		_on_landed_from_launch()
-	if _visual:
+	if _visual and should_redraw():
 		_visual.queue_redraw()
 
 
@@ -136,6 +140,24 @@ func modify_damage(_hit: Hit) -> float:
 ## 여우 모드 공격(푸른 여우불)인가
 static func is_fox_hit(hit: Hit) -> bool:
 	return String(hit.kind).begins_with("fox")
+
+
+## 효과음: name이 있으면 그것, 없으면 fallback (아직 만들지 않은 장별 소리를 1장 소리로 대신 낼 때).
+## check_fallback = false면 대체 소리가 있는지 확인하지 않고 낸다 (4장 H.snd의 예전 동작 — 그대로 보존)
+## 장별 도우미 KE.snd · H.snd · StArt.sfx가 모두 이것을 부른다.
+static func play_sfx(name: StringName, fallback: StringName = &"", vol := 0.0, pitch_var := 0.06, check_fallback := true) -> void:
+	if Sfx.has_sound(name):
+		Sfx.play(name, vol, pitch_var)
+	elif fallback != &"" and (not check_fallback or Sfx.has_sound(fallback)):
+		Sfx.play(fallback, vol, pitch_var)
+
+
+## play_sfx의 높이 고정판
+static func play_sfx_pitch(name: StringName, fallback: StringName, pitch: float, vol := 0.0, check_fallback := true) -> void:
+	if Sfx.has_sound(name):
+		Sfx.play_pitch(name, pitch, vol)
+	elif fallback != &"" and (not check_fallback or Sfx.has_sound(fallback)):
+		Sfx.play_pitch(fallback, pitch, vol)
 
 
 ## 범위 공격용: 점 p에서 적의 몸(피격 상자)까지의 거리. 아귀처럼 큰 적도 몸 어디에 닿든 맞게 한다
@@ -224,10 +246,7 @@ func show_bar() -> bool:
 
 func _die(dir: int) -> void:
 	_alive = false
-	if not respawns:
-		GameState.mark_killed(uid)
-	GameState.add("kills")
-	StyleRank.on_kill()
+	_record_defeat()
 	Fx.hitstop(tuning.hitstop_kill)
 	defeated.emit(self)
 	Sfx.play(&"enemy_die")
@@ -242,11 +261,7 @@ func _die(dir: int) -> void:
 		size_min = 1.0, size_max = 2.5, gravity = Vector2(0, 100),
 	})
 	Fx.ring(c, 4.0, 30.0, Palette.ENEMY_SOUL, 0.35, 2.0)
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
-	for c2 in get_children():
-		if c2 is EnemyAttackArea:
-			c2.active = false
+	_disable_body()
 	# 하얗게 번쩍인 뒤 위로 흩어지며 사라짐
 	if _visual:
 		_flash = 1.0
@@ -258,6 +273,49 @@ func _die(dir: int) -> void:
 		queue_free()
 
 
+# ─── 퇴장 도우미 (터지는 기본 _die 대신 자기 연출로 쓰러지는 적용) ─────────
+# 적마다 처치 기록 방식이 조금씩 다르다 (예: 결투 상대는 처치 표시를 남기지 않음). 그 차이는 인자로 남긴다.
+
+## 처치 기록: 처치 표시(mark, respawns면 생략) · 통계 kill_stat(""이면 생략) · 손맛 등급 처치(style)
+func _record_defeat(kill_stat := "kills", style := true, mark := true) -> void:
+	if mark and not respawns:
+		GameState.mark_killed(uid)
+	if kill_stat != "":
+		GameState.add(kill_stat)
+	if style:
+		StyleRank.on_kill()
+
+
+## 몸 끄기: 충돌층 0, 피격 상자 끄기, (areas면) 자식 공격 판정 모두 끄기
+func _disable_body(areas := true) -> void:
+	collision_layer = 0
+	_hurtbox.set_deferred("monitorable", false)
+	if areas:
+		for c in get_children():
+			if c is EnemyAttackArea:
+				(c as EnemyAttackArea).active = false
+
+
+## 조용한 퇴장의 공통 앞부분 (기본 _die 순서와 같음): 살아 있음 끄기 → 기록 → 멈춤(hitstop, 0이면 생략) → defeated → 몸 끄기
+## hitstop < 0이면 tuning.hitstop_kill
+func _defeat_quiet(kill_stat := "kills", mark := true, style := true, hitstop := -1.0) -> void:
+	_alive = false
+	_record_defeat(kill_stat, style, mark)
+	Fx.hitstop(tuning.hitstop_kill if hitstop < 0.0 else hitstop)
+	defeated.emit(self)
+	_disable_body()
+
+
+## 쓰러진 뒤 공중이면 바닥까지 떨어뜨림 (기반 _physics_process는 쓰러진 뒤 움직이지 않으므로 덮어쓴 곳에서 부른다)
+func _post_death_fall(delta: float, stop_x := true) -> void:
+	if is_on_floor():
+		return
+	if stop_x:
+		velocity.x = 0.0
+	velocity.y = minf(velocity.y + _gravity * delta, 600.0)
+	move_and_slide()
+
+
 ## 시각 노드가 그릴 때 쓰는 흰색 깜빡임 양 (0~1)
 func flash_amount() -> float:
 	return 1.0 if _flash > 0.0 else 0.0
@@ -265,6 +323,26 @@ func flash_amount() -> float:
 
 func player() -> Player:
 	return get_tree().get_first_node_in_group(GameConst.GROUP_PLAYER) as Player
+
+
+# ─── 화면 밖 다시 그리기 생략 ───────────────────────────
+# CanvasItem은 화면 밖이어도 queue_redraw하면 _draw 스크립트를 실행한다 (컬링은 렌더 단계에서만).
+# 그래서 화면에서 먼 적은 그림을 다시 만들지 않는다 — 보이는 모습은 같고 _draw 비용만 준다.
+
+static var _view_frame := -1
+static var _view_rect := Rect2()
+
+
+## 그림 노드가 이번 프레임에 다시 그려야 하는가 (그림 노드의 _process도 이것으로 queue_redraw를 거른다)
+func should_redraw() -> bool:
+	if is_boss or not cull_offscreen or not is_inside_tree():
+		return true
+	var f := Engine.get_process_frames()
+	if f != _view_frame:
+		_view_frame = f
+		var vp := get_viewport()
+		_view_rect = vp.get_canvas_transform().affine_inverse() * vp.get_visible_rect()
+	return _view_rect.grow(redraw_margin + maxf(body_size.x, body_size.y)).has_point(global_position)
 
 
 # ─── 자식 클래스용 도우미 ───────────────────────────────
@@ -300,3 +378,60 @@ func add_attack_area(size: Vector2, offset: Vector2, cause := &"enemy", damage :
 	a.damage = damage
 	add_child(a)
 	return a
+
+
+## 공격 판정 위치를 바라보는 쪽에 맞춘다 (off는 오른쪽을 볼 때 기준)
+func place_area(a: EnemyAttackArea, off: Vector2) -> void:
+	var cs := a.get_child(0) as CollisionShape2D
+	if cs:
+		cs.position = Vector2(off.x * facing, off.y)
+
+
+## 광선이 처음 닿는 점. 닿지 않으면 Vector2.INF (바닥·벽·시야 검사의 공통 바탕)
+func ray_point(from: Vector2, to: Vector2, mask := GameConst.L_WORLD | GameConst.L_PLATFORM) -> Vector2:
+	var r := get_world_2d().direct_space_state.intersect_ray(PhysicsRayQueryParameters2D.create(from, to, mask))
+	return Vector2.INF if r.is_empty() else (r.position as Vector2)
+
+
+## dir 쪽(1 오른쪽, -1 왼쪽) ahead px 앞 발밑(4px 위)에서 depth px 아래까지 바닥이 없으면 true (낭떠러지)
+func ledge_at(dir: int, ahead := 14.0, depth := 20.0) -> bool:
+	var from := global_position + Vector2(dir * ahead, -4)
+	return ray_point(from, from + Vector2(0, depth)) == Vector2.INF
+
+
+## 바라보는 쪽 낭떠러지 (ledge_at(facing, ...))
+func ledge_ahead(ahead := 14.0, depth := 20.0) -> bool:
+	return ledge_at(facing, ahead, depth)
+
+
+## x 위치에서 from_y부터 to_y까지 아래로 처음 닿는 바닥(벽·발판)의 y. 없으면 fallback
+func floor_y_at(x: float, from_y: float, to_y: float, fallback := INF) -> float:
+	var p := ray_point(Vector2(x, from_y), Vector2(x, to_y))
+	return fallback if p == Vector2.INF else p.y
+
+
+## 바라보는 쪽 reach px 안에서 벽(L_WORLD) 바로 앞 x (벽에서 gap px 띄움). 벽이 없으면 reach 끝
+func wall_x(reach: float, y_off := -10.0, gap := 10.0) -> float:
+	var from := global_position + Vector2(0, y_off)
+	var to := from + Vector2(facing * reach, 0)
+	var p := ray_point(from, to, GameConst.L_WORLD)
+	return to.x if p == Vector2.INF else p.x - facing * gap
+
+
+## from에서 to까지 벽(L_WORLD)에 가리지 않는가 (발판은 시야를 막지 않음)
+func has_los(from: Vector2, to: Vector2) -> bool:
+	return ray_point(from, to, GameConst.L_WORLD) == Vector2.INF
+
+
+## 맞은 쪽: 1 = 정면(바라보는 쪽), -1 = 등. 넉백 방향이 없는 공격(폭발 등)은 터진 x로 판단하고,
+## 몸 가운데 deadzone px 안에서 터졌으면 center를 돌려준다 (적마다 문턱·가운데 값이 달라 인자로 받음)
+func hit_side(hit: Hit, deadzone: float, center := 0) -> int:
+	var from := 0.0
+	if hit.direction != 0:
+		from = -float(hit.direction)
+	else:
+		var dxs := hit.source_pos.x - global_position.x
+		if absf(dxs) < deadzone:
+			return center
+		from = signf(dxs)
+	return 1 if from == float(facing) else -1

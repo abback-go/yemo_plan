@@ -340,7 +340,7 @@ func modify_damage(hit: Hit) -> float:
 			H.snd(&"holy_hit", &"block", 0.0)
 			Fx.ring(core(), 4.0, 40.0, Color.WHITE, 0.3, 2.0)
 		return 1.5
-	if hit.kind in [&"pillar", &"fox_pillar", &"blast", &"meteor", &"phoenix", &"ally"]:
+	if hit.kind in Hit.PASS_SHIELD_GOLD_HERALD:
 		return mult
 	var src := hit.source_pos
 	if hit.direction != 0:
@@ -413,13 +413,9 @@ func _die(dir: int) -> void:
 	prism_paths.clear()
 	_go(S.DYING, 1.4)
 	_alive = false
-	if not respawns:
-		GameState.mark_killed(uid)
-	GameState.add("kills")
-	StyleRank.on_kill()
+	_record_defeat()
 	defeated.emit(self)
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
+	_disable_body(false) # 판·가시는 _all_off()가 껐고, 몸 접촉 판정은 예전처럼 켜 둔 채
 	velocity = Vector2.ZERO
 	H.snd(&"sky_crack", &"roar", 0.0)
 	Fx.shake(0.4, 0.6)

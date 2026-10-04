@@ -80,8 +80,8 @@ func purify_k() -> float:
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
-	_place(_contact, Vector2(6, -14))
-	_place(_sweep, Vector2(18, -18))
+	place_area(_contact, Vector2(6, -14))
+	place_area(_sweep, Vector2(18, -18))
 	_timer -= delta
 	var p := player()
 	if not engaged or p == null or not p.is_alive():
@@ -104,7 +104,7 @@ func _ai(delta: float) -> void:
 				velocity.x = move_toward(velocity.x, 0.0, 300.0 * delta)
 			else:
 				var want := facing * WALK_T * t * 0.5
-				if is_on_wall() or _ledge_ahead():
+				if is_on_wall() or ledge_ahead(18.0):
 					facing = -facing
 					want = 0.0
 				velocity.x = move_toward(velocity.x, want, 200.0 * delta)
@@ -123,9 +123,9 @@ func _ai(delta: float) -> void:
 			face_player()
 			_cd -= delta
 			var want2 := 0.0
-			if adx > 5.5 * t and not _ledge_ahead():
+			if adx > 5.5 * t and not ledge_ahead(18.0):
 				want2 = facing * STALK_T * t
-			elif adx < 2.5 * t and not _ledge_behind():
+			elif adx < 2.5 * t and not ledge_at(-facing, 18.0):
 				want2 = -facing * STALK_T * t * 0.6
 			velocity.x = move_toward(velocity.x, want2, 400.0 * delta)
 			if _cd <= 0.0 and absf(p.global_position.y - global_position.y) < 3.0 * t:
@@ -160,7 +160,7 @@ func _ai(delta: float) -> void:
 				Fx.shake(0.2, 0.25)
 				Fx.burst(global_position + Vector2(facing * 16, -16), 12, {spread = 120.0, direction = Vector2(-facing, -0.5), speed_min = 40.0,
 					speed_max = 120.0, lifetime = 0.4, gradient = Palette.fade_gradient(Color("#c8d8a0")), size_min = 1.0, size_max = 2.5})
-			elif _ledge_ahead() or absf(global_position.x - _charge_from) > CHARGE_MAX_T * t:
+			elif ledge_ahead(18.0) or absf(global_position.x - _charge_from) > CHARGE_MAX_T * t:
 				_contact.active = false
 				_enter(S.RECOVER, RECOVER_TIME)
 		S.STAGGER:
@@ -192,27 +192,6 @@ func _rest() -> void:
 	_cd = Difficulty.rest(randf_range(REST.x, REST.y) * (1.0 if blighted else 1.5))
 
 
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
-
-
-func _ledge_ahead() -> bool:
-	return _ledge(facing)
-
-
-func _ledge_behind() -> bool:
-	return _ledge(-facing)
-
-
-func _ledge(dir: int) -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(dir * 18, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 20), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
-
-
 func _resists_knockback(_hit: Hit) -> bool:
 	return state == S.CHARGE
 
@@ -229,17 +208,7 @@ func _on_hit(hit: Hit, _dir: int) -> void:
 
 ## 쓰러지면 정화: 죽지 않고 무릎 꿇었다가 일어나 숲으로 돌아간다
 func _die(_dir: int) -> void:
-	_alive = false
-	if not respawns:
-		GameState.mark_killed(uid)
-	GameState.add("purified")
-	StyleRank.on_kill()
-	Fx.hitstop(tuning.hitstop_kill)
-	defeated.emit(self)
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
-	_contact.active = false
-	_sweep.active = false
+	_defeat_quiet("purified")
 	_enter(S.PURIFY)
 	_purify_t = 0.0
 	velocity.x = 0.0
@@ -251,7 +220,7 @@ func _physics_process(delta: float) -> void:
 	super(delta)
 	if _alive:
 		return
-	_flash = maxf(_flash - delta, 0.0) # 기반 클래스는 쓰러진 뒤 깜빡임을 줄이지 않는다
+	_flash = maxf(_flash - delta, 0.0) # 기반도 줄이므로 2배 빠르게 걷힌다 (예전 동작 그대로)
 	_purify_t += delta
 	if not is_on_floor():
 		velocity.y = minf(velocity.y + _gravity * delta, 600.0)

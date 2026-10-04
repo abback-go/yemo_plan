@@ -169,8 +169,7 @@ func _can_shoot(p: Player) -> bool:
 		return false
 	if center().distance_to(p.center()) > SHOT_RANGE_T * GameConst.TILE:
 		return false
-	var q := PhysicsRayQueryParameters2D.create(center(), p.center(), GameConst.L_WORLD)
-	return get_world_2d().direct_space_state.intersect_ray(q).is_empty()
+	return has_los(center(), p.center())
 
 
 # ─── 예고 → 부채꼴 3발 ──────────────────────────────────

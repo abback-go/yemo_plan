@@ -33,17 +33,11 @@ const RUIN_EMBER := Color("#ffb05a")
 
 ## 소리: 공통 소리 목록에 없으면(오디오 담당이 아직 안 만듦) 대체 소리로. 경고를 남기지 않는다.
 static func sfx(name: StringName, fallback: StringName = &"", vol := 0.0, var_pitch := 0.06) -> void:
-	if Sfx.has_sound(name):
-		Sfx.play(name, vol, var_pitch)
-	elif fallback != &"" and Sfx.has_sound(fallback):
-		Sfx.play(fallback, vol, var_pitch)
+	EnemyBase.play_sfx(name, fallback, vol, var_pitch)
 
 
 static func sfx_pitch(name: StringName, fallback: StringName, pitch: float, vol := 0.0) -> void:
-	if Sfx.has_sound(name):
-		Sfx.play_pitch(name, pitch, vol)
-	elif fallback != &"" and Sfx.has_sound(fallback):
-		Sfx.play_pitch(fallback, pitch, vol)
+	EnemyBase.play_sfx_pitch(name, fallback, pitch, vol)
 
 
 ## 다섯 꼭짓점 별 (채움)

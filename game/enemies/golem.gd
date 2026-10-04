@@ -90,8 +90,8 @@ func _ai(delta: float) -> void:
 	var t := GameConst.TILE
 	_stagger_cd = maxf(_stagger_cd - delta, 0.0)
 	_clank_cd = maxf(_clank_cd - delta, 0.0)
-	_place_area(_fist, FIST_OFFSET)
-	_place_area(_slam, SLAM_OFFSET)
+	place_area(_fist, FIST_OFFSET)
+	place_area(_slam, SLAM_OFFSET)
 	core_glow = move_toward(core_glow, 1.0 if state == S.CORE_OPEN else 0.0, delta * (5.0 if state == S.CORE_OPEN else 1.5))
 	_leak_mana(delta)
 
@@ -211,7 +211,7 @@ func _walk(delta: float, dx: float, dy: float, adx: float) -> void:
 	else:
 		_mid_t = 0.0
 	var want := 0.0
-	if ahead and adx > PUNCH_RANGE_T * t * 0.8 and not _ledge_ahead():
+	if ahead and adx > PUNCH_RANGE_T * t * 0.8 and not ledge_ahead(22.0, 16.0):
 		want = facing * WALK_SPEED_T * t
 	velocity.x = move_toward(velocity.x, want, 300.0 * delta)
 	if _attack_cd > 0.0 or not ahead or absf(dy) > 4.0 * t:
@@ -271,20 +271,6 @@ func _spawn_wave(pos: Vector2, dir: int, follow: bool) -> void:
 	Fx.effect_parent().add_child(w)
 
 
-## 공격 판정 위치를 바라보는 쪽에 맞춘다
-func _place_area(a: EnemyAttackArea, offset: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(offset.x * facing, offset.y)
-
-
-func _ledge_ahead() -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(facing * 22, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 16), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
-
-
 ## 등 핵의 전역 위치
 func core_pos() -> Vector2:
 	return global_position + Vector2(-facing * 21, -35)
@@ -294,15 +280,7 @@ func core_pos() -> Vector2:
 func _hit_side(hit: Hit) -> int:
 	if hit.kind == &"pillar" or hit.kind == &"fox_pillar" or hit.kind == &"fox_rain":
 		return 0
-	var from := 0.0
-	if hit.direction != 0:
-		from = -float(hit.direction)
-	else:
-		var dxs := hit.source_pos.x - global_position.x
-		if absf(dxs) < 10.0:
-			return 0
-		from = signf(dxs)
-	return 1 if from == float(facing) else -1
+	return hit_side(hit, 10.0)
 
 
 func modify_damage(hit: Hit) -> float:

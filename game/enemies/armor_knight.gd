@@ -32,7 +32,7 @@ const BASH_OFFSET := Vector2(15, -21)
 const SLAM_OFFSET := Vector2(28, -22)
 const AA_OFFSET := Vector2(2, -60)
 const MANA := Color("#b77bff") ## 폭주 마력
-const UNBLOCKABLE: Array[StringName] = [&"pillar", &"fox_pillar", &"blast", &"storm_final"] ## 발밑·위에서 오거나 방패를 넘는 공격
+const UNBLOCKABLE := Hit.PASS_SHIELD_ARMOR ## 발밑·위에서 오거나 방패를 넘는 공격
 
 var state: S = S.ADVANCE
 var shield_broken := 0.0 ## 방패가 깨진 채 남은 시간 (그림이 읽는다)
@@ -96,9 +96,9 @@ func _ai(delta: float) -> void:
 		if shield_broken <= 0.0:
 			_reform_shield()
 	shield_flash = maxf(shield_flash - delta, 0.0)
-	_place_area(_bash, BASH_OFFSET)
-	_place_area(_slam, SLAM_OFFSET)
-	_place_area(_aa, AA_OFFSET)
+	place_area(_bash, BASH_OFFSET)
+	place_area(_slam, SLAM_OFFSET)
+	place_area(_aa, AA_OFFSET)
 	_leak_mana(delta)
 
 	var p := player()
@@ -139,7 +139,7 @@ func _ai(delta: float) -> void:
 				Sfx.play(&"charger_charge", -2.0)
 		S.BASH:
 			velocity.x = facing * BASH_SPEED_T * t
-			if _timer <= 0.0 or is_on_wall() or _ledge_ahead():
+			if _timer <= 0.0 or is_on_wall() or ledge_ahead(14.0, 16.0):
 				_bash.active = false
 				velocity.x = facing * 3.0 * t
 				_set_state(S.BASH_RECOVER, BASH_RECOVER)
@@ -192,7 +192,7 @@ func _advance(delta: float, dx: float, dy: float, adx: float) -> void:
 		Sfx.play(&"charger_windup", -4.0, 0.0)
 		return
 	var want := 0.0
-	if ahead and adx > KEEP_DIST_T * t and not _ledge_ahead():
+	if ahead and adx > KEEP_DIST_T * t and not ledge_ahead(14.0, 16.0):
 		want = facing * WALK_SPEED_T * t
 	velocity.x = move_toward(velocity.x, want, 500.0 * delta)
 	if _attack_cd > 0.0 or not ahead or absf(dy) > 2.5 * t:
@@ -227,40 +227,13 @@ func _attacks_off() -> void:
 	_aa.active = false
 
 
-## 공격 판정 위치를 바라보는 쪽에 맞춘다
-func _place_area(a: EnemyAttackArea, offset: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(offset.x * facing, offset.y)
-
-
-func _ledge_ahead() -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(facing * 14, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 16), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
-
-
-## 맞은 방향: 1 = 정면(방패 쪽), -1 = 등, 0 = 정중앙
-func _hit_side(hit: Hit) -> int:
-	var from := 0.0
-	if hit.direction != 0:
-		from = -float(hit.direction)
-	else:
-		var dxs := hit.source_pos.x - global_position.x
-		if absf(dxs) < 6.0:
-			return 0
-		from = signf(dxs)
-	return 1 if from == float(facing) else -1
-
-
 func modify_damage(hit: Hit) -> float:
 	if is_fox_hit(hit) or shield_broken > 0.0 or hit.kind in UNBLOCKABLE:
 		return 1.0
 	if shield_raised():
 		return 1.0 # 방패를 머리 위로 든 동안은 정면이 열려 있다
 	var high := hit.source_pos.y < global_position.y - SHIELD_TOP # 방패 위로 투구를 맞힘
-	if _hit_side(hit) > 0 and not high:
+	if hit_side(hit, 6.0) > 0 and not high:
 		return 0.0
 	return 1.0
 
@@ -272,7 +245,7 @@ func _resists_knockback(hit: Hit) -> bool:
 func _on_hit(hit: Hit, _dir: int) -> void:
 	if is_fox_hit(hit) and shield_broken <= 0.0:
 		_break_shield()
-	elif state == S.ADVANCE and _hit_side(hit) < 0:
+	elif state == S.ADVANCE and hit_side(hit, 6.0) < 0:
 		_behind_t = TURN_DELAY # 등을 맞으면 곧장 돌아본다
 
 

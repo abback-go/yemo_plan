@@ -35,8 +35,7 @@ var shield_up := false
 var sigils: Array[Vector2] = []
 var _sigil := 0
 var _next_sigil := 0
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _shots := 0
 var _cycle := 0
 var _shield_shot := 0.0
@@ -82,16 +81,15 @@ func _ready() -> void:
 
 func _enter(s: S, d: float) -> void:
 	state = s
-	_timer = d
-	_dur = d
+	_clock.enter(d)
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 func _ai(delta: float) -> void:
-	_timer -= delta
+	_clock.tick(delta)
 	_shatter_t += delta
 	velocity.x = move_toward(velocity.x, 0.0, 400.0 * delta)
 	var p := player()
@@ -101,12 +99,12 @@ func _ai(delta: float) -> void:
 		return
 	match state:
 		S.IDLE:
-			if _timer <= 0.0 and dist_to_player() < 16.0 * GameConst.TILE:
+			if _clock.done() and dist_to_player() < 16.0 * GameConst.TILE:
 				_enter(S.ORBIT, Difficulty.telegraph(ORBIT_TIME))
 				KE.snd(&"star_twinkle", &"pillar_warn", -6.0)
 		S.APPEAR:
 			_fade = progress()
-			if _timer <= 0.0:
+			if _clock.done():
 				_fade = 1.0
 				_cycle += 1
 				if _cycle % 2 == 0:
@@ -115,14 +113,14 @@ func _ai(delta: float) -> void:
 					_enter(S.ORBIT, Difficulty.telegraph(ORBIT_TIME))
 					KE.snd(&"star_twinkle", &"pillar_warn", -6.0)
 		S.ORBIT:
-			if _timer <= 0.0:
+			if _clock.done():
 				_shots = 0
 				_enter(S.FIRE, 0.0)
 		S.FIRE:
-			if _timer <= 0.0:
+			if _clock.done():
 				_fire_orbit_shard()
 				_shots += 1
-				_timer = SHOT_GAP
+				_clock.left = SHOT_GAP
 				if _shots >= 3:
 					_start_vanish(Difficulty.rest(0.6))
 		S.SHIELD:
@@ -130,16 +128,16 @@ func _ai(delta: float) -> void:
 			if _shield_shot <= 0.0:
 				_shield_shot = SHIELD_SHOT_EVERY
 				_fire_slow_shard()
-			if _timer <= 0.0:
+			if _clock.done():
 				_drop_shield(false)
 				_start_vanish(0.2)
 		S.STAGGER:
-			if _timer <= 0.0:
+			if _clock.done():
 				_start_vanish(0.0)
 		S.VANISH:
-			if _timer > 0.0 and _timer <= VANISH_TIME:
-				_fade = clampf(_timer / VANISH_TIME, 0.0, 1.0)
-			if _timer <= 0.0:
+			if _clock.left > 0.0 and _clock.left <= VANISH_TIME:
+				_fade = clampf(_clock.left / VANISH_TIME, 0.0, 1.0)
+			if _clock.done():
 				_sigil = _next_sigil
 				global_position = sigils[_sigil]
 				_enter(S.APPEAR, APPEAR_TIME)
@@ -294,7 +292,7 @@ func _draw_fx(c: Node2D) -> void:
 		var col := Color(STAR, 0.35)
 		var warn := state == S.VANISH and i == _next_sigil
 		if warn:
-			col = Color(KE.DANGER, KE.warn_pulse(_t, 1.0 - clampf(_timer, 0.0, 1.0)))
+			col = Color(KE.DANGER, KE.warn_pulse(_t, 1.0 - clampf(_clock.left, 0.0, 1.0)))
 		c.draw_set_transform(sp + Vector2(0, -1), 0.0, Vector2(1.0, 0.3))
 		c.draw_arc(Vector2.ZERO, 12.0, 0, TAU, 20, col, 1.5)
 		var pts := PackedVector2Array()
@@ -305,7 +303,7 @@ func _draw_fx(c: Node2D) -> void:
 		c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if state == S.ORBIT or state == S.FIRE:
 		var k := progress() if state == S.ORBIT else 1.0
-		var warn_k := clampf((k * _dur - (_dur - ORBIT_WARN)) / ORBIT_WARN, 0.0, 1.0) if state == S.ORBIT else 1.0
+		var warn_k := clampf((k * _clock.dur - (_clock.dur - ORBIT_WARN)) / ORBIT_WARN, 0.0, 1.0) if state == S.ORBIT else 1.0
 		for i in range(_shots, 3):
 			var op := _orbit_pos(i) - global_position
 			var cc := STAR.lerp(KE.DANGER, warn_k * KE.warn_pulse(_t, warn_k))
@@ -323,7 +321,7 @@ func _draw_fx(c: Node2D) -> void:
 		c.draw_colored_polygon(hexp, Color(STAR.lightened(0.2), 0.55 * shimmer))
 		c.draw_polyline(hexp + PackedVector2Array([hexp[0]]), Color(1, 0.95, 1.0, 0.9), 1.0)
 		c.draw_line(at + Vector2(-1, -hh * 0.8), at + Vector2(1, hh * 0.6), Color(1, 1, 1, 0.5), 1.0)
-		var crack := 1.0 - clampf(_timer / SHIELD_TIME, 0.0, 1.0)
+		var crack := 1.0 - clampf(_clock.left / SHIELD_TIME, 0.0, 1.0)
 		if crack > 0.5:
 			c.draw_polyline(PackedVector2Array([at + Vector2(-2, -8), at + Vector2(1, -2), at + Vector2(-1, 4), at + Vector2(2, 9)]), Color(1, 1, 1, crack), 1.0)
 	if _shatter_t < 0.5:

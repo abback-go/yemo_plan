@@ -39,8 +39,7 @@ var patrol := 5.0 ## 순찰 반경(타일). 방 데이터에서 바꿀 수 있�
 var alarm_flag := "" ## 들켰을 때 세울 플래그
 var state: S = S.PATROL
 var home_x := 0.0
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _turn_to := 1
 var _lost := 0.0
 var _key_rot := 0.0
@@ -79,26 +78,19 @@ func _ready() -> void:
 
 func _enter(s: S, d: float) -> void:
 	state = s
-	_timer = d
-	_dur = d
+	_clock.enter(d)
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
-
-
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
+	return _clock.k()
 
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
-	_timer -= delta
+	_clock.tick(delta)
 	_key_rot += delta * (2.0 if state == S.PATROL else 5.0)
-	_place(_thrust, Vector2(24, -20))
-	_place(_sweep, Vector2(22, -20))
+	place_area(_thrust, Vector2(24, -20))
+	place_area(_sweep, Vector2(22, -20))
 	var p := player()
 	if not engaged or p == null:
 		velocity.x = 0.0
@@ -106,7 +98,7 @@ func _ai(delta: float) -> void:
 	match state:
 		S.PATROL:
 			velocity.x = facing * WALK_T * t
-			if (facing > 0 and global_position.x > home_x + patrol * t) or (facing < 0 and global_position.x < home_x - patrol * t) or is_on_wall() or _ledge():
+			if (facing > 0 and global_position.x > home_x + patrol * t) or (facing < 0 and global_position.x < home_x - patrol * t) or is_on_wall() or ledge_ahead(12.0, 18.0):
 				velocity.x = 0.0
 				_enter(S.LOOK, LOOK_TIME)
 			if int(_t * 4.0) % 2 == 0 and int((_t - delta) * 4.0) % 2 == 1:
@@ -117,36 +109,36 @@ func _ai(delta: float) -> void:
 			velocity.x = 0.0
 			if _sees(p):
 				_alert()
-			elif _timer <= 0.0:
+			elif _clock.done():
 				facing = -facing
 				_enter(S.PATROL, 0.0)
 		S.ALERT:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.ADVANCE, 0.8)
 		S.ADVANCE:
 			_combat(delta, p)
 		S.TURN:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				facing = _turn_to
 				_enter(S.ADVANCE, 0.3)
 		S.THRUST_WINDUP:
 			velocity.x = move_toward(velocity.x, 0.0, 800.0 * delta)
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.THRUST, THRUST_TIME)
 				_thrust.active = true
 				_thrust.dodgeable = true
 				KE.snd(&"spear", &"charger_charge", 0.0)
 		S.THRUST:
 			velocity.x = facing * THRUST_SPEED_T * t
-			if _timer <= 0.0 or is_on_wall() or _ledge():
+			if _clock.done() or is_on_wall() or ledge_ahead(12.0, 18.0):
 				_thrust.active = false
 				velocity.x = facing * 2.0 * t
 				_enter(S.RECOVER, Difficulty.rest(RECOVER_TIME))
 		S.SWEEP_WINDUP:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.SWEEP, SWEEP_TIME)
 				_sweep.active = true
 				_sweep.dodgeable = true
@@ -155,12 +147,12 @@ func _ai(delta: float) -> void:
 				KE.debris(global_position + Vector2(facing * 34.0, 0), 8, Color("#9a9aa8"), Vector2(-facing, -1), 120.0)
 		S.SWEEP:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				_sweep.active = false
 				_enter(S.RECOVER, Difficulty.rest(RECOVER_TIME))
 		S.RECOVER, S.STAGGER:
 			velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
-			if _timer <= 0.0:
+			if _clock.done():
 				_enter(S.ADVANCE, Difficulty.rest(0.5))
 
 
@@ -185,7 +177,7 @@ func _combat(delta: float, p: Player) -> void:
 			return
 	else:
 		_lost = 0.0
-	if _timer > 0.0 or absf(p.global_position.y - global_position.y) > 3.0 * t:
+	if _clock.left > 0.0 or absf(p.global_position.y - global_position.y) > 3.0 * t:
 		return
 	if absf(dx) < 2.8 * t:
 		_enter(S.SWEEP_WINDUP, Difficulty.telegraph(SWEEP_WINDUP))
@@ -206,8 +198,7 @@ func _sees(p: Player) -> bool:
 	var ang := absf(wrapf(to.angle() - Vector2(facing, 0.12).angle(), -PI, PI))
 	if ang > VIEW_ANGLE:
 		return false
-	var q := PhysicsRayQueryParameters2D.create(eye, p.center(), GameConst.L_WORLD)
-	return get_world_2d().direct_space_state.intersect_ray(q).is_empty()
+	return has_los(eye, p.center())
 
 
 func _alert() -> void:
@@ -225,34 +216,14 @@ func _alert() -> void:
 		hud.banner("들켰다!", 1.0)
 
 
-func _ledge() -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(facing * 12, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 18), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
-
-
-## 맞은 쪽: 1 정면, -1 등
-func _side(hit: Hit) -> int:
-	var from := 0.0
-	if hit.direction != 0:
-		from = -float(hit.direction)
-	else:
-		var dxs := hit.source_pos.x - global_position.x
-		if absf(dxs) < 4.0:
-			return 1
-		from = signf(dxs)
-	return 1 if from == float(facing) else -1
-
-
 func modify_damage(hit: Hit) -> float:
-	if hit.kind in [&"pillar", &"fox_pillar", &"blast", &"meteor", &"phoenix", &"storm_final"]:
+	if hit.kind in Hit.PASS_SHIELD_WATCHMAN:
 		return 1.0
-	return KEY_MULT if _side(hit) < 0 else FRONT_MULT
+	return KEY_MULT if hit_side(hit, 4.0, 1) < 0 else FRONT_MULT
 
 
 func _on_hit(hit: Hit, _dir: int) -> void:
-	if _side(hit) < 0:
+	if hit_side(hit, 4.0, 1) < 0:
 		# 태엽 열쇠 명중: 불꽃·톱니 튐
 		Fx.burst(global_position + Vector2(-facing * 10.0, -24), 10, {spread = 120.0, direction = Vector2(-facing, -0.5), speed_min = 60.0,
 			speed_max = 150.0, lifetime = 0.35, gradient = Palette.fade_gradient(BRASS_L), size_min = 1.0, size_max = 2.0, gravity = Vector2(0, 300)})

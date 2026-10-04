@@ -28,8 +28,7 @@ var look_dir := Vector2.LEFT ## 눈동자가 보는 방향 (그림)
 var beam_pts := PackedVector2Array() ## 지금 빛줄기 경로 (전역)
 var aim_from := 0.0
 var aim_to := 0.0
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _home := Vector2.INF
 var _segs: Array = []
 
@@ -37,6 +36,7 @@ var _segs: Array = []
 func _build() -> void:
 	max_hp = HP
 	body_size = Vector2(22, 22)
+	cull_offscreen = false # 화면 밖 생략 안 함: 빛줄기가 방을 가로지름
 	flying = true
 	knock_mult = 0.3
 	launch_mult = 0.0
@@ -69,13 +69,12 @@ func _ready() -> void:
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 func _go(s: S, time := 0.0) -> void:
 	state = s
-	_timer = time
-	_dur = time
+	_clock.enter(time)
 
 
 func beam_dir() -> Vector2:
@@ -105,7 +104,7 @@ func _ai(delta: float) -> void:
 		_update_beam(delta, false)
 		return
 	var p := player()
-	_timer -= delta
+	_clock.tick(delta)
 	if p and p.is_alive() and engaged:
 		var to := p.center() - eye_pos()
 		if state == S.HOVER or state == S.HOT:
@@ -122,11 +121,11 @@ func _ai(delta: float) -> void:
 	match state:
 		S.HOVER:
 			_beam_off()
-			if _timer <= 0.0 and p and p.is_alive() and engaged and eye_pos().distance_to(p.center()) < 16.0 * t:
+			if _clock.done() and p and p.is_alive() and engaged and eye_pos().distance_to(p.center()) < 16.0 * t:
 				_start_aim(p)
 		S.AIM:
 			_beam_off()
-			if _timer <= 0.0:
+			if _clock.done():
 				_go(S.SWEEP, SWEEP_TIME)
 				H.snd(&"holy_charge", &"sniper_shot", -4.0)
 				Fx.shake(0.08, 0.2)
@@ -139,11 +138,11 @@ func _ai(delta: float) -> void:
 					direction = Vector2.UP, spread = 70.0, speed_min = 20.0, speed_max = 80.0, lifetime = 0.3,
 					gradient = H.gold_grad(), size_min = 1.0, size_max = 2.5, gravity = Vector2(0, 200), add = true,
 				})
-			if _timer <= 0.0:
+			if _clock.done():
 				_beam_off()
 				_go(S.HOT, HOT_TIME)
 		S.HOT:
-			if _timer <= 0.0:
+			if _clock.done():
 				_go(S.HOVER, Difficulty.rest(randf_range(REST.x, REST.y)))
 
 

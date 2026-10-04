@@ -468,7 +468,7 @@ func modify_damage(hit: Hit) -> float:
 		return 0.3
 	if state == S.GUARD_BROKEN:
 		return BROKEN_MULT
-	if state == S.GUARD and hit_side(hit) > 0:
+	if state == S.GUARD and hit_side(hit, 4.0, 1) > 0:
 		return 1.0 if hit.kind in GUARD_BREAK else 0.0
 	return 1.0
 
@@ -520,20 +520,14 @@ func _check_thresholds() -> void:
 
 func _die(_dir: int) -> void:
 	_alive = false
-	if not respawns:
-		GameState.mark_killed(uid)
-	GameState.add("kills")
+	_record_defeat("kills", false) # 등급 처치는 세지 않는다 (예전 동작 그대로)
 	_enter(S.DEFEATED, 0.0)
 	Fx.hitstop(0.2)
 	Fx.slowmo(0.35, 0.8)
 	Fx.flash(Color(1, 1, 1, 0.4), 0.3)
 	Fx.shake(0.4, 0.4)
 	KE.snd(&"sword_clash", &"block", 4.0)
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
-	for c in get_children():
-		if c is EnemyAttackArea:
-			(c as EnemyAttackArea).active = false
+	_disable_body()
 	_after_every = 0.0
 	warn(0.0)
 	pose("kneel")
@@ -544,10 +538,7 @@ func _physics_process(delta: float) -> void:
 	super(delta)
 	if not _alive:
 		pose("kneel")
-		if not is_on_floor():
-			velocity.y = minf(velocity.y + _gravity * delta, 600.0)
-			velocity.x = 0.0
-			move_and_slide()
+		_post_death_fall(delta)
 
 
 # ─── 예고 그림 (뒤집지 않는 층) ─────────────────────────

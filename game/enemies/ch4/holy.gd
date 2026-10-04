@@ -14,32 +14,24 @@ const DANGER := Color("#ff3b3b")
 const WARD_RADIUS := 32.0
 
 
+## 대체 소리가 있는지 확인하지 않는다 (KE.snd·StArt.sfx와 다른 점 — 예전 동작 그대로)
 static func snd(name: StringName, fallback: StringName, vol := 0.0, variation := 0.06) -> void:
-	if Sfx.has_sound(name):
-		Sfx.play(name, vol, variation)
-	elif fallback != &"":
-		Sfx.play(fallback, vol, variation)
+	EnemyBase.play_sfx(name, fallback, vol, variation, false)
 
 
 static func snd_pitch(name: StringName, fallback: StringName, pitch: float, vol := 0.0) -> void:
-	if Sfx.has_sound(name):
-		Sfx.play_pitch(name, pitch, vol)
-	elif fallback != &"":
-		Sfx.play_pitch(fallback, pitch, vol)
+	EnemyBase.play_sfx_pitch(name, fallback, pitch, vol, false)
 
 
+## 금빛·흰빛 파티클 색 (캐시된 같은 자원을 돌려줌 — 고치지 말 것)
 static func gold_grad() -> Gradient:
-	var g := Gradient.new()
-	g.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
-	g.colors = PackedColorArray([Color(1, 1, 0.95), GOLD, Color(GOLD_DEEP, 0.0)])
-	return g
+	return Palette.cached_gradient(PackedFloat32Array([0.0, 0.35, 1.0]),
+		PackedColorArray([Color(1, 1, 0.95), GOLD, Color(GOLD_DEEP, 0.0)]))
 
 
 static func white_grad() -> Gradient:
-	var g := Gradient.new()
-	g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
-	g.colors = PackedColorArray([Color.WHITE, Color(0.92, 0.94, 1.0), Color(0.8, 0.85, 1.0, 0.0)])
-	return g
+	return Palette.cached_gradient(PackedFloat32Array([0.0, 0.5, 1.0]),
+		PackedColorArray([Color.WHITE, Color(0.92, 0.94, 1.0), Color(0.8, 0.85, 1.0, 0.0)]))
 
 
 ## 금빛 반짝임 (가산)
@@ -204,16 +196,11 @@ class LanceDrop extends EnemyAttackArea:
 		queue_redraw()
 
 	static func H_gold() -> Gradient:
-		var g := Gradient.new()
-		g.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
-		g.colors = PackedColorArray([Color(1, 1, 0.95), Color(1.0, 0.86, 0.45), Color(1.0, 0.7, 0.25, 0.0)])
-		return g
+		return Palette.cached_gradient(PackedFloat32Array([0.0, 0.35, 1.0]),
+			PackedColorArray([Color(1, 1, 0.95), Color(1.0, 0.86, 0.45), Color(1.0, 0.7, 0.25, 0.0)]))
 
 	static func H_white() -> Gradient:
-		var g := Gradient.new()
-		g.offsets = PackedFloat32Array([0.0, 1.0])
-		g.colors = PackedColorArray([Color.WHITE, Color(0.9, 0.92, 1.0, 0.0)])
-		return g
+		return Palette.cached_gradient(PackedFloat32Array([0.0, 1.0]), PackedColorArray([Color.WHITE, Color(0.9, 0.92, 1.0, 0.0)]))
 
 	func _draw() -> void:
 		var fy := 0.0

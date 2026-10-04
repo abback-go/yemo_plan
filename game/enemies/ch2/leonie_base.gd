@@ -7,9 +7,9 @@ const KArt := preload("res://world/entities/ch2/k_art.gd")
 const STEEL_FX := Color(0.92, 0.95, 1.0)
 const AFTER_COL := Color(0.55, 0.7, 1.0, 0.55)
 ## 정면에서 오면 베어 내는 공격 (불덩이·여우불·화염 폭풍)
-const PARRYABLE: Array[StringName] = [&"bolt", &"bolt_heavy", &"storm", &"fox", &"foxfire", &"foxfire_heavy", &"fox_storm", &"fox_storm_final", &"reflect"]
+const PARRYABLE := Hit.PARRYABLE_LEONIE
 ## 받아치기 자세를 깨는 공격 (발밑에서 솟는 불기둥, 방벽에 닿은 화상, 폭발류)
-const GUARD_BREAK: Array[StringName] = [&"pillar", &"fox_pillar", &"ward", &"blast", &"meteor", &"phoenix", &"storm_final", &"fox_burst"]
+const GUARD_BREAK := Hit.GUARD_BREAK_LEONIE
 
 var vis: CharacterVisual
 var _flip: Node2D
@@ -79,26 +79,13 @@ func afterimage(alpha := 0.55) -> void:
 	tw.tween_callback(ghost.queue_free)
 
 
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
-
-
 ## 판정 영역을 dur초 동안 켬
 func strike(a: EnemyAttackArea, off: Vector2, dur: float, dmg := 1) -> void:
-	_place(a, off)
+	place_area(a, off)
 	a.damage = dmg
 	a.active = true
 	a.dodgeable = true
 	_area_timers[a] = dur
-
-
-func _ledge(ahead := 14.0) -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(facing * ahead, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 20), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
 
 
 ## 앞쪽 벽까지 거리 (px, 없으면 limit)
@@ -111,19 +98,6 @@ func _room_ahead(dir: int, limit: float) -> float:
 		return limit
 	var p: Vector2 = r.position
 	return absf(p.x - from.x) - 12.0
-
-
-## 맞은 쪽: 1 정면, -1 등
-func hit_side(hit: Hit) -> int:
-	var from := 0.0
-	if hit.direction != 0:
-		from = -float(hit.direction)
-	else:
-		var dxs := hit.source_pos.x - global_position.x
-		if absf(dxs) < 4.0:
-			return 1
-		from = signf(dxs)
-	return 1 if from == float(facing) else -1
 
 
 ## 받아치기: 날아온 불을 베어 냄 (불꽃이 두 갈래로 갈라져 흩어짐)

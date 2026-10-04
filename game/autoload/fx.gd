@@ -19,6 +19,9 @@ const WITCH_TINT := Color(0.66, 0.58, 1.0) ## 위치 타임 중 화면에 곱하
 var camera: Node = null ## GameCamera가 스스로 등록한다
 var add_material: CanvasItemMaterial ## 가산 합성(빛이 겹칠수록 밝아짐) — 불 이펙트 공용
 var enemy_time := 1.0 ## 위치 타임 중 적·적 탄의 시간 배율 (세라는 정상 속도)
+## 시험 실행기만 켠다(환경 변수 FRAME_CLOCK=1): 히트스톱·슬로모션·위치 타임을 실제 시간 대신 프레임 수(60fps)로 잰다.
+## 실제 시간으로 재면 컴퓨터가 바쁠 때 멈춤이 짧아져 같은 시나리오도 결과가 달라진다. 게임에서는 늘 false.
+var frame_clock := false
 
 var _base_time_scale := 1.0
 var _hitstop_until := 0
@@ -34,6 +37,9 @@ var _label_settings_heavy: LabelSettings
 var _label_settings_fox: LabelSettings
 var _witch_until := 0
 var _tint_rect: ColorRect
+## 다 터진 burst 파티클을 버리지 않고 모아 두었다가 다시 쓴다 (단일 스레드 웹에서 노드 생성·해제 비용 절약)
+var _burst_pool: Array[CPUParticles2D] = []
+const BURST_POOL_MAX := 96
 
 
 func _ready() -> void:
@@ -51,6 +57,7 @@ func _ready() -> void:
 	_vignette_mat = ShaderMaterial.new()
 	_vignette_mat.shader = shader
 	_vignette_rect.material = _vignette_mat
+	_vignette_rect.visible = false # 세기 0이면 숨겨 전체 화면 셰이더를 돌리지 않는다
 	_overlay.add_child(_vignette_rect)
 
 	_flash_rect = ColorRect.new()
@@ -91,8 +98,15 @@ func _ready() -> void:
 	_label_settings_fox.font_color = Color(0.6, 0.88, 1.0)
 
 
+## 시간 효과가 쓰는 현재 시각 (ms). 시험(FRAME_CLOCK=1)에서는 프레임 수 기준이라, 실제 시간이 필요한 연출도 이것을 쓰면 시험 결과가 흔들리지 않는다
+func now_ms() -> int:
+	if frame_clock:
+		return Engine.get_process_frames() * 1000 / 60
+	return Time.get_ticks_msec()
+
+
 func _process(_delta: float) -> void:
-	var now := Time.get_ticks_msec()
+	var now := now_ms()
 	if _slowmo_until > 0 and now >= _slowmo_until:
 		_slowmo_until = 0
 		_base_time_scale = 1.0
@@ -138,7 +152,7 @@ func reset() -> void:
 func hitstop(sec: float) -> void:
 	if sec <= 0.0:
 		return
-	var until := Time.get_ticks_msec() + int(sec * 1000.0)
+	var until := now_ms() + int(sec * 1000.0)
 	if until <= _hitstop_until:
 		return
 	_hitstop_until = until
@@ -147,7 +161,7 @@ func hitstop(sec: float) -> void:
 
 func slowmo(scale: float, real_sec: float) -> void:
 	_base_time_scale = scale
-	_slowmo_until = Time.get_ticks_msec() + int(real_sec * 1000.0)
+	_slowmo_until = now_ms() + int(real_sec * 1000.0)
 	if _hitstop_until == 0:
 		Engine.time_scale = scale
 
@@ -157,7 +171,7 @@ func slowmo(scale: float, real_sec: float) -> void:
 ## 위치 타임: 적과 적의 탄만 느려진다 (세라는 정상 속도). 실제 시간 기준.
 func witch_time(scale: float, real_sec: float) -> void:
 	enemy_time = scale
-	_witch_until = Time.get_ticks_msec() + int(real_sec * 1000.0)
+	_witch_until = now_ms() + int(real_sec * 1000.0)
 	_set_tint(1.0)
 
 
@@ -192,7 +206,9 @@ func flash(color: Color, duration := 0.12) -> void:
 
 ## 폭주 경고용 붉은 화면 테두리 (0 = 없음, 1 = 최대)
 func set_vignette(strength: float) -> void:
-	_vignette_mat.set_shader_parameter("strength", clampf(strength, 0.0, 1.0))
+	var s := clampf(strength, 0.0, 1.0)
+	_vignette_mat.set_shader_parameter("strength", s)
+	_vignette_rect.visible = s > 0.0
 
 
 # ─── 이펙트 생성 ────────────────────────────────────────
@@ -206,10 +222,22 @@ func effect_parent() -> Node:
 
 
 ## 한 번 터지고 사라지는 파티클. opts로 모양을 바꾼다.
+## 다 터진 노드는 풀에 돌아가 다음 burst에서 restart()로 다시 쓰인다 — 그래서 반환값을 붙잡아 두거나 고치지 말 것.
+## 전역 난수(Math::rand) 소비는 새로 만들 때와 같다: 새 노드는 생성자가, 다시 쓰는 노드는 restart()가 시드를 한 번 뽑는다.
+## 그래서 다른 무작위 동작(적 AI 등)도 풀을 쓰기 전과 똑같다.
 func burst(pos: Vector2, amount: int, opts := {}) -> CPUParticles2D:
-	var p := CPUParticles2D.new()
+	var p: CPUParticles2D = null
+	while p == null and not _burst_pool.is_empty():
+		p = _burst_pool.pop_back()
+		if not is_instance_valid(p):
+			p = null
+	var reused := p != null
+	if not reused:
+		p = CPUParticles2D.new()
+		p.one_shot = true
+		p.scale_amount_curve = _shrink_curve
+		p.finished.connect(_recycle_burst.bind(p))
 	p.position = pos
-	p.one_shot = true
 	p.amount = maxi(amount, 1)
 	p.explosiveness = opts.get("explosiveness", 1.0)
 	p.lifetime = opts.get("lifetime", 0.4)
@@ -223,7 +251,6 @@ func burst(pos: Vector2, amount: int, opts := {}) -> CPUParticles2D:
 	p.damping_max = opts.get("damping", 0.0)
 	p.scale_amount_min = opts.get("size_min", 1.0)
 	p.scale_amount_max = opts.get("size_max", 2.5)
-	p.scale_amount_curve = _shrink_curve
 	var grad: Variant = opts.get("gradient")
 	p.color_ramp = grad if grad != null else Palette.fire_gradient()
 	var box: Vector2 = opts.get("box", Vector2.ZERO)
@@ -233,13 +260,42 @@ func burst(pos: Vector2, amount: int, opts := {}) -> CPUParticles2D:
 	elif opts.has("radius"):
 		p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
 		p.emission_sphere_radius = opts.radius
+	else:
+		p.emission_shape = CPUParticles2D.EMISSION_SHAPE_POINT
 	p.z_index = opts.get("z", 5)
-	if opts.get("add", opts.get("gradient") == null):
-		p.material = add_material # 불꽃은 기본으로 가산 합성
+	# 불꽃은 기본으로 가산 합성
+	p.material = add_material if opts.get("add", opts.get("gradient") == null) else null
+	if reused:
+		# 트리 밖에서 restart: 새 노드처럼 첫 갱신이 트리에 들어간 뒤 일어나 첫 프레임 진행이 같다
+		p.restart()
 	effect_parent().add_child(p)
 	p.emitting = true
-	p.finished.connect(p.queue_free)
 	return p
+
+
+## 끝날 때 풀에 남은(트리 밖) 파티클을 지운다 — 안 그러면 종료 시 자원 누수 오류가 찍힌다
+func _exit_tree() -> void:
+	for p in _burst_pool:
+		if is_instance_valid(p):
+			p.free()
+	_burst_pool.clear()
+
+
+## 다 터진 burst를 부모에서 떼어 풀에 넣는다 (finished 신호 안에서 바로 떼지 않고 지연 호출)
+func _recycle_burst(p: CPUParticles2D) -> void:
+	_return_burst.call_deferred(p)
+
+
+func _return_burst(p: CPUParticles2D) -> void:
+	# 부모가 없으면 이미 풀에 있다 (finished가 두 번 와도 한 번만 넣음). emitting은 보지 않는다:
+	# 입자가 모두 일찍 죽으면 방출 주기가 끝나기 전에도 finished가 오는데, 예전엔 그때도 바로 지웠다.
+	if not is_instance_valid(p) or p.is_queued_for_deletion() or p.get_parent() == null:
+		return
+	p.get_parent().remove_child(p)
+	if _burst_pool.size() < BURST_POOL_MAX:
+		_burst_pool.append(p)
+	else:
+		p.free()
 
 
 ## 퍼져 나가는 고리

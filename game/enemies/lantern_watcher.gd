@@ -14,6 +14,7 @@ var _glow: LightGlow
 func _build() -> void:
 	max_hp = HP
 	body_size = Vector2(16, 38)
+	cull_offscreen = false # 화면 밖 생략 안 함: 조준선이 화면을 가로지름
 	knock_mult = 0.25 # 무거운 돌
 	kind_id = "lantern_watcher"
 	display_name = "등롱 감시자"

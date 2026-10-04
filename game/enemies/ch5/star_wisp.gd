@@ -24,6 +24,7 @@ var _visual_node: StarWispVisual
 func _build() -> void:
 	max_hp = 450
 	body_size = Vector2(14, 14)
+	cull_offscreen = false # 화면 밖 생략 안 함: 짝과 잇는 별자리 선
 	display_name = "별 정령"
 	subtitle = "리라의 졸린 사역마"
 	kind_id = "star_wisp"
@@ -90,7 +91,7 @@ func _add_line(partner: Node) -> void:
 
 ## 별자리 선의 상태: 0 꺼짐 · 1 예고 · 2 켜짐
 func line_state() -> int:
-	var ph := fmod(Time.get_ticks_msec() / 1000.0 + float(absi(hash(link)) % 97) * 0.03, CYCLE)
+	var ph := fmod(Fx.now_ms() / 1000.0 + float(absi(hash(link)) % 97) * 0.03, CYCLE) # Fx.now_ms: 게임에선 실제 시간, 시험에선 프레임 기준
 	if ph < OFF_T:
 		return 0
 	if ph < OFF_T + Difficulty.telegraph(WARN_T):

@@ -39,6 +39,7 @@ var _init_done := false
 func _build() -> void:
 	max_hp = 99999
 	body_size = Vector2(80, 200)
+	cull_offscreen = false # 화면 밖 생략 안 함: 거대한 몸·손·발이 원점에서 멀리 그려짐
 	display_name = "거신"
 	subtitle = "바깥 신들의 행진"
 	kind_id = "colossus"
@@ -154,11 +155,7 @@ func _land() -> void:
 
 
 func _ground_at(x: float) -> float:
-	var q := PhysicsRayQueryParameters2D.create(Vector2(x, ground - 6.0 * T), Vector2(x, ground + 6.0 * T), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	var r := get_world_2d().direct_space_state.intersect_ray(q)
-	if r.is_empty():
-		return ground
-	return (r["position"] as Vector2).y
+	return floor_y_at(x, ground - 6.0 * T, ground + 6.0 * T, ground)
 
 
 # ─── 손 ─────────────────────────────────────────────────

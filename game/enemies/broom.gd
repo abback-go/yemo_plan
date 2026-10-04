@@ -272,15 +272,11 @@ func _aim_at(target: Vector2) -> Vector2:
 
 ## from에서 to까지 벽에 막히는가 (to가 벽 속이어도 막힘)
 func _blocked(from: Vector2, to: Vector2) -> bool:
-	var space := get_world_2d().direct_space_state
-	var q := PhysicsRayQueryParameters2D.create(from, to + (to - from).normalized() * 16.0, GameConst.L_WORLD)
-	return not space.intersect_ray(q).is_empty()
+	return not has_los(from, to + (to - from).normalized() * 16.0)
 
 
 func _has_los(p: Player) -> bool:
-	var space := get_world_2d().direct_space_state
-	var q := PhysicsRayQueryParameters2D.create(center(), p.center(), GameConst.L_WORLD)
-	return space.intersect_ray(q).is_empty()
+	return has_los(center(), p.center())
 
 
 func _trail(delta: float) -> void:

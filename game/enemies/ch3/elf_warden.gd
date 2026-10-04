@@ -20,7 +20,7 @@ const LEAP_WINDUP := 0.6
 const GUARD_TIME := 1.1
 const RECOVER_TIME := 0.55
 const REST := Vector2(0.9, 1.4)
-const SHIELD_BYPASS: Array[StringName] = [&"pillar", &"fox_pillar", &"blast", &"storm", &"storm_final", &"reflect", &"meteor", &"phoenix", &"ward", &"ally"]
+const SHIELD_BYPASS := Hit.PASS_SHIELD_ELF_WARDEN
 
 var state: S = S.IDLE
 var leap_target := Vector2.INF
@@ -83,7 +83,7 @@ func _enter(s: S, dur := 0.0) -> void:
 
 func _ai(delta: float) -> void:
 	var t := GameConst.TILE
-	_place(_spear, Vector2(26, -17))
+	place_area(_spear, Vector2(26, -17))
 	_flip.scale.x = facing
 	_cv.walking = state == S.ADVANCE and absf(velocity.x) > 8.0
 	_cv.modulate = Color(2, 2, 2) if flash_amount() > 0.0 else Color.WHITE
@@ -103,14 +103,14 @@ func _ai(delta: float) -> void:
 			face_player()
 			_cd -= delta
 			var want := 0.0
-			if adx > 3.0 * t and not _ledge(facing):
+			if adx > 3.0 * t and not ledge_ahead(12.0):
 				want = facing * WALK_T * t
 			velocity.x = move_toward(velocity.x, want, 700.0 * delta)
 			if _guard_cd <= 0.0 and _bolt_incoming():
 				_enter(S.GUARD, GUARD_TIME)
 				_guard_cd = 2.5
 				Sfx.play(&"block", -8.0)
-			elif adx < 1.5 * t and absf(dy) < 2.0 * t and not _ledge(-facing):
+			elif adx < 1.5 * t and absf(dy) < 2.0 * t and not ledge_at(-facing, 12.0):
 				_enter(S.BACKSTEP, 0.35)
 				velocity = Vector2(-facing * 7.0 * t, -200.0)
 			elif _cd <= 0.0:
@@ -137,7 +137,7 @@ func _ai(delta: float) -> void:
 				Sfx.play(&"swing", 0.0, 0.1)
 		S.THRUST:
 			velocity.x = facing * THRUST_SPEED_T * t * clampf(_timer / _dur, 0.0, 1.0)
-			if _ledge(facing):
+			if ledge_ahead(12.0):
 				velocity.x = 0.0
 			if _timer <= 0.0:
 				_spear.active = false
@@ -200,10 +200,8 @@ func _land() -> void:
 
 
 func _floor_under(pos: Vector2) -> Vector2:
-	var space := get_world_2d().direct_space_state
-	var q := PhysicsRayQueryParameters2D.create(pos + Vector2(0, -8), pos + Vector2(0, 240), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	var r := space.intersect_ray(q)
-	return pos if r.is_empty() else (r.position as Vector2)
+	var p := ray_point(pos + Vector2(0, -8), pos + Vector2(0, 240))
+	return pos if p == Vector2.INF else p
 
 
 ## 앞에서 화염탄이 날아오는가 (막기 반응)
@@ -216,19 +214,6 @@ func _bolt_incoming() -> bool:
 					and signf(-to) == float(facing):
 				return true
 	return false
-
-
-func _ledge(dir: int) -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(dir * 12, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 20), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
-
-
-func _place(a: EnemyAttackArea, off: Vector2) -> void:
-	var cs := a.get_child(0) as CollisionShape2D
-	if cs:
-		cs.position = Vector2(off.x * facing, off.y)
 
 
 func modify_damage(hit: Hit) -> float:
@@ -259,18 +244,7 @@ func _resists_knockback(_hit: Hit) -> bool:
 
 ## 비살상: 쓰러지지 않고 물러난다
 func _die(_dir: int) -> void:
-	_alive = false
-	if not respawns:
-		GameState.mark_killed(uid)
-	GameState.add("wardens_yielded")
-	StyleRank.on_kill()
-	Fx.hitstop(tuning.hitstop_kill)
-	defeated.emit(self)
-	collision_layer = 0
-	_hurtbox.set_deferred("monitorable", false)
-	for c in get_children():
-		if c is EnemyAttackArea:
-			(c as EnemyAttackArea).active = false
+	_defeat_quiet("wardens_yielded")
 	if _marker and is_instance_valid(_marker):
 		_marker.queue_free()
 	_enter(S.YIELD)
@@ -303,9 +277,7 @@ func _physics_process(delta: float) -> void:
 	if _alive:
 		return
 	_yield_t += delta
-	if not is_on_floor():
-		velocity.y = minf(velocity.y + _gravity * delta, 600.0)
-		move_and_slide()
+	_post_death_fall(delta, false)
 	# 무릎 꿇고(1.4초) → 잎이 흩날리며 숲으로 사라짐
 	if _yield_t > 1.4:
 		_cv.modulate.a = clampf(1.0 - (_yield_t - 1.4) / 0.6, 0.0, 1.0)

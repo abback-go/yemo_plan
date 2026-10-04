@@ -21,12 +21,11 @@ const REACH_T := 1.8
 const WINDUP := 0.45
 const SLASH_TIME := 0.18
 const RECOVER := 0.5
-const STONE_BLOCKS: Array[StringName] = [&"bolt", &"bolt_heavy", &"storm", &"storm_final", &"foxfire", &"foxfire_heavy", &"fox_storm", &"fox_storm_final"]
+const STONE_BLOCKS := Hit.STONE_BLOCKS_STATUE
 
 var state: S = S.DORMANT
 var stone := 1.0 ## 1 = 완전히 돌 (그림)
-var _timer := 0.0
-var _dur := 0.0
+var _clock := StateClock.new() ## 상태 시간 (남은 시간·길이·진행도)
 var _step_t := 0.0
 var _slash: EnemyAttackArea
 var _grind_t := 0.0
@@ -49,13 +48,12 @@ func _build() -> void:
 
 
 func progress() -> float:
-	return clampf(1.0 - _timer / _dur, 0.0, 1.0) if _dur > 0.0 else 1.0
+	return _clock.k()
 
 
 func _go(s: S, time := 0.0) -> void:
 	state = s
-	_timer = time
-	_dur = time
+	_clock.enter(time)
 
 
 ## 세라가 이쪽을 보고 있는가 (조각상이 세라의 앞쪽에 있음)
@@ -78,7 +76,7 @@ func _ai(delta: float) -> void:
 	var cs := _slash.get_child(0) as CollisionShape2D
 	cs.position = Vector2(18 * facing, -18)
 	var p := player()
-	_timer -= delta
+	_clock.tick(delta)
 	var seen := watched()
 	var near := p != null and p.is_alive() and engaged and global_position.distance_to(p.global_position) < 16.0 * t
 	stone = move_toward(stone, 1.0 if (seen or state == S.DORMANT) else 0.0, delta * (12.0 if seen else 3.0))
@@ -103,7 +101,7 @@ func _ai(delta: float) -> void:
 			_step_t += delta
 			var cycle := fmod(_step_t, STEP_ON + STEP_OFF)
 			velocity.x = facing * MOVE_T * t if cycle < STEP_ON else 0.0
-			if _ledge_ahead():
+			if ledge_ahead(13.0, 16.0):
 				velocity.x = 0.0
 			_grind_t -= delta
 			if _grind_t <= 0.0 and velocity.x != 0.0:
@@ -119,19 +117,19 @@ func _ai(delta: float) -> void:
 				H.snd(&"spear", &"charger_windup", -4.0)
 		S.WINDUP:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				_go(S.SLASH, SLASH_TIME)
 				_slash.active = true
 				H.snd(&"sword_slash", &"swing", 0.0)
 				Fx.shake(0.1, 0.15)
 		S.SLASH:
 			velocity.x = facing * 2.0 * t
-			if _timer <= 0.0:
+			if _clock.done():
 				_slash.active = false
 				_go(S.RECOVER, RECOVER)
 		S.RECOVER:
 			velocity.x = 0.0
-			if _timer <= 0.0:
+			if _clock.done():
 				_go(S.MOVE)
 
 
@@ -145,13 +143,6 @@ func _freeze() -> void:
 			spread = 180.0, speed_min = 10.0, speed_max = 40.0, lifetime = 0.4,
 			gradient = Palette.fade_gradient(Color("#a8a8bc")), size_min = 1.0, size_max = 2.0, gravity = Vector2(0, 120),
 		})
-
-
-func _ledge_ahead() -> bool:
-	var space := get_world_2d().direct_space_state
-	var from := global_position + Vector2(facing * 13, -4)
-	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 16), GameConst.L_WORLD | GameConst.L_PLATFORM)
-	return space.intersect_ray(q).is_empty()
 
 
 func modify_damage(hit: Hit) -> float:

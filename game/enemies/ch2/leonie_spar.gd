@@ -221,10 +221,10 @@ func take_hit(hit: Hit) -> void:
 	if _grace > 0.0:
 		return
 	# 받아치기 자세: 정면 불은 목검으로 쳐 냄, 불기둥·방벽 등은 자세를 깨고 1번으로 침
-	if state == S.GUARD and hit_side(hit) > 0 and not hit.kind in GUARD_BREAK:
+	if state == S.GUARD and hit_side(hit, 4.0, 1) > 0 and not hit.kind in GUARD_BREAK:
 		parry_fx(hit)
 		return
-	if state in [S.DASH] and hit.kind in PARRYABLE and hit_side(hit) > 0:
+	if state in [S.DASH] and hit.kind in PARRYABLE and hit_side(hit, 4.0, 1) > 0:
 		parry_fx(hit)
 		return
 	hits_taken += 1

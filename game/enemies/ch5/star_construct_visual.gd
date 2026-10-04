@@ -22,7 +22,8 @@ func _process(delta: float) -> void:
 	scale = Vector2(float(enemy.facing) * scale_k, scale_k)
 	if absf(enemy.velocity.x) > 5.0 and enemy.is_on_floor():
 		_walk += delta * 9.0
-	queue_redraw()
+	if enemy.should_redraw(): # 화면에서 먼 적은 다시 그리지 않음
+		queue_redraw()
 
 
 func _draw() -> void:
