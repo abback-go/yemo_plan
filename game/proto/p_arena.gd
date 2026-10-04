@@ -43,7 +43,6 @@ func _ready() -> void:
 	hud = PHud.new()
 	hud.sera = sera
 	layer.add_child(hud)
-	sera.mana_pip.connect(hud.flash_pip)
 	var top := CanvasLayer.new()
 	top.layer = 30
 	top.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -74,8 +73,7 @@ func dbg(key: String, value: Variant) -> void:
 			PState.key_mode = int(value)
 			PState.register_keys()
 		"tails": PState.tails = int(value)
-		"mana_max": PState.mana_max = int(value)
-		"infinite_mana": PState.infinite_mana = bool(value)
+		"od_mult": PState.od_mult = float(value)
 		"no_cooldown": PState.no_cooldown = bool(value)
 		"evade": PState.evade = bool(value)
 		"launcher_on": PState.launcher_on = bool(value)

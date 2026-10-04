@@ -18,9 +18,9 @@ func _ready() -> void:
 
 func _build() -> void:
 	_rows = [
-		["키 방식", "key_mode"], ["회피술 (공중 대시 + 무적)", "evade"], ["꼬리 수 (변신 시간·발톱·발톱 마나)", "tails"], ["마나 최대 칸", "mana_max"],
-		["마나 무한", "infinite_mana"], ["쿨타임 없음", "no_cooldown"], ["▶ 변신 게이지 가득 채우기", "fill_gauge"],
-		["▶ 마나 가득", "fill_mana"], ["난이도", "difficulty"], ["연습용 발사대 (맞는 연습)", "launcher_on"], ["피해 숫자", "damage_numbers"],
+		["키 방식", "key_mode"], ["회피술 (공중 대시 + 무적)", "evade"], ["꼬리 수 (변신 시간·발톱)", "tails"], ["폭주 게이지 차는 배율", "od_mult"],
+		["쿨 감소 물약 (−10%씩)", "cd_potions"], ["쿨타임 없음", "no_cooldown"], ["▶ 폭주 게이지 가득 채우기", "fill_gauge"],
+		 ["난이도", "difficulty"], ["연습용 발사대 (맞는 연습)", "launcher_on"], ["피해 숫자", "damage_numbers"],
 		["모든 마법 레벨", "all_lv"],
 	]
 	for s: Dictionary in PData.SPELLS:
@@ -65,16 +65,14 @@ func _change(d: int) -> void:
 			PState.evade = not PState.evade
 		"tails":
 			PState.tails = clampi(PState.tails + d, 1, 9)
-		"mana_max":
-			PState.mana_max = clampi(PState.mana_max + d, 5, 7)
-		"infinite_mana":
-			PState.infinite_mana = not PState.infinite_mana
+		"od_mult":
+			PState.od_mult = clampf(PState.od_mult + 0.25 * d, 0.25, 4.0)
+		"cd_potions":
+			PState.cd_potions = clampi(PState.cd_potions + d, 0, 2)
 		"no_cooldown":
 			PState.no_cooldown = not PState.no_cooldown
 		"fill_gauge":
 			sera.gauge = 1.0
-		"fill_mana":
-			sera.mana = float(PState.mana_max)
 		"difficulty":
 			PState.difficulty = (PState.difficulty + d + 3) % 3
 		"launcher_on":
@@ -104,10 +102,10 @@ func _value(key: String) -> String:
 			return "배움" if PState.evade else "아직"
 		"tails":
 			return "%d개" % PState.tails
-		"mana_max":
-			return "%d칸" % PState.mana_max
-		"infinite_mana":
-			return "켬" if PState.infinite_mana else "끔"
+		"od_mult":
+			return "×%.2f" % PState.od_mult
+		"cd_potions":
+			return "%d개 (−%d%%)" % [PState.cd_potions, PState.cd_potions * 10]
 		"no_cooldown":
 			return "켬" if PState.no_cooldown else "끔"
 		"difficulty":

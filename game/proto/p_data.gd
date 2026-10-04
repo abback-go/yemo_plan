@@ -48,7 +48,6 @@ const CLAW_REACH := 45.0 ## 앞으로 (꼬리마다 +2.25) — 사용자 요청�
 const CLAW_HEIGHT := 26.0
 const CLAW_RECOIL := 120.0 ## 맞히면 세라가 뒤로 조금
 const CLAW_HITSTOP := 0.045
-const CLAW_MANA := 0.25 ## 발톱으로 적을 하나 맞힐 때마다 차는 마나(칸)
 
 # ─── 생존 ───
 const MAX_HEARTS := 5
@@ -61,24 +60,27 @@ const SHIELD_SWIPE_PER_HEART := 45.0 ## 막은 피해 1칸마다 더하는 피�
 const POTION_HEAL := 2
 const POTION_TIME := 0.8
 
-# ─── 마나 (서서 충전 없음: 때리면 빠르게 + 가만히 있어도 천천히) ───
-const MANA_REGEN := 4.0 ## 저절로 1칸 차는 시간(초)
-const MANA_REGEN_FOX := 2.5 ## 변신 중
-const GAUGE_PER_MANA := 0.125 ## 마나 1칸을 쓸 때마다 차는 변신 게이지 (8칸 쓰면 변신)
+# ─── 폭주 게이지 (마나 없음 — 마법은 쿨타임만. 넘치는 마력이 차오르고, 가득 차면 Space로 너울에게 넘겨 변신) ───
+## 게이지 0~1. 적극적으로 싸우면 약 60초, 가만히 있어도 90초에 가득. 가득 찬 채 아껴 둘 수 있음, 변신 연장·반동 없음
+const OD_PER_SEC := 1.0 / 90.0 ## 시간
+const OD_SPELL := {"초급": 0.03, "중급": 0.08, "대마법": 0.15} ## 마법을 쓸 때
+const OD_CLAW := 0.005 ## 발톱 적중 한 번
+const OD_HURT := 0.05 ## 맞았을 때 (궁지에 몰릴수록 변신이 가까워짐)
+const OD_EASY := 1.3 ## 쉬움 난이도 배율
 
 # ─── 변신 ───
 const TRANSFORM_BASE := 10.0 ## 꼬리 1개 10초 → 9개 15초
 const FOX_DAMAGE := 1.3
 
-## 마법 7종 (초급 2 · 중급 3 · 대마법 2) — 키·소모 칸·쿨·레벨 상한·이름. 피해는 각 마법 함수가 레벨 배율을 곱해 쓴다.
+## 마법 7종 (초급 2 · 중급 3 · 대마법 2) — 키·쿨·레벨 상한·이름. 마나 없음: 제약은 쿨타임(연금술 물약으로 −10%씩). 피해는 각 마법 함수가 레벨 배율을 곱해 쓴다.
 const SPELLS := [
-	{"id": "fireball", "name": "파이어볼", "key": "A", "cost": 1, "cd": 1.2, "max_lv": 4, "line": "fire", "grade": "초급"},
-	{"id": "foxrain", "name": "여우비", "key": "S", "cost": 1, "cd": 1.6, "max_lv": 4, "line": "fox", "grade": "초급"},
-	{"id": "asura", "name": "여우불 발톱 난무", "key": "F", "cost": 2, "cd": 7.0, "max_lv": 3, "line": "fox", "grade": "중급"},
-	{"id": "laser", "name": "압축 열선", "key": "Q", "cost": 2, "cd": 6.0, "max_lv": 3, "line": "fire", "grade": "중급"},
-	{"id": "meteor", "name": "대유성", "key": "W", "cost": 2, "cd": 8.0, "max_lv": 3, "line": "fire", "grade": "중급"},
-	{"id": "phoenix", "name": "불사조", "key": "E", "cost": 3, "cd": 55.0, "max_lv": 2, "line": "fire", "grade": "대마법"},
-	{"id": "bind", "name": "너울 바인드", "key": "R", "cost": 3, "cd": 50.0, "max_lv": 2, "line": "fox", "grade": "대마법"},
+	{"id": "fireball", "name": "파이어볼", "key": "A", "cd": 3.0, "max_lv": 4, "line": "fire", "grade": "초급"},
+	{"id": "foxrain", "name": "여우비", "key": "S", "cd": 10.0, "max_lv": 4, "line": "fox", "grade": "초급"},
+	{"id": "asura", "name": "여우불 발톱 난무", "key": "F", "cd": 25.0, "max_lv": 3, "line": "fox", "grade": "중급"},
+	{"id": "laser", "name": "압축 열선", "key": "Q", "cd": 20.0, "max_lv": 3, "line": "fire", "grade": "중급"},
+	{"id": "meteor", "name": "대유성", "key": "W", "cd": 30.0, "max_lv": 3, "line": "fire", "grade": "중급"},
+	{"id": "phoenix", "name": "불사조", "key": "E", "cd": 90.0, "max_lv": 2, "line": "fire", "grade": "대마법"},
+	{"id": "bind", "name": "너울 바인드", "key": "R", "cd": 90.0, "max_lv": 2, "line": "fox", "grade": "대마법"},
 ]
 
 

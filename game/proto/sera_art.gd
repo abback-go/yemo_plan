@@ -55,6 +55,7 @@ var flash := 0.0 ## 피격 흰빛 (modulate로 처리)
 var blink_hidden := false ## 무적 깜빡임
 var focus_k := 0.0 ## 집중 세기 0~1
 var charge_k := 0.0 ## 열선 압축 0~1
+var od := 0.0 ## 폭주 게이지 0~1 (70%부터 몸에 불티, 가득 차면 손의 불꽃이 커짐)
 
 var _hair := Vector2.ZERO ## 머리카락 끝 흔들림(용수철)
 var _hair_v := Vector2.ZERO
@@ -149,6 +150,8 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if fox:
 		_draw_aura()
+	elif od >= 0.7:
+		_draw_overdrive()
 	if focus_k > 0.0:
 		_draw_focus_glow(hip)
 
@@ -386,13 +389,14 @@ func _draw_arm(front: bool) -> void:
 ## 손 둘레를 맴도는 작은 불꽃 (참고 그림: 손에 불이 감김)
 func _draw_hand_fire(hand: Vector2, front: bool) -> void:
 	var a := 0.9 if front else 0.4
+	var big := 1.7 if od >= 1.0 else 1.0 # 폭주 가득: 손의 불꽃이 커짐
 	for i in 3:
 		var ang := t * 7.0 + i * TAU / 3.0 + (0.0 if front else 1.0)
-		var p := hand + Vector2(cos(ang) * 2.4, sin(ang) * 1.1 - 0.6)
+		var p := hand + Vector2(cos(ang) * 2.4, sin(ang) * 1.1 - 0.6) * big
 		var behind := sin(ang) < 0.0
-		draw_circle(p, 0.85, Color(PData.FIRE_MID, a * (0.45 if behind else 0.85)))
-		draw_circle(p + Vector2(0, -0.5), 0.45, Color(PData.FIRE_HOT, a * (0.45 if behind else 1.0)))
-	var lick := 1.4 + sin(t * 13.0 + (0.0 if front else 2.0)) * 0.5
+		draw_circle(p, 0.85 * big, Color(PData.FIRE_MID, a * (0.45 if behind else 0.85)))
+		draw_circle(p + Vector2(0, -0.5), 0.45 * big, Color(PData.FIRE_HOT, a * (0.45 if behind else 1.0)))
+	var lick := (1.4 + sin(t * 13.0 + (0.0 if front else 2.0)) * 0.5) * big
 	PVfx.safe_poly(self, PackedVector2Array([hand + Vector2(-0.9, -0.7), hand + Vector2(0.3, -2.0 - lick), hand + Vector2(1.0, -0.7)]), Color(PData.FIRE_HOT, a * 0.8))
 
 
@@ -584,6 +588,18 @@ func _draw_aura() -> void:
 		var y := -6.0 - fmod(ph * 10.0, 36.0)
 		var a := 0.5 * (1.0 - fmod(ph * 10.0, 36.0) / 36.0)
 		draw_circle(Vector2(x, y), 1.3, Color(PData.FOX_HOT, a))
+
+
+## 폭주 70% 이상: 몸에서 붉은 불티가 피어오름 (가득 차면 더 많이 + 손의 불꽃이 커짐)
+func _draw_overdrive() -> void:
+	var n := 9 if od >= 1.0 else 4
+	for i in n:
+		var ph := t * 2.6 + i * 0.9
+		var rise := fmod(ph * 14.0, 40.0)
+		var x := sin(ph * 1.9 + i) * 7.0
+		var a := (0.75 if od >= 1.0 else 0.5) * (1.0 - rise / 40.0)
+		draw_circle(Vector2(x, -4.0 - rise), 1.2, Color(PData.FIRE_HOT, a))
+		draw_circle(Vector2(x, -4.0 - rise), 0.6, Color(PData.FIRE_CORE, a))
 
 
 func _draw_wings() -> void:

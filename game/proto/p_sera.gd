@@ -9,7 +9,6 @@ enum St { NORMAL, DASH, MIMIC, CAST, CHARGE, ASURA, DRINK, HURT, DEAD, SHIELD }
 const GROUP := &"p_sera"
 const SIZE := Vector2(10, 32)
 
-signal mana_pip ## 마나 한 칸이 찼을 때 (HUD 반짝임)
 
 var st := St.NORMAL
 var st_t := 0.0 ## 지금 상태에 들어온 뒤 시간
@@ -19,8 +18,7 @@ var _flip: Node2D
 
 # 자원
 var hp2 := PData.MAX_HEARTS * 2 ## 반 칸 단위
-var mana := 5.0 ## 칸 (소수 = 차는 중) — 처음엔 가득
-var gauge := 0.0 ## 변신 게이지 0~1
+var gauge := 0.0 ## 폭주 게이지 0~1 (가득 = Space로 변신)
 var fox_time := 0.0 ## 변신 남은 시간
 var potions := 2
 var potions_max := 2
@@ -168,11 +166,8 @@ func _timers(delta: float) -> void:
 		cooldowns[id] = maxf(float(cooldowns[id]) - delta, 0.0)
 	if PState.no_cooldown:
 		cooldowns.clear()
-	if PState.infinite_mana:
-		mana = float(PState.mana_max)
 	if st != St.DEAD:
-		add_mana(delta / (PData.MANA_REGEN_FOX if is_fox() else PData.MANA_REGEN))
-	mana = minf(mana, float(PState.mana_max))
+		add_gauge(PData.OD_PER_SEC * delta)
 	if fox_time > 0.0:
 		fox_time -= delta
 		if fox_time <= 0.0:
@@ -477,7 +472,7 @@ func _claw_hits() -> void:
 		fl.fox = is_fox()
 		PVfx.add(fl, hp)
 		PVfx.sparks(hp, 6, PData.FOX_HOT if is_fox() else Color(1, 0.95, 0.85), 150.0, 0.25, Vector2(facing, -0.3), 50.0)
-		add_mana(PState.claw_mana())
+		add_gauge(PData.OD_CLAW)
 	if hit_any:
 		Fx.hitstop(PData.CLAW_HITSTOP)
 		Fx.shake(0.06, 0.08)
@@ -490,24 +485,13 @@ func _claw_hits() -> void:
 			velocity.y = minf(velocity.y, 30.0)
 
 
-## 마나 채우기 (발톱 타격·저절로). 한 칸이 새로 차면 HUD가 반짝인다
-func add_mana(v: float) -> void:
-	var cap := float(PState.mana_max)
-	if mana >= cap:
-		return
-	var before := int(floor(mana + 0.0001))
-	mana = minf(mana + v, cap)
-	if int(floor(mana + 0.0001)) > before:
-		mana_pip.emit()
-		Sfx.play_pitch(&"blip", 1.0 + 0.1 * floor(mana), -10.0)
-
-
-## 변신 게이지: 마나를 쓸 때 찬다 (PSpells.try_cast가 부름). 변신 중에는 차지 않음
+## 폭주 게이지: 시간·마법 사용·발톱 적중·피격으로 찬다 (시험 배율 × 쉬움 배율). 변신 중에는 차지 않음
 func add_gauge(v: float) -> void:
 	if is_fox():
 		return
 	var before := gauge
-	gauge = minf(gauge + v, 1.0)
+	var mult := PState.od_mult * (PData.OD_EASY if PState.difficulty == 0 else 1.0)
+	gauge = minf(gauge + v * mult, 1.0)
 	if before < 1.0 and gauge >= 1.0:
 		Sfx.play(&"star_twinkle", -6.0)
 		Fx.ring(center(), 6, 24, PData.FOX_HOT, 0.3)
@@ -655,6 +639,7 @@ func take_damage(hearts_n: int, from: Vector2) -> bool:
 	if PState.difficulty == 0:
 		units = maxi(units / 2, 1)
 	hp2 -= units
+	add_gauge(PData.OD_HURT)
 	_iframe = PData.HURT_IFRAME
 	var dir := -1 if from.x > global_position.x else 1
 	velocity = Vector2(dir * PData.HURT_KNOCK.x, PData.HURT_KNOCK.y)
@@ -706,7 +691,6 @@ func _die() -> void:
 ## 여우 석등에서 쉬기: 체력·물약 회복
 func rest() -> void:
 	hp2 = PData.MAX_HEARTS * 2
-	mana = float(PState.mana_max)
 	potions = potions_max
 	_respawn = global_position
 	PVfx.embers(global_position + Vector2(0, -8), 20, true, 70.0, Vector2(8, 4))
@@ -727,6 +711,7 @@ func _animate(delta: float) -> void:
 	a.modulate = Color(1, 1, 1).lerp(Color(3, 3, 3), a.flash * 0.6)
 	a.blink_hidden = _iframe > 0.0 and st != St.DEAD and int(_iframe * 18.0) % 2 == 0
 	a.focus_k = 0.0
+	a.od = 0.0 if is_fox() else gauge
 	a.charge_k = clampf(charge_t / 2.0, 0.0, 1.0) if st == St.CHARGE else 0.0
 	if _claw_cd > 0.0 or _claw_active > 0.0:
 		a.claw_k = minf(a.claw_k + delta / 0.16, 1.0)

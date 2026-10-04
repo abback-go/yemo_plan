@@ -3,9 +3,9 @@ extends RefCounted
 ## 훈련장 상태 — 시험 패널(Tab)로 바꾸는 값과 키 등록. 정적 변수라 어디서나 PState.tails 처럼 읽는다.
 
 static var evade := true ## 회피술(공중 대시 + 무적) 배움
-static var tails := 1 ## 1~9: 변신 시간·발톱 위력/사거리·발톱 마나
-static var mana_max := 5 ## 5~7 (연금술 성장)
-static var infinite_mana := false
+static var tails := 1 ## 1~9: 변신 시간·발톱 위력/사거리
+static var od_mult := 1.0 ## 폭주 게이지 차는 배율 (시험용)
+static var cd_potions := 0 ## 연금술 '쿨 감소' 물약 수 0~2 (−10%씩)
 static var no_cooldown := false
 static var difficulty := 1 ## 0 쉬움 · 1 보통 · 2 어려움
 static var launcher_on := false ## 연습용 발사대(맞는 연습: 피격·대시 무적)
@@ -22,9 +22,9 @@ static func awakened(id: String) -> bool:
 	return level(id) >= int(PData.spell(id).get("max_lv", 1))
 
 
-## 발톱 한 번에 차는 마나 (꼬리마다 +6%)
-static func claw_mana() -> float:
-	return PData.CLAW_MANA * (1.0 + 0.06 * float(tails - 1))
+## 마법 쿨타임 (연금술 물약 하나마다 −10%)
+static func spell_cd(id: String) -> float:
+	return float(PData.spell(id).get("cd", 1.0)) * (1.0 - 0.1 * float(cd_potions))
 
 
 static func transform_time() -> float:

@@ -1,6 +1,6 @@
 class_name PSpells
 extends RefCounted
-## 훈련장 마법 7종 + 여우방패 + 불사조 부활. try_cast가 마나·쿨을 확인하고 각 마법을 시작한다.
+## 훈련장 마법 7종 + 여우방패(조작에서 빠짐) + 불사조 부활. try_cast가 쿨을 확인하고 각 마법을 시작한다(마나 없음, 쓰면 폭주 게이지가 참).
 ## 그림 기준(사용자 참고 이미지): 열선 = 흰 빛줄기 둘레를 감는 나선 화염 고리, 대유성 = 뒤쪽 하늘에서 떨어지는 거대 운석 한 방(앞쪽 절반 폭발),
 ## 파이어볼 = 흰 중심·주황 불 혀가 뒤로 흩날리는 덩어리, 터지면 불 조각 고리, 발톱 난무 = 날카로운 곡선 참격 다발 + 검은 연기.
 ## 변신 중에는 모두 푸른 여우불 판(크기 ×1.25, 피해 ×1.3).
@@ -28,17 +28,14 @@ static func _pal(fox: bool) -> Array:
 
 static func try_cast(sera: PSera, id: String) -> bool:
 	var s := PData.spell(id)
-	var cost := int(s.cost)
-	if float(sera.cooldowns.get(id, 0.0)) > 0.0 or (sera.mana + 0.0001 < float(cost) and not PState.infinite_mana):
+	if float(sera.cooldowns.get(id, 0.0)) > 0.0:
 		last_fail = id
 		last_fail_t = 0.35
 		Sfx.play(&"block", -10.0)
 		return false
-	if not PState.infinite_mana:
-		sera.mana -= float(cost)
-	sera.add_gauge(float(cost) * PData.GAUGE_PER_MANA)
+	sera.add_gauge(float(PData.OD_SPELL.get(String(s.grade), 0.0)))
 	if not PState.no_cooldown:
-		sera.cooldowns[id] = float(s.cd)
+		sera.cooldowns[id] = PState.spell_cd(id)
 	match id:
 		"fireball":
 			_fireball(sera)

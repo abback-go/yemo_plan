@@ -1,11 +1,10 @@
 class_name PHud
 extends Control
-## 훈련장 HUD — 결정: 왼쪽 위 체력 하트·마나 칸·변신 게이지·물약, 아래 가운데 마법 7칸 퀵슬롯(키 글자·쿨 가림·마나 부족).
+## 훈련장 HUD — 결정: 왼쪽 위 체력 하트·폭주 게이지·물약, 아래 가운데 마법 7칸 퀵슬롯(키 글자·쿨 가림·마나 부족).
 ## H = 조작 안내 켜기/끄기, Tab = 시험 패널.
 
 var sera: PSera
 var _t := 0.0
-var _pip_flash := 0.0
 var _font: Font
 
 
@@ -17,15 +16,10 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
-	_pip_flash = maxf(_pip_flash - delta * 3.0, 0.0)
 	PSpells.last_fail_t = maxf(PSpells.last_fail_t - delta, 0.0)
 	if Input.is_action_just_pressed("pr_keys"):
 		PState.show_keys = not PState.show_keys
 	queue_redraw()
-
-
-func flash_pip() -> void:
-	_pip_flash = 1.0
 
 
 func _text(p: Vector2, s: String, col := Color(1, 1, 1), size := 12, align := HORIZONTAL_ALIGNMENT_LEFT, w := -1.0) -> void:
@@ -43,7 +37,7 @@ func _draw() -> void:
 	_text(Vector2(452, 352), "Tab 시험 패널 · H 조작 안내 · Esc 나가기", Color(1, 1, 1, 0.55), 10)
 
 
-# ─── 왼쪽 위: 체력·마나·변신·물약 ───────────────────────
+# ─── 왼쪽 위: 체력·폭주 게이지·물약 ───────────────────────
 
 func _draw_status() -> void:
 	var o := Vector2(10, 10)
@@ -63,33 +57,27 @@ func _draw_status() -> void:
 		var p := o + Vector2(PData.MAX_HEARTS * 15 + 4, 1)
 		var g := 0.6 + 0.4 * sin(_t * 4.0)
 		draw_colored_polygon(PackedVector2Array([p + Vector2(0, 10), p + Vector2(-6, 2), p + Vector2(-3, 4), p + Vector2(0, -2), p + Vector2(3, 4), p + Vector2(6, 2)]), Color(1, 0.6, 0.2, g))
-	# 마나 칸
-	var mo := o + Vector2(2, 20)
-	for i in PState.mana_max:
-		var c := mo + Vector2(i * 14 + 5, 5)
-		draw_circle(c, 5.6, Color(0.05, 0.03, 0.1))
-		draw_arc(c, 5.6, 0, TAU, 18, Color(1, 0.7, 0.4, 0.5), 1.0)
-		var fill := clampf(sera.mana - float(i), 0.0, 1.0)
-		if fill >= 1.0:
-			draw_circle(c, 4.4, Color("#ffb347"))
-			draw_circle(c + Vector2(-1.2, -1.2), 1.8, Color("#fff3d6"))
-		elif fill > 0.0:
-			draw_arc(c, 3.0, -PI / 2, -PI / 2 + TAU * fill, 16, Color("#ffb347"), 2.6)
-	if _pip_flash > 0.0:
-		draw_rect(Rect2(mo - Vector2(2, 0), Vector2(PState.mana_max * 14 + 4, 12)), Color(1, 0.8, 0.4, 0.25 * _pip_flash))
-	# 변신 게이지 / 변신 남은 시간
-	var go := o + Vector2(0, 36)
-	draw_rect(Rect2(go, Vector2(84, 6)), Color(0.05, 0.03, 0.1))
+	# 폭주 게이지 (가득 = Space 변신) / 변신 중엔 남은 시간
+	var go := o + Vector2(0, 20)
+	var bx := go + Vector2(28, 1)
+	draw_rect(Rect2(bx, Vector2(100, 9)), Color(0.05, 0.03, 0.1))
 	if sera.is_fox():
 		var k := sera.fox_time / PState.transform_time()
-		draw_rect(Rect2(go + Vector2(1, 1), Vector2(82 * k, 4)), PData.FOX_HOT)
-		_text(go + Vector2(88, 7), "변신 중", PData.FOX_HOT, 10)
+		_text(go + Vector2(0, 9), "변신", PData.FOX_HOT, 10)
+		draw_rect(Rect2(bx + Vector2(1, 1), Vector2(98 * k, 7)), PData.FOX_HOT)
+		draw_rect(Rect2(bx, Vector2(100, 9)), Color(PData.FOX_HOT, 0.6), false, 1.0)
 	else:
-		var full := sera.gauge >= 1.0
-		var col := PData.FOX_MID.lerp(PData.FOX_CORE, 0.5 + 0.5 * sin(_t * 8.0)) if full else PData.FOX_MID
-		draw_rect(Rect2(go + Vector2(1, 1), Vector2(82 * sera.gauge, 4)), col)
+		var g := sera.gauge
+		var full := g >= 1.0
+		_text(go + Vector2(0, 9), "폭주", Color(1, 0.7, 0.45, 0.95), 10)
+		var col := PData.FIRE_HOT.lerp(Color("#ff2a1a"), g)
 		if full:
-			_text(go + Vector2(88, 7), "Space 변신!", PData.FOX_HOT, 10)
+			col = col.lerp(PData.FIRE_CORE, 0.5 + 0.5 * sin(_t * 8.0))
+		draw_rect(Rect2(bx + Vector2(1, 1), Vector2(98 * g, 7)), col)
+		draw_line(bx + Vector2(70, 1), bx + Vector2(70, 8), Color(1, 1, 1, 0.25), 1.0) # 70%: 불티가 이는 지점
+		draw_rect(Rect2(bx, Vector2(100, 9)), Color(1, 0.55, 0.3, 0.55 + (0.4 * sin(_t * 8.0) if full else 0.0)), false, 1.0)
+		if full:
+			_text(go + Vector2(28, 22), "Space 변신!", PData.FIRE_HOT, 10)
 	# 물약
 	var po := o + Vector2(0, 46)
 	for i in sera.potions_max:
@@ -129,7 +117,7 @@ func _draw_slots() -> void:
 		var x := x0 + i * (w + gap) + 6.0 * float(groups[i]) # 키 묶음(등급)마다 살짝 떨어뜨림
 		var r := Rect2(x, y0, w, w)
 		var fox_line: bool = s.line == "fox"
-		var lack := sera.mana + 0.0001 < float(s.cost) and not PState.infinite_mana
+		var lack := false
 		draw_rect(r, Color(0.1, 0.07, 0.16))
 		draw_rect(r.grow(-1), Color(0.18, 0.12, 0.28) if not fox_line else Color(0.1, 0.14, 0.3))
 		_icon(String(s.id), r.get_center(), lack)
@@ -148,8 +136,6 @@ func _draw_slots() -> void:
 		draw_rect(r, border, false, 1.0)
 		# 키 글자 + 소모 칸
 		_text(r.position + Vector2(2, 9), PState.spell_label(String(s.id)), Color(1, 1, 1, 0.9), 10)
-		for c in int(s.cost):
-			draw_circle(r.position + Vector2(w - 4 - c * 4, w + 5), 1.6, Color("#ffb347"))
 		_text(r.position + Vector2(0, w + 12), "Lv%d" % PState.level(String(s.id)), Color(1, 1, 1, 0.45), 8, HORIZONTAL_ALIGNMENT_LEFT)
 
 
@@ -198,14 +184,14 @@ func _icon(id: String, c: Vector2, dim: bool) -> void:
 
 const KEY_GUIDE_GRADE := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
-	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["C", "대시 (변신 중 = 의태 돌진)"], ["마나", "발톱으로 때리면 참 · 저절로 천천히"],
-	["Space", "변신 (게이지 가득)"], ["G", "물약"],
+	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["C", "대시 (변신 중 = 의태 돌진)"], ["폭주", "시간·마법·발톱·피격으로 참"],
+	["Space", "변신 (폭주 게이지 가득)"], ["G", "물약"],
 	["A", "초급: 파이어볼 · ↓여우비"], ["S", "중급: 열선(꾹) · ↑대유성 · ↓난무"], ["D", "대마법: 바인드 · ↑불사조"], ["↑", "석등에서 쉬기"],
 ]
 const KEY_GUIDE_DIRECT := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
-	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["Shift", "대시 (변신 중 = 의태 돌진)"], ["마나", "발톱으로 때리면 참 · 저절로 천천히"],
-	["Space", "변신 (게이지 가득)"], ["G", "물약"],
+	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["Shift", "대시 (변신 중 = 의태 돌진)"], ["폭주", "시간·마법·발톱·피격으로 참"],
+	["Space", "변신 (폭주 게이지 가득)"], ["G", "물약"],
 	["A S F", "파이어볼·여우비·발톱 난무"], ["Q W", "압축 열선(꾹)·대유성"], ["E R", "불사조·너울 바인드"], ["↑", "석등에서 쉬기"],
 ]
 
