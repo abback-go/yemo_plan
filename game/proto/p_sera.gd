@@ -289,9 +289,6 @@ func _actions(on_floor: bool) -> void:
 	if _claw_buf > 0.0 and _claw_cd <= 0.0:
 		_claw_buf = 0.0
 		_claw()
-	if Input.is_action_just_pressed("pr_shield") and shield_cd <= 0.0:
-		_start_shield()
-		return
 	if Input.is_action_just_pressed("pr_transform") and gauge >= 1.0 and not is_fox():
 		_start_transform()
 	if Input.is_action_just_pressed("pr_potion") and potions > 0 and hp2 < PData.MAX_HEARTS * 2 and on_floor:
@@ -304,10 +301,10 @@ func _actions(on_floor: bool) -> void:
 			_go(St.FOCUS)
 			_focus_acc = 0.0
 			return
-	for s: Dictionary in PData.SPELLS:
-		if Input.is_action_just_pressed("pr_s_" + String(s.id)):
-			PSpells.try_cast(self, String(s.id))
-			return
+	var spell := PState.spell_pressed()
+	if spell != "":
+		PSpells.try_cast(self, spell)
+		return
 
 
 func _go(s: St) -> void:
@@ -543,6 +540,7 @@ func _focus(delta: float) -> void:
 # ─── 방패 · 변신 · 물약 ────────────────────────────────
 
 ## 여우방패: 거대한 여우 정령이 방패로 앞을 1.5초 막고(무적), 방패를 내리며 막은 피해만큼 커진 할퀴기로 반격
+## (2026-10-04 속도감 때문에 조작에서 뺌 — 되살리려면 _actions에서 키 입력만 다시 연결)
 func _start_shield() -> void:
 	_go(St.SHIELD)
 	_shield_t = PData.SHIELD_TIME
@@ -643,7 +641,7 @@ func _charge(delta: float) -> void:
 		m.to_off = Vector2(facing * 11, -25)
 		m.life = 0.25
 		PVfx.add(m, m.from, true)
-	if not Input.is_action_pressed("pr_s_laser") or charge_t >= 2.0:
+	if not Input.is_action_pressed(PState.spell_action("laser")) or charge_t >= 2.0:
 		PSpells.fire_laser(self, clampf(charge_t, 0.5, 2.0))
 		lock_cast(0.25)
 

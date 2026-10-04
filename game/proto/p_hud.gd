@@ -116,16 +116,19 @@ func _heart(p: Vector2, half: int, col: Color) -> void:
 # ─── 아래 가운데: 마법 7칸 ────────────────────────────
 
 func _draw_slots() -> void:
-	var n := PData.SPELLS.size()
+	# 칸 순서: 등급 키면 키 묶음(A·S·D)대로, 전용 키면 마법 표 순서
+	var order: Array = ["fireball", "foxrain", "laser", "meteor", "asura", "bind", "phoenix"] if PState.key_mode == 0 else PData.SPELLS.map(func(x: Dictionary) -> String: return String(x.id))
+	var groups: Array = [0, 0, 1, 1, 1, 2, 2] if PState.key_mode == 0 else [0, 0, 0, 0, 0, 1, 1]
+	var n := order.size()
 	var w := 26.0
 	var gap := 3.0
-	var total := n * w + (n - 1) * gap + 6.0
+	var total := n * w + (n - 1) * gap + 6.0 * float(groups[n - 1])
 	var x0 := (640.0 - total) / 2.0 + 3.0
 	var y0 := 360.0 - w - 14.0
 	draw_rect(Rect2(x0 - 5, y0 - 5, total + 4, w + 16), Color(0.04, 0.02, 0.08, 0.45))
 	for i in n:
-		var s: Dictionary = PData.SPELLS[i]
-		var x := x0 + i * (w + gap) + (6.0 if i >= 5 else 0.0) # 대마법 3칸은 살짝 떨어뜨림
+		var s: Dictionary = PData.spell(order[i])
+		var x := x0 + i * (w + gap) + 6.0 * float(groups[i]) # 키 묶음(등급)마다 살짝 떨어뜨림
 		var r := Rect2(x, y0, w, w)
 		var fox_line: bool = s.line == "fox"
 		var lack := sera.mana + 0.0001 < float(s.cost) and not PState.infinite_mana
@@ -146,7 +149,7 @@ func _draw_slots() -> void:
 			border = Color(1, 1, 0.6, 0.6 + 0.4 * sin(_t * 5.0))
 		draw_rect(r, border, false, 1.0)
 		# 키 글자 + 소모 칸
-		_text(r.position + Vector2(2, 9), String(s.key), Color(1, 1, 1, 0.9), 10)
+		_text(r.position + Vector2(2, 9), PState.spell_label(String(s.id)), Color(1, 1, 1, 0.9), 10)
 		for c in int(s.cost):
 			draw_circle(r.position + Vector2(w - 4 - c * 4, w + 5), 1.6, Color("#ffb347"))
 		_text(r.position + Vector2(0, w + 12), "Lv%d" % PState.level(String(s.id)), Color(1, 1, 1, 0.45), 8, HORIZONTAL_ALIGNMENT_LEFT)
@@ -195,10 +198,16 @@ func _icon(id: String, c: Vector2, dim: bool) -> void:
 
 # ─── 오른쪽 위: 조작 안내 ─────────────────────────────
 
-const KEY_GUIDE := [
+const KEY_GUIDE_GRADE := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
-	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["Shift", "대시 (변신 중 = 의태 돌진)"], ["V 꾹", "서서 집중 → 마나"],
-	["C", "여우방패 1.5초 → 할퀴기 반격"], ["Space", "변신 (게이지 가득)"], ["G", "물약"],
+	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["C", "대시 (변신 중 = 의태 돌진)"], ["F 꾹", "서서 마력 충전"],
+	["Space", "변신 (게이지 가득)"], ["G", "물약"],
+	["A", "초급: 파이어볼 · ↓여우비"], ["S", "중급: 열선(꾹) · ↑대유성 · ↓난무"], ["D", "대마법: 바인드 · ↑불사조"], ["↑", "석등에서 쉬기"],
+]
+const KEY_GUIDE_DIRECT := [
+	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
+	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["Shift", "대시 (변신 중 = 의태 돌진)"], ["V 꾹", "서서 마력 충전"],
+	["Space", "변신 (게이지 가득)"], ["G", "물약"],
 	["A S F", "파이어볼·여우비·발톱 난무"], ["Q W", "압축 열선(꾹)·대유성"], ["E R", "불사조·너울 바인드"], ["↑", "석등에서 쉬기"],
 ]
 
@@ -206,8 +215,9 @@ const KEY_GUIDE := [
 func _draw_keys() -> void:
 	var x := 424.0
 	var y := 8.0
-	draw_rect(Rect2(x - 6, y - 4, 218, KEY_GUIDE.size() * 12 + 8), Color(0.04, 0.02, 0.08, 0.55))
-	for i in KEY_GUIDE.size():
-		var row: Array = KEY_GUIDE[i]
+	var guide: Array = KEY_GUIDE_GRADE if PState.key_mode == 0 else KEY_GUIDE_DIRECT
+	draw_rect(Rect2(x - 6, y - 4, 218, guide.size() * 12 + 8), Color(0.04, 0.02, 0.08, 0.55))
+	for i in guide.size():
+		var row: Array = guide[i]
 		_text(Vector2(x, y + 9 + i * 12), String(row[0]), Color("#ffd27a"), 10)
 		_text(Vector2(x + 48, y + 9 + i * 12), String(row[1]), Color(1, 1, 1, 0.85), 10)

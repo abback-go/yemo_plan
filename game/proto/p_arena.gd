@@ -70,6 +70,9 @@ func _process(delta: float) -> void:
 ## 시험 실행기 eval용: PState 값 바꾸기 (eval "dbg('tails', 9)")
 func dbg(key: String, value: Variant) -> void:
 	match key:
+		"key_mode":
+			PState.key_mode = int(value)
+			PState.register_keys()
 		"tails": PState.tails = int(value)
 		"mana_max": PState.mana_max = int(value)
 		"infinite_mana": PState.infinite_mana = bool(value)

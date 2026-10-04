@@ -18,7 +18,7 @@ func _ready() -> void:
 
 func _build() -> void:
 	_rows = [
-		["회피술 (공중 대시 + 무적)", "evade"], ["꼬리 수 (변신 시간·발톱·집중 속도)", "tails"], ["마나 최대 칸", "mana_max"],
+		["키 방식", "key_mode"], ["회피술 (공중 대시 + 무적)", "evade"], ["꼬리 수 (변신 시간·발톱·집중 속도)", "tails"], ["마나 최대 칸", "mana_max"],
 		["마나 무한", "infinite_mana"], ["쿨타임 없음", "no_cooldown"], ["▶ 변신 게이지 가득 채우기", "fill_gauge"],
 		["▶ 마나 가득", "fill_mana"], ["난이도", "difficulty"], ["연습용 발사대 (맞는 연습)", "launcher_on"], ["피해 숫자", "damage_numbers"],
 		["모든 마법 레벨", "all_lv"],
@@ -58,6 +58,9 @@ func _process(_delta: float) -> void:
 func _change(d: int) -> void:
 	var key: String = _rows[_sel][1]
 	match key:
+		"key_mode":
+			PState.key_mode = 1 - PState.key_mode
+			PState.register_keys()
 		"evade":
 			PState.evade = not PState.evade
 		"tails":
@@ -95,6 +98,8 @@ func _change(d: int) -> void:
 
 func _value(key: String) -> String:
 	match key:
+		"key_mode":
+			return "등급 A·S·D+방향" if PState.key_mode == 0 else "전용 키"
 		"evade":
 			return "배움" if PState.evade else "아직"
 		"tails":
