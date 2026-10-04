@@ -15,6 +15,7 @@ const RUINS := ["ruin_school", "ruin_kingdom", "ruin_elf", "ruin_temple"]
 const TRIALS := ["st_kingdom", "st_elf", "st_temple", "st_garden"]
 const MINE := ["star", "void", "sky", "festival", "ruin_school", "ruin_kingdom", "ruin_elf", "ruin_temple", "rise",
 	"st_kingdom", "st_elf", "st_temple", "st_garden", "dawn", "star_flip"]
+const Kit := preload("res://world/themes/backdrop_kit.gd")
 const MARCH_PERIOD := 3.6 ## 중간 층 거신 한 걸음 주기의 두 배(두 걸음). 발이 닿는 순간 = 위상 0.25·0.75
 
 
@@ -33,14 +34,11 @@ static func step_between(t0: float, t1: float) -> bool:
 	return false
 
 
-static func is_animated(theme: String, depth: int) -> bool:
-	if not theme in MINE:
-		return false
-	if theme in TRIALS or theme == "dawn":
-		return depth <= 1
-	if depth == 3:
-		return theme in RUINS or theme == "rise" or theme == "festival"
-	return true
+## 움직이는 층(예전 is_animated): 시련·새벽은 먼·중간 층, 나머지는 전경을 뺀 모든 층(폐허·반격·축제는 전경도).
+## 그 밖의 층에서 t는 0으로 멈춘 그림이다. 그리기 계약(l = Pen, 움직이는 것만 l.anim)은 backdrop_kit.gd 머리말.
+## 주의: _bot()은 층마다 바뀌는 정적 변수라 l.anim 람다 안에서 부르지 말고 기록할 때 값을 잡아 둔다.
+static func has_theme(theme: String) -> bool:
+	return theme in MINE
 
 
 static func has_sky(theme: String) -> bool:
@@ -51,49 +49,48 @@ static func has_sky(theme: String) -> bool:
 # 하늘 (화면 고정 640×360)
 # ═══════════════════════════════════════════════════════════
 
-static func draw_sky(c: Control, theme: String, pal: Dictionary, t: float) -> void:
+## c = Pen (방 진입 때 한 번). t를 쓰는 것만 c.anim
+static func draw_sky(c, theme: String, pal: Dictionary, _t: float) -> void:
 	match theme:
-		"star": _sky_star(c, pal, t)
+		"star": _sky_star(c, pal)
 		"star_flip":
 			c.draw_set_transform(Vector2(0, 360), 0.0, Vector2(1, -1))
-			_sky_star(c, pal, t)
+			_sky_star(c, pal)
 			c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		"void": _sky_void(c, pal, t)
-		"sky": _sky_gate(c, pal, t)
-		"festival": _sky_festival(c, pal, t)
-		"rise": _sky_ruin(c, pal, t, true)
-		"st_kingdom", "st_elf", "st_temple", "st_garden": _sky_trial(c, pal, t)
-		"dawn": _sky_dawn(c, pal, t)
-		_: _sky_ruin(c, pal, t, false)
+		"void": _sky_void(c, pal)
+		"sky": _sky_gate(c, pal)
+		"festival": _sky_festival(c, pal)
+		"rise": _sky_ruin(c, pal, true)
+		"st_kingdom", "st_elf", "st_temple", "st_garden": _sky_trial(c, pal)
+		"dawn": _sky_dawn(c, pal)
+		_: _sky_ruin(c, pal, false)
 
 
-static func _gradient(c: Control, cols: Array, steps := 24) -> void:
-	# cols: [[k, Color], ...] 계단식 그라데이션
-	for i in steps:
-		var k := float(i) / (steps - 1)
-		var col: Color = cols[0][1]
-		for j in range(1, cols.size()):
-			var k0: float = cols[j - 1][0]
-			var k1: float = cols[j][0]
-			if k >= k0 and k <= k1:
-				col = (cols[j - 1][1] as Color).lerp(cols[j][1], (k - k0) / maxf(k1 - k0, 0.001))
-				break
-			if k > k1:
-				col = cols[j][1]
-		c.draw_rect(Rect2(0, i * 15, 640, 16), col)
+static func _gradient(c, cols: Array, steps := 24) -> void:
+	Kit.grad_keyed(c, cols, steps)
 
 
-static func _starfield(c: CanvasItem, t: float, n: int, seed: int, h := 360.0, a := 1.0) -> void:
+## 반짝이는 별밭 (위치는 기록할 때 뽑아 두고 반짝임만 움직임)
+static func _starfield(c, n: int, seed: int, h := 360.0, a := 1.0) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
+	var ps := PackedVector2Array()
 	for i in n:
-		var p := Vector2(rng.randf() * 640, rng.randf() * h)
-		var tw := StArt.twinkle(t, float(i), 1.2)
-		var big := i % 13 == 0
-		var col := Color(1.0, 0.96, 0.85) if i % 3 == 0 else Color(0.85, 0.9, 1.0)
-		c.draw_rect(Rect2(p, Vector2.ONE * (2 if big else 1)), Color(col, (0.25 + 0.75 * tw) * a))
-		if big and tw > 0.8:
-			StArt.sparkle(c, p + Vector2(1, 1), 3.0, Color(col, a), (tw - 0.8) * 5.0)
+		ps.append(Vector2(rng.randf() * 640, rng.randf() * h))
+	c.anim(Rect2(-4, -4, 648, h + 8), func(cv: CanvasItem, t: float) -> void:
+		for i in n:
+			var p := ps[i]
+			var tw := StArt.twinkle(t, float(i), 1.2)
+			var big := i % 13 == 0
+			var col := Color(1.0, 0.96, 0.85) if i % 3 == 0 else Color(0.85, 0.9, 1.0)
+			cv.draw_rect(Rect2(p, Vector2.ONE * (2 if big else 1)), Color(col, (0.25 + 0.75 * tw) * a))
+			if big and tw > 0.8:
+				StArt.sparkle(cv, p + Vector2(1, 1), 3.0, Color(col, a), (tw - 0.8) * 5.0))
+
+
+## StArt(CanvasItem 타입 도우미)의 정적 빛 덩이를 Pen에 기록
+static func _st_glow(l, p: Vector2, r: float, col: Color, a := 0.25) -> void:
+	l.fn(Kit.bb_circle(p, r), func(cv: CanvasItem) -> void: StArt.glow(cv, p, r, col, a))
 
 
 # ─── 별의 탑 ────────────────────────────────────────────
@@ -102,7 +99,7 @@ const FOX_CONST := [Vector2(70, 120), Vector2(92, 100), Vector2(118, 104), Vecto
 const HAT_CONST := [Vector2(398, 150), Vector2(424, 146), Vector2(450, 140), Vector2(436, 116), Vector2(430, 94), Vector2(446, 82), Vector2(462, 90)]
 
 
-static func _sky_star(c: Control, pal: Dictionary, t: float) -> void:
+static func _sky_star(c, pal: Dictionary) -> void:
 	_gradient(c, [[0.0, pal.sky_top], [0.55, Color("#0c1240")], [1.0, pal.sky_bottom]])
 	# 은하수 (비스듬한 띠)
 	for i in 40:
@@ -112,14 +109,17 @@ static func _sky_star(c: Control, pal: Dictionary, t: float) -> void:
 		c.draw_circle(p + Vector2(10, -6), 24.0, Color(0.75, 0.7, 1.0, 0.03))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 77
+	var mw := PackedVector2Array()
 	for i in 140:
 		var k := rng.randf()
-		var p := Vector2(-40 + k * 720, 300 - k * 260) + Vector2(rng.randfn(0, 1) * 30, rng.randfn(0, 1) * 22)
-		c.draw_rect(Rect2(p, Vector2.ONE), Color(0.9, 0.9, 1.0, 0.25 + 0.5 * StArt.twinkle(t, i * 0.7, 0.6)))
-	_starfield(c, t, 150, 5)
+		mw.append(Vector2(-40 + k * 720, 300 - k * 260) + Vector2(rng.randfn(0, 1) * 30, rng.randfn(0, 1) * 22))
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void:
+		for i in 140:
+			cv.draw_rect(Rect2(mw[i], Vector2.ONE), Color(0.9, 0.9, 1.0, 0.25 + 0.5 * StArt.twinkle(t, i * 0.7, 0.6))))
+	_starfield(c, 150, 5)
 	# 별자리: 구미호(너울)와 마녀 모자(리라) — 선이 천천히 숨쉰다
-	StArt.constellation(c, FOX_CONST, StArt.STAR, 0.55 + 0.35 * sin(t * 0.7))
-	StArt.constellation(c, HAT_CONST, StArt.STAR, 0.55 + 0.35 * sin(t * 0.7 + 2.0))
+	c.anim(Rect2(60, 40, 180, 90), func(cv: CanvasItem, t: float) -> void: StArt.constellation(cv, FOX_CONST, StArt.STAR, 0.55 + 0.35 * sin(t * 0.7)))
+	c.anim(Rect2(390, 74, 80, 84), func(cv: CanvasItem, t: float) -> void: StArt.constellation(cv, HAT_CONST, StArt.STAR, 0.55 + 0.35 * sin(t * 0.7 + 2.0)))
 	# 고리 행성 + 도는 달
 	var pc := Vector2(540, 74)
 	_ring_half(c, pc, 62.0, 13.0, -0.25, true)
@@ -131,23 +131,25 @@ static func _sky_star(c: Control, pal: Dictionary, t: float) -> void:
 		c.draw_line(pc + Vector2(-half, by), pc + Vector2(half, by), Color("#5a5eb8", 0.5), 2.0)
 	c.draw_arc(pc, 30, PI * 0.15, PI * 1.05, 16, Color(0.05, 0.06, 0.2, 0.6), 7.0)
 	_ring_half(c, pc, 62.0, 13.0, -0.25, false)
-	var ma := t * 0.25
-	var mp := pc + Vector2(cos(ma) * 84.0, sin(ma) * 22.0)
-	if sin(ma) < 0.0:
-		c.draw_circle(mp, 6, Color("#c8c4e8"))
-	else:
-		c.draw_circle(mp, 7, Color("#e8e4ff"))
-		c.draw_circle(mp + Vector2(-2, -1), 5, Color("#ffffff", 0.3))
+	c.anim(Kit.bb_circle(pc, 94.0), func(cv: CanvasItem, t: float) -> void:
+		var ma := t * 0.25
+		var mp := pc + Vector2(cos(ma) * 84.0, sin(ma) * 22.0)
+		if sin(ma) < 0.0:
+			cv.draw_circle(mp, 6, Color("#c8c4e8"))
+		else:
+			cv.draw_circle(mp, 7, Color("#e8e4ff"))
+			cv.draw_circle(mp + Vector2(-2, -1), 5, Color("#ffffff", 0.3)))
 	# 별똥별 (가끔)
-	var slot := floorf(t / 4.0)
-	var lt := fmod(t, 4.0)
-	if lt < 0.8:
-		var sx := fmod(slot * 211.0, 600.0) + 20.0
-		var sp := Vector2(sx, 30 + fmod(slot * 57.0, 90.0)) + Vector2(1, 0.45) * lt * 260.0
-		c.draw_line(sp, sp - Vector2(1, 0.45) * 30.0, Color(StArt.STAR, 0.8 * (1.0 - lt / 0.8)), 1.0)
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void:
+		var slot := floorf(t / 4.0)
+		var lt := fmod(t, 4.0)
+		if lt < 0.8:
+			var sx := fmod(slot * 211.0, 600.0) + 20.0
+			var sp := Vector2(sx, 30 + fmod(slot * 57.0, 90.0)) + Vector2(1, 0.45) * lt * 260.0
+			cv.draw_line(sp, sp - Vector2(1, 0.45) * 30.0, Color(StArt.STAR, 0.8 * (1.0 - lt / 0.8)), 1.0))
 
 
-static func _ring_half(c: CanvasItem, p: Vector2, rx: float, ry: float, tilt: float, back: bool) -> void:
+static func _ring_half(c, p: Vector2, rx: float, ry: float, tilt: float, back: bool) -> void:
 	var pts := PackedVector2Array()
 	for i in 25:
 		var a := (PI if back else 0.0) + PI * i / 24.0
@@ -158,38 +160,45 @@ static func _ring_half(c: CanvasItem, p: Vector2, rx: float, ry: float, tilt: fl
 
 # ─── 어둠 ───────────────────────────────────────────────
 
-static func _sky_void(c: Control, pal: Dictionary, t: float) -> void:
+static func _sky_void(c, pal: Dictionary) -> void:
 	_gradient(c, [[0.0, pal.sky_top], [0.7, Color("#01020a")], [1.0, pal.sky_bottom]])
 	# 아주 느리게 떠오르는 푸른 불티
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9
+	var ex := PackedFloat64Array()
+	var es := PackedFloat64Array()
+	var eo := PackedFloat64Array()
 	for i in 46:
-		var x := rng.randf() * 640.0
-		var sp := rng.randf_range(4.0, 12.0)
-		var y := 380.0 - fmod(t * sp + rng.randf() * 400.0, 420.0)
-		var a := 0.15 + 0.35 * StArt.twinkle(t, i, 0.8)
-		c.draw_rect(Rect2(Vector2(x + sin(t * 0.6 + i) * 6.0, y), Vector2.ONE * (2 if i % 7 == 0 else 1)), Color(StArt.FOX_BLUE, a))
+		ex.append(rng.randf() * 640.0)
+		es.append(rng.randf_range(4.0, 12.0))
+		eo.append(rng.randf() * 400.0)
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void:
+		for i in 46:
+			var y := 380.0 - fmod(t * es[i] + eo[i], 420.0)
+			var a := 0.15 + 0.35 * StArt.twinkle(t, i, 0.8)
+			cv.draw_rect(Rect2(Vector2(ex[i] + sin(t * 0.6 + i) * 6.0, y), Vector2.ONE * (2 if i % 7 == 0 else 1)), Color(StArt.FOX_BLUE, a)))
 
 
 # ─── 하늘의 문 ──────────────────────────────────────────
 
-static func _sky_gate(c: Control, pal: Dictionary, t: float) -> void:
+static func _sky_gate(c, pal: Dictionary) -> void:
 	# 구름 위, 갈라진 검은 하늘. 위쪽 가운데(문이 열리는 자리)가 가장 어둡고, 지평선은 구름빛으로 밝아진다
 	_gradient(c, [[0.0, pal.sky_top], [0.5, Color("#110f1c")], [0.85, pal.sky_bottom], [1.0, Color("#5a5870")]])
-	_starfield(c, t, 60, 31, 240.0, 0.5)
+	_starfield(c, 60, 31, 240.0, 0.5)
 	# 바깥 신들의 기하학 무늬 (동심원·육각·방사선) — 문 자리를 중심으로 천천히 돈다
 	var gc := Vector2(320, 96)
-	for i in 6:
-		var r := 70.0 + i * 62.0
-		c.draw_arc(gc, r + sin(t * 0.3 + i) * 3.0, 0, TAU, 56, Color(0.85, 0.85, 1.0, 0.07 - i * 0.008), 1.0)
-	for i in 12:
-		var a := TAU * i / 12.0 + t * 0.015
-		c.draw_line(gc + Vector2(cos(a), sin(a)) * 70.0, gc + Vector2(cos(a), sin(a)) * 420.0, Color(0.85, 0.85, 1.0, 0.04), 1.0)
-	var hexp := PackedVector2Array()
-	for i in 7:
-		var a := TAU * i / 6.0 - t * 0.02
-		hexp.append(gc + Vector2(cos(a), sin(a)) * 150.0)
-	c.draw_polyline(hexp, Color(0.9, 0.9, 1.0, 0.08), 1.0)
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void:
+		for i in 6:
+			var r := 70.0 + i * 62.0
+			cv.draw_arc(gc, r + sin(t * 0.3 + i) * 3.0, 0, TAU, 56, Color(0.85, 0.85, 1.0, 0.07 - i * 0.008), 1.0)
+		for i in 12:
+			var a := TAU * i / 12.0 + t * 0.015
+			cv.draw_line(gc + Vector2(cos(a), sin(a)) * 70.0, gc + Vector2(cos(a), sin(a)) * 420.0, Color(0.85, 0.85, 1.0, 0.04), 1.0)
+		var hexp := PackedVector2Array()
+		for i in 7:
+			var a := TAU * i / 6.0 - t * 0.02
+			hexp.append(gc + Vector2(cos(a), sin(a)) * 150.0)
+		cv.draw_polyline(hexp, Color(0.9, 0.9, 1.0, 0.08), 1.0))
 	# 갈라진 하늘: 흰 빛이 새는 틈과 그 안의 눈
 	var cracks := [
 		[Vector2(20, -10), Vector2(170, 160), 11, 30.0], [Vector2(230, -10), Vector2(255, 70), 23, 18.0],
@@ -198,14 +207,22 @@ static func _sky_gate(c: Control, pal: Dictionary, t: float) -> void:
 	]
 	for i in cracks.size():
 		var cr: Array = cracks[i]
-		_sky_crack(c, cr[0], cr[1], int(cr[2]), float(cr[3]) * (1.0 + 0.06 * sin(t * 0.8 + i)), t, i, Vector2(320, 280), false)
+		var ca: Vector2 = cr[0]
+		var cb: Vector2 = cr[1]
+		c.anim(_bb_crack(ca, cb, float(cr[3]) * 1.06), func(cv: CanvasItem, t: float) -> void:
+			_sky_crack(cv, ca, cb, int(cr[2]), float(cr[3]) * (1.0 + 0.06 * sin(t * 0.8 + i)), t, i, Vector2(320, 280), false))
 	# 떨어지는 흰 빛
-	_falling_light(c, t, 2.4, Color(1, 1, 1), 0.0, 300.0)
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void: _falling_light(cv, t, 2.4, Color(1, 1, 1), 0.0, 300.0))
+
+
+## 하늘 균열 하나의 bbox (틈 폭·잔금·눈·바늘땀을 덮게)
+static func _bb_crack(a: Vector2, b: Vector2, width: float) -> Rect2:
+	return Rect2(a, Vector2.ZERO).expand(b).grow(width + (b - a).length() * 0.1 + 30.0)
 
 
 ## 하늘의 균열 하나 (bible/art.md 4절 "검은 하늘에 흰 선이 갈라지고 그 안에 눈"):
 ## 들쭉날쭉한 틈 안쪽은 하얗게 쏟아지는 빛, 넓은 곳에 눈 하나. sealed = 푸른 불로 꿰매지는 중(seal_k 0~1)
-static func _sky_crack(c: CanvasItem, a: Vector2, b: Vector2, seed: int, width: float, t: float, idx: int, look_at: Vector2, sealed: bool, seal_k := 0.0) -> void:
+static func _sky_crack(c, a: Vector2, b: Vector2, seed: int, width: float, t: float, idx: int, look_at: Vector2, sealed: bool, seal_k := 0.0) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	var n := 9
@@ -256,7 +273,7 @@ static func _sky_crack(c: CanvasItem, a: Vector2, b: Vector2, seed: int, width: 
 			StArt.foxfire(c, q0.lerp(q1, 0.5), 2.0, t + i, seal_k)
 
 
-static func _falling_light(c: CanvasItem, t: float, every: float, col: Color, top := 0.0, bottom := 300.0) -> void:
+static func _falling_light(c, t: float, every: float, col: Color, top := 0.0, bottom := 300.0) -> void:
 	for lane in 2:
 		var tt := t + lane * every * 0.5
 		var slot := floorf(tt / every)
@@ -272,9 +289,9 @@ static func _falling_light(c: CanvasItem, t: float, every: float, col: Color, to
 
 # ─── 축제 ───────────────────────────────────────────────
 
-static func _sky_festival(c: Control, pal: Dictionary, t: float) -> void:
+static func _sky_festival(c, pal: Dictionary) -> void:
 	_gradient(c, [[0.0, pal.sky_top], [0.45, Color("#3a2450")], [0.8, Color("#8a4a5a")], [1.0, Color("#d8805a")]])
-	_starfield(c, t, 50, 21, 160.0, 0.7)
+	_starfield(c, 50, 21, 160.0, 0.7)
 	# 초승달
 	var mc := Vector2(118, 58)
 	c.draw_circle(mc, 30, Color(1, 0.9, 0.75, 0.05))
@@ -282,36 +299,38 @@ static func _sky_festival(c: Control, pal: Dictionary, t: float) -> void:
 	c.draw_circle(mc + Vector2(6, -4), 12, Color("#1c1636"))
 	# 별 하나가 너무 가깝다 (오필리아의 복선) — 다른 별보다 크고 따뜻하게 떨린다
 	var near_star := Vector2(498, 40)
-	StArt.glow(c, near_star, 14.0, StArt.STAR, 0.35 + 0.1 * sin(t * 3.0))
-	StArt.sparkle(c, near_star, 6.0, StArt.STAR, 0.7 + 0.3 * sin(t * 3.0))
+	c.anim(Kit.bb_circle(near_star, 14.0), func(cv: CanvasItem, t: float) -> void:
+		StArt.glow(cv, near_star, 14.0, StArt.STAR, 0.35 + 0.1 * sin(t * 3.0))
+		StArt.sparkle(cv, near_star, 6.0, StArt.STAR, 0.7 + 0.3 * sin(t * 3.0)))
 	# 불꽃놀이 (시간 칸마다 한 송이)
-	var cols := [Color("#ffd27a"), Color("#ff7a6a"), Color("#8ad0ff"), Color("#c8a0ff"), Color("#9aff9a")]
-	for lane in 3:
-		var period := 2.6 + lane * 0.7
-		var tt := t + lane * 1.1
-		var slot := floorf(tt / period)
-		var lt := fmod(tt, period)
-		var p := Vector2(fmod(slot * 197.0 + lane * 233.0, 520.0) + 60.0, 50.0 + fmod(slot * 83.0 + lane * 41.0, 80.0))
-		var col: Color = cols[int(slot + lane) % cols.size()]
-		if lt < 0.5:
-			# 솟아오름
-			var rise := p + Vector2(0, (0.5 - lt) * 220.0)
-			c.draw_line(rise, rise + Vector2(0, 8), Color(col, 0.6), 1.0)
-		elif lt < 2.0:
-			var k := (lt - 0.5) / 1.5
-			var r := 6.0 + 30.0 * sqrt(k)
-			for i in 16:
-				var a := TAU * i / 16.0 + slot
-				var q := p + Vector2(cos(a), sin(a)) * r + Vector2(0, k * k * 14.0)
-				c.draw_rect(Rect2(q, Vector2.ONE * (2 if k < 0.4 else 1)), Color(col, 1.0 - k))
-				c.draw_line(q, q - Vector2(cos(a), sin(a)) * 4.0, Color(col, (1.0 - k) * 0.4), 1.0)
-			if k < 0.15:
-				c.draw_circle(p, 10.0, Color(col, 0.3))
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void:
+		var cols := [Color("#ffd27a"), Color("#ff7a6a"), Color("#8ad0ff"), Color("#c8a0ff"), Color("#9aff9a")]
+		for lane in 3:
+			var period := 2.6 + lane * 0.7
+			var tt := t + lane * 1.1
+			var slot := floorf(tt / period)
+			var lt := fmod(tt, period)
+			var p := Vector2(fmod(slot * 197.0 + lane * 233.0, 520.0) + 60.0, 50.0 + fmod(slot * 83.0 + lane * 41.0, 80.0))
+			var col: Color = cols[int(slot + lane) % cols.size()]
+			if lt < 0.5:
+				# 솟아오름
+				var rise := p + Vector2(0, (0.5 - lt) * 220.0)
+				cv.draw_line(rise, rise + Vector2(0, 8), Color(col, 0.6), 1.0)
+			elif lt < 2.0:
+				var k := (lt - 0.5) / 1.5
+				var r := 6.0 + 30.0 * sqrt(k)
+				for i in 16:
+					var a := TAU * i / 16.0 + slot
+					var q := p + Vector2(cos(a), sin(a)) * r + Vector2(0, k * k * 14.0)
+					cv.draw_rect(Rect2(q, Vector2.ONE * (2 if k < 0.4 else 1)), Color(col, 1.0 - k))
+					cv.draw_line(q, q - Vector2(cos(a), sin(a)) * 4.0, Color(col, (1.0 - k) * 0.4), 1.0)
+				if k < 0.15:
+					cv.draw_circle(p, 10.0, Color(col, 0.3)))
 
 
 # ─── 침공 (폐허) ────────────────────────────────────────
 
-static func _sky_ruin(c: Control, pal: Dictionary, t: float, rise: bool) -> void:
+static func _sky_ruin(c, pal: Dictionary, rise: bool) -> void:
 	if rise:
 		_gradient(c, [[0.0, pal.sky_top], [0.45, Color("#0e1a40")], [0.8, Color("#2a4a8a")], [1.0, Color("#7ab0e8")]])
 	else:
@@ -319,49 +338,64 @@ static func _sky_ruin(c: Control, pal: Dictionary, t: float, rise: bool) -> void
 	# 연기 덩어리 (위쪽, 천천히 흐름)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 13
+	var sm: Array = [] ## [y, x0, speed, r]
 	for i in 14:
 		var y := rng.randf_range(-20, 120)
-		var x := fmod(rng.randf() * 900.0 + t * rng.randf_range(3.0, 8.0), 900.0) - 130.0
-		var r := rng.randf_range(40, 90)
-		var col := Color(0.04, 0.03, 0.05, 0.45) if not rise else Color(0.02, 0.04, 0.1, 0.4)
-		c.draw_circle(Vector2(x, y), r, col)
-		c.draw_circle(Vector2(x + r * 0.6, y + r * 0.2), r * 0.7, col)
-	# 하늘의 균열과 눈
+		var x0 := rng.randf() * 900.0
+		var sp := rng.randf_range(3.0, 8.0)
+		sm.append([y, x0, sp, rng.randf_range(40, 90)])
+	var scol := Color(0.04, 0.03, 0.05, 0.45) if not rise else Color(0.02, 0.04, 0.1, 0.4)
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void:
+		for e: Array in sm:
+			var y: float = e[0]
+			var x := fmod(float(e[1]) + t * float(e[2]), 900.0) - 130.0
+			var r: float = e[3]
+			cv.draw_circle(Vector2(x, y), r, scol)
+			cv.draw_circle(Vector2(x + r * 0.6, y + r * 0.2), r * 0.7, scol))
+	# 하늘의 균열과 눈 (반격이면 푸른 불로 꿰매는 정도 seal_k = 0.55 + 0.25 * sin(t * 0.5))
 	var look := Vector2(320, 300)
-	var seal_k := 0.0
-	if rise:
-		seal_k = 0.55 + 0.25 * sin(t * 0.5)
-	_sky_crack(c, Vector2(80, -10), Vector2(220, 140), 101, 28.0, t, 0, look, rise, seal_k)
-	_sky_crack(c, Vector2(340, -10), Vector2(300, 100), 113, 20.0, t, 1, look, rise, seal_k)
-	_sky_crack(c, Vector2(580, -10), Vector2(460, 160), 127, 32.0, t, 2, look, rise, seal_k)
+	for cr in [[Vector2(80, -10), Vector2(220, 140), 101, 28.0, 0], [Vector2(340, -10), Vector2(300, 100), 113, 20.0, 1], [Vector2(580, -10), Vector2(460, 160), 127, 32.0, 2]]:
+		var ca: Vector2 = cr[0]
+		var cb: Vector2 = cr[1]
+		var cs: int = cr[2]
+		var cw: float = cr[3]
+		var ci: int = cr[4]
+		c.anim(_bb_crack(ca, cb, cw), func(cv: CanvasItem, t: float) -> void:
+			var seal_k := 0.0
+			if rise:
+				seal_k = 0.55 + 0.25 * sin(t * 0.5)
+			_sky_crack(cv, ca, cb, cs, cw, t, ci, look, rise, seal_k))
 	if not rise:
-		_falling_light(c, t, 3.0, Color(1, 1, 1), 60.0, 250.0)
+		c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void: _falling_light(cv, t, 3.0, Color(1, 1, 1), 60.0, 250.0))
 	else:
 		# 푸른 오로라
-		for i in 5:
-			var y0 := 40.0 + i * 14.0
-			var pts := PackedVector2Array()
-			for k in 17:
-				var x := k * 40.0
-				pts.append(Vector2(x, y0 + sin(t * 0.6 + k * 0.5 + i) * 10.0))
-			c.draw_polyline(pts, Color(StArt.FOX_BLUE, 0.07), 10.0)
+		c.anim(Rect2(-10, 20, 670, 110), func(cv: CanvasItem, t: float) -> void:
+			for i in 5:
+				var y0 := 40.0 + i * 14.0
+				var pts := PackedVector2Array()
+				for k in 17:
+					var x := k * 40.0
+					pts.append(Vector2(x, y0 + sin(t * 0.6 + k * 0.5 + i) * 10.0))
+				cv.draw_polyline(pts, Color(StArt.FOX_BLUE, 0.07), 10.0))
 	# 지평선의 불빛 (깜빡임)
 	var hz := Color(1.0, 0.45, 0.2) if not rise else Color(0.45, 0.75, 1.0)
-	c.draw_rect(Rect2(0, 300, 640, 60), Color(hz, 0.12 + 0.04 * sin(t * 3.0)))
-	c.draw_rect(Rect2(0, 320, 640, 40), Color(hz, 0.1 + 0.05 * sin(t * 4.7)))
+	c.anim(Rect2(0, 300, 640, 60), func(cv: CanvasItem, t: float) -> void:
+		cv.draw_rect(Rect2(0, 300, 640, 60), Color(hz, 0.12 + 0.04 * sin(t * 3.0)))
+		cv.draw_rect(Rect2(0, 320, 640, 40), Color(hz, 0.1 + 0.05 * sin(t * 4.7))))
 
 
 # ═══════════════════════════════════════════════════════════
 # 시차 층
 # ═══════════════════════════════════════════════════════════
 
-static func draw_layer(l: Node2D, theme: String, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> bool:
+## l = Pen (방 진입 때 한 번). 움직이는 것만 l.anim, 층 흔들기(땅울림)는 l.on_process
+static func draw_layer(l, theme: String, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> bool:
 	if not theme in MINE:
 		return false
-	var th: Dictionary = l.get("theme")
+	var th: Dictionary = l.theme
 	# 세로로 긴 방: 카메라가 맨 아래일 때 지평선·바닥이 화면 아래에 오도록 (Parallax2D 세로 배율 = 가로 배율 × 0.6 + 0.4, 전경 1.05)
-	var rs: Vector2 = l.get("room_size")
-	var sc: float = l.get("scroll")
+	var rs: Vector2 = l.room_size
+	var sc: float = l.scroll
 	var sy := 1.05 if depth == 3 else sc * 0.6 + 0.4
 	_bot_y = 360.0 + maxf(rs.y - 368.0, 0.0) * sy
 	match theme:
@@ -396,7 +430,7 @@ static func _layer_col(th: Dictionary, depth: int) -> Color:
 
 
 ## 전경: 화면 아래 가장자리를 스치는 검은 덩어리 (+ 불씨)
-static func _front_rubble(l: Node2D, span: Vector2, rng: RandomNumberGenerator, t: float, fire: Color, flames := true) -> void:
+static func _front_rubble(l, span: Vector2, rng: RandomNumberGenerator, _t: float, fire: Color, flames := true) -> void:
 	var dark := Color(0.015, 0.012, 0.022, 0.94)
 	var x := rng.randf_range(0, 260)
 	while x < span.x:
@@ -417,35 +451,42 @@ static func _front_rubble(l: Node2D, span: Vector2, rng: RandomNumberGenerator, 
 			for i in 3:
 				var fx := x + w * (0.25 + i * 0.25)
 				var fy := bottom - h * 0.7
-				var f := sin(t * 9.0 + fx) * 2.0
-				l.draw_colored_polygon(PackedVector2Array([Vector2(fx - 4, fy), Vector2(fx + f, fy - 12 - 3.0 * sin(t * 7.0 + i)), Vector2(fx + 4, fy)]), Color(fire, 0.55))
+				l.anim(Rect2(fx - 4, fy - 16, 8, 17), func(cv: CanvasItem, tt: float) -> void:
+					var f := sin(tt * 9.0 + fx) * 2.0
+					cv.draw_colored_polygon(PackedVector2Array([Vector2(fx - 4, fy), Vector2(fx + f, fy - 12 - 3.0 * sin(tt * 7.0 + i)), Vector2(fx + 4, fy)]), Color(fire, 0.55)))
 		x += w + rng.randf_range(240, 480)
 
 
 # ─── 별의 탑 층 ─────────────────────────────────────────
 
-static func _layer_star(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
+static func _layer_star(l, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
 	var col := _layer_col(th, depth)
 	match depth:
 		0:
-			# 떠 있는 섬들과 그 사이를 잇는 별빛 다리
+			# 떠 있는 섬들과 그 사이를 잇는 별빛 다리 (섬이 오르내려 통째로 움직이는 요소)
 			var isles: Array[Vector2] = []
 			var x := rng.randf_range(20, 120)
 			while x < span.x + 100:
 				isles.append(Vector2(x, span.y * rng.randf_range(0.35, 0.62)))
 				x += rng.randf_range(170, 260)
 			for i in isles.size():
-				var p := isles[i] + Vector2(0, sin(t * 0.5 + i) * 3.0)
+				var p0 := isles[i]
 				var w := rng.randf_range(40, 70)
-				l.draw_colored_polygon(PackedVector2Array([p + Vector2(-w, 0), p + Vector2(w, 0), p + Vector2(w * 0.5, 16), p + Vector2(0, 36), p + Vector2(-w * 0.6, 14)]), col.lightened(0.05))
-				# 작은 첨탑
 				var sh := rng.randf_range(30, 70)
-				l.draw_rect(Rect2(p.x - 7, p.y - sh, 14, sh), col.lightened(0.08))
-				l.draw_colored_polygon(PackedVector2Array([Vector2(p.x - 10, p.y - sh), Vector2(p.x, p.y - sh - 22), Vector2(p.x + 10, p.y - sh)]), col.lightened(0.1))
-				l.draw_rect(Rect2(p.x - 2, p.y - sh + 8, 4, 6), Color(StArt.STAR, 0.5 + 0.3 * StArt.twinkle(t, i)))
+				var q0: Vector2 = isles[i - 1] if i > 0 else p0
+				var bb := Rect2(p0 - Vector2(w + 4, sh + 30), Vector2(w * 2 + 8, sh + 72))
 				if i > 0:
-					var q := isles[i - 1] + Vector2(0, sin(t * 0.5 + i - 1) * 3.0)
-					_star_bridge(l, q + Vector2(30, -2), p + Vector2(-30, -2), t, i)
+					bb = bb.merge(Rect2(q0 + Vector2(26, -40), Vector2(8, 46)))
+				l.anim(bb, func(cv: CanvasItem, tt: float) -> void:
+					var p := p0 + Vector2(0, sin(tt * 0.5 + i) * 3.0)
+					cv.draw_colored_polygon(PackedVector2Array([p + Vector2(-w, 0), p + Vector2(w, 0), p + Vector2(w * 0.5, 16), p + Vector2(0, 36), p + Vector2(-w * 0.6, 14)]), col.lightened(0.05))
+					# 작은 첨탑
+					cv.draw_rect(Rect2(p.x - 7, p.y - sh, 14, sh), col.lightened(0.08))
+					cv.draw_colored_polygon(PackedVector2Array([Vector2(p.x - 10, p.y - sh), Vector2(p.x, p.y - sh - 22), Vector2(p.x + 10, p.y - sh)]), col.lightened(0.1))
+					cv.draw_rect(Rect2(p.x - 2, p.y - sh + 8, 4, 6), Color(StArt.STAR, 0.5 + 0.3 * StArt.twinkle(tt, i)))
+					if i > 0:
+						var q := q0 + Vector2(0, sin(tt * 0.5 + i - 1) * 3.0)
+						_star_bridge(cv, q + Vector2(30, -2), p + Vector2(-30, -2), tt, i))
 		1:
 			# 천구의(오러리) 고리: 거대한 금 고리들과 그 위를 도는 행성
 			var cx := span.x * 0.5
@@ -460,17 +501,20 @@ static func _layer_star(l: Node2D, th: Dictionary, depth: int, span: Vector2, rn
 					pts.append(Vector2(cx, cy) + Vector2(cos(a) * rx, sin(a) * ry).rotated(tilt))
 				l.draw_polyline(pts, Color("#8a7a4a", 0.35), 3.0)
 				l.draw_polyline(pts, Color("#e8d08a", 0.22), 1.0)
+				var pr := 7.0 + r * 3.0
+				var pcol := [Color("#6a7ae8"), Color("#e89a6a"), Color("#9ae8c8")][r] as Color
+				var orbit := Rect2(cx - rx, cy - ry - rx * 0.25, rx * 2.0, ry * 2.0 + rx * 0.5).grow(pr + 4.0)
 				for j in 2:
-					var a2 := t * (0.12 - r * 0.03) * (1 if j == 0 else -1) + j * PI + r
-					var pp := Vector2(cx, cy) + Vector2(cos(a2) * rx, sin(a2) * ry).rotated(tilt)
-					var pr := 7.0 + r * 3.0
-					var pcol := [Color("#6a7ae8"), Color("#e89a6a"), Color("#9ae8c8")][r] as Color
-					l.draw_circle(pp, pr + 3.0, Color(pcol, 0.15))
-					l.draw_circle(pp, pr, pcol.darkened(0.35))
-					l.draw_circle(pp + Vector2(-pr * 0.25, -pr * 0.25), pr * 0.7, pcol.darkened(0.1))
+					l.anim(orbit, func(cv: CanvasItem, tt: float) -> void:
+						var a2 := tt * (0.12 - r * 0.03) * (1 if j == 0 else -1) + j * PI + r
+						var pp := Vector2(cx, cy) + Vector2(cos(a2) * rx, sin(a2) * ry).rotated(tilt)
+						cv.draw_circle(pp, pr + 3.0, Color(pcol, 0.15))
+						cv.draw_circle(pp, pr, pcol.darkened(0.35))
+						cv.draw_circle(pp + Vector2(-pr * 0.25, -pr * 0.25), pr * 0.7, pcol.darkened(0.1)))
 			# 가운데 거대한 별 (탑의 심장)
-			StArt.glow(l, Vector2(cx, cy), 40.0, StArt.STAR, 0.25 + 0.05 * sin(t * 2.0))
-			StArt.star(l, Vector2(cx, cy), 9.0, Color(StArt.STAR, 0.7), -PI * 0.5 + t * 0.1)
+			l.anim(Kit.bb_circle(Vector2(cx, cy), 40.0), func(cv: CanvasItem, tt: float) -> void:
+				StArt.glow(cv, Vector2(cx, cy), 40.0, StArt.STAR, 0.25 + 0.05 * sin(tt * 2.0))
+				StArt.star(cv, Vector2(cx, cy), 9.0, Color(StArt.STAR, 0.7), -PI * 0.5 + tt * 0.1))
 		2:
 			# 별자리가 새겨진 기둥과 아치, 매달린 별 등롱
 			var x := rng.randf_range(0, 200)
@@ -485,7 +529,8 @@ static func _layer_star(l: Node2D, th: Dictionary, depth: int, span: Vector2, rn
 				for i in 5:
 					pts.append(Vector2(x + 8 + rng.randf_range(0, 14), y))
 					y += rng.randf_range(24, 40)
-				StArt.constellation(l, pts, Color("#e8cf86"), 0.35 + 0.3 * StArt.twinkle(t, x))
+				var px := x
+				l.anim(Rect2(x + 4, span.y * 0.22 - 4, 26, y - span.y * 0.22 + 8), func(cv: CanvasItem, tt: float) -> void: StArt.constellation(cv, pts, Color("#e8cf86"), 0.35 + 0.3 * StArt.twinkle(tt, px)))
 				# 아치
 				var arch := PackedVector2Array()
 				var aw := 150.0
@@ -497,15 +542,18 @@ static func _layer_star(l: Node2D, th: Dictionary, depth: int, span: Vector2, rn
 				var lx := x + w + aw * 0.5 + rng.randf_range(-30, 30)
 				var ll := rng.randf_range(40, 110)
 				l.draw_line(Vector2(lx, span.y * 0.12), Vector2(lx, span.y * 0.12 + ll), col.lightened(0.1), 1.0)
-				var lp := Vector2(lx + sin(t * 1.3 + x) * 1.5, span.y * 0.12 + ll + 8)
-				StArt.glow(l, lp, 16.0, StArt.STAR, 0.22)
-				StArt.star(l, lp, 5.0, StArt.STAR_GOLD, -PI * 0.5 + sin(t + x) * 0.2)
+				var lx0 := x
+				var ly := span.y * 0.12 + ll + 8
+				l.anim(Kit.bb_circle(Vector2(lx, ly), 18.0), func(cv: CanvasItem, tt: float) -> void:
+					var lp := Vector2(lx + sin(tt * 1.3 + lx0) * 1.5, ly)
+					StArt.glow(cv, lp, 16.0, StArt.STAR, 0.22)
+					StArt.star(cv, lp, 5.0, StArt.STAR_GOLD, -PI * 0.5 + sin(tt + lx0) * 0.2))
 				x += w + aw + rng.randf_range(60, 200)
 		3:
 			_front_rubble(l, span, rng, t, StArt.STAR, false)
 
 
-static func _star_bridge(l: Node2D, a: Vector2, b: Vector2, t: float, i: int) -> void:
+static func _star_bridge(l, a: Vector2, b: Vector2, t: float, i: int) -> void:
 	var mid := (a + b) * 0.5 + Vector2(0, -28)
 	var pts := PackedVector2Array()
 	for k in 17:
@@ -523,49 +571,56 @@ static func _star_bridge(l: Node2D, a: Vector2, b: Vector2, t: float, i: int) ->
 
 # ─── 어둠 층 ────────────────────────────────────────────
 
-static func _layer_void(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
+static func _layer_void(l, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
 	match depth:
 		0:
-			# 아주 희미한 아홉 꼬리 그림자 (너울이 거기 있다)
+			# 아주 희미한 아홉 꼬리 그림자 (너울이 거기 있다) — 꼬리가 흔들려 통째로 움직이는 요소
 			var c := Vector2(span.x * 0.5, _bot(span) - 20.0)
-			for i in 9:
-				# 털이 풍성한 꼬리: 휘어진 길을 따라 커지는 원들 (끝으로 갈수록 굵다가 뾰족)
-				var a := -PI * 0.5 + (i - 4) * 0.26 + sin(t * 0.35 + i) * 0.05
-				var bend := (i - 4) * 0.05 + sin(t * 0.5 + i * 1.3) * 0.08
-				for k in 16:
-					var u := float(k) / 15.0
-					var aa := a + bend * u * u * 3.0
-					var rr := 40.0 + u * 230.0
-					var p := c + Vector2(cos(aa) * rr, sin(aa) * rr * 0.9)
-					var rad := (6.0 + 26.0 * sin(u * PI * 0.92)) * (1.0 - u * 0.25)
-					l.draw_circle(p, rad, Color(0.07, 0.12, 0.26, 0.09))
-					if k == 15:
-						StArt.foxfire(l, p, 4.0, t + i, 0.25 + 0.15 * sin(t + i))
+			l.anim(Kit.bb_circle(c, 312.0), func(cv: CanvasItem, tt: float) -> void:
+				for i in 9:
+					# 털이 풍성한 꼬리: 휘어진 길을 따라 커지는 원들 (끝으로 갈수록 굵다가 뾰족)
+					var a := -PI * 0.5 + (i - 4) * 0.26 + sin(tt * 0.35 + i) * 0.05
+					var bend := (i - 4) * 0.05 + sin(tt * 0.5 + i * 1.3) * 0.08
+					for k in 16:
+						var u := float(k) / 15.0
+						var aa := a + bend * u * u * 3.0
+						var rr := 40.0 + u * 230.0
+						var p := c + Vector2(cos(aa) * rr, sin(aa) * rr * 0.9)
+						var rad := (6.0 + 26.0 * sin(u * PI * 0.92)) * (1.0 - u * 0.25)
+						cv.draw_circle(p, rad, Color(0.07, 0.12, 0.26, 0.09))
+						if k == 15:
+							StArt.foxfire(cv, p, 4.0, tt + i, 0.25 + 0.15 * sin(tt + i)))
 		1:
 			# 천천히 떠오르는 푸른 여우불 등롱
+			var sy := span.y
 			for i in 14:
 				var x := rng.randf() * span.x
 				var sp := rng.randf_range(5.0, 11.0)
-				var y := span.y + 40.0 - fmod(t * sp + rng.randf() * span.y, span.y + 80.0)
-				StArt.foxfire(l, Vector2(x + sin(t * 0.7 + i) * 8.0, y), rng.randf_range(2.0, 3.5), t + i, 0.45)
+				var y0 := rng.randf() * span.y
+				var fr := rng.randf_range(2.0, 3.5)
+				l.anim(Rect2(x - 8 - fr * 1.6, -40 - fr * 2.0, 16 + fr * 3.2, sy + 80 + fr * 4.0), func(cv: CanvasItem, tt: float) -> void:
+					var y := sy + 40.0 - fmod(tt * sp + y0, sy + 80.0)
+					StArt.foxfire(cv, Vector2(x + sin(tt * 0.7 + i) * 8.0, y), fr, tt + i, 0.45))
 		2:
 			# 바닥의 물거울: 가로 물결선
 			var fy := _bot(span) - 56.0
-			for i in 6:
-				var y := fy + i * 7.0
-				var pts := PackedVector2Array()
-				var x := -20.0
-				while x < span.x + 20:
-					pts.append(Vector2(x, y + sin(t * 0.8 + x * 0.02 + i) * 1.5))
-					x += 24.0
-				l.draw_polyline(pts, Color(StArt.FOX_BLUE, 0.05 + 0.02 * i), 1.0)
+			var sx := span.x
+			l.anim(Rect2(-22, fy - 4, sx + 46, 50), func(cv: CanvasItem, tt: float) -> void:
+				for i in 6:
+					var y := fy + i * 7.0
+					var pts := PackedVector2Array()
+					var x := -20.0
+					while x < sx + 20:
+						pts.append(Vector2(x, y + sin(tt * 0.8 + x * 0.02 + i) * 1.5))
+						x += 24.0
+					cv.draw_polyline(pts, Color(StArt.FOX_BLUE, 0.05 + 0.02 * i), 1.0))
 		3:
 			pass
 
 
 # ─── 하늘의 문 층 ───────────────────────────────────────
 
-static func _layer_sky(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
+static func _layer_sky(l, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
 	match depth:
 		0:
 			# 아래 구름 바다(위에서 흰 빛을 받음) + 구름을 뚫고 선 거신들의 머리·어깨 + 구름 틈의 불빛(불타는 세상)
@@ -574,8 +629,11 @@ static func _layer_sky(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng
 			for i in 5:
 				var gx := rng.randf_range(0, span.x)
 				var gh := rng.randf_range(380, 520)
-				var ph := fmod(march_clock() / (MARCH_PERIOD * 1.6) + i * 0.31, 1.0)
-				StColossusArt.draw_giant(l, Vector2(gx, cy + gh * 0.55), gh, ph, -1.0 if i % 2 == 0 else 1.0, pal, 1)
+				var foot := Vector2(gx, cy + gh * 0.55)
+				# 거신의 걸음은 실제 시각(march_clock)이라 t와 무관하게 움직인다
+				l.anim(_bb_giant(foot, gh), func(cv: CanvasItem, _tt: float) -> void:
+					var ph := fmod(march_clock() / (MARCH_PERIOD * 1.6) + i * 0.31, 1.0)
+					StColossusArt.draw_giant(cv, foot, gh, ph, -1.0 if i % 2 == 0 else 1.0, pal, 1))
 			var cloud := Color(th.far)
 			for row in 3:
 				var yy := cy + row * 16.0
@@ -583,43 +641,58 @@ static func _layer_sky(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng
 				var k := 0
 				while x < span.x + 120:
 					var r := 30.0 + 18.0 * sin(k * 1.9 + row) + rng.randf_range(0, 12)
-					var drift := sin(t * 0.15 + k + row) * 6.0
 					var cc := cloud.darkened(0.08 * row + 0.1)
-					l.draw_circle(Vector2(x + drift, yy + 8.0), r, cc.darkened(0.25))
-					l.draw_circle(Vector2(x + drift, yy), r, cc)
-					l.draw_circle(Vector2(x + drift - r * 0.3, yy - r * 0.35), r * 0.55, cc.lightened(0.12))
+					var cx := x
+					var ck := k
+					l.anim(Rect2(x - r - 8, yy - r - 2, r * 2 + 16, r * 2 + 12), func(cv: CanvasItem, tt: float) -> void:
+						var drift := sin(tt * 0.15 + ck + row) * 6.0
+						cv.draw_circle(Vector2(cx + drift, yy + 8.0), r, cc.darkened(0.25))
+						cv.draw_circle(Vector2(cx + drift, yy), r, cc)
+						cv.draw_circle(Vector2(cx + drift - r * 0.3, yy - r * 0.35), r * 0.55, cc.lightened(0.12)))
 					x += r * 1.3
 					k += 1
 			for i in 5:
 				var hx := rng.randf_range(0, span.x)
-				l.draw_circle(Vector2(hx, cy + 40), 26, Color(1.0, 0.45, 0.25, 0.22 + 0.1 * sin(t * 2.0 + i)))
+				l.anim(Kit.bb_circle(Vector2(hx, cy + 40), 26.0), func(cv: CanvasItem, tt: float) -> void:
+					cv.draw_circle(Vector2(hx, cy + 40), 26, Color(1.0, 0.45, 0.25, 0.22 + 0.1 * sin(tt * 2.0 + i))))
 			l.draw_rect(Rect2(-100, cy + 46, span.x + 200, span.y), cloud.darkened(0.3))
 		1:
 			# 떠다니는 세계의 조각: 학교 탑·성벽·가지·기둥이 천천히 떠오른다
 			var x := rng.randf_range(0, 160)
 			var k := 0
+			var dcol := Color(th.mid)
 			while x < span.x:
-				var base := Vector2(x, _bot(span) * rng.randf_range(0.3, 0.72) - fmod(t * 4.0 + k * 30.0, 60.0) * 0.3)
-				_debris(l, base, k % 4, Color(th.mid), rng)
+				var b0 := Vector2(x, _bot(span) * rng.randf_range(0.3, 0.72))
+				var dk := k
+				l.anim(Rect2(b0.x - 42, b0.y - 18 - 88, 96, 88 + 18 + 34), func(cv: CanvasItem, tt: float) -> void:
+					_debris(cv, Vector2(b0.x, b0.y - fmod(tt * 4.0 + dk * 30.0, 60.0) * 0.3), dk % 4, dcol))
 				x += rng.randf_range(170, 290)
 				k += 1
 		2:
 			# 흰 기하학 파편 (천천히 돈다)
+			var bot := _bot(span)
 			for i in 10:
-				var p := Vector2(rng.randf() * span.x, rng.randf() * _bot(span) * 0.85)
+				var p := Vector2(rng.randf() * span.x, rng.randf() * bot * 0.85)
 				var s := rng.randf_range(5, 13)
-				var a := t * rng.randf_range(-0.4, 0.4) + i
-				var tri := PackedVector2Array()
-				for j in 3:
-					tri.append(p + Vector2(cos(a + TAU * j / 3.0), sin(a + TAU * j / 3.0)) * s)
-				l.draw_colored_polygon(tri, Color(0.92, 0.92, 1.0, 0.5))
-				l.draw_polyline(tri + PackedVector2Array([tri[0]]), Color(1, 1, 1, 0.7), 1.0)
+				var w := rng.randf_range(-0.4, 0.4)
+				l.anim(Kit.bb_circle(p, s + 2.0), func(cv: CanvasItem, tt: float) -> void:
+					var a := tt * w + i
+					var tri := PackedVector2Array()
+					for j in 3:
+						tri.append(p + Vector2(cos(a + TAU * j / 3.0), sin(a + TAU * j / 3.0)) * s)
+					cv.draw_colored_polygon(tri, Color(0.92, 0.92, 1.0, 0.5))
+					cv.draw_polyline(tri + PackedVector2Array([tri[0]]), Color(1, 1, 1, 0.7), 1.0))
 		3:
 			pass
 
 
+## 걷는 거신 하나(StColossusArt.draw_giant, 발 위치 고정)의 bbox
+static func _bb_giant(foot: Vector2, h: float) -> Rect2:
+	return Rect2(foot.x - h * 0.6, foot.y - h * 1.15, h * 1.2, h * 1.25 + 10.0)
+
+
 ## 떠다니는 조각 (0 학교 탑, 1 성벽, 2 세계수 가지, 3 신전 기둥)
-static func _debris(l: Node2D, p: Vector2, kind: int, col: Color, rng: RandomNumberGenerator) -> void:
+static func _debris(l, p: Vector2, kind: int, col: Color) -> void:
 	var rock := col.darkened(0.15)
 	l.draw_colored_polygon(PackedVector2Array([p + Vector2(-34, 0), p + Vector2(34, 0), p + Vector2(18, 18), p + Vector2(0, 30), p + Vector2(-20, 16)]), rock)
 	match kind:
@@ -643,7 +716,7 @@ static func _debris(l: Node2D, p: Vector2, kind: int, col: Color, rng: RandomNum
 
 # ─── 축제 층 ────────────────────────────────────────────
 
-static func _layer_festival(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
+static func _layer_festival(l, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
 	var col := _layer_col(th, depth)
 	match depth:
 		0:
@@ -661,12 +734,15 @@ static func _layer_festival(l: Node2D, th: Dictionary, depth: int, span: Vector2
 				l.draw_colored_polygon(PackedVector2Array([Vector2(tx - w * 0.7, by - h), Vector2(tx, by - h - w * 1.4), Vector2(tx + w * 0.7, by - h)]), col)
 				tops.append(Vector2(tx, by - h + 6))
 				for wi in 3:
-					l.draw_rect(Rect2(tx - 3, by - h + 22 + wi * 24, 6, 9), Color(1.0, 0.8, 0.45, 0.65 + 0.2 * StArt.twinkle(t, tx + wi)))
+					var wr := Rect2(tx - 3, by - h + 22 + wi * 24, 6, 9)
+					l.anim(wr, func(cv: CanvasItem, tt: float) -> void: cv.draw_rect(wr, Color(1.0, 0.8, 0.45, 0.65 + 0.2 * StArt.twinkle(tt, tx + wi))))
 				# 깃발
-				var fl := sin(t * 2.0 + tx) * 2.0
-				l.draw_colored_polygon(PackedVector2Array([Vector2(tx, by - h - w * 1.4), Vector2(tx + 12, by - h - w * 1.4 + 3 + fl), Vector2(tx, by - h - w * 1.4 + 7)]), Color("#c8484a").darkened(0.3))
+				var fy := by - h - w * 1.4
+				l.anim(Rect2(tx, fy - 2, 13, 12), func(cv: CanvasItem, tt: float) -> void:
+					var fl := sin(tt * 2.0 + tx) * 2.0
+					cv.draw_colored_polygon(PackedVector2Array([Vector2(tx, fy), Vector2(tx + 12, fy + 3 + fl), Vector2(tx, fy + 7)]), Color("#c8484a").darkened(0.3)))
 			for i in range(1, tops.size()):
-				_lantern_string(l, tops[i - 1], tops[i], 24.0, t, i, 0.6)
+				_anim_lantern_string(l, tops[i - 1], tops[i], 24.0, i, 0.6)
 		1:
 			# 천막과 노점 실루엣, 사이사이 등불 줄
 			var x := rng.randf_range(0, 120)
@@ -680,7 +756,7 @@ static func _layer_festival(l: Node2D, th: Dictionary, depth: int, span: Vector2
 				l.draw_colored_polygon(PackedVector2Array([Vector2(x - w * 0.6, by - h * 0.5), Vector2(x, by - h * 1.1), Vector2(x + w * 0.6, by - h * 0.5)]), col.lightened(0.04))
 				l.draw_rect(Rect2(x - w * 0.35, by - h * 0.35, w * 0.7, h * 0.3), Color(1.0, 0.7, 0.4, 0.28))
 				var top := Vector2(x, by - h * 1.1)
-				_lantern_string(l, prev, top, 30.0, t, i, 0.5)
+				_anim_lantern_string(l, prev, top, 30.0, i, 0.5)
 				prev = top
 				x += w + rng.randf_range(60, 140)
 				i += 1
@@ -695,10 +771,12 @@ static func _layer_festival(l: Node2D, th: Dictionary, depth: int, span: Vector2
 				l.draw_circle(Vector2(tx, base_y - r * 1.5), r, col)
 				l.draw_circle(Vector2(tx - r * 0.6, base_y - r), r * 0.7, col)
 				# 나무에 감긴 작은 등
-				for j in 5:
-					var a := float(j) / 5.0 * TAU + t * 0.2
-					var p := Vector2(tx + cos(a) * r * 0.7, base_y - r * 1.5 + sin(a) * r * 0.5)
-					l.draw_rect(Rect2(p, Vector2(2, 2)), Color(1.0, 0.85, 0.5, 0.4 + 0.5 * StArt.twinkle(t, i * 5 + j)))
+				var ty := base_y - r * 1.5
+				l.anim(Rect2(tx - r * 0.7 - 1, ty - r * 0.5 - 1, r * 1.4 + 4, r + 4), func(cv: CanvasItem, tt: float) -> void:
+					for j in 5:
+						var a := float(j) / 5.0 * TAU + tt * 0.2
+						var p := Vector2(tx + cos(a) * r * 0.7, ty + sin(a) * r * 0.5)
+						cv.draw_rect(Rect2(p, Vector2(2, 2)), Color(1.0, 0.85, 0.5, 0.4 + 0.5 * StArt.twinkle(tt, i * 5 + j))))
 		3:
 			var dark := Color(0.015, 0.012, 0.025, 0.92)
 			var x := rng.randf_range(0, 300)
@@ -711,8 +789,13 @@ static func _layer_festival(l: Node2D, th: Dictionary, depth: int, span: Vector2
 				x += w + rng.randf_range(260, 520)
 
 
+## _lantern_string을 Pen에 움직이는 요소로
+static func _anim_lantern_string(l, a: Vector2, b: Vector2, sag: float, seed: int, alpha := 1.0) -> void:
+	l.anim(Rect2(a, Vector2.ZERO).expand(b).grow_individual(7, 7, 7, sag + 12.0), func(cv: CanvasItem, tt: float) -> void: _lantern_string(cv, a, b, sag, tt, seed, alpha))
+
+
 ## 늘어진 줄에 매단 등불들
-static func _lantern_string(l: CanvasItem, a: Vector2, b: Vector2, sag: float, t: float, seed: int, alpha := 1.0) -> void:
+static func _lantern_string(l, a: Vector2, b: Vector2, sag: float, t: float, seed: int, alpha := 1.0) -> void:
 	var pts := PackedVector2Array()
 	for k in 13:
 		var u := float(k) / 12.0
@@ -728,91 +811,110 @@ static func _lantern_string(l: CanvasItem, a: Vector2, b: Vector2, sag: float, t
 
 # ─── 폐허 층 (침공) ─────────────────────────────────────
 
-static func _layer_ruin(l: Node2D, theme: String, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
+static func _layer_ruin(l, theme: String, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
 	var col := _layer_col(th, depth)
 	var rise := theme == "rise"
-	var mt := march_clock()
 	var fire := StArt.RUIN_FIRE if not rise else StArt.FOX_BLUE
 	var glow_col := Color(1.0, 0.42, 0.18) if not rise else Color(0.4, 0.7, 1.0)
-	# 땅울림: 중간 층 거신의 발이 닿을 때 층이 살짝 튄다
-	var since := fmod(mt / MARCH_PERIOD + 0.75, 0.5) * MARCH_PERIOD # 마지막 착지 뒤 지난 초
-	var jolt := maxf(0.0, 1.0 - since / 0.35)
-	l.position.y = jolt * (1.0 if depth == 0 else (2.0 if depth == 1 else 0.0)) * (0.4 if rise else 1.0)
+	# 땅울림: 중간 층 거신의 발이 닿을 때 층이 살짝 튄다 (예전엔 _draw 안에서 바꿨다 → 이제 매 프레임 _process)
+	var k1 := 1.0 if depth == 0 else (2.0 if depth == 1 else 0.0)
+	var k2 := 0.4 if rise else 1.0
+	l.on_process(func(n: Node2D, _tt: float) -> void:
+		var since := fmod(march_clock() / MARCH_PERIOD + 0.75, 0.5) * MARCH_PERIOD # 마지막 착지 뒤 지난 초
+		var jolt := maxf(0.0, 1.0 - since / 0.35)
+		n.position.y = jolt * k1 * k2)
+	# 거신의 걸음(march_clock)은 실제 시각이라 t와 무관하게 움직인다
 	match depth:
 		0:
 			var hy := _bot(span) - 66.0
 			# 지평선을 메운 거신의 행렬 (도시보다 크다). 안개에 묻혀 흐릿하게, 발은 불빛에 잠긴다
 			var pal := StColossusArt.palette(0.5, 1.0, Color("#4e4a5a") if not rise else Color("#3a4a72"), 0.55 if rise else 0.0)
 			var n := 7 + int(span.x / 500.0)
+			var gs: Array = [] ## [gh, per, off, x0]
 			for i in n:
 				var gh := rng.randf_range(210, 300)
 				var per := MARCH_PERIOD * rng.randf_range(1.2, 1.55)
 				var off := rng.randf()
-				var x0 := float(i) / n * (span.x + 400.0) + rng.randf_range(-40, 40)
-				var sp := gh * 0.68 / per * 0.45 * (0.3 if rise else 1.0)
-				var x := fposmod(x0 - mt * sp, span.x + 400.0) - 200.0
-				var r := StColossusArt.draw_giant(l, Vector2(x, hy + 10), gh, fmod(mt / per + off, 1.0), -1.0, pal, 1)
-				if rise:
-					_giant_blue_fire(l, Vector2(x, hy), gh, t, i, 0.55)
-				else:
-					# 틈 사이로 새는 흰빛
-					var sp2: Vector2 = r.slit
-					l.draw_circle(sp2, 3.0, Color(1, 1, 1, 0.25))
+				gs.append([gh, per, off, float(i) / n * (span.x + 400.0) + rng.randf_range(-40, 40)])
+			var sx_all := span.x
+			l.anim(Rect2(-200 - 300 * 0.6, hy + 10 - 300 * 1.15, span.x + 400 + 300 * 1.2, 300 * 1.25 + 20), func(cv: CanvasItem, tt: float) -> void:
+				var mt := march_clock()
+				for i in gs.size():
+					var g: Array = gs[i]
+					var gh: float = g[0]
+					var per: float = g[1]
+					var sp := gh * 0.68 / per * 0.45 * (0.3 if rise else 1.0)
+					var x := fposmod(float(g[3]) - mt * sp, sx_all + 400.0) - 200.0
+					var r := StColossusArt.draw_giant(cv, Vector2(x, hy + 10), gh, fmod(mt / per + float(g[2]), 1.0), -1.0, pal, 1)
+					if rise:
+						_giant_blue_fire(cv, Vector2(x, hy), gh, tt, i, 0.55)
+					else:
+						# 틈 사이로 새는 흰빛
+						var sp2: Vector2 = r.slit
+						cv.draw_circle(sp2, 3.0, Color(1, 1, 1, 0.25)))
 			# 불빛이 거신의 다리를 아래에서 물들인다
 			for b in 6:
 				var y0 := hy - 90.0 + b * 16.0
 				l.draw_rect(Rect2(-100, y0, span.x + 200, 16), Color(glow_col, 0.035 + b * 0.022))
 			# 불타는 지평선 실루엣 (지역별)
-			_far_skyline(l, theme, span, hy, col, rng, t, fire)
+			_far_skyline(l, theme, span, hy, col, rng, fire)
 			# 지평선 불길
 			for i in int(span.x / 40) + 2:
 				var fx := i * 40.0 + rng.randf_range(-10, 10)
-				var fh := rng.randf_range(8, 22) * (1.0 + 0.25 * sin(t * 3.0 + i))
-				l.draw_colored_polygon(PackedVector2Array([Vector2(fx - 14, hy + 4), Vector2(fx, hy - fh), Vector2(fx + 14, hy + 4)]), Color(fire, 0.35))
+				var fh0 := rng.randf_range(8, 22)
+				l.anim(Rect2(fx - 14, hy - fh0 * 1.25 - 1, 28, fh0 * 1.25 + 6), func(cv: CanvasItem, tt: float) -> void:
+					var fh := fh0 * (1.0 + 0.25 * sin(tt * 3.0 + i))
+					cv.draw_colored_polygon(PackedVector2Array([Vector2(fx - 14, hy + 4), Vector2(fx, hy - fh), Vector2(fx + 14, hy + 4)]), Color(fire, 0.35)))
 			l.draw_rect(Rect2(-100, hy + 2, span.x + 200, span.y), col)
 			# 솟는 연기 기둥
 			for i in 4:
 				var sx := rng.randf_range(0, span.x)
-				for k in 7:
-					var yy := hy - k * 26.0 - fmod(t * 6.0, 26.0)
-					l.draw_circle(Vector2(sx + sin(t * 0.3 + k + i) * (4.0 + k * 3.0), yy), 10.0 + k * 6.0, Color(0.05, 0.04, 0.06, 0.24 - k * 0.03))
+				l.anim(Rect2(sx - 70, hy - 232, 140, 244), func(cv: CanvasItem, tt: float) -> void:
+					for k in 7:
+						var yy := hy - k * 26.0 - fmod(tt * 6.0, 26.0)
+						cv.draw_circle(Vector2(sx + sin(tt * 0.3 + k + i) * (4.0 + k * 3.0), yy), 10.0 + k * 6.0, Color(0.05, 0.04, 0.06, 0.24 - k * 0.03)))
 		1:
 			# 바로 뒤를 지나는 거신: 화면보다 훨씬 커서 다리만 보인다. 걸음마다 흙먼지
 			var fy := _bot(span) + 30.0
 			var pal2 := StColossusArt.palette(0.74, 1.0, Color("#2a2228") if not rise else Color("#1c2a4a"), 0.65 if rise else 0.0)
 			var n2 := 1 + int(span.x / 900.0)
+			var sx_all := span.x
 			for i in n2:
 				var gh := rng.randf_range(980, 1150)
 				var off := 0.0 if i % 2 == 0 else 0.5
 				var x0 := rng.randf_range(0, span.x + 900)
-				var sp := gh * 0.68 / MARCH_PERIOD * 0.3 * (0.3 if rise else 1.0)
-				var x := fposmod(x0 - mt * sp, span.x + 1000.0) - 500.0
-				var ph := fmod(mt / MARCH_PERIOD + off, 1.0)
-				var r := StColossusArt.draw_giant(l, Vector2(x, fy), gh, ph, -1.0, pal2, 1)
-				var strike := fmod(ph + 0.75, 0.5) # 0 = 막 닿음
-				if strike < 0.14:
-					var fp: Vector2 = r.foot_front if fmod(ph, 1.0) < 0.5 else r.foot_back
-					var k := strike / 0.14
-					for j in 7:
-						l.draw_circle(fp + Vector2((j - 3) * 26.0 * (0.5 + k), -10.0 - k * 26.0), 16.0 + k * 30.0, Color(0.16, 0.13, 0.15, 0.5 * (1.0 - k)))
-				if rise:
-					_giant_blue_fire(l, Vector2(x, fy), gh, t, i + 7, 0.9)
+				l.anim(Rect2(-500 - gh * 0.6, fy - gh * 1.15, span.x + 1000 + gh * 1.2, gh * 1.25 + 80), func(cv: CanvasItem, tt: float) -> void:
+					var mt := march_clock()
+					var sp := gh * 0.68 / MARCH_PERIOD * 0.3 * (0.3 if rise else 1.0)
+					var x := fposmod(x0 - mt * sp, sx_all + 1000.0) - 500.0
+					var ph := fmod(mt / MARCH_PERIOD + off, 1.0)
+					var r := StColossusArt.draw_giant(cv, Vector2(x, fy), gh, ph, -1.0, pal2, 1)
+					var strike := fmod(ph + 0.75, 0.5) # 0 = 막 닿음
+					if strike < 0.14:
+						var fp: Vector2 = r.foot_front if fmod(ph, 1.0) < 0.5 else r.foot_back
+						var k := strike / 0.14
+						for j in 7:
+							cv.draw_circle(fp + Vector2((j - 3) * 26.0 * (0.5 + k), -10.0 - k * 26.0), 16.0 + k * 30.0, Color(0.16, 0.13, 0.15, 0.5 * (1.0 - k)))
+					if rise:
+						_giant_blue_fire(cv, Vector2(x, fy), gh, tt, i + 7, 0.9))
 			# 연기 띠가 거신의 몸을 가린다 (깊이감)
-			for b in 3:
-				var by := _bot(span) * (0.2 + b * 0.2) + sin(t * 0.2 + b) * 6.0
-				var bx := fposmod(t * (6.0 + b * 3.0), 300.0) - 300.0
-				while bx < span.x + 300:
-					l.draw_circle(Vector2(bx, by), 70.0, Color(0.06, 0.045, 0.06, 0.18) if not rise else Color(0.03, 0.06, 0.14, 0.18))
-					bx += 110.0
+			var bot := _bot(span)
+			l.anim(Rect2(-372, bot * 0.2 - 78, span.x + 744, bot * 0.4 + 156), func(cv: CanvasItem, tt: float) -> void:
+				for b in 3:
+					var by := bot * (0.2 + b * 0.2) + sin(tt * 0.2 + b) * 6.0
+					var bx := fposmod(tt * (6.0 + b * 3.0), 300.0) - 300.0
+					while bx < sx_all + 300:
+						cv.draw_circle(Vector2(bx, by), 70.0, Color(0.06, 0.045, 0.06, 0.18) if not rise else Color(0.03, 0.06, 0.14, 0.18))
+						bx += 110.0)
 			l.draw_rect(Rect2(-100, _bot(span) - 14.0, span.x + 200, span.y), col)
 		2:
-			_near_ruins(l, theme, span, col, rng, t, fire)
+			_near_ruins(l, theme, span, col, rng, fire)
 		3:
 			_front_rubble(l, span, rng, t, fire)
 
 
 ## 반격: 거신의 몸을 타고 오르는 푸른 여우불
-static func _giant_blue_fire(l: Node2D, foot: Vector2, h: float, t: float, seed: int, a: float) -> void:
+static func _giant_blue_fire(l, foot: Vector2, h: float, t: float, seed: int, a: float) -> void:
 	for i in 7:
 		var y := foot.y - h * (0.08 + i * 0.11)
 		var x := foot.x + sin(seed * 3.1 + i * 1.7) * h * 0.06
@@ -820,7 +922,7 @@ static func _giant_blue_fire(l: Node2D, foot: Vector2, h: float, t: float, seed:
 
 
 ## 먼 지평선 실루엣 (지역별), 창문은 불빛
-static func _far_skyline(l: Node2D, theme: String, span: Vector2, hy: float, col: Color, rng: RandomNumberGenerator, t: float, fire: Color) -> void:
+static func _far_skyline(l, theme: String, span: Vector2, hy: float, col: Color, rng: RandomNumberGenerator, fire: Color) -> void:
 	var c2 := col.lightened(0.03)
 	match theme:
 		"ruin_kingdom":
@@ -846,11 +948,13 @@ static func _far_skyline(l: Node2D, theme: String, span: Vector2, hy: float, col
 				var cp := Vector2(tx, hy - 240) + Vector2(cos(a) * 150.0, sin(a) * 70.0)
 				l.draw_line(Vector2(tx, hy - 230), cp, c2, 8.0)
 				l.draw_circle(cp, 40.0, c2)
-				l.draw_circle(cp + Vector2(0, -10), 26.0 + 4.0 * sin(t * 2.0 + i), Color(fire, 0.25))
+				l.anim(Kit.bb_circle(cp + Vector2(0, -10), 30.0), func(cv: CanvasItem, tt: float) -> void:
+					cv.draw_circle(cp + Vector2(0, -10), 26.0 + 4.0 * sin(tt * 2.0 + i), Color(fire, 0.25)))
 			for i in 12:
 				var fx := tx + rng.randf_range(-170, 170)
 				var fy := hy - 240 + rng.randf_range(-60, 40)
-				l.draw_colored_polygon(PackedVector2Array([Vector2(fx - 8, fy), Vector2(fx + sin(t * 5.0 + i) * 3.0, fy - 18), Vector2(fx + 8, fy)]), Color(fire, 0.45))
+				l.anim(Rect2(fx - 8, fy - 19, 16, 20), func(cv: CanvasItem, tt: float) -> void:
+					cv.draw_colored_polygon(PackedVector2Array([Vector2(fx - 8, fy), Vector2(fx + sin(tt * 5.0 + i) * 3.0, fy - 18), Vector2(fx + 8, fy)]), Color(fire, 0.45)))
 		"ruin_temple":
 			# 성산 + 부러진 첨탑
 			var mx := span.x * 0.5
@@ -876,12 +980,12 @@ static func _far_skyline(l: Node2D, theme: String, span: Vector2, hy: float, col
 				else:
 					l.draw_colored_polygon(PackedVector2Array([Vector2(tx - w * 0.7, hy - h), Vector2(tx, hy - h - w * 1.4), Vector2(tx + w * 0.7, hy - h)]), c2)
 				for wi in 3:
-					var fa := 0.45 + 0.3 * sin(t * 4.0 + tx + wi)
-					l.draw_rect(Rect2(tx - 3, hy - h + 20 + wi * 24, 6, 9), Color(fire, fa))
+					var wr := Rect2(tx - 3, hy - h + 20 + wi * 24, 6, 9)
+					l.anim(wr, func(cv: CanvasItem, tt: float) -> void: cv.draw_rect(wr, Color(fire, 0.45 + 0.3 * sin(tt * 4.0 + tx + wi))))
 
 
 ## 가까운 층: 무너진 구조물(지역별) + 불길 + 그 뒤의 불빛
-static func _near_ruins(l: Node2D, theme: String, span: Vector2, col: Color, rng: RandomNumberGenerator, t: float, fire: Color) -> void:
+static func _near_ruins(l, theme: String, span: Vector2, col: Color, rng: RandomNumberGenerator, fire: Color) -> void:
 	var by := _bot(span) + 8.0
 	var x := rng.randf_range(0, 160)
 	var k := 0
@@ -889,15 +993,19 @@ static func _near_ruins(l: Node2D, theme: String, span: Vector2, col: Color, rng
 	while x < span.x + 40:
 		var w := rng.randf_range(80, 140)
 		var h := rng.randf_range(100, 190)
+		var bk := k
 		# 뒤의 불빛
-		l.draw_circle(Vector2(x + w * 0.5, by - h * 0.4), h * 0.6, Color(fire, 0.06 + 0.02 * sin(t * 3.0 + k)))
+		var gpos := Vector2(x + w * 0.5, by - h * 0.4)
+		var gr := h * 0.6
+		l.anim(Kit.bb_circle(gpos, gr), func(cv: CanvasItem, tt: float) -> void: cv.draw_circle(gpos, gr, Color(fire, 0.06 + 0.02 * sin(tt * 3.0 + bk))))
 		match theme:
 			"ruin_kingdom":
 				# 반쯤 무너진 집: 붉은 지붕 일부와 굴뚝, 불 꺼진 창
 				l.draw_colored_polygon(PackedVector2Array([Vector2(x, by), Vector2(x, by - h * 0.6), Vector2(x + w * 0.4, by - h * 0.85), Vector2(x + w * 0.55, by - h * 0.7), Vector2(x + w * 0.7, by - h * 0.5), Vector2(x + w, by - h * 0.45), Vector2(x + w, by)]), col)
 				l.draw_colored_polygon(PackedVector2Array([Vector2(x - 6, by - h * 0.6), Vector2(x + w * 0.4, by - h * 0.9), Vector2(x + w * 0.45, by - h * 0.8), Vector2(x, by - h * 0.5)]), Color("#3a1a18"))
 				l.draw_rect(Rect2(x + w * 0.15, by - h * 0.95, 10, h * 0.3), col)
-				l.draw_rect(Rect2(x + w * 0.3, by - h * 0.4, 12, 16), Color(glass, 0.35 + 0.15 * sin(t * 5.0 + k)))
+				var wr := Rect2(x + w * 0.3, by - h * 0.4, 12, 16)
+				l.anim(wr, func(cv: CanvasItem, tt: float) -> void: cv.draw_rect(wr, Color(glass, 0.35 + 0.15 * sin(tt * 5.0 + bk))))
 			"ruin_elf":
 				# 부러진 가지와 타 버린 오두막
 				l.draw_line(Vector2(x, by), Vector2(x + w * 0.3, by - h), col, 14.0)
@@ -929,7 +1037,7 @@ static func _near_ruins(l: Node2D, theme: String, span: Vector2, col: Color, rng
 				var ww := w * 0.22
 				var wh := h * 0.42
 				var win := PackedVector2Array([Vector2(wx - ww, wy), Vector2(wx - ww, wy - wh * 0.65), Vector2(wx, wy - wh), Vector2(wx + ww, wy - wh * 0.65), Vector2(wx + ww, wy)])
-				l.draw_colored_polygon(win, Color(glass, 0.28 + 0.12 * sin(t * 4.0 + k)))
+				l.anim(Kit.Pen._bounds(win, 1.0), func(cv: CanvasItem, tt: float) -> void: cv.draw_colored_polygon(win, Color(glass, 0.28 + 0.12 * sin(tt * 4.0 + bk))))
 				l.draw_line(Vector2(wx, wy), Vector2(wx, wy - wh * 0.9), col, 2.0)
 				l.draw_line(Vector2(wx - ww, wy - wh * 0.4), Vector2(wx + ww, wy - wh * 0.4), col, 2.0)
 				# 깨진 유리 조각 색
@@ -941,9 +1049,10 @@ static func _near_ruins(l: Node2D, theme: String, span: Vector2, col: Color, rng
 		for i in 3:
 			var fx := x + rng.randf_range(0, w)
 			var fy := by - rng.randf_range(0, h * 0.5)
-			var fh := 14.0 + 6.0 * sin(t * 6.0 + fx)
-			l.draw_colored_polygon(PackedVector2Array([Vector2(fx - 7, fy), Vector2(fx - 3, fy - fh * 0.6), Vector2(fx + sin(t * 8.0 + i) * 2.0, fy - fh), Vector2(fx + 4, fy - fh * 0.5), Vector2(fx + 7, fy)]), Color(fire, 0.6))
-			l.draw_colored_polygon(PackedVector2Array([Vector2(fx - 3, fy), Vector2(fx, fy - fh * 0.55), Vector2(fx + 3, fy)]), Color(1.0, 0.9, 0.6, 0.6) if fire != StArt.FOX_BLUE else Color(StArt.FOX_CORE, 0.6))
+			l.anim(Rect2(fx - 7, fy - 21, 14, 22), func(cv: CanvasItem, tt: float) -> void:
+				var fh := 14.0 + 6.0 * sin(tt * 6.0 + fx)
+				cv.draw_colored_polygon(PackedVector2Array([Vector2(fx - 7, fy), Vector2(fx - 3, fy - fh * 0.6), Vector2(fx + sin(tt * 8.0 + i) * 2.0, fy - fh), Vector2(fx + 4, fy - fh * 0.5), Vector2(fx + 7, fy)]), Color(fire, 0.6))
+				cv.draw_colored_polygon(PackedVector2Array([Vector2(fx - 3, fy), Vector2(fx, fy - fh * 0.55), Vector2(fx + 3, fy)]), Color(1.0, 0.9, 0.6, 0.6) if fire != StArt.FOX_BLUE else Color(StArt.FOX_CORE, 0.6)))
 		x += w + rng.randf_range(90, 220)
 		k += 1
 	l.draw_rect(Rect2(-100, by, span.x + 200, span.y), col)
@@ -954,43 +1063,43 @@ static func _near_ruins(l: Node2D, theme: String, span: Vector2, col: Color, rng
 # ═══════════════════════════════════════════════════════════
 
 ## 별의 시련 하늘: 리라의 별하늘 + 시련의 자리로 떨어져 내리는 별줄기(가운데 위에서 지평선으로)
-static func _sky_trial(c: Control, pal: Dictionary, t: float) -> void:
-	_sky_star(c, pal, t)
-	# 시련의 별: 하늘에서 내려와 박힌 빛줄기 (천천히 숨쉰다)
+static func _sky_trial(c, pal: Dictionary) -> void:
+	_sky_star(c, pal)
+	# 시련의 별: 하늘에서 내려와 박힌 빛줄기 (천천히 숨쉰다) + 그 별에서 흩어지는 작은 별똥 (리라의 사역마들)
 	var x := 352.0
-	var a := 0.5 + 0.2 * sin(t * 1.4)
-	c.draw_rect(Rect2(x - 10, 0, 20, 300), Color(StArt.STAR, 0.035 * a))
-	c.draw_rect(Rect2(x - 2, 0, 4, 300), Color(StArt.STAR, 0.12 * a))
-	c.draw_rect(Rect2(x - 0.5, 0, 1, 300), Color(StArt.STAR_CORE, 0.45 * a))
-	StArt.glow(c, Vector2(x, 26), 22.0, StArt.STAR, 0.3 * a)
-	StArt.star(c, Vector2(x, 26), 6.0, Color(StArt.STAR_CORE, 0.9), -PI * 0.5 + t * 0.2)
-	# 그 별에서 흩어지는 작은 별똥 (리라의 사역마들)
-	for i in 3:
-		var lt := fmod(t * 0.35 + i * 0.33, 1.0)
-		var d := Vector2(-1.0 + i, 1.2).normalized()
-		var p := Vector2(x, 26) + d * lt * 220.0
-		c.draw_line(p, p - d * 14.0, Color(StArt.STAR, 0.5 * (1.0 - lt)), 1.0)
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void:
+		var a := 0.5 + 0.2 * sin(t * 1.4)
+		cv.draw_rect(Rect2(x - 10, 0, 20, 300), Color(StArt.STAR, 0.035 * a))
+		cv.draw_rect(Rect2(x - 2, 0, 4, 300), Color(StArt.STAR, 0.12 * a))
+		cv.draw_rect(Rect2(x - 0.5, 0, 1, 300), Color(StArt.STAR_CORE, 0.45 * a))
+		StArt.glow(cv, Vector2(x, 26), 22.0, StArt.STAR, 0.3 * a)
+		StArt.star(cv, Vector2(x, 26), 6.0, Color(StArt.STAR_CORE, 0.9), -PI * 0.5 + t * 0.2)
+		for i in 3:
+			var lt := fmod(t * 0.35 + i * 0.33, 1.0)
+			var d := Vector2(-1.0 + i, 1.2).normalized()
+			var p := Vector2(x, 26) + d * lt * 220.0
+			cv.draw_line(p, p - d * 14.0, Color(StArt.STAR, 0.5 * (1.0 - lt)), 1.0))
 
 
-static func _layer_trial(l: Node2D, theme: String, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
+static func _layer_trial(l, theme: String, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, _t: float) -> void:
 	var col := _layer_col(th, depth)
 	var lamp: Color = th.accent
 	var by := _bot(span)
 	match depth:
 		0:
-			_night_skyline(l, theme, span, by - 70.0, col, rng, t, lamp)
+			_night_skyline(l, theme, span, by - 70.0, col, rng, lamp)
 		1:
 			match theme:
-				"st_kingdom": _mid_kingdom(l, span, col, rng, t, lamp)
-				"st_elf": _mid_elf(l, span, col, rng, t, lamp)
-				"st_temple": _mid_temple(l, span, col, rng, t, lamp)
-				_: _mid_garden(l, span, col, rng, t, lamp)
+				"st_kingdom": _mid_kingdom(l, span, col, rng, lamp)
+				"st_elf": _mid_elf(l, span, col, rng, lamp)
+				"st_temple": _mid_temple(l, span, col, rng, lamp)
+				_: _mid_garden(l, span, col, rng, lamp)
 		2:
 			_near_trial(l, theme, span, col, rng, lamp)
 
 
 ## 먼 지평선: 각 지역의 온전한 실루엣과 불 켜진 창 (침공 판 _far_skyline의 온전한 모습)
-static func _night_skyline(l: Node2D, theme: String, span: Vector2, hy: float, col: Color, rng: RandomNumberGenerator, t: float, lamp: Color) -> void:
+static func _night_skyline(l, theme: String, span: Vector2, hy: float, col: Color, rng: RandomNumberGenerator, lamp: Color) -> void:
 	var c2 := col.lightened(0.04)
 	match theme:
 		"st_kingdom":
@@ -1007,7 +1116,8 @@ static func _night_skyline(l: Node2D, theme: String, span: Vector2, hy: float, c
 			for i in 9:
 				var hx := rng.randf_range(0, span.x)
 				l.draw_colored_polygon(PackedVector2Array([Vector2(hx - 20, hy - 36), Vector2(hx, hy - 62), Vector2(hx + 20, hy - 36)]), c2)
-				l.draw_rect(Rect2(hx - 3, hy - 32, 5, 6), Color(lamp, 0.4 + 0.25 * StArt.twinkle(t, i * 1.3, 0.3)))
+				var wr := Rect2(hx - 3, hy - 32, 5, 6)
+				l.anim(wr, func(cv: CanvasItem, tt: float) -> void: cv.draw_rect(wr, Color(lamp, 0.4 + 0.25 * StArt.twinkle(tt, i * 1.3, 0.3))))
 		"st_elf":
 			# 세계수: 별빛 잎이 반짝이는 수관
 			var tx := span.x * 0.5
@@ -1019,14 +1129,14 @@ static func _night_skyline(l: Node2D, theme: String, span: Vector2, hy: float, c
 				l.draw_circle(cp, 44.0, c2)
 			for i in 40:
 				var lp := Vector2(tx + rng.randf_range(-210, 210), hy - 250 + rng.randf_range(-90, 50))
-				l.draw_rect(Rect2(lp, Vector2.ONE * 2.0), Color(lamp, 0.25 + 0.5 * StArt.twinkle(t, i * 0.9, 0.5)))
+				l.anim(Rect2(lp, Vector2.ONE * 2.0), func(cv: CanvasItem, tt: float) -> void: cv.draw_rect(Rect2(lp, Vector2.ONE * 2.0), Color(lamp, 0.25 + 0.5 * StArt.twinkle(tt, i * 0.9, 0.5))))
 		"st_temple":
 			var mx := span.x * 0.5
 			l.draw_colored_polygon(PackedVector2Array([Vector2(mx - 380, hy), Vector2(mx - 70, hy - 180), Vector2(mx + 50, hy - 160), Vector2(mx + 400, hy)]), c2)
 			l.draw_rect(Rect2(mx - 34, hy - 250, 56, 90), c2)
 			l.draw_colored_polygon(PackedVector2Array([Vector2(mx - 40, hy - 250), Vector2(mx - 6, hy - 300), Vector2(mx + 28, hy - 250)]), c2)
 			# 종루의 종빛
-			l.draw_circle(Vector2(mx - 6, hy - 226), 22, Color(lamp, 0.12 + 0.05 * sin(t * 1.5)))
+			l.anim(Kit.bb_circle(Vector2(mx - 6, hy - 226), 22.0), func(cv: CanvasItem, tt: float) -> void: cv.draw_circle(Vector2(mx - 6, hy - 226), 22, Color(lamp, 0.12 + 0.05 * sin(tt * 1.5))))
 			l.draw_rect(Rect2(mx - 12, hy - 234, 12, 12), Color(lamp, 0.6))
 			for i in 7:
 				var px := mx - 200 + i * 66.0
@@ -1044,13 +1154,14 @@ static func _night_skyline(l: Node2D, theme: String, span: Vector2, hy: float, c
 				l.draw_rect(Rect2(tx - w * 0.5, hy - h, w, h), c2)
 				l.draw_colored_polygon(PackedVector2Array([Vector2(tx - w * 0.7, hy - h), Vector2(tx, hy - h - w * 1.4), Vector2(tx + w * 0.7, hy - h)]), c2)
 				for wi in 3:
-					l.draw_rect(Rect2(tx - 3, hy - h + 20 + wi * 24, 6, 9), Color(lamp, 0.35 + 0.25 * StArt.twinkle(t, tx + wi, 0.3)))
+					var wr := Rect2(tx - 3, hy - h + 20 + wi * 24, 6, 9)
+					l.anim(wr, func(cv: CanvasItem, tt: float) -> void: cv.draw_rect(wr, Color(lamp, 0.35 + 0.25 * StArt.twinkle(tt, tx + wi, 0.3))))
 			# 시계탑 문자판
 			l.draw_circle(Vector2(cx - 20, hy - 230), 12, Color(lamp, 0.25))
 	l.draw_rect(Rect2(-100, hy + 2, span.x + 200, span.y), c2)
 
 
-static func _mid_kingdom(l: Node2D, span: Vector2, col: Color, rng: RandomNumberGenerator, t: float, lamp: Color) -> void:
+static func _mid_kingdom(l, span: Vector2, col: Color, rng: RandomNumberGenerator, lamp: Color) -> void:
 	var by := _bot(span) - 20.0
 	var x := rng.randf_range(-40, 40)
 	var i := 0
@@ -1068,19 +1179,23 @@ static func _mid_kingdom(l: Node2D, span: Vector2, col: Color, rng: RandomNumber
 				var wx := x + w * (0.25 + k * 0.4) - 4
 				var wy := by - h + 18 + r * 34
 				var on := rng.randf() < 0.55
-				l.draw_rect(Rect2(wx, wy, 8, 11), Color(lamp, 0.55 + 0.15 * sin(t * 0.8 + wx)) if on else col.darkened(0.3))
+				if on:
+					l.anim(Rect2(wx, wy, 8, 11), func(cv: CanvasItem, tt: float) -> void: cv.draw_rect(Rect2(wx, wy, 8, 11), Color(lamp, 0.55 + 0.15 * sin(tt * 0.8 + wx))))
+				else:
+					l.draw_rect(Rect2(wx, wy, 8, 11), col.darkened(0.3))
 		# 깃발
 		if i % 3 == 1:
 			var fx := x + w * 0.5
 			var top := by - h - w * 0.45
 			l.draw_line(Vector2(fx, top), Vector2(fx, top - 26), col.lightened(0.1), 1.0)
-			var wave := sin(t * 2.0 + fx) * 2.0
-			l.draw_colored_polygon(PackedVector2Array([Vector2(fx, top - 26), Vector2(fx + 14, top - 22 + wave), Vector2(fx, top - 18)]), Color("#6a2a3a"))
+			l.anim(Rect2(fx, top - 27, 15, 10), func(cv: CanvasItem, tt: float) -> void:
+				var wave := sin(tt * 2.0 + fx) * 2.0
+				cv.draw_colored_polygon(PackedVector2Array([Vector2(fx, top - 26), Vector2(fx + 14, top - 22 + wave), Vector2(fx, top - 18)]), Color("#6a2a3a")))
 		x += w + rng.randf_range(4, 30)
 		i += 1
 
 
-static func _mid_elf(l: Node2D, span: Vector2, col: Color, rng: RandomNumberGenerator, t: float, lamp: Color) -> void:
+static func _mid_elf(l, span: Vector2, col: Color, rng: RandomNumberGenerator, lamp: Color) -> void:
 	var by := _bot(span)
 	var x := rng.randf_range(-20, 80)
 	var i := 0
@@ -1095,16 +1210,18 @@ static func _mid_elf(l: Node2D, span: Vector2, col: Color, rng: RandomNumberGene
 		l.draw_line(Vector2(x, yy), Vector2(x + dir * rng.randf_range(80, 140), yy - 30), col, 7.0)
 		for k in 3:
 			var fx := x + dir * (30.0 + k * 30.0)
-			var fy := yy - 10.0 * k + 20.0 + sin(t * 1.2 + k + i) * 2.0
-			l.draw_line(Vector2(fx, yy - 10.0 * k - 4), Vector2(fx, fy), col.lightened(0.1), 1.0)
-			StArt.glow(l, Vector2(fx, fy), 9.0, lamp, 0.25)
-			l.draw_circle(Vector2(fx, fy), 2.5, Color(lamp, 0.8))
+			var fi := i
+			l.anim(Rect2(fx - 10, yy - 10.0 * k - 5, 20, 37), func(cv: CanvasItem, tt: float) -> void:
+				var fy := yy - 10.0 * k + 20.0 + sin(tt * 1.2 + k + fi) * 2.0
+				cv.draw_line(Vector2(fx, yy - 10.0 * k - 4), Vector2(fx, fy), col.lightened(0.1), 1.0)
+				StArt.glow(cv, Vector2(fx, fy), 9.0, lamp, 0.25)
+				cv.draw_circle(Vector2(fx, fy), 2.5, Color(lamp, 0.8)))
 		x += w + rng.randf_range(140, 260)
 		i += 1
 	l.draw_rect(Rect2(-100, by - 6, span.x + 200, span.y), col)
 
 
-static func _mid_temple(l: Node2D, span: Vector2, col: Color, rng: RandomNumberGenerator, t: float, lamp: Color) -> void:
+static func _mid_temple(l, span: Vector2, col: Color, rng: RandomNumberGenerator, lamp: Color) -> void:
 	var by := _bot(span) - 10.0
 	# 열주 회랑: 기둥 줄과 위의 들보, 기둥 사이 매달린 작은 종
 	l.draw_rect(Rect2(-100, by - 170, span.x + 200, 16), col)
@@ -1117,16 +1234,18 @@ static func _mid_temple(l: Node2D, span: Vector2, col: Color, rng: RandomNumberG
 		l.draw_rect(Rect2(x - 4, by - 158, 30, 6), col.lightened(0.04))
 		if i % 2 == 0:
 			var bx := x + 54.0
-			var sw := sin(t * 1.4 + i) * 0.1
-			var bt := Vector2(bx, by - 154) + Vector2(sin(sw), cos(sw)) * 30.0
-			l.draw_line(Vector2(bx, by - 154), bt, col.lightened(0.1), 1.0)
-			l.draw_colored_polygon(PackedVector2Array([bt + Vector2(-6, 10), bt + Vector2(-4, 0), bt + Vector2(4, 0), bt + Vector2(6, 10)]), Color(lamp, 0.55))
+			var bi := i
+			l.anim(Rect2(bx - 10, by - 155, 20, 46), func(cv: CanvasItem, tt: float) -> void:
+				var sw := sin(tt * 1.4 + bi) * 0.1
+				var bt := Vector2(bx, by - 154) + Vector2(sin(sw), cos(sw)) * 30.0
+				cv.draw_line(Vector2(bx, by - 154), bt, col.lightened(0.1), 1.0)
+				cv.draw_colored_polygon(PackedVector2Array([bt + Vector2(-6, 10), bt + Vector2(-4, 0), bt + Vector2(4, 0), bt + Vector2(6, 10)]), Color(lamp, 0.55)))
 		x += 110.0
 		i += 1
 	l.draw_rect(Rect2(-100, by, span.x + 200, span.y), col)
 
 
-static func _mid_garden(l: Node2D, span: Vector2, col: Color, rng: RandomNumberGenerator, t: float, lamp: Color) -> void:
+static func _mid_garden(l, span: Vector2, col: Color, rng: RandomNumberGenerator, lamp: Color) -> void:
 	var by := _bot(span) - 10.0
 	var x := rng.randf_range(-20, 60)
 	var i := 0
@@ -1146,14 +1265,14 @@ static func _mid_garden(l: Node2D, span: Vector2, col: Color, rng: RandomNumberG
 				l.draw_colored_polygon(PackedVector2Array([Vector2(x, by - 90), Vector2(x + w2 * 0.5, by - 140), Vector2(x + w2, by - 90)]), col)
 				for k in 4:
 					var gx := x + 12 + k * 30.0
-					l.draw_rect(Rect2(gx, by - 80, 22, 60), Color(lamp, 0.12 + 0.06 * StArt.twinkle(t, gx, 0.4)))
+					l.anim(Rect2(gx, by - 80, 22, 60), func(cv: CanvasItem, tt: float) -> void: cv.draw_rect(Rect2(gx, by - 80, 22, 60), Color(lamp, 0.12 + 0.06 * StArt.twinkle(tt, gx, 0.4))))
 				x += w2
 			_:
 				# 줄지은 등불 기둥
 				for k in 3:
 					var px := x + k * 40.0
 					l.draw_rect(Rect2(px, by - 60, 4, 70), col)
-					StArt.glow(l, Vector2(px + 2, by - 66), 10.0, lamp, 0.3)
+					_st_glow(l, Vector2(px + 2, by - 66), 10.0, lamp, 0.3)
 					l.draw_circle(Vector2(px + 2, by - 66), 3.0, Color(lamp, 0.8))
 				x += 120.0
 		x += rng.randf_range(40, 120)
@@ -1162,7 +1281,7 @@ static func _mid_garden(l: Node2D, span: Vector2, col: Color, rng: RandomNumberG
 
 
 ## 가까운 층 (정적): 지역별 검은 실루엣 소품
-static func _near_trial(l: Node2D, theme: String, span: Vector2, col: Color, rng: RandomNumberGenerator, lamp: Color) -> void:
+static func _near_trial(l, theme: String, span: Vector2, col: Color, rng: RandomNumberGenerator, lamp: Color) -> void:
 	var by := _bot(span) + 10.0
 	var x := rng.randf_range(0, 200)
 	while x < span.x + 40:
@@ -1172,7 +1291,7 @@ static func _near_trial(l: Node2D, theme: String, span: Vector2, col: Color, rng
 				l.draw_rect(Rect2(x, by - 90, 4, 90), col)
 				l.draw_rect(Rect2(x - 5, by - 98, 14, 9), col)
 				l.draw_circle(Vector2(x + 2, by - 93), 3.0, Color(lamp, 0.85))
-				StArt.glow(l, Vector2(x + 2, by - 93), 22.0, lamp, 0.18)
+				_st_glow(l, Vector2(x + 2, by - 93), 22.0, lamp, 0.18)
 				for k in 10:
 					l.draw_rect(Rect2(x + 14 + k * 7, by - 30, 2, 30), col)
 				l.draw_rect(Rect2(x + 12, by - 26, 72, 2), col)
@@ -1201,7 +1320,7 @@ static func _near_trial(l: Node2D, theme: String, span: Vector2, col: Color, rng
 
 # ─── 에필로그 아침 ──────────────────────────────────────
 
-static func _sky_dawn(c: Control, pal: Dictionary, t: float) -> void:
+static func _sky_dawn(c, pal: Dictionary) -> void:
 	_gradient(c, [[0.0, pal.sky_top], [0.4, Color("#7a7ab0")], [0.75, Color("#e8a8a0")], [1.0, pal.sky_bottom]])
 	# 떠오르는 해
 	var sc := Vector2(440, 300)
@@ -1209,36 +1328,44 @@ static func _sky_dawn(c: Control, pal: Dictionary, t: float) -> void:
 	c.draw_circle(sc, 70, Color(1.0, 0.88, 0.65, 0.12))
 	c.draw_circle(sc, 34, Color("#ffe8c0"))
 	# 아문 하늘의 흉터 (푸른 실로 꿰맨 균열) — 이제 눈은 없다
-	_sky_crack(c, Vector2(80, -10), Vector2(220, 140), 101, 6.0, t, 0, Vector2(320, 300), true, 1.0)
-	_sky_crack(c, Vector2(580, -10), Vector2(470, 120), 127, 6.0, t, 2, Vector2(320, 300), true, 1.0)
+	c.anim(_bb_crack(Vector2(80, -10), Vector2(220, 140), 6.0), func(cv: CanvasItem, t: float) -> void: _sky_crack(cv, Vector2(80, -10), Vector2(220, 140), 101, 6.0, t, 0, Vector2(320, 300), true, 1.0))
+	c.anim(_bb_crack(Vector2(580, -10), Vector2(470, 120), 6.0), func(cv: CanvasItem, t: float) -> void: _sky_crack(cv, Vector2(580, -10), Vector2(470, 120), 127, 6.0, t, 2, Vector2(320, 300), true, 1.0))
 	# 구름
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 41
+	var cl: Array = [] ## [y, x0, speed, r]
 	for i in 8:
 		var y := rng.randf_range(60, 220)
-		var x := fmod(rng.randf() * 900.0 + t * rng.randf_range(2.0, 5.0), 900.0) - 130.0
-		var r := rng.randf_range(18, 36)
-		var cc := Color(1.0, 0.92, 0.88, 0.35)
-		c.draw_circle(Vector2(x, y), r, cc)
-		c.draw_circle(Vector2(x + r * 0.9, y + 4), r * 0.75, cc)
-		c.draw_circle(Vector2(x - r * 0.9, y + 6), r * 0.6, cc)
+		var x0 := rng.randf() * 900.0
+		var sp := rng.randf_range(2.0, 5.0)
+		cl.append([y, x0, sp, rng.randf_range(18, 36)])
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void:
+		for e: Array in cl:
+			var y: float = e[0]
+			var x := fmod(float(e[1]) + t * float(e[2]), 900.0) - 130.0
+			var r: float = e[3]
+			var cc := Color(1.0, 0.92, 0.88, 0.35)
+			cv.draw_circle(Vector2(x, y), r, cc)
+			cv.draw_circle(Vector2(x + r * 0.9, y + 4), r * 0.75, cc)
+			cv.draw_circle(Vector2(x - r * 0.9, y + 6), r * 0.6, cc))
 	# 새 떼
-	for i in 5:
-		var bx := fmod(t * 14.0 + i * 23.0, 760.0) - 60.0
-		var byy := 120.0 + sin(t * 0.6 + i) * 8.0 + i * 6.0
-		var f := sin(t * 8.0 + i) * 2.0
-		c.draw_line(Vector2(bx - 4, byy - f), Vector2(bx, byy), Color(0.2, 0.15, 0.25, 0.7), 1.0)
-		c.draw_line(Vector2(bx, byy), Vector2(bx + 4, byy - f), Color(0.2, 0.15, 0.25, 0.7), 1.0)
+	c.anim(Kit.ALL, func(cv: CanvasItem, t: float) -> void:
+		for i in 5:
+			var bx := fmod(t * 14.0 + i * 23.0, 760.0) - 60.0
+			var byy := 120.0 + sin(t * 0.6 + i) * 8.0 + i * 6.0
+			var f := sin(t * 8.0 + i) * 2.0
+			cv.draw_line(Vector2(bx - 4, byy - f), Vector2(bx, byy), Color(0.2, 0.15, 0.25, 0.7), 1.0)
+			cv.draw_line(Vector2(bx, byy), Vector2(bx + 4, byy - f), Color(0.2, 0.15, 0.25, 0.7), 1.0))
 
 
-static func _layer_dawn(l: Node2D, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
+static func _layer_dawn(l, th: Dictionary, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> void:
 	var col := _layer_col(th, depth)
 	var warm := Color(1.0, 0.85, 0.55)
 	match depth:
 		0:
 			# 부러진 시계탑을 두른 비계 (학교 실루엣은 폐허 판과 같은 모양)
 			var hy := _bot(span) - 66.0
-			_far_skyline(l, "ruin_school", span, hy, col, rng, t, warm)
+			_far_skyline(l, "ruin_school", span, hy, col, rng, warm)
 			var cx := span.x * 0.5 - 20.0
 			for k in 6:
 				var yy := hy - 40.0 - k * 40.0
@@ -1247,9 +1374,10 @@ static func _layer_dawn(l: Node2D, th: Dictionary, depth: int, span: Vector2, rn
 			l.draw_line(Vector2(cx + 34, hy), Vector2(cx + 34, hy - 270), col.darkened(0.2), 2.0)
 			# 기중기 팔과 들어 올리는 새 종
 			l.draw_line(Vector2(cx + 34, hy - 270), Vector2(cx - 60, hy - 300), col.darkened(0.25), 3.0)
-			var sw := sin(t * 0.7) * 3.0
-			l.draw_line(Vector2(cx - 50, hy - 296), Vector2(cx - 50 + sw, hy - 250), col.darkened(0.25), 1.0)
-			l.draw_colored_polygon(PackedVector2Array([Vector2(cx - 58 + sw, hy - 236), Vector2(cx - 55 + sw, hy - 250), Vector2(cx - 45 + sw, hy - 250), Vector2(cx - 42 + sw, hy - 236)]), Color("#c8a050"))
+			l.anim(Rect2(cx - 62, hy - 297, 24, 62), func(cv: CanvasItem, tt: float) -> void:
+				var sw := sin(tt * 0.7) * 3.0
+				cv.draw_line(Vector2(cx - 50, hy - 296), Vector2(cx - 50 + sw, hy - 250), col.darkened(0.25), 1.0)
+				cv.draw_colored_polygon(PackedVector2Array([Vector2(cx - 58 + sw, hy - 236), Vector2(cx - 55 + sw, hy - 250), Vector2(cx - 45 + sw, hy - 250), Vector2(cx - 42 + sw, hy - 236)]), Color("#c8a050")))
 			l.draw_rect(Rect2(-100, hy + 2, span.x + 200, span.y), col)
 		1:
 			# 고쳐 세우는 벽과 비계, 걸어 둔 축제 깃발 줄 (다시 열 축제)
@@ -1266,7 +1394,7 @@ static func _layer_dawn(l: Node2D, th: Dictionary, depth: int, span: Vector2, rn
 				l.draw_line(Vector2(x - 6, by), Vector2(x - 6, by - h - 10), col.darkened(0.3), 2.0)
 				l.draw_line(Vector2(x + w + 6, by), Vector2(x + w + 6, by - h - 10), col.darkened(0.3), 2.0)
 				if i % 2 == 0:
-					_lantern_string(l, Vector2(x + w + 6, by - h - 10), Vector2(x + w + 120, by - h + 10), 14.0, t, i, 0.8)
+					_anim_lantern_string(l, Vector2(x + w + 6, by - h - 10), Vector2(x + w + 120, by - h + 10), 14.0, i, 0.8)
 				x += w + rng.randf_range(80, 160)
 				i += 1
 			l.draw_rect(Rect2(-100, by, span.x + 200, span.y), col)

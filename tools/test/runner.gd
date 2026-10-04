@@ -25,6 +25,8 @@ func _initialize() -> void:
 	_world_room = String(json.get("room", ""))
 	_world_spawn = String(json.get("spawn", "start"))
 	_world_flags = json.get("flags", [])
+	# 배경 움직임 다시 그리기 상한: 시험은 기본 0(매 프레임)이라 픽셀 비교가 안정적. 성능 시나리오는 "bg_hz": 30 처럼 지정
+	load("res://world/themes/backdrop_kit.gd").Ticker.hz = float(json.get("bg_hz", 0))
 
 
 var _release_next: Array = []
@@ -83,6 +85,7 @@ func _auto_advance() -> void:
 		print("AUTO line [", w.dialogue._name.text, "] ", w.dialogue._text.text.substr(0, 40), " f=", frame)
 		_tap("jump")
 		_tap("jump")
+var _bg_f0 := 0 ## bgperf 구간 시작 프레임
 var _world_room := ""
 var _world_spawn := ""
 var _world_flags: Array = []
@@ -417,6 +420,16 @@ func _process(_d: float) -> bool:
 			"perf":
 				# [frame, "perf", 이름] — 프레임 시간·그리기 호출·노드 수
 				print("PERF ", s[2], " fps=", Engine.get_frames_per_second(), " process_ms=", snappedf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.01), " physics_ms=", snappedf(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, 0.01), " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objects=", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " nodes=", Performance.get_monitor(Performance.OBJECT_NODE_COUNT), " room=", get_first_node_in_group("world").room.data.id)
+			"bghz":
+				# [frame, "bghz", Hz] — 배경 움직임 다시 그리기 상한 바꾸기 (0 = 매 프레임)
+				load("res://world/themes/backdrop_kit.gd").Ticker.hz = float(s[2])
+			"bgperf":
+				# [frame, "bgperf", 이름] — 직전 bgperf 이후 배경(정적·동적 부분) 그리기 계측 (world/themes/backdrop_kit.gd Stats)
+				var st = load("res://world/themes/backdrop_kit.gd").Stats
+				var nf: int = maxi(frame - _bg_f0, 1)
+				print("BGPERF ", s[2], " frames=", nf, " anim_draw_us_per_frame=", snappedf(float(st.anim_us) / nf, 0.1), " anim_items_per_frame=", snappedf(float(st.anim_n) / nf, 0.1), " anim_draws_per_frame=", snappedf(float(st.anim_draws) / nf, 0.01), " static_draw_us=", st.static_us, " static_cmds_drawn=", st.static_n, " recorded_static=", st.static_cmds, " recorded_anim=", st.anim_items, " room=", get_first_node_in_group("world").room.data.id)
+				st.reset()
+				_bg_f0 = frame
 			"quit":
 				return true
 	return false
