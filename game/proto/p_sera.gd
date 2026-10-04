@@ -495,6 +495,8 @@ func add_gauge(v: float) -> void:
 	var before := gauge
 	var mult := PState.od_mult * (PData.OD_EASY if PState.difficulty == 0 else 1.0)
 	gauge = minf(gauge + v * mult, 1.0)
+	if gauge >= 0.999: # 작은 값을 여러 번 더할 때 생기는 소수점 오차(0.9999…)로 '가득'을 놓치지 않게
+		gauge = 1.0
 	if before < 1.0 and gauge >= 1.0:
 		Sfx.play(&"star_twinkle", -6.0)
 		Fx.ring(center(), 6, 24, PData.FOX_HOT, 0.3)
