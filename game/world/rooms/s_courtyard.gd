@@ -1,5 +1,6 @@
 extends RoomData
 ## 자동 생성: tools/roomgen.py — 직접 고치지 말고 생성기를 고친 뒤 다시 만들 것
+## 정의: tools/roomgen.py s_courtyard()
 
 
 func _init() -> void:
@@ -51,11 +52,14 @@ func _init() -> void:
 		{t = "prop", kind = "torch", x = 64, y = 19},
 		{t = "npc", id = "stu", who = "student_b", x = 50, y = 19, face = "left", talk = "npc_courtyard"},
 		{t = "sign", x = 72, y = 19, look = "board", text = "지하 저장고|교장의 명으로 출입을 금함.|…밤마다 안에서 무언가 씹는 소리가 난다는 소문은 사실무근. — 관리인"},
+		# 덧붙임(overlay): tools/rooms/ch2.py
 		{t = "npc", id = "k_emb_go", who = "emberlyn", x = 20, y = 19, face = "right", cond = "k_envoy_seen,!k_departed"},
 		{t = "npc", id = "k_pip_go", who = "pippa", x = 17, y = 19, face = "right", cond = "k_envoy_seen,!k_departed"},
 		{t = "npc", id = "k_iso_go", who = "isolde", x = 31, y = 19, face = "left", cond = "k_envoy_seen,!k_departed"},
 		{t = "trigger", id = "k_depart_tg", x = 26, y = 13, w = 6, h = 6, run = "k_depart", cond = "k_envoy_seen,!k_departed", once = false},
+		# 덧붙임(overlay): tools/rooms/ch3.py
 		{t = "npc", id = "isolde_ch3", who = "isolde", x = 60, y = 19, face = "left", cond = "e_start,!s_duel_won"},
+		# 덧붙임(overlay): tools/rooms/ch5.py
 		{t = "prop", kind = "st_flower_arch", x = 76, y = 19, cond = "st_fest"},
 		{t = "door", id = "festival", x = 76, y = 19, to = "st_festival", to_id = "yard", style = "grand", label = "축제 광장", cond = "st_fest"},
 		{t = "door", id = "star", x = 62, y = 19, to = "st_crossroads", to_id = "yard", style = "st", label = "별의 문 — 별의 탑", cond = "st_lyra_came,!st_invaded"},
@@ -73,6 +77,7 @@ func _init() -> void:
 		{t = "npc", id = "hodu5", who = "hodu", x = 46, y = 19, face = "left", cond = "st_fest,!st_lyra_came"},
 		{t = "trigger", id = "st_yard", x = 36, y = 12, w = 10, h = 8, run = "st_yard_first", cond = "st_fest,!st_lyra_came"},
 		{t = "prop", kind = "st_scaffold", x = 36, y = 16, w = 10, h = 8, cond = "st_epilogue"},
+		# 덧붙임(overlay): tools/rooms/sys.py
 		{t = "warp", id = "warp_circle", x = 24, y = 19, area = "school", cond = "ch1_done"},
 		{t = "spawn", id = "warp", x = 24, y = 19, face = "right"},
 	]

@@ -17,7 +17,8 @@ from roomgen import Room, room, overlay — 1장 roomgen.py와 같은 문법.
   시계탑 문 k_gears_done · 지하 묘지 k_tower_top · 별 수정 장벽(방벽 되쏘기) · 하수도 수문 밸브 · 귀족 구역 다리 k_duel_called ·
   옛 성곽 철창 k_duel_done · 투기장 k_spar_done(+지배인 허락 k_arena_ok)
 """
-from roomgen import Room, room, overlay, windows  # noqa: F401
+import roomgen
+from roomgen import Room, room, overlay, windows, boxed_room  # noqa: F401
 
 A = "kingdom"
 
@@ -29,9 +30,7 @@ def city(rid, title, cell, cells, theme="kingdom", music="kingdom", dark=0.0):
 
 def hall(rid, title, cell, cells, theme="kingdom_in", music="kingdom", dark=0.0, ceil=2, floor=4):
     """사방이 막힌 실내 방 (바닥 윗면 = h - floor)"""
-    r = Room(rid, "황도 아르덴 · " + title, A, theme, music, cell, cells, dark)
-    r.box(wall=1, floor=floor, ceil=ceil)
-    return r
+    return boxed_room(rid, "황도 아르덴 · " + title, A, theme, music, cell, cells, dark, ceil, floor)
 
 
 def spikes_under(r, y, x0, x1):
@@ -41,11 +40,12 @@ def spikes_under(r, y, x0, x1):
 
 
 def stone(r, sid, x, y, text="보랏빛 결정이 빛난다."):
-    r.add("pickup", id=sid, kind="stone", x=x, y=y, name="마도석", text=text)
+    roomgen.stone(r, sid, x, y, text)
 
 
 def note(r, nid, x, y, n, text):
-    r.add("pickup", id=nid, kind="note", x=x, y=y, name="제국 연대기 쪽지 (%d/3)" % n, text=text)
+    """제국 연대기 쪽지 n/3"""
+    roomgen.note(r, nid, x, y, "제국 연대기 쪽지 (%d/3)" % n, text)
 
 
 def book(r, bid, x, y, title):

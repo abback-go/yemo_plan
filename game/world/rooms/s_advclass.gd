@@ -1,5 +1,6 @@
 extends RoomData
 ## 자동 생성: tools/roomgen.py — 직접 고치지 말고 생성기를 고친 뒤 다시 만들 것
+## 정의: tools/roomgen.py s_advclass()
 
 
 func _init() -> void:
@@ -43,7 +44,6 @@ func _init() -> void:
 		{t = "enemy", id = "knight2", kind = "armor", x = 46, y = 19, face = "left", cond = "ab_fox_window"},
 		{t = "npc", id = "isolde", who = "isolde", x = 56, y = 19, face = "left", cond = "ab_fox_window"},
 		{t = "npc", id = "veronica", who = "veronica", x = 64, y = 19, face = "left", cond = "ab_fox_window"},
-		{t = "event", id = "ev", flag = "adv_fight_won", run = "s_adv_after"},
 		{t = "prop", kind = "blackboard", x = 30, y = 15, w = 8, h = 5},
 		{t = "prop", kind = "desk", x = 16, y = 19, w = 2},
 		{t = "prop", kind = "desk", x = 22, y = 19, w = 2},
@@ -56,5 +56,6 @@ func _init() -> void:
 		{t = "prop", kind = "window", x = 60, y = 10, w = 3, h = 6},
 		{t = "prop", kind = "chandelier", x = 30, y = 2, len = 3},
 		{t = "prop", kind = "chandelier", x = 56, y = 2, len = 3},
+		# 덧붙임(overlay): tools/rooms/sys.py
 		{t = "door", id = "duel", x = 46, y = 19, to = "s_duel", to_id = "in", style = "stair_down", label = "결투장", lock = "cls_meteor_duel_ok", lock_msg = "결투장. 베로니카 교수의 허락 없이는 내려갈 수 없다.", cond = "q_cls_meteor"},
 	]

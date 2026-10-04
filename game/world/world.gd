@@ -105,8 +105,8 @@ func _ready() -> void:
 # ─── 방 불러오기 ────────────────────────────────────────
 
 func load_room(id: String, spawn_id: String) -> void:
-	var path := "res://world/rooms/%s.gd" % id
-	if not ResourceLoader.exists(path):
+	var data := RoomIndex.load_full(id)
+	if data == null:
 		push_error("room not found: " + id)
 		return
 	if room:
@@ -115,7 +115,6 @@ func load_room(id: String, spawn_id: String) -> void:
 	for c in effects.get_children():
 		c.queue_free()
 	Fx.reset_time()
-	var data: RoomData = (load(path) as GDScript).new()
 	room = Room.new()
 	room.build(data)
 	_room_holder.add_child(room)

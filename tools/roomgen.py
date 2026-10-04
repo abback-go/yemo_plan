@@ -2,9 +2,12 @@
 """방 데이터 생성기 (docs/chapter1.md 5절).
 
 방 지형을 사각형 명령으로 그려 ASCII 지도를 만들고, 개체 목록과 함께
-game/world/rooms/<id>.gd (RoomData 상속) 파일로 써 낸다.
-    python3 tools/roomgen.py          # 모든 방 다시 만들기
-    python3 tools/roomgen.py s_hall   # 한 방만
+game/world/rooms/<id>.gd (RoomData 상속) 파일로 써 낸다. 방 메타 색인 game/world/rooms/_index.gd(RoomIndex가 읽음)도 함께.
+    python3 tools/roomgen.py              # 모든 방 다시 만들기 (+ 색인)
+    python3 tools/roomgen.py s_hall       # 한 방만 (색인은 언제나 전부로)
+    python3 tools/roomgen.py check all k_ # 도달 검사 (아래 check 참고)
+    python3 tools/roomgen.py validate     # 개체 종류·소품 kind·인물·출구/문 연결·좌표 검사 (ERR가 있으면 종료 코드 1)
+방 정의는 1장이 이 파일, 2장부터는 tools/rooms/<장>.py (docs/dev/world.md).
 
 좌표: x는 왼쪽→오른쪽, y는 위→아래 (타일). 화면 1칸 = 40×23타일.
 지형 문자: # 벽  = 통과 발판  ^ 가시  I 환영 벽  H 숨은 발판  W 부서지는 벽  . 빈칸
@@ -13,6 +16,7 @@ game/world/rooms/<id>.gd (RoomData 상속) 파일로 써 낸다.
 import glob
 import importlib
 import os
+import re
 import sys
 
 # 장별 모듈(tools/rooms/*.py)이 `from roomgen import Room, room, overlay` 로 같은 모듈을 쓰게
@@ -37,6 +41,8 @@ class Room:
         self.h = SH * cells[1]
         self.g = [["." for _ in range(self.w)] for _ in range(self.h)]
         self.ents = []
+        self.src = ""  # 정의한 곳 "tools/rooms/ch2.py k_market()" (build가 채움)
+        self.ent_src = {}  # id(개체) → 덧붙인 파일 (overlay)
 
     # ─── 지형 ───
     def fill(self, x0, y0, x1, y1, ch="#"):
@@ -96,6 +102,8 @@ class Room:
         lines = []
         lines.append("extends RoomData")
         lines.append("## 자동 생성: tools/roomgen.py — 직접 고치지 말고 생성기를 고친 뒤 다시 만들 것")
+        if self.src:
+            lines.append("## 정의: " + self.src)
         lines.append("")
         lines.append("")
         lines.append("func _init() -> void:")
@@ -112,7 +120,12 @@ class Room:
         lines.extend(rows)
         lines.append('"""')
         lines.append("\tentities = [")
+        last_src = ""
         for e in self.ents:
+            src = self.ent_src.get(id(e), "")
+            if src and src != last_src:
+                lines.append("\t\t# 덧붙임(overlay): " + src)
+            last_src = src
             lines.append("\t\t" + gd_dict(e) + ",")
         lines.append("\t]")
         return "\n".join(lines) + "\n"
@@ -140,6 +153,12 @@ def gd_dict(d):
 
 ROOMS = {}
 OVERLAYS = {}  # 방 ID → 덧붙일 개체 목록 (다른 장 모듈이 학교 방 등에 NPC·문·장치를 더할 때)
+_OVERLAY_SRC = {}  # id(개체 사전) → 덧붙인 파일 (생성물에 출처 주석을 달려고)
+
+
+def _rel(path):
+    """절대 경로 → 저장소 기준 경로 (tools/rooms/ch2.py)"""
+    return os.path.relpath(os.path.abspath(path), ROOT).replace(os.sep, "/")
 
 
 def room(fn):
@@ -153,13 +172,46 @@ def overlay(room_id, t, **kw):
     e = dict(t=t)
     e.update(kw)
     OVERLAYS.setdefault(room_id, []).append(e)
+    _OVERLAY_SRC[id(e)] = _rel(sys._getframe(1).f_code.co_filename)
     return e
 
 
 def build(name):
-    r = ROOMS[name]()
-    r.ents.extend(OVERLAYS.get(r.id, []))
+    fn = ROOMS[name]
+    r = fn()
+    r.src = "%s %s()" % (_rel(fn.__code__.co_filename), fn.__name__)
+    for e in OVERLAYS.get(r.id, []):
+        r.ents.append(e)
+        r.ent_src[id(e)] = _OVERLAY_SRC.get(id(e), "")
     return r
+
+
+# ─── 장마다 쓰는 방·개체 도우미 (tools/rooms/*.py가 불러 씀) ───
+
+def boxed_room(rid, title, area, theme, music, cell, cells, dark=0.0, ceil=2, floor=4, wall=1):
+    """사방이 막힌 방 (바닥 윗면 = h - floor, 출구는 나중에 뚫음). 장별 상자 헬퍼는 기본값만 바꿔 이것을 부른다"""
+    r = Room(rid, title, area, theme, music, cell, cells, dark)
+    r.box(wall=wall, floor=floor, ceil=ceil)
+    return r
+
+
+def stone(r, sid, x, y, text=None):
+    """마도석 줍기 (text가 없으면 습득 창 기본 문구)"""
+    e = r.add("pickup", id=sid, kind="stone", x=x, y=y, name="마도석")
+    if text is not None:
+        e["text"] = text
+    return e
+
+
+def note(r, nid, x, y, name, text):
+    """읽을 수 있는 쪽지 줍기"""
+    return r.add("pickup", id=nid, kind="note", x=x, y=y, name=name, text=text)
+
+
+def hanging_row(r, kind, xs, y, ln, cycle):
+    """천장에 매단 소품 줄: i번째 줄 길이 = ln + i % cycle (길이가 들쭉날쭉하게)"""
+    for i, x in enumerate(xs):
+        r.add("prop", kind=kind, x=x, y=y, len=ln + (i % cycle))
 
 
 def load_modules():
@@ -417,9 +469,7 @@ def t_gate():
 # ═══════════════════════════════════════════════════════════
 
 def school_room(rid, title, theme, music, cell, cells, dark=0.0, ceil=2, floor=4):
-    r = Room(rid, title, "school", theme, music, cell, cells, dark)
-    r.box(wall=1, floor=floor, ceil=ceil)
-    return r
+    return boxed_room(rid, title, "school", theme, music, cell, cells, dark, ceil, floor)
 
 
 def windows(r, xs, y, w=3, h=6):
@@ -764,7 +814,6 @@ def s_advclass():
     r.add("enemy", id="knight2", kind="armor", x=46, y=F, face="left", cond="ab_fox_window")
     r.add("npc", id="isolde", who="isolde", x=56, y=F, face="left", cond="ab_fox_window")
     r.add("npc", id="veronica", who="veronica", x=64, y=F, face="left", cond="ab_fox_window")
-    r.add("event", id="ev", flag="adv_fight_won", run="s_adv_after")
     r.add("prop", kind="blackboard", x=30, y=F - 4, w=8, h=5)
     for x in (16, 22, 40, 70):
         r.add("prop", kind="desk", x=x, y=F, w=2)
@@ -1120,9 +1169,177 @@ def check(r, modes=("1j", "dj", "fox", "all")):
     return probs
 
 
+# ─── 방 메타 색인 (game/world/rooms/_index.gd) ──────────
+INDEX_FILE = "_index.gd"
+
+
+def _index_rank(r):
+    """색인 순서 = 지도 목록 순서: 1장(roomgen.py) → sys → ch2 → ch3 … (ChapterRegistry.EXTS와 같게 sys가 먼저)"""
+    src = r.src.split(" ")[0]
+    if src == "tools/roomgen.py":
+        return (0, "")
+    name = os.path.splitext(os.path.basename(src))[0]
+    return (1, "") if name == "sys" else (2, name)
+
+
+def _vec(v):
+    return "Vector2i(%d, %d)" % (v[0], v[1])
+
+
+def index_gd(rooms):
+    """모든 방의 메타(제목·지역·지도 칸·기록 지점)를 한 파일로. 지도·미니맵이 방 스크립트를 통째로 읽지 않게"""
+    lines = [
+        "extends RefCounted",
+        "## 자동 생성: tools/roomgen.py — 방 메타 색인 (RoomIndex가 읽는다). 직접 고치지 말 것.",
+        "## 순서 = 지도 목록 순서. dev = 개발용 시험 방(ID가 dev_로 시작 — 지도 목록에서 뺀다).",
+        "## saves = 기록 지점 개체 ID들(cond와 상관없이 전부 — 지도 화면의 기록 지점 표시).",
+        "",
+        "const ROOMS := {",
+    ]
+    for r in sorted(rooms, key=_index_rank):
+        saves = [e.get("id", "save_%d" % i) for i, e in enumerate(r.ents) if e.get("t") == "save"]
+        row = [
+            '"title": ' + gd_val(r.title), '"area": ' + gd_val(r.area), '"theme": ' + gd_val(r.theme),
+            '"music": ' + gd_val(r.music), '"cell": ' + _vec(r.cell), '"cells": ' + _vec(r.cells),
+            '"dark": ' + gd_val(float(r.dark)), '"saves": ' + gd_val(saves), '"dev": ' + gd_val(r.id.startswith("dev_")),
+            '"src": ' + gd_val(r.src),
+        ]
+        lines.append('\t"%s": {%s},' % (r.id, ", ".join(row)))
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def write_index(rooms):
+    path = os.path.join(OUT, INDEX_FILE)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(index_gd(rooms))
+    print(f"wrote {path} ({len(rooms)} rooms)")
+
+
+# ─── 방 데이터 검사 (python3 tools/roomgen.py validate) ─
+GAME = os.path.join(ROOT, "game")
+
+
+def _read(rel):
+    with open(os.path.join(GAME, rel), encoding="utf-8") as f:
+        return f.read()
+
+
+def _block(src, start_pat):
+    """start_pat로 시작하는 줄부터 다음 맨 앞 줄(들여쓰기 없는 줄)까지"""
+    m = re.search(start_pat, src, re.M)
+    if not m:
+        return ""
+    nl = src.find("\n", m.end())
+    rest = src[nl + 1:] if nl >= 0 else ""
+    end = re.search(r"^\S", rest, re.M)
+    return rest[: end.start()] if end else rest
+
+
+def _keys(block, indent):
+    """사전 블록에서 indent 탭 들여쓴 "키": 줄의 키들 (한 줄에 "a", "b": 처럼 여러 개도)"""
+    out = []
+    for m in re.finditer(r'^\t{%d}((?:"[\w]+"(?:, )?)+):' % indent, block, re.M):
+        out += re.findall(r'"([\w]+)"', m.group(1))
+    return out
+
+
+def _glob_rel(pattern):
+    return sorted(os.path.relpath(p, GAME) for p in glob.glob(os.path.join(GAME, pattern)))
+
+
+def game_kinds():
+    """게임 코드에서 개체 종류·적·소품·인물 이름 목록을 읽어 온다 (정규식 — 코드 모양이 바뀌면 여기도)"""
+    room_src = _read("world/room.gd")
+    ents = set(_keys(_block(room_src, r"^func _spawn_entity"), 2))
+    for rel in ["world/world_entities.gd"] + _glob_rel("world/entities/*/entities.gd"):
+        ents |= set(_keys(_block(_read(rel), r"^const KINDS"), 1))
+    enemies = set()
+    for rel in ["enemies/enemy_registry.gd"] + _glob_rel("enemies/*/registry.gd"):
+        enemies |= set(_keys(_block(_read(rel), r"^const KINDS"), 1))
+    props, prop_draw, prop_dup = {}, {}, []
+    for rel in ["world/entities/base_props.gd"] + _glob_rel("world/entities/*/props.gd"):
+        src = _read(rel)
+        for k in _keys(_block(src, r"^const PROPS"), 1):
+            if k in props:
+                prop_dup.append(f"{k} ({props[k]}, {rel})")  # Prop은 앞 모듈 것만 씀
+            props.setdefault(k, rel)
+        for k in _keys(_block(src, r"^static func draw\("), 2):
+            prop_draw[k] = rel
+    who = set(_keys(_block(_read("story/characters.gd"), r"^const DB"), 1))
+    for rel in _glob_rel("story/data_*.gd"):
+        who |= set(_keys(_block(_read(rel), r"^const CHARACTERS"), 1))
+    return ents, enemies, props, prop_draw, prop_dup, who
+
+
+STAND = ("npc", "save", "door")  # 바닥 위에 서야 하는 개체
+RECT_T = ("exit", "gate", "trigger", "updraft")  # x·y·w·h 영역 개체
+
+
+def validate():
+    """개체 종류·적 kind·소품 kind·인물(who)·출구/문 연결과 왕복·좌표 범위·서 있는 개체의 바닥을 검사한다.
+    문제(ERR)가 있으면 종료 코드 1. 참고(NOTE)는 일부러 그런 경우가 있어 목록만 보여 준다. 대본 ID는 story_lint가 본다."""
+    ents, enemies, props, prop_draw, prop_dup, who = game_kinds()
+    rooms = {n: build(n) for n in ROOMS}
+    errs, notes = [], []
+    for d in prop_dup:
+        errs.append(f"(소품 표) 같은 kind가 두 모듈에: {d}")
+    for k, rel in sorted(props.items()):
+        if k not in prop_draw:
+            errs.append(f"(소품 표) {rel}: {k} 가 PROPS에는 있고 draw()에는 없음")
+    for k, rel in sorted(prop_draw.items()):
+        if k not in props:
+            errs.append(f"(소품 표) {rel}: {k} 가 draw()에는 있고 PROPS에는 없음")
+    for n, r in rooms.items():
+        ids = {}
+        for e in r.ents:
+            if "id" in e:
+                if e["id"] in ids and e["t"] not in ("spawn",):
+                    notes.append(f"{n}: 개체 ID 중복 {e['id']} ({ids[e['id']]}, {e['t']})")
+                ids.setdefault(e["id"], e["t"])
+        for e in r.ents:
+            t = e["t"]
+            tag = f"{n}: {t} {e.get('id', e.get('kind', ''))}"
+            if t not in ents:
+                errs.append(f"{tag}: 개체 종류 없음")
+            if t == "enemy" and e.get("kind", "charger") not in enemies:
+                errs.append(f"{tag}: 적 kind 없음 ({e.get('kind')})")
+            if t == "prop" and e.get("kind", "") not in props:
+                errs.append(f"{tag}: 소품 kind 없음")
+            if t == "npc" and e.get("who", e.get("id")) not in who:
+                errs.append(f"{tag}: 인물(who) 없음 ({e.get('who')})")
+            if t in ("exit", "door"):
+                to, to_id = e.get("to", ""), e.get("to_id", "")
+                if to not in rooms:
+                    errs.append(f"{tag}: 가는 방 없음 ({to})")
+                else:
+                    back = [b for b in rooms[to].ents if b.get("id") == to_id and b["t"] in ("exit", "door", "spawn", "save")]
+                    if not back:
+                        errs.append(f"{tag}: {to}에 도착 지점 {to_id} 없음 (방 왼쪽 바닥으로 떨어짐)")
+                    elif back[0]["t"] in ("exit", "door") and back[0].get("to") != n:
+                        notes.append(f"{tag} → {to}.{to_id}: 돌아오는 길이 다른 방({back[0].get('to')})으로")
+            if "x" in e and "y" in e:
+                x, y = e["x"], e["y"]
+                w = e.get("w", 1) if t in RECT_T else 1
+                h = e.get("h", 1) if t in RECT_T else 0
+                if x < 0 or y < 0 or x + w > r.w or y + h > r.h:
+                    notes.append(f"{tag}: 방 범위 밖 ({x}, {y}) 방 {r.w}x{r.h}")
+                elif t in STAND and isinstance(x, int) and isinstance(y, int) and not e.get("cond", "").startswith("never"):
+                    if not (0 < y < r.h) or r.g[y][x] not in "#=IWH" or r.g[y - 1][x] in "#IW":
+                        notes.append(f"{tag}: 바닥 위가 아님 ({x}, {y})")
+    for m in errs:
+        print("ERR ", m)
+    for m in notes:
+        print("NOTE", m)
+    print(f"validate: rooms {len(rooms)}, ERR {len(errs)}, NOTE {len(notes)}")
+    return 1 if errs else 0
+
+
 def main():
     load_modules()
     args = sys.argv[1:]
+    if args[:1] == ["validate"]:
+        sys.exit(validate())
     if args[:1] == ["check"]:
         # check            모든 방(모든 모드)
         # check all k_     ID가 k_로 시작하는 방만, all 모드만
@@ -1141,12 +1358,16 @@ def main():
         return
     os.makedirs(OUT, exist_ok=True)
     names = args or list(ROOMS)
+    built = {}
     for n in names:
         r = build(n)
+        built[n] = r
         path = os.path.join(OUT, r.id + ".gd")
         with open(path, "w", encoding="utf-8") as f:
             f.write(r.to_gd())
         print(f"wrote {path} ({r.w}x{r.h})")
+    # 색인은 언제나 모든 방으로 (한 방만 다시 만들어도 맞게)
+    write_index([built[n] if n in built else build(n) for n in ROOMS])
 
 
 if __name__ == "__main__":

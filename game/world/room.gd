@@ -4,10 +4,6 @@ extends Node2D
 ## 방을 떠나면 통째로 지운다. 지속되는 상태(처치·열림·발견)는 GameState에 기록.
 
 const T := 16.0
-const ENEMY_KINDS := {
-	"charger": "res://enemies/charger.tscn",
-	"sniper": "res://enemies/sniper.tscn",
-}
 
 var data: RoomData
 var theme: Dictionary

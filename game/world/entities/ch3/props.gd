@@ -1,5 +1,5 @@
 extends RefCounted
-## 3장 소품 그림 (Prop이 1장 목록에 없는 kind를 여기로 넘김) — docs/chapter3.md 7.7절 소품 목록.
+## 3장 소품 그림 (Prop이 아래 PROPS 표로 kind를 찾아 draw(p, kind)를 부름) — docs/chapter3.md 7.7절 소품 목록.
 ## 원점: 바닥에 서는 것은 발밑, 매달린 것(등불·덩굴·현수막·풍경)은 천장(위 끝), 벽에 붙는 둥근 창은 창 가운데.
 ## 공통 키: w, h(타일), flip, front, len(매달린 길이, 타일), glow(빛 세기).
 ##
@@ -25,76 +25,79 @@ const STONE := Color("#4a5048")
 const STONE_L := Color("#6e766a")
 const T := 16.0
 
-const ANIMATED := ["elf_lantern", "elf_lantern_post", "wind_vane", "wind_chime", "elf_banner", "firefly_jar", "tea_set",
-	"mushroom_glow", "mushroom_big", "moonwell", "vine_curtain", "blight_crystal", "spirit_statue", "round_window",
-	"round_door", "seed_house", "flower_bed", "eilach_sapling", "blight_growth", "hammock", "loom", "market_stall"]
+## 소품 표 (Prop이 합침): kind → {anim, glow, split} — 뜻은 world/entities/base_props.gd 머리 참고. glow 색을 안 적으면 SAP.
+const PROPS := {
+	"elf_lantern": {"anim": true, "glow": &"_glow_elf_lantern"},
+	"elf_lantern_post": {"anim": true, "glow": [Vector2(9, -38), 54.0, SAP]},
+	"round_door": {"anim": true, "split": true, "glow": [Vector2(0, -16), 34.0, WARM]},
+	"round_window": {"anim": true, "glow": &"_glow_round_window"},
+	"seed_house": {"anim": true, "split": true, "glow": &"_glow_seed_house"},
+	"hanging_bridge": {},
+	"leaf_awning": {},
+	"market_stall": {"anim": true, "glow": [Vector2(0, -26), 40.0, WARM]},
+	"herb_rack": {},
+	"tea_set": {"anim": true, "glow": [Vector2(0, -12), 22.0, WARM]},
+	"loom": {"anim": true},
+	"bench_log": {},
+	"elf_banner": {"anim": true},
+	"wind_chime": {"anim": true},
+	"wind_vane": {"anim": true},
+	"firefly_jar": {"anim": true, "glow": [Vector2(0, -8), 36.0, SAP]},
+	"flower_bed": {"anim": true, "glow": &"_glow_flower_bed"},
+	"fern": {},
+	"hammock": {"anim": true},
+	"elder_shelf": {},
+	"bow_rack": {},
+	"archery_target": {},
+	"spirit_statue": {"anim": true, "glow": [Vector2(0, -34), 40.0, SAP]},
+	"eilach_sapling": {"anim": true, "glow": &"_glow_sapling"},
+	"mushroom_glow": {"anim": true, "glow": &"_glow_mushroom"},
+	"mushroom_big": {"anim": true, "glow": &"_glow_mushroom_big"},
+	"root_arch": {},
+	"vine_curtain": {"anim": true},
+	"moonwell": {"anim": true, "glow": &"_glow_moonwell"},
+	"blight_crystal": {"anim": true, "glow": &"_glow_blight_crystal"},
+	"blight_tree": {},
+	"blight_growth": {"anim": true},
+}
 
 
-## 빛·움직임 정보: {animated, glow_pos, glow_r, glow_col} — 이 장 소품이 아니면 {}
-static func setup_info(kind: String, p: Prop) -> Dictionary:
-	var anim := kind in ANIMATED
-	var info := {"animated": anim, "glow_r": 0.0, "glow_pos": Vector2.ZERO, "glow_col": SAP}
-	match kind:
-		"elf_lantern":
-			var ln := float(p.params.get("len", 2)) * T
-			info.glow_pos = Vector2(0, ln + 9)
-			info.glow_r = 58.0
-		"elf_lantern_post":
-			info.glow_pos = Vector2(9, -38)
-			info.glow_r = 54.0
-		"round_door":
-			info.glow_pos = Vector2(0, -16)
-			info.glow_r = 34.0
-			info.glow_col = WARM
-		"round_window":
-			info.glow_r = 30.0 * float(p.params.get("r", 1))
-			info.glow_col = WARM
-		"seed_house":
-			info.glow_pos = Vector2(p.w * T * 0.18, -p.h * T * 0.55)
-			info.glow_r = 50.0
-			info.glow_col = WARM
-		"firefly_jar":
-			info.glow_pos = Vector2(0, -8)
-			info.glow_r = 36.0
-		"mushroom_glow":
-			info.glow_pos = Vector2(0, -6 * p.h)
-			info.glow_r = 34.0 * p.h
-			info.glow_col = MUSH
-		"mushroom_big":
-			info.glow_pos = Vector2(0, -p.h * T * 0.8)
-			info.glow_r = 26.0 * p.h
-			info.glow_col = MUSH
-		"moonwell":
-			info.glow_pos = Vector2(0, -10)
-			info.glow_r = 14.0 * p.w
-			info.glow_col = Color(0.32, 0.42, 0.6)
-		"blight_crystal":
-			info.glow_pos = Vector2(0, -p.h * T * 0.5)
-			info.glow_r = 22.0 * p.h
-			info.glow_col = Color(0.85, 0.85, 1.0)
-		"spirit_statue":
-			info.glow_pos = Vector2(0, -34)
-			info.glow_r = 40.0
-		"tea_set":
-			info.glow_pos = Vector2(0, -12)
-			info.glow_r = 22.0
-			info.glow_col = WARM
-		"flower_bed":
-			info.glow_pos = Vector2(0, -4)
-			info.glow_r = 12.0 * p.w
-		"eilach_sapling":
-			info.glow_pos = Vector2(0, -24)
-			info.glow_r = 40.0
-			info.glow_col = SAP.lerp(WHITE, clampf(float(p.params.get("white", 0.0)), 0.0, 1.0))
-		"market_stall":
-			info.glow_pos = Vector2(0, -26)
-			info.glow_r = 40.0
-			info.glow_col = WARM
-		_:
-			if not anim and not kind in ["hanging_bridge", "leaf_awning", "herb_rack", "loom", "bench_log", "fern", "hammock",
-					"elder_shelf", "bow_rack", "archery_target", "root_arch", "blight_tree", "blight_growth"]:
-				return {}
-	return info
+# ─── 크기·값에 따라 달라지는 빛 (PROPS의 glow = &"함수") ──────
+
+static func _glow_elf_lantern(p: Prop) -> Array:
+	return [Vector2(0, float(p.params.get("len", 2)) * T + 9), 58.0, SAP]
+
+
+static func _glow_round_window(p: Prop) -> Array:
+	return [Vector2.ZERO, 30.0 * float(p.params.get("r", 1)), WARM]
+
+
+static func _glow_seed_house(p: Prop) -> Array:
+	return [Vector2(p.w * T * 0.18, -p.h * T * 0.55), 50.0, WARM]
+
+
+static func _glow_flower_bed(p: Prop) -> Array:
+	return [Vector2(0, -4), 12.0 * p.w, SAP]
+
+
+static func _glow_sapling(p: Prop) -> Array:
+	return [Vector2(0, -24), 40.0, SAP.lerp(WHITE, clampf(float(p.params.get("white", 0.0)), 0.0, 1.0))]
+
+
+static func _glow_mushroom(p: Prop) -> Array:
+	return [Vector2(0, -6 * p.h), 34.0 * p.h, MUSH]
+
+
+static func _glow_mushroom_big(p: Prop) -> Array:
+	return [Vector2(0, -p.h * T * 0.8), 26.0 * p.h, MUSH]
+
+
+static func _glow_moonwell(p: Prop) -> Array:
+	return [Vector2(0, -10), 14.0 * p.w, Color(0.32, 0.42, 0.6)]
+
+
+static func _glow_blight_crystal(p: Prop) -> Array:
+	return [Vector2(0, -p.h * T * 0.5), 22.0 * p.h, Color(0.85, 0.85, 1.0)]
 
 
 ## 그렸으면 true
@@ -201,28 +204,31 @@ static func _lantern_post(p: Prop) -> void:
 	_pod(p, Vector2(10 + sway, -34), 0.85, 0.8 + 0.2 * sin(t * 2.3))
 
 
+## 둥근 문. split: 문틈 빛만 움직임 층 — 빛 뒤에 그리던 문턱 돌·이끼(불투명)는 움직임 층이 다시 그려 겹침 순서를 지킨다
 static func _round_door(p: Prop) -> void:
 	var t := p.time()
 	var c := Vector2(0, -15)
-	# 나무껍질 문틀 (두툼한 고리)
-	p.draw_circle(c, 17.0, WOOD_D)
-	p.draw_arc(c, 16.0, 0, TAU, 28, WOOD_L.darkened(0.1), 3.0)
-	# 문짝 (세로 판자)
-	p.draw_circle(c, 13.0, WOOD)
-	for i in 5:
-		var x := -10.0 + i * 5.0
-		var hh := sqrt(maxf(169.0 - x * x, 0.0))
-		p.draw_line(c + Vector2(x, -hh + 1), c + Vector2(x, hh - 1), WOOD_D, 1.0)
-	p.draw_rect(Rect2(-13, -2, 26, 2), WOOD_D) # 문 아래쪽은 바닥으로 잘림
-	# 잎 문양 새김
-	_leaf(p, c + Vector2(0, 3), -PI * 0.5, 12, 4, WOOD_L)
-	_leaf(p, c + Vector2(0, 0), -PI * 0.5 - 0.7, 8, 3, WOOD_L.darkened(0.1))
-	_leaf(p, c + Vector2(0, 0), -PI * 0.5 + 0.7, 8, 3, WOOD_L.darkened(0.1))
-	# 놋쇠 고리 손잡이
-	p.draw_arc(c + Vector2(7, 2), 2.5, 0, TAU, 10, GOLD, 1.0)
-	# 문틈 사이로 새는 따뜻한 빛
-	var k := 0.6 + 0.2 * sin(t * 1.7)
-	p.draw_arc(c, 13.0, PI * 0.15, PI * 0.45, 8, Color(WARM, 0.5 * k), 1.0)
+	if p.static_part():
+		# 나무껍질 문틀 (두툼한 고리)
+		p.draw_circle(c, 17.0, WOOD_D)
+		p.draw_arc(c, 16.0, 0, TAU, 28, WOOD_L.darkened(0.1), 3.0)
+		# 문짝 (세로 판자)
+		p.draw_circle(c, 13.0, WOOD)
+		for i in 5:
+			var x := -10.0 + i * 5.0
+			var hh := sqrt(maxf(169.0 - x * x, 0.0))
+			p.draw_line(c + Vector2(x, -hh + 1), c + Vector2(x, hh - 1), WOOD_D, 1.0)
+		p.draw_rect(Rect2(-13, -2, 26, 2), WOOD_D) # 문 아래쪽은 바닥으로 잘림
+		# 잎 문양 새김
+		_leaf(p, c + Vector2(0, 3), -PI * 0.5, 12, 4, WOOD_L)
+		_leaf(p, c + Vector2(0, 0), -PI * 0.5 - 0.7, 8, 3, WOOD_L.darkened(0.1))
+		_leaf(p, c + Vector2(0, 0), -PI * 0.5 + 0.7, 8, 3, WOOD_L.darkened(0.1))
+		# 놋쇠 고리 손잡이
+		p.draw_arc(c + Vector2(7, 2), 2.5, 0, TAU, 10, GOLD, 1.0)
+	if p.anim_part():
+		# 문틈 사이로 새는 따뜻한 빛
+		var k := 0.6 + 0.2 * sin(t * 1.7)
+		p.draw_arc(c, 13.0, PI * 0.15, PI * 0.45, 8, Color(WARM, 0.5 * k), 1.0)
 	# 문턱 돌과 이끼
 	p.draw_rect(Rect2(-16, -2, 32, 2), STONE)
 	p.draw_rect(Rect2(-16, -2, 32, 1), STONE_L)
@@ -245,61 +251,69 @@ static func _round_window(p: Prop) -> void:
 	_leaf(p, Vector2(r * 0.6, r + 2), -0.4, 6, 2, LEAF)
 
 
+## 씨앗 꼬투리 집. split: 창 불빛 둘과 문 옆 등불만 움직임 층(창살은 불빛 위라 움직임 층에서도 다시 그림)
 static func _seed_house(p: Prop) -> void:
 	var t := p.time()
 	var ww := p.w * T
 	var hh := p.h * T
 	var c := Vector2(0, -hh * 0.48)
-	# 꼬투리 몸 (위가 뾰족한 타원)
-	var body := PackedVector2Array()
-	for i in 24:
-		var a := TAU * i / 24.0
-		var y := sin(a) * hh * 0.48
-		var x := cos(a) * ww * 0.5 * (1.0 - maxf(-sin(a), 0.0) * 0.25)
-		body.append(c + Vector2(x, y))
-	p.draw_colored_polygon(body, WOOD)
-	# 판자 결
-	for i in 6:
-		var y := c.y - hh * 0.35 + i * hh * 0.14
-		var half := ww * 0.5 * sqrt(maxf(1.0 - pow((y - c.y) / (hh * 0.48), 2), 0.0)) - 2.0
-		p.draw_line(Vector2(-half, y), Vector2(half, y), WOOD_D, 1.0)
-	# 오른쪽 빛, 왼쪽 그늘
-	p.draw_arc(c, ww * 0.45, -0.9, 0.9, 12, Color(WOOD_L, 0.8), 2.0)
-	# 잎 지붕 (겹겹)
-	for i in 4:
-		var y := c.y - hh * 0.3 - i * 5.0
-		var rw := ww * (0.62 - i * 0.12)
-		var col := LEAF_D.lerp(LEAF, i / 3.0)
-		p.draw_colored_polygon(PackedVector2Array([Vector2(-rw, y + 5), Vector2(-rw * 0.5, y - 3), Vector2(0, y - 9), Vector2(rw * 0.5, y - 3), Vector2(rw, y + 5)]), col)
-		for k in 4:
-			var lx := -rw + (k + 0.5) * rw * 0.5
-			p.draw_line(Vector2(lx, y + 4), Vector2(lx * 0.8, y - 2), col.darkened(0.3), 1.0)
-	var tip := Vector2(0, c.y - hh * 0.3 - 26.0)
-	p.draw_line(tip + Vector2(0, 6), tip, LEAF_D, 2.0)
-	p.draw_circle(tip, 2.0, LEAF_L)
+	if p.static_part():
+		# 꼬투리 몸 (위가 뾰족한 타원)
+		var body := PackedVector2Array()
+		for i in 24:
+			var a := TAU * i / 24.0
+			var y := sin(a) * hh * 0.48
+			var x := cos(a) * ww * 0.5 * (1.0 - maxf(-sin(a), 0.0) * 0.25)
+			body.append(c + Vector2(x, y))
+		p.draw_colored_polygon(body, WOOD)
+		# 판자 결
+		for i in 6:
+			var y := c.y - hh * 0.35 + i * hh * 0.14
+			var half := ww * 0.5 * sqrt(maxf(1.0 - pow((y - c.y) / (hh * 0.48), 2), 0.0)) - 2.0
+			p.draw_line(Vector2(-half, y), Vector2(half, y), WOOD_D, 1.0)
+		# 오른쪽 빛, 왼쪽 그늘
+		p.draw_arc(c, ww * 0.45, -0.9, 0.9, 12, Color(WOOD_L, 0.8), 2.0)
+		# 잎 지붕 (겹겹)
+		for i in 4:
+			var y := c.y - hh * 0.3 - i * 5.0
+			var rw := ww * (0.62 - i * 0.12)
+			var col := LEAF_D.lerp(LEAF, i / 3.0)
+			p.draw_colored_polygon(PackedVector2Array([Vector2(-rw, y + 5), Vector2(-rw * 0.5, y - 3), Vector2(0, y - 9), Vector2(rw * 0.5, y - 3), Vector2(rw, y + 5)]), col)
+			for k in 4:
+				var lx := -rw + (k + 0.5) * rw * 0.5
+				p.draw_line(Vector2(lx, y + 4), Vector2(lx * 0.8, y - 2), col.darkened(0.3), 1.0)
+		var tip := Vector2(0, c.y - hh * 0.3 - 26.0)
+		p.draw_line(tip + Vector2(0, 6), tip, LEAF_D, 2.0)
+		p.draw_circle(tip, 2.0, LEAF_L)
 	# 둥근 창 (불빛)
 	var wc := Vector2(ww * 0.18, -hh * 0.55)
 	var k2 := 0.8 + 0.2 * sin(t * 1.1) * sin(t * 2.7)
-	p.draw_circle(wc, 7.0, WOOD_D)
-	p.draw_circle(wc, 5.0, Color(WARM, 0.95 * k2))
+	if p.static_part():
+		p.draw_circle(wc, 7.0, WOOD_D)
+	if p.anim_part():
+		p.draw_circle(wc, 5.0, Color(WARM, 0.95 * k2))
 	p.draw_line(wc + Vector2(-5, 0), wc + Vector2(5, 0), WOOD_D, 1.0)
 	p.draw_line(wc + Vector2(0, -5), wc + Vector2(0, 5), WOOD_D, 1.0)
 	# 작은 둥근 창 하나 더
 	var wc2 := Vector2(-ww * 0.22, -hh * 0.72)
-	p.draw_circle(wc2, 4.0, WOOD_D)
-	p.draw_circle(wc2, 2.6, Color(WARM, 0.7 * k2))
-	# 둥근 문 (아래)
+	if p.static_part():
+		p.draw_circle(wc2, 4.0, WOOD_D)
+	if p.anim_part():
+		p.draw_circle(wc2, 2.6, Color(WARM, 0.7 * k2))
 	var dc := Vector2(-ww * 0.12, -10)
-	p.draw_circle(dc, 9.0, WOOD_D)
-	p.draw_rect(Rect2(dc.x - 9, dc.y, 18, 10), WOOD_D)
-	p.draw_circle(dc, 7.0, WOOD.darkened(0.15))
-	p.draw_rect(Rect2(dc.x - 7, dc.y, 14, 10), WOOD.darkened(0.15))
-	p.draw_line(Vector2(dc.x, dc.y - 7), Vector2(dc.x, 0), WOOD_D, 1.0)
-	p.draw_circle(dc + Vector2(4, 2), 1.0, GOLD)
-	# 문 옆 매달린 등불
-	var sway := sin(t * 1.4) * 1.2
-	p.draw_line(Vector2(dc.x + 12, -24), Vector2(dc.x + 12 + sway, -20), Color("#5a4a30"), 1.0)
-	_pod(p, Vector2(dc.x + 12 + sway, -20), 0.6, 0.8 + 0.2 * sin(t * 2.0))
+	if p.static_part():
+		# 둥근 문 (아래)
+		p.draw_circle(dc, 9.0, WOOD_D)
+		p.draw_rect(Rect2(dc.x - 9, dc.y, 18, 10), WOOD_D)
+		p.draw_circle(dc, 7.0, WOOD.darkened(0.15))
+		p.draw_rect(Rect2(dc.x - 7, dc.y, 14, 10), WOOD.darkened(0.15))
+		p.draw_line(Vector2(dc.x, dc.y - 7), Vector2(dc.x, 0), WOOD_D, 1.0)
+		p.draw_circle(dc + Vector2(4, 2), 1.0, GOLD)
+	if p.anim_part():
+		# 문 옆 매달린 등불
+		var sway := sin(t * 1.4) * 1.2
+		p.draw_line(Vector2(dc.x + 12, -24), Vector2(dc.x + 12 + sway, -20), Color("#5a4a30"), 1.0)
+		_pod(p, Vector2(dc.x + 12 + sway, -20), 0.6, 0.8 + 0.2 * sin(t * 2.0))
 
 
 static func _hanging_bridge(p: Prop) -> void:

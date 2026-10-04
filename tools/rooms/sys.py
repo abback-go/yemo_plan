@@ -2,7 +2,7 @@
 roomgen.py가 불러온다. 학교 지도 칸: 1장이 x 0~7, y 0~5 일부를 씀 → 빈 칸에 둔다.
   s_windtower (0,3) 1x3 · s_ashstacks (1,4) 2x2 · s_phoenix (3,4) 1x1 · s_duel (3,5) 2x1 · s_observatory (6,-1) 1x1
 """
-from roomgen import Room, room, overlay, windows  # noqa: F401
+from roomgen import Room, room, overlay, windows, school_room  # noqa: F401
 
 # ─── 1장 방에 덧붙임 (지형은 그대로) ─────────────────────
 
@@ -33,10 +33,7 @@ overlay("s_archive", "door", id="ash", x=23, y=19, to="s_ashstacks", to_id="in",
         cond="cls_phoenix_sign")
 
 
-def tower_room(rid, title, theme, music, cell, cells, dark=0.0, ceil=2, floor=4):
-    r = Room(rid, title, "school", theme, music, cell, cells, dark)
-    r.box(wall=1, floor=floor, ceil=ceil)
-    return r
+tower_room = school_room  # 수업 방도 학교 지역의 사방 막힌 방 (1장 학교 방과 같은 상자)
 
 
 # ═══════════════════════════════════════════════════════════

@@ -1,5 +1,6 @@
 extends RoomData
 ## 자동 생성: tools/roomgen.py — 직접 고치지 말고 생성기를 고친 뒤 다시 만들 것
+## 정의: tools/roomgen.py s_archive()
 
 
 func _init() -> void:
@@ -49,5 +50,6 @@ func _init() -> void:
 		{t = "prop", kind = "magic_circle", x = 18, y = 19, w = 6, col = Color("#8ad0ff")},
 		{t = "light", x = 18, y = 16, r = 5, color = Color("#8ad0ff")},
 		{t = "prop", kind = "candles", x = 22, y = 19},
+		# 덧붙임(overlay): tools/rooms/sys.py
 		{t = "door", id = "ash", x = 23, y = 19, to = "s_ashstacks", to_id = "in", style = "iron", label = "재의 서고", cond = "cls_phoenix_sign"},
 	]

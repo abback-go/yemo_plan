@@ -14,7 +14,7 @@ from roomgen import Room, room, overlay — 1장 roomgen.py와 같은 문법.
   dev_st_fest    축제 저녁 (festival, 축제 소품 진열)
 2단계에서 st_*·r5_* 실제 방과 다른 장 방 overlay를 이 파일에 더한다.
 """
-from roomgen import Room, room, overlay  # noqa: F401
+from roomgen import Room, room, overlay, boxed_room, hanging_row  # noqa: F401
 
 F = 19  # 바닥 윗면 행 (1칸 방 기준)
 
@@ -206,9 +206,7 @@ def out_room(rid, title, area, theme, music, cell, cells, dark=0.0, floor=F):
 
 
 def in_room(rid, title, area, theme, music, cell, cells, dark=0.0, ceil=1, floor=4):
-    r = Room(rid, title, area, theme, music, cell, cells, dark)
-    r.box(wall=1, floor=floor, ceil=ceil)
-    return r
+    return boxed_room(rid, title, area, theme, music, cell, cells, dark, ceil, floor)
 
 
 def star_door(r, eid, x, y, to, to_id, label, col="tower", open_if="", done_if="", lock="", lock_msg="", cond=""):
@@ -235,8 +233,7 @@ def memory(r, n, x, y):
 
 
 def lanterns(r, xs, y=1, ln=3):
-    for i, x in enumerate(xs):
-        r.add("prop", kind="st_star_lantern", x=x, y=y, len=ln + (i % 2))
+    hanging_row(r, "st_star_lantern", xs, y, ln, 2)
 
 
 def stars(r, group, pts, done_flag, cond=""):

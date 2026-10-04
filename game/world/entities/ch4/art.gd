@@ -84,23 +84,32 @@ static func column(c: CanvasItem, x: float, top: float, bottom: float, w: float,
 
 
 ## 얼굴 없는 루멘 석상 (해의 관). pose 0: 가슴 앞에 해 원반 / 1: 한 손을 들어 해 원반을 받쳐 듦
-static func lumen_statue(c: CanvasItem, base: Vector2, h: float, body: Color, rim: Color, gold: Color, pose := 0, rim_side := 1.0) -> void:
+static func lumen_statue(c: CanvasItem, base: Vector2, h: float, body: Color, rim: Color, gold: Color, pose := 0, rim_side := 1.0, part := 0) -> void:
 	var sh_y := base.y - h * 0.78
 	var sh_w := h * 0.13
 	var hem_w := h * 0.2
+	# part (소품 정적/움직임 층 나누기, ch4/props.gd tp_statue): 0 전부 · 1 금빛과 상관없는 앞부분(받침·로브·주름)만 · 2 나머지만.
+	# 금빛(gold)은 알파가 움직이므로 2에 속한다. 받침 금선은 로브·주름과 겹치지 않아 뒤로 미뤄 그려도 같은 그림.
 	# 받침
-	c.draw_rect(Rect2(base.x - hem_w * 1.3, base.y - h * 0.06, hem_w * 2.6, h * 0.06), body.darkened(0.15))
-	c.draw_rect(Rect2(base.x - hem_w * 1.3, base.y - h * 0.06, hem_w * 2.6, maxf(h * 0.008, 1.0)), gold.darkened(0.2))
-	# 로브 (어깨 → 옷자락)
-	var robe := PackedVector2Array([
-		Vector2(base.x - sh_w, sh_y), Vector2(base.x + sh_w, sh_y),
-		Vector2(base.x + hem_w, base.y - h * 0.06), Vector2(base.x - hem_w, base.y - h * 0.06),
-	])
-	c.draw_colored_polygon(robe, body)
-	# 옷 주름
-	for i in 4:
-		var fx := base.x + (i - 1.5) * hem_w * 0.42
-		c.draw_line(Vector2(base.x + (i - 1.5) * sh_w * 0.4, sh_y + h * 0.08), Vector2(fx, base.y - h * 0.07), body.darkened(0.18), maxf(1.0, h * 0.008))
+	if part != 2:
+		c.draw_rect(Rect2(base.x - hem_w * 1.3, base.y - h * 0.06, hem_w * 2.6, h * 0.06), body.darkened(0.15))
+	if part == 0:
+		c.draw_rect(Rect2(base.x - hem_w * 1.3, base.y - h * 0.06, hem_w * 2.6, maxf(h * 0.008, 1.0)), gold.darkened(0.2))
+	if part != 2:
+		# 로브 (어깨 → 옷자락)
+		var robe := PackedVector2Array([
+			Vector2(base.x - sh_w, sh_y), Vector2(base.x + sh_w, sh_y),
+			Vector2(base.x + hem_w, base.y - h * 0.06), Vector2(base.x - hem_w, base.y - h * 0.06),
+		])
+		c.draw_colored_polygon(robe, body)
+		# 옷 주름
+		for i in 4:
+			var fx := base.x + (i - 1.5) * hem_w * 0.42
+			c.draw_line(Vector2(base.x + (i - 1.5) * sh_w * 0.4, sh_y + h * 0.08), Vector2(fx, base.y - h * 0.07), body.darkened(0.18), maxf(1.0, h * 0.008))
+	if part == 1:
+		return
+	if part == 2:
+		c.draw_rect(Rect2(base.x - hem_w * 1.3, base.y - h * 0.06, hem_w * 2.6, maxf(h * 0.008, 1.0)), gold.darkened(0.2))
 	# 테두리 빛 (빛을 받는 쪽)
 	var e0 := Vector2(base.x + sh_w * rim_side, sh_y)
 	var e1 := Vector2(base.x + hem_w * rim_side, base.y - h * 0.06)
