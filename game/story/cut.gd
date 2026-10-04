@@ -253,6 +253,44 @@ func marker(id: String) -> Vector2:
 	return player.global_position
 
 
+## 세라가 선 자리 (타일 좌표, 소수). 인물을 세라 곁에 세울 때 기준
+func player_tile() -> Vector2:
+	return player.global_position / 16.0
+
+
+## 방 인물(Npc) — 다른 등장물(너울·actor)이면 null
+func npc(who: String) -> Npc:
+	return actor(who) as Npc
+
+
+## 인물의 위치 (없으면 세라 위치)
+func actor_pos(who: String) -> Vector2:
+	var a := actor(who)
+	if a is Node2D:
+		return (a as Node2D).global_position
+	return player.global_position
+
+
+## 인물(Npc)의 자세 (그림 Pose 이름: idle·kneel·cast… 전용 그림은 그 파일의 이름). Npc가 아니면 무시
+func pose(who: String, p: String) -> void:
+	var n := npc(who)
+	if n and n.visual:
+		n.visual.set_pose(p)
+
+
+## 세라 곁(같은 높이, dx 타일 옆)에 인물을 세움. 세라 쪽을 바라본다
+func beside(who: String, dx: float) -> Npc:
+	var p := player_tile()
+	return spawn_npc(who, p.x + dx, p.y, -1 if dx > 0.0 else 1)
+
+
+## 빛 입자 한 번 (가산 합성, col에서 투명으로 사라짐). opts는 Fx.burst와 같음 (spread·speed_min·lifetime …)
+func burst(pos: Vector2, amount: int, col: Color, opts := {}) -> CPUParticles2D:
+	var o := {gradient = Palette.fade_gradient(col), add = true}
+	o.merge(opts, true)
+	return Fx.burst(pos, amount, o)
+
+
 # ─── 진행 ───────────────────────────────────────────────
 
 func flag(key: String, value: Variant = true) -> void:
@@ -263,15 +301,19 @@ func has(key: String) -> bool:
 	return GameState.has_flag(key)
 
 
+## 선 플래그 수 (모으기 퀘스트: 씨앗·책·촛불 …). 대본 밖에서도 Cut.count([...])
+static func count(flags: Array) -> int:
+	var n := 0
+	for k in flags:
+		if GameState.has_flag(String(k)):
+			n += 1
+	return n
+
+
 ## 마법·능력 습득 연출 (확인할 때까지 멈춤)
 func learn(ability: String) -> void:
 	GameState.unlock_ability(ability)
-	var info: Array = {
-		"storm": ["화염 폭풍", "S (패드 RB)", "앞쪽으로 몰아치는 불길. 가까운 적을 날려 보내고\n돌진하는 적을 끊어 낸다."],
-		"double_jump": ["부양", "공중에서 Z (패드 A)", "공중에서 한 번 더 뛰어오른다.\n높은 곳에 닿을 수 있다."],
-		"fox_window": ["여우창문", "D (패드 Y)", "손으로 여우 모양 창을 만들어 들여다본다.\n둔갑한 것의 참모습 — 환영 벽과 숨은 발판이 드러난다."],
-		"fox_mode": ["빙의 — 여우 모드", "폭주 게이지가 가득 차면 자동", "너울이 폭주를 받아 다스린다. 12초 동안 푸른 여우불의 기술.\n쓰고 나면 너울의 기운이 다시 차오를 때까지 기다려야 한다."],
-	}.get(ability, [ability, "", ""])
+	var info := Spells.ability_text(ability) # [이름, 조작, 설명] — 문구는 core/spells.gd ABILITY_TEXT
 	await world.notice.ability_get(info[0], info[1], info[2])
 
 
@@ -354,8 +396,7 @@ func spawn_enemy(kind: String, x_t: float, y_t: float, eid: String, props := {})
 	en.facing = -1
 	world.room.add_entity(en)
 	world.room.enemies.append(en)
-	Fx.burst(en.position + Vector2(0, -20), 30, {spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.6,
-		gradient = Palette.fade_gradient(Color(0.75, 0.45, 1.0)), add = true})
+	burst(en.position + Vector2(0, -20), 30, Color(0.75, 0.45, 1.0), {spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.6})
 	return en
 
 
@@ -446,6 +487,16 @@ func ally(kind: String) -> Ally:
 	return world.ally(kind)
 
 
+## 동료가 없으면 합류시키고, 이미 있으면 그대로 둔다(x_t를 주면 그 자리로만 옮김 — ally_join과 달리 세라 곁으로 다시 놓지 않음)
+func ensure_ally(kind: String, x_t := INF, y_t := INF) -> Ally:
+	var a := ally(kind)
+	if a == null:
+		a = ally_join(kind, x_t, y_t)
+	elif x_t != INF:
+		a.global_position = Vector2(x_t * 16.0 + 8.0, y_t * 16.0)
+	return a
+
+
 func quest_start(id: String) -> void:
 	Quests.start(id)
 
@@ -464,6 +515,7 @@ func quest_done(id: String) -> void:
 	await wait(1.4)
 
 
+## 보상 알림 (숫자는 Rewards — core/rewards.gd). 퀘스트 보상은 quest_done이 한꺼번에 준다
 func give_stones(n: int) -> void:
 	Spells.add_stones(n)
 	world.notice.item_get("마도석 %d개" % n, "가진 마도석 %d개. 마법서에서 마법 레벨을 올릴 수 있다." % Spells.stones(), "stone")
@@ -471,24 +523,19 @@ func give_stones(n: int) -> void:
 
 
 func give_feather() -> void:
-	GameState.max_hp += 1
-	GameState.hp = GameState.max_hp
-	player.restore_from_state()
+	Rewards.add_max_hp(1)
 	world.notice.item_get("수호의 깃털", "최대 체력이 1 늘었다.", "feather")
 	await wait(1.0)
 
 
 func give_heart() -> void:
-	GameState.max_hp += 1
-	GameState.hp = GameState.max_hp
-	player.restore_from_state()
+	Rewards.add_max_hp(1)
 	world.notice.item_get("든든한 한 끼", "최대 체력이 1 늘었다.", "food")
 	await wait(1.0)
 
 
 func give_potion_slot() -> void:
-	GameState.potions_max += 1
-	GameState.potions = GameState.potions_max
+	Rewards.add_potion_slot(1)
 	world.notice.item_get("물약 주머니", "물약을 하나 더 가지고 다닐 수 있다. (%d개)" % GameState.potions_max, "potion")
 	await wait(1.0)
 
@@ -503,8 +550,8 @@ func tails(n: int) -> void:
 	if pet:
 		for i in range(before, n):
 			Fx.ring(pet.global_position + Vector2(0, -8), 4.0, 40.0, Color(0.55, 0.85, 1.0), 0.5, 2.0)
-			Fx.burst(pet.global_position + Vector2(0, -8), 24, {spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.6,
-				gradient = Palette.fade_gradient(Color(0.6, 0.88, 1.0)), add = true})
+			burst(pet.global_position + Vector2(0, -8), 24, Color(0.6, 0.88, 1.0),
+				{spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.6})
 			await wait(0.45)
 	world.notice.item_get("너울의 꼬리 %d개" % n, "너울의 힘이 조금 돌아왔다. 여우 모드가 %d초로 늘고 기운이 더 빨리 찬다." % int(player.fox_duration()), "fox")
 	await wait(1.2)
@@ -522,8 +569,7 @@ func spell_learned(id: String) -> void:
 		GameState.unlock_ability(ab)
 	Spells.auto_equip(id)
 	Music.jingle("jingle_spell")
-	var keys: String = {"wings": "공중에서 Z를 다시 누르고 있기", "ward": "마법서에서 A·S 칸에 끼우기", "meteor": "F (패드 R3)", "phoenix": "F (패드 R3)"}.get(id, "")
-	await world.notice.ability_get(String(inf.get("name", id)) + " — " + Spells.grade_name(id) + " 마법", String(keys), String(inf.get("desc", "")))
+	await world.notice.ability_get(String(inf.get("name", id)) + " — " + Spells.grade_name(id) + " 마법", String(inf.get("keys", "")), String(inf.get("desc", "")))
 
 
 ## 엔딩 크레디트 (점프·공격을 누르고 있으면 빨리)

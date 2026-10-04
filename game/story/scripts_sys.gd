@@ -4,16 +4,6 @@ extends RefCounted
 ## 인물 말투: 오필리아 "~란다~" 몽롱 · 엠버린 따뜻하고 엄격 · 베로니카 냉철하고 짧게 · 그레타 과묵 · 아스트리드 존댓말(가끔 장난).
 
 
-func _ptile(c: Cut) -> Vector2:
-	return c.player.global_position / 16.0
-
-
-## 화면 아래쪽 바닥(F)을 찾지 않고 세라 곁에 인물을 세움 (세라와 같은 높이)
-func _beside(c: Cut, who: String, dx: float) -> Npc:
-	var p := _ptile(c)
-	return c.spawn_npc(who, p.x + dx, p.y, -1 if dx > 0.0 else 1)
-
-
 # ─── 1장 끝 기록으로 이어하기 ────────────────────────────
 
 ## 예전 기록(1장 데모 끝 화면에서 이어한 것)을 2장으로 넘김
@@ -93,7 +83,7 @@ func cls_wings_tower_done(c: Cut) -> void:
 	c.sfx("bell", 2.0)
 	c.flash(Color(0.85, 0.8, 1.0, 0.5), 0.5)
 	await c.wait(0.8)
-	var p := _ptile(c)
+	var p := c.player_tile()
 	c.spawn_npc("ophelia", p.x + 3.0, p.y - 8.0, -1)
 	await c.move("ophelia", p.x + 3.0, p.y, 1.4, Tween.TRANS_QUAD)
 	await c.say("ophelia", "띵동~ 종이 울렸네~ 합격이란다~", "happy")
@@ -514,8 +504,7 @@ func _egg_defense(c: Cut) -> void:
 	c.flash(Color(1.0, 0.6, 0.2, 0.9), 0.8)
 	if is_instance_valid(egg):
 		egg.queue_free()
-	Fx.burst(Vector2(20 * 16 + 8, 19 * 16 - 14), 60, {spread = 180.0, speed_min = 60.0, speed_max = 260.0, lifetime = 0.9,
-		gradient = Palette.fade_gradient(Palette.FIRE_HOT), add = true})
+	c.burst(Vector2(20 * 16 + 8, 19 * 16 - 14), 60, Palette.FIRE_HOT, {spread = 180.0, speed_min = 60.0, speed_max = 260.0, lifetime = 0.9})
 	await c.say("sera", "앗 뜨— …뜨겁지 않아?", "surprised")
 	await c.say("neoul", "세라! 불이 너를— 세라!!", "angry")
 	c.close_box()
@@ -527,7 +516,7 @@ func _shadow_fight(c: Cut) -> void:
 	c.tint(Color(1.0, 0.35, 0.1, 0.22), 1.0)
 	c.vignette(0.5)
 	await c.wait(1.0)
-	var p := _ptile(c)
+	var p := c.player_tile()
 	var sx := 30.0 if p.x < 20.0 else 9.0
 	var b := c.spawn_enemy("shadow_sera", sx, 19.0, "shadow_sera", {"engaged": false, "respawns": true})
 	if b == null:
@@ -558,8 +547,8 @@ func _shadow_fight(c: Cut) -> void:
 	c.vignette(0.0)
 	await c.say("shadow_sera", "……그럼, 같이 가.")
 	c.close_box()
-	Fx.burst(Vector2(at.x * 16.0 + 8.0, at.y * 16.0 - 16.0), 50, {spread = 180.0, speed_min = 30.0, speed_max = 160.0, lifetime = 1.0,
-		gradient = Palette.fade_gradient(Color(1.0, 0.85, 0.5)), add = true, gravity = Vector2(0, -60)})
+	c.burst(Vector2(at.x * 16.0 + 8.0, at.y * 16.0 - 16.0), 50, Color(1.0, 0.85, 0.5),
+		{spread = 180.0, speed_min = 30.0, speed_max = 160.0, lifetime = 1.0, gravity = Vector2(0, -60)})
 	c.sfx("phoenix_cry", 2.0)
 	c.flash(Color(1.0, 0.85, 0.5, 0.8), 1.0)
 	await c.wait(1.0)

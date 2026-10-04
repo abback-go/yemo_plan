@@ -37,29 +37,6 @@ func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
 
-func _pose(c: Cut, who: String, pose: String) -> void:
-	var a := c.actor(who)
-	if a is Npc:
-		(a as Npc).visual.set_pose(pose)
-
-
-func _npc_pos(c: Cut, who: String) -> Vector2:
-	var a := c.actor(who)
-	if a is Node2D:
-		return (a as Node2D).global_position
-	return c.player.global_position
-
-
-## 동료가 없으면 부른다 (x_t가 INF면 세라 곁)
-func _join(c: Cut, kind: String, x_t := INF, y_t := INF) -> Ally:
-	var a := c.ally(kind)
-	if a == null:
-		a = c.ally_join(kind, x_t, y_t)
-	elif x_t != INF:
-		a.global_position = Vector2(x_t * 16.0 + 8.0, y_t * 16.0)
-	return a
-
-
 func _leave_all(c: Cut) -> void:
 	for k in TRIAL_ALLIES:
 		c.ally_leave(k)
@@ -322,16 +299,16 @@ func st_evening(c: Cut) -> void:
 	c.shake(0.15, 1.0)
 	c.sfx("sky_crack", 4.0)
 	c.flash(Color(1, 1, 1, 0.85), 0.6)
-	Fx.burst(Vector2(62 * 16.0, 6 * 16.0), 80, {spread = 180.0, speed_min = 80.0, speed_max = 320.0, lifetime = 1.2,
-		gradient = Palette.fade_gradient(Color(0.85, 0.9, 1.0)), size_min = 2.0, size_max = 5.0, gravity = Vector2(0, 200), add = true})
+	c.burst(Vector2(62 * 16.0, 6 * 16.0), 80, Color(0.85, 0.9, 1.0),
+		{spread = 180.0, speed_min = 80.0, speed_max = 320.0, lifetime = 1.2, size_min = 2.0, size_max = 5.0, gravity = Vector2(0, 200)})
 	await c.narrate("쩌억 — 하는 소리와 함께, 학교를 백 년 동안 지켜 온 큰 결계가 유리처럼 갈라졌다.")
 	c.close_box()
 	c.sfx("crowd", 2.0)
 	c.spawn_npc("lyra", 62.0, 3.0, -1)
-	_pose(c, "lyra", "cast")
+	c.pose("lyra", "cast")
 	c.music("lyra", 2.0)
 	await c.move("lyra", 62.0, 11.0, 2.4)
-	_pose(c, "lyra", "idle")
+	c.pose("lyra", "idle")
 	await c.say("lyra", "안녕, 꼬마 아스트리드. …많이 늙었네.", "happy")
 	await c.say("astrid", "선배는 하나도 안 변했군요.")
 	await c.camera_back(0.8)
@@ -345,7 +322,7 @@ func st_evening(c: Cut) -> void:
 	await c.say("lyra", "안녕하세요, 여우신님. 꼬리가 넷이나 돌아왔네요. 다행이에요.", "happy")
 	c.close_box()
 	# 교장의 진짜 힘 — 그래도 진다
-	_pose(c, "astrid", "cast")
+	c.pose("astrid", "cast")
 	await c.say("astrid", "학생들은 물러나세요.")
 	await c.say("astrid", "…백 년 동안 결계를 떠받치던 손이, 오랜만에 가볍군요.")
 	c.close_box()
@@ -359,11 +336,11 @@ func st_evening(c: Cut) -> void:
 	await c.say("lyra", "와아. 그거 선생님 마법이지? 하늘을 셋으로 가르던.", "surprised")
 	await c.say("lyra", "그런데 아스트리드. 그 손, 떨리고 있어.", "sad")
 	c.close_box()
-	_pose(c, "lyra", "cast")
+	c.pose("lyra", "cast")
 	c.sfx("parry", 2.0)
 	c.flash(Color(1.0, 0.95, 0.8, 0.7), 0.3)
 	await c.wait(0.3)
-	_pose(c, "astrid", "kneel")
+	c.pose("astrid", "kneel")
 	c.shake(0.2, 0.5)
 	await c.say("astrid", "……!", "tired")
 	await c.say("sera", "교장 선생님!", "surprised")
@@ -376,18 +353,18 @@ func st_evening(c: Cut) -> void:
 	await c.say("lyra", "제국의 검, 세계수의 눈, 빛의 수호자. 다들 와 줬구나. 고마워.", "happy")
 	await c.say("lyra", "…그래도 지금은, 앉아 있어 줘.", "serious")
 	c.close_box()
-	_pose(c, "lyra", "special")
+	c.pose("lyra", "special")
 	c.sfx("star_burst", 0.0)
 	c.shake(0.4, 0.6)
 	c.flash(Color(1.0, 0.95, 0.8, 0.5), 0.5)
 	for who in ["leonie", "elarien", "aurelia", "isolde", "emberlyn"]:
-		_pose(c, who, "kneel")
-		var p := _npc_pos(c, who)
+		c.pose(who, "kneel")
+		var p := c.actor_pos(who)
 		Fx.ring(p + Vector2(0, -12), 4.0, 26.0, StArt.STAR, 0.5, 2.0)
 	await c.say("leonie", "몸이… 움직이지 않는다…", "angry")
 	await c.say("aurelia", "이건… 신성력이 아닙니다. 별 하나의 무게가… 그대로.", "surprised")
 	c.close_box()
-	_pose(c, "lyra", "idle")
+	c.pose("lyra", "idle")
 	await c.say("lyra", "무서워하지 마. 오늘은 인사만 하러 온 거야.", "happy")
 	await c.say("lyra", "네 곳에 별을 내려 두었어. 제국, 세계수, 대신전, 그리고 이 학교의 정원.")
 	await c.say("lyra", "별마다 시련이 기다려. 각자의 땅에서, 각자의 강함으로.")
@@ -401,15 +378,14 @@ func st_evening(c: Cut) -> void:
 	await c.say("lyra", "이기면 전부 알려 줄게. 약속해.", "serious")
 	await c.say("lyra", "나를 넘어 보렴, 나의 별.", "happy")
 	c.close_box()
-	_pose(c, "lyra", "special")
+	c.pose("lyra", "special")
 	c.sfx("star_burst", 2.0)
 	c.flash(Color(1.0, 0.98, 0.9, 0.8), 0.6)
-	Fx.burst(Vector2(62 * 16.0, 10 * 16.0), 60, {spread = 180.0, speed_min = 60.0, speed_max = 260.0, lifetime = 1.0,
-		gradient = Palette.fade_gradient(StArt.STAR), add = true})
+	c.burst(Vector2(62 * 16.0, 10 * 16.0), 60, StArt.STAR, {spread = 180.0, speed_min = 60.0, speed_max = 260.0, lifetime = 1.0})
 	c.hide_actor("lyra")
 	Music.stop(2.0)
 	for who in ["leonie", "elarien", "aurelia", "isolde", "emberlyn"]:
-		_pose(c, who, "idle")
+		c.pose(who, "idle")
 	await c.wait(1.0)
 	await c.approach("astrid", 1.5, 70.0)
 	await c.say("sera", "교장 선생님! 괜찮아요?", "sad")
@@ -925,12 +901,12 @@ func enter_st_trial_k1(c: Cut) -> void:
 	if c.has("st_key_k"):
 		return
 	if c.has("st_k_met"):
-		_join(c, "leonie")
+		c.ensure_ally("leonie")
 		return
 	c.flag("st_k_met")
 	c.lock()
 	c.music("kingdom_night")
-	_join(c, "leonie", 12.0, 19.0)
+	c.ensure_ally("leonie", 12.0, 19.0)
 	await c.wait(0.5)
 	await c.say("leonie", "왔군, 세라.")
 	await c.say("leonie", "별빛 기사가 거리를 걷는다. 시민은 모두 집 안에 들였다. …내 검을 흉내 내는 놈들이다.")
@@ -946,7 +922,7 @@ func enter_st_trial_k1(c: Cut) -> void:
 func enter_st_trial_k(c: Cut) -> void:
 	if c.has("st_key_k"):
 		return
-	_join(c, "leonie")
+	c.ensure_ally("leonie")
 	if not await _close_arena(c, "st_k_fight", 5.0):
 		return
 	c.lock()
@@ -989,7 +965,7 @@ func enter_st_trial_e1(c: Cut) -> void:
 	if c.has("st_key_e"):
 		return
 	var cover := c.marker("cover") / 16.0
-	var a := _join(c, "elarien", cover.x - 0.5, cover.y)
+	var a := c.ensure_ally("elarien", cover.x - 0.5, cover.y)
 	a.mode = "hold"
 	if c.has("st_e_met"):
 		return
@@ -1011,7 +987,7 @@ func enter_st_trial_e(c: Cut) -> void:
 	if c.has("st_key_e"):
 		return
 	var cover := c.marker("cover") / 16.0
-	var a := _join(c, "elarien", cover.x - 0.5, cover.y)
+	var a := c.ensure_ally("elarien", cover.x - 0.5, cover.y)
 	a.mode = "hold"
 	if not await _close_arena(c, "st_e_fight", 4.0):
 		return
@@ -1055,12 +1031,12 @@ func enter_st_trial_tp1(c: Cut) -> void:
 	if c.has("st_key_tp"):
 		return
 	if c.has("st_tp_met"):
-		_join(c, "aurelia")
+		c.ensure_ally("aurelia")
 		return
 	c.flag("st_tp_met")
 	c.lock()
 	c.music("temple")
-	_join(c, "aurelia", 12.0, 19.0)
+	c.ensure_ally("aurelia", 12.0, 19.0)
 	await c.wait(0.5)
 	await c.say("aurelia", "왔군요, 세라피나. 회랑의 별빛 창기사는 제 창을 흉내 냅니다.")
 	await c.say("aurelia", "바닥의 금빛 띠가 보이면 돌진이 옵니다. 돌진은 직선입니다. 기둥 뒤로.")
@@ -1074,7 +1050,7 @@ func enter_st_trial_tp1(c: Cut) -> void:
 func enter_st_trial_tp(c: Cut) -> void:
 	if c.has("st_key_tp"):
 		return
-	_join(c, "aurelia")
+	c.ensure_ally("aurelia")
 	if not await _close_arena(c, "st_tp_fight", 5.0):
 		return
 	c.lock()
@@ -1117,8 +1093,8 @@ func enter_st_trial_tp(c: Cut) -> void:
 func enter_st_trial_s1(c: Cut) -> void:
 	if c.has("st_key_s"):
 		return
-	_join(c, "isolde")
-	_join(c, "emberlyn")
+	c.ensure_ally("isolde")
+	c.ensure_ally("emberlyn")
 	if c.has("st_s_met"):
 		return
 	c.flag("st_s_met")
@@ -1144,8 +1120,8 @@ func st_s1_done(c: Cut) -> void:
 func enter_st_trial_s(c: Cut) -> void:
 	if c.has("st_key_s"):
 		return
-	_join(c, "isolde")
-	_join(c, "emberlyn")
+	c.ensure_ally("isolde")
+	c.ensure_ally("emberlyn")
 	if c.has("st_s2_seen"):
 		return
 	c.flag("st_s2_seen")
@@ -1382,21 +1358,20 @@ func st_t5_astrid(c: Cut) -> void:
 	c.lock()
 	c.sfx("star_twinkle", 0.0)
 	c.spawn_npc("astrid", 70.0, 19.0, -1)
-	Fx.burst(c.marker("astrid_in") + Vector2(64, -20), 30, {spread = 180.0, speed_min = 30.0, speed_max = 120.0, lifetime = 0.6,
-		gradient = Palette.fade_gradient(StArt.STAR), add = true})
+	c.burst(c.marker("astrid_in") + Vector2(64, -20), 30, StArt.STAR, {spread = 180.0, speed_min = 30.0, speed_max = 120.0, lifetime = 0.6})
 	await c.wait(0.4)
 	await c.say("astrid", "여기까지 왔군요, 세라피나 양.")
 	await c.say("sera", "교장 선생님? 몸은…", "surprised")
 	await c.say("astrid", "괜찮다고는 못 하겠네요. 그래도 이 봉인은 제 몫이에요.")
 	await c.say("astrid", "선배의 봉인은 선배의 별빛으로만 열리죠. 그런데— 저도 같은 선생님께 배운 별이 있거든요.", "wink")
 	c.close_box()
-	_pose(c, "astrid", "cast")
+	c.pose("astrid", "cast")
 	c.sfx("star_burst", 2.0)
 	c.flash(Color(0.85, 0.85, 1.0, 0.6), 0.5)
 	Fx.ring(Vector2(72 * 16.0, 16 * 16.0), 4.0, 90.0, StArt.STAR, 0.7, 3.0)
 	c.flag("st_t5_open")
 	await c.wait(0.8)
-	_pose(c, "astrid", "idle")
+	c.pose("astrid", "idle")
 	await c.say("astrid", "선배는 강해요. 저보다, 그 누구보다.")
 	await c.say("astrid", "하지만 백 년 동안, 그 사람은 늘 혼자서 무언가를 견디고 있었어요. 저는 끝내 그게 뭔지 묻지 못했고요.", "sad")
 	await c.say("astrid", "…부탁해요. 이기세요. 그리고 선배의 이야기를 들어 주세요.")
@@ -1809,8 +1784,7 @@ func r5_despair(c: Cut) -> void:
 		c.sfx("shoot_heavy", 0.0)
 		var from := c.player.center()
 		StStrike.spawn(from, "beam", Vector2(0, 4), 0.01, {"to": target + Vector2(0, k * 10.0), "damage": 0, "style": "fire", "hold": 0.08, "fade": 0.3})
-		Fx.burst(target + Vector2(0, k * 10.0), 18, {spread = 180.0, speed_min = 30.0, speed_max = 120.0, lifetime = 0.4,
-			gradient = Palette.fade_gradient(Color(1.0, 0.6, 0.3)), add = true})
+		c.burst(target + Vector2(0, k * 10.0), 18, Color(1.0, 0.6, 0.3), {spread = 180.0, speed_min = 30.0, speed_max = 120.0, lifetime = 0.4})
 		if giant and is_instance_valid(giant):
 			giant.take_hit(Hit.make(60, &"bolt", target + Vector2(0, k * 10.0)))
 		await c.wait(0.45)
@@ -1823,7 +1797,7 @@ func r5_despair(c: Cut) -> void:
 	c.spawn_npc("mirabel", 20.0, 19.0, 1)
 	c.spawn_npc("student_c", 18.0, 19.0, 1)
 	await c.walk("astrid", 30.0, 80.0)
-	_pose(c, "astrid", "shield")
+	c.pose("astrid", "shield")
 	await c.say("astrid", "학생들은 제 뒤로. 세라피나 양도!")
 	c.close_box()
 	c.sfx("ward", 4.0)
@@ -1851,9 +1825,8 @@ func r5_despair(c: Cut) -> void:
 	c.sfx("crumble", 6.0)
 	if is_instance_valid(shield):
 		shield.queue_free()
-	Fx.burst(dome + Vector2(0, -60), 60, {spread = 180.0, speed_min = 60.0, speed_max = 240.0, lifetime = 0.9,
-		gradient = Palette.fade_gradient(StArt.STAR), add = true})
-	_pose(c, "astrid", "down")
+	c.burst(dome + Vector2(0, -60), 60, StArt.STAR, {spread = 180.0, speed_min = 60.0, speed_max = 240.0, lifetime = 0.9})
+	c.pose("astrid", "down")
 	await c.say("astrid", "세라피나 양… 미안해요… 조금만… 쉬었다가…", "tired")
 	await c.say("sera", "교장 선생님!!", "surprised")
 	c.close_box()
@@ -1963,7 +1936,7 @@ func enter_r5_courtyard_rise(c: Cut) -> void:
 	_ensure_fox(c)
 	if c.has("st_rise"):
 		for k in TRIAL_ALLIES:
-			_join(c, k)
+			c.ensure_ally(k)
 		return
 	c.lock()
 	c.hud(false)
@@ -2009,16 +1982,15 @@ func enter_r5_courtyard_rise(c: Cut) -> void:
 	c.close_box()
 	await c.wait(0.4)
 	c.spawn_npc("astrid", 20.0, 19.0, 1)
-	_pose(c, "astrid", "kneel")
+	c.pose("astrid", "kneel")
 	await c.say("astrid", "…세라피나 양. 그 빛, 정말 따뜻하네요.", "tired")
 	await c.say("sera", "교장 선생님! 깨어나셨어요?!", "surprised")
 	await c.say("astrid", "저에게도 마지막 한 번쯤은 날 수 있는 힘이 남아 있어요.", "tired")
 	await c.say("astrid", "가장 큰 거신의 머리 위에서 기다리겠어요. 거기서— 당신을 하늘까지 쏘아 올려 드리죠.", "wink")
 	c.close_box()
 	if c.actor("astrid"):
-		var ap := _npc_pos(c, "astrid")
-		Fx.burst(ap + Vector2(0, -20), 30, {spread = 180.0, speed_min = 40.0, speed_max = 160.0, lifetime = 0.6,
-			gradient = Palette.fade_gradient(StArt.STAR), add = true})
+		var ap := c.actor_pos("astrid")
+		c.burst(ap + Vector2(0, -20), 30, StArt.STAR, {spread = 180.0, speed_min = 40.0, speed_max = 160.0, lifetime = 0.6})
 	c.hide_actor("astrid")
 	await c.say("neoul", "거신들은 지금 푸른 불에 졸고 있느니라. 그 몸을 밟고 올라가거라!")
 	await c.say("sera", "다들— 가자!", "angry")
@@ -2027,7 +1999,7 @@ func enter_r5_courtyard_rise(c: Cut) -> void:
 	for who in ["pippa", "leonie", "elarien", "aurelia", "isolde", "emberlyn"]:
 		c.hide_actor(who)
 	for k in TRIAL_ALLIES:
-		_join(c, k)
+		c.ensure_ally(k)
 	c.flag("st_rise")
 	c.letterbox(false)
 	c.hud(true)
@@ -2044,7 +2016,7 @@ func r5_rise_go(c: Cut) -> void:
 func enter_st_colossus_1(c: Cut) -> void:
 	_ensure_fox(c)
 	for k in TRIAL_ALLIES:
-		_join(c, k)
+		c.ensure_ally(k)
 	if c.has("st_c1_clear"):
 		return
 	if not c.has("st_c1_seen"):
@@ -2067,7 +2039,7 @@ func enter_st_colossus_1(c: Cut) -> void:
 func enter_st_colossus_2(c: Cut) -> void:
 	_ensure_fox(c)
 	for k in TRIAL_ALLIES:
-		_join(c, k)
+		c.ensure_ally(k)
 	if c.has("st_c2_seen"):
 		return
 	c.flag("st_c2_seen")
@@ -2083,7 +2055,7 @@ func enter_st_colossus_2(c: Cut) -> void:
 func enter_st_colossus_3(c: Cut) -> void:
 	_ensure_fox(c)
 	for k in TRIAL_ALLIES:
-		_join(c, k)
+		c.ensure_ally(k)
 	if c.has("st_c3_seen"):
 		return
 	c.flag("st_c3_seen")
@@ -2100,9 +2072,8 @@ func st_launch(c: Cut) -> void:
 	c.letterbox(true)
 	var p := c.player.global_position
 	c.spawn_npc("astrid", p.x / 16.0 + 3.0, p.y / 16.0, -1)
-	_pose(c, "astrid", "special")
-	Fx.burst(p + Vector2(48, -24), 30, {spread = 180.0, speed_min = 30.0, speed_max = 120.0, lifetime = 0.6,
-		gradient = Palette.fade_gradient(StArt.STAR), add = true})
+	c.pose("astrid", "special")
+	c.burst(p + Vector2(48, -24), 30, StArt.STAR, {spread = 180.0, speed_min = 30.0, speed_max = 120.0, lifetime = 0.6})
 	await c.wait(0.5)
 	await c.say("astrid", "기다렸어요.", "happy")
 	await c.say("astrid", "백 년 동안 결계를 들던 손으로, 이번엔 학생 하나를 하늘로 던져 보죠.", "wink")
@@ -2111,7 +2082,7 @@ func st_launch(c: Cut) -> void:
 	await c.say("astrid", "…세라피나 양. 선배를— 리라를 부탁해요.", "sad")
 	await c.say("sera", "데리고 올게요. 꼭.", "angry")
 	c.close_box()
-	_pose(c, "astrid", "cast")
+	c.pose("astrid", "cast")
 	c.sfx("star_burst", 4.0)
 	Fx.ring(c.player.global_position, 6.0, 120.0, StArt.STAR, 0.8, 4.0)
 	c.flash(Color(1.0, 0.97, 0.85, 0.7), 0.5)
@@ -2178,7 +2149,7 @@ func enter_st_skygate(c: Cut) -> void:
 	c.flash(Color(1.0, 0.95, 0.8, 0.5), 0.4)
 	for who in GATE_ALLY_SPOT:
 		var m := c.marker("al%d" % int(GATE_ALLY_SPOT[who])) / 16.0
-		var a := _join(c, String(who), m.x - 0.5, m.y)
+		var a := c.ensure_ally(String(who), m.x - 0.5, m.y)
 		a.mode = "hold"
 	await c.say("leonie", "교장의 별빛 길이다. 다 왔다, 세라.")
 	await c.say("aurelia", "촉수는 레오니가, 눈은 엘라리엔이. 장막은 제가 꿰뚫겠습니다.")
@@ -2299,14 +2270,14 @@ func _gate_end(c: Cut, gate: Node) -> void:
 	c.flash(Color(0.6, 0.85, 1.0, 0.7), 1.0)
 	c.sfx("fox_end", 2.0)
 	c.spawn_npc("lyra", 20.0, 19.0, -1)
-	_pose(c, "lyra", "down")
+	c.pose("lyra", "down")
 	if is_instance_valid(gate):
 		(gate as Node2D).visible = false
 	c.music("ending", 2.0)
 	await c.wait(1.0)
 	await c.player_walk(17.0, 90.0)
 	c.player_face(1)
-	_pose(c, "lyra", "kneel")
+	c.pose("lyra", "kneel")
 	await c.say("lyra", "…따뜻해. 이게, 잠재우는 불이구나.", "weak")
 	await c.say("lyra", "별빛이… 다 빠져나갔어. 이제 나, 그냥 할머니가 되겠네.", "aged")
 	await c.say("sera", "…같이 내려가. 교장 선생님이 기다린대. 별 보면서.", "sad")

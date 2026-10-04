@@ -9,21 +9,6 @@ const HolyChaser := preload("res://world/entities/ch4/holy_chaser.gd")
 
 # ─── 공용 도우미 ─────────────────────────────────────────
 
-func _ptile(c: Cut) -> Vector2:
-	return c.player.global_position / T
-
-
-func _npc(c: Cut, who: String) -> Npc:
-	return c.actor(who) as Npc
-
-
-## 인물(Npc)의 자세 (아우렐리아 전용 그림: idle·guard·cast·kneel·special·berserk_* …)
-func _pose(c: Cut, who: String, p: String) -> void:
-	var n := _npc(c, who)
-	if n:
-		n.visual.set_pose(p)
-
-
 func _leonie(c: Cut) -> Ally:
 	return c.ally("leonie")
 
@@ -52,11 +37,7 @@ func _chaser(c: Cut) -> HolyChaser:
 
 
 func _trials_count() -> int:
-	var n := 0
-	for k: String in ["tp_trial_mirror", "tp_trial_bell", "tp_trial_archive"]:
-		if GameState.has_flag(k):
-			n += 1
-	return n
+	return Cut.count(["tp_trial_mirror", "tp_trial_bell", "tp_trial_archive"])
 
 
 ## 이름 순서대로 남은 시련
@@ -87,11 +68,7 @@ func _trial_done(c: Cut, key: String, title: String) -> void:
 
 ## 기도 촛불 (tp_candles) 켠 수
 func _candles_lit() -> int:
-	var n := 0
-	for i in range(1, 6):
-		if GameState.has_flag("tp_candle_%d" % i):
-			n += 1
-	return n
+	return Cut.count(["tp_candle_1", "tp_candle_2", "tp_candle_3", "tp_candle_4", "tp_candle_5"])
 
 
 # ─── 개발용: 그림 확인 ──────────────────────────────────

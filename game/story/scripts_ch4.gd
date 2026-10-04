@@ -14,7 +14,7 @@ func ch4_start(c: Cut) -> void:
 	c.hud(true)
 	await c.goto_room("s_courtyard", "yard")
 	c.music("school_day", 1.0)
-	var p := _ptile(c)
+	var p := c.player_tile()
 	var fy := p.y
 	c.player_face(-1)
 	c.spawn_npc("pippa", p.x - 3.0, fy, 1)
@@ -48,10 +48,10 @@ func ch4_start(c: Cut) -> void:
 	c.emote("isolde", "sweat")
 	await c.say("isolde", "가, 감, 감사…", "surprised")
 	c.close_box()
-	var iso := _npc(c, "isolde")
+	var iso := c.npc("isolde")
 	if iso:
-		Fx.burst(iso.global_position + Vector2(0, -4), 24, {spread = 80.0, direction = Vector2.UP, speed_min = 20.0, speed_max = 60.0,
-			lifetime = 0.9, gradient = Palette.fade_gradient(Color(0.7, 0.9, 1.0)), add = true})
+		c.burst(iso.global_position + Vector2(0, -4), 24, Color(0.7, 0.9, 1.0),
+			{spread = 80.0, direction = Vector2.UP, speed_min = 20.0, speed_max = 60.0, lifetime = 0.9})
 	await c.narrate("이졸데가 그 자리에서 얼어붙었다. 말 그대로 — 발밑에 서리가 피었다.")
 	await c.say("pippa", "단장님! 사, 사인해 주세요! 여기, 실험 노트에!", "happy")
 	await c.say("leonie", "…연금술 노트에 사인하는 건 처음이다.")
@@ -83,8 +83,7 @@ func ch4_start(c: Cut) -> void:
 	c.sfx("star_burst", 0.0)
 	for i in 3:
 		Fx.ring(circle, 4.0, 40.0 + i * 16.0, Color(0.75, 0.7, 1.0), 0.6, 2.0)
-	Fx.burst(circle, 40, {spread = 60.0, direction = Vector2.UP, speed_min = 40.0, speed_max = 140.0, lifetime = 1.0,
-		gradient = Palette.fade_gradient(Color(0.85, 0.85, 1.0)), add = true})
+	c.burst(circle, 40, Color(0.85, 0.85, 1.0), {spread = 60.0, direction = Vector2.UP, speed_min = 40.0, speed_max = 140.0, lifetime = 1.0})
 	c.flash(Color(0.8, 0.75, 1.0, 0.4), 0.4)
 	await c.wait(0.8)
 	await c.narrate("교장이 지팡이 끝으로 전이진을 두드리자, 보랏빛 마법진 위에 별자리 하나가 새로 그려졌다.")
@@ -264,7 +263,7 @@ func tp_gate_scene(c: Cut) -> void:
 	c.sfx("sword_slash", 2.0)
 	c.flash(Color(1.0, 0.95, 0.75, 0.6), 0.15)
 	await c.move("aurelia", 46.0, 19.0, 0.12)
-	_pose(c, "aurelia", "cast")
+	c.pose("aurelia", "cast")
 	var tw := a.create_tween()
 	tw.tween_property(a, "global_position:x", 44.0 * 16.0 - 2.0, 0.12)
 	await tw.finished
@@ -275,8 +274,7 @@ func tp_gate_scene(c: Cut) -> void:
 	c.flash(Color(1.0, 0.95, 0.8, 0.8), 0.2)
 	var hit_at := Vector2(45 * 16, 19 * 16 - 22)
 	Fx.ring(hit_at, 4.0, 46.0, Color(1.0, 0.9, 0.6), 0.4, 3.0)
-	Fx.burst(hit_at, 24, {spread = 180.0, speed_min = 60.0, speed_max = 200.0, lifetime = 0.4,
-		gradient = Palette.fade_gradient(Color(1.0, 0.9, 0.6)), add = true})
+	c.burst(hit_at, 24, Color(1.0, 0.9, 0.6), {spread = 180.0, speed_min = 60.0, speed_max = 200.0, lifetime = 0.4})
 	c.zoom(1.6, 0.3)
 	await c.wait(0.7)
 	await c.narrate("검끝이 멈췄다. 아우렐리아가 두 손가락으로 칼날을 집고 있었다.")
@@ -292,7 +290,7 @@ func tp_gate_scene(c: Cut) -> void:
 	c.spawn_npc("benedicta", 64.0, 16.0, -1)
 	c.sfx("bell_small", 0.0)
 	await c.say("benedicta", "아우렐리아. 그만두렴.")
-	_pose(c, "aurelia", "idle")
+	c.pose("aurelia", "idle")
 	c.face("aurelia", 1)
 	a.set_pose("idle")
 	await c.say("aurelia", "대사제님. 하지만—")
@@ -316,8 +314,8 @@ func tp_gate_scene(c: Cut) -> void:
 	c.flash(Color(1.0, 0.9, 0.6, 0.5), 0.6)
 	await c.wait(0.3)
 	c.hide_actor("aurelia")
-	Fx.burst(Vector2(46 * 16 + 8, 19 * 16 - 20), 30, {spread = 180.0, speed_min = 30.0, speed_max = 120.0, lifetime = 0.6,
-		gradient = Palette.fade_gradient(Color(1.0, 0.88, 0.5)), add = true})
+	c.burst(Vector2(46 * 16 + 8, 19 * 16 - 20), 30, Color(1.0, 0.88, 0.5),
+		{spread = 180.0, speed_min = 30.0, speed_max = 120.0, lifetime = 0.6})
 	await c.wait(0.5)
 	await c.say("benedicta", "회랑에서 기다리겠어요. 천천히 오세요.", "happy")
 	c.close_box()
@@ -344,7 +342,7 @@ func enter_tp_cloister(c: Cut) -> void:
 
 ## 시련을 처음 마친 순간: 아우렐리아가 소리 없이 지켜보고 있었다
 func _aurelia_cameo(c: Cut, line: String) -> void:
-	var p := _ptile(c)
+	var p := c.player_tile()
 	var room_w := c.world.room.size_px.x / 16.0
 	var x := clampf(p.x - 6.0, 3.0, room_w - 3.0)
 	c.flash(Color(1.0, 0.92, 0.7, 0.4), 0.3)
@@ -453,7 +451,7 @@ func tp_bell_trial_done(c: Cut) -> void:
 	var first := _trials_count() == 0
 	await _trial_done(c, "tp_trial_bell", "종탑")
 	if c.actor("gregor"):
-		c.face("gregor", 1 if c.player.global_position.x > _npc(c, "gregor").global_position.x else -1)
+		c.face("gregor", 1 if c.player.global_position.x > c.npc("gregor").global_position.x else -1)
 		await c.say("gregor", "누가 큰 종을 쳤어?! …아, 시련이로구먼! 잘했다, 아가씨! 소리가 맑다!", "happy")
 		c.close_box()
 	if first:
@@ -590,10 +588,10 @@ func tp_aurelia_talk(c: Cut) -> void:
 	c.lock()
 	await c.player_walk(52.0, 70.0)
 	c.player_face(1)
-	_pose(c, "aurelia", "kneel")
+	c.pose("aurelia", "kneel")
 	await c.wait(0.6)
 	await c.say("aurelia", "…세 시련을 모두 마쳤군요.")
-	_pose(c, "aurelia", "idle")
+	c.pose("aurelia", "idle")
 	c.face("aurelia", -1)
 	await c.say("aurelia", "인정하겠습니다. 빛의 거울은 거짓을 비추지 않고, 큰 종은 마음이 굽은 자에게 울리지 않습니다.")
 	await c.say("aurelia", "기록실의 것도… 읽었겠지요.")
@@ -620,7 +618,7 @@ func tp_aurelia_talk(c: Cut) -> void:
 	c.hide_actor("aurelia")
 	await c.wait(0.5)
 	var a := _leonie_join(c, 10.0, 19.0)
-	await a.move_to(_ptile(c).x - 2.5)
+	await a.move_to(c.player_tile().x - 2.5)
 	a.mode = "follow"
 	await c.say("leonie", "세라. 끝났나.")
 	await c.say("sera", "응. 오늘 밤 내전에서 아우렐리아가 마지막 기도를 올린대.")
@@ -650,7 +648,7 @@ func tp_sanctum_scene(c: Cut) -> void:
 	a.facing = 1
 	c.player_face(1)
 	c.tint(Color(0.04, 0.05, 0.2, 0.3), 1.0)
-	_pose(c, "aurelia", "kneel")
+	c.pose("aurelia", "kneel")
 	await c.say("benedicta", "와 주었군요. 수호자의 기도는 대신전의 모든 빛을 한곳에 모아요. …조금 위험할 수도 있어요.")
 	await c.say("aurelia", "빛의 주재여.")
 	c.sfx("bell", -2.0)
@@ -679,7 +677,7 @@ func tp_sanctum_scene(c: Cut) -> void:
 	await c.say("aurelia", "아… 아아……", "sad")
 	c.close_box()
 	# 광륜이 흰빛으로 금 가며 폭주
-	var n := _npc(c, "aurelia")
+	var n := c.npc("aurelia")
 	var pos := n.global_position if n else Vector2(63 * 16 + 8, 17 * 16)
 	c.hide_actor("aurelia")
 	var b := c.spawn_npc("aurelia_berserk", pos.x / 16.0 - 0.5, pos.y / 16.0, -1)
@@ -689,8 +687,7 @@ func tp_sanctum_scene(c: Cut) -> void:
 	c.flash(Color(1, 1, 1, 1), 0.5)
 	for i in 3:
 		Fx.ring(pos + Vector2(0, -30), 6.0, 60.0 + i * 30.0, Color(1.0, 0.97, 0.9), 0.6, 3.0)
-	Fx.burst(pos + Vector2(0, -30), 50, {spread = 180.0, speed_min = 60.0, speed_max = 220.0, lifetime = 0.8,
-		gradient = Palette.fade_gradient(Color(1.0, 0.95, 0.8)), add = true})
+	c.burst(pos + Vector2(0, -30), 50, Color(1.0, 0.95, 0.8), {spread = 180.0, speed_min = 60.0, speed_max = 220.0, lifetime = 0.8})
 	await c.wait(1.0)
 	b.visual.set_pose("berserk_idle")
 	await c.say("aurelia_berserk", "물러—나—십시오.", "berserk")
@@ -904,8 +901,7 @@ func _boss_end(c: Cut, boss: AureliaBoss) -> void:
 	c.sfx("fox_transform", 2.0)
 	for i in 3:
 		Fx.ring(bpos + Vector2(0, -20), 6.0, 70.0 + i * 25.0, Color(0.5, 0.8, 1.0), 0.7, 3.0)
-		Fx.burst(bpos + Vector2(0, -20), 40, {spread = 180.0, speed_min = 40.0, speed_max = 160.0, lifetime = 0.9,
-			gradient = Palette.fade_gradient(Color(0.55, 0.85, 1.0)), add = true})
+		c.burst(bpos + Vector2(0, -20), 40, Color(0.55, 0.85, 1.0), {spread = 180.0, speed_min = 40.0, speed_max = 160.0, lifetime = 0.9})
 		await c.wait(0.35)
 	c.flash(Color(0.6, 0.85, 1.0, 0.9), 0.8)
 	c.shake(0.5, 1.0)
@@ -957,8 +953,7 @@ func _boss_end(c: Cut, boss: AureliaBoss) -> void:
 	c.sfx("star_twinkle", 2.0)
 	var lyra_at := Vector2(40 * 16 + 8, 7 * 16)
 	c.spawn_npc("lyra", 40.0, 7.0, -1)
-	Fx.burst(lyra_at + Vector2(0, -16), 40, {spread = 180.0, speed_min = 20.0, speed_max = 90.0, lifetime = 1.2,
-		gradient = Palette.fade_gradient(Color(0.85, 0.85, 1.0)), add = true})
+	c.burst(lyra_at + Vector2(0, -16), 40, Color(0.85, 0.85, 1.0), {spread = 180.0, speed_min = 20.0, speed_max = 90.0, lifetime = 1.2})
 	await c.camera_to(lyra_at + Vector2(0, -10), 1.4)
 	await c.say("lyra", "어머. 다 끝나 버렸네.", "happy")
 	await c.say("sera", "…누구?", "surprised")
@@ -974,8 +969,7 @@ func _boss_end(c: Cut, boss: AureliaBoss) -> void:
 	c.close_box()
 	c.sfx("star_burst", 2.0)
 	c.flash(Color(0.8, 0.85, 1.0, 0.9), 0.6)
-	Fx.burst(lyra_at + Vector2(0, -16), 60, {spread = 180.0, speed_min = 40.0, speed_max = 200.0, lifetime = 1.0,
-		gradient = Palette.fade_gradient(Color(0.9, 0.9, 1.0)), add = true})
+	c.burst(lyra_at + Vector2(0, -16), 60, Color(0.9, 0.9, 1.0), {spread = 180.0, speed_min = 40.0, speed_max = 200.0, lifetime = 1.0})
 	c.hide_actor("lyra")
 	await c.wait(1.0)
 	await c.camera_back(0.8)

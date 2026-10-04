@@ -26,57 +26,22 @@ func _ready() -> void:
 	_root.visible = false
 
 
-## 마법 ID → 그 마법의 수업 퀘스트 ID ("" = 수업 없음, 1장 기본)
+## 수업 판정은 Quests(core/quests.gd)에 있다. 아래는 예전 이름 (class_board 개체·시험 실행기가 부름)
 static func class_of(spell: String) -> String:
-	for id in Quests.all():
-		var d: Dictionary = Quests.all()[id]
-		if String(d.get("kind", "")) == "class" and String(d.get("spell", "")) == spell:
-			return id
-	return ""
+	return Quests.class_of(spell)
 
 
 ## 0 습득 · 1 진행 중 · 2 신청 가능 · 3 잠김
 static func status(spell: String) -> int:
-	var q := class_of(spell)
-	# 수업 중엔 임시로 쓸 수 있어서(temp_) learned가 참 — 진행 중을 먼저 본다
-	if q != "" and Quests.state(q) == 1:
-		return 1
-	if Spells.learned(spell):
-		return 0
-	if q == "":
-		return 3
-	var d := Quests.def(q)
-	if unlock_ok(String(d.get("unlock", ""))):
-		return 2
-	return 3
+	return Quests.class_status(spell)
 
 
-## 잠금 조건: 플래그 식(쉼표 = 그리고) + "mana>=N"(지금까지 모은 마도석 수)
-static func unlock_ok(cond: String) -> bool:
-	var rest: PackedStringArray = []
-	for tok in cond.split(","):
-		var t := tok.strip_edges()
-		if t.begins_with("mana>="):
-			if int(GameState.flag("mana_total", 0)) < int(t.substr(6)):
-				return false
-		elif t != "":
-			rest.append(t)
-	return RoomData.cond_ok(",".join(rest))
-
-
-## 새로 신청할 수 있는 수업이 있는가 (게시판 "!")
 static func has_new() -> bool:
-	for sp in Spells.ORDER:
-		if status(sp) == 2:
-			return true
-	return false
+	return Quests.has_new_class()
 
 
 static func any_active() -> String:
-	for sp in Spells.ORDER:
-		if status(sp) == 1:
-			return sp
-	return ""
+	return Quests.active_class()
 
 
 func open() -> void:

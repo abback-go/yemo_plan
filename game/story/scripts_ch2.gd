@@ -15,19 +15,8 @@ const RACE_LIMIT := 120.0 ## 이졸데 지붕 경주 제한 시간(초)
 # 도우미
 # ═══════════════════════════════════════════════════════════
 
-func _ptile(c: Cut) -> Vector2:
-	return c.player.global_position / 16.0
-
-
 func _room(c: Cut) -> String:
 	return c.world.room.data.id if c.world.room else ""
-
-
-## 인물 자세 (Npc의 그림)
-func _pose(c: Cut, who: String, p: String) -> void:
-	var n := c.actor(who) as Npc
-	if n and n.visual:
-		n.visual.set_pose(p)
 
 
 ## 잔상 하나 (레오니의 순간 거리 좁히기)
@@ -67,10 +56,7 @@ func _flash_step(c: Cut, who: String, to_x: float) -> void:
 func _ensure_leonie(c: Cut) -> Ally:
 	if not c.has("k_duel_done") or c.has("k_beast_down"):
 		return null
-	var a := c.ally("leonie")
-	if a == null:
-		a = c.ally_join("leonie")
-	return a
+	return c.ensure_ally("leonie")
 
 
 ## 약한 참조의 적이 사라졌거나 쓰러졌는가 (람다가 지워진 노드를 붙잡지 않게)
@@ -85,20 +71,12 @@ func _gone_or(ref: WeakRef, prop: String) -> bool:
 	return n == null or String(n.get(prop)) != ""
 
 
-func _count(keys: Array) -> int:
-	var n := 0
-	for k in keys:
-		if GameState.has_flag(String(k)):
-			n += 1
-	return n
-
-
 func _book_count() -> int:
-	return _count(["k_book_1", "k_book_2", "k_book_3"])
+	return Cut.count(["k_book_1", "k_book_2", "k_book_3"])
 
 
 func _bread_count() -> int:
-	return _count(["k_bread_kael", "k_bread_bron", "k_bread_priest"])
+	return Cut.count(["k_bread_kael", "k_bread_bron", "k_bread_priest"])
 
 
 ## 미아의 빵 배달: 이 인물에게 아직 안 줬으면 주고 true
@@ -306,7 +284,7 @@ func k_market_beast(c: Cut) -> void:
 	# 은사자 기사단장
 	c.lock()
 	var alive := w != null and is_instance_valid(w) and w.is_alive()
-	var tx := (w.global_position.x / 16.0) if alive else _ptile(c).x + 5.0
+	var tx := (w.global_position.x / 16.0) if alive else c.player_tile().x + 5.0
 	c.spawn_npc("leonie", 118.0, 19.0, -1)
 	c.sfx("whoosh", 2.0)
 	await c.wait(0.2)
@@ -317,7 +295,7 @@ func k_market_beast(c: Cut) -> void:
 		c.shake(0.4, 0.4)
 		w.take_hit(Hit.make(99999, &"ally", w.global_position + Vector2(20, -10)))
 	await c.wait(0.8)
-	_pose(c, "leonie", "idle")
+	c.pose("leonie", "idle")
 	c.music("kingdom", 1.0)
 	c.sfx("crowd", 2.0)
 	await c.say("k_citizen_c", "단장님이다! 레오니 단장님!", "happy")
@@ -506,7 +484,7 @@ func _race_finish(c: Cut) -> void:
 	c.flag("k_race_on", false)
 	c.lock()
 	await c.wait(0.3)
-	var p := _ptile(c)
+	var p := c.player_tile()
 	if t <= RACE_LIMIT:
 		Story.toast("결승! %d초" % int(t), 2.0)
 		c.sfx("checkpoint", 2.0)
@@ -783,8 +761,8 @@ func k_noxis(c: Cut) -> void:
 	c.player_face(-1)
 	c.spawn_npc("noxis", 28.0, 19.0, 1)
 	c.sfx("reveal", 2.0)
-	Fx.burst(Vector2(28.0 * 16.0 + 8.0, 19.0 * 16.0 - 20.0), 30, {spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.7,
-		gradient = Palette.fade_gradient(Color("#c89aff")), add = true})
+	c.burst(Vector2(28.0 * 16.0 + 8.0, 19.0 * 16.0 - 20.0), 30, Color("#c89aff"),
+		{spread = 180.0, speed_min = 40.0, speed_max = 140.0, lifetime = 0.7})
 	await c.wait(0.6)
 	await c.say("noxis", "어서 오십시오, 별에 이끌린 아이여.")
 	await c.say("noxis", "녹시스라 합니다. '별을 좇는 자들'의 미천한 대사제지요.")
@@ -926,7 +904,7 @@ func k_duel(c: Cut) -> void:
 	await c.say("leonie", "…검을 거두게 하고 싶다면 증명해라. 네 불이, 이 도시에 무엇인지.", "angry")
 	c.close_box()
 	c.sfx("sword_clash", 2.0)
-	_pose(c, "leonie", "guard")
+	c.pose("leonie", "guard")
 	await c.wait(0.5)
 	var n := c.actor("leonie") as Node2D
 	var lx := (n.global_position.x / 16.0) if n else 30.0
@@ -994,13 +972,13 @@ func _duel_end(c: Cut, d: EnemyBase) -> void:
 	await c.wait(0.9)
 	c.flash(Color(1.0, 0.7, 0.4, 0.7), 0.5)
 	Fx.ring(c.player.global_position + Vector2(0, -16), 10.0, 70.0, Color(1.0, 0.6, 0.3), 0.6, 4.0)
-	Fx.burst(c.player.global_position + Vector2(0, -16), 40, {spread = 180.0, speed_min = 60.0, speed_max = 200.0, lifetime = 0.8,
-		gradient = Palette.fade_gradient(Color(1.0, 0.6, 0.3)), add = true})
+	c.burst(c.player.global_position + Vector2(0, -16), 40, Color(1.0, 0.6, 0.3),
+		{spread = 180.0, speed_min = 60.0, speed_max = 200.0, lifetime = 0.8})
 	await c.wait(1.2)
 	await c.say("k_child", "…어? 안 아파. 따뜻해…", "surprised")
 	await c.say("k_child", "마녀 언니가… 불로 감싸 줬어!", "happy")
 	c.close_box()
-	_pose(c, "leonie", "idle")
+	c.pose("leonie", "idle")
 	await c.wait(0.6)
 	await c.say("leonie", "…그 불이. 사람을 감쌌다.", "surprised")
 	c.sfx("sword_clash", -2.0)
@@ -1191,7 +1169,7 @@ func _beast_end(c: Cut) -> void:
 	c.close_box()
 	c.music("ending", 2.0)
 	if a:
-		var px := _ptile(c).x
+		var px := c.player_tile().x
 		await a.move_to(px + 2.5)
 		a.facing = -1
 	await c.wait(0.6)
@@ -1788,6 +1766,6 @@ func dev_ch2_info(c: Cut) -> void:
 	for k in ["k_sw2_low", "k_sw3_low", "k_sw4_high", "k_gears_done", "k_crypt_open", "k_sw2_wall", "k_race_on", "k_duel_done", "k_beast_down"]:
 		if GameState.has_flag(k):
 			flags.append(k)
-	print("DEV flags ", flags, " room=", _room(c), " pos=", _ptile(c).snapped(Vector2(0.1, 0.1)),
+	print("DEV flags ", flags, " room=", _room(c), " pos=", c.player_tile().snapped(Vector2(0.1, 0.1)),
 		" chapter=", GameState.flag("chapter", 1), " tails=", GameState.flag("tails", 1), " ch2_done=", GameState.has_flag("ch2_done"),
 		" maxhp=", GameState.max_hp, " pot=", GameState.potions_max, " stones=", Spells.stones())

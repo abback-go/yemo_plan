@@ -34,8 +34,7 @@ func npc_pippa(c: Cut) -> void:
 		c.shake(0.05, 0.4)
 		await c.wait(0.8)
 		c.flag("pippa_quest_done")
-		GameState.potions_max += 1
-		GameState.potions = GameState.potions_max
+		Rewards.add_potion_slot(1)
 		await c.item("회복 물약 +1", "물약을 하나 더 들고 다닐 수 있다.")
 		await c.say("pippa", "짠! 맛은… 여전히 보장 못 해.", "smug")
 		return

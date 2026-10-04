@@ -16,20 +16,6 @@ const ARCHERY_TIME := 20.0
 
 # ─── 도우미 ─────────────────────────────────────────────
 
-func _ptile(c: Cut) -> Vector2:
-	return c.player.global_position / 16.0
-
-
-func _n(keys: Array) -> int:
-	return QuestCounter.count_of(keys)
-
-
-## 세라 곁(같은 높이)에 인물을 세움
-func _beside(c: Cut, who: String, dx: float) -> Npc:
-	var p := _ptile(c)
-	return c.spawn_npc(who, p.x + dx, p.y, -1 if dx > 0.0 else 1)
-
-
 ## 꽃가루 비 (세계수가 되살아날 때) — 방을 옮기면 사라짐
 func _pollen(c: Cut) -> void:
 	var size := c.world.room.size_px
@@ -378,7 +364,7 @@ func enter_e_workshop(c: Cut) -> void:
 	c.close_box()
 	c.flag("e_met_tiel")
 	c.quest_start("e_tiel_valve")
-	if _n(VALVES) >= 3:
+	if Cut.count(VALVES) >= 3:
 		c.quest_step("e_tiel_valve", 1)
 
 
@@ -493,7 +479,7 @@ func e_grove_purify(c: Cut) -> void:
 	await c.narrate("하얗게 굳었던 가지에서, 초록이 번져 나갔다.")
 	await c.say("sera", "됐다… 타지 않았어. 잠들었어!", "happy")
 	c.close_box()
-	var p := _ptile(c)
+	var p := c.player_tile()
 	c.spawn_npc("elarien", p.x + 5.0, p.y - 6.0, -1)
 	await c.move("elarien", p.x + 4.0, p.y, 0.45, Tween.TRANS_QUAD)
 	c.face("elarien", -1 if c.player.global_position.x < (p.x + 4.0) * 16.0 else 1)
@@ -595,7 +581,7 @@ func _hunt_after(c: Cut, e: EnemyBase) -> void:
 	if is_instance_valid(e):
 		at = e.global_position / 16.0
 		e.visible = false
-	var p := _ptile(c)
+	var p := c.player_tile()
 	var side := 1.0 if at.x >= p.x else -1.0
 	c.spawn_npc("elarien", at.x, at.y, -1)
 	await c.move("elarien", clampf(p.x + side * 3.0, 2.0, 37.0), p.y, 0.5, Tween.TRANS_QUAD)
@@ -609,7 +595,7 @@ func _hunt_after(c: Cut, e: EnemyBase) -> void:
 	await c.say("elarien", "…네 불도 그렇더군. 태우는 건 쉽다. 안 태우는 게 어렵지.")
 	await c.say("neoul", "허. 사냥꾼이 철학을 하는구나.")
 	c.close_box()
-	_beside(c, "warden_a", -4.0)
+	c.beside("warden_a", -4.0)
 	await c.say("warden_a", "엘라리엔! 큰일이다! 아이들이… 피오랑 아이들이 꼭대기로 올라갔어!", "surprised")
 	await c.say("elarien", "…뭐?", "surprised")
 	await c.say("warden_a", "하얀 것이 꼭대기에서 노래를 불렀다고… 아이들이 홀린 것처럼 따라갔다고!")
@@ -763,7 +749,7 @@ func _herald_after(c: Cut) -> void:
 	c.close_box()
 	if c.ally("elarien"):
 		c.ally_leave("elarien")
-	_beside(c, "elarien", -4.0)
+	c.beside("elarien", -4.0)
 	await c.say("elarien", "………")
 	await c.say("elarien", "네 불은 숲을 태우지 않는구나.", "happy")
 	await c.say("sera", "…응. 이제 나도 알았어.", "happy")
@@ -843,7 +829,7 @@ func npc_ortia(c: Cut) -> void:
 		await c.say("ortia", "허허, 손님이구먼.", "happy")
 		return
 	var st := Quests.state("e_ortia_tea")
-	var n := _n(TEA)
+	var n := Cut.count(TEA)
 	if st == 0:
 		await c.say("ortia", "세라피나, 늙은이 부탁 하나 들어주겠나.", "happy")
 		await c.say("ortia", "달잎 차가 떨어졌다네. 달샘의 달잎 한 장, 수관 높은 잎의 이슬 한 방울. 그거면 되네.")
@@ -887,7 +873,7 @@ func npc_fio(c: Cut) -> void:
 		await c.say("fio", "장로님 집은 저 큰 뿌리 문이야! 빨리 가 봐!", "happy")
 		return
 	var st := Quests.state("e_fio_seeds")
-	var n := _n(SEEDS)
+	var n := Cut.count(SEEDS)
 	if st == 0:
 		await c.say("fio", "누나, 누나! 부탁이 있어. 내 반짝이 씨앗… 다 흘렸어.", "sad")
 		await c.say("fio", "별이 될 씨앗이야! 밤에 심으면 별이 돋는대. …엄마는 그냥 콩이래.")
@@ -906,8 +892,8 @@ func npc_fio(c: Cut) -> void:
 
 ## 씨앗 돌려주기 (퀘스트 talk 갈고리 — 다른 장의 피오 대사 덮어쓰기보다 먼저)
 func e_fio_seeds_done(c: Cut) -> void:
-	if _n(SEEDS) < 5:
-		await c.say("fio", "지금 %d개야! 마을, 우리 집, 시장, 바람길, 가지 마을!" % _n(SEEDS))
+	if Cut.count(SEEDS) < 5:
+		await c.say("fio", "지금 %d개야! 마을, 우리 집, 시장, 바람길, 가지 마을!" % Cut.count(SEEDS))
 		return
 	await c.say("fio", "우와아! 다섯 개 다! 누나 최고!", "happy")
 	await c.say("fio", "선물이야! 그리고 비밀 하나 알려 줄게…")
@@ -929,7 +915,7 @@ func npc_fio_mom(c: Cut) -> void:
 
 func npc_tiel(c: Cut) -> void:
 	var st := Quests.state("e_tiel_valve")
-	var n := _n(VALVES)
+	var n := Cut.count(VALVES)
 	if st == 0 and c.has("e_met_tiel"):
 		c.quest_start("e_tiel_valve")
 		st = 1
@@ -1135,7 +1121,7 @@ func npc_elf_c(c: Cut) -> void:
 
 func npc_pippa_ch3(c: Cut) -> void:
 	var st := Quests.state("e_pippa_moss")
-	var n := _n(MOSS)
+	var n := Cut.count(MOSS)
 	if st == 0 and c.has("e_start"):
 		await c.say("pippa", "세라, 세라! 엘프 숲에 간다며? 부탁 하나만!", "happy")
 		await c.say("pippa", "세계수 뿌리 쪽에 빛이끼가 자란대. 그걸로 약을 만들면 묘목이 덜 굳을지도 몰라!")

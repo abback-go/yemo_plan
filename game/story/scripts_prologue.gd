@@ -112,9 +112,8 @@ func p_trial_burst(c: Cut) -> void:
 	c.shake(0.15, 0.6)
 	# 제단이 봉화의 불을 세라에게 되돌린다
 	for b in c.world.get_tree().get_nodes_in_group(&"brazier"):
-		Fx.burst(b.global_position + Vector2(0, -22), 30, {direction = (c.player.center() - b.global_position).normalized(),
-			spread = 8.0, speed_min = 160.0, speed_max = 320.0, lifetime = 0.6, add = true,
-			gradient = Palette.fade_gradient(Palette.FIRE_OUT), size_min = 2.0, size_max = 4.0})
+		c.burst(b.global_position + Vector2(0, -22), 30, Palette.FIRE_OUT,
+			{direction = (c.player.center() - b.global_position).normalized(), spread = 8.0, speed_min = 160.0, speed_max = 320.0, lifetime = 0.6, size_min = 2.0, size_max = 4.0})
 	await c.wait(0.6)
 	c.emote("sera", "!")
 	await c.say("sera", "어, 어?! 불이 나한테로…!", "surprised")
@@ -215,8 +214,8 @@ func enter_t_throne(c: Cut) -> void:
 		await c.say("neoul_god", "안 돼, 내 구슬—!", "angry")
 		c.close_box()
 		god.pulse(1.0)
-		Fx.burst(god.global_position + Vector2(0, -60), 80, {spread = 180.0, speed_min = 60.0, speed_max = 260.0, lifetime = 1.0,
-			gradient = Palette.fade_gradient(Color(0.6, 0.85, 1.0)), add = true, size_min = 2.0, size_max = 4.0})
+		c.burst(god.global_position + Vector2(0, -60), 80, Color(0.6, 0.85, 1.0),
+			{spread = 180.0, speed_min = 60.0, speed_max = 260.0, lifetime = 1.0, size_min = 2.0, size_max = 4.0})
 		c.flash(Color(0.6, 0.85, 1.0, 0.9), 0.6)
 		c.sfx("fox_end")
 		await god.vanish(0.5)
