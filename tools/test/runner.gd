@@ -35,6 +35,22 @@ var _idle_n := 0
 var _god := false
 var _autoward := false
 var _autokill := 0 ## 적 탄이 가까우면 방벽(장착 칸)을 자동으로 세움 (방벽 수업 시험)
+var _dc_name := "" ## drawcount: 세는 중인 이름 ("" = 안 셈)
+var _dc_left := 0
+var _dc_n := 0
+var _dc_nodes: Array = []
+
+
+## 스크립트 class_name이 cls인 노드를 모두 모음 (find_children은 스크립트 클래스를 못 찾음)
+func _collect_script_class(n: Node, cls: String, out: Array) -> void:
+	var sc: Script = n.get_script()
+	while sc != null:
+		if sc.get_global_name() == cls:
+			out.append(n)
+			break
+		sc = sc.get_base_script()
+	for c in n.get_children():
+		_collect_script_class(c, cls, out)
 
 
 func _tap(a: String) -> void:
@@ -115,7 +131,7 @@ func _process(_d: float) -> bool:
 	if _god:
 		var gp := get_first_node_in_group("player")
 		if gp:
-			gp.set("_hurt_iframe", 9999.0)
+			gp.set_iframes(9999.0)
 			if gp.hp < 3:
 				gp.hp = 5
 	if _hold > 0:
@@ -131,6 +147,11 @@ func _process(_d: float) -> bool:
 			_hold = 0
 		return false
 	sframe += 1
+	if _dc_name != "":
+		_dc_left -= 1
+		if _dc_left <= 0:
+			print("DRAWS ", _dc_name, " nodes=", _dc_nodes.size(), " redraws=", _dc_n, " room=", get_first_node_in_group("world").room.data.id)
+			_dc_name = ""
 	for s in steps:
 		if int(s[0]) != sframe:
 			continue
@@ -384,6 +405,15 @@ func _process(_d: float) -> bool:
 				print("IMPORT ok=", ok)
 				if ok:
 					gsc.continue_game()
+			"drawcount":
+				# [frame, "drawcount", 이름, 클래스, 프레임 수] — 그 클래스 노드들이 N프레임 동안 다시 그린(_draw) 횟수
+				_dc_name = String(s[2])
+				_dc_left = int(s[4])
+				_dc_n = 0
+				_dc_nodes = []
+				_collect_script_class(current_scene, String(s[3]), _dc_nodes)
+				for n in _dc_nodes:
+					n.draw.connect(func() -> void: _dc_n += 1)
 			"perf":
 				# [frame, "perf", 이름] — 프레임 시간·그리기 호출·노드 수
 				print("PERF ", s[2], " fps=", Engine.get_frames_per_second(), " process_ms=", snappedf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.01), " physics_ms=", snappedf(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, 0.01), " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objects=", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " nodes=", Performance.get_monitor(Performance.OBJECT_NODE_COUNT), " room=", get_first_node_in_group("world").room.data.id)

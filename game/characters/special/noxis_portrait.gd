@@ -1,19 +1,12 @@
-extends RefCounted
+extends "res://characters/special/noxis_palette.gd"
 ## 녹시스 대화 초상화 (72×72): 별자리 두건, 흘러내린 은빛 머리, 눈가를 덮는 하얀 별 가면(보랏빛 눈), 얇은 입술.
 ## 표정: normal(얇은 미소) · happy(광신의 웃음) · angry(이를 드러냄, 눈빛이 붉은 보라로) · surprised · sad · zeal(황홀 — 눈이 타오르고 별이 돈다)
 
-const KArt := preload("res://world/entities/ch2/k_art.gd")
-const ROBE := Color("#2a2050")
-const ROBE_L := Color("#45387a")
-const ROBE_D := Color("#140e2a")
-const TRIM := Color("#c8a8ff")
-const HAIR := Color("#dcd4ec")
 const HAIR_D := Color("#a89cc4")
 const SKIN := Color("#c4b2c4")
 const SKIN_D := Color("#9a88a4")
 const MASK := Color("#f4f0fa")
 const MASK_D := Color("#b0a8c8")
-const STAR := Color("#c89aff")
 const LIP := Color("#7a3a5a")
 
 

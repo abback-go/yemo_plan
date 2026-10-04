@@ -36,9 +36,9 @@ func _physics_process(delta: float) -> void:
 	if not _done and _t >= DURATION:
 		_done = true
 		_hit_all(true)
-		Fx.ring(global_position, 10.0, RADIUS_T * GameConst.TILE, Color(0.6, 0.85, 1.0), 0.35, 3.0)
+		Fx.ring(global_position, 10.0, RADIUS_T * GameConst.TILE, FoxPalette.SPARK, 0.35, 3.0)
 		Fx.burst(global_position, 60, {spread = 180.0, speed_min = 80.0, speed_max = 260.0, damping = 160.0,
-			lifetime = 0.5, gradient = Palette.fade_gradient(Color(0.6, 0.85, 1.0)), add = true})
+			lifetime = 0.5, gradient = Palette.fade_gradient(FoxPalette.SPARK), add = true})
 		Sfx.play(&"storm_final", 0.0)
 	if _t >= DURATION + 0.35:
 		queue_free()
@@ -48,11 +48,8 @@ func _physics_process(delta: float) -> void:
 func _hit_all(final: bool) -> void:
 	var r := RADIUS_T * GameConst.TILE
 	var c := global_position
-	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-		if not e.is_alive():
-			continue
-		if EnemyBase.dist_to_body(e, c) > r + 8.0:
-			continue
+	var in_reach := func(e: EnemyBase) -> bool: return EnemyBase.dist_to_body(e, c) <= r + 8.0
+	var strike := func(e: EnemyBase) -> void:
 		var h := Hit.make(42 if final else 14, &"fox_storm", c)
 		h.breaks_charge = true
 		h.ignores_knock_resist = true
@@ -62,6 +59,7 @@ func _hit_all(final: bool) -> void:
 			h.hitstop = tuning.hitstop_storm * 1.5
 			h.shake_t = tuning.shake_storm_t
 		e.take_hit(h)
+	EnemyQuery.within(get_tree(), in_reach, strike)
 	for b in get_tree().get_nodes_in_group(&"brazier"):
 		if b.global_position.distance_to(c) <= r:
 			b.take_hit(Hit.make(1, &"fox_storm", c))

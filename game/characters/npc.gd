@@ -29,6 +29,7 @@ func setup(p_room: Room, e: Dictionary, eid: String) -> void:
 	_flip.add_child(visual)
 	_flip.scale.x = facing
 	_font = ThemeDB.fallback_font
+	GameState.flag_changed.connect(_on_flag_changed)
 
 
 func actor_id() -> String:
@@ -70,6 +71,14 @@ func emote(kind: String, time := 1.2) -> void:
 var _mark := "" ## 퀘스트 표시: "!" 받을 수 있음 · "…" 진행 중
 var _mark_t := 0.0
 var _t := 0.0
+## 퀘스트 상태는 GameState 플래그로만 바뀐다 → 플래그가 바뀐 뒤에만 다시 조회한다.
+## 표시가 바뀌는 시점(0.5초 주기)은 예전 폴링과 같게 둔다.
+var _quest_dirty := true
+var _flags_seen: Dictionary ## 새 게임·불러오기는 flags 사전을 통째로 바꾸고 신호를 안 낸다 → 같은 사전인지 확인
+
+
+func _on_flag_changed(_key: String) -> void:
+	_quest_dirty = true
 
 
 func _process(delta: float) -> void:
@@ -77,14 +86,17 @@ func _process(delta: float) -> void:
 	_mark_t -= delta
 	if _mark_t <= 0.0:
 		_mark_t = 0.5
-		var m := ""
-		if Quests.available_for(who) != "":
-			m = "!"
-		elif Quests.active_for(who):
-			m = "…"
-		if m != _mark:
-			_mark = m
-			queue_redraw()
+		if _quest_dirty or not is_same(_flags_seen, GameState.flags):
+			_quest_dirty = false
+			_flags_seen = GameState.flags
+			var m := ""
+			if Quests.available_for(who) != "":
+				m = "!"
+			elif Quests.active_for(who):
+				m = "…"
+			if m != _mark:
+				_mark = m
+				queue_redraw()
 	if _emote_t > 0.0:
 		_emote_t -= delta
 		if _emote_t <= 0.0:
@@ -105,10 +117,5 @@ func _draw() -> void:
 	if _emote == "":
 		return
 	var h := float(visual.info.get("height", 32))
-	var p := Vector2(0, -h - 22)
 	var pop := clampf((1.2 - _emote_t) * 8.0, 0.0, 1.0)
-	draw_circle(p, 7.0 * pop, Color("#f4eee4"))
-	draw_colored_polygon(PackedVector2Array([p + Vector2(-2, 5), p + Vector2(2, 5), p + Vector2(0, 9)]), Color("#f4eee4"))
-	var txt: String = {"!": "!", "?": "?", "...": "…", "heart": "♥", "note": "♪", "sweat": "💧", "anger": "#"}.get(_emote, _emote)
-	if pop > 0.9:
-		draw_string(_font, p + Vector2(-4, 4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#2a1a2a"))
+	BubbleDraw.draw_emote(self, _font, Vector2(0, -h - 22), pop, BubbleDraw.glyph(_emote, "npc"), false)

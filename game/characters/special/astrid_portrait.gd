@@ -1,20 +1,13 @@
-extends RefCounted
+extends "res://characters/special/astrid_palette.gd"
 ## 아스트리드 교장 대화 초상화 (72×72). 1장 그림(긴 은회색 머리·별 장식 망토·마녀 모자·연보라 눈)과 같은 색을 지키되,
 ## 늙었지만 꼿꼿한 대마녀로: 가운데 가르마의 곧은 은회색 머리, 넓은 챙 모자, 눈가·입가의 잔주름, 은별 브로치.
 ## expr: normal(고요한 미소) · happy · sad · angry(엄함) · serious · surprised · tired(결계를 떠받치느라 지침) · wink("…라고 해 두죠")
 
-const HAIR := Color("#c4c4d4")
 const HAIR_SH := Color("#9090a8")
 const HAIR_HI := Color("#ececf4")
-const SKIN := Color("#f0dcd4")
 const SKIN_SH := Color("#d6bab6")
 const LINE := Color("#b89a98")
-const EYE := Color("#a0a0e8")
 const EYE_DEEP := Color("#5a5aa8")
-const LASH := Color("#2a2438")
-const CLOAK := Color("#20203a")
-const TRIM := Color("#c8c0ff")
-const HAT := Color("#181830")
 const SILVER := Color("#e0e2f4")
 
 

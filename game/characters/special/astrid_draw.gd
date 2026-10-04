@@ -1,23 +1,16 @@
-extends RefCounted
+extends "res://characters/special/astrid_palette.gd"
 ## 아스트리드 녹턴 교장 몸 그림 (docs/bible/characters.md 2절, chapter1.md 6절 "긴 은회색 머리, 별 장식 망토"). 키 38px.
 ## 1장부터 보이므로 1장 DB 색(로브 #20203a, 연보라 장식 #c8c0ff, 모자 #181830, 눈 #a0a0e8)을 그대로 쓴다.
 ## 늙었지만 꼿꼿하다: 가는 지팡이(은빛 초승달과 별)를 짚고, 허리까지 오는 곧은 은회색 머리, 별을 수놓은 긴 망토.
 ## 자세: idle · run(지팡이를 짚으며 걷기) · cast · attack · windup · shield/guard(별빛 결계) · hurt · kneel · down
 ##       special(예전의 세계관급 힘이 잠깐 — 머리가 솟고, 하늘을 셋으로 가르는 빛줄기, 젊은 날의 잔상)
 
-const HAIR := Color("#c4c4d4")
 const HAIR_SH := Color("#8e8ea6")
 const HAIR_HI := Color("#e8e8f2")
-const SKIN := Color("#f0dcd4")
 const SKIN_SH := Color("#d4b8b4")
-const EYE := Color("#a0a0e8")
-const LASH := Color("#2a2438")
 const ROBE := Color("#2a2850")
-const CLOAK := Color("#20203a")
 const CLOAK_SH := Color("#14142a")
 const CLOAK_HI := Color("#34345a")
-const TRIM := Color("#c8c0ff")
-const HAT := Color("#181830")
 const HAT_HI := Color("#2c2c50")
 const WOOD := Color("#3a2c30")
 const SILVER := Color("#d8dcf0")
@@ -117,7 +110,7 @@ static func draw_body(v: CharacterVisual) -> void:
 	if pose == "special":
 		_special_aura(v, b, hc, t, pk)
 	# 바닥 그림자
-	v.draw_colored_polygon(_ellipse(Vector2(0, 0), 9.0, 1.8), Color(0.02, 0.02, 0.05, 0.3))
+	v.draw_colored_polygon(DrawKit.ellipse(Vector2(0, 0), 9.0, 1.8), Color(0.02, 0.02, 0.05, 0.3))
 
 	# 뒷머리 (허리까지 곧게, 풍성하게)
 	var hl := lift * 8.0
@@ -178,14 +171,6 @@ static func draw_body(v: CharacterVisual) -> void:
 		var k := 1.0 if pose == "attack" else 0.6 + 0.4 * sin(t * 6.0)
 		v.draw_circle(tip, 4.0 + 3.0 * k, Color(STARLIGHT, 0.2 * k))
 		StArt.sparkle(v, tip, 4.0 + 2.0 * k, STARLIGHT, k)
-
-
-static func _ellipse(c: Vector2, rx: float, ry: float) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in 12:
-		var a := TAU * i / 12.0
-		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
-	return pts
 
 
 static func _arm(v: CanvasItem, sh: Vector2, hand: Vector2, back: bool) -> void:

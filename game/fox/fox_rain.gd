@@ -49,7 +49,7 @@ func _physics_process(delta: float) -> void:
 		d[1] += d[2] * delta
 		if d[1] > floor_y and randf() < 0.3:
 			Fx.burst(Vector2(d[0], floor_y), 1, {direction = Vector2.UP, spread = 50.0, speed_min = 20.0,
-				speed_max = 50.0, lifetime = 0.2, gradient = Palette.fade_gradient(Color(0.6, 0.85, 1.0)), add = true})
+				speed_max = 50.0, lifetime = 0.2, gradient = Palette.fade_gradient(FoxPalette.SPARK), add = true})
 	_drops = _drops.filter(func(d: Array) -> bool: return d[1] <= floor_y)
 	if _finished and _drops.is_empty():
 		queue_free()
@@ -57,24 +57,27 @@ func _physics_process(delta: float) -> void:
 
 
 func _damage_tick() -> void:
-	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-		if e.is_alive() and rect.has_point(e.global_position + Vector2(0, -8)):
-			var h := Hit.make(TICK_DMG, &"fox_rain", Vector2(e.global_position.x, rect.position.y))
-			h.knockback_t = 0.0
-			e.take_hit(h)
+	EnemyQuery.within(get_tree(), _in_rain, _rain_hit)
 	for b in get_tree().get_nodes_in_group(&"brazier"):
 		if rect.has_point(b.global_position + Vector2(0, -12)):
 			b.take_hit(Hit.make(1, &"fox_rain", b.global_position))
 
 
+func _in_rain(e: EnemyBase) -> bool:
+	return rect.has_point(e.global_position + Vector2(0, -8))
+
+
+func _rain_hit(e: EnemyBase) -> void:
+	var h := Hit.make(TICK_DMG, &"fox_rain", Vector2(e.global_position.x, rect.position.y))
+	h.knockback_t = 0.0
+	e.take_hit(h)
+
+
 func _final_pillar() -> void:
-	var target: Node2D = null
-	var bd := INF
 	var c := rect.get_center()
-	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-		if e.is_alive() and rect.grow(32).has_point(e.global_position) and e.global_position.distance_to(c) < bd:
-			bd = e.global_position.distance_to(c)
-			target = e
+	# 비가 내린 곳(조금 넓게) 안에서 가운데에 가장 가까운 적
+	var target := EnemyQuery.nearest(get_tree(), func(e: EnemyBase) -> float:
+		return e.global_position.distance_to(c) if rect.grow(32).has_point(e.global_position) else INF)
 	var pos := Vector2(c.x, rect.end.y - 16.0)
 	if target:
 		pos = target.global_position

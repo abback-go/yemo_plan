@@ -21,20 +21,22 @@ func _ready() -> void:
 	Fx.zoom_punch(0.1)
 	Fx.shake(0.3, 0.5)
 	Sfx.play(&"fox_transform", 2.0, 0.0)
-	Fx.ring(player.center(), 6.0, 90.0, Color(0.55, 0.85, 1.0), 0.6, 3.0)
+	Fx.ring(player.center(), 6.0, 90.0, FoxPalette.GLOW, 0.6, 3.0)
 	Fx.ring(player.center(), 6.0, 60.0, Color(0.9, 0.97, 1.0), 0.45, 2.0)
 	Fx.burst(player.center(), 70, {spread = 180.0, speed_min = 60.0, speed_max = 240.0, damping = 140.0, lifetime = 0.8,
-		gradient = Palette.fade_gradient(Color(0.55, 0.85, 1.0)), add = true, size_min = 1.5, size_max = 3.5})
-	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-		if e.is_alive() and e.global_position.distance_to(player.global_position) < 5.0 * GameConst.TILE:
-			var h := Hit.make(30, &"fox_burst", player.center())
-			h.knockback_t = 3.0
-			h.ignores_knock_resist = true
-			h.breaks_charge = true
-			e.take_hit(h)
+		gradient = Palette.fade_gradient(FoxPalette.GLOW), add = true, size_min = 1.5, size_max = 3.5})
+	var p := player
+	var near := func(e: EnemyBase) -> bool: return e.global_position.distance_to(p.global_position) < 5.0 * GameConst.TILE
+	var push := func(e: EnemyBase) -> void:
+		var h := Hit.make(30, &"fox_burst", p.center())
+		h.knockback_t = 3.0
+		h.ignores_knock_resist = true
+		h.breaks_charge = true
+		e.take_hit(h)
+	EnemyQuery.within(get_tree(), near, push)
 	var hud := get_tree().get_first_node_in_group(&"hud")
 	if hud and hud.has_method("banner"):
-		hud.banner("빙의 — 여우 모드", 1.4)
+		hud.banner(PlayerText.BANNER_FOX_MODE, 1.4)
 
 
 func _process(delta: float) -> void:

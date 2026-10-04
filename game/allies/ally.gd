@@ -15,6 +15,16 @@ const SPECS := {
 	"emberlyn": {"who": "emberlyn", "attack": "fireball", "range": 12.0, "cd": 1.5, "dmg": 80, "speed": 10.0, "keep": 5.0},
 	"lyra": {"who": "lyra", "attack": "star", "range": 16.0, "cd": 1.2, "dmg": 120, "speed": 11.0, "keep": 5.0, "float": true},
 }
+## 큰 지원기(special) 값: line 말풍선, delay 기술 전 멈춤(초), mult 피해 배수(× dmg), stagger 대상 경직(초), iframes 세라 무적(초).
+## 동작 자체는 special()의 종류별 분기에 있다. 표에 없는 종류는 기본 공격 × SPECIAL_DEFAULT_MULT 원거리.
+const SPECIAL := {
+	"leonie": {"line": "다리를 벤다!", "delay": 0.15, "mult": 3.0, "stagger": 2.0},
+	"elarien": {"line": "…거기.", "delay": 0.3, "mult": 3.5},
+	"aurelia": {"line": "빛이여.", "mult": 3.0, "stagger": 1.8},
+	"astrid": {"line": "지켜 드리죠.", "iframes": 3.0},
+	"isolde": {"line": "얼어붙어라!", "mult": 2.5, "stagger": 1.5},
+}
+const SPECIAL_DEFAULT_MULT := 2.5
 
 var kind := "leonie"
 var spec := {}
@@ -34,6 +44,8 @@ var _font: Font
 var _move_target := Vector2.INF
 var _dash_v := 0.0
 var _hit_done := false
+var _player: Player ## 세라 (그룹 탐색 결과 캐시 — 나가면 다시 찾음)
+var _drawn_bubble := "" ## 지금 그려져 있는 말풍선 글 (바뀔 때만 다시 그림)
 
 
 static func create(p_kind: String) -> Ally:
@@ -69,7 +81,9 @@ func _ready() -> void:
 
 
 func player() -> Player:
-	return get_tree().get_first_node_in_group(GameConst.GROUP_PLAYER) as Player
+	if _player == null or not is_instance_valid(_player) or not _player.is_inside_tree():
+		_player = get_tree().get_first_node_in_group(GameConst.GROUP_PLAYER) as Player
+	return _player
 
 
 func is_float() -> bool:
@@ -145,7 +159,11 @@ func _physics_process(delta: float) -> void:
 	visual.walking = absf(velocity.x) > 20.0 and is_on_floor()
 	if _act_t <= 0.0 and active:
 		visual.set_pose("run" if visual.walking else "idle")
-	queue_redraw()
+	# 그리는 것은 말풍선뿐 — 보일 글이 바뀔 때만 다시 그린다
+	var shown := _bubble if _bubble_t > 0.0 else ""
+	if shown != _drawn_bubble:
+		_drawn_bubble = shown
+		queue_redraw()
 
 
 func _apply_physics(delta: float) -> void:
@@ -207,21 +225,15 @@ func _ai(p: Player, delta: float) -> void:
 		velocity.y = (ty - global_position.y) * 3.0
 
 
+## 세라 18칸 안, 내 사거리(+8칸, 최소 14칸) 안에서 가장 가까운 적 (전투 시작 전 보스는 뺌)
 func _pick_target(p: Player) -> EnemyBase:
-	var best: EnemyBase = null
-	var bd := INF
 	var reach := maxf(float(spec.range) * T + 8.0 * T, 14.0 * T)
-	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-		var en := e as EnemyBase
-		if en == null or not en.is_alive() or (en.is_boss and not en.engaged):
-			continue
-		if en.global_position.distance_to(p.global_position) > 18.0 * T:
-			continue
-		var d := en.global_position.distance_to(global_position)
-		if d < reach and d < bd:
-			bd = d
-			best = en
-	return best
+	var from := global_position
+	var metric := func(en: EnemyBase) -> float:
+		if (en.is_boss and not en.engaged) or en.global_position.distance_to(p.global_position) > 18.0 * T:
+			return INF
+		return en.global_position.distance_to(from)
+	return EnemyQuery.nearest(get_tree(), metric, reach) as EnemyBase
 
 
 func _in_range(en: EnemyBase) -> bool:
@@ -314,46 +326,47 @@ func special(en: EnemyBase = null) -> void:
 	visual.set_pose("special")
 	_act_t = 0.5
 	_act_kind = "special"
+	var sp: Dictionary = SPECIAL.get(kind, {})
 	match kind:
 		"leonie":
-			say("다리를 벤다!")
+			say(sp.line)
 			if en:
 				global_position = en.global_position + Vector2(-facing * 28.0, 0)
 				_poof()
-			await get_tree().create_timer(0.15).timeout
+			await get_tree().create_timer(sp.delay).timeout
 			_act_kind = "slash"
-			_melee_hit(en, 3.0)
+			_melee_hit(en, sp.mult)
 			if en and is_instance_valid(en) and en.has_method("stagger"):
-				en.stagger(2.0)
+				en.stagger(sp.stagger)
 		"elarien":
-			say("…거기.")
-			await get_tree().create_timer(0.3).timeout
+			say(sp.line)
+			await get_tree().create_timer(sp.delay).timeout
 			if en and is_instance_valid(en):
 				if en.has_method("snipe_eye"):
 					en.snipe_eye()
-				_shoot(en, "arrow", 3.5)
+				_shoot(en, "arrow", sp.mult)
 		"aurelia":
-			say("빛이여.")
+			say(sp.line)
 			if en and is_instance_valid(en):
-				_deal(en, int(float(spec.dmg) * 3.0))
+				_deal(en, int(float(spec.dmg) * sp.mult))
 				if en.has_method("stagger"):
-					en.stagger(1.8)
+					en.stagger(sp.stagger)
 				Fx.flash(Color(1.0, 0.92, 0.6, 0.4), 0.2)
 		"astrid":
-			say("지켜 드리죠.")
+			say(sp.line)
 			var p := player()
 			if p:
-				p._hurt_iframe = maxf(p._hurt_iframe, 3.0)
+				p.grant_iframes(sp.iframes)
 				Fx.ring(p.center(), 6.0, 40.0, Color(0.85, 0.85, 1.0), 0.6, 3.0)
 		"isolde":
-			say("얼어붙어라!")
+			say(sp.line)
 			if en and is_instance_valid(en):
-				_shoot(en, "frost", 2.5)
+				_shoot(en, "frost", sp.mult)
 				if en.has_method("stagger"):
-					en.stagger(1.5)
+					en.stagger(sp.stagger)
 		_:
 			if en and is_instance_valid(en):
-				_shoot(en, String(spec.attack), 2.5)
+				_shoot(en, String(spec.attack), SPECIAL_DEFAULT_MULT)
 
 
 func _poof() -> void:
@@ -364,11 +377,8 @@ func _poof() -> void:
 func _draw() -> void:
 	if _bubble_t <= 0.0 or _bubble == "":
 		return
-	var w := _font.get_string_size(_bubble, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 10.0
-	var top := Vector2(-w * 0.5, -66)
-	draw_rect(Rect2(top, Vector2(w, 16)), Color(0.04, 0.03, 0.08, 0.85))
-	draw_rect(Rect2(top, Vector2(w, 16)), Color(Characters.info(String(spec.get("who", kind))).get("color", Color.WHITE), 0.8), false, 1.0)
-	draw_string(_font, top + Vector2(5, 12), _bubble, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
+	var border := Color(Characters.info(String(spec.get("who", kind))).get("color", Color.WHITE), 0.8)
+	BubbleDraw.draw_speech(self, _font, _bubble, -66.0, Color(0.04, 0.03, 0.08, 0.85), Palette.UI_TEXT, border)
 
 
 ## 베기 궤적 (반달)

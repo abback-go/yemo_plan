@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://characters/special/leonie_palette.gd"
 ## 레오니 발렌하르트 전용 몸 그림 (docs/bible/characters.md 3절, art.md 3절). CharacterVisual이 draw_body(v)를 부른다.
 ## 키 40px. 짙은 남색 단발 + 귀 뒤로 가는 땋은 머리, 금빛 눈, 콧등을 가로지르는 흉터, 은빛 흉갑·어깨갑,
 ## 진홍 망토(은사자 문장), 가늘고 긴 장검(손잡이에 붉은 끈). 서 있을 땐 검을 땅에 짚는다.
@@ -9,24 +9,16 @@ extends RefCounted
 ##              · hurt · kneel · down. aim·cast·모르는 자세 = idle. 걸을 때(v.walking)는 검을 칼집에 넣고 걷는다.
 ## v.info["sword"] == "wood" 이면 목검(대련). v의 meta "warn"(0~1)을 적이 넣으면 검날에 붉은 예고 빛.
 
-const KArt := preload("res://world/entities/ch2/k_art.gd")
-const OUT := Color("#07060c")
-const HAIR := Color("#1e2748")
+## 그릴 때 meta에 스프링 상태를 쌓는다 → 화면 밖에서도 매 프레임 그려야 다시 보일 때 같은 모습 (CharacterVisual)
+const KEEP_DRAWING := true
 const HAIR_L := Color("#3a4a7e")
 const HAIR_D := Color("#0d1122")
-const SKIN := Color("#f2d2be")
 const SKIN_D := Color("#d4a894")
 const BROW_C := Color("#141a30")
 const EYE := Color("#ffc23a")
 const SCAR := Color("#e8a8a0")
-const ARMOR := Color("#a6adc0")
-const ARMOR_L := Color("#e6eaf2")
-const ARMOR_D := Color("#5a6078")
 const UNDER := Color("#1f2338")
 const UNDER_L := Color("#30365a")
-const CAPE := Color("#a01e2c")
-const CAPE_L := Color("#d23a44")
-const CAPE_D := Color("#5c0e18")
 const LEATHER := Color("#4a2c20")
 const BLADE := Color("#d6dbe8")
 const BLADE_D := Color("#868ca2")
@@ -266,8 +258,7 @@ static func _ik(a: Vector2, b: Vector2, l1: float, l2: float, bend: float) -> Ve
 
 
 static func _seg(v: CanvasItem, a: Vector2, b: Vector2, w: float, col: Color) -> void:
-	v.draw_line(a, b, OUT, w + 2.0)
-	v.draw_line(a, b, col, w)
+	DrawKit.seg(v, a, b, w, col, OUT)
 
 
 static func _render(v: CharacterVisual, rig: Dictionary, t: float) -> void:
@@ -371,7 +362,7 @@ static func _pauldron(v: CharacterVisual, at: Vector2, u: Vector2, rt: Vector2, 
 		at + rt * -3.2 + u * -1.6, at + rt * -2.6 + u * 1.6, at + rt * 0.0 + u * 2.6,
 		at + rt * 2.8 + u * 1.4, at + rt * 3.4 + u * -1.8,
 	])
-	KArt.poly(v, _grow_poly(pts, 1.0), OUT)
+	KArt.poly(v, DrawKit.grow_poly(pts, 1.0), OUT)
 	KArt.poly(v, pts, base)
 	if not back:
 		v.draw_line(at + rt * -2.0 + u * 1.4, at + rt * 2.2 + u * 1.2, ARMOR_L, 1.0)
@@ -379,18 +370,6 @@ static func _pauldron(v: CharacterVisual, at: Vector2, u: Vector2, rt: Vector2, 
 
 
 ## 다각형을 무게중심에서 조금 키운다 (외곽선용)
-static func _grow_poly(pts: PackedVector2Array, by: float) -> PackedVector2Array:
-	var c := Vector2.ZERO
-	for p in pts:
-		c += p
-	c /= maxf(pts.size(), 1)
-	var out := PackedVector2Array()
-	for p2 in pts:
-		var d := p2 - c
-		out.append(p2 + d.normalized() * by if d.length() > 0.01 else p2)
-	return out
-
-
 static func _tp(hip: Vector2, u: Vector2, rt: Vector2, x: float, y: float) -> Vector2:
 	return hip + rt * x + u * y
 
@@ -398,7 +377,7 @@ static func _tp(hip: Vector2, u: Vector2, rt: Vector2, x: float, y: float) -> Ve
 static func _torso(v: CharacterVisual, hip: Vector2, u: Vector2, rt: Vector2, t: float) -> void:
 	# 아랫단 (남색 웃옷 자락) + 은 판금 허리 갑옷
 	var skirt := PackedVector2Array([_tp(hip, u, rt, -4.5, 2.5), _tp(hip, u, rt, 4.5, 2.5), _tp(hip, u, rt, 5.6, -4.2), _tp(hip, u, rt, -5.4, -4.2)])
-	KArt.poly(v, _grow_poly(skirt, 1.0), OUT)
+	KArt.poly(v, DrawKit.grow_poly(skirt, 1.0), OUT)
 	KArt.poly(v, skirt, UNDER_L)
 	v.draw_line(_tp(hip, u, rt, -1, 2), _tp(hip, u, rt, -1.4, -3.8), UNDER, 1.0)
 	v.draw_line(_tp(hip, u, rt, 2.5, 2), _tp(hip, u, rt, 3.2, -3.8), UNDER, 1.0)
@@ -410,7 +389,7 @@ static func _torso(v: CharacterVisual, hip: Vector2, u: Vector2, rt: Vector2, t:
 		_tp(hip, u, rt, -4.2, 2.4), _tp(hip, u, rt, 4.4, 2.4), _tp(hip, u, rt, 5.2, 8.0),
 		_tp(hip, u, rt, 4.2, 12.6), _tp(hip, u, rt, -3.6, 13.0), _tp(hip, u, rt, -4.8, 8.2),
 	])
-	KArt.poly(v, _grow_poly(chest, 1.0), OUT)
+	KArt.poly(v, DrawKit.grow_poly(chest, 1.0), OUT)
 	KArt.poly(v, chest, ARMOR)
 	var shade := PackedVector2Array([_tp(hip, u, rt, -4.2, 2.4), _tp(hip, u, rt, -1.2, 2.4), _tp(hip, u, rt, -1.6, 12.9), _tp(hip, u, rt, -3.6, 13.0), _tp(hip, u, rt, -4.8, 8.2)])
 	KArt.poly(v, shade, ARMOR_D)
@@ -452,7 +431,7 @@ static func _head(v: CharacterVisual, head: Vector2, u: Vector2, rt: Vector2, ri
 		var rx := 4.1 if cos(a) > 0 else 3.6
 		var ry := 4.5 if sin(a) > 0 else 4.2
 		face.append(head + hr * cos(a) * rx + hu * -sin(a) * ry)
-	KArt.poly(v, _grow_poly(face, 1.0), OUT)
+	KArt.poly(v, DrawKit.grow_poly(face, 1.0), OUT)
 	KArt.poly(v, face, SKIN)
 	v.draw_line(hp.call(-1.6, -2.6), hp.call(2.2, -3.9), SKIN_D, 1.0) # 턱 그늘
 	v.draw_rect(Rect2(hp.call(4.1, -0.9) - Vector2(0.5, 0.5), Vector2(1, 1)), SKIN_D) # 콧날
@@ -461,7 +440,7 @@ static func _head(v: CharacterVisual, head: Vector2, u: Vector2, rt: Vector2, ri
 		hp.call(4.2, 2.0), hp.call(2.6, 4.6), hp.call(-1.0, 5.4), hp.call(-4.4, 3.6), hp.call(-5.3 - sway * 0.5, 0.2),
 		hp.call(-5.0 - sway, -3.4), hp.call(-3.0, -2.0), hp.call(-1.8, -3.8), hp.call(-0.8, 0.6), hp.call(1.6, 1.8),
 	])
-	KArt.poly(v, _grow_poly(hair, 1.0), OUT)
+	KArt.poly(v, DrawKit.grow_poly(hair, 1.0), OUT)
 	KArt.poly(v, hair, HAIR)
 	# 앞머리 끝 두 가닥 + 윤기
 	KArt.poly(v, PackedVector2Array([hp.call(2.4, 2.2), hp.call(4.3, 1.8), hp.call(3.6 + sway * 0.1, 0.8)]), HAIR)
@@ -517,7 +496,7 @@ static func _cape(v: CharacterVisual, sh_b: Vector2, sh_f: Vector2, flow: Vector
 	for i in range(4, 0, -1):
 		var k3 := i / 5.0
 		pts.append(top_f.lerp(front_hem, k3))
-	KArt.poly(v, _grow_poly(pts, 1.0), OUT)
+	KArt.poly(v, DrawKit.grow_poly(pts, 1.0), OUT)
 	KArt.poly(v, pts, CAPE)
 	# 안감(그늘): 몸 쪽 절반
 	var inner := PackedVector2Array([top_f, top_f.lerp(front_hem, 0.55), front_hem, front_hem.lerp(back_hem, 0.28), top_b.lerp(back_hem, 0.35).lerp(top_f.lerp(front_hem, 0.35), 0.5)])
@@ -594,7 +573,7 @@ static func _sword(v: CharacterVisual, guard: Vector2, dir: Vector2, t: float, w
 	else:
 		# 가늘고 긴 칼날: 바탕 + 어두운 등 + 밝은 날 + 뾰족한 끝
 		var blade := PackedVector2Array([guard + side * 1.1, tip - dir * 2.5 + side * 0.9, tip, tip - dir * 2.5 - side * 0.9, guard - side * 1.1])
-		KArt.poly(v, _grow_poly(blade, 0.9), OUT)
+		KArt.poly(v, DrawKit.grow_poly(blade, 0.9), OUT)
 		KArt.poly(v, blade, BLADE)
 		v.draw_line(guard - side * 0.6, tip - dir * 2.5 - side * 0.5, BLADE_D, 1.0)
 		v.draw_line(guard + dir * 1.0, guard + dir * (BLADE_LEN - 4.0), Color(1, 1, 1, 0.75), 1.0) # 피 홈의 빛

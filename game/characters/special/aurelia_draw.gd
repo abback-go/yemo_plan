@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://characters/special/aurelia_palette.gd"
 ## 아우렐리아 (루멘 대신전의 수호자) 전용 몸 그림 — docs/bible/characters.md 3절, art.md 3절, docs/chapter4.md 7.3절.
 ## CharacterVisual이 static draw_body(v)를 부른다 (원점 발밑, +x가 바라보는 쪽, 부모가 좌우를 뒤집음).
 ## 키 42px. 허리까지 오는 금발(정수리에 땋아 올린 왕관 머리), 하얀 금 갑옷, 머리 뒤에 떠 있는 금빛 광륜(천천히 돎),
@@ -12,28 +12,13 @@ extends RefCounted
 ##   (Characters ID "aurelia_berserk"), 또는 v.set_meta("berserk", true). 광륜이 금 가고 흰빛이 새며, 눈이 하얗게, 흰금 불꽃이 몸에서 일렁이고, 머리카락이 떠오른다.
 ## 덧붙일 수 있는 메타: v.set_meta("halo", 1.6) 광륜 크기 배율(시전 연출).
 
-const OUTL := Color("#16101f")
-const ARM := Color("#ece8f4")
-const ARM_S := Color("#a9a3c6")
-const ARM_L := Color("#ffffff")
 const ARM_D := Color("#6f6a92")
-const GOLD := Color("#e9b949")
-const GOLD_S := Color("#a5742a")
-const GOLD_L := Color("#fff1a8")
-const HAIR := Color("#f2c55a")
-const HAIR_S := Color("#c48934")
-const HAIR_L := Color("#fff0a6")
-const HAIR_D := Color("#8e5c26")
-const SKIN := Color("#f7dcc9")
 const SKIN_S := Color("#d9ab99")
 const CLOTH := Color("#f4f2fa")
 const CLOTH_S := Color("#bdb8d6")
-const EYE := Color("#d48a1a")
 const SHAFT := Color("#f0e4c8")
 const SHAFT_S := Color("#b89e70")
-const BLADE := Color("#e6ecf8")
 const BLADE_S := Color("#9aa4c4")
-const WHITE_FIRE := Color(1.0, 0.97, 0.84)
 const DANGER := Color("#ff3b3b")
 
 const THIGH := 9.5
@@ -283,13 +268,7 @@ static func _tl(r: Dictionary, p: Vector2) -> Vector2:
 
 ## 윤곽선(1px, 4방향) + 채움
 static func _poly(v: CanvasItem, pts: PackedVector2Array, col: Color, outline := true) -> void:
-	if outline:
-		for o: Vector2 in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
-			var q := PackedVector2Array()
-			for p in pts:
-				q.append(p + o)
-			v.draw_colored_polygon(q, OUTL)
-	v.draw_colored_polygon(pts, col)
+	DrawKit.outlined_poly(v, pts, col, OUTL, outline)
 
 
 static func _limb(v: CanvasItem, a: Vector2, b: Vector2, w: float, col: Color, outline := true) -> void:

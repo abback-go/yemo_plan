@@ -1,25 +1,10 @@
-extends RefCounted
+extends "res://characters/special/aurelia_palette.gd"
 ## 아우렐리아 대화 초상화 (72×72) — Portrait가 static draw_portrait(p, info, expr, t, talking, blinking)를 부른다.
 ## 표정: normal(굳은 얼굴) · angry · surprised · sad · smile(옅은 미소 — 4장 끝에 한 번, happy도 이것) · berserk(폭주: 하얀 눈, 금 간 광륜)
 ## 인물 정보에 "berserk": true (Characters ID "aurelia_berserk")면 표정과 상관없이 폭주 그림.
 
-const OUTL := Color("#16101f")
-const ARM := Color("#ece8f4")
-const ARM_S := Color("#a9a3c6")
-const ARM_L := Color("#ffffff")
-const GOLD := Color("#e9b949")
-const GOLD_S := Color("#a5742a")
-const GOLD_L := Color("#fff1a8")
-const HAIR := Color("#f2c55a")
-const HAIR_S := Color("#c48934")
-const HAIR_L := Color("#fff0a6")
-const HAIR_D := Color("#8e5c26")
-const SKIN := Color("#f7dcc9")
 const SKIN_S := Color("#dfb3a0")
-const EYE := Color("#d48a1a")
 const EYE_D := Color("#8a4a10")
-const BLADE := Color("#e6ecf8")
-const WHITE_FIRE := Color(1.0, 0.97, 0.84)
 
 
 static func draw_portrait(p: Portrait, info: Dictionary, expr: String, t: float, talking: bool, blinking: bool) -> void:

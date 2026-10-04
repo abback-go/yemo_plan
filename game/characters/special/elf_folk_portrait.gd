@@ -1,5 +1,5 @@
 extends RefCounted
-## 3장 엘프 인물 공용 초상화 (72×72). 1장 Portrait의 사람 그림(_draw_person — 같은 값으로 얼굴·머리·표정)을 그대로 쓰고,
+## 3장 엘프 인물 공용 초상화 (72×72). 1장 Portrait의 사람 그림(draw_person — 같은 값으로 얼굴·머리·표정)을 그대로 쓰고,
 ## 그 뒤에 긴 귀를, 위에 엘프 장식(잎 모자·두건·고글 등)을 더한다.
 
 const LEAF := Color("#3a6a2a")
@@ -19,7 +19,7 @@ static func draw_portrait(p: Portrait, info: Dictionary, expr: String, t: float,
 		p.draw_colored_polygon(PackedVector2Array([base + Vector2(0, -4), tip, base + Vector2(0, 5)]), skin)
 		p.draw_line(base + Vector2(side * 1.5, 1), tip + Vector2(-side * 3.0, 2.5), skin.darkened(0.15), 1.0)
 	# 사람 그림 (얼굴·머리·옷·표정)
-	p._draw_person(info)
+	p.draw_person(info)
 	if "freckles" in extra:
 		for f in [Vector2(-8, 5), Vector2(-6, 7), Vector2(6, 5), Vector2(8, 7), Vector2(-1, 6)]:
 			var fp: Vector2 = fc + f

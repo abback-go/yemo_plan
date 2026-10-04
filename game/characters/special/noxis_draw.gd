@@ -1,19 +1,12 @@
-extends RefCounted
+extends "res://characters/special/noxis_palette.gd"
 ## 녹시스 (별 신도 대사제) 전용 몸 그림. 키 39px.
 ## 별자리 수가 놓인 깊은 남보라 로브와 두건, 두건 밖으로 흘러내린 은빛 머리, 하얀 별 가면(눈구멍에서 보랏빛),
 ## 초승달 지팡이 끝의 별 수정, 몸 둘레를 천천히 도는 작은 별 셋. 광신도답게 움직임이 연극적이다.
 ## 자세: idle · walk · cast(두 팔을 들어 별을 부름) · attack(지팡이를 내지름) · hurt · kneel(웃으며 무릎) · special(별빛으로 흩어짐) · down
 
-const KArt := preload("res://world/entities/ch2/k_art.gd")
 const OUT := Color("#07060c")
-const ROBE := Color("#2a2050")
-const ROBE_L := Color("#45387a")
-const ROBE_D := Color("#140e2a")
-const TRIM := Color("#c8a8ff")
-const HAIR := Color("#dcd4ec")
 const MASK := Color("#f0ecf6")
 const MASK_D := Color("#a8a0c0")
-const STAR := Color("#c89aff")
 const STAFF := Color("#3a2a3a")
 const SKIN := Color("#e0ccd4")
 
@@ -66,7 +59,7 @@ static func draw_body(v: CharacterVisual) -> void:
 	])
 	if crouch > 0.0:
 		robe = PackedVector2Array([chest + Vector2(-4.5, 0), chest + Vector2(4.5, 0), hip + Vector2(8, 3), Vector2(11, hem_y), Vector2(-12, hem_y), hip + Vector2(-8, 3)])
-	KArt.poly(v, _grow(robe, 1.0), Color(OUT, a))
+	KArt.poly(v, DrawKit.grow_poly(robe, 1.0), Color(OUT, a))
 	KArt.poly(v, robe, Color(ROBE, a))
 	KArt.poly(v, PackedVector2Array([robe[0], chest + Vector2(-1, 0), Vector2(-2, hem_y), robe[robe.size() - 2] if crouch <= 0.0 else robe[4]]), Color(ROBE_D, a))
 	# 별자리 수 (점과 선)
@@ -87,7 +80,7 @@ static func draw_body(v: CharacterVisual) -> void:
 	_sleeve(v, sh_b, hand_b, a, true)
 	# 두건 + 은빛 머리 + 별 가면
 	var hood := PackedVector2Array([head + Vector2(-6.5, 5), head + Vector2(-7, -2), head + Vector2(-3, -7.5), head + Vector2(3, -7), head + Vector2(6, -2), head + Vector2(5.5, 4)])
-	KArt.poly(v, _grow(hood, 1.0), Color(OUT, a))
+	KArt.poly(v, DrawKit.grow_poly(hood, 1.0), Color(OUT, a))
 	KArt.poly(v, hood, Color(ROBE_L, a))
 	KArt.poly(v, PackedVector2Array([head + Vector2(-6.5, 5), head + Vector2(-7, -2), head + Vector2(-4, -6), head + Vector2(-3, 4)]), Color(ROBE, a))
 	# 흘러내린 은빛 머리 (가면 양옆)
@@ -153,15 +146,3 @@ static func _dissolve(v: CharacterVisual, c: Vector2, t: float, k: float) -> voi
 		var r := 4.0 + k * 22.0 + (i % 3) * 3.0
 		var p := c + Vector2(cos(ang + t), sin(ang + t) * 1.2) * r + Vector2(0, -k * 10.0)
 		KArt.star4(v, p, 1.0 + (i % 2), Color(STAR.lightened(0.3), (1.0 - k * 0.7)))
-
-
-static func _grow(pts: PackedVector2Array, by: float) -> PackedVector2Array:
-	var c := Vector2.ZERO
-	for p in pts:
-		c += p
-	c /= maxf(pts.size(), 1)
-	var out := PackedVector2Array()
-	for p2 in pts:
-		var d := p2 - c
-		out.append(p2 + d.normalized() * by if d.length() > 0.01 else p2)
-	return out

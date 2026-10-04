@@ -1,19 +1,9 @@
-extends RefCounted
+extends "res://characters/special/ortia_palette.gd"
 ## 오르티아 장로 초상화 (72×72) — 주름진 얼굴, 처진 긴 귀, 이끼·작은 꽃을 엮은 긴 흰 머리, 이끼 망토,
 ## 옆으로 솟은 지팡이 끝의 빛나는 씨앗. 평소엔 웃는 듯 감은 눈, 놀라거나 진지할 땐 옅은 금록 눈을 뜬다.
 ## expr: normal · happy · sad · surprised · angry(엄함) · serious(진지 — 눈을 뜸)
 
-const HAIR := Color("#e6e6da")
-const HAIR_SH := Color("#b2b4a4")
-const SKIN := Color("#e8ccb6")
 const SKIN_SH := Color("#c49e88")
-const LINE := Color("#5a3e2e")
-const MANTLE := Color("#4a6a36")
-const MANTLE_SH := Color("#2e4622")
-const ROBE := Color("#5a4430")
-const MOSS := Color("#6a9a44")
-const SAP := Color("#c8ff7a")
-const STAFF := Color("#6a5034")
 const EYE := Color("#b8c878")
 
 

@@ -7,6 +7,7 @@ extends Node2D
 const HIP := Vector2(0, -9)
 const HAT_TIP_REST := Vector2(-4, -45)
 
+## Player.State와의 짝은 Player.POSE_OF 표가 정한다 (순서를 바꿔도 되지만 표를 같이 고칠 것)
 enum Pose { IDLE, RUN, JUMP, FALL, DASH, HURT, STUN, DEAD }
 
 var pose: Pose = Pose.IDLE

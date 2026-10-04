@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://characters/special/lyra_palette.gd"
 ## 리라 대화 초상화 (72×72). 게임에서 가장 아름다운 인물: 은백색 머리의 큰 볼륨과 별가루, 별 동공의 보랏빛 눈,
 ## 별자리 금실 자수 깃, 화면 위로 넘치는 거대한 모자(초승달 끝에 매달린 별), 둘레를 도는 작은 별들.
 ## expr: normal(다정한 미소) · happy · sad · serious · surprised · angry(→ serious) · possessed(흰 눈·흰 금)
@@ -7,21 +7,13 @@ extends RefCounted
 const HAIR := Color("#eceffb")
 const HAIR_SH := Color("#b4bade")
 const HAIR_DEEP := Color("#8188bf")
-const HAIR_HI := Color("#ffffff")
 const SKIN := Color("#f9eae4")
 const SKIN_SH := Color("#ebcfcf")
 const EYE := Color("#9a68e6")
 const EYE_HI := Color("#d6b8ff")
 const EYE_DEEP := Color("#46288a")
 const LASH := Color("#231a3a")
-const ROBE := Color("#1c2256")
-const ROBE_HI := Color("#34428e")
 const HAT := Color("#191d4c")
-const HAT_SH := Color("#0c0e2c")
-const GOLD := Color("#ecd28a")
-const STAR := Color("#fff3c0")
-const STAR_CORE := Color("#fffbea")
-const WHITE_GOD := Color("#f4f6ff")
 
 
 static func draw_portrait(p: Portrait, _info: Dictionary, expr: String, t: float, talking: bool, blinking: bool) -> void:

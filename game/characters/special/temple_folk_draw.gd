@@ -116,12 +116,7 @@ static func draw_body(v: CharacterVisual) -> void:
 
 
 static func _poly(v: CanvasItem, pts: PackedVector2Array, col: Color) -> void:
-	for o: Vector2 in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
-		var q := PackedVector2Array()
-		for p in pts:
-			q.append(p + o)
-		v.draw_colored_polygon(q, OUTL)
-	v.draw_colored_polygon(pts, col)
+	DrawKit.outlined_poly(v, pts, col, OUTL)
 
 
 static func _staff(v: CanvasItem, a: Vector2, b: Vector2, sun: bool) -> void:

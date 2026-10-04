@@ -72,22 +72,19 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 
-## 앞쪽(진행 방향)에 있는, 아직 꿰뚫지 않은 가장 가까운 적
+## 앞쪽(진행 방향)에 있는, 아직 꿰뚫지 않은 가장 가까운 적 (12칸 안)
 func _nearest() -> EnemyBase:
-	var best: EnemyBase = null
-	var bd := 12.0 * GameConst.TILE
-	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-		var en := e as EnemyBase
-		if en == null or not en.is_alive() or _hit.has(en):
-			continue
-		var to: Vector2 = en.global_position - global_position
-		if to.dot(vel) <= 0.0:
-			continue
-		var d := to.length()
-		if d < bd:
-			bd = d
-			best = en
-	return best
+	return EnemyQuery.nearest(get_tree(), _ahead_dist, 12.0 * GameConst.TILE) as EnemyBase
+
+
+## 진행 방향 앞쪽이고 아직 안 꿰뚫은 적까지 거리 (아니면 INF)
+func _ahead_dist(en: EnemyBase) -> float:
+	if _hit.has(en):
+		return INF
+	var to: Vector2 = en.global_position - global_position
+	if to.dot(vel) <= 0.0:
+		return INF
+	return to.length()
 
 
 func _on_area(area: Area2D) -> void:

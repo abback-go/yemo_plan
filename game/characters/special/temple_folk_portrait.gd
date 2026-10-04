@@ -60,8 +60,8 @@ static func draw_portrait(p: Portrait, info: Dictionary, _expr: String, t: float
 	if look == "luca":
 		for q: Vector2 in [Vector2(-9, 6), Vector2(-7, 7), Vector2(7, 7), Vector2(9, 6)]:
 			p.draw_rect(Rect2(fc + q, Vector2(1, 1)), Color(0.8, 0.45, 0.3, 0.7))
-	p._eyes(fc, eye)
-	p._mouth(fc)
+	p.draw_eyes(fc, eye)
+	p.draw_mouth(fc)
 	# 앞머리·머리쓰개
 	match look:
 		"benedicta":
