@@ -1,4 +1,4 @@
-# 작업 현황·인수인계 (2026-10-04, 전체판 v1.0 — 1~5장)
+# 작업 현황·인수인계 (2026-10-04, 전체판 v1.0 — 1~5장, 구조 정리·최적화 뒤)
 
 > 대화를 압축하거나 새 세션에서 이어 갈 때 **이 문서부터** 읽는다. 설정 정본은 [`bible/`](bible/README.md), 공통 시스템 규칙은 [`systems2.md`](systems2.md), 마법은 [`magic.md`](magic.md), 장별 실제 구현은 `chapterN.md`의 7절 이후, 이번 개발 기록은 [`devlog/06-full-version.md`](devlog/06-full-version.md).
 
@@ -42,6 +42,12 @@
 | `ch5_full` | 0 | 크레디트 → 에필로그(`st_rebuild`), 목표 "모든 이야기가 끝났다…" |
 - 꼬리 다각형 엔진 오류(`Invalid polygon`) 0건(수정 뒤). 1장 끝 → 2장 시작은 별도 시나리오로 확인(공통 시스템).
 
+### 3.2b 구조 정리·최적화 회귀 (2026-10-04, 리팩터 전 3972c3b ↔ 후, 난수·시간 고정)
+- 시나리오 39개 전후 비교: 1~5장 전체 플레이(`full_playthrough`·`ch2~5_full`), 2장 전 시나리오 23개, 3장 일부, 수업·창·동료·활공·터치·이어하기·학교 흐름 —
+  **STATUS 줄 전부 같음, 스크린샷 전부 픽셀 동일**(예외: `title_touch` 설정값 한 칸 — 두 사본이 같은 설정 파일을 써서 생긴 환경 차이). 엔진 오류 수도 전후 같음.
+- 배경 텍스처 굽기(리팩터 뒤 추가): 그림은 다각형 가장자리 반올림 외 같음, 신전 기록실 그리기 호출 5,207 → 718.
+- 실행 방법: `docs/dev/README.md` 5절 (`tools/test/regress.sh` + `imgdiff.py`).
+
 ### 3.3 알려진 한계·다음 후보
 1. **사람이 직접 플레이**해서 난이도·길 찾기·시간 확인 (특히 2장 하수도, 3장 사냥 시험·사도, 4장 첨탑 추격, 5장 거신 타기·최종전).
 2. 아트 착수 (기존 결정: 캐릭터 32px, INARI풍).
@@ -50,23 +56,23 @@
 5. 동료 레오니 2장 옛 성곽 구간 저장 안 됨(방마다 다시 부름).
 6. 효과음 합성이 웹에서 실제로 소리 나는지 귀로 확인 필요.
 
-## 4. 코드 구조 요약 (`game/`)
+## 4. 코드 구조 요약 (`game/`) — 2026-10-04 리팩터 뒤
+**코드를 고치기 전에 [`dev/README.md`](dev/README.md)부터** (구조도·패턴·"무엇을 바꾸려면 어디를"·검증 절차·성능 규칙). 영역별: `dev/story.md`·`world.md`·`backdrop.md`·`enemies.md`·`player.md`·`characters.md`.
 | 폴더 | 내용 |
 |---|---|
-| `autoload/` | GameState(플래그·저장·통계·설정), Sfx, Fx, StyleRank, Music, TouchControls · Story는 `story/story.gd` |
-| `core/` | `spells.gd`(마법 7종), `quests.gd`, `chapter_flow.gd`(장 끝·다음 장), `chapter_registry.gd`(장별 모듈 합치기), `warp_db.gd`, `difficulty.gd`, `credits.gd`, `tuning.gd` |
-| `world/` | 방 교체·개체·배경. `entities/<sys·ch2~5>/`(장별 장치), `themes/themes_<ext>.gd`·`backdrop_<ext>.gd`(장별 테마·배경) |
-| `story/` | `cut.gd`(대본 도구), `scripts_<prologue·school·npc·sys·ch2~5>.gd`, `data_<sys·ch2~5>.gd`(인물·방·목표·퀘스트), `objectives.gd`(지금 장 목표 줄) |
-| `player/`·`fox/`·`combat/` | 세라·마법(방벽·유성·불사조·활공)·너울·여우 모드 |
-| `enemies/` | `enemy_base.gd`, 1장 적 + `enemies/<sys·ch2~5>/` |
-| `allies/` | 동료(레오니·엘라리엔·아우렐리아·아스트리드·이졸데·엠버린·리라) |
-| `characters/special/` | 강자 전용 몸 그림·초상화 |
-| `ui/` | HUD(미니맵·장착 칸·목표·퀘스트 줄), 퀘스트창·마법서·수업 게시판·전이진 메뉴, Cinema, 대화·안내·알림·지도·일시정지·설정·타이틀 |
+| `autoload/` | GameState(플래그·저장·설정), Sfx, Fx(효과·입자 풀·`now_ms`), StyleRank, Music, TouchControls · Story는 `story/story.gd` |
+| `core/` | `chapter_registry.gd`(장 모듈 ch1·sys·ch2~5), `chapter_flow.gd`, `cond.gd`(조건식), `rewards.gd`(보상), `quests.gd`, `spells.gd`, `warp_db.gd`, `tuning.gd/.tres`, `hit.gd`(공격 종류), `enemy_query.gd` |
+| `story/` | `data_<ext>.gd`(CHAPTER·SCRIPTS·CHARACTERS·OBJECTIVES·QUESTS), `<ext>/*.gd`(장면별 대본), `dev/`(시험용 대본), `cut.gd`(대본 명령) |
+| `world/` | 방(`room.gd`)·`rooms/`(생성물 + `_index.gd`)·`entities/<ext>/`(장치·소품 PROPS 표)·`themes/`(배경 — 정적은 텍스처로 구움, 움직임만 다시 그림) |
+| `player/` | `player.gd`(파사드) + `player_motor/caster/gauge/health.gd`, `player_text.gd`(문구) |
+| `enemies/`·`combat/`·`fx/` | `enemy_base.gd`(도우미·화면 밖 생략)·`state_clock`·보스 도구, 장별 적 |
+| `characters/` | 인물 그림·초상화·`draw_kit.gd`·말풍선 |
+| `ui/` | HUD·대화·퀘스트창·마법서·수업 게시판·지도·일시정지·Cinema |
 
 ## 5. 작업 규칙
 
 ### 5.1 대본 작성 규칙 (구현에서 굳어진 것)
-- 대본 = `story/scripts_*.gd`의 메서드, 이름이 실행 ID. `enter_<방ID>`는 방에 들어올 때 **잠그지 않고** 시작하므로 컷신이면 `c.lock()`부터. `teach_*`는 세라를 멈추지 않는 멈춤 안내.
+- 대본 = `story/<장>/*.gd`의 메서드(파일은 `data_<장>.gd`의 `SCRIPTS`에 등록), 이름이 실행 ID. `enter_<방ID>`는 방에 들어올 때 **잠그지 않고** 시작하므로 컷신이면 `c.lock()`부터. `teach_*`는 세라를 멈추지 않는 멈춤 안내.
 - 컷신(잠금) 중에는 적과 적 탄이 멈춘다. 보스 등장 연출은 `c.freeze_enemies(false)`.
 - 보스전처럼 오래 기다리는 대본은 `await c.wait_enemy(적, 체력비율, 시간제한)` 후 `if not c.ok(): return` (쓰러져 부활하면 대본 무효화).
 - 보스전 대본은 적이 이미 처치되어 있으면 바로 뒷이야기로 넘어가게(진행 막힘 방지).
