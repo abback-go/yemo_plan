@@ -16,14 +16,16 @@ func _ready() -> void:
 	material = Fx.add_material
 	Sfx.play(&"fox_end", 0.0, 0.0)
 	var r := RADIUS_T * GameConst.TILE
-	for e in get_tree().get_nodes_in_group(GameConst.GROUP_ENEMY):
-		if e.is_alive() and EnemyBase.dist_to_body(e, global_position) <= r:
-			var h := Hit.make(25, &"fox_burst", global_position)
-			h.knockback_t = 2.0
-			e.take_hit(h)
-	Fx.ring(global_position, 4.0, r, Color(0.55, 0.85, 1.0), 0.4, 2.0)
+	var c := global_position
+	var in_reach := func(e: EnemyBase) -> bool: return EnemyBase.dist_to_body(e, c) <= r
+	var push := func(e: EnemyBase) -> void:
+		var h := Hit.make(25, &"fox_burst", c)
+		h.knockback_t = 2.0
+		e.take_hit(h)
+	EnemyQuery.within(get_tree(), in_reach, push)
+	Fx.ring(global_position, 4.0, r, FoxPalette.GLOW, 0.4, 2.0)
 	Fx.burst(global_position, 30, {spread = 180.0, speed_min = 40.0, speed_max = 140.0, damping = 100.0, lifetime = 0.5,
-		gradient = Palette.fade_gradient(Color(0.55, 0.85, 1.0)), add = true})
+		gradient = Palette.fade_gradient(FoxPalette.GLOW), add = true})
 
 
 func _process(delta: float) -> void:

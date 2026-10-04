@@ -165,3 +165,41 @@ extends Resource
 @export var meteor_radius_t := 2.5
 @export var meteor_width_t := 24.0
 @export var phoenix_damage := 400
+
+@export_group("Fox Mode (여우 모드)")
+## 여우 모드 시간: 꼬리 1개 기준 + 꼬리마다 더함, 아홉 꼬리면 고정 (docs/bible/progression.md 3절)
+@export var fox_duration := 12.0
+@export var fox_duration_per_tail := 2.0
+@export var fox_duration_nine_tails := 30.0
+## 너울의 기운이 다시 차는 시간: 꼬리 1개 기준 − 꼬리마다 뺌, 최소값
+@export var fox_recharge := 50.0
+@export var fox_recharge_per_tail := 5.0
+@export var fox_recharge_min := 25.0
+@export var fox_pillar_cd_mult := 1.6 ## 여우비(여우 모드 A) 재사용 대기 배수
+@export var fox_storm_cd_mult := 1.2 ## 구미호 폭풍(여우 모드 S) 재사용 대기 배수
+
+@export_group("Potion · Revive")
+@export var potion_heal := 2
+@export var potion_time := 0.6 ## 마시는 동안 (이동 30%)
+@export var phoenix_heal := 1 ## 불사조 시전 회복 (Lv2부터 phoenix_heal_lv2)
+@export var phoenix_heal_lv2 := 2
+@export var phoenix_overload_drain := 50.0 ## 불사조 시전 시 폭주 게이지 감소
+@export var phoenix_revive_hp := 3 ## 불사조 Lv3 부활의 불꽃: 되살아나는 체력
+@export var phoenix_revive_iframe := 2.0
+
+@export_group("Spell Levels (레벨별 차이)")
+## 마법 레벨에 따라 바뀌는 값. Spells(core/spells.gd)는 피해·재사용 배수만 가지므로 나머지는 여기에.
+@export var double_jump_mult := 0.87 ## 2단 점프 초속 = 점프 초속 × 이 값
+@export var levitate_lv2_jump_mult := 1.07 ## 부유 Lv2: 2단 점프 초속 배수
+@export var levitate_lv3_air_jumps := 2 ## 부유 Lv3: 공중 점프 횟수 (아니면 1)
+@export var wings_lv2_glide_bonus_t := 2.0 ## 불꽃 날개 Lv2: 활공 수평 속도 더함 (T/s)
+@export var wings_lv2_updraft_mult := 1.25 ## 불꽃 날개 Lv2: 상승 기류 배수
+@export var ember_interval := 0.35 ## 불꽃 날개 Lv3: 활공 중 불씨 간격 (s)
+@export var ember_damage := 28
+@export var ember_half_width_t := 1.5 ## 불씨 판정: 좌우 반폭 (T)
+@export var ember_depth_t := 6.0 ## 불씨 판정: 발밑 아래 깊이 (T, + 적 키)
+@export var pillar_lv3_extra_sides := 1 ## 불기둥 Lv3: 한쪽당 연쇄 기둥 더함
+@export var storm_lv3_burn_offset_t := 3.0 ## 화염 폭풍 Lv3: 앞쪽 이 거리에 불바다
+@export var storm_lv3_burn_width_t := 5.0
+@export var storm_lv3_burn_dps := 60.0 ## × 화염 폭풍 피해 배율
+@export var storm_lv3_burn_time := 2.0
