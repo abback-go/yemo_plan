@@ -1,5 +1,14 @@
 extends RefCounted
 ## 2장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절).
+## 형식 (모든 data_<장>.gd 공통 — 자세히: docs/dev/story.md "데이터 형식"):
+##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
+##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
+##   CHARACTERS 인물 ID → {name, color, voice, 몸 그림 값(robe·hair…), draw·portrait(전용 그림 경로)}
+##   ROOMS      이 장의 방 ID (지도·검사용)
+##   OBJECTIVES [완료 플래그, HUD 문구, 필요 조건(Cond 식, ""=항상)] — 위에서부터 "조건 참·완료 아직"인 첫 줄이 현재 목표
+##   QUESTS     ID → {title, giver, kind(side·class·main), chapter, need(Cond 식), desc, steps[문구…],
+##              talk[[단계, 인물, 대본 ID]…], reward{stones, potion_slot, heart, feather, text}}
+##              수업(kind = "class")은 + spell(마법 ID), unlock(Cond 식), unlock_text
 
 ## 장 정보 (ChapterRegistry 머리 주석의 CHAPTER 설명)
 const CHAPTER := {
@@ -152,7 +161,7 @@ const ROOMS := [
 	"k_oldquarter_1", "k_oldquarter_2", "k_oldquarter_3", "k_crater",
 ]
 
-## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 플래그] (docs/chapter2.md 7.3절)
+## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] (docs/chapter2.md 7.3절)
 const OBJECTIVES := [
 	["k_breakfast", "식당에서 아침을 먹자 (동관 복도 → 아래층)", "ch1_done"],
 	["ab_wings", "중앙 홀 수업 게시판에서 '불꽃 날개' 수업을 듣자", "k_breakfast"],

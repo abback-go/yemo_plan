@@ -3,6 +3,15 @@ extends RefCounted
 ## 수업 퀘스트(kind = "class")는 수업 게시판(class_board)의 "마법 배우기" 창에 나온다:
 ##   spell(배울 마법) · unlock(잠김 해제 조건: 플래그 식 + "mana>=N") · unlock_text(잠김일 때 보이는 문구)
 ## 단계마다 그 인물에게 말을 걸면 talk의 대본이 먼저 실행된다(Quests.talk_hook).
+## 형식 (모든 data_<장>.gd 공통 — 자세히: docs/dev/story.md "데이터 형식"):
+##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
+##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
+##   CHARACTERS 인물 ID → {name, color, voice, 몸 그림 값(robe·hair…), draw·portrait(전용 그림 경로)}
+##   ROOMS      이 장의 방 ID (지도·검사용)
+##   OBJECTIVES [완료 플래그, HUD 문구, 필요 조건(Cond 식, ""=항상)] — 위에서부터 "조건 참·완료 아직"인 첫 줄이 현재 목표
+##   QUESTS     ID → {title, giver, kind(side·class·main), chapter, need(Cond 식), desc, steps[문구…],
+##              talk[[단계, 인물, 대본 ID]…], reward{stones, potion_slot, heart, feather, text}}
+##              수업(kind = "class")은 + spell(마법 ID), unlock(Cond 식), unlock_text
 
 ## 대본 파일 (Story가 이 순서로 읽는다). sys는 장이 아니라 CHAPTER가 없다
 const SCRIPTS := [
