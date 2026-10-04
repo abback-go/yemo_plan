@@ -80,7 +80,7 @@
 |---|---|
 | 방 생성 (본편 32 + 시험 방 7 + 학교 덧붙임) | `tools/rooms/ch3.py` → `game/world/rooms/e_*.gd`, `dev_e_*.gd` |
 | 인물·방 목록·목표·퀘스트 | `game/story/data_ch3.gd` |
-| 대본 (본편·인물 대화·퀘스트·개발용) | `game/story/scripts_ch3.gd` |
+| 대본 (본편·인물 대화·퀘스트·개발용) | `game/story/ch3/*.gd` |
 | 적 9종 + 공용 조각 | `game/enemies/ch3/` (`registry.gd`, `aim_line.gd` 예고선, `elf_arrow.gd` 화살, `ch3_sfx.gd` 효과음) |
 | 장치 11종 + 끝 장면 + 소품 33종 | `game/world/entities/ch3/` (`entities.gd`, `props.gd`, `moon_scene.gd`) |
 | 테마·배경 | `game/world/themes/themes_ch3.gd` (`elf`·`elf_deep`·`blight`), `backdrop_ch3.gd` |
@@ -215,7 +215,7 @@
 | `e_honey` | 버터워스 (식당) | `e_start` | 숨은 숲의 숲 꿀 | 최대 체력 +1(꿀 바른 숲빵) |
 | `s_duel_cup` | 이졸데 (앞마당) | `e_letter` | 결투장에서 이졸데와 결투(`isolde_duel`, 다시 도전 가능). 유성 낙화 수업 시험 중엔 미룸 | 수호의 깃털 |
 
-## 12. 대본 목록 (`scripts_ch3.gd`)
+## 12. 대본 목록 (`game/story/ch3/*.gd`)
 - 본편: `ch3_start` · `e_headmaster` · `enter_e_gate` · `e_warning_shot` · `e_snipe_teach` · `e_warden_seen` · `e_blight_first` · `e_border_gate` · `enter_e_roots` · `enter_e_elder_hall` · `e_cave_dark` · `e_cave_mush_done` · `e_stag_teach` · `e_market_arrive` · `enter_e_workshop` · `e_wind_teach` · `enter_e_branch_homes` · `e_moon_arrive` · `e_moon_lesson` · `e_vine_hint` · `e_vine_first` · `e_blight_arrive` · `e_heart_arrive` · `e_grove_purify` · `enter_e_canopy_1` · `e_hunt_offer` · `e_hunt_begin`(→`_hunt_after`) · `enter_e_crown_1/2`·`enter_e_crown_nest`(사도전에 지고 오면 동료·결계 초기화) · `e_crown_arrive` · `e_herald_begin`(→`_herald_after` → `_ending_elder` → `_ending_dorm` → `ChapterFlow.finish(c, 3)`)
 - 인물: `npc_ortia` · `npc_fio` · `npc_fio_mom` · `npc_tiel` · `npc_elarien`(활터·경기장 앞) · `npc_warden_a` · `npc_warden_b`(방마다 다름) · `npc_e_roots_a/b/c` · `npc_e_roots_warden` · `npc_e_market_a`(꿀떡: 물약 채움)·`npc_e_market_c` · `npc_e_branch_a/b/c` · `npc_elf_c`
 - 학교 3장 덮어쓰기: `npc_pippa_ch3` · `npc_butterworth_ch3` · `npc_astrid_ch3` · `npc_isolde_ch3`(→`_isolde_duel`)

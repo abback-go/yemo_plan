@@ -46,7 +46,7 @@
 - 습득 연출: 화면이 어두워지고 마법 이름이 크게(기존 `Notice.ability_get`), 그 마법 전용 큰 이펙트 시연, 마법서에 새 쪽이 쓰이는 소리. 고급 마법은 시연이 화면 전체.
 
 ## 5. 구현 메모 (공통 시스템 — 이미 만든 것)
-- 데이터: `game/story/data_sys.gd`(수업 퀘스트 4종 `cls_*`, 단계·talk 가로채기), 대본: `game/story/scripts_sys.gd`, 방: `tools/rooms/sys.py`.
+- 데이터: `game/story/data_sys.gd`(수업 퀘스트 4종 `cls_*`, 단계·talk 가로채기), 대본: `game/story/sys/*.gd`, 방: `tools/rooms/sys.py`.
 - 수업 신청 → `Quests.start("cls_<마법>")` → 대본 `cls_<마법>_begin`. 수업 중 임시 능력은 `temp_<능력>` 플래그(습득 시 지움). 게시판 상태는 "진행 중"을 먼저 본다.
 - 수업 방 테마: `windtower`·`observatory`·`duel`·`ash` (`world/themes/themes_sys.gd`·`backdrop_sys.gd`).
 - 장치: `orb_turret`(on_if), `reflect_target`, `star_point`(틀리면 힌트), `control_trial`, `ash_trial`·`ash_candle`, `phoenix_egg`(progress 고리). 적: `veronica_duel`, `shadow_sera`(둘 다 체력 0이면 무릎 — 사라지고 대본이 인물을 세움), `ash_shade`·`ash_moth`.

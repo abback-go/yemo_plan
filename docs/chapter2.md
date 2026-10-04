@@ -78,7 +78,7 @@
 
 ## 7. 세부 (제작하며 채움)
 
-> 만든 것: `tools/rooms/ch2.py`(방 33개 + 학교 덧붙임) · `game/story/scripts_ch2.gd`(대본) · `game/story/data_ch2.gd`(인물·방·목표·퀘스트) ·
+> 만든 것: `tools/rooms/ch2.py`(방 33개 + 학교 덧붙임) · `game/story/ch2/*.gd`(대본) · `game/story/data_ch2.gd`(인물·방·목표·퀘스트) ·
 > `game/enemies/ch2/`(적 11종) · `game/world/entities/ch2/`(장치·소품) · `game/world/themes/*_ch2.gd`(테마·배경) · `game/characters/special/`(레오니·녹시스·기사 그림) ·
 > `tools/test/scenarios/ch2_*.json`(시험).
 
@@ -162,7 +162,7 @@ y6        [투기장 바닥][  ][은신처     ][하5 ][하수도4    ][하수�
 | `k_spice` | 학교 식당 버터워스 / `k_departed` | 시장 향신료 상인 | 최대 체력 +1(별향신료 스튜) |
 | `k_greta_books` | 학교 도서관 그레타 / `k_departed` | 연체 도서 3권: 막사·태엽 공방·대성당 서고(줍는 즉시 단계 갱신) | 마도석 2 |
 
-### 7.5 대본 목록 (`scripts_ch2.gd`)
+### 7.5 대본 목록 (`game/story/ch2/*.gd`)
 - 본편: `ch2_start`(기숙사 — 피피가 깨움) · `k_cafe_morning`(소문 "폐급이 괴물을 찢었대"·"교장이 하늘을 셋으로 갈랐대", 버터워스, 이졸데) ·
   `k_after_wings`(오필리아: 교장의 부름) · `k_envoy`(제국 사자 오스카, 파견, **별 브로치**) · `k_depart`(전이진 → 공관, 해금) ·
   `k_market_beast`(성흔 늑대와 22초/체력 55%까지 → 레오니 잔상 3개·일격·환호, "여긴 마녀 놀이터가 아니다") · `k_spar`(결과별 "나쁘지 않군") ·

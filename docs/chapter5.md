@@ -78,7 +78,7 @@
 ## 7. 세부 — 실제로 만든 것
 
 > 아래는 2단계에서 **실제로 만든 것**을 적는다(설계 메모가 아니라 현재 코드의 설명). 방 데이터 `tools/rooms/ch5.py`,
-> 대본 `game/story/scripts_ch5.gd`, 장 데이터 `game/story/data_ch5.gd`, 적 `game/enemies/ch5/`, 개체·소품 `game/world/entities/ch5/`,
+> 대본 `game/story/ch5/*.gd`, 장 데이터 `game/story/data_ch5.gd`, 적 `game/enemies/ch5/`, 개체·소품 `game/world/entities/ch5/`,
 > 테마·배경 `game/world/themes/themes_ch5.gd`·`backdrop_ch5.gd`, 전용 그림 `game/characters/special/lyra_*`·`astrid_*`·`neoul_portrait.gd`.
 
 ### 7.1 플래그 흐름 (메인)
@@ -249,7 +249,7 @@ ch5_start ─ st_fest ─ st_fest_seen(광장) ─ st_fest_ready(교장의 사�
 | st_hodu_letters | 호두(앞마당) | 축제 낮 | 미라벨·그레타·베로니카·오필리아·엠버린·버터워스에게 초대장(각자 한마디) → 호두 | 마도석 1 |
 | st_rebuild | 엠버린(안뜰) | 에필로그·엔딩 뒤 | 피피(물약 상자)·버터워스(솥)·호두(책 정리)·이졸데(얼음벽)·레오니(들보)·엘라리엔(세계수 묘목) → 엠버린 "사진 찍는다!" | 엔딩 사진(안뜰에 걸림) |
 
-## 11. 대본 목록 (scripts_ch5.gd)
+## 11. 대본 목록 (`game/story/ch5/*.gd`)
 - 흐름: `ch5_start` · `st_yard_first` · `enter_st_festival` · `st_photo_scene` · `st_evening_ask` · `st_evening` · `enter_st_crossroads`
 - 시련: `enter_st_trial_k1/k/e1/e/tp1/tp/s1/s` · `st_s1_done` · `st_s2_done` · `st_s_key` · 도우미 `_close_arena`(들어오면 결계, 그냥 나가면 그만둠) · `_key_get` · `_spawn_star_door`(시련을 마치면 아레나에 문간으로 가는 별의 문)
 - 탑: `enter_st_tower_1/2/4` · `st_t1_done` · `st_t3_done` · `st_flip_down/up` · `st_mem_1~7` · `st_mem_album` · `st_t5_astrid` · `enter_st_tower_top` · `_lyra_phase` · `_lyra_truth`

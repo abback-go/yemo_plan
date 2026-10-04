@@ -10,13 +10,13 @@
 |---|---|
 | `tools/rooms/<ext>.py` | 방 생성기 모듈. `from roomgen import Room, room, overlay` → `@room def k_market(): ...` (1장 `tools/roomgen.py`와 같은 문법). 학교 등 **다른 장의 방에 개체를 덧붙일 때** `overlay("s_hall", "npc", who="...", x=..., y=..., cond="...")` |
 | `game/world/rooms/<방ID>.gd` | 생성 결과 (`python3 tools/roomgen.py` 또는 `python3 tools/roomgen.py <방ID>`) — 직접 고치지 말 것 |
-| `game/story/data_<ext>.gd` | `const CHARACTERS := {}` 인물(1장 `Characters.DB`와 같은 키, 같은 ID면 키를 덮어씀), `const ROOMS := []` 방 ID 목록(지도·검사용), `const OBJECTIVES := []` 메인 목표 줄(1장 `Objectives.LIST`와 같은 형식, 장 순서대로 이어 붙음), `const QUESTS := {}` 퀘스트(4절) |
-| `game/story/scripts_<ext>.gd` | 대본(`extends RefCounted`, 메서드 이름 = 실행 ID, `func id(c: Cut) -> void`) |
+| `game/story/data_<ext>.gd` | 장 데이터: `CHAPTER`(장 정보)·`SCRIPTS`(대본 파일 목록)·`CHARACTERS`·`OBJECTIVES`·`QUESTS` — 형식은 [`dev/story.md`](dev/story.md) 5절 (2026-10-04 리팩터로 바뀜; 방 목록은 생성된 `world/rooms/_index.gd`가 대신함) |
+| `game/story/<ext>/*.gd` | 대본(장면·지역마다 한 파일, `extends RefCounted`, 메서드 이름 = 실행 ID, `func id(c: Cut) -> void`). `data_<ext>.gd`의 `SCRIPTS`에 적어야 읽힌다. 장 공용 도우미 `<ext>/common.gd`, 시험용 `story/dev/` |
 | `game/enemies/<ext>/registry.gd` + `game/enemies/<ext>/*.gd` | `const KINDS := {"star_lizard": "res://enemies/ch2/star_lizard.gd"}` + 적 스크립트 |
 | `game/world/entities/<ext>/entities.gd` + 장치 스크립트 | `const KINDS := {"gear_clock": "res://world/entities/ch2/gear_clock.gd"}` — 방 데이터의 `t`로 생성, 스크립트는 `setup(room: Room, e: Dictionary, eid: String)` |
-| `game/world/entities/<ext>/props.gd` | 소품: `static func setup_info(kind: String, p: Prop) -> Dictionary`(`{animated, glow_pos, glow_r, glow_col}` 또는 `{}`), `static func draw(p: Prop, kind: String) -> bool`(그렸으면 true). `p.time()`, `p.w`, `p.h`, `p.params`, `p.theme` 사용 |
+| `game/world/entities/<ext>/props.gd` | 소품: `const PROPS`(kind → `{anim, glow, split}`) + `static func draw(p: Prop, kind: String)` — [`dev/world.md`](dev/world.md) |
 | `game/world/themes/themes_<ext>.gd` | `const THEMES := {"kingdom": {...}}` (`room_theme.gd`와 같은 키 전부. `particles`: embers·foxfire·drips·petals·dust·motes·fireflies·stars·light·spores·ash·blight·leaves) |
-| `game/world/themes/backdrop_<ext>.gd` | 배경: `static func is_animated(theme: String, depth: int) -> bool`, `static func has_sky(theme: String) -> bool`, `static func draw_sky(c: Control, theme: String, pal: Dictionary, t: float) -> void`(640×360), `static func draw_layer(l: Node2D, theme: String, depth: int, span: Vector2, rng: RandomNumberGenerator, t: float) -> bool`(자기 테마면 그리고 true). depth: 0 먼 층·1 중간·2 가까운·3 전경. 1장 `room_backdrop.gd`의 `_draw_shingye` 등을 참고 |
+| `game/world/themes/backdrop_<ext>.gd` | 배경: `has_theme`·`has_sky`·`draw_layer`(정적, 움직이는 요소는 `l.anim`에 기록)·`draw_sky` — [`dev/backdrop.md`](dev/backdrop.md) |
 | `game/characters/special/<who>_draw.gd` · `<who>_portrait.gd` | 강자 전용 그림(2절) |
 | `game/allies/<ext>_allies.gd` | (필요하면) 새 동료 종류 `const KINDS := {}` — 기본 동료는 공통 시스템이 제공(5절) |
 | `tools/test/scenarios/<ext>_*.json` | 시험 시나리오 |
