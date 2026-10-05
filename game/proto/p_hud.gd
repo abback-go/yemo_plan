@@ -230,7 +230,7 @@ func _heart(p: Vector2, half: int, col: Color, sc: float) -> void:
 # ─── 아래 가운데: 마법 6칸 ────────────────────────────
 
 func _draw_slots() -> void:
-	# 칸 순서: 등급 키면 키 묶음(A·S·D)대로, 전용 키면 마법 표 순서. 둘 다 초급·중급·대마법으로 묶음
+	# 칸 순서: 등급 키면 키 묶음(A·S·D)대로, 전용 키면 마법 표 순서. 둘 다 일반마법·고급마법·대마법으로 묶음
 	var grade := PState.key_mode == 0
 	var order: Array = ["fireball", "foxrain", "laser", "meteor", "bind", "phoenix"] if grade else PData.SPELLS.map(func(x: Dictionary) -> String: return String(x.id))
 	var groups: Array = [0, 0, 1, 1, 2, 2]
@@ -243,7 +243,7 @@ func _draw_slots() -> void:
 	var y0 := 360.0 - w - 12.0
 	var sealed := sera.overloaded()
 	# 묶음 받침 + 이름
-	var names := ["초급 A", "중급 S", "대마법 D"] if grade else ["초급", "중급", "대마법"]
+	var names := ["일반마법 A", "고급마법 S", "대마법 D"] if grade else ["일반마법", "고급마법", "대마법"]
 	for gi in 3:
 		var gx0 := x0 + groups.find(gi) * (w + gap) + ggap * gi
 		var gx1 := x0 + groups.rfind(gi) * (w + gap) + ggap * gi + w
@@ -364,7 +364,7 @@ const KEY_GUIDE_GRADE := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
 	["X", "불덩이 던지기 3연타 (↑위 · 공중↓아래)"], ["C", "대시 (변신 중 = 의태 돌진)"], ["폭주", "마법을 쓰거나 불덩이를 맞히면 참"],
 	["Space", "변신 (폭주 가득 = 마법 봉인 해제)"], ["G", "물약"],
-	["A", "초급: 파이어볼 · ↓불비"], ["S", "중급: 열선(꾹) · ↑대유성"], ["D", "대마법: 바인드 · ↑불사조"], ["↑", "석등에서 쉬기"],
+	["A", "일반마법: 파이어볼 · ↓불비"], ["S", "고급마법: 열선(꾹) · ↑대유성"], ["D", "대마법: 바인드 · ↑불사조"], ["↑", "석등에서 쉬기"],
 ]
 const KEY_GUIDE_DIRECT := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],

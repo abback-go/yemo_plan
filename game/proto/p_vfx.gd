@@ -497,7 +497,7 @@ class TransformBurst extends Base:
 
 ## 시전 마법진: 발밑에 납작한 원형 진이 펼쳐져 돌다 사라짐 (등급이 높을수록 크고 오래)
 class CastSigil extends Base:
-	var grade := 0 ## 0 초급 · 1 중급 · 2 대마법
+	var grade := 0 ## 0 일반마법 · 1 고급마법 · 2 대마법
 	var follow: Node2D
 
 	func _init() -> void:
