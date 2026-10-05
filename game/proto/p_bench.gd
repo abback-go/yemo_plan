@@ -5,7 +5,7 @@ extends Node
 ## 결과 줄: "PBENCH 단계 frame=평균ms p95=ms max=ms draws=평균 nodes=노드수" (docs/dev/proto.md 성능 절)
 
 const PHASES := [
-	["blank", 90], ["noscript", 90], ["idle", 120], ["claw", 150], ["foxrain", 150], ["asura", 180], ["laser", 150], ["meteor", 150],
+	["blank", 90], ["noscript", 90], ["idle", 120], ["shot", 150], ["fireball", 200], ["foxrain", 150], ["laser", 150], ["meteor", 150],
 	["phoenix", 170], ["bind", 360], ["fox_dash", 150], ["all", 360],
 ]
 
@@ -95,15 +95,15 @@ func _drive(name: String, i: int, sera: PSera) -> void:
 		"idle":
 			if i == 0:
 				_set_proc(true)
-		"claw":
+		"shot":
 			if i % 8 == 0:
-				_tap("pr_claw")
+				_tap("pr_attack")
+		"fireball":
+			if i % 60 == 2:
+				_tap("pr_s_fireball")
 		"foxrain":
 			if i % 40 == 0:
 				_tap("pr_s_foxrain")
-		"asura":
-			if i == 2:
-				_tap("pr_s_asura")
 		"laser":
 			if i == 2:
 				Input.action_press("pr_s_laser")
@@ -125,7 +125,7 @@ func _drive(name: String, i: int, sera: PSera) -> void:
 			if i % 20 == 10:
 				_tap("pr_dash")
 			if i % 20 == 15:
-				_tap("pr_claw")
+				_tap("pr_attack")
 		"all":
 			if i == 2:
 				sera.gauge = 1.0
@@ -141,9 +141,7 @@ func _drive(name: String, i: int, sera: PSera) -> void:
 			if i % 70 == 60:
 				_tap("pr_s_meteor")
 			if i % 8 == 3:
-				_tap("pr_claw")
-			if i == 200:
-				_tap("pr_s_asura")
+				_tap("pr_attack")
 
 
 func _set_vis(on: bool) -> void:

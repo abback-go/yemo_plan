@@ -17,6 +17,7 @@ var _since_hit := 99.0
 var _bar := 0.0 ## 체력바 보이는 남은 시간
 var _bound := 0.0 ## 바인드 남은 시간
 var _bind_awake := false
+var _bind_fox := true ## 붙잡은 사슬 색 (변신 중 바인드 = 푸른 여우불, 평소 = 붉은 불)
 var _t := 0.0
 var _shoot_t := 1.5
 var _hits_total := 0
@@ -101,9 +102,10 @@ func take_hit(dmg: int, from: Vector2, opts := {}) -> void:
 		Fx.ring(center(), 6, 30, Color(1, 0.95, 0.7, 0.8), 0.3)
 
 
-func bind(sec: float, awake: bool) -> void:
+func bind(sec: float, awake: bool, fox := true) -> void:
 	_bound = sec
 	_bind_awake = awake
+	_bind_fox = fox
 
 
 func _process(delta: float) -> void:
@@ -352,7 +354,8 @@ func _draw_chains() -> void:
 	var r := hit_rect()
 	var c := r.get_center() - global_position
 	var a := clampf(_bound, 0.0, 1.0)
-	var col := Color(PData.FOX_HOT, 0.85 * a)
+	var pal := PSpells._pal(_bind_fox)
+	var col := Color(pal[1], 0.85 * a)
 	var h := r.size.y * 0.5 + 4.0
 	var wd := r.size.x * 0.5 + 6.0
 	for i in 3:
@@ -363,8 +366,8 @@ func _draw_chains() -> void:
 			var p0 := Vector2(x0, y + sin(_t * 6.0 + k * 0.9 + i) * 1.5)
 			var p1 := Vector2(x1, y + sin(_t * 6.0 + (k + 1) * 0.9 + i) * 1.5)
 			pd.draw_line(p0, p1, col, 1.5)
-			pd.draw_rect(Rect2(p0 - Vector2(1.5, 1.5), Vector2(3, 3)), Color(PData.FOX_CORE, 0.7 * a), false, 1.0)
-	pd.draw_arc(c, wd + 4.0, 0, TAU, 24, Color(PData.FOX_MID, 0.35 * a), 1.0)
+			pd.draw_rect(Rect2(p0 - Vector2(1.5, 1.5), Vector2(3, 3)), Color(pal[0], 0.7 * a), false, 1.0)
+	pd.draw_arc(c, wd + 4.0, 0, TAU, 24, Color(pal[2], 0.35 * a), 1.0)
 
 
 ## 발사대가 쏘는 느린 연습탄 (닿으면 세라 체력 1칸)

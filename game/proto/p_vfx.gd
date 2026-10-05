@@ -1,8 +1,8 @@
 class_name PVfx
 extends RefCounted
 ## 훈련장 이펙트 모음. 모두 코드 그림(Node2D._draw)이고, 수명이 끝나면 스스로 사라진다.
-## 기준 그림: 할로우 나이트·실크송 — 발톱 참격은 굵은 흰 초승달 + 속도선, 대시는 출발점에서 뒤로 터지는 흰 가시 다발.
-## 세라의 것은 "여우 의태"가 겹친다: 참격에 발톱 자국 세 줄, 대시에 여우 발자국.
+## 기준 그림: 할로우 나이트·실크송 — 대시는 출발점에서 뒤로 터지는 흰 가시 다발. 세라의 것은 "여우 의태"가 겹친다(대시에 여우 발자국).
+## 기본공격(불덩이 던지기)은 PShot(p_shot.gd).
 
 ## 공통 바탕: life초 동안 k(0→1)로 그리고 사라진다
 class Base extends PDraw.Canvas:
@@ -31,6 +31,12 @@ static func add(n: Node2D, pos: Vector2, additive := false) -> Node2D:
 		n.material = Fx.add_material
 	Fx.effect_parent().add_child(n)
 	return n
+
+
+## 화면을 v(px) 방향으로 순간 밀었다 되돌림 — 흔들림(무작위)과 달리 방향이 있어 타격 방향이 느껴진다
+static func kick(v: Vector2) -> void:
+	if Fx.camera and Fx.camera.has_method("kick") and GameState.settings.get("shake", true):
+		Fx.camera.kick(v)
 
 
 ## 튀는 불꽃: dir 방향 ±spread도로 speed까지 (빠르면 속도 방향 줄, 느리면 네모 불티). 한 노드(PParticles)에서 그린다
@@ -91,83 +97,11 @@ static func spike(c, from: Vector2, dir: Vector2, length: float, w: float, col: 
 
 
 # ═══════════════════════════════════════════════════════════
-# 발톱 참격 (할로우 나이트 기본 공격 느낌 + 여우 발톱 의태)
+# 여우손 · 적중 섬광 (기본공격 불덩이는 p_shot.gd)
 # ═══════════════════════════════════════════════════════════
 
-## dir: 1 오른쪽 / -1 왼쪽, aim: 0 앞 · -1 위 · 1 아래, step: 0~2 (콤보마다 휘는 방향이 다름)
-class ClawSlash extends Base:
-	var dir := 1
-	var aim := 0
-	var step := 0
-	var reach := 30.0
-	var follow: Node2D ## 세라를 따라 움직임(참격이 몸에 붙어 있게)
-	var offset := Vector2.ZERO
-
-	func _init() -> void:
-		life = 0.18
-		z_index = 6
-
-	func _tick(_d: float) -> void:
-		if is_instance_valid(follow):
-			global_position = follow.global_position + offset
-
-	func _paint() -> void:
-		var kk := k()
-		var grow := clampf(kk / 0.22, 0.0, 1.0) # 앞쪽 22%에 휘둘러 나타나고
-		var fade := 1.0 - clampf((kk - 0.35) / 0.65, 0.0, 1.0) # 나머지에 사라짐
-		var base_col := PData.FOX_CORE if fox else Color(1, 1, 1)
-		var glow_col := PData.FOX_MID if fox else Color(0.75, 0.88, 1.0)
-		var R := (reach + 6.0) * (1.25 if fox else 1.0)
-		if aim == 0:
-			_draw_swing(grow, fade, base_col, glow_col, R)
-			return
-		# 위·아래 베기: 머리 위/발밑으로 둥글게
-		var mid := -PI / 2 if aim == -1 else PI / 2
-		var span := 2.0
-		var sweep := 1.0 if (step % 2 == 0) else -1.0
-		var a0 := mid - span / 2 * sweep
-		var a1 := lerpf(a0, mid + span / 2 * sweep, grow)
-		_arc_layers(a0, a1, sweep, grow, fade, base_col, glow_col, R, 12.0 if step == 2 else 11.0)
-		var tip := Vector2(cos(a1), sin(a1)) * R * 0.78
-		PVfx.fire_paw(pd, tip, (Vector2(-sin(a1), cos(a1)) * sweep).angle(), R / 44.0, fox, fade * clampf(grow * 3.0, 0.0, 1.0))
-
-	## 앞 베기 3타: 1타 = 위-뒤에서 앞-아래로 내려 긋는 대각선, 2타 = 몸 앞을 가로지르는 수평, 3타 = 아래-뒤에서 앞-위로 올려 긋는 대각선.
-	## 몸을 감싸는 납작한 타원 궤적(기울기·납작함)을 돌려서 그린다 — 수직 반원이 아니라 옆·대각선으로 휘두르는 모양.
-	func _draw_swing(grow: float, fade: float, base_col: Color, glow_col: Color, R: float) -> void:
-		var s := step % 3
-		var tilt: float = [0.55, -0.08, -0.6][s] # + = 앞쪽이 아래로
-		var flat: float = [0.42, 0.3, 0.42][s] # 타원 세로 납작함
-		var a0: float = [-2.75, -2.9, 2.75][s] # 뒤쪽에서 시작
-		var a_end: float = [0.75, 0.85, -0.75][s] # 앞쪽 지나 끝
-		var rr := R * (1.12 if s == 1 else 1.0) * (1.1 if s == 2 else 1.0)
-		var sweep := signf(a_end - a0)
-		var a1 := lerpf(a0, a_end, grow)
-		pd.draw_set_transform(Vector2.ZERO, tilt * dir, Vector2(dir, flat))
-		_arc_layers(a0, a1, sweep, grow, fade, base_col, glow_col, rr, 13.0 if s == 2 else 12.0)
-		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		# 휘두르는 끝에 붙은 커다란 여우손(불꽃 발) — 궤적 위 점과 진행 방향을 같은 기울기·납작함으로 옮겨 계산
-		var rot := tilt * dir
-		var q := Vector2(dir * cos(a1), flat * sin(a1)) * rr * 0.78
-		var tq := Vector2(dir * -sin(a1), flat * cos(a1)) * sweep
-		PVfx.fire_paw(pd, q.rotated(rot), tq.rotated(rot).angle(), rr / 44.0, fox, fade * clampf(grow * 3.0, 0.0, 1.0))
-
-	## 빛 → 흰 초승달 → 안쪽 발톱 자국 세 줄 → 끝 속도선
-	func _arc_layers(a0: float, a1: float, sweep: float, grow: float, fade: float, base_col: Color, glow_col: Color, R: float, w: float) -> void:
-		PVfx.crescent(pd, Vector2.ZERO, R + 4, a0, a1, w + 4.0, Color(glow_col, 0.3 * fade), 22)
-		PVfx.crescent(pd, Vector2.ZERO, R, a0, a1, w, Color(base_col, 0.96 * fade), 22)
-		for i in 3:
-			var rr := R - 10.0 - i * 3.2
-			PVfx.crescent(pd, Vector2.ZERO, rr, lerpf(a0, a1, 0.15), lerpf(a0, a1, 0.92), 1.6, Color(glow_col, 0.75 * fade), 14)
-		if grow > 0.6:
-			var tip := Vector2(cos(a1), sin(a1)) * R
-			var tang := Vector2(-sin(a1), cos(a1)) * sweep
-			for i in 3:
-				var off := tip + tang.orthogonal() * (i - 1) * 3.0
-				pd.draw_line(off, off + tang * (10.0 + i * 4.0) * fade, Color(base_col, 0.6 * fade), 1.0)
-
-
 ## 커다란 여우손(불꽃 발) — p에서 ang 방향으로 발톱을 세운 손. 평소 = 붉은 불, 변신 = 푸른 여우불. 손목엔 금 팔찌.
-## 발톱 참격이 "여우손으로 할퀸다"는 느낌을 주는 의태 이펙트(사용자 참고: 불꽃 주먹 + 금 팔찌).
+## 여우방패 정령의 반격 할퀴기에 쓴다(사용자 참고: 불꽃 주먹 + 금 팔찌).
 static func fire_paw(c, p: Vector2, ang: float, s: float, fox_fire: bool, a: float) -> void:
 	if a <= 0.02:
 		return
@@ -416,7 +350,7 @@ static func dust(pos: Vector2, n: int, spread_x := 1.0, up := 18.0) -> void:
 		pp.spawn(pos + Vector2(randf_range(-4, 4), 0), v, Vector2.ZERO, 0.38, randf_range(2.0, 3.6), Color(0.82, 0.8, 0.86, 0.45), Color(0.6, 0.58, 0.68, 0.45), 2, 6.0)
 
 
-## 2단 점프 — 발밑에 푸른 여우불 고리 + 날개처럼 퍼지는 두 줄기
+## 2단 점프 — 발밑에 불 고리 + 날개처럼 퍼지는 두 줄기 (평소 = 붉은 불, 변신 중 = 푸른 여우불)
 class AirRing extends Base:
 	func _init() -> void:
 		life = 0.3
@@ -425,9 +359,10 @@ class AirRing extends Base:
 	func _paint() -> void:
 		var kk := k()
 		var a := 1.0 - kk
-		pd.draw_arc(Vector2.ZERO, 5.0 + kk * 14.0, 0, TAU, 20, Color(PData.FOX_HOT, 0.8 * a), 2.0 * a + 0.5)
+		var pal := PSpells._pal(fox)
+		pd.draw_arc(Vector2.ZERO, 5.0 + kk * 14.0, 0, TAU, 20, Color(pal[1], 0.8 * a), 2.0 * a + 0.5)
 		for s in [-1, 1]:
-			PVfx.crescent(pd, Vector2(0, -2), 10.0 + kk * 8.0, PI / 2 + s * 0.3, PI / 2 + s * 1.6, 3.0, Color(PData.FOX_CORE, 0.7 * a), 10)
+			PVfx.crescent(pd, Vector2(0, -2), 10.0 + kk * 8.0, PI / 2 + s * 0.3, PI / 2 + s * 1.6, 3.0, Color(pal[0], 0.7 * a), 10)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -451,7 +386,7 @@ class FocusPulse extends Base:
 
 # ═══════════════════════════════════════════════════════════
 # 피해 숫자 — 한 노드가 모두 그린다(숫자마다 Label 노드를 만들지 않음).
-# 같은 대상이 0.3초 안에 또 맞으면 숫자를 더해 키운다(난무·바인드처럼 잦은 타격이 숫자 더미가 되지 않게).
+# 같은 대상이 0.3초 안에 또 맞으면 숫자를 더해 키운다(불비·바인드처럼 잦은 타격이 숫자 더미가 되지 않게).
 # ═══════════════════════════════════════════════════════════
 
 static func number(key: Object, pos: Vector2, value: int, heavy := false, fox := false) -> void:
@@ -600,7 +535,16 @@ class CastSigil extends Base:
 				var ang := -rot * 0.7 + float((j * 2) % 5) * TAU / 5.0
 				star.append(Vector2(cos(ang), sin(ang)) * R * 0.74)
 			pd.draw_polyline(star, Color(hot, 0.6 * a), 1.0)
+		if fox:
+			# 변신 중: 진 둘레에 아홉 꼬리 문양 + 앞쪽에 여우 귀 한 쌍 (모든 마법에 여우 표식)
+			for i in 9:
+				var ang := -rot * 0.5 + float(i) / 9.0 * TAU
+				var d := Vector2(cos(ang), sin(ang))
+				PVfx.crescent(pd, d * R * 1.1, R * 0.2, ang + 1.2, ang + 3.4, 1.6, Color(hot, 0.8 * a), 8)
 		pd.draw_set_transform(Vector2.ZERO)
+		if fox:
+			for s2 in [-1.0, 1.0]:
+				PVfx.spike(pd, Vector2(s2 * R * 0.35, -3.0), Vector2(s2 * 0.35, -1.0), R * 0.55, R * 0.3, Color(hot, 0.75 * a))
 		# 위로 솟는 빛 (대마법)
 		if grade == 2:
 			pd.rect_hgrad(Rect2(-R * 0.6, -60.0 * open, R * 0.6, 60.0 * open), Color(mid, 0.0), Color(hot, 0.25 * a))

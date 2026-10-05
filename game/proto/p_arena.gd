@@ -139,6 +139,8 @@ class PCamera extends Camera2D:
 	var _shake_left := 0.0
 	var _shake_time := 0.0
 	var _punch := 0.0
+	var _kick := Vector2.ZERO ## 타격 방향으로 밀렸다가 용수철처럼 돌아오는 화면
+	var _kick_v := Vector2.ZERO
 
 	func _ready() -> void:
 		position_smoothing_enabled = true
@@ -156,13 +158,17 @@ class PCamera extends Camera2D:
 			var want := float(target.facing) * 46.0 * clampf(absf(target.velocity.x) / 150.0, 0.3, 1.0)
 			_look = lerpf(_look, want, 1.0 - exp(-real * 2.5))
 			global_position = target.global_position + Vector2(_look, -30)
+		# 멈춤(hitstop)으로 time_scale이 0에 가까우면 real이 튀므로 한 프레임 길이로 자름 (용수철이 폭주하지 않게)
+		var kd := minf(real, 1.0 / 30.0)
+		_kick_v += (-_kick * 900.0 - _kick_v * 34.0) * kd
+		_kick += _kick_v * kd
 		if _shake_left > 0.0:
 			_shake_left -= real
 			var fall := clampf(_shake_left / _shake_time, 0.0, 1.0)
 			var amp := _shake_amp * fall * fall
-			offset = Vector2(randf_range(-amp, amp), randf_range(-amp, amp)).round()
+			offset = (Vector2(randf_range(-amp, amp), randf_range(-amp, amp)) + _kick).round()
 		else:
-			offset = Vector2.ZERO
+			offset = _kick.round()
 		_punch = move_toward(_punch, 0.0, real * 0.6)
 		zoom = Vector2.ONE * (1.0 + _punch)
 
@@ -171,6 +177,11 @@ class PCamera extends Camera2D:
 			_shake_amp = amplitude_px
 			_shake_time = duration
 			_shake_left = duration
+
+	## 화면을 v 방향으로 순간 밀었다가 되돌림 (던진·맞은 방향의 손맛)
+	func kick(v: Vector2) -> void:
+		_kick = v
+		_kick_v = v * 18.0
 
 	func punch(amount: float) -> void:
 		_punch = maxf(_punch, amount)

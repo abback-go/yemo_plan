@@ -1,9 +1,9 @@
 class_name PSpells
 extends RefCounted
-## 훈련장 마법 7종 + 여우방패(조작에서 빠짐) + 불사조 부활. try_cast가 쿨을 확인하고 각 마법을 시작한다(마나 없음, 쓰면 폭주 게이지가 참).
+## 훈련장 마법 6종(초급 2 · 중급 2 · 대마법 2) + 여우방패(조작에서 빠짐) + 불사조 부활. try_cast가 쿨을 확인하고 각 마법을 시작한다(마나 없음, 쓰면 폭주 게이지가 참).
 ## 그림 기준(사용자 참고 이미지): 열선 = 흰 빛줄기 둘레를 감는 나선 화염 고리, 대유성 = 뒤쪽 하늘에서 떨어지는 거대 운석 한 방(앞쪽 절반 폭발),
-## 파이어볼 = 흰 중심·주황 불 혀가 뒤로 흩날리는 덩어리, 터지면 불 조각 고리, 발톱 난무 = 날카로운 곡선 참격 다발 + 검은 연기.
-## 변신 중에는 모두 푸른 여우불 판(크기 ×1.25, 피해 ×1.3).
+## 파이어볼 = 세로 마법진에서 솟아 굴러가는 거대한 태양(메이플스토리 플레임 위자드 화염구 느낌).
+## 평소엔 순수한 불 마법사(붉은 불), 변신 중에는 푸른 여우불 판(크기 ×1.2~1.25, 피해 ×1.3) + 여우 무늬(여우비의 불여우, 바인드의 아홉 꼬리 여우신 등).
 
 ## 가산 합성 노드 안에서 어두운 것(바위·먼지)을 그리는 일반 합성 자식 층
 class NormalLayer extends PDraw.Canvas:
@@ -43,7 +43,7 @@ static func try_cast(sera: PSera, id: String) -> bool:
 		return false
 	sera.add_gauge(float(PData.OD_SPELL.get(String(s.grade), 0.0)))
 	var sig := PVfx.CastSigil.new()
-	sig.setup(["초급", "중급", "대마법"].find(String(s.grade)), s.line == "fox" or sera.is_fox())
+	sig.setup(["초급", "중급", "대마법"].find(String(s.grade)), sera.is_fox())
 	sig.follow = sera
 	PVfx.add(sig, sera.global_position, true)
 	if not PState.no_cooldown:
@@ -53,8 +53,6 @@ static func try_cast(sera: PSera, id: String) -> bool:
 			_fireball(sera)
 		"foxrain":
 			_foxrain(sera)
-		"asura":
-			_asura(sera)
 		"laser":
 			sera.start_charge()
 			Sfx.play(&"overload_warn", -10.0)
@@ -110,22 +108,400 @@ static func _view_rect(sera: PSera) -> Rect2:
 
 
 # ═══════════════════════════════════════════════════════════
-# 1. 파이어볼 (초급) — 화염 덩어리 + 뒤로 날리는 불 혀
+# 1. 파이어볼 (초급) — 세라 앞에 세로 마법진이 열리고, 세라보다 훨씬 큰 태양 같은 불덩이가 진에서 솟아
+#    천천히 굴러가며 지나가는 적을 태우고(닿는 동안 짧은 간격 피해), 끝에서 크게 터진다.
+#    참고: 메이플스토리 플레임 위자드의 거대 화염구(흰 노란 중심 · 주황 몸 · 둘레에 일렁이는 불꽃 · 뒤의 마법진).
+#    폭발 피해는 예전 파이어볼과 같다(48 × 레벨 배율). 각성 = 더 크고, 터질 때 작은 불덩이 다섯이 부채꼴로 튄다.
 # ═══════════════════════════════════════════════════════════
 
 static func _fireball(sera: PSera) -> void:
-	var fb := Fireball.new()
-	fb.sera = sera
-	fb.fox = sera.is_fox()
-	fb.dir = sera.facing
-	fb.dmg = 48.0 * _mult(sera, "fireball")
-	fb.awake = PState.awakened("fireball")
-	fb.scale_k = 1.5 * (1.25 if fb.fox else 1.0) * (1.35 if fb.awake else 1.0)
-	PVfx.add(fb, _hand(sera) + Vector2(sera.facing * 6, 0), true)
-	Sfx.play(&"shoot_heavy", -2.0)
-	PVfx.sparks(_hand(sera), 6, _pal(fb.fox)[1], 90.0, 0.2, Vector2(sera.facing, 0), 40.0)
+	var fox := sera.is_fox()
+	var sun := Sun.new()
+	sun.sera = sera
+	sun.fox = fox
+	sun.dir = sera.facing
+	sun.dmg = 48.0 * _mult(sera, "fireball")
+	sun.awake = PState.awakened("fireball")
+	sun.R = 34.0 * (1.2 if fox else 1.0) * (1.2 if sun.awake else 1.0)
+	# 세라 앞 바닥 위에 소환 (공중이면 아래 바닥, 바닥이 멀면 손 높이)
+	var x := sera.global_position.x + sera.facing * (sun.R + 16.0)
+	var y := sera.global_position.y - 20.0
+	var q := PhysicsRayQueryParameters2D.create(Vector2(x, sera.global_position.y - 12.0), Vector2(x, sera.global_position.y + 140.0), 1)
+	var hit := sera.get_world_2d().direct_space_state.intersect_ray(q)
+	if hit:
+		sun.floor_y = (hit.position as Vector2).y
+		y = sun.floor_y - sun.R * 0.92
+	PVfx.add(sun, Vector2(x, y)) # 몸통은 일반 합성(진한 주황·붉은 색), 빛무리만 가산 합성 자식 층
+	var ring := SunCircle.new()
+	ring.fox = fox
+	ring.dir = sera.facing
+	ring.size = sun.R * 1.55
+	PVfx.add(ring, Vector2(x - sera.facing * sun.R * 0.35, y), true)
+	sera.lock_cast(0.32)
+	Sfx.play(&"ignite", -2.0)
+	Sfx.play_pitch(&"blast", 0.55, -10.0)
+	Fx.shake(0.06, 0.2)
 
 
+## 세로로 선 마법진 (진행 방향을 향해 비스듬히 = 납작한 타원). 두 겹 고리 · 도는 글자 점 · 육망성 · 빛살.
+## 변신 중엔 푸른 진 + 둘레에 아홉 개의 여우 꼬리 문양.
+class SunCircle extends PVfx.Base:
+	var dir := 1
+	var size := 46.0
+
+	func _init() -> void:
+		life = 1.15
+		z_index = 5
+
+	func _paint() -> void:
+		var kk := k()
+		var open := 1.0 - pow(1.0 - minf(t / 0.28, 1.0), 3.0)
+		var a := 1.0 - clampf((t - 0.6) / 0.55, 0.0, 1.0)
+		var pal := PSpells._pal(fox)
+		var R := size * open
+		var rot := t * 2.4 * dir
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(0.34, 1.0))
+		pd.glow(Vector2.ZERO, R * 1.35, Color(pal[2], 0.4 * a))
+		pd.draw_arc(Vector2.ZERO, R, 0, TAU, 40, Color(pal[1], 0.95 * a), 3.0)
+		pd.draw_arc(Vector2.ZERO, R * 0.9, 0, TAU, 36, Color(pal[0], 0.7 * a), 1.2)
+		pd.draw_arc(Vector2.ZERO, R * 0.62, 0, TAU, 32, Color(pal[1], 0.8 * a), 1.8)
+		# 고리 사이의 글자 점 (돎)
+		for i in 24:
+			var ang := rot + float(i) / 24.0 * TAU
+			var d := Vector2(cos(ang), sin(ang))
+			if i % 3 == 0:
+				pd.draw_line(d * R * 0.66, d * R * 0.86, Color(pal[0], 0.9 * a), 2.0)
+			else:
+				pd.draw_circle(d * R * 0.76, 1.3, Color(pal[1], 0.85 * a))
+		# 육망성 (반대로 돎)
+		for tri in 2:
+			var pts := PackedVector2Array()
+			for j in 4:
+				var ang := -rot * 0.6 + float(tri) * PI / 3.0 + float(j) * TAU / 3.0
+				pts.append(Vector2(cos(ang), sin(ang)) * R * 0.6)
+			pd.draw_polyline(pts, Color(pal[1], 0.75 * a), 1.4)
+		pd.draw_circle(Vector2.ZERO, R * 0.16, Color(pal[0], 0.8 * a))
+		if fox:
+			# 아홉 꼬리 문양: 고리 바깥으로 말려 나간 작은 꼬리
+			for i in 9:
+				var ang := rot * 0.5 + float(i) / 9.0 * TAU
+				var d := Vector2(cos(ang), sin(ang))
+				PVfx.crescent(pd, d * R * 1.12, R * 0.16, ang + 1.2, ang + 3.6, R * 0.07, Color(pal[1], 0.85 * a), 8)
+		pd.draw_set_transform(Vector2.ZERO)
+		# 진에서 앞으로 뻗는 빛살 (열리는 순간)
+		var ray_a := clampf(1.0 - t / 0.5, 0.0, 1.0)
+		if ray_a > 0.0:
+			for i in 5:
+				var y := (float(i) - 2.0) * R * 0.32
+				pd.line2(Vector2(0, y), Vector2(dir * R * (1.2 + 0.4 * float(i % 2)) * (0.4 + kk * 2.0), y * 1.15), Color(pal[0], 0.7 * ray_a), Color(pal[1], 0.0), 2.4, 0.5)
+
+
+## 거대한 태양: 진에서 부풀어 나와(SUMMON) 천천히 굴러가며(ROLL) 닿는 적을 태우고 끝에서 폭발.
+class Sun extends PDraw.Canvas:
+	var sera: PSera
+	var fox := false
+	var dir := 1
+	var dmg := 48.0
+	var awake := false
+	var R := 30.0
+	var floor_y := INF
+	var t := 0.0
+	var _spin := 0.0
+	var _dist := 0.0
+	var _tick := {} ## 허수아비 → 다음 태우기 시각
+	var _touched := {}
+	var _trail: Array = [] ## 바닥에 남는 불 [x, 태어난 시각]
+	var _trail_x := INF
+	var _ember := 0.0
+	var _done := false
+	var _halo: NormalLayer ## 가산 합성 빛무리 (몸 뒤)
+	const SUMMON := 0.42
+	const ROLL := 2.1
+	const SPEED := 105.0
+	const TRAIL_LIFE := 1.1
+
+	func _ready() -> void:
+		z_index = 6
+		_halo = NormalLayer.new()
+		_halo.fn = _draw_halo
+		_halo.z_index = -1
+		_halo.material = Fx.add_material
+		add_child(_halo)
+
+	func _grow() -> float:
+		var g := clampf((t - 0.12) / (SUMMON - 0.12), 0.0, 1.0)
+		return 1.0 - pow(1.0 - g, 3.0)
+
+	func _process(delta: float) -> void:
+		t += delta
+		if _done:
+			_age_trail()
+			if _trail.is_empty():
+				queue_free()
+			queue_redraw()
+			_halo.queue_redraw()
+			return
+		var pal := PSpells._pal(fox)
+		var g := _grow()
+		if t >= SUMMON:
+			var mv := dir * SPEED * delta * clampf((t - SUMMON) / 0.25, 0.3, 1.0)
+			global_position.x += mv
+			_dist += absf(mv)
+		_spin = _dist / maxf(R, 1.0) * dir + t * 0.6 * dir
+		# 바닥에 불 자국 (굴러간 거리 10px마다)
+		if floor_y < INF and global_position.y + R * 1.3 >= floor_y and g > 0.6:
+			if _trail_x == INF or absf(global_position.x - _trail_x) >= 10.0:
+				_trail_x = global_position.x
+				_trail.append([global_position.x + randf_range(-4, 4), t, randf_range(0.7, 1.2)])
+		_age_trail()
+		# 태우기: 닿는 동안 0.22초마다 (처음 닿을 땐 묵직하게)
+		if is_instance_valid(sera) and g > 0.5:
+			var rad := R * 1.05 * g
+			for d: PDummy in PDummy.all(get_tree()):
+				var rr := d.hit_rect()
+				var q := Vector2(clampf(global_position.x, rr.position.x, rr.end.x), clampf(global_position.y, rr.position.y, rr.end.y))
+				if q.distance_to(global_position) > rad:
+					continue
+				if t < float(_tick.get(d, 0.0)):
+					continue
+				_tick[d] = t + 0.22
+				var first := not _touched.has(d)
+				_touched[d] = true
+				d.take_hit(int(round(dmg * 0.08)), global_position, {"fox": fox, "heavy": first, "launch": 1.0 if first else 0.3})
+				PVfx.sparks(q, 6 if not first else 14, pal[1], 170.0, 0.3, Vector2(dir, -0.6), 60.0)
+				if first:
+					Fx.hitstop(0.035)
+					Fx.shake(0.12, 0.15)
+					PVfx.kick(Vector2(dir * 3.0, 0))
+					Sfx.play_pitch(&"hit_heavy", 0.8, -6.0)
+				else:
+					Fx.shake(0.04, 0.06)
+		# 불티·불꽃 (시간 간격으로 적당히)
+		_ember -= delta
+		if _ember <= 0.0 and g > 0.3:
+			_ember = 0.03
+			var ang := randf() * TAU
+			var p := global_position + Vector2(cos(ang), sin(ang)) * R * g * 0.9
+			PParticles.get_layer(true).spawn(p, Vector2(-dir * randf_range(20, 60), -randf_range(40, 110)), Vector2(0, -40),
+				randf_range(0.35, 0.7), randf_range(1.5, 3.0), pal[0], pal[3], 0, 1.0)
+		if t >= SUMMON + ROLL:
+			_explode()
+		queue_redraw()
+		_halo.queue_redraw()
+
+	func _age_trail() -> void:
+		while not _trail.is_empty() and t - float(_trail[0][1]) > TRAIL_LIFE:
+			_trail.pop_front()
+
+	func _explode() -> void:
+		_done = true
+		var pal := PSpells._pal(fox)
+		var pos := global_position
+		if is_instance_valid(sera):
+			PSpells.hit_circle(sera, pos, R * 2.3, dmg, fox, {}, {"heavy": true, "launch": 3.0})
+		var b := SunBurst.new()
+		b.fox = fox
+		b.size = R
+		b.floor_dy = (floor_y - pos.y) if floor_y < INF else R
+		PVfx.add(b, pos, true)
+		PVfx.sparks(pos, 34, pal[1], 380.0, 0.55)
+		PVfx.sparks(pos, 16, pal[0], 240.0, 0.4, Vector2.UP, 50.0)
+		PVfx.embers(pos, 26, fox, 200.0, Vector2(R * 0.8, R * 0.6))
+		PVfx.smoke(pos + Vector2(0, -R * 0.4), 9, R * 0.9)
+		Fx.hitstop(0.09)
+		Fx.shake(0.5, 0.45)
+		Fx.zoom_punch(0.05)
+		Fx.flash(Color(pal[1], 0.18), 0.14)
+		Sfx.play(&"explode", -1.0)
+		Sfx.play_pitch(&"blast", 0.7, -4.0)
+		if awake and is_instance_valid(sera):
+			for i in 5:
+				var f := Fireball.new()
+				f.sera = sera
+				f.fox = fox
+				f.small = true
+				f.dmg = dmg
+				f.scale_k = 1.0 * (1.25 if fox else 1.0)
+				var ang := -PI / 2.0 + (float(i) - 2.0) * 0.45
+				f.vel = Vector2(cos(ang) * 1.6 + dir * 0.4, sin(ang)).normalized() * 240.0
+				PVfx.add(f, pos, true)
+
+	# ── 굴러간 바닥의 그을음 (몸통과 같은 일반 합성 층, 맨 먼저 그림 — 층을 따로 두지 않아 그리기 호출 1번 절약) ──
+	func _draw_scorch(c: PDraw) -> void:
+		if floor_y == INF:
+			return
+		var fy := floor_y - global_position.y
+		for tr: Array in _trail:
+			var age := t - float(tr[1])
+			var a := 1.0 - age / TRAIL_LIFE
+			c.draw_set_transform(Vector2(float(tr[0]) - global_position.x, fy + 0.5), 0.0, Vector2(1.0, 0.22))
+			c.draw_circle(Vector2.ZERO, 9.0 * float(tr[2]), Color(0.05, 0.02, 0.02, 0.45 * a))
+		c.draw_set_transform(Vector2.ZERO)
+
+	# ── 가산 합성: 빛무리 · 바닥에 비치는 불빛 · 바닥의 불 ──
+	func _draw_halo(c: PDraw) -> void:
+		var pal := PSpells._pal(fox)
+		var fy := floor_y - global_position.y
+		if floor_y < INF:
+			for tr: Array in _trail:
+				var age := t - float(tr[1])
+				var a := 1.0 - age / TRAIL_LIFE
+				var x := float(tr[0]) - global_position.x
+				var h := 12.0 * float(tr[2]) * a * (0.8 + 0.3 * sin(t * 22.0 + x))
+				PVfx.spike(c, Vector2(x, fy), Vector2(sin(t * 9.0 + x) * 0.25, -1.0), h, 7.0 * a, Color(pal[2], 0.7 * a))
+				PVfx.spike(c, Vector2(x, fy), Vector2(sin(t * 11.0 + x) * 0.2, -1.0), h * 0.55, 3.5 * a, Color(pal[1], 0.9 * a))
+		if _done:
+			return
+		var r := R * _grow()
+		if r < 0.5:
+			return
+		if floor_y < INF:
+			c.draw_set_transform(Vector2(0, fy), 0.0, Vector2(1.0, 0.2))
+			c.glow(Vector2.ZERO, r * 3.2, Color(pal[2], 0.5))
+			c.draw_set_transform(Vector2.ZERO)
+		c.glow(Vector2.ZERO, r * 2.8, Color(pal[2], 0.35))
+		c.glow(Vector2.ZERO, r * 1.6, Color(pal[1], 0.3))
+
+	func _paint() -> void:
+		var pal := PSpells._pal(fox)
+		_draw_scorch(pd)
+		if _done:
+			return
+		var g := _grow()
+		var r := R * g
+		if r < 0.5:
+			return
+		# 둘레 불꽃(코로나): 두 겹 불 혀가 위·뒤로 일렁임 (열기는 위로, 구르면 뒤로 날림)
+		var drift := Vector2(-dir * 0.45, -0.7)
+		for layer in 2:
+			var n := 22 if layer == 0 else 16
+			for i in n:
+				var ang := float(i) / float(n) * TAU + _spin * 0.25 + float(layer) * 0.2
+				var d := Vector2(cos(ang), sin(ang))
+				var up := maxf(d.dot(drift.normalized()), 0.0)
+				var flick := 0.75 + 0.35 * sin(t * (17.0 + i) + i * 2.3)
+				var L := r * (0.32 + 0.55 * up) * flick * (1.0 if layer == 0 else 0.6)
+				var base := d * r * 0.9
+				var tip := d * (r * 0.9 + L) + drift * L * 0.7
+				var w := r * TAU / float(n) * (0.75 if layer == 0 else 0.55)
+				var col: Color = Color(pal[3].lerp(pal[2], 0.35), 0.9) if layer == 0 else Color(pal[2].lerp(pal[1], 0.5), 0.92)
+				pd.convex(PackedVector2Array([base + d.orthogonal() * w * 0.5, tip, base - d.orthogonal() * w * 0.5]), col)
+		# 몸통: 짙은 테두리 → 주황 → 노랑 → 흰 중심 (둥근 그라데이션)
+		pd.draw_circle(Vector2.ZERO, r * 1.03, pal[3])
+		pd.draw_circle(Vector2.ZERO, r * 0.97, pal[2])
+		pd.ring_grad(Vector2.ZERO, Vector2(r, r) * 0.55, Vector2(r, r) * 0.98, pal[1], Color(pal[3].lerp(pal[2], 0.5), 1.0), 36)
+		pd.draw_circle(Vector2.ZERO, r * 0.56, pal[1])
+		# 구르는 표면의 불 소용돌이 (도는 것이 보이게)
+		for i in 3:
+			var a0 := _spin + float(i) * TAU / 3.0
+			PVfx.crescent(pd, Vector2.ZERO, r * 0.86, a0, a0 + 1.3, r * 0.2, Color(pal[0], 0.45), 12)
+		for i in 2:
+			var a0 := -_spin * 1.4 + float(i) * PI
+			PVfx.crescent(pd, Vector2.ZERO, r * 0.5, a0, a0 + 1.6, r * 0.14, Color(pal[2], 0.5), 10)
+		# 중심 (맥동)
+		var pulse := 1.0 + 0.06 * sin(t * 18.0)
+		pd.glow(Vector2.ZERO, r * 0.7 * pulse, Color(pal[0], 0.9))
+		pd.draw_circle(Vector2.ZERO, r * 0.26 * pulse, Color(1, 1, 1, 0.95))
+		# 홍염(프로미넌스): 표면 밖으로 휘어 나왔다 들어가는 불 고리 둘
+		for i in 2:
+			var c0 := float(i) * PI + t * 0.8
+			var pc := Vector2(cos(c0), sin(c0)) * r * 1.02
+			PVfx.crescent(pd, pc, r * 0.32, c0 - 1.6, c0 + 1.6, r * 0.07, Color(pal[1], 0.7), 10)
+		# 열기 테두리
+		pd.draw_arc(Vector2.ZERO, r * 1.12, 0, TAU, 36, Color(pal[0], 0.16), 2.0)
+		# 앞으로 나가는 쪽의 밝은 테두리
+		var fa := 0.0 if dir > 0 else PI
+		PVfx.crescent(pd, Vector2.ZERO, r * 1.04, fa - 1.1, fa + 1.1, r * 0.12, Color(pal[0], 0.5), 14)
+
+
+## 태양 폭발: 섬광 → 부풀어 오르는 불 돔 → 위로 솟는 불기둥 · 바닥을 따라 퍼지는 불 고리 · 사방 빛살 · 두 겹 충격파.
+class SunBurst extends PVfx.Base:
+	var size := 30.0
+	var floor_dy := 30.0 ## 중심에서 바닥까지
+	var _chunks: Array = [] ## [각도, 속도, 크기]
+	var _rays: Array = []
+
+	func _init() -> void:
+		life = 0.85
+		z_index = 8
+		for i in 18:
+			_chunks.append([randf() * TAU, randf_range(0.8, 1.4), randf_range(0.6, 1.3)])
+		for i in 12:
+			_rays.append([float(i) / 12.0 * TAU + randf_range(-0.12, 0.12), randf_range(0.8, 1.3)])
+
+	var _fire: NormalLayer
+
+	func _ready() -> void:
+		# 일반 합성 층: 진한 붉은·주황 불 돔과 불 혀 (가산 빛만으로는 하얗게 타 버려서)
+		_fire = NormalLayer.new()
+		_fire.fn = _draw_fire
+		_fire.z_index = -1
+		add_child(_fire)
+
+	func _tick(_d: float) -> void:
+		_fire.queue_redraw()
+
+	func _draw_fire(c: PDraw) -> void:
+		var kk := k()
+		var a := clampf(1.0 - (kk - 0.35) / 0.65, 0.0, 1.0)
+		var e := 1.0 - pow(1.0 - kk, 3.0)
+		var pal := PSpells._pal(fox)
+		var S := size
+		var rr := S * (1.0 + 1.4 * e)
+		# 둘레 불 혀 (위로 치솟음)
+		for i in 20:
+			var ang := float(i) / 20.0 * TAU
+			var d := Vector2(cos(ang), sin(ang))
+			var up := maxf(-d.y, 0.0)
+			var L := rr * (0.35 + 0.7 * up) * (0.8 + 0.3 * sin(t * 30.0 + i * 1.7))
+			PVfx.spike(c, d * rr * 0.85, (d + Vector2(0, -0.6)).normalized(), L, rr * 0.45, Color(pal[3], 0.85 * a))
+		c.draw_circle(Vector2.ZERO, rr, Color(pal[3], 0.9 * a))
+		c.draw_circle(Vector2(0, -rr * 0.08), rr * 0.82, Color(pal[2], 0.9 * a))
+		c.draw_circle(Vector2(0, -rr * 0.12), rr * 0.55, Color(pal[1], 0.9 * a))
+
+	func _paint() -> void:
+		var kk := k()
+		var a := 1.0 - kk
+		var e := 1.0 - pow(1.0 - kk, 3.0)
+		var pal := PSpells._pal(fox)
+		var S := size
+		pd.glow(Vector2.ZERO, S * 5.0 * (0.5 + 0.6 * e), Color(pal[2], 0.35 * a * a))
+		# 바닥을 따라 퍼지는 납작한 불 고리
+		pd.draw_set_transform(Vector2(0, floor_dy), 0.0, Vector2(1.0, 0.18))
+		var fr := S * (0.8 + 4.0 * e)
+		pd.ring_grad(Vector2.ZERO, Vector2(fr, fr) * 0.8, Vector2(fr, fr), Color(pal[1], 0.0), Color(pal[1], 0.8 * a), 40)
+		pd.glow(Vector2.ZERO, fr, Color(pal[2], 0.45 * a))
+		pd.draw_set_transform(Vector2.ZERO)
+		# 위로 솟는 불기둥 (버섯처럼 위가 넓어짐)
+		var ch := S * (1.0 + 3.5 * e)
+		pd.convex(PackedVector2Array([Vector2(-S * 0.5, 0), Vector2(-S * (0.4 + 0.5 * e), -ch * 0.8), Vector2(0, -ch), Vector2(S * (0.4 + 0.5 * e), -ch * 0.8), Vector2(S * 0.5, 0)]), Color(pal[2], 0.35 * a))
+		pd.glow(Vector2(0, -ch * 0.85), S * (0.8 + 0.9 * e), Color(pal[1], 0.4 * a))
+		# 불 돔
+		pd.draw_circle(Vector2.ZERO, S * (1.0 + 1.3 * e) * (1.0 - kk * 0.4), Color(pal[2], 0.2 * a))
+		pd.draw_circle(Vector2.ZERO, S * (0.8 + 0.9 * e) * (1.0 - kk * 0.6), Color(pal[1], 0.2 * a))
+		pd.draw_circle(Vector2.ZERO, S * 0.6 * (1.0 - kk), Color(pal[0], 0.5 * a))
+		if kk < 0.1:
+			pd.draw_circle(Vector2.ZERO, S * (0.8 + kk * 4.0), Color(pal[0], 0.55 * (1.0 - kk / 0.1)))
+		# 사방 빛살
+		var ra := clampf(1.0 - kk * 2.2, 0.0, 1.0)
+		if ra > 0.0:
+			for ry: Array in _rays:
+				var d := Vector2(cos(float(ry[0])), sin(float(ry[0])))
+				PVfx.blade(pd, d * S * 0.6, d * S * (1.5 + 2.6 * e) * float(ry[1]), S * 0.22 * ra, Color(pal[0], 0.85 * ra), 0.0)
+		# 날아가는 불 조각
+		for cnk: Array in _chunks:
+			var d := Vector2(cos(float(cnk[0])), sin(float(cnk[0])))
+			var p := d * S * (0.8 + 2.8 * e * float(cnk[1])) + Vector2(0, 30.0 * kk * kk)
+			PVfx.crescent(pd, p, S * 0.18 * float(cnk[2]) + 1.0, float(cnk[0]) - 1.2, float(cnk[0]) + 1.2, 3.0 * a + 0.5, Color(pal[1], a), 8)
+		# 두 겹 충격파
+		for j in 2:
+			var sw := 1.0 - pow(1.0 - clampf(kk * 2.2 - j * 0.25, 0.0, 1.0), 2.0)
+			if sw <= 0.0:
+				continue
+			pd.draw_arc(Vector2.ZERO, S * (1.0 + 3.6 * sw), 0, TAU, 44, Color(pal[0] if j == 0 else pal[1], 0.85 * (1.0 - sw)), 4.0 * (1.0 - sw) + 0.5)
+
+
+## 작은 불덩이: 각성 태양이 터질 때 부채꼴로 튀는 조각 (닿거나 잠깐 날면 터짐)
 class Fireball extends PDraw.Canvas:
 	var sera: PSera
 	var fox := false
@@ -269,7 +645,8 @@ class Explosion extends PVfx.Base:
 
 
 # ═══════════════════════════════════════════════════════════
-# 2. 여우비 (초급) — 손에 여우불을 모아 내려치면 앞쪽에 푸른 불비
+# 2. 불비 / 여우비 (초급) — 하늘로 불덩이를 던져 올리면 터지며 앞쪽에 불비가 쏟아진다.
+#    평소 = 붉은·주황 불비, 변신 중 = 푸른 여우비(하늘에 여우 얼굴 문양, 각성 땐 불여우가 뛰어내림)
 # ═══════════════════════════════════════════════════════════
 
 static func _foxrain(sera: PSera) -> void:
@@ -281,24 +658,28 @@ static func _foxrain(sera: PSera) -> void:
 	fr.width = 150.0 * (1.25 if fr.fox_form else 1.0)
 	fr.face = sera.facing
 	var cx := sera.global_position.x + sera.facing * 70.0
+	fr.launch = sera.global_position + Vector2(sera.facing * 3, -36) - Vector2(cx, sera.global_position.y)
 	PVfx.add(fr, Vector2(cx, sera.global_position.y), true)
-	sera.art.claw_k = 0.0
-	sera.art.claw_step = 1
-	var slash := PVfx.ClawSlash.new()
-	slash.dir = sera.facing
-	slash.aim = 1
-	slash.fox = true
-	slash.reach = 26.0
-	slash.follow = sera
-	slash.offset = Vector2(sera.facing * 6, -21)
-	PVfx.add(slash, sera.global_position + slash.offset)
+	# 머리 위로 던져 올리는 동작 (기본공격 위 던지기 자세)
+	sera._atk_aim = -1
+	sera.art.atk_step = 0
+	sera.art.atk_k = 0.0
+	var mz := PShot.Muzzle.new()
+	mz.dir = Vector2.UP
+	mz.fox = fr.fox_form
+	mz.size = 1.3
+	PVfx.add(mz, sera.global_position + Vector2(sera.facing * 3, -36), true)
+	Sfx.play_pitch(&"whoosh", 1.2, -6.0)
 	Sfx.play(&"fox_rain", -2.0)
 
 
-## 여우비 (참고: 박일표의 여우비) — 하늘에서 비스듬히 꽂히는 날카로운 빛 바늘 + 흘러내리는 불꽃 리본(붉은·주황·푸른 불)
+## 불비 (참고: 박일표의 여우비) — 하늘에서 비스듬히 꽂히는 날카로운 빛 바늘 + 흘러내리는 불꽃 리본.
+## 평소 = 붉은·주황 리본, 변신 중 = 푸른 리본 + 하늘의 여우 얼굴 문양.
 class FoxRainFx extends PDraw.Canvas:
 	var sera: PSera
 	var fox_form := false
+	var launch := Vector2(0, -36) ## 던져 올린 손 자리 (이 노드 기준)
+	var _shake_t := 0.0
 	var awake := false
 	var dmg := 8.0
 	var width := 120.0
@@ -324,19 +705,27 @@ class FoxRainFx extends PDraw.Canvas:
 		add_child(_solid)
 		var n := 4
 		for i in n:
-			var ci := (2 if (fox_form and i != 1) else i % 4)
+			var ci: int = 2 if fox_form else [0, 1, 3, 1][i % 4] # 평소엔 붉은·주황 리본만
 			_ribbons.append([lerpf(-width * 0.45, width * 0.45, float(i) / float(n - 1)) + randf_range(-10, 10), randf() * TAU, ci, randf_range(9.0, 14.0)])
 
 	func _process(delta: float) -> void:
 		t += delta
 		if t < DUR:
-			_spawn += delta * (60.0 if fox_form else 46.0)
+			if t < 0.14:
+				pass # 던져 올린 불덩이가 하늘에 닿기 전
+			else:
+				_spawn += delta * (60.0 if fox_form else 46.0)
 			while _spawn >= 1.0:
 				_spawn -= 1.0
 				var a := randf_range(0.22, 0.5)
 				var dir := Vector2(face * sin(a), cos(a))
 				var x := randf_range(-width / 2, width / 2) + dir.x / dir.y * TOP
 				needles.append([Vector2(x, TOP + randf_range(-30, 0)), dir * randf_range(760, 900), randf_range(24, 40), -1.0])
+			if t >= 0.14 and t - delta < 0.14:
+				# 하늘에서 터짐
+				PVfx.sparks(global_position + Vector2(launch.x * 0.3, TOP + 30.0), 18, PData.FOX_HOT if fox_form else PData.FIRE_HOT, 200.0, 0.4)
+				Fx.shake(0.08, 0.12)
+				Sfx.play_pitch(&"explode", 1.4, -10.0)
 			if awake and randf() < delta * (14.0 if fox_form else 7.0):
 				foxes.append([randf_range(-width / 2, width / 2), TOP + 100.0, 300.0, false])
 		var rects: Array = []
@@ -363,7 +752,7 @@ class FoxRainFx extends PDraw.Canvas:
 				nd[0] = Vector2(p.x, minf(p.y, 0.0) + randf_range(1.0, 3.0) * (1.0 if p.y >= -1.0 else 0.0))
 				nd[3] = 0.0
 				if randf() < 0.4:
-					PVfx.sparks(global_position + p, 3, PData.FOX_HOT if fox_form else Color(1, 0.95, 0.6), 90.0, 0.2)
+					PVfx.sparks(global_position + p, 3, PData.FOX_HOT if fox_form else PData.FIRE_HOT, 90.0, 0.2)
 			keep.append(nd)
 		needles = keep
 		for f: Array in foxes:
@@ -374,7 +763,7 @@ class FoxRainFx extends PDraw.Canvas:
 			if f[1] < 0.0:
 				keepf.append(f)
 			else:
-				PVfx.sparks(global_position + Vector2(f[0], -2), 6, PData.FOX_HOT, 90.0, 0.3)
+				PVfx.sparks(global_position + Vector2(f[0], -2), 6, PData.FOX_HOT if fox_form else PData.FIRE_HOT, 90.0, 0.3)
 		foxes = keepf
 		# 피해: 바늘 하나하나 대신 범위 안 허수아비를 짧은 간격으로
 		if is_instance_valid(sera):
@@ -385,11 +774,15 @@ class FoxRainFx extends PDraw.Canvas:
 				var nt: float = _tick.get(d, 0.0)
 				if t >= nt and t > 0.18 and t < DUR + 0.25:
 					_tick[d] = t + 0.085
-					d.take_hit(int(dmg), global_position + Vector2(0, -100), {"fox": true})
+					d.take_hit(int(dmg), global_position + Vector2(0, -100), {"fox": fox_form})
+					if t >= _shake_t: # 맞는 동안 잘게 떨림 (프레임마다는 아님)
+						_shake_t = t + 0.16
+						Fx.shake(0.05, 0.08)
 				for f: Array in foxes:
 					if not f[3] and r.has_point(global_position + Vector2(f[0], f[1])):
 						f[3] = true
-						d.take_hit(int(dmg * 3.0), global_position + Vector2(f[0], f[1]), {"fox": true, "heavy": true})
+						d.take_hit(int(dmg * 3.0), global_position + Vector2(f[0], f[1]), {"fox": fox_form, "heavy": true})
+						Fx.shake(0.1, 0.1)
 		if t > DUR + 0.6 and needles.is_empty() and foxes.is_empty():
 			queue_free()
 		queue_redraw()
@@ -425,8 +818,23 @@ class FoxRainFx extends PDraw.Canvas:
 				PVfx.safe_poly(c, left, Color(cols[layer], 0.92))
 
 	func _paint() -> void:
-		var core := Color(0.8, 0.95, 1.0) if fox_form else Color(1.0, 0.93, 0.5)
-		var glow := Color(PData.FOX_MID, 0.35) if fox_form else Color(1.0, 0.8, 0.3, 0.35)
+		var core := Color(0.8, 0.95, 1.0) if fox_form else Color(1.0, 0.9, 0.55)
+		var glow := Color(PData.FOX_MID, 0.35) if fox_form else Color(1.0, 0.45, 0.15, 0.4)
+		var pal := PSpells._pal(fox_form)
+		# 던져 올린 불덩이: 손에서 하늘로 (0~0.14초), 하늘에서 터지는 빛 (0.14~0.5초)
+		var top := Vector2(launch.x * 0.3, TOP + 30.0)
+		if t < 0.14:
+			var p := launch.lerp(top, t / 0.14)
+			pd.line2(launch.lerp(top, maxf(t / 0.14 - 0.35, 0.0)), p, Color(pal[2], 0.0), Color(pal[1], 0.9), 1.0, 6.0)
+			pd.glow(p, 16.0, Color(pal[1], 0.7))
+			pd.draw_circle(p, 5.0, pal[0])
+		var sk := clampf((t - 0.14) / 0.4, 0.0, 1.0)
+		if t >= 0.14 and sk < 1.0:
+			var a := 1.0 - sk
+			pd.glow(top, 30.0 + 90.0 * sk, Color(pal[2], 0.45 * a))
+			pd.draw_arc(top, 10.0 + 70.0 * sk, 0, TAU, 32, Color(pal[0], 0.8 * a), 3.0 * a + 0.5)
+			if fox_form:
+				_draw_fox_sigil(top, 1.0 + sk * 0.4, a)
 		for nd: Array in needles:
 			var p: Vector2 = nd[0]
 			var v: Vector2 = nd[1]
@@ -444,7 +852,23 @@ class FoxRainFx extends PDraw.Canvas:
 		for f: Array in foxes:
 			_draw_fox(Vector2(f[0], f[1]))
 
+	## 하늘의 여우 얼굴 문양 (여우비: 큰 귀 둘 · 갸름한 얼굴 · 치켜뜬 눈)
+	func _draw_fox_sigil(c: Vector2, s: float, a: float) -> void:
+		var col := Color(PData.FOX_HOT, 0.7 * a)
+		var face := PackedVector2Array([c + Vector2(-26, -8) * s, c + Vector2(-34, -40) * s, c + Vector2(-12, -18) * s, c + Vector2(12, -18) * s,
+			c + Vector2(34, -40) * s, c + Vector2(26, -8) * s, c + Vector2(14, 12) * s, c + Vector2(0, 24) * s, c + Vector2(-14, 12) * s, c + Vector2(-26, -8) * s])
+		pd.draw_polyline(face, col, 2.0)
+		for side in [-1.0, 1.0]:
+			var e := c + Vector2(side * 11, -2) * s
+			pd.draw_line(e + Vector2(-side * 6, 2) * s, e + Vector2(side * 6, -3) * s, Color(PData.FOX_CORE, 0.9 * a), 2.0)
+
 	func _draw_fox(p: Vector2) -> void:
+		if not fox_form:
+			# 평소: 뛰어내리는 여우 대신 길쭉한 불방울
+			pd.glow(p + Vector2(0, -6), 10.0, Color(PData.FIRE_MID, 0.5))
+			PVfx.spike(pd, p + Vector2(0, -4), Vector2.UP, 16.0, 7.0, Color(PData.FIRE_HOT, 0.85))
+			pd.draw_circle(p + Vector2(0, -3), 3.2, PData.FIRE_CORE)
+			return
 		# 뛰어내리는 작은 불여우 (머리 아래)
 		var c := Color(PData.FOX_HOT, 0.85)
 		PVfx.safe_poly(pd, PackedVector2Array([p + Vector2(-3, -10), p + Vector2(3, -10), p + Vector2(4, -2), p + Vector2(0, 2), p + Vector2(-4, -2)]), c)
@@ -455,95 +879,7 @@ class FoxRainFx extends PDraw.Canvas:
 
 
 # ═══════════════════════════════════════════════════════════
-# 3. 여우불 발톱 난무 (중급, 아수라) — 주변 곡선 참격 다발, 무적, 걸으며
-# ═══════════════════════════════════════════════════════════
-
-static func _asura(sera: PSera) -> void:
-	var dur := 2.4 + 0.2 * float(PState.level("asura") - 1)
-	sera.start_asura(dur)
-	var a := Asura.new()
-	a.sera = sera
-	a.dur = dur
-	a.dmg = 9.0 * _mult(sera, "asura")
-	a.awake = PState.awakened("asura")
-	a.big = sera.is_fox()
-	PVfx.add(a, sera.center(), true)
-	Sfx.play(&"fox_storm", -4.0)
-
-
-class Asura extends PDraw.Canvas:
-	var sera: PSera
-	var dur := 2.4
-	var dmg := 9.0
-	var awake := false
-	var big := false
-	var t := 0.0
-	var slashes: Array = [] ## [중심, 반지름, 시작각, 폭, 나이, 회전방향]
-	var smoke: Array = [] ## [위치, 나이, 크기]
-	var _spawn := 0.0
-	var _tick := 0.0
-	var _ended := false
-
-	func _ready() -> void:
-		z_index = 7
-
-	func _process(delta: float) -> void:
-		t += delta
-		if is_instance_valid(sera):
-			global_position = sera.center()
-		var R := 54.0 * (1.25 if big else 1.0)
-		if t < dur:
-			_spawn += delta * 40.0
-			while _spawn >= 1.0:
-				_spawn -= 1.0
-				var c := Vector2(randf_range(-R * 0.5, R * 0.5), randf_range(-R * 0.4, R * 0.4))
-				slashes.append([c, randf_range(R * 0.6, R * 1.15), randf() * TAU, randf_range(1.8, 3.0), 0.0, 1.0 if randf() < 0.5 else -1.0])
-				if randf() < 0.3:
-					smoke.append([c + Vector2(randf_range(-10, 10), R * 0.4), 0.0, randf_range(4, 8)])
-			_tick -= delta
-			if _tick <= 0.0 and is_instance_valid(sera):
-				_tick = 0.11
-				var n := PSpells.hit_circle(sera, global_position, R + 4.0, dmg, true)
-				if n > 0:
-					Sfx.play_pitch(&"swing", randf_range(1.3, 1.6), -10.0)
-		elif not _ended:
-			_ended = true
-			if awake and is_instance_valid(sera):
-				# 아홉 갈래 꼬리 참격
-				for i in 9:
-					slashes.append([Vector2.ZERO, R * 1.9, float(i) / 9.0 * TAU, 1.0, 0.0, 1.0])
-				PSpells.hit_circle(sera, global_position, 96.0, dmg * 6.0, true, {}, {"heavy": true, "launch": 2.0})
-				Fx.shake(0.2, 0.25)
-				Fx.flash(Color(0.6, 0.85, 1.0, 0.35), 0.15)
-				Sfx.play(&"blast", -2.0)
-		for s: Array in slashes:
-			s[4] += delta
-		for m: Array in smoke:
-			m[1] += delta
-		slashes = slashes.filter(func(s: Array) -> bool: return s[4] < 0.18)
-		smoke = smoke.filter(func(m: Array) -> bool: return m[1] < 0.5)
-		if t > dur + 0.3:
-			queue_free()
-		queue_redraw()
-
-	func _paint() -> void:
-		for m: Array in smoke:
-			var a: float = 1.0 - m[1] / 0.5
-			pd.draw_circle(m[0] + Vector2(0, -m[1] * 12.0), m[2] * (0.6 + m[1]), Color(0.1, 0.08, 0.16, 0.35 * a))
-		for s: Array in slashes:
-			var kk: float = s[4] / 0.18
-			var a := 1.0 - kk
-			var a0: float = s[2]
-			var sweep: float = s[3] * s[5]
-			var a1 := a0 + sweep * minf(kk * 2.2, 1.0)
-			PVfx.crescent(pd, s[0], s[1] + 3.0, a0, a1, 8.0, Color(PData.FOX_MID, 0.45 * a), 16)
-			PVfx.crescent(pd, s[0], s[1], a0, a1, 5.0, Color(PData.FOX_CORE, 0.95 * a), 16)
-		if t < dur:
-			pd.draw_arc(Vector2.ZERO, 40.0 * (1.25 if big else 1.0), 0, TAU, 32, Color(PData.FOX_HOT, 0.12), 6.0)
-
-
-# ═══════════════════════════════════════════════════════════
-# 4. 압축 열선 (중급) — 누를수록 굵어지는 레이저, 나선 화염 고리
+# 3. 압축 열선 (중급) — 누를수록 굵어지는 레이저, 나선 화염 고리
 # ═══════════════════════════════════════════════════════════
 
 static func fire_laser(sera: PSera, charge: float) -> void:
@@ -658,7 +994,7 @@ class Laser extends PDraw.Canvas:
 
 
 # ═══════════════════════════════════════════════════════════
-# 5. 대유성 (중급) — 세라 뒤쪽 하늘에서 거대한 운석 한 방이 보는 방향 앞 땅에 떨어져 화면 앞쪽 절반을 덮는 폭발
+# 4. 대유성 (중급) — 세라 뒤쪽 하늘에서 거대한 운석 한 방이 보는 방향 앞 땅에 떨어져 화면 앞쪽 절반을 덮는 폭발
 # ═══════════════════════════════════════════════════════════
 
 static func _meteor(sera: PSera) -> void:
@@ -857,7 +1193,7 @@ class Meteor extends PDraw.Canvas:
 
 
 # ═══════════════════════════════════════════════════════════
-# 6. 불사조 (대마법) — 화면을 찢으며 날아옴 + 부활 1회
+# 5. 불사조 (대마법) — 화면을 찢으며 날아옴 + 부활 1회
 # ═══════════════════════════════════════════════════════════
 
 static func _phoenix(sera: PSera) -> void:
@@ -1199,24 +1535,28 @@ static func phoenix_revive(sera: PSera) -> void:
 
 
 # ═══════════════════════════════════════════════════════════
-# 7. 너울 바인드 (대마법) — 화면에 거대한 아홉 꼬리 여우신이 나타나 모든 적을 5초 붙잡고, 그동안 무자비한 참격을 퍼붓는다
+# 6. 너울 바인드 (대마법) — 화면에 거대한 여우가 나타나 모든 적을 5초 붙잡고, 그동안 무자비한 참격을 퍼붓는다.
+#    평소 = 불로 빚은 붉은 여우 정령(꼬리 셋, 온몸에서 불꽃이 피어오름, 불 밧줄로 묶음) · 변신 중 = 푸른 아홉 꼬리 여우신
 # ═══════════════════════════════════════════════════════════
 
 static func _bind(sera: PSera) -> void:
 	sera.lock_cast(0.9, true)
 	var b := Bind.new()
 	b.sera = sera
+	b.fox_form = sera.is_fox()
 	b.view = _view_rect(sera)
 	b.awake = PState.awakened("bind")
 	b.dmg = 14.0 * _mult(sera, "bind")
 	PVfx.add(b, Vector2.ZERO, true)
 	Sfx.play(&"roar", -2.0)
-	Fx.flash(Color(0.5, 0.75, 1.0, 0.4), 0.3)
+	Sfx.play_pitch(&"ignite", 0.6, -4.0)
+	Fx.flash(Color(0.5, 0.75, 1.0, 0.4) if b.fox_form else Color(1.0, 0.45, 0.15, 0.4), 0.3)
 	Fx.shake(0.2, 0.4)
 
 
 class Bind extends PDraw.Canvas:
 	var sera: PSera
+	var fox_form := false
 	var view := Rect2()
 	var awake := false
 	var dmg := 14.0 ## 참격 한 줄기 피해 (마지막 X 참격은 ×7)
@@ -1246,7 +1586,7 @@ class Bind extends PDraw.Canvas:
 			_bound = true
 			for d: PDummy in PDummy.all(get_tree()):
 				if view.grow(40).has_point(d.global_position):
-					d.bind(5.0, awake)
+					d.bind(5.0, awake, fox_form)
 					_targets.append(d)
 			Fx.shake(0.3, 0.35)
 			Sfx.play(&"chain", -2.0)
@@ -1264,8 +1604,9 @@ class Bind extends PDraw.Canvas:
 			_streaks.append([c + Vector2(d1.x, -d1.y), c - Vector2(d1.x, -d1.y), t + 0.06, 40.0])
 			for d in _targets:
 				if is_instance_valid(d):
-					(d as PDummy).take_hit(int(dmg * 7.0), (d as PDummy).center(), {"fox": true, "heavy": true, "launch": 2.5})
-			Fx.flash(Color(0.8, 0.95, 1.0, 0.7), 0.35)
+					(d as PDummy).take_hit(int(dmg * 7.0), (d as PDummy).center(), {"fox": fox_form, "heavy": true, "launch": 2.5})
+			Fx.flash(Color(0.8, 0.95, 1.0, 0.7) if fox_form else Color(1.0, 0.85, 0.6, 0.7), 0.35)
+			Fx.zoom_punch(0.06)
 			Fx.hitstop(0.14)
 			Fx.shake(0.7, 0.5)
 			Sfx.play(&"fox_storm")
@@ -1297,7 +1638,7 @@ class Bind extends PDraw.Canvas:
 			var q: Vector2 = (dd as PDummy).center()
 			var rel := q - c
 			if dd == tgt or (absf(rel.dot(d)) < half and absf(rel.dot(d.orthogonal())) < 18.0):
-				(dd as PDummy).take_hit(int(dmg), q, {"fox": true})
+				(dd as PDummy).take_hit(int(dmg), q, {"fox": fox_form})
 			if randf() < 0.3:
 				Fx.shake(0.06, 0.06)
 		if randf() < 0.5:
@@ -1327,14 +1668,14 @@ class Bind extends PDraw.Canvas:
 		return Vector2(clampf(age / 0.06, 0.0, 1.0), 1.0 - clampf((age - 0.1) / (STREAK_LIFE - 0.1), 0.0, 1.0))
 
 	func _paint() -> void:
-		var pal := PSpells._pal(true)
+		var pal := PSpells._pal(fox_form)
 		var a := _fade()
 		var appear := clampf(t / BIND_AT, 0.0, 1.0)
 		var c := Vector2(view.get_center().x, view.position.y + view.size.y * 0.46)
 		var s := view.size.y / 360.0 * (0.75 + 0.25 * (1.0 - pow(1.0 - appear, 3.0)))
 		var fa := a * (1.0 if t < SLASH_FROM else 0.7)
 		_draw_fox_god(c, s, fa, pal)
-		# 붙잡는 여우불 사슬
+		# 붙잡는 사슬: 변신 중 = 여우불 구슬 사슬, 평소 = 꿈틀거리는 불 밧줄
 		if _bound:
 			var ca := clampf((t - BIND_AT) / 0.15, 0.0, 1.0) * a
 			for d in _targets:
@@ -1342,9 +1683,20 @@ class Bind extends PDraw.Canvas:
 					continue
 				var tp: Vector2 = (d as PDummy).center()
 				var from := c + Vector2(0, 30) * s
-				pd.draw_line(from, tp, Color(pal[1], 0.4 * ca), 2.0)
-				for i in 5:
-					pd.draw_circle(from.lerp(tp, float(i + 1) / 6.0), 2.2, Color(pal[0], 0.6 * ca))
+				if fox_form:
+					pd.draw_line(from, tp, Color(pal[1], 0.4 * ca), 2.0)
+					for i in 5:
+						pd.draw_circle(from.lerp(tp, float(i + 1) / 6.0), 2.2, Color(pal[0], 0.6 * ca))
+				else:
+					var nrm := (tp - from).orthogonal().normalized()
+					var prev := from
+					for i in 12:
+						var f := float(i + 1) / 12.0
+						var q := from.lerp(tp, f) + nrm * sin(f * 9.0 - t * 14.0) * 6.0 * sin(f * PI)
+						pd.line2(prev, q, Color(pal[2], 0.7 * ca), Color(pal[1], 0.8 * ca), 3.5, 3.0)
+						if i % 2 == 0:
+							PVfx.spike(pd, q, Vector2(sin(t * 10.0 + i) * 0.3, -1.0), 7.0 + 3.0 * sin(t * 20.0 + i), 4.0, Color(pal[1], 0.7 * ca))
+						prev = q
 				pd.draw_arc(tp, 22.0 + sin(t * 8.0) * 2.0, 0, TAU, 20, Color(pal[1], 0.6 * ca), 2.0)
 		# 참격: 푸른 빛 날 + 흰 심 (먹빛 가장자리는 일반 합성 층)
 		for st: Array in _streaks:
@@ -1358,15 +1710,20 @@ class Bind extends PDraw.Canvas:
 			PVfx.blade(pd, p0, p1, w, Color(pal[1], 0.85))
 			PVfx.blade(pd, p0, p1, w * 0.35, Color(pal[0], 1.0))
 
-	## 아홉 꼬리 여우신 (정면): 날개처럼 펼친 꼬리 아홉, 불꽃 갈기, 빛나는 눈, 가슴의 문양
+	## 여우신 (정면): 날개처럼 펼친 꼬리, 불꽃 갈기, 빛나는 눈, 가슴의 문양.
+	## 변신 중 = 푸른 아홉 꼬리 여우신 · 평소 = 불로 빚은 붉은 여우 정령(굵은 꼬리 셋 + 온몸 가장자리에서 피어오르는 불꽃)
 	func _draw_fox_god(c: Vector2, s: float, a: float, pal: Array) -> void:
 		if a <= 0.01:
 			return
+		var nt := 9 if fox_form else 3
+		var tw := 32.0 if fox_form else 46.0
 		pd.draw_circle(c + Vector2(0, -20) * s, 170.0 * s, Color(pal[3], 0.12 * a))
 		pd.draw_circle(c + Vector2(0, -30) * s, 90.0 * s, Color(pal[2], 0.15 * a))
-		# 꼬리 아홉: 몸 뒤에서 양옆·위로 부채꼴, 가운데가 통통하고 끝이 말려 올라가는 여우 꼬리 (끝은 흰 불꽃)
-		for i in 9:
-			var f := float(i) / 8.0
+		if not fox_form:
+			_draw_spirit_flames(c, s, a, pal)
+		# 꼬리: 몸 뒤에서 양옆·위로 부채꼴, 가운데가 통통하고 끝이 말려 올라가는 여우 꼬리 (끝은 흰 불꽃)
+		for i in nt:
+			var f := float(i) / float(nt - 1)
 			var side := -1.0 if f < 0.5 else 1.0
 			var base := lerpf(PI * 1.08, PI * 1.92, f)
 			var sway := sin(t * 2.2 + i * 0.8) * 0.05
@@ -1381,7 +1738,7 @@ class Bind extends PDraw.Canvas:
 				var ln := 140.0 - absf(f - 0.5) * 30.0
 				var p := root + dirv * ln * s * u + perp * 28.0 * s * u * u * u
 				var tan := (dirv * ln + perp * 84.0 * u * u).normalized()
-				var w := 32.0 * s * sin(minf(u * 1.15, 1.0) * PI * 0.88 + 0.12)
+				var w := tw * s * sin(minf(u * 1.15, 1.0) * PI * 0.88 + 0.12)
 				var n := tan.orthogonal()
 				left.append(p + n * w)
 				right.append(p - n * w)
@@ -1396,6 +1753,12 @@ class Bind extends PDraw.Canvas:
 			pd.strip_grad(il, ir, Color(pal[2], 0.3 * a), Color(pal[1], 0.5 * a))
 			pd.glow(tip, 16.0 * s, Color(pal[1], 0.6 * a), 0.1)
 			pd.draw_circle(tip, 7.0 * s, Color(pal[0], 0.8 * a))
+			if not fox_form:
+				# 불로 된 꼬리: 바깥 가장자리를 따라 위로 날리는 불 혀
+				for k in range(2, left.size(), 2):
+					var q: Vector2 = left[k] if (k / 2) % 2 == 0 else right[k]
+					var fl := (16.0 + 10.0 * sin(t * 14.0 + k + i * 2.0)) * s
+					PVfx.spike(pd, q, Vector2(sin(t * 6.0 + k) * 0.3, -1.0), fl, 9.0 * s, Color(pal[2], 0.55 * a))
 		# 몸통 (가슴·앞다리)
 		PVfx.safe_poly(pd, PackedVector2Array([c + Vector2(-34, -40) * s, c + Vector2(34, -40) * s, c + Vector2(26, 40) * s, c + Vector2(14, 90) * s,
 			c + Vector2(-14, 90) * s, c + Vector2(-26, 40) * s]), Color(pal[2], 0.7 * a))
@@ -1420,6 +1783,16 @@ class Bind extends PDraw.Canvas:
 		for side in [-1.0, 1.0]:
 			var e := h + Vector2(side * 17, -6) * s
 			PVfx.safe_poly(pd, PackedVector2Array([e + Vector2(-side * 10, 4) * s, e + Vector2(side * 12, -6) * s, e + Vector2(side * 5, 5) * s]), Color(1, 1, 1, a))
+
+
+	## 불 여우 정령의 몸에서 피어오르는 불꽃 (등·어깨·머리 둘레, 위로 일렁임)
+	func _draw_spirit_flames(c: Vector2, s: float, a: float, pal: Array) -> void:
+		for i in 14:
+			var f := float(i) / 13.0
+			var p := c + Vector2(lerpf(-60.0, 60.0, f), -40.0 - 70.0 * sin(f * PI)) * s
+			var h := (34.0 + 18.0 * sin(t * (9.0 + i * 0.7) + i * 1.9)) * s * (0.6 + 0.4 * sin(f * PI))
+			PVfx.spike(pd, p, Vector2(sin(t * 4.0 + i) * 0.35, -1.0), h, 22.0 * s, Color(pal[3], 0.55 * a))
+			PVfx.spike(pd, p, Vector2(sin(t * 5.0 + i) * 0.3, -1.0), h * 0.6, 11.0 * s, Color(pal[1], 0.6 * a))
 
 
 # ═══════════════════════════════════════════════════════════

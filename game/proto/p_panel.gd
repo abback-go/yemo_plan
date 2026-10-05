@@ -18,7 +18,7 @@ func _ready() -> void:
 
 func _build() -> void:
 	_rows = [
-		["키 방식", "key_mode"], ["회피술 (공중 대시 + 무적)", "evade"], ["꼬리 수 (변신 시간·발톱)", "tails"], ["폭주 게이지 차는 배율", "od_mult"],
+		["키 방식", "key_mode"], ["회피술 (공중 대시 + 무적)", "evade"], ["꼬리 수 (변신 시간·기본공격 레벨)", "tails"], ["폭주 게이지 차는 배율", "od_mult"],
 		["쿨 감소 물약 (−10%씩)", "cd_potions"], ["쿨타임 없음", "no_cooldown"], ["▶ 폭주 게이지 가득 채우기", "fill_gauge"],
 		 ["난이도", "difficulty"], ["연습용 발사대 (맞는 연습)", "launcher_on"], ["피해 숫자", "damage_numbers"],
 		["모든 마법 레벨", "all_lv"],

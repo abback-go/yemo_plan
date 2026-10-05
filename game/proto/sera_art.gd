@@ -43,12 +43,12 @@ const THIGH := 8.4
 const SHIN := 8.0
 
 # ─── 세라가 매 프레임 넣는 값 ───
-var pose := "idle" ## idle run jump fall dash claw claw_up claw_down focus cast shield hurt wall glide drink asura charge
+var pose := "idle" ## idle run jump fall dash throw throw_up throw_down focus cast shield hurt wall glide drink charge
 var vel := Vector2.ZERO
 var t := 0.0 ## 누적 시간
 var run_phase := 0.0
-var claw_step := 0 ## 0~2
-var claw_k := 1.0 ## 휘두르기 진행 0→1
+var atk_step := 0 ## 기본공격 0 오른손 · 1 왼손 · 2 두 손
+var atk_k := 1.0 ## 던지기 진행 0→1
 var fox := false ## 변신
 var tails := 1
 var flash := 0.0 ## 피격 흰빛 (modulate로 처리)
@@ -114,12 +114,16 @@ func _draw() -> void:
 			squash = Vector2(0.94, 1.06)
 		"fall":
 			lean = -0.05
-		"claw":
-			lean = 0.18 + 0.12 * sin(claw_k * PI)
-		"claw_up":
-			lean = -0.12
-		"claw_down":
-			lean = 0.15
+		"throw":
+			# 내던지며 앞으로 몸을 실음 (두 손 큰 덩이는 더 깊게 + 살짝 눌림)
+			var kk := sin(minf(atk_k * 1.6, 1.0) * PI)
+			lean = 0.1 + (0.3 if atk_step == 2 else 0.16) * kk
+			if atk_step == 2:
+				squash = Vector2(1.0 + 0.06 * kk, 1.0 - 0.06 * kk)
+		"throw_up":
+			lean = -0.14
+		"throw_down":
+			lean = 0.18
 		"focus":
 			bob = 2.0 + sin(t * 6.0) * 0.3
 		"cast", "charge":
@@ -132,9 +136,6 @@ func _draw() -> void:
 			lean = -0.08
 		"glide":
 			lean = 0.2
-		"asura":
-			lean = 0.1
-			bob = sin(t * 30.0) * 0.6
 	if land_k > 0.0:
 		var e := sin(land_k * PI * 0.5)
 		squash *= Vector2(1.0 + 0.16 * e, 1.0 - 0.16 * e)
@@ -206,11 +207,11 @@ func _draw_legs(lean: float) -> void:
 			a2 = -0.3
 			k1 = 2.0
 			k2 = 1.6
-		"claw", "cast", "charge":
+		"throw", "cast", "charge":
 			a1 = 0.35
 			a2 = -0.35
 			k1 = 0.2
-		"claw_down":
+		"throw_down":
 			a1 = 0.6
 			a2 = 0.2
 			k1 = 1.4
@@ -327,27 +328,26 @@ func _draw_arm(front: bool) -> void:
 		"glide":
 			ang = -1.4
 			bend = 0.2
-		"claw":
-			# 1타: 위-뒤 → 앞-아래 대각선 / 2타: 가슴 앞으로 접었다 앞으로 쭉 가로 베기 / 3타: 아래-뒤 → 앞-위 올려 베기
-			var k := clampf(claw_k * 2.2, 0.0, 1.0)
-			if front:
-				match claw_step % 3:
-					0:
-						ang = lerpf(-3.7, -0.6, k)
-						bend = 0.15
-					1:
-						ang = lerpf(-0.7, -1.6, k)
-						bend = lerpf(2.4, 0.0, k)
-					_:
-						ang = lerpf(0.7, -2.4, k)
-						bend = 0.1
+		"throw":
+			# 1타 앞팔 · 2타 뒷팔 · 3타 두 팔: 머리 뒤에서 앞으로 내던지고(빠르게) 팔이 따라 내려감. 쉬는 팔은 뒤로 당김
+			var k := clampf(atk_k * 2.4, 0.0, 1.0)
+			var e := 1.0 - (1.0 - k) * (1.0 - k)
+			if _throwing(front):
+				var follow := clampf((atk_k - 0.42) / 0.58, 0.0, 1.0)
+				if atk_step == 2:
+					ang = lerpf(lerpf(-3.2, -1.45, e), -1.0, follow)
+					bend = lerpf(1.2, 0.0, e)
+				else:
+					ang = lerpf(lerpf(-3.5, -1.15, e), -0.7, follow)
+					bend = lerpf(1.6, 0.05, e)
 			else:
-				ang = 0.6
-		"claw_up":
-			ang = (lerpf(-0.6, -3.0, clampf(claw_k * 2.0, 0.0, 1.0)) if front else 0.5)
+				ang = 0.75 if front else -0.5
+				bend = 0.9
+		"throw_up":
+			ang = (lerpf(-0.8, -3.0, clampf(atk_k * 2.2, 0.0, 1.0)) if _throwing(front) else 0.5)
 			bend = 0.1
-		"claw_down":
-			ang = (lerpf(-2.6, 0.2, clampf(claw_k * 2.0, 0.0, 1.0)) if front else -1.2)
+		"throw_down":
+			ang = (lerpf(-2.6, -0.3, clampf(atk_k * 2.2, 0.0, 1.0)) if _throwing(front) else -1.2)
 			bend = 0.1
 		"focus":
 			ang = -1.2 if front else -1.0
@@ -369,9 +369,6 @@ func _draw_arm(front: bool) -> void:
 		"drink":
 			ang = -2.4 if front else 0.2
 			bend = 2.2
-		"asura":
-			ang = sin(t * 34.0 + (0.0 if front else 1.6)) * 2.0 - 1.0
-			bend = 0.3
 	var d1 := Vector2(-sin(ang), cos(ang))
 	var elbow := sh + d1 * 5.0
 	var a2 := ang - bend
@@ -387,8 +384,8 @@ func _draw_arm(front: bool) -> void:
 	pd.draw_line(hand - d2 * 1.3, hand - d2 * 0.6, CUFF if front else CUFF.darkened(0.3), 1.8)
 	pd.draw_circle(hand, 1.5, OUT)
 	pd.draw_circle(hand, 1.0, GLOVE if front else GLOVE.darkened(0.3))
-	if fox or pose in ["claw", "claw_up", "claw_down"]:
-		_draw_claws(hand, d2, front)
+	if pose in ["throw", "throw_up", "throw_down"] and _throwing(front) and atk_k < 0.4:
+		_draw_hand_flare(hand, d2)
 	elif pose not in ["drink", "cast", "charge"]:
 		_draw_hand_fire(hand, front)
 	if front and pose in ["cast", "charge"]:
@@ -405,25 +402,36 @@ func _draw_arm(front: bool) -> void:
 func _draw_hand_fire(hand: Vector2, front: bool) -> void:
 	var a := 0.9 if front else 0.4
 	var big := 1.7 if od >= 1.0 else 1.0 # 폭주 가득: 손의 불꽃이 커짐
+	var hot := PData.FOX_HOT if fox else PData.FIRE_HOT # 변신 중엔 푸른 여우불
+	var mid := PData.FOX_MID if fox else PData.FIRE_MID
 	for i in 3:
 		var ang := t * 7.0 + i * TAU / 3.0 + (0.0 if front else 1.0)
 		var p := hand + Vector2(cos(ang) * 2.4, sin(ang) * 1.1 - 0.6) * big
 		var behind := sin(ang) < 0.0
-		pd.draw_circle(p, 0.85 * big, Color(PData.FIRE_MID, a * (0.45 if behind else 0.85)))
-		pd.draw_circle(p + Vector2(0, -0.5), 0.45 * big, Color(PData.FIRE_HOT, a * (0.45 if behind else 1.0)))
+		pd.draw_circle(p, 0.85 * big, Color(mid, a * (0.45 if behind else 0.85)))
+		pd.draw_circle(p + Vector2(0, -0.5), 0.45 * big, Color(hot, a * (0.45 if behind else 1.0)))
 	var lick := (1.4 + sin(t * 13.0 + (0.0 if front else 2.0)) * 0.5) * big
-	PVfx.safe_poly(pd, PackedVector2Array([hand + Vector2(-0.9, -0.7), hand + Vector2(0.3, -2.0 - lick), hand + Vector2(1.0, -0.7)]), Color(PData.FIRE_HOT, a * 0.8))
+	PVfx.safe_poly(pd, PackedVector2Array([hand + Vector2(-0.9, -0.7), hand + Vector2(0.3, -2.0 - lick), hand + Vector2(1.0, -0.7)]), Color(hot, a * 0.8))
 
 
-## 손끝의 발톱 — 평소엔 휘두를 때만 반투명 여우 발톱(의태), 변신 중엔 늘 푸른 불 발톱
-func _draw_claws(hand: Vector2, d: Vector2, front: bool) -> void:
-	var a := 1.0 if fox else 0.75
-	var col := Color(PData.FOX_HOT, a) if fox else Color(0.85, 0.95, 1.0, a)
-	var n := d.orthogonal()
-	for i in 3:
-		var base := hand + n * (float(i) - 1.0) * 1.1 + d * 0.7
-		var tip := base + d * (4.4 if fox else 3.4) + n * (float(i) - 1.0) * 0.5 + d.orthogonal() * -1.0
-		PVfx.spike(pd, base, (tip - base), (tip - base).length(), 1.2, col if front else Color(col, a * 0.6))
+## 이번 던지기에서 이 팔이 던지는가 (1타 앞팔 · 2타 뒷팔 · 3타 두 팔, 위·아래 던지기는 앞팔)
+func _throwing(front: bool) -> bool:
+	if pose != "throw":
+		return front
+	return atk_step == 2 or (atk_step == 0) == front
+
+
+## 던지는 순간 손에서 번쩍이는 불 (던진 방향 d로 늘어나며 사라짐)
+func _draw_hand_flare(hand: Vector2, d: Vector2) -> void:
+	var k := clampf(atk_k / 0.4, 0.0, 1.0)
+	var a := 1.0 - k
+	var hot := PData.FOX_HOT if fox else PData.FIRE_HOT
+	var core := PData.FOX_CORE if fox else PData.FIRE_CORE
+	var s := 1.4 if atk_step == 2 else 1.0
+	pd.glow(hand, 7.0 * s, Color(hot, 0.7 * a))
+	pd.draw_circle(hand + d * 1.5, 2.6 * s * a + 0.4, Color(hot, a))
+	pd.draw_circle(hand + d * 1.5, 1.4 * s * a, Color(core, a))
+	PVfx.spike(pd, hand, d, 6.0 * s * (0.5 + k), 2.4 * a + 0.4, Color(core, 0.85 * a))
 
 
 # ─── 머리 ───────────────────────────────────────────────
@@ -460,7 +468,7 @@ func _draw_head() -> void:
 	if not closed and not hurt:
 		pd.draw_line(hc + Vector2(-0.9, -0.4), hc + Vector2(-0.9, 1.0), OUT, 0.9)
 	# 입
-	if pose in ["claw", "dash", "asura", "cast", "charge", "hurt"]:
+	if pose in ["throw", "dash", "cast", "charge", "hurt"]:
 		pd.draw_line(hc + Vector2(1.6, 2.8), hc + Vector2(2.8, 2.6), OUT, 0.8)
 	# 앞머리 (옆으로 쓸어 넘긴 붉은 머리)
 	var fr := PackedVector2Array([hc + Vector2(-3.8, 0.4), hc + Vector2(-3.6, -3.2), hc + Vector2(-1.2, -4.6), hc + Vector2(2.0, -4.4),

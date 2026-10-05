@@ -1,6 +1,6 @@
 class_name PHud
 extends Control
-## 훈련장 HUD — 왼쪽 위: 문장·체력 하트·폭주 게이지·물약·꼬리 / 아래 가운데: 마법 7칸(등급 묶음, 원형 쿨, 레벨 점).
+## 훈련장 HUD — 왼쪽 위: 문장·체력 하트·폭주 게이지·물약·꼬리 / 아래 가운데: 마법 6칸(등급 묶음, 원형 쿨, 레벨 점).
 ## 도형은 PDraw로 모아 그리기 호출 1번, 글자는 그 위에 따로(글자는 같은 글꼴 텍스처라 엔진이 묶어 그린다).
 ## H = 조작 안내 켜기/끄기, Tab = 시험 패널.
 
@@ -227,13 +227,13 @@ func _heart(p: Vector2, half: int, col: Color, sc: float) -> void:
 		pd.draw_rect(Rect2(c + Vector2(-1, 2) * sc, Vector2(2, 1)), Color(HEART_D, 0.8))
 
 
-# ─── 아래 가운데: 마법 7칸 ────────────────────────────
+# ─── 아래 가운데: 마법 6칸 ────────────────────────────
 
 func _draw_slots() -> void:
 	# 칸 순서: 등급 키면 키 묶음(A·S·D)대로, 전용 키면 마법 표 순서. 둘 다 초급·중급·대마법으로 묶음
 	var grade := PState.key_mode == 0
-	var order: Array = ["fireball", "foxrain", "laser", "meteor", "asura", "bind", "phoenix"] if grade else PData.SPELLS.map(func(x: Dictionary) -> String: return String(x.id))
-	var groups: Array = [0, 0, 1, 1, 1, 2, 2]
+	var order: Array = ["fireball", "foxrain", "laser", "meteor", "bind", "phoenix"] if grade else PData.SPELLS.map(func(x: Dictionary) -> String: return String(x.id))
+	var groups: Array = [0, 0, 1, 1, 2, 2]
 	var n := order.size()
 	var w := 26.0
 	var gap := 3.0
@@ -255,7 +255,7 @@ func _draw_slots() -> void:
 		var id := String(s.id)
 		var x := x0 + i * (w + gap) + ggap * float(groups[i])
 		var r := Rect2(x, y0, w, w)
-		var fox_line: bool = s.line == "fox"
+		var fox_line := sera.is_fox() # 변신 중엔 모든 마법이 푸른 여우불 판
 		# 테두리(빛·그늘) + 안쪽 바탕
 		pd.draw_rect(r.grow(1), Color(0.01, 0.0, 0.03))
 		pd.rect_grad(r, Color("#3a2850") if not fox_line else Color("#22305a"), Color("#1a1028") if not fox_line else Color("#0e1630"))
@@ -309,31 +309,31 @@ func _draw_slots() -> void:
 
 
 ## 퀵슬롯 아이콘 (간단한 상징 그림). a = 밝기(쿨·봉인이면 어둡게)
+## 변신 중엔 같은 그림이 푸른 여우불 색 (평소 = 불 마법사의 붉은 불)
 func _icon(id: String, c: Vector2, a: float) -> void:
-	var fire := Color(PData.FIRE_MID, a)
-	var hot := Color(PData.FIRE_HOT, a)
-	var core := Color(PData.FIRE_CORE, a)
-	var fx := Color(PData.FOX_MID, a)
-	var fh := Color(PData.FOX_HOT, a)
-	var fc := Color(PData.FOX_CORE, a)
+	var pal := PSpells._pal(sera.is_fox())
+	var fire := Color(pal[2], a)
+	var hot := Color(pal[1], a)
+	var core := Color(pal[0], a)
 	match id:
 		"fireball":
-			pd.glow(c + Vector2(3, 0), 10.0, Color(PData.FIRE_MID, 0.35 * a))
-			pd.draw_colored_polygon(PackedVector2Array([c + Vector2(-9, -4), c + Vector2(2, -6), c + Vector2(2, 6), c + Vector2(-9, 4), c + Vector2(-5, 0)]), fire)
-			pd.draw_circle(c + Vector2(3, 0), 5.0, fire)
-			pd.draw_circle(c + Vector2(4, -1), 3.2, hot)
-			pd.draw_circle(c + Vector2(4.5, -1.5), 1.6, core)
+			# 세로 마법진 앞의 큰 태양
+			pd.draw_set_transform(c + Vector2(-6, 0), 0.0, Vector2(0.35, 1.0))
+			pd.draw_arc(Vector2.ZERO, 10.0, 0, TAU, 20, Color(pal[1], 0.8 * a), 1.5)
+			pd.draw_set_transform(Vector2.ZERO)
+			pd.glow(c + Vector2(2, 0), 11.0, Color(pal[2], 0.4 * a))
+			for i in 8:
+				var ang := float(i) / 8.0 * TAU
+				PVfx.spike(pd, c + Vector2(2, 0) + Vector2(cos(ang), sin(ang)) * 5.5, Vector2(cos(ang), sin(ang)), 3.5, 3.0, fire)
+			pd.draw_circle(c + Vector2(2, 0), 6.5, fire)
+			pd.draw_circle(c + Vector2(2, 0), 4.6, hot)
+			pd.draw_circle(c + Vector2(2.5, -0.5), 2.2, core)
 		"foxrain":
 			for i in 4:
 				var tip := c + Vector2(-4.0 + i * 4.6, 4 + i % 2 * 3)
-				pd.draw_colored_polygon(PackedVector2Array([tip + Vector2(-4, -11), tip + Vector2(-2, -12), tip]), fc)
-				pd.draw_line(tip + Vector2(-3, -11), tip, fh, 1.0)
-			pd.draw_line(c + Vector2(-10, 9), c + Vector2(10, 9), fx, 1.0)
-		"asura":
-			for i in 3:
-				var ang := i * 2.1
-				PVfx.crescent(pd, c, 9.0, ang, ang + 1.8, 2.6, fh, 10)
-			pd.draw_circle(c, 2.0, fc)
+				pd.draw_colored_polygon(PackedVector2Array([tip + Vector2(-4, -11), tip + Vector2(-2, -12), tip]), core)
+				pd.draw_line(tip + Vector2(-3, -11), tip, hot, 1.0)
+			pd.draw_line(c + Vector2(-10, 9), c + Vector2(10, 9), fire, 1.0)
 		"laser":
 			pd.draw_rect(Rect2(c + Vector2(-10, -3), Vector2(20, 6)), Color(PData.FIRE_MID, 0.5 * a))
 			pd.draw_rect(Rect2(c + Vector2(-10, -2), Vector2(20, 4)), hot)
@@ -351,26 +351,26 @@ func _icon(id: String, c: Vector2, a: float) -> void:
 			pd.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -1), c + Vector2(-6, -5), c + Vector2(-3, 0), c + Vector2(0, 1), c + Vector2(3, 0), c + Vector2(6, -5)]), hot)
 			pd.draw_circle(c, 2.4, core)
 		"bind":
-			pd.glow(c, 11.0, Color(PData.FOX_MID, 0.35 * a))
-			pd.draw_colored_polygon(PackedVector2Array([c + Vector2(-8, -2), c + Vector2(-9, -10), c + Vector2(-4, -5), c + Vector2(4, -5), c + Vector2(9, -10), c + Vector2(8, -2), c + Vector2(0, 8)]), fx)
-			pd.draw_colored_polygon(PackedVector2Array([c + Vector2(-4, 1), c + Vector2(4, 1), c + Vector2(0, 7)]), fc)
-			pd.draw_rect(Rect2(c + Vector2(-5, -2), Vector2(3, 1)), fc)
-			pd.draw_rect(Rect2(c + Vector2(2, -2), Vector2(3, 1)), fc)
+			pd.glow(c, 11.0, Color(pal[2], 0.35 * a))
+			pd.draw_colored_polygon(PackedVector2Array([c + Vector2(-8, -2), c + Vector2(-9, -10), c + Vector2(-4, -5), c + Vector2(4, -5), c + Vector2(9, -10), c + Vector2(8, -2), c + Vector2(0, 8)]), fire)
+			pd.draw_colored_polygon(PackedVector2Array([c + Vector2(-4, 1), c + Vector2(4, 1), c + Vector2(0, 7)]), core)
+			pd.draw_rect(Rect2(c + Vector2(-5, -2), Vector2(3, 1)), core)
+			pd.draw_rect(Rect2(c + Vector2(2, -2), Vector2(3, 1)), core)
 
 
 # ─── 오른쪽 위: 조작 안내 ─────────────────────────────
 
 const KEY_GUIDE_GRADE := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
-	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["C", "대시 (변신 중 = 의태 돌진)"], ["폭주", "마법을 쓰거나 발톱으로 때리면 참"],
+	["X", "불덩이 던지기 3연타 (↑위 · 공중↓아래)"], ["C", "대시 (변신 중 = 의태 돌진)"], ["폭주", "마법을 쓰거나 불덩이를 맞히면 참"],
 	["Space", "변신 (폭주 가득 = 마법 봉인 해제)"], ["G", "물약"],
-	["A", "초급: 파이어볼 · ↓여우비"], ["S", "중급: 열선(꾹) · ↑대유성 · ↓난무"], ["D", "대마법: 바인드 · ↑불사조"], ["↑", "석등에서 쉬기"],
+	["A", "초급: 파이어볼 · ↓불비"], ["S", "중급: 열선(꾹) · ↑대유성"], ["D", "대마법: 바인드 · ↑불사조"], ["↑", "석등에서 쉬기"],
 ]
 const KEY_GUIDE_DIRECT := [
 	["← →", "이동"], ["Z", "점프 · 공중 2단 · 다시 꾹 = 활공"], ["벽 + Z", "벽 점프 (붙으면 미끄러짐)"],
-	["X", "발톱 3연타 (↑위 · 공중↓아래)"], ["Shift", "대시 (변신 중 = 의태 돌진)"], ["폭주", "마법을 쓰거나 발톱으로 때리면 참"],
+	["X", "불덩이 던지기 3연타 (↑위 · 공중↓아래)"], ["Shift", "대시 (변신 중 = 의태 돌진)"], ["폭주", "마법을 쓰거나 불덩이를 맞히면 참"],
 	["Space", "변신 (폭주 가득 = 마법 봉인 해제)"], ["G", "물약"],
-	["A S F", "파이어볼·여우비·발톱 난무"], ["Q W", "압축 열선(꾹)·대유성"], ["E R", "불사조·너울 바인드"], ["↑", "석등에서 쉬기"],
+	["A S", "파이어볼·불비"], ["Q W", "압축 열선(꾹)·대유성"], ["E R", "불사조·너울 바인드"], ["↑", "석등에서 쉬기"],
 ]
 
 

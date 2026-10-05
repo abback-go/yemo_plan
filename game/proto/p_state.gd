@@ -3,7 +3,7 @@ extends RefCounted
 ## 훈련장 상태 — 시험 패널(Tab)로 바꾸는 값과 키 등록. 정적 변수라 어디서나 PState.tails 처럼 읽는다.
 
 static var evade := true ## 회피술(공중 대시 + 무적) 배움
-static var tails := 1 ## 1~9: 변신 시간·발톱 위력/사거리
+static var tails := 1 ## 1~9: 변신 시간·기본공격 레벨(위력·크기·사거리)
 static var od_mult := 1.0 ## 폭주 게이지 차는 배율 (시험용)
 static var cd_potions := 0 ## 연금술 '쿨 감소' 물약 수 0~2 (−10%씩)
 static var no_cooldown := false
@@ -27,23 +27,29 @@ static func spell_cd(id: String) -> float:
 	return float(PData.spell(id).get("cd", 1.0)) * (1.0 - 0.1 * float(cd_potions))
 
 
+## 기본공격 불덩이 크기 배율 (꼬리 1개 1.0 → 9개 1.72)
+static func shot_size() -> float:
+	return 1.0 + 0.09 * float(tails - 1)
+
+
 static func transform_time() -> float:
 	return PData.TRANSFORM_BASE + 0.625 * float(tails - 1) ## 10초 → 15초
 
 
-static func claw_mult() -> float:
+## 기본공격 위력 배율 (꼬리 1개 1.0 → 9개 1.48)
+static func shot_mult() -> float:
 	return 1.0 + 0.06 * float(tails - 1)
 
 
 ## 키 방식 (시험 패널에서 바꿈)
 ##   0 = 등급 키: A 초급 · S 중급 · D 대마법 + 누르는 순간의 방향(중립·↑·↓)으로 마법을 고름. C 대시
-##   1 = 전용 키: 마법마다 한 키(A S F Q W E R). Shift 대시
+##   1 = 전용 키: 마법마다 한 키(A S Q W E R). Shift 대시
 static var key_mode := 0
 
 ## 등급 키 → {방향: 마법 ID}. 그 방향에 마법이 없으면 중립 마법
 const GRADE_KEYS := {
 	"pr_g1": {"mid": "fireball", "down": "foxrain"},
-	"pr_g2": {"mid": "laser", "up": "meteor", "down": "asura"},
+	"pr_g2": {"mid": "laser", "up": "meteor"},
 	"pr_g3": {"mid": "bind", "up": "phoenix"},
 }
 const GRADE_LETTER := {"pr_g1": "A", "pr_g2": "S", "pr_g3": "D"}
@@ -51,7 +57,7 @@ const GRADE_LETTER := {"pr_g1": "A", "pr_g2": "S", "pr_g3": "D"}
 ## 키 등록 (데모 본편의 입력과 섞이지 않게 pr_ 접두사로 따로)
 const KEYS_COMMON := {
 	"pr_left": [KEY_LEFT], "pr_right": [KEY_RIGHT], "pr_up": [KEY_UP], "pr_down": [KEY_DOWN],
-	"pr_jump": [KEY_Z], "pr_claw": [KEY_X], "pr_transform": [KEY_SPACE], "pr_potion": [KEY_G],
+	"pr_jump": [KEY_Z], "pr_attack": [KEY_X], "pr_transform": [KEY_SPACE], "pr_potion": [KEY_G],
 	"pr_panel": [KEY_TAB], "pr_keys": [KEY_H], "pr_exit": [KEY_ESCAPE],
 }
 const KEYS_GRADE := {
@@ -59,7 +65,7 @@ const KEYS_GRADE := {
 }
 const KEYS_DIRECT := {
 	"pr_dash": [KEY_SHIFT],
-	"pr_s_fireball": [KEY_A], "pr_s_foxrain": [KEY_S], "pr_s_asura": [KEY_F],
+	"pr_s_fireball": [KEY_A], "pr_s_foxrain": [KEY_S],
 	"pr_s_laser": [KEY_Q], "pr_s_meteor": [KEY_W], "pr_s_phoenix": [KEY_E], "pr_s_bind": [KEY_R],
 }
 

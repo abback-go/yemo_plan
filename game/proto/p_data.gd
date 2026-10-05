@@ -39,15 +39,17 @@ const MIMIC_SPEED := 520.0 ## 의태 돌진 = 변신 중 대시 (거대 여우 �
 const MIMIC_TIME := 0.24 ## 약 7.8타일
 const MIMIC_DAMAGE := 18
 
-# ─── 발톱 (같은 위력 3연타, 모션만 바뀜) ───
-const CLAW_COOLDOWN := 0.26
-const CLAW_COOLDOWN_FOX := 0.18
-const CLAW_ACTIVE := 0.07
-const CLAW_DAMAGE := 21
-const CLAW_REACH := 45.0 ## 앞으로 (꼬리마다 +2.25) — 사용자 요청으로 1.5배
-const CLAW_HEIGHT := 26.0
-const CLAW_RECOIL := 120.0 ## 맞히면 세라가 뒤로 조금
-const CLAW_HITSTOP := 0.045
+# ─── 기본공격 X = 불덩이 던지기 (사이퍼즈 타라 '홍염화' 느낌, 같은 위력 3연타: 오른손 · 왼손 · 두 손 큰 덩이) ───
+## 간격·피해·게이지는 옛 발톱과 같다. 크기·사거리·폭발 반경은 꼬리 수(= 기본공격 레벨 1~9)에 따라 커진다.
+const SHOT_COOLDOWN := 0.26
+const SHOT_COOLDOWN_FOX := 0.18
+const SHOT_DAMAGE := 21
+const SHOT_SPEED := 560.0
+const SHOT_RANGE := 300.0 ## 화면 절반쯤 (꼬리마다 +6)
+const SHOT_RADIUS := 6.0 ## 불덩이 반지름 (3타 ×1.5, 꼬리마다 +9%)
+const SHOT_BLAST := 15.0 ## 맞으면 작은 폭발 반경 (3타 ×1.5)
+const SHOT_HITSTOP := 0.045 ## 3타는 0.075
+const SHOT_RECOIL := 70.0 ## 3타(두 손) 던질 때 뒤로 살짝 밀림
 
 # ─── 생존 ───
 const MAX_HEARTS := 5
@@ -63,24 +65,23 @@ const REVIVE_HEARTS_AWAKE := 2
 const POTION_TIME := 0.8
 
 # ─── 폭주 게이지 (마나 없음 — 마법은 쿨타임만. 넘치는 마력이 차오르고, 가득 차면 Space로 너울에게 넘겨 변신) ───
-## 게이지 0~1. 싸워야만 찬다(시간·피격으로는 차지 않음). 가득 차면 변신 전까지 마법 봉인(발톱·대시는 됨) — 아껴 둘 수는 있지만 마법을 포기하는 대가. 변신 연장·반동 없음
+## 게이지 0~1. 싸워야만 찬다(시간·피격으로는 차지 않음). 가득 차면 변신 전까지 마법 봉인(기본공격·대시는 됨) — 아껴 둘 수는 있지만 마법을 포기하는 대가. 변신 연장·반동 없음
 const OD_SPELL := {"초급": 0.03, "중급": 0.08, "대마법": 0.15} ## 마법을 쓸 때
-const OD_CLAW := 0.005 ## 발톱 적중 한 번
+const OD_SHOT := 0.005 ## 기본공격 적중 한 번 (맞은 대상마다)
 const OD_EASY := 1.3 ## 쉬움 난이도 배율
 
 # ─── 변신 ───
 const TRANSFORM_BASE := 10.0 ## 꼬리 1개 10초 → 9개 15초
 const FOX_DAMAGE := 1.3
 
-## 마법 7종 (초급 2 · 중급 3 · 대마법 2) — 키·쿨·레벨 상한·이름. 마나 없음: 제약은 쿨타임(연금술 물약으로 −10%씩). 피해는 각 마법 함수가 레벨 배율을 곱해 쓴다.
+## 마법 6종 (초급 2 · 중급 2 · 대마법 2) — 키·쿨·레벨 상한·이름. 마나 없음: 제약은 쿨타임(연금술 물약으로 −10%씩). 피해는 각 마법 함수가 레벨 배율을 곱해 쓴다.
 const SPELLS := [
 	{"id": "fireball", "name": "파이어볼", "key": "A", "cd": 3.0, "max_lv": 4, "line": "fire", "grade": "초급"},
-	{"id": "foxrain", "name": "여우비", "key": "S", "cd": 10.0, "max_lv": 4, "line": "fox", "grade": "초급"},
-	{"id": "asura", "name": "여우불 발톱 난무", "key": "F", "cd": 25.0, "max_lv": 3, "line": "fox", "grade": "중급"},
+	{"id": "foxrain", "name": "불비", "key": "S", "cd": 10.0, "max_lv": 4, "line": "fire", "grade": "초급"}, ## 변신 중 = 푸른 여우비
 	{"id": "laser", "name": "압축 열선", "key": "Q", "cd": 20.0, "max_lv": 3, "line": "fire", "grade": "중급"},
 	{"id": "meteor", "name": "대유성", "key": "W", "cd": 30.0, "max_lv": 3, "line": "fire", "grade": "중급"},
 	{"id": "phoenix", "name": "불사조", "key": "E", "cd": 90.0, "max_lv": 2, "line": "fire", "grade": "대마법"},
-	{"id": "bind", "name": "너울 바인드", "key": "R", "cd": 90.0, "max_lv": 2, "line": "fox", "grade": "대마법"},
+	{"id": "bind", "name": "너울 바인드", "key": "R", "cd": 90.0, "max_lv": 2, "line": "fire", "grade": "대마법"}, ## 평소 = 붉은 불 여우 정령, 변신 중 = 푸른 아홉 꼬리 여우신
 ]
 
 

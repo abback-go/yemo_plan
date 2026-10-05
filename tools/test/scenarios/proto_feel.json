@@ -1,6 +1,6 @@
 {"scene": "res://proto/proto_arena.tscn", "steps": [[1, "eval", "dbg('key_mode', 1)"], [2, "eval", "dbg('no_cooldown', true)"], [3, "eval", "sera.set('global_position', Vector2(225, 400))"],
- [20, "press", "pr_claw"], [21, "release", "pr_claw"], [23, "eval", "sera.get_global_transform_with_canvas().origin"], [23, "shot", "a_hit1"], [25, "shot", "a_hit1b"],
- [36, "press", "pr_claw"], [37, "release", "pr_claw"], [40, "shot", "a_hit2"], [52, "press", "pr_claw"], [53, "release", "pr_claw"], [56, "shot", "a_hit3"], [70, "shot", "a_after"],
+ [20, "press", "pr_attack"], [21, "release", "pr_attack"], [23, "eval", "sera.get_global_transform_with_canvas().origin"], [23, "shot", "a_hit1"], [25, "shot", "a_hit1b"],
+ [36, "press", "pr_attack"], [37, "release", "pr_attack"], [40, "shot", "a_hit2"], [52, "press", "pr_attack"], [53, "release", "pr_attack"], [56, "shot", "a_hit3"], [70, "shot", "a_after"],
  [80, "eval", "sera.set('global_position', Vector2(420, 400))"], [90, "press", "pr_s_fireball"], [91, "release", "pr_s_fireball"], [96, "eval", "sera.get_global_transform_with_canvas().origin"], [96, "shot", "b_fb"], [101, "shot", "b_fb_hit"], [106, "shot", "b_fb_hit2"], [120, "shot", "b_smoke"],
  [140, "press", "pr_jump"], [155, "release", "pr_jump"], [158, "eval", "sera.get_global_transform_with_canvas().origin"], [158, "shot", "c_air"], [175, "eval", "sera.get_global_transform_with_canvas().origin"], [178, "shot", "c_land"],
  [200, "eval", "sera.set('gauge', 1.0)"], [210, "shot", "d_full"], [212, "press", "pr_transform"], [213, "release", "pr_transform"], [216, "shot", "d_tf1"], [222, "shot", "d_tf2"], [240, "shot", "d_fox"], [260, "quit"]]}

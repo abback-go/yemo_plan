@@ -1,10 +1,10 @@
 class_name PSera
 extends CharacterBody2D
 ## 훈련장 세라 (새 조작 시제품). 결정 기록: docs/design/controls_skills.md
-## 상태 하나(st)로 나눈다: 보통(달리기·점프·벽·활공·발톱), 대시, 의태 돌진, 시전 잠김, 압축(열선), 난무(아수라),
-## 마시기, 피격, 쓰러짐. 체력은 반 칸 단위(hp2)라 쉬움 난이도의 "받는 피해 절반"을 그대로 표현한다.
+## 상태 하나(st)로 나눈다: 보통(달리기·점프·벽·활공·기본공격 던지기), 대시, 의태 돌진, 시전 잠김, 압축(열선),
+## 마시기, 피격, 쓰러짐. 기본공격은 둘레를 도는 불덩이 셋(orbs)을 하나씩 던진다(PShot). 체력은 반 칸 단위(hp2)라 쉬움 난이도의 "받는 피해 절반"을 그대로 표현한다.
 
-enum St { NORMAL, DASH, MIMIC, CAST, CHARGE, ASURA, DRINK, HURT, DEAD, SHIELD }
+enum St { NORMAL, DASH, MIMIC, CAST, CHARGE, DRINK, HURT, DEAD, SHIELD }
 
 const GROUP := &"p_sera"
 const SIZE := Vector2(10, 32)
@@ -44,13 +44,11 @@ var _fall_speed := 0.0
 var _ray := PhysicsRayQueryParameters2D.new()
 
 # 전투
-var _claw_cd := 0.0
-var _claw_buf := 0.0
-var _claw_step := 0
-var _claw_combo_t := 0.0
-var _claw_hit := {}
-var _claw_active := 0.0
-var _claw_aim := 0
+var orbs := 3 ## 둘레를 도는 불덩이 수 (0이 되면 잠깐 뒤 다시 3)
+var _orb_refill := 0.0
+var _atk_cd := 0.0
+var _atk_buf := 0.0
+var _atk_aim := 0
 var _recoil := 0.0
 var _shield_t := 0.0
 var shield_cd := 0.0
@@ -59,7 +57,6 @@ var _cast_lock := 0.0
 var _cast_invuln := false
 var _mote_t := 0.0
 var charge_t := 0.0 ## 열선 압축 시간
-var asura_t := 0.0
 var _hurt_t := 0.0
 var _respawn := Vector2.ZERO
 var _shield_fx: Node2D
@@ -85,6 +82,16 @@ func _ready() -> void:
 	art = SeraArt.new()
 	_flip.add_child(art)
 	_respawn = global_position
+	_spawn_orbits.call_deferred() # 장면이 다 붙은 뒤 효과 층에
+
+
+## 둘레를 도는 불덩이 그림 (몸 뒤 층 + 앞 층)
+func _spawn_orbits() -> void:
+	for f in [false, true]:
+		var o := PShot.Orbit.new()
+		o.sera = self
+		o.front = f
+		PVfx.add(o, global_position)
 
 
 func center() -> Vector2:
@@ -103,13 +110,13 @@ func is_fox() -> bool:
 	return fox_time > 0.0
 
 
-## 폭주 봉인 중인가 (게이지 가득 + 아직 변신 안 함 → 마법 사용 불가, 발톱·대시·이동은 됨)
+## 폭주 봉인 중인가 (게이지 가득 + 아직 변신 안 함 → 마법 사용 불가, 기본공격·대시·이동은 됨)
 func overloaded() -> bool:
 	return gauge >= 1.0 and not is_fox()
 
 
 func invulnerable() -> bool:
-	return _iframe > 0.0 or _shield_t > 0.0 or st == St.ASURA or st == St.DEAD or _cast_invuln \
+	return _iframe > 0.0 or _shield_t > 0.0 or st == St.DEAD or _cast_invuln \
 		or (st == St.DASH and PState.evade) or st == St.MIMIC
 
 
@@ -135,8 +142,6 @@ func _physics_process(delta: float) -> void:
 			_cast(delta)
 		St.CHARGE:
 			_charge(delta)
-		St.ASURA:
-			_asura(delta)
 		St.DRINK:
 			_drink(delta)
 		St.HURT:
@@ -158,11 +163,12 @@ func _physics_process(delta: float) -> void:
 
 func _timers(delta: float) -> void:
 	_dash_cd = maxf(_dash_cd - delta, 0.0)
-	_claw_cd = maxf(_claw_cd - delta, 0.0)
-	_claw_buf = maxf(_claw_buf - delta, 0.0)
-	_claw_combo_t = maxf(_claw_combo_t - delta, 0.0)
-	if _claw_combo_t <= 0.0:
-		_claw_step = 0
+	_atk_cd = maxf(_atk_cd - delta, 0.0)
+	_atk_buf = maxf(_atk_buf - delta, 0.0)
+	if orbs <= 0:
+		_orb_refill -= delta
+		if _orb_refill <= 0.0:
+			_refill_orbs()
 	_recoil = maxf(_recoil - delta, 0.0)
 	_iframe = maxf(_iframe - delta, 0.0)
 	_jump_buf = maxf(_jump_buf - delta, 0.0)
@@ -178,9 +184,6 @@ func _timers(delta: float) -> void:
 		fox_time -= delta
 		if fox_time <= 0.0:
 			_end_transform()
-	if _claw_active > 0.0:
-		_claw_active -= delta
-		_claw_hits()
 	# 입력: 버퍼
 	if Input.is_action_just_pressed("pr_jump"):
 		_jump_buf = PData.JUMP_BUFFER
@@ -216,7 +219,7 @@ func _normal(delta: float) -> void:
 	if ax == 0 and on_floor:
 		acc = PData.RUN_DECEL
 	if _recoil > 0.0:
-		pass # 발톱 반동 중에는 밀려난 속도를 유지
+		pass # 큰 덩이를 던진 반동 중에는 밀려난 속도를 유지
 	else:
 		velocity.x = move_toward(velocity.x, target, acc * delta)
 	# 벽
@@ -236,7 +239,9 @@ func _normal(delta: float) -> void:
 			_air_jumps -= 1
 			_do_jump(PData.DOUBLE_JUMP_SPEED)
 			_glide_ready = true
-			PVfx.add(PVfx.AirRing.new(), global_position + Vector2(0, -2), true)
+			var ring := PVfx.AirRing.new()
+			ring.fox = is_fox()
+			PVfx.add(ring, global_position + Vector2(0, -2), true)
 			Sfx.play(&"double_jump", -4.0)
 		elif _glide_ready or not on_floor:
 			_gliding = true
@@ -275,7 +280,7 @@ func _normal(delta: float) -> void:
 	_actions(on_floor)
 
 
-## 보통 상태에서 받는 행동 입력 (대시·발톱·변신·물약·마법)
+## 보통 상태에서 받는 행동 입력 (대시·기본공격·변신·물약·마법)
 func _actions(on_floor: bool) -> void:
 	if Input.is_action_just_pressed("pr_dash") and _dash_cd <= 0.0 and (on_floor or (PState.evade and _air_dash)):
 		if is_fox():
@@ -283,11 +288,11 @@ func _actions(on_floor: bool) -> void:
 		else:
 			_start_dash()
 		return
-	if Input.is_action_just_pressed("pr_claw"):
-		_claw_buf = 0.15 # 쿨이 막 끝나기 전에 눌러도 이어지게
-	if _claw_buf > 0.0 and _claw_cd <= 0.0:
-		_claw_buf = 0.0
-		_claw()
+	if Input.is_action_just_pressed("pr_attack"):
+		_atk_buf = 0.15 # 쿨이 막 끝나기 전에(또는 다시 피어나는 중에) 눌러도 이어지게
+	if _atk_buf > 0.0 and _atk_cd <= 0.0 and orbs > 0:
+		_atk_buf = 0.0
+		_throw()
 	if Input.is_action_just_pressed("pr_transform") and gauge >= 1.0 and not is_fox():
 		_start_transform()
 	if Input.is_action_just_pressed("pr_potion") and potions > 0 and hp2 < PData.MAX_HEARTS * 2 and on_floor:
@@ -326,10 +331,13 @@ func _wall_jump() -> void:
 	_air_jumps = 1
 	_air_dash = true
 	PVfx.dust(global_position + Vector2(_wall_dir * 5, -14), 4, 0.4, 10.0)
-	var paw := PVfx.FoxPaw.new()
-	paw.dir = -_wall_dir
-	paw.size = 0.7
-	PVfx.add(paw, global_position + Vector2(_wall_dir * 6, -14), true)
+	if is_fox(): # 여우 발자국은 변신 중에만 (평소엔 순수한 불 마법사)
+		var paw := PVfx.FoxPaw.new()
+		paw.dir = -_wall_dir
+		paw.size = 0.7
+		PVfx.add(paw, global_position + Vector2(_wall_dir * 6, -14), true)
+	else:
+		PVfx.embers(global_position + Vector2(_wall_dir * 6, -14), 4, false, 50.0, Vector2(2, 6))
 	Sfx.play(&"jump", -6.0)
 	_wall_dir = 0
 
@@ -354,10 +362,7 @@ func _start_dash() -> void:
 	burst.dir = _dash_dir
 	burst.fox = is_fox()
 	PVfx.add(burst, global_position + Vector2(-_dash_dir * 4, -14))
-	var paw := PVfx.FoxPaw.new()
-	paw.dir = _dash_dir
-	paw.size = 1.1
-	PVfx.add(paw, global_position + Vector2(-_dash_dir * 6, -4), true)
+	PVfx.sparks(global_position + Vector2(-_dash_dir * 6, -6), 6, PData.FIRE_HOT, 120.0, 0.25, Vector2(-_dash_dir, -0.2), 30.0)
 	Sfx.play(&"dash", -4.0)
 	Fx.shake(0.05, 0.08)
 
@@ -413,87 +418,86 @@ func _mimic(_delta: float) -> void:
 		PVfx.sparks(global_position + Vector2(0, -10), 10, PData.FOX_HOT, 90.0)
 
 
-# ─── 발톱 (같은 위력 3연타) ─────────────────────────────
+# ─── 기본공격: 둘레의 불덩이를 하나씩 던짐 (같은 위력 3연타, 마지막은 두 손 큰 덩이) ───
 
-func _claw() -> void:
+func _throw() -> void:
 	var up := Input.is_action_pressed("pr_up")
 	var down := Input.is_action_pressed("pr_down") and not is_on_floor()
-	_claw_aim = -1 if up else (1 if down else 0)
-	_claw_cd = PData.CLAW_COOLDOWN_FOX if is_fox() else PData.CLAW_COOLDOWN
-	_claw_active = PData.CLAW_ACTIVE
-	_claw_hit.clear()
-	var slash := PVfx.ClawSlash.new()
-	slash.dir = facing
-	slash.aim = _claw_aim
-	slash.step = _claw_step
-	slash.fox = is_fox()
-	slash.reach = PData.CLAW_REACH + 2.25 * float(PState.tails - 1)
-	slash.follow = self
-	slash.offset = _claw_origin() - global_position
-	PVfx.add(slash, _claw_origin())
-	art.claw_step = _claw_step
-	art.claw_k = 0.0
-	Sfx.play_pitch(&"swing", 1.15 + 0.08 * _claw_step if not is_fox() else 1.35, -4.0)
-	_claw_step = (_claw_step + 1) % 3
-	_claw_combo_t = 0.5
-	_claw_hits()
-
-
-func _claw_origin() -> Vector2:
-	match _claw_aim:
+	_atk_aim = -1 if up else (1 if down else 0)
+	var step := 3 - orbs # 0 오른손 · 1 왼손 · 2 두 손(마지막 덩이)
+	var big := step == 2
+	var fox := is_fox()
+	_atk_cd = PData.SHOT_COOLDOWN_FOX if fox else PData.SHOT_COOLDOWN
+	var d := Vector2(facing, 0)
+	match _atk_aim:
 		-1:
-			return global_position + Vector2(facing * 1, -27)
+			d = Vector2(facing * 0.12, -1.0).normalized()
 		1:
-			return global_position + Vector2(0, -6)
-	return global_position + Vector2(facing * 2, -19)
+			d = Vector2(facing * 0.55, 0.84).normalized()
+	var from := _shot_origin(step)
+	# 손으로 끌어올 불덩이 자리 (궤도 위 그 칸) — 손까지 불꽃 줄기
+	var orbit_pos := global_position + Vector2(0, -17)
+	for o in get_tree().get_nodes_in_group(&"p_orbit"):
+		if (o as PShot.Orbit).front:
+			orbit_pos += (o as PShot.Orbit).slot_pos(orbs - 1)
+			break
+	orbs -= 1
+	if orbs == 0:
+		_orb_refill = 0.2 if fox else 0.3
+	var lv := PState.shot_size() * (1.15 if fox else 1.0) * (1.5 if big else 1.0)
+	var sh := PShot.new()
+	sh.sera = self
+	sh.dir = d
+	sh.step = step
+	sh.fox = fox
+	sh.r = PData.SHOT_RADIUS * lv
+	sh.blast = PData.SHOT_BLAST * lv
+	sh.speed = PData.SHOT_SPEED * (0.85 if big else 1.0)
+	sh.range_px = PData.SHOT_RANGE + 6.0 * float(PState.tails - 1)
+	sh.dmg = int(round(PData.SHOT_DAMAGE * PState.shot_mult() * (PData.FOX_DAMAGE if fox else 1.0)))
+	PVfx.add(sh, from) # 일반 합성: 붉은·주황 색이 하얗게 타지 않고 또렷하게 (빛무리는 반투명으로 직접 그림)
+	var mz := PShot.Muzzle.new()
+	mz.dir = d
+	mz.fox = fox
+	mz.size = lv
+	mz.from = orbit_pos - from
+	PVfx.add(mz, from, true)
+	PVfx.sparks(from, 4 if not big else 9, PSpells._pal(fox)[1], 150.0, 0.2, d, 35.0)
+	art.atk_step = step
+	art.atk_k = 0.0
+	Sfx.play_pitch(&"whoosh", (1.5 + 0.1 * step if not big else 1.15) * (1.15 if fox else 1.0), -8.0 if not big else -4.0)
+	Sfx.play_pitch(&"shoot", 0.85 + 0.1 * step if not big else 0.7, -9.0 if not big else -5.0)
+	# 큰 덩이: 뒤로 살짝 밀리고 화면도 던진 쪽으로 살짝
+	if big:
+		PVfx.kick(d * 1.5)
+		if _atk_aim == 0:
+			velocity.x = -facing * PData.SHOT_RECOIL
+			_recoil = 0.08
+	# 공중에서 던지면 잠깐 떠 있음 (떨어지는 속도를 줄임 — 공중 연타가 스타일리시하게)
+	if not is_on_floor() and velocity.y > 0.0:
+		velocity.y *= 0.35
 
 
-func _claw_rect() -> Rect2:
-	var reach := (PData.CLAW_REACH + 2.25 * float(PState.tails - 1)) * (1.25 if is_fox() else 1.0)
-	var h := PData.CLAW_HEIGHT * (1.2 if is_fox() else 1.0)
-	match _claw_aim:
+## 불덩이가 손을 떠나는 자리 (1타 오른손 · 2타 왼손 · 3타 두 손 머리 앞)
+func _shot_origin(step: int) -> Vector2:
+	match _atk_aim:
 		-1:
-			return Rect2(global_position + Vector2(-h / 2, -26 - reach), Vector2(h, reach))
+			return global_position + Vector2(facing * 3, -36)
 		1:
-			return Rect2(global_position + Vector2(-h / 2, -8), Vector2(h, reach + 6))
-	var x0 := global_position.x + (0.0 if facing > 0 else -reach)
-	return Rect2(Vector2(x0, global_position.y - 15 - h / 2), Vector2(reach, h))
+			return global_position + Vector2(facing * 8, -12)
+	return global_position + Vector2(facing * [12, 10, 13][step], [-22, -24, -27][step])
 
 
-func _claw_hits() -> void:
-	var r := _claw_rect()
-	var hit_any := false
-	for d: PDummy in PDummy.all(get_tree()):
-		if _claw_hit.has(d) or not r.intersects(d.hit_rect()):
-			continue
-		_claw_hit[d] = true
-		hit_any = true
-		var dmg := int(round(PData.CLAW_DAMAGE * PState.claw_mult() * (PData.FOX_DAMAGE if is_fox() else 1.0)))
-		d.take_hit(dmg, global_position, {"fox": is_fox()})
-		var hp := r.intersection(d.hit_rect()).get_center()
-		var fl := PVfx.HitFlash.new()
-		fl.dir = facing
-		fl.fox = is_fox()
-		var cut: float = [0.55, -0.08, -0.6][art.claw_step % 3] if _claw_aim == 0 else (PI / 2 + 0.3)
-		fl.cut = cut * facing if _claw_aim == 0 else cut
-		if facing < 0 and _claw_aim == 0:
-			fl.cut = PI - cut
-		PVfx.add(fl, hp)
-		PVfx.sparks(hp, 6, PData.FOX_HOT if is_fox() else Color(1, 0.95, 0.85), 150.0, 0.25, Vector2(facing, -0.3), 50.0)
-		add_gauge(PData.OD_CLAW)
-	if hit_any:
-		Fx.hitstop(PData.CLAW_HITSTOP)
-		Fx.shake(0.06, 0.08)
-		Sfx.play(&"hit", -4.0)
-		# 반동: 앞으로 친 건 뒤로, 아래로 친 건 살짝 위로(튕김은 아님)
-		if _claw_aim == 0:
-			velocity.x = -facing * PData.CLAW_RECOIL
-			_recoil = 0.07
-		elif _claw_aim == 1 and velocity.y > 0.0:
-			velocity.y = minf(velocity.y, 30.0)
+func _refill_orbs() -> void:
+	orbs = 3
+	var rf := PShot.Refill.new()
+	rf.fox = is_fox()
+	PVfx.add(rf, global_position + Vector2(0, -17), true)
+	PVfx.embers(global_position + Vector2(0, -17), 5, is_fox(), 50.0, Vector2(14, 4))
+	Sfx.play_pitch(&"ignite", 1.6, -16.0)
 
 
-## 폭주 게이지: 마법 사용·발톱 적중으로만 찬다 (시험 배율 × 쉬움 배율). 변신 중에는 차지 않음
+## 폭주 게이지: 마법 사용·기본공격 적중으로만 찬다 (시험 배율 × 쉬움 배율). 변신 중에는 차지 않음
 func add_gauge(v: float) -> void:
 	if is_fox():
 		return
@@ -532,10 +536,10 @@ func _shield(delta: float) -> void:
 	velocity.x = move_toward(velocity.x, 0.0, PData.RUN_DECEL * delta)
 	velocity.y = minf(velocity.y + PData.GRAVITY * delta, PData.FALL_MAX)
 	if st_t >= PData.SHIELD_TIME:
-		art.claw_step = 2 # 정령과 같이 휘두르는 팔 동작
-		art.claw_k = 0.0
-		_claw_aim = 0
-		_claw_cd = 0.2
+		art.atk_step = 2 # 정령과 같이 휘두르는 팔 동작
+		art.atk_k = 0.0
+		_atk_aim = 0
+		_atk_cd = 0.2
 		_go(St.NORMAL)
 
 
@@ -574,7 +578,7 @@ func _drink(_delta: float) -> void:
 		_go(St.NORMAL)
 
 
-# ─── 시전 잠김 · 압축 · 난무 (PSpells가 시작) ───────────
+# ─── 시전 잠김 · 압축 (PSpells가 시작) ───────────
 
 func lock_cast(sec: float, invuln := false) -> void:
 	_cast_lock = sec
@@ -612,24 +616,6 @@ func _charge(delta: float) -> void:
 	if not Input.is_action_pressed(PState.spell_action("laser")) or charge_t >= 2.0:
 		PSpells.fire_laser(self, clampf(charge_t, 0.5, 2.0))
 		lock_cast(0.25)
-
-
-func start_asura(sec: float) -> void:
-	asura_t = sec
-	_go(St.ASURA)
-
-
-func _asura(delta: float) -> void:
-	asura_t -= delta
-	var ax := _axis()
-	if ax != 0:
-		facing = ax
-	velocity.x = move_toward(velocity.x, float(ax) * PData.RUN_SPEED, PData.RUN_ACCEL * delta)
-	velocity.y = minf(velocity.y + PData.GRAVITY * delta, PData.FALL_MAX)
-	if Input.is_action_just_pressed("pr_jump") and is_on_floor():
-		velocity.y = -PData.JUMP_SPEED * 0.8
-	if asura_t <= 0.0:
-		_go(St.NORMAL)
 
 
 # ─── 피격 · 쓰러짐 ─────────────────────────────────────
@@ -729,8 +715,8 @@ func _animate(delta: float) -> void:
 	a.focus_k = 0.0
 	a.od = 0.0 if is_fox() else gauge
 	a.charge_k = clampf(charge_t / 2.0, 0.0, 1.0) if st == St.CHARGE else 0.0
-	if _claw_cd > 0.0 or _claw_active > 0.0:
-		a.claw_k = minf(a.claw_k + delta / 0.16, 1.0)
+	if a.atk_k < 1.0:
+		a.atk_k = minf(a.atk_k + delta / (0.2 if a.atk_step == 2 else 0.16), 1.0)
 	var p := "idle"
 	match st:
 		St.DASH:
@@ -743,15 +729,13 @@ func _animate(delta: float) -> void:
 			p = "cast"
 		St.CHARGE:
 			p = "charge"
-		St.ASURA:
-			p = "asura"
 		St.DRINK:
 			p = "drink"
 		St.HURT:
 			p = "hurt"
 		_:
-			if a.claw_k < 1.0:
-				p = ["claw", "claw_up", "claw_down"][[0, -1, 1].find(_claw_aim)]
+			if a.atk_k < 1.0:
+				p = ["throw", "throw_up", "throw_down"][[0, -1, 1].find(_atk_aim)]
 			elif not is_on_floor():
 				if _wall_dir != 0:
 					p = "wall"
