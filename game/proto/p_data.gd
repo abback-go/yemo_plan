@@ -76,12 +76,12 @@ const FOX_DAMAGE := 1.3
 
 ## 마법 6종 (초급 2 · 중급 2 · 대마법 2) — 키·쿨·레벨 상한·이름. 마나 없음: 제약은 쿨타임(연금술 물약으로 −10%씩). 피해는 각 마법 함수가 레벨 배율을 곱해 쓴다.
 const SPELLS := [
-	{"id": "fireball", "name": "파이어볼", "key": "A", "cd": 3.0, "max_lv": 4, "line": "fire", "grade": "초급"},
-	{"id": "foxrain", "name": "불비", "key": "S", "cd": 10.0, "max_lv": 4, "line": "fire", "grade": "초급"}, ## 변신 중 = 푸른 여우비
-	{"id": "laser", "name": "압축 열선", "key": "Q", "cd": 20.0, "max_lv": 3, "line": "fire", "grade": "중급"},
-	{"id": "meteor", "name": "대유성", "key": "W", "cd": 30.0, "max_lv": 3, "line": "fire", "grade": "중급"},
-	{"id": "phoenix", "name": "불사조", "key": "E", "cd": 90.0, "max_lv": 2, "line": "fire", "grade": "대마법"},
-	{"id": "bind", "name": "너울 바인드", "key": "R", "cd": 90.0, "max_lv": 2, "line": "fire", "grade": "대마법"}, ## 평소 = 붉은 불 여우 정령, 변신 중 = 푸른 아홉 꼬리 여우신
+	{"id": "fireball", "name": "파이어볼", "key": "A", "cd": 30.0, "max_lv": 4, "line": "fire", "grade": "초급"},
+	{"id": "foxrain", "name": "불비", "key": "S", "cd": 20.0, "max_lv": 4, "line": "fire", "grade": "초급"}, ## 변신 중 = 푸른 여우비
+	{"id": "laser", "name": "압축 열선", "key": "Q", "cd": 60.0, "max_lv": 3, "line": "fire", "grade": "중급"},
+	{"id": "meteor", "name": "대유성", "key": "W", "cd": 90.0, "max_lv": 3, "line": "fire", "grade": "중급"},
+	{"id": "phoenix", "name": "불사조", "key": "E", "cd": 120.0, "max_lv": 2, "line": "fire", "grade": "대마법"},
+	{"id": "bind", "name": "너울 바인드", "key": "R", "cd": 120.0, "max_lv": 2, "line": "fire", "grade": "대마법"}, ## 평소 = 붉은 불 여우 정령, 변신 중 = 푸른 아홉 꼬리 여우신
 ]
 
 
