@@ -311,6 +311,12 @@ class Slash extends PVfx.Base:
 
 	func _paint() -> void:
 		pd.draw_set_transform(Vector2.ZERO, rot * dir, Vector2(dir, sq))
+		# 공간이 먼저 한 줄로 갈라진다: 호 전체를 따라 가는 흰 금이 순간 번쩍이고, 그 금을 따라 참격이 지나간다
+		var tear := 1.0 - clampf(t / (SWEEP + 0.07), 0.0, 1.0)
+		if tear > 0.0:
+			var tc := Color(EDGE, tear)
+			EVfx.band(pd, r - w * 0.3 + 1.2, a0, a1, 2.4 * tear + 0.6, tc, tc, 40)
+			EVfx.band(pd, r - w * 0.3 + 3.0, a0, a1, 5.0 * tear, Color(MAGENTA, 0.0), Color(MAGENTA, 0.35 * tear), 24)
 		if t < SWEEP + HOLD:
 			var p := clampf(t / SWEEP, 0.0, 1.0)
 			var head := lerpf(a0, a1, 1.0 - pow(1.0 - p, 3.0))

@@ -184,7 +184,7 @@ func tick(delta: float) -> void:
 	var lean_want := 0.0
 	match body.st:
 		EEska.St.ATTACK:
-			lean_want = 0.16 if body.combo_i < 3 else 0.24
+			lean_want = 0.03 if body.combo_i < 3 else 0.05 # 몸은 거의 그대로, 손짓만
 		EEska.St.CAST:
 			lean_want = -0.06 if body.cast_kind == "dangong" else 0.1
 		EEska.St.NORMAL:
@@ -252,11 +252,19 @@ func _hand_target() -> Vector2:
 	var s := Vector2(1.5, -23.5)
 	match body.st:
 		EEska.St.ATTACK:
+			# 가벼운 손짓: 1타 가리키기 · 2타 손끝 튀기기 · 3타 가슴 앞에서 손가락 튕기기 · 4타 손가락을 들었다 내려 가리키기
 			var a: Dictionary = EEska.COMBO[body.combo_i]
 			var k := clampf(body.st_t / maxf(float(a.hit) * 1.3, 0.001), 0.0, 1.0)
 			k = 1.0 - pow(1.0 - k, 3.0)
-			var ang := deg_to_rad(lerpf(float(a.a0), float(a.a1), k))
-			return s + Vector2(cos(ang), sin(ang) * 0.9) * 12.0
+			match body.combo_i:
+				0:
+					return Vector2(9.0, -22.0).lerp(Vector2(12.5, -25.0), k)
+				1:
+					return Vector2(10.0, -28.0).lerp(Vector2(12.5, -22.5), k)
+				2:
+					return Vector2(7.5, -23.0).lerp(Vector2(9.0, -25.5), k)
+				_:
+					return Vector2(7.0, -34.0).lerp(Vector2(13.0, -25.5), k)
 		EEska.St.CAST:
 			match body.cast_kind:
 				"cheonyeol":

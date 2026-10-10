@@ -1,7 +1,7 @@
 class_name EEska
 extends CharacterBody2D
 ## 에스카(종언의 마녀) 전투 시제품. 기획: Claude 문서 "새 컨셉: 종언의 마녀" 탭.
-## 조작: 이동 · 점프(1단) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능)
+## 조작: 이동 · 점프(1단) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능 — 팔을 휘두르지 않고 가리키기·튕기기 같은 가벼운 손짓, 제자리에서)
 ##       · 스킬 키: 그냥 = 천열(손가락을 튕기면 앞으로 거대한 참격 열 번) / ↑ = 단공(머리 위를 납작한 회오리 참격으로 연달아 휘감음)
 ##       · 봉공(공간 틀에 가둠) · 종언참(필살기). 스킬은 쿨다운만 쓴다.
 ## 공격 판정은 물리 없이 PDummy.hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
@@ -41,10 +41,10 @@ const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공"
 ## 4타 연격. 각도는 도(0 = 앞, + = 아래). 호는 a0 → a1로 휘두른다.
 ## dur 한 타 길이 · hit 판정 시각 · next 다음 타를 받기 시작하는 시각 · r 반지름 · w 가장 굵은 곳 · sq 세로 납작함 · c 몸 기준 중심
 const COMBO := [
-	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": -150.0, "a1": 40.0, "r": 92.0, "w": 26.0, "sq": 0.36, "rot": -16.0, "c": Vector2(2, -22), "dmg": 30, "step": 80.0},
-	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": 160.0, "a1": -40.0, "r": 96.0, "w": 26.0, "sq": 0.34, "rot": 14.0, "c": Vector2(2, -22), "dmg": 30, "step": 80.0},
-	{"dur": 0.16, "hit": 0.04, "next": 0.08, "a0": -205.0, "a1": 150.0, "r": 104.0, "w": 28.0, "sq": 0.34, "rot": -9.0, "c": Vector2(0, -16), "dmg": 34, "step": 90.0},
-	{"dur": 0.34, "hit": 0.06, "next": 0.34, "a0": -200.0, "a1": 160.0, "r": 140.0, "w": 44.0, "sq": 0.38, "rot": -12.0, "c": Vector2(6, -26), "dmg": 64, "step": 150.0},
+	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": -150.0, "a1": 40.0, "r": 92.0, "w": 26.0, "sq": 0.36, "rot": -16.0, "c": Vector2(2, -22), "dmg": 30, "step": 12.0},
+	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": 160.0, "a1": -40.0, "r": 96.0, "w": 26.0, "sq": 0.34, "rot": 14.0, "c": Vector2(2, -22), "dmg": 30, "step": 12.0},
+	{"dur": 0.16, "hit": 0.04, "next": 0.08, "a0": -205.0, "a1": 150.0, "r": 104.0, "w": 28.0, "sq": 0.34, "rot": -9.0, "c": Vector2(0, -16), "dmg": 34, "step": 14.0},
+	{"dur": 0.34, "hit": 0.06, "next": 0.34, "a0": -200.0, "a1": 160.0, "r": 140.0, "w": 44.0, "sq": 0.38, "rot": -12.0, "c": Vector2(6, -26), "dmg": 64, "step": 24.0},
 ]
 const CHAIN_WINDOW := 0.28 ## 한 타가 끝난 뒤 이 안에 누르면 다음 타로 이어짐
 
@@ -287,12 +287,14 @@ func _start_attack(i: int) -> void:
 	sl.setup(a, facing, i == 3)
 	EVfx.add(sl, global_position + Vector2(c.x * facing, c.y), false) # 다크 참격은 보통 섞기 (검은 테두리가 보이게)
 	Sfx.play_pitch(&"sword_slash", [1.05, 1.15, 0.95, 0.78][i] * randf_range(0.96, 1.04), -4.0 if i < 3 else 0.0)
+	# 팔을 휘두르지 않고 손끝 하나로 — 손가락 끝이 반짝이며 공간이 갈라진다
+	art.snap_flash()
 	if i == 3:
 		Sfx.play(&"whoosh", -6.0)
-		art.squash(Vector2(1.12, 0.9))
+		art.squash(Vector2(1.04, 0.97))
 		EVfx.afterimage(art, 0.22)
 	else:
-		art.squash(Vector2(1.05, 0.96))
+		art.squash(Vector2(1.02, 0.99))
 
 
 func _attack(delta: float, dir_x: float) -> void:
@@ -487,6 +489,7 @@ func _cast(delta: float) -> void:
 				up.dir = facing
 				up.area = Rect2(global_position + Vector2(-140, -230), Vector2(280, 222)) # 머리 위 (양옆으로 넓게)
 				EVfx.add(up, global_position, false)
+				art.snap_flash()
 				Sfx.play(&"storm", -6.0)
 			"bonggong":
 				var fr := EVfx.BindFrame.new()
@@ -494,6 +497,7 @@ func _cast(delta: float) -> void:
 				fr.target = _bind_target
 				var at := _bind_target.center() if is_instance_valid(_bind_target) else global_position + Vector2(facing * 70, -20)
 				EVfx.add(fr, at, false)
+				art.snap_flash()
 				Sfx.play(&"chain", -4.0)
 	if _cast_fired and Input.is_action_just_pressed("es_blink") and _blink_cd <= 0.0 and (is_on_floor() or _air_blink):
 		_start_blink(Input.get_axis("es_left", "es_right"))
