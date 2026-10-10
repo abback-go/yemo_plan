@@ -5,7 +5,7 @@ extends RefCounted
 ## 한두 프레임 꽉 찼다가 조각으로 부서지며 보랏빛 조각·연기로 흩어진다. 맞은 자리엔 빨강·흰 바늘 X자, 큰 타격엔 어둠 폭발.
 ## 파랑은 쓰지 않는다. 참격은 보통 섞기(검은 테두리가 보이게), 빛·불티만 가산 섞기.
 ## 참격 레퍼런스 = 던전슬래셔 기본공격(캐릭터보다 몇 배 큰 초승달, 들쭉날쭉한 가장자리, 얇은 궤적선, 네모 픽셀 불티, 맞은 자리의 흰 금),
-## 천열 = 백목련(초승달 참격 여러 장이 부채처럼 흩어져 날아감), 단공 = 단혼파(공간 한 구역을 초승달 참격이 위로 베어 올림),
+## 천열 = 앞으로 크고 긴 다크 참격 다섯 번, 단공 = 앞쪽 위를 세로로 긴 다크 참격이 연달아 베어 올림 + 어둠 폭발,
 ## 종언참 = 폭풍 속 거대 검(세상이 어두워지고 사방 참격선 → 하늘의 칼날이 화면을 세로로 가름).
 ## 성능: 이펙트 하나 = 노드 하나 = 그리기 호출 하나(PDraw 묶음). 입자는 PParticles 한 노드, 유리 파편은 Shards 한 노드.
 
@@ -130,56 +130,6 @@ static func dark_burst(pos: Vector2, rad: float) -> void:
 	var b := DarkBurst.new()
 	b.rad = rad
 	add(b, pos, false)
-
-
-## 초승달 참격 한 장: 볼록한 앞날(꼭짓점 c)이 dir을 향한다. r = 호의 반지름, half = 양쪽으로 벌어진 각(라디안), w = 가운데 두께.
-## 다크 질감 겹: 검보라 테두리(앞으로 삐져나옴) → 자두빛 → 보라 → 마젠타 → 분홍빛 흰 앞날 + 결무늬. 양 끝은 뾰족하다.
-static func crescent(pd: PDraw, c: Vector2, dir: Vector2, r: float, half: float, w: float, a: float, seg := 12, simple := false) -> void:
-	if a <= 0.01 or w < 0.3:
-		return
-	var o := c - dir * r
-	var base := dir.angle()
-	# [바깥으로 더 나오는 정도, 두께 배율, 색] — simple = 잔상용 한 겹
-	var layers: Array = [[0.0, 1.0, Color(BODY, a)]] if simple else [[0.5, 2.3, Color(MAGENTA, 0.14 * a)], [0.22, 1.55, Color(INK, 0.92 * a)],
-		[0.0, 0.95, Color(PLUM.lerp(BODY, 0.5), a)], [0.0, 0.62, Color(MAGENTA, a)], [0.0, 0.32, Color(EDGE, a)]]
-	for layer: Array in layers:
-		var lw: float = w * float(layer[1])
-		var rr := r + w * float(layer[0])
-		var outer := PackedVector2Array()
-		var inner := PackedVector2Array()
-		for i in seg + 1:
-			var f := float(i) / float(seg)
-			var ang := base + lerpf(-half, half, f)
-			var d := Vector2(cos(ang), sin(ang))
-			var thick := lw * pow(sin(f * PI), 0.85)
-			outer.append(o + d * rr)
-			inner.append(o + d * (rr - thick))
-		pd.strip(outer, inner, layer[2])
-	if simple:
-		return
-	# 몸통 안 결무늬 한 줄
-	var sl := PackedVector2Array()
-	var sr := PackedVector2Array()
-	for i in seg + 1:
-		var f := lerpf(0.15, 0.9, float(i) / float(seg))
-		var ang := base + lerpf(-half, half, f)
-		var d := Vector2(cos(ang), sin(ang))
-		var mid := r - w * 0.48 * pow(sin(f * PI), 0.85)
-		var tw := w * 0.07 * sin(f * PI)
-		sl.append(o + d * (mid + tw))
-		sr.append(o + d * (mid - tw))
-	pd.strip(sl, sr, Color(STREAK, 0.7 * a))
-
-
-## n번째 참격의 기울기(라디안): 황금비 수열로 -max~+max에 골고루 흩어 이웃한 참격끼리 각도가 겹치지 않게
-static func tilt_of(n: int, max_deg: float) -> float:
-	return deg_to_rad(lerpf(-max_deg, max_deg, fposmod(float(n) * 0.618034 + 0.31, 1.0)) + randf_range(-4.0, 4.0))
-
-
-## 초승달의 앞날·양 끝 (맞았는지 볼 때)
-static func crescent_points(c: Vector2, dir: Vector2, r: float, half: float) -> Array[Vector2]:
-	var o := c - dir * r
-	return [c, o + dir.rotated(half * 0.55) * r, o + dir.rotated(-half * 0.55) * r, o + dir.rotated(half) * r, o + dir.rotated(-half) * r]
 
 
 ## 네모 픽셀 불티 (흰색 → 보라로 사라짐)
@@ -544,194 +494,101 @@ class Streak extends PVfx.Base:
 
 
 # ═══════════════════════════════════════════════════════════
-# 천열 — 손가락을 튕기면 초승달 참격 여러 장이 부채처럼 흩어져 날아간다 (백목련)
+# 천열 · 단공 — 크고 긴 다크 참격(기본공격과 같은 Slash 그림)을 각도를 바꿔 가며 연달아 내보낸다
 # ═══════════════════════════════════════════════════════════
 
-class Fan extends PVfx.Base:
-	const N := 14
-	const SPREAD := 42.0 ## 위아래 각도(도)
-	const GAP := 0.022 ## 참격 사이 시간
-	const FLY := 0.36 ## 한 장이 날아가는 시간
-	const DMG := 16
+## 다크 참격 여러 번을 차례로 내보내는 틀: 그림은 참격마다 Slash 노드, 이 노드는 순서와 판정만 맡는다
+class SlashSeries extends Node2D:
 	var eska: EEska
 	var dir := 1
-	var _ang := PackedFloat32Array()
-	var _spd := PackedFloat32Array()
-	var _r := PackedFloat32Array()
-	var _half := PackedFloat32Array()
-	var _tilt := PackedFloat32Array() ## 초승달 모양이 날아가는 방향에서 돌아간 각 (장마다 다름)
-	var _spin := PackedFloat32Array() ## 날아가며 더 도는 각
-	var _w := PackedFloat32Array()
-	var _hit: Array = [] ## 장마다 이미 벤 허수아비 (한 장은 한 번만)
-	var _hits := 0
-	var _ended := PackedByteArray() ## 다 날아가 부서졌는지
+	var t := 0.0
+	var specs: Array = [] ## [나갈 시각, Slash 설정, 피해, 큼]
+	var _next := 0
+	var _pending: Array = [] ## [판정 시각, Slash 설정, 피해, 큼, 참격 중심(전역)]
+
+	func _process(delta: float) -> void:
+		t += delta
+		while _next < specs.size() and t >= float(specs[_next][0]):
+			var sp: Array = specs[_next]
+			_next += 1
+			_fire(sp[1], int(sp[2]), bool(sp[3]))
+		var i := 0
+		while i < _pending.size():
+			if t >= float(_pending[i][0]):
+				if is_instance_valid(eska):
+					_judge(_pending[i][1], int(_pending[i][2]), bool(_pending[i][3]), _pending[i][4])
+				_pending.remove_at(i)
+			else:
+				i += 1
+		if _next >= specs.size() and _pending.is_empty():
+			queue_free()
+
+	func _fire(a: Dictionary, dmg: int, heavy: bool) -> void:
+		var c: Vector2 = a.c
+		var cen := position + Vector2(c.x * dir, c.y)
+		var sl := Slash.new()
+		sl.setup(a, dir, heavy)
+		EVfx.add(sl, cen, false)
+		Sfx.play_pitch(&"sword_slash", (0.8 if heavy else randf_range(1.0, 1.2)), -3.0 if heavy else -6.0)
+		_pending.append([t + 0.03, a, dmg, heavy, cen])
+
+	func _judge(_a: Dictionary, _dmg: int, _heavy: bool, _cen: Vector2) -> void:
+		pass
+
+
+## 천열: 앞쪽으로 길고 큰 참격 다섯 번 (마지막이 가장 크다). 40×4 + 64 = 224
+class Flurry extends SlashSeries:
+	func _ready() -> void:
+		z_index = 6
+		specs = [
+			[0.0, {"a0": -95.0, "a1": 60.0, "r": 110.0, "w": 30.0, "sq": 0.7, "rot": -12.0, "c": Vector2(14, -30)}, 40, false],
+			[0.05, {"a0": 75.0, "a1": -80.0, "r": 120.0, "w": 30.0, "sq": 0.55, "rot": 14.0, "c": Vector2(18, -28)}, 40, false],
+			[0.1, {"a0": -120.0, "a1": 70.0, "r": 104.0, "w": 32.0, "sq": 0.9, "rot": -32.0, "c": Vector2(10, -34)}, 40, false],
+			[0.15, {"a0": 95.0, "a1": -95.0, "r": 130.0, "w": 30.0, "sq": 0.45, "rot": 6.0, "c": Vector2(22, -26)}, 40, false],
+			[0.22, {"a0": -135.0, "a1": 95.0, "r": 150.0, "w": 50.0, "sq": 0.7, "rot": -6.0, "c": Vector2(24, -34)}, 64, true],
+		]
+
+	func _judge(a: Dictionary, dmg: int, heavy: bool, cen: Vector2) -> void:
+		var any := false
+		for d: PDummy in PDummy.all(get_tree()):
+			if eska._sector_hits(d.hit_rect(), cen, float(a.r) + 8.0, float(a.a0), float(a.a1), float(a.sq)):
+				eska.deal(d, dmg, heavy, cen)
+				any = true
+		if any:
+			Fx.hitstop(0.06 if heavy else 0.025)
+			Fx.shake(0.34 if heavy else 0.12, 0.14 if heavy else 0.08)
+			PVfx.kick(Vector2(dir * (4.0 if heavy else 2.0), 0))
+
+
+## 단공: 앞쪽 위 공간을 세로로 길고 큰 참격이 연달아 베어 올리고, 마지막에 가장 큰 올려베기 + 어둠 폭발. 22×4 + 36 = 124
+## (가로로 누른 호를 -90도 돌려 세로로 길게 세운다 — 아래 앞에서 시작해 앞을 지나 위로)
+class Upsweep extends SlashSeries:
+	var area := Rect2() ## 판정 구역 (전역 좌표)
 
 	func _ready() -> void:
-		life = N * GAP + FLY + 0.02
 		z_index = 6
-		var order := range(N)
-		order.shuffle()
-		for i in N:
-			var f := float(order[i]) / float(N - 1)
-			_ang.append(deg_to_rad(lerpf(-SPREAD, SPREAD, f) + randf_range(-3.0, 3.0)))
-			_spd.append(randf_range(660.0, 820.0))
-			_r.append(randf_range(32.0, 46.0))
-			_half.append(deg_to_rad(randf_range(58.0, 72.0)))
-			_tilt.append(EVfx.tilt_of(i, 55.0))
-			_spin.append(randf_range(-0.5, 0.5))
-			_w.append(randf_range(9.0, 13.0))
-			_hit.append({})
-			_ended.append(0)
-		EVfx.pixels(position, 10, 90.0, Vector2(dir, 0), 90.0, 0.22)
+		specs = [
+			[0.0, {"a0": 125.0, "a1": -15.0, "r": 118.0, "w": 28.0, "sq": 0.7, "rot": -80.0, "c": Vector2(30, -92)}, 22, false],
+			[0.06, {"a0": 125.0, "a1": -15.0, "r": 128.0, "w": 28.0, "sq": 0.62, "rot": -100.0, "c": Vector2(40, -96)}, 22, false],
+			[0.12, {"a0": 125.0, "a1": -15.0, "r": 110.0, "w": 30.0, "sq": 0.75, "rot": -70.0, "c": Vector2(24, -88)}, 22, false],
+			[0.18, {"a0": 125.0, "a1": -15.0, "r": 130.0, "w": 28.0, "sq": 0.62, "rot": -106.0, "c": Vector2(44, -98)}, 22, false],
+			[0.3, {"a0": 125.0, "a1": -18.0, "r": 165.0, "w": 48.0, "sq": 0.7, "rot": -90.0, "c": Vector2(36, -115)}, 36, true],
+		]
 
-	func _dirv(i: int) -> Vector2:
-		return Vector2(cos(_ang[i]) * dir, sin(_ang[i]))
-
-	## 나간 지 age초 뒤 앞날 위치 (처음엔 빠르고 끝에서 살짝 느려진다)
-	func _pos(i: int, age: float) -> Vector2:
-		var k := clampf(age / FLY, 0.0, 1.0)
-		return _dirv(i) * _spd[i] * FLY * (k - 0.3 * k * k)
-
-	## 초승달 앞날이 향하는 쪽 = 날아가는 방향을 장마다 다른 각만큼 돌린 것
-	func _facev(i: int, age: float) -> Vector2:
-		return _dirv(i).rotated((_tilt[i] + _spin[i] * clampf(age / FLY, 0.0, 1.0)) * float(dir))
-
-	func _tick(_delta: float) -> void:
-		if not is_instance_valid(eska):
-			return
-		for i in N:
-			var age := t - float(i) * GAP
-			if _ended[i] == 0 and age >= FLY * 0.82:
-				_ended[i] = 1 # 날아간 끝에서 조각으로 부서진다
-				EVfx.dark_bits(global_position + _pos(i, FLY * 0.82), 3, 90.0, _dirv(i), 60.0, 0.3)
-			if age < 0.0 or age > FLY:
-				continue
-			var pts := EVfx.crescent_points(global_position + _pos(i, age), _facev(i, age), _r[i], _half[i])
-			for d: PDummy in PDummy.all(get_tree()):
-				if (_hit[i] as Dictionary).has(d.get_instance_id()):
-					continue
-				var rect := d.hit_rect().grow(6.0) # 번짐까지 맞은 것으로
-				for p: Vector2 in pts:
-					if rect.has_point(p):
-						(_hit[i] as Dictionary)[d.get_instance_id()] = true
-						eska.deal(d, DMG, false, global_position)
-						_hits += 1
-						if _hits == 1:
-							Fx.hitstop(0.03)
-							Fx.shake(0.12, 0.1)
-						break
-
-	func _paint() -> void:
-		# 손끝 튕김 고리
-		if t < 0.14:
-			var sf := 1.0 - t / 0.14
-			pd.glow(Vector2.ZERO, 14.0 * (1.0 + (1.0 - sf)), Color(WHITE, 0.9 * sf), 0.0)
-			pd.draw_arc(Vector2.ZERO, lerpf(3.0, 26.0, 1.0 - sf), 0.0, TAU, 22, Color(PALE, sf), 1.6)
-			pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(0.35, 1.0))
-			pd.draw_arc(Vector2.ZERO, lerpf(6.0, 34.0, 1.0 - sf), 0.0, TAU, 22, Color(VIOLET, 0.8 * sf), 1.4)
-			pd.draw_set_transform(Vector2.ZERO)
-		for i in N:
-			var age := t - float(i) * GAP
-			if age < 0.0 or age > FLY:
-				continue
-			var k := age / FLY
-			var grow := 0.45 + 0.55 * (1.0 - pow(1.0 - clampf(age / 0.06, 0.0, 1.0), 3.0)) # 손끝에서 작게 나와 커진다
-			var a := 1.0 - clampf((k - 0.6) / 0.4, 0.0, 1.0)
-			var fv := _facev(i, age)
-			var p := _pos(i, age)
-			# 잔상 두 장 (지나온 자리에 희미하게)
-			for g in 2:
-				var gp := _pos(i, maxf(age - 0.022 * float(g + 1), 0.0))
-				EVfx.crescent(pd, gp, fv, _r[i] * grow, _half[i], _w[i] * grow * 0.7, a * (0.3 - 0.1 * float(g)), 8, true)
-			EVfx.crescent(pd, p, fv, _r[i] * grow, _half[i], _w[i] * grow, a)
-			if age < 0.05:
-				pd.glow(p, 9.0, Color(EDGE, 0.8), 0.0)
-
-
-# ═══════════════════════════════════════════════════════════
-# 단공 — 위쪽 공간 한 구역을 다크 초승달 참격이 잇달아 베어 올리고, 마지막에 어둠 폭발 (지상·공중)
-# ═══════════════════════════════════════════════════════════
-
-class Storm extends PVfx.Base:
-	const TICKS := 8
-	const DMG := 11
-	const FINAL_DMG := 36
-	var eska: EEska
-	var area := Rect2() ## 전역 좌표
-	var _streaks: Array = [] ## 초승달 한 장: [나온 시각, 출발점, 방향, 속도, 반지름, 벌어진 각, 두께, 앞날 방향(장마다 다르게 기울어짐)]
-	var _next := 0.0
-	var _ticks := 0
-	var _final := false
-
-	func _ready() -> void:
-		life = 0.72
-		z_index = 6
-
-	func _tick(_delta: float) -> void:
-		# 아래에서 위로 초승달 참격이 잇달아 솟구친다 (단혼파처럼 공간 한 구역을 위로 베어 올림)
-		while _next <= t and t < 0.44:
-			_next += 0.026
-			var x := randf_range(area.position.x + 10.0, area.end.x - 10.0)
-			var p0 := Vector2(x, area.end.y - randf_range(0.0, 14.0))
-			var dv := Vector2.UP.rotated(randf_range(-0.3, 0.3))
-			_streaks.append([t, p0, dv, randf_range(700.0, 860.0), randf_range(26.0, 40.0), deg_to_rad(randf_range(58.0, 70.0)), randf_range(8.0, 12.0), dv.rotated(EVfx.tilt_of(_streaks.size(), 60.0))])
-		if not is_instance_valid(eska):
-			return
-		if _ticks < TICKS and t >= 0.04 + float(_ticks) * 0.052:
-			_ticks += 1
-			_hit_all(DMG, false)
-		if not _final and t >= 0.5:
-			_final = true
-			if _hit_all(FINAL_DMG, true):
-				Fx.hitstop(0.06)
-				Fx.shake(0.32, 0.16)
-			EVfx.pixels(area.get_center(), 10, 220.0, Vector2.UP, 160.0, 0.32, Vector2(0, 220))
-			EVfx.dark_burst(area.get_center() + Vector2(0, area.size.y * 0.15), 48.0)
-			EVfx.shards(area.get_center(), 10, 180.0, area.size * 0.3, 60.0)
-			Sfx.play(&"sword_slash", -2.0)
-
-	func _hit_all(dmg: int, heavy: bool) -> bool:
+	func _judge(_a: Dictionary, dmg: int, heavy: bool, _cen: Vector2) -> void:
 		var any := false
 		for d: PDummy in PDummy.all(get_tree()):
 			if area.intersects(d.hit_rect()):
-				eska.deal(d, dmg, heavy, Vector2(d.center().x - float(eska.facing), area.end.y))
+				eska.deal(d, dmg, heavy, Vector2(d.center().x - float(dir), area.end.y))
 				any = true
-		if any and not heavy and _ticks % 3 == 1:
-			Fx.hitstop(0.018)
-		return any
-
-	func _paint() -> void:
-		var env := clampf(t / 0.06, 0.0, 1.0) * (1.0 - clampf((t - 0.46) / 0.22, 0.0, 1.0))
-		# 찢기는 공간: 아래가 밝은 보랏빛 + 흰 바닥선 + 위아래 테두리
-		pd.rect_grad(area, Color(PLUM, 0.0), Color(BODY, 0.3 * env))
-		pd.draw_rect(Rect2(area.position.x, area.end.y - 3.0, area.size.x, 3.0), Color(MAGENTA, 0.8 * env))
-		pd.draw_rect(Rect2(area.position.x, area.position.y, area.size.x, 1.0), Color(STREAK, 0.35 * env))
-		# 열리는 순간의 세로 섬광
-		if t < 0.1:
-			var of := 1.0 - t / 0.1
-			pd.draw_rect(Rect2(area.get_center().x - area.size.x * 0.5 * (1.0 - of), area.position.y, area.size.x * (1.0 - of), area.size.y), Color(EDGE, 0.35 * of))
-		for s: Array in _streaks:
-			var age: float = t - float(s[0])
-			if age > 0.22:
-				continue
-			var dv: Vector2 = s[2]
-			var p: Vector2 = s[1] + dv * float(s[3]) * age
-			var grow := 0.5 + 0.5 * (1.0 - pow(1.0 - clampf(age / 0.05, 0.0, 1.0), 2.0))
-			var a := 1.0 - clampf((age - 0.12) / 0.1, 0.0, 1.0)
-			var fv: Vector2 = s[7]
-			EVfx.crescent(pd, p - dv * 14.0, fv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow * 0.7, a * 0.3, 8, true) # 잔상
-			EVfx.crescent(pd, p, fv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow, a)
-		if _final:
-			# 마지막: 구역 전체 폭의 큰 초승달 두 장이 엇갈려 솟구친다
-			var age := t - 0.5
-			var ff := 1.0 - clampf(age / 0.2, 0.0, 1.0)
-			if ff > 0.0:
-				var bottom := Vector2(area.get_center().x, area.end.y)
-				for side: float in [-1.0, 1.0]:
-					var dv := Vector2.UP.rotated(0.16 * side)
-					var p := bottom + dv * lerpf(20.0, area.size.y + 20.0, 1.0 - pow(1.0 - clampf(age / 0.18, 0.0, 1.0), 2.0))
-					EVfx.crescent(pd, p, dv.rotated(0.3 * side), area.size.x * 0.55, deg_to_rad(66.0), 20.0 * ff, ff, 18)
-				pd.glow(area.get_center(), area.size.x * 0.7, Color(MAGENTA, 0.3 * ff), 0.0)
+		if heavy:
+			EVfx.dark_burst(Vector2(area.get_center().x, area.position.y + area.size.y * 0.45), 52.0)
+			EVfx.shards(area.get_center(), 10, 180.0, area.size * 0.3, 60.0)
+			if any:
+				Fx.hitstop(0.06)
+				Fx.shake(0.34, 0.16)
+		elif any:
+			Fx.hitstop(0.02)
 
 
 # ═══════════════════════════════════════════════════════════
