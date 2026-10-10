@@ -295,6 +295,7 @@ func _enter_cheonyeol() -> void:
 func _tick_cheonyeol() -> bool:
 	if _sub == 0 and _st > 1.2:
 		_sub = 1
+		_ready_skill("cheonyeol")
 		tut.prompt(["es_skill"], "천열 — 앞의 공간을 통째로 벤다")
 	if _sub == 1 and eska.st == EEska.St.CAST and eska.cast_kind == "cheonyeol":
 		_sub = 2
@@ -325,6 +326,7 @@ func _tick_dangong() -> bool:
 		gates["dummies"].close()
 		foe = EWaves.spawn(self, "caster", Vector2(2950, FLOOR - 120.0), 1.0, 2580.0, 3160.0)
 		tut.say("떠 있는 것은 머리 위로 벤다.")
+		_ready_skill("dangong")
 		tut.prompt(["es_up", "+", "es_skill"], "단공 — 위로 베어 올리기")
 	if _sub == 1 and _orb_exists():
 		_sub = 2
@@ -366,6 +368,7 @@ func _tick_bonggong() -> bool:
 		tut.done()
 	if _sub == 3 and not tut.has_prompt():
 		_sub = 4
+		_ready_skill("bonggong")
 		tut.prompt(["es_bind"], "봉공 — 가두면 꼼짝 못 한다 (피해 +30%)")
 	if _sub >= 4 and eska.cast_kind == "bonggong" and eska.st == EEska.St.CAST:
 		tut.done()
@@ -414,6 +417,7 @@ func _tick_finale() -> bool:
 			if _st > 3.0:
 				_sub = 4
 				tut.say("이것으로 끝을 낸다.")
+				_ready_skill("ult")
 				tut.prompt(["es_ult"], "종언참")
 		4, 5:
 			if eska.st == EEska.St.ULT:
@@ -466,6 +470,11 @@ func _on_end_chosen(what: String) -> void:
 			get_tree().change_scene_to_file("res://proto/eska/eska_arena.tscn")
 		_:
 			GameState.go_title()
+
+
+## 배우라고 안내하는 순간에는 그 기술을 바로 쓸 수 있게 (먼저 써 버려 쿨다운 중이면 헷갈림)
+func _ready_skill(id: String) -> void:
+	eska.cooldowns[id] = 0.0
 
 
 ## 연출 중: 조작 막기 + 영화 띠 + 터치 버튼 숨김
