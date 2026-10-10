@@ -188,7 +188,7 @@ func _draw_say() -> void:
 	var a := clampf((life - _say_t) / 0.5, 0.0, 1.0)
 	var fs := 13
 	var full_w := _font.get_string_size(_say, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var p := Vector2(size.x * 0.5 - full_w * 0.5, 44.0 + 34.0 * _bars)
+	var p := Vector2(size.x * 0.5 - full_w * 0.5, 44.0 + 34.0 * _bars + (46.0 if size.x < 520.0 else 0.0)) # 좁은(세로) 화면은 왼쪽 위 이름과 겹치지 않게 아래로
 	# 글 뒤 옅은 띠
 	var band := Rect2(p.x - 26, p.y - 15, full_w + 52, 22)
 	draw_rect(band, Color(0, 0, 0, 0.35 * a))

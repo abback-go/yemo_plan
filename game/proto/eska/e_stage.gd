@@ -7,6 +7,8 @@ extends Node2D
 
 const ArenaScript := preload("res://proto/p_arena.gd")
 const RESPAWN_DELAY := 1.5 ## 쓰러진 뒤 다시 나타나기까지 (실제 시간)
+const PORTRAIT_W := 400.0 ## 세로 화면에서 보이는 가로 폭(월드) — 캐릭터가 작아지지 않게
+const PORTRAIT_GROUND := 240.0 ## 세로 화면: 바닥 아래로 보이는 땅 (조작 버튼이 여기 놓임)
 
 var stage_w := 1280.0
 var floor_y := 300.0
@@ -20,6 +22,7 @@ var hud: EHud
 var cam: Camera2D
 var _prev_aspect := Window.CONTENT_SCALE_ASPECT_KEEP
 var _prev_stretch := Window.CONTENT_SCALE_STRETCH_INTEGER
+var _prev_size := Vector2i(640, 360)
 
 
 func _ready() -> void:
@@ -27,6 +30,7 @@ func _ready() -> void:
 	var win := get_tree().root
 	_prev_aspect = win.content_scale_aspect
 	_prev_stretch = win.content_scale_stretch
+	_prev_size = win.content_scale_size
 	win.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	win.content_scale_stretch = Window.CONTENT_SCALE_STRETCH_FRACTIONAL
 	Engine.time_scale = 1.0
@@ -50,6 +54,8 @@ func _ready() -> void:
 	cam.limit_bottom = int(floor_y + 60.0)
 	add_child(cam)
 	cam.global_position = eska.global_position
+	_fit_view()
+	get_viewport().size_changed.connect(_fit_view)
 	touch = ETouch.new()
 	touch.eska = eska
 	add_child(touch)
@@ -62,6 +68,19 @@ func _ready() -> void:
 	layer.add_child(hud)
 	Music.play(music)
 	_start()
+
+
+## 세로 화면(휴대폰 세로): 기준 화면을 가로 400으로 줄여(= 크게 보이게) 캐릭터·버튼이 작아지지 않게 하고,
+## 바닥 아래 땅을 넓게 보여 조작 버튼이 그 위에 놓이게 한다. 가로 화면은 원래대로 (높이 360 기준).
+## (카메라 확대로 하면 시차 배경 층이 어긋나서 기준 화면 크기를 바꾼다)
+func _fit_view() -> void:
+	var win := get_tree().root
+	var portrait := win.size.y > win.size.x
+	var want := Vector2i(int(PORTRAIT_W), 360) if portrait else _prev_size
+	if win.content_scale_size != want:
+		win.content_scale_size = want
+	cam.limit_bottom = int(floor_y + (PORTRAIT_GROUND if portrait else 60.0))
+	cam.limit_top = int(floor_y - 2400.0 if portrait else cam_top)
 
 
 ## 하위 장면: 땅·배경·표적
@@ -78,6 +97,7 @@ func _exit_tree() -> void:
 	var win := get_tree().root
 	win.content_scale_aspect = _prev_aspect
 	win.content_scale_stretch = _prev_stretch
+	win.content_scale_size = _prev_size
 
 
 func _process(_delta: float) -> void:

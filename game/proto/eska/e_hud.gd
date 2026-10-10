@@ -68,7 +68,7 @@ func _process(delta: float) -> void:
 		sig += "|b%.3f|%.3f" % [_boss_a, _boss_trail]
 		if is_instance_valid(boss):
 			sig += "|%d" % boss.hp
-	if eska.hp == 1 or _ban_t < _ban_dur or size.y > size.x:
+	if eska.hp == 1 or _ban_t < _ban_dur or (size.y > size.x and _t < 6.5):
 		sig += "|%.2f" % _t
 	if sig != _sig:
 		_sig = sig
@@ -85,7 +85,7 @@ func _draw() -> void:
 	_draw_boss(font)
 	_draw_combo(font)
 	_draw_banner(font)
-	if size.y > size.x:
+	if size.y > size.x and _t < 6.0:
 		_draw_rotate_hint(font)
 	if (touch and touch.active) or not show_keys:
 		return
@@ -130,7 +130,7 @@ func _draw_combo(font: Font) -> void:
 	_text(font, Vector2(right - dw, 82.0), dmg, 11, Color(1, 1, 1, 0.65 * a))
 
 
-## 세로 화면: 가로로 돌리라는 작은 안내 (막지는 않음 — 휴대폰을 돌리는 그림이 천천히 기울어짐)
+## 세로 화면: 가로로 돌리라는 작은 안내 (처음 6초만, 막지는 않음 — 휴대폰을 돌리는 그림이 천천히 기울어짐)
 func _draw_rotate_hint(font: Font) -> void:
 	var c := Vector2(size.x * 0.5, size.y * 0.16)
 	var k := 0.5 - 0.5 * cos(_t * 2.0)
@@ -187,14 +187,18 @@ func _draw_boss(font: Font) -> void:
 	var w := minf(300.0, size.x * 0.46)
 	var x := size.x * 0.5 - w * 0.5
 	var f := clampf(float(boss.hp) / float(boss.max_hp), 0.0, 1.0) if is_instance_valid(boss) else 0.0
+	var y := 13.0 if size.x >= 520.0 else 66.0 # 좁은(세로) 화면은 왼쪽 위 이름·체력 아래로
+	if size.x < 520.0:
+		w = size.x - 40.0
+		x = 20.0
 	var nw := font.get_string_size(boss_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-	_text(font, Vector2(size.x * 0.5 - nw * 0.5, 13), boss_name, 11, Color(1.0, 0.85, 0.85, a))
-	draw_rect(Rect2(x - 2, 17, w + 4, 7), Color(0, 0, 0, 0.75 * a))
-	draw_rect(Rect2(x, 19, w * _boss_trail, 3), Color(1.0, 0.8, 0.75, 0.85 * a))
-	draw_rect(Rect2(x, 19, w * f, 3), Color(EEnemy.RED, a))
-	draw_rect(Rect2(x, 19, w * f, 1), Color(EEnemy.RED_HOT, 0.8 * a))
+	_text(font, Vector2(size.x * 0.5 - nw * 0.5, y), boss_name, 11, Color(1.0, 0.85, 0.85, a))
+	draw_rect(Rect2(x - 2, y + 4, w + 4, 7), Color(0, 0, 0, 0.75 * a))
+	draw_rect(Rect2(x, y + 6, w * _boss_trail, 3), Color(1.0, 0.8, 0.75, 0.85 * a))
+	draw_rect(Rect2(x, y + 6, w * f, 3), Color(EEnemy.RED, a))
+	draw_rect(Rect2(x, y + 6, w * f, 1), Color(EEnemy.RED_HOT, 0.8 * a))
 	for q in [0.25, 0.5, 0.75]:
-		draw_rect(Rect2(x + w * q, 18, 1, 5), Color(0, 0, 0, 0.6 * a))
+		draw_rect(Rect2(x + w * q, y + 5, 1, 5), Color(0, 0, 0, 0.6 * a))
 
 
 ## 체력 마름모 (왼쪽 위, 이름 아래)
