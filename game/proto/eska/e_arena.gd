@@ -1,6 +1,7 @@
 extends Node2D
 ## 에스카 전투 시제품 장면: 마녀 분위기의 일자형 마당 + 허수아비 하나. 전투 조작만 시험한다.
 ## 들어오는 길: 타이틀 메뉴 "에스카 시제품" 또는 웹 주소 뒤 ?eska
+## 화면: 이 장면에서만 여백 없이 꽉 채운다(높이 360 기준, 넓은 화면은 옆이 더 보임, 배율은 소수 허용). 나가면 원래 설정으로.
 
 const ArenaScript := preload("res://proto/p_arena.gd")
 const W := 1280.0
@@ -9,10 +10,17 @@ const FLOOR := 300.0
 var eska: EEska
 var touch: ETouch
 var dummy: PDummy
+var _prev_aspect := Window.CONTENT_SCALE_ASPECT_KEEP
+var _prev_stretch := Window.CONTENT_SCALE_STRETCH_INTEGER
 
 
 func _ready() -> void:
 	EKeys.register()
+	var win := get_tree().root
+	_prev_aspect = win.content_scale_aspect
+	_prev_stretch = win.content_scale_stretch
+	win.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	win.content_scale_stretch = Window.CONTENT_SCALE_STRETCH_FRACTIONAL
 	Engine.time_scale = 1.0
 	get_tree().paused = false
 	Fx.reset()
@@ -36,8 +44,8 @@ func _ready() -> void:
 	cam.look_y = -70.0
 	cam.limit_left = 0
 	cam.limit_right = int(W)
-	cam.limit_top = int(FLOOR - 420)
-	cam.limit_bottom = int(FLOOR + 50)
+	cam.limit_top = int(FLOOR - 560)
+	cam.limit_bottom = int(FLOOR + 60)
 	add_child(cam)
 	cam.global_position = eska.global_position
 	touch = ETouch.new()
@@ -51,6 +59,12 @@ func _ready() -> void:
 	hud.touch = touch
 	layer.add_child(hud)
 	Music.play("boss")
+
+
+func _exit_tree() -> void:
+	var win := get_tree().root
+	win.content_scale_aspect = _prev_aspect
+	win.content_scale_stretch = _prev_stretch
 
 
 func _process(_delta: float) -> void:

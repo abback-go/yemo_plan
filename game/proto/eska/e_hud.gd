@@ -47,10 +47,10 @@ func _draw() -> void:
 	_draw_combo(font)
 	if touch and touch.active:
 		return
-	var y := 340.0
+	var y := size.y - 20.0
 	_text(font, Vector2(10, y), "←→ 이동  Z 점프  X 연격  C 순간이동  ↓ 빨리 떨어지기  Esc 나가기", 11, Color(1, 1, 1, 0.6))
 	var x := 10.0
-	y = 324.0
+	y = size.y - 36.0
 	for spec: Array in [["A", "cheonyeol"], ["↑A", "dangong"], ["S", "bonggong"], ["D", "ult"]]:
 		var id: String = spec[1]
 		var left := eska.cd_left(id)
@@ -67,7 +67,7 @@ func _draw_combo(font: Font) -> void:
 	if eska.hit_count <= 1:
 		return
 	var a := clampf(eska.combo_left / 0.4, 0.25, 1.0)
-	var right := 628.0 if not (touch and touch.active) else 596.0
+	var right := size.x - 12.0 if not (touch and touch.active) else size.x - 44.0
 	var num := "%d" % eska.hit_count
 	var fs := 22
 	var sc := 1.0 + _pop * 0.35

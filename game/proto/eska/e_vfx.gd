@@ -37,6 +37,36 @@ static func band(pd: PDraw, r: float, a0: float, a1: float, w: float, c_tail: Co
 	pd.strip_grad(outer, inner, c_tail, c_head)
 
 
+## 휘어진 칼날 위의 한 점: p0에서 dir로 len만큼 나아가며 옆(dir의 수직)으로 bend×len×f² 만큼 휜다
+static func curve_point(p0: Vector2, dir: Vector2, len: float, bend: float, f: float) -> Vector2:
+	return p0 + dir * len * f + dir.orthogonal() * bend * len * f * f
+
+
+## 휘어진 칼날(초승달 깃): 양 끝이 뾰족하고 가운데가 굵다. f0~f1 구간만 그린다(자라나기·걷히기). 뿌리색 → 끝색
+static func curve_blade(pd: PDraw, p0: Vector2, dir: Vector2, len: float, bend: float, w: float, c_tail: Color, c_head: Color, f0 := 0.0, f1 := 1.0, seg := 12) -> void:
+	if f1 - f0 < 0.02 or w < 0.3:
+		return
+	var nrm := dir.orthogonal()
+	var l := PackedVector2Array()
+	var r := PackedVector2Array()
+	for i in seg + 1:
+		var f := lerpf(f0, f1, float(i) / float(seg))
+		var c := p0 + dir * len * f + nrm * bend * len * f * f
+		var tan := (dir + nrm * bend * 2.0 * f).normalized()
+		var n := tan.orthogonal()
+		var ww := w * pow(sin(f * PI), 0.75) * 0.5
+		l.append(c + n * ww)
+		r.append(c - n * ww)
+	pd.strip_grad(l, r, c_tail, c_head)
+
+
+## 휘어진 칼날 한 자루 (짙은 번짐 → 보라 몸통 → 흰 심) — 천열·단공·종언참이 같이 쓴다
+static func feather(pd: PDraw, p0: Vector2, dir: Vector2, len: float, bend: float, w: float, a: float, f0 := 0.0, f1 := 1.0) -> void:
+	curve_blade(pd, p0, dir, len, bend, w * 1.9, Color(DEEP, 0.0), Color(DEEP, 0.55 * a), f0, f1)
+	curve_blade(pd, p0, dir, len, bend, w, Color(VIOLET, 0.1 * a), Color(VIOLET, 0.95 * a), f0, f1)
+	curve_blade(pd, p0, dir, len, bend, w * 0.45, Color(PALE, 0.0), Color(WHITE, a), f0, f1)
+
+
 ## 네모 픽셀 불티 (흰색 → 보라로 사라짐)
 static func pixels(pos: Vector2, n: int, speed: float, dir := Vector2.ZERO, spread := 180.0, life := 0.3, grav := Vector2.ZERO) -> void:
 	var pp := PParticles.get_layer(true)
@@ -381,29 +411,32 @@ class Streak extends PVfx.Base:
 # ═══════════════════════════════════════════════════════════
 
 class Fan extends PVfx.Base:
-	const N := 16
-	const SPREAD := 46.0 ## 위아래 각도(도)
-	const LEN := 160.0
-	const GAP := 0.011 ## 칼날 사이 시간
+	const N := 18
+	const SPREAD := 50.0 ## 위아래 각도(도)
+	const LEN := 150.0
+	const GAP := 0.01 ## 칼날 사이 시간
 	const DMG := 14
 	var eska: EEska
 	var dir := 1
 	var _ang := PackedFloat32Array()
 	var _len := PackedFloat32Array()
-	var _bow := PackedFloat32Array()
+	var _bend := PackedFloat32Array()
+	var _w := PackedFloat32Array()
 	var _fired := PackedByteArray()
 	var _hits := 0
 
 	func _ready() -> void:
-		life = N * GAP + 0.3
+		life = N * GAP + 0.32
 		z_index = 6
 		var order := range(N)
 		order.shuffle()
 		for i in N:
 			var f := float(order[i]) / float(N - 1)
-			_ang.append(deg_to_rad(lerpf(-SPREAD, SPREAD, f) + randf_range(-2.0, 2.0)))
-			_len.append(LEN * randf_range(0.78, 1.14))
-			_bow.append(randf_range(-0.5, 0.5))
+			_ang.append(deg_to_rad(lerpf(-SPREAD, SPREAD, f) + randf_range(-2.5, 2.5)))
+			_len.append(LEN * randf_range(0.72, 1.12))
+			# 모든 깃이 같은 쪽으로 휘어 부채(날개)처럼 겹친다 — 백목련
+			_bend.append(randf_range(0.22, 0.36) * float(dir))
+			_w.append(randf_range(7.0, 11.0))
 			_fired.append(0)
 		EVfx.pixels(position, 10, 90.0, Vector2(dir, 0), 90.0, 0.22)
 
@@ -423,7 +456,7 @@ class Fan extends PVfx.Base:
 		for d: PDummy in PDummy.all(get_tree()):
 			var rect := d.hit_rect().grow(4.0)
 			for s in 12:
-				var p := global_position + dv * lerpf(10.0, _len[i], float(s) / 11.0)
+				var p := EVfx.curve_point(global_position, dv, _len[i], _bend[i], float(s) / 11.0)
 				if rect.has_point(p):
 					eska.deal(d, DMG, false, global_position)
 					_hits += 1
@@ -445,31 +478,14 @@ class Fan extends PVfx.Base:
 			var age := t - float(i) * GAP
 			if age < 0.0:
 				continue
-			var grow := clampf(age / 0.05, 0.0, 1.0)
-			var fade := 1.0 - clampf((age - 0.07) / 0.22, 0.0, 1.0)
+			var grow := 1.0 - pow(1.0 - clampf(age / 0.06, 0.0, 1.0), 3.0)
+			var fade := 1.0 - clampf((age - 0.08) / 0.22, 0.0, 1.0)
 			if fade <= 0.0:
 				continue
-			var dv := _dirv(i)
-			var nv := dv.orthogonal()
-			var tip := _len[i] * (1.0 - pow(1.0 - grow, 3.0))
-			var start := 9.0 + tip * 0.25 * (1.0 - fade) # 사라질 때 뿌리부터 걷힌다
-			var wd := 3.6 * lerpf(0.45, 1.0, fade)
-			var l1 := PackedVector2Array()
-			var r1 := PackedVector2Array()
-			var l2 := PackedVector2Array()
-			var r2 := PackedVector2Array()
-			for s in 9:
-				var f := float(s) / 8.0
-				var c := dv * lerpf(start, tip, f) + nv * sin(f * PI) * _bow[i] * 6.0
-				var ww := wd * pow(sin(f * PI * 0.85 + 0.15), 0.8)
-				l1.append(c + nv * ww)
-				r1.append(c - nv * ww)
-				l2.append(c + nv * ww * 0.4)
-				r2.append(c - nv * ww * 0.4)
-			pd.strip_grad(l1, r1, Color(DEEP, 0.0), Color(VIOLET, 0.95 * fade))
-			pd.strip_grad(l2, r2, Color(PALE, 0.0), Color(WHITE, fade))
+			var f0 := 0.08 + 0.6 * (1.0 - fade) # 사라질 때 뿌리부터 걷힌다
+			EVfx.feather(pd, Vector2.ZERO, _dirv(i), _len[i], _bend[i], _w[i] * lerpf(0.6, 1.0, fade), fade, f0, maxf(grow, f0 + 0.02))
 			if grow < 1.0:
-				pd.glow(dv * tip, 5.0, Color(WHITE, 0.8), 0.0)
+				pd.glow(EVfx.curve_point(Vector2.ZERO, _dirv(i), _len[i], _bend[i], grow), 6.0, Color(WHITE, 0.85), 0.0)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -492,18 +508,15 @@ class Storm extends PVfx.Base:
 		z_index = 6
 
 	func _tick(_delta: float) -> void:
+		# 아래에서 위로 휘어 올라가는 참격 (단혼파처럼 공간을 세로로 찢는 곡선 칼날들)
 		while _next <= t and t < 0.46:
-			_next += 0.015
-			var x := randf_range(area.position.x + 4.0, area.end.x - 4.0)
-			var y0 := area.position.y + area.size.y * randf_range(0.0, 0.25)
-			var y1 := area.position.y + area.size.y * randf_range(0.7, 1.0)
-			var pts := PackedVector2Array()
-			var n := 8
-			var lean := randf_range(-8.0, 8.0)
-			for i in n + 1:
-				var f := float(i) / float(n)
-				pts.append(Vector2(x + randf_range(-4.0, 4.0) + (f - 0.5) * lean, lerpf(y0, y1, f)))
-			_streaks.append([t, pts, randf_range(0.7, 1.4)])
+			_next += 0.016
+			var x := randf_range(area.position.x + 6.0, area.end.x - 6.0)
+			var p0 := Vector2(x, area.end.y - area.size.y * randf_range(0.0, 0.25))
+			var dv := Vector2.UP.rotated(randf_range(-0.32, 0.32))
+			var len := area.size.y * randf_range(0.6, 0.95)
+			var bend := randf_range(0.15, 0.32) * (-1.0 if randf() < 0.5 else 1.0)
+			_streaks.append([t, p0, dv, len, bend, randf_range(5.0, 9.0)])
 		if not is_instance_valid(eska):
 			return
 		if _ticks < TICKS and t >= 0.04 + float(_ticks) * 0.052:
@@ -540,14 +553,11 @@ class Storm extends PVfx.Base:
 			pd.draw_rect(Rect2(area.get_center().x - area.size.x * 0.5 * (1.0 - of), area.position.y, area.size.x * (1.0 - of), area.size.y), Color(WHITE, 0.25 * of))
 		for s: Array in _streaks:
 			var age: float = t - float(s[0])
-			if age > 0.17:
+			if age > 0.2:
 				continue
-			var f := 1.0 - age / 0.17
-			var pts: PackedVector2Array = s[1]
-			var wk: float = s[2]
-			pd.draw_polyline(pts, Color(DEEP, 0.5 * f), (6.0 * f + 1.0) * wk)
-			pd.draw_polyline(pts, Color(VIOLET, 0.8 * f), (3.2 * f + 0.8) * wk)
-			pd.draw_polyline(pts, Color(WHITE, f), (1.4 * f + 0.5) * wk)
+			var grow := 1.0 - pow(1.0 - clampf(age / 0.05, 0.0, 1.0), 2.0)
+			var f := 1.0 - clampf((age - 0.05) / 0.15, 0.0, 1.0)
+			EVfx.feather(pd, s[1], s[2], float(s[3]), float(s[4]), float(s[5]) * lerpf(0.5, 1.0, f), f, 0.6 * (1.0 - f), maxf(grow, 0.62 * (1.0 - f) + 0.02))
 		if _final:
 			# 마지막: 구역을 X자로 가르는 두 줄
 			var ff := 1.0 - clampf((t - 0.5) / 0.2, 0.0, 1.0)
@@ -676,9 +686,9 @@ class Ult extends Node2D:
 	var _banner: UltBanner
 
 	func _ready() -> void:
-		for i in 34:
+		for i in 30:
 			var a := -PI / 2.0 + randf_range(-PI * 0.95, PI * 0.95)
-			lines.append([a, randf_range(90.0, 320.0), randf_range(0.04, 0.42)])
+			lines.append([a, randf_range(90.0, 300.0), randf_range(0.04, 0.42), randf_range(0.2, 0.4) * (-1.0 if randf() < 0.5 else 1.0), randf_range(5.0, 9.0)])
 		_dark = UltDark.new()
 		_dark.u = self
 		_dark.z_index = 4
@@ -780,7 +790,7 @@ class UltDark extends PDraw.Canvas:
 		var cam := get_viewport().get_camera_2d()
 		var c := cam.get_screen_center_position() if cam else Vector2(320, 180)
 		var a := 0.8 * u.env()
-		pd.draw_rect(Rect2(c - Vector2(420, 280), Vector2(840, 560)), Color(0.03, 0.01, 0.07, a))
+		pd.draw_rect(Rect2(c - Vector2(700, 450), Vector2(1400, 900)), Color(0.03, 0.01, 0.07, a))
 
 
 ## 빛나는 것들 (가산): 사방 참격선 · 공허의 칼날 · 세로로 갈라진 화면 · 바닥 충격파
@@ -798,16 +808,15 @@ class UltGlow extends PDraw.Canvas:
 			pd.glow(h, 11.0 + 6.0 * sin(t * 30.0), Color(WHITE, 0.95 * hf), 0.0)
 			var rr := lerpf(40.0, 4.0, fmod(t * 2.6, 1.0))
 			pd.draw_arc(h, rr, 0.0, TAU, 24, Color(PALE, 0.6 * hf), 1.2)
-		# 사방으로 몰아치는 참격선
+		# 사방으로 몰아치는 휘어진 참격 (폭풍 속 거대 검)
 		for l: Array in u.lines:
 			var age: float = t - float(l[2])
-			if age < 0.0 or age > 0.32:
+			if age < 0.0 or age > 0.34:
 				continue
-			var f := age / 0.32
+			var f := age / 0.34
 			var dv := Vector2(cos(float(l[0])), sin(float(l[0])))
-			var a := h + dv * float(l[1]) * f * 0.35
-			var b := h + dv * float(l[1]) * minf(f * 1.4, 1.0)
-			pd.line2(a, b, Color(VIOLET, 0.0), Color(WHITE, 0.9 * (1.0 - f)), 1.0, 2.6)
+			var grow := minf(f * 2.2, 1.0)
+			EVfx.feather(pd, h + dv * 10.0, dv, float(l[1]), float(l[3]), float(l[4]) * (1.0 - f * 0.6), 1.0 - f, f * 0.7, maxf(grow, f * 0.7 + 0.02))
 		# 공허의 칼날 (하늘에서 형성 → 내리꽂힘)
 		if t < Ult.SLAM:
 			var form := clampf((t - 0.1) / (Ult.SLAM - 0.1), 0.0, 1.0)
@@ -863,22 +872,25 @@ class UltBanner extends Control:
 		var e := u.env()
 		if e <= 0.0:
 			return
+		var W := size.x
+		var H := size.y
+		var mid := W * 0.5
 		var bar := 26.0 * e
-		draw_rect(Rect2(0, 0, 640, bar), Color(0, 0, 0, 0.92))
-		draw_rect(Rect2(0, 360 - bar, 640, bar), Color(0, 0, 0, 0.92))
+		draw_rect(Rect2(0, 0, W, bar), Color(0, 0, 0, 0.92))
+		draw_rect(Rect2(0, H - bar, W, bar), Color(0, 0, 0, 0.92))
 		var font := get_theme_default_font()
 		var txt := "종언참"
 		var fs := 22
 		var sz := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 		var cy := 70.0
 		var slide := (1.0 - clampf(u.t / 0.18, 0.0, 1.0)) * 24.0
-		draw_rect(Rect2(0, cy - 20, 640, 30), Color(0.02, 0.0, 0.05, 0.5 * e))
-		draw_line(Vector2(320 - 150 + slide, cy - 20), Vector2(320 + 150 + slide, cy - 20), Color(VIOLET, 0.85 * e), 1.0)
-		draw_line(Vector2(320 - 150 - slide, cy + 10), Vector2(320 + 150 - slide, cy + 10), Color(VIOLET, 0.85 * e), 1.0)
-		var pos := Vector2(320 - sz.x * 0.5 + slide, cy + 2)
+		draw_rect(Rect2(0, cy - 20, W, 30), Color(0.02, 0.0, 0.05, 0.5 * e))
+		draw_line(Vector2(mid - 150 + slide, cy - 20), Vector2(mid + 150 + slide, cy - 20), Color(VIOLET, 0.85 * e), 1.0)
+		draw_line(Vector2(mid - 150 - slide, cy + 10), Vector2(mid + 150 - slide, cy + 10), Color(VIOLET, 0.85 * e), 1.0)
+		var pos := Vector2(mid - sz.x * 0.5 + slide, cy + 2)
 		draw_string_outline(font, pos, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0.05, 0.0, 0.1, e))
 		draw_string(font, pos, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, e))
 		var sub := "끝은, 내가 정한다."
 		var ssz := font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
-		draw_string_outline(font, Vector2(320 - ssz.x * 0.5, cy + 24), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 3, Color(0, 0, 0, 0.8 * e))
-		draw_string(font, Vector2(320 - ssz.x * 0.5, cy + 24), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(PALE, 0.9 * e))
+		draw_string_outline(font, Vector2(mid - ssz.x * 0.5, cy + 24), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 3, Color(0, 0, 0, 0.8 * e))
+		draw_string(font, Vector2(mid - ssz.x * 0.5, cy + 24), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(PALE, 0.9 * e))

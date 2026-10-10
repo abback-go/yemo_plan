@@ -83,11 +83,16 @@ static func build(root: Node2D, width: float, floor_y: float) -> void:
 
 ## 화면 고정 하늘: 위는 거의 검정, 아래로 보랏빛 + 멀리 희미한 공허의 빛
 class SkyBack extends PDraw.Canvas:
+	func _ready() -> void:
+		get_viewport().size_changed.connect(queue_redraw)
+
 	func _paint() -> void:
-		pd.rect_grad(Rect2(0, 0, 640, 360), SKY_TOP, SKY_BOT)
-		pd.glow(Vector2(470, 120), 150.0, Color(0.55, 0.42, 0.85, 0.16), 0.0)
-		pd.glow(Vector2(470, 120), 40.0, Color(0.92, 0.88, 1.0, 0.18), 0.0)
-		pd.glow(Vector2(140, 300), 220.0, Color(0.35, 0.22, 0.6, 0.18), 0.0)
+		var sz := get_viewport_rect().size
+		var k := sz.y / 360.0
+		pd.rect_grad(Rect2(Vector2.ZERO, sz), SKY_TOP, SKY_BOT)
+		pd.glow(Vector2(sz.x * 0.73, 120 * k), 150.0 * k, Color(0.55, 0.42, 0.85, 0.16), 0.0)
+		pd.glow(Vector2(sz.x * 0.73, 120 * k), 40.0 * k, Color(0.92, 0.88, 1.0, 0.18), 0.0)
+		pd.glow(Vector2(sz.x * 0.22, 300 * k), 220.0 * k, Color(0.35, 0.22, 0.6, 0.18), 0.0)
 
 
 ## 떠 있는 고딕 첨탑 실루엣 (창에 희미한 보라 불빛, 아래로 매달린 바위)
@@ -102,13 +107,13 @@ class Spires extends PDraw.Canvas:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 7700 + seed_n
 		var x := -120.0
-		while x < width * 0.6 + 640.0:
+		while x < width * 0.6 + 1100.0:
 			var s := scale_k * rng.randf_range(0.7, 1.25)
 			var base_y := floor_y - rng.randf_range(90.0, 170.0) * (1.6 - scale_k)
 			_spire(Vector2(x, base_y), s, rng)
 			x += rng.randf_range(110.0, 190.0) * scale_k
 		# 땅에 닿은 먼 성채 띠
-		var band := PackedVector2Array([Vector2(-200, floor_y + 10)])
+		var band := PackedVector2Array([Vector2(-200, floor_y + 400)]) # 아래는 길게 — 세로로 긴 화면에서도 끊겨 보이지 않게
 		var bx := -200.0
 		while bx < width + 400.0:
 			var h := rng.randf_range(30.0, 70.0) * scale_k
@@ -116,7 +121,7 @@ class Spires extends PDraw.Canvas:
 			band.append(Vector2(bx + 14.0, floor_y - h - rng.randf_range(8.0, 30.0) * scale_k))
 			band.append(Vector2(bx + 28.0, floor_y - h))
 			bx += rng.randf_range(40.0, 90.0)
-		band.append(Vector2(bx, floor_y + 10))
+		band.append(Vector2(bx, floor_y + 400))
 		pd.draw_colored_polygon(band, col.darkened(0.15))
 
 	func _spire(p: Vector2, s: float, rng: RandomNumberGenerator) -> void:
@@ -187,7 +192,7 @@ class Ground extends PDraw.Canvas:
 				var rad := (nx - px) * 0.5
 				pd.draw_arc(Vector2(px + rad, ny), rad, PI, TAU, 28, NEAR, 6.0)
 		# 바닥
-		pd.draw_rect(Rect2(-60, floor_y, width + 120, 80), STONE)
+		pd.draw_rect(Rect2(-400, floor_y, width + 800, 260), STONE)
 		pd.draw_rect(Rect2(-60, floor_y, width + 120, 2), STONE_TOP)
 		var bx := -60.0
 		while bx < width + 60.0:
@@ -267,7 +272,7 @@ class Shafts extends PDraw.Canvas:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 991
 		var x := 120.0
-		while x < width * 0.4 + 640.0:
+		while x < width * 0.4 + 1100.0:
 			var w := rng.randf_range(14.0, 36.0)
 			var top := Vector2(x, floor_y - 360.0)
 			var slant := rng.randf_range(60.0, 110.0)

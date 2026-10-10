@@ -17,7 +17,7 @@
 [600, "eval", "dummy.hp"],
 [610, "eval", "eska.global_position"],
 [620, "touch", 1, 586, 306], [622, "shot", "e24_touch_attack"], [626, "untouch", 1, 586, 306],
-[630, "touch", 0, 110, 284], [645, "shot", "e25_touch_stick"], [646, "eval", "touch.stick_state()"], [650, "untouch", 0, 110, 284],
-[660, "touch", 0, 80, 250], [662, "touch", 1, 584, 234], [664, "shot", "e26_touch_up_skill"], [666, "untouch", 1, 584, 234], [668, "untouch", 0, 80, 250],
+[630, "touch", 0, 115, 276], [645, "shot", "e25_touch_pad"], [646, "eval", "touch.pad_state()"], [647, "drag", 0, 106, 254], [648, "eval", "touch.pad_state()"], [650, "untouch", 0, 106, 254],
+[660, "touch", 0, 84, 245], [662, "touch", 1, 584, 234], [664, "shot", "e26_touch_up_skill"], [666, "untouch", 1, 584, 234], [668, "untouch", 0, 84, 245],
 [700, "quit"]
 ]}
