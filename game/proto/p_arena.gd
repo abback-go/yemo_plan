@@ -133,8 +133,9 @@ func _build_props() -> void:
 
 ## 카메라: 세라를 따라가며 진행 방향을 조금 앞서 보여 줌. Fx가 흔들기·확대에 쓰는 shake/punch를 제공
 class PCamera extends Camera2D:
-	var target: PSera
+	var target: CharacterBody2D ## 세라(PSera) 또는 에스카(EEska) — facing 값을 가진 몸
 	var _look := 0.0
+	var look_y := -30.0 ## 몸보다 이만큼 위를 화면 가운데로
 	var _shake_amp := 0.0
 	var _shake_left := 0.0
 	var _shake_time := 0.0
@@ -155,9 +156,9 @@ class PCamera extends Camera2D:
 	func _process(delta: float) -> void:
 		var real := delta / maxf(Engine.time_scale, 0.0001)
 		if is_instance_valid(target):
-			var want := float(target.facing) * 46.0 * clampf(absf(target.velocity.x) / 150.0, 0.3, 1.0)
+			var want := float(target.get("facing")) * 46.0 * clampf(absf(target.velocity.x) / 150.0, 0.3, 1.0)
 			_look = lerpf(_look, want, 1.0 - exp(-real * 2.5))
-			global_position = target.global_position + Vector2(_look, -30)
+			global_position = target.global_position + Vector2(_look, look_y)
 		# 멈춤(hitstop)으로 time_scale이 0에 가까우면 real이 튀므로 한 프레임 길이로 자름 (용수철이 폭주하지 않게)
 		var kd := minf(real, 1.0 / 30.0)
 		_kick_v += (-_kick * 900.0 - _kick_v * 34.0) * kd

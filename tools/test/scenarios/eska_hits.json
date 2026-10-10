@@ -1,0 +1,12 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[5, "eval", "eska.set('global_position', Vector2(500, 300))"],
+[20, "eval", "dummy.hp"],
+[25, "tap", "es_attack"], [35, "tap", "es_attack"], [45, "tap", "es_attack"], [55, "tap", "es_attack"],
+[70, "eval", "dummy.hp"], [72, "shot", "h01_after_combo"],
+[90, "tap", "es_skill"], [130, "eval", "dummy.hp"],
+[140, "press", "es_up"], [141, "tap", "es_skill"], [146, "release", "es_up"], [190, "eval", "dummy.hp"],
+[200, "eval", "eska.global_position"],
+[210, "press", "es_jump"], [222, "release", "es_jump"], [224, "tap", "es_attack"], [232, "tap", "es_attack"], [240, "tap", "es_attack"], [248, "tap", "es_attack"], [252, "eval", "eska.global_position.y"], [262, "eval", "dummy.hp"], [262, "shot", "h02_air"],
+[300, "tap", "es_blink"], [310, "eval", "eska.global_position"], [312, "tap", "es_blink"], [320, "eval", "eska.global_position"],
+[330, "quit"]
+]}

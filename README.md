@@ -4,6 +4,7 @@
 
 | | 주소 |
 |---|---|
+| **에스카 시제품** (종언의 마녀 — 모바일 터치 지원) | **https://abback-go.github.io/yemo_plan/?eska** |
 | **전투 시제품** (타이틀 건너뛰고 바로 훈련장) | **https://abback-go.github.io/yemo_plan/?proto** |
 | 게임 전체 (타이틀부터) | https://abback-go.github.io/yemo_plan/ |
 

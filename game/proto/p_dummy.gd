@@ -18,6 +18,7 @@ var _bar := 0.0 ## 체력바 보이는 남은 시간
 var _bound := 0.0 ## 바인드 남은 시간
 var _bind_awake := false
 var _bind_fox := true ## 붙잡은 사슬 색 (변신 중 바인드 = 푸른 여우불, 평소 = 붉은 불)
+var _bind_style := "" ## "" = 불 사슬을 그림 · "void" = 그리지 않음(에스카의 봉공이 공간 틀을 따로 그린다)
 var _t := 0.0
 var _shoot_t := 1.5
 var _hits_total := 0
@@ -102,10 +103,15 @@ func take_hit(dmg: int, from: Vector2, opts := {}) -> void:
 		Fx.ring(center(), 6, 30, Color(1, 0.95, 0.7, 0.8), 0.3)
 
 
-func bind(sec: float, awake: bool, fox := true) -> void:
+func bind(sec: float, awake: bool, fox := true, style := "") -> void:
 	_bound = sec
 	_bind_awake = awake
 	_bind_fox = fox
+	_bind_style = style
+
+
+func unbind() -> void:
+	_bound = 0.0
 
 
 func _process(delta: float) -> void:
@@ -198,7 +204,7 @@ func _paint() -> void:
 			_draw_launcher(f, sq)
 		_:
 			_draw_small(w, f, sq)
-	if _bound > 0.0:
+	if _bound > 0.0 and _bind_style == "":
 		_draw_chains()
 	if _bar > 0.0:
 		var r := hit_rect()

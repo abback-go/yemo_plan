@@ -2,7 +2,7 @@ extends Control
 ## 타이틀 (docs/chapter1.md 10절). 브라우저는 첫 입력 전 소리를 막으므로 "아무 키나"로 한 번 받은 뒤 메뉴를 연다.
 ## 메뉴: 이어하기(기록이 있으면) · 새로 시작 · 설정 · 전투 시제품(새 조작 훈련장, proto/) · 전투 연습장(v0.3 프로토타입)
 ## 홈 화면 웹앱(오프라인 캐시)에 새 버전이 받아져 있으면 맨 위에 "새 버전으로 업데이트"가 생긴다.
-## 웹 주소 뒤에 ?proto 를 붙이면 처음 한 번은 타이틀을 건너뛰고 전투 시제품으로 바로 들어간다 (Esc로 나오면 타이틀).
+## 웹 주소 뒤에 ?eska 를 붙이면 에스카 시제품, ?proto 를 붙이면 처음 한 번은 타이틀을 건너뛰고 전투 시제품으로 바로 들어간다 (Esc로 나오면 타이틀).
 
 const BG := preload("res://levels/background.gd")
 
@@ -26,7 +26,10 @@ func _ready() -> void:
 	if not _direct_done and OS.has_feature("web"):
 		_direct_done = true
 		var q: Variant = JavaScriptBridge.eval("window.location.search", true)
-		if q is String and String(q).contains("proto"):
+		if q is String and String(q).contains("eska"):
+			_phase = 4
+			get_tree().change_scene_to_file.call_deferred("res://proto/eska/eska_arena.tscn")
+		elif q is String and String(q).contains("proto"):
 			_phase = 4
 			get_tree().change_scene_to_file.call_deferred("res://proto/proto_arena.tscn")
 	_font = get_theme_default_font()
@@ -105,6 +108,7 @@ func _build_menu() -> void:
 	_items.append("새로 시작")
 	_items.append("저장 코드로 이어하기")
 	_items.append("설정")
+	_items.append("에스카 시제품 (종언의 마녀)")
 	_items.append("전투 시제품 (새 조작)")
 	_items.append("전투 연습장")
 	_menu.items = _items.duplicate()
@@ -209,6 +213,9 @@ func _on_menu(index: int) -> void:
 			_options.open()
 			_options.visible = true
 			_phase = 2
+		"에스카 시제품 (종언의 마녀)":
+			_phase = 4
+			get_tree().change_scene_to_file("res://proto/eska/eska_arena.tscn")
 		"전투 시제품 (새 조작)":
 			_phase = 4
 			get_tree().change_scene_to_file("res://proto/proto_arena.tscn")
