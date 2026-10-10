@@ -38,13 +38,14 @@ const BLINK_CD := 0.26
 const CD := {"cheonyeol": 2.0, "dangong": 2.0, "bonggong": 6.0, "ult": 15.0}
 const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공", "ult": "종언참"}
 
-## 4타 연격. 각도는 도(0 = 앞, + = 아래). 호는 a0 → a1로 휘두른다.
+## 4타 연격. 각도는 도(0 = 앞, + = 아래). 호는 a0 → a1로 휘두른다. 납작한 회오리(sq)를 rot만큼 기울인다 —
+## 1타 앞이 들린 대각 · 2타 앞이 내려간 가파른 대각(반대로 감음) · 3타 비스듬히 세워 아래에서 위로 올려 벰 · 4타 가장 큰 가로 회오리 (타마다 다른 각도)
 ## dur 한 타 길이 · hit 판정 시각 · next 다음 타를 받기 시작하는 시각 · r 반지름 · w 가장 굵은 곳 · sq 세로 납작함 · c 몸 기준 중심
 const COMBO := [
-	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": -150.0, "a1": 40.0, "r": 92.0, "w": 26.0, "sq": 0.36, "rot": -16.0, "c": Vector2(2, -22), "dmg": 30, "step": 12.0},
-	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": 160.0, "a1": -40.0, "r": 96.0, "w": 26.0, "sq": 0.34, "rot": 14.0, "c": Vector2(2, -22), "dmg": 30, "step": 12.0},
-	{"dur": 0.16, "hit": 0.04, "next": 0.08, "a0": -205.0, "a1": 150.0, "r": 104.0, "w": 28.0, "sq": 0.34, "rot": -9.0, "c": Vector2(0, -16), "dmg": 34, "step": 14.0},
-	{"dur": 0.34, "hit": 0.06, "next": 0.34, "a0": -200.0, "a1": 160.0, "r": 140.0, "w": 44.0, "sq": 0.38, "rot": -12.0, "c": Vector2(6, -26), "dmg": 64, "step": 24.0},
+	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": -190.0, "a1": 40.0, "r": 92.0, "w": 26.0, "sq": 0.34, "rot": -22.0, "c": Vector2(2, -24), "dmg": 30, "step": 12.0},
+	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": 150.0, "a1": -80.0, "r": 100.0, "w": 26.0, "sq": 0.28, "rot": 38.0, "c": Vector2(4, -28), "dmg": 30, "step": 12.0},
+	{"dur": 0.16, "hit": 0.04, "next": 0.08, "a0": 170.0, "a1": -60.0, "r": 108.0, "w": 28.0, "sq": 0.36, "rot": -50.0, "c": Vector2(14, -30), "dmg": 34, "step": 14.0},
+	{"dur": 0.34, "hit": 0.06, "next": 0.34, "a0": -200.0, "a1": 160.0, "r": 140.0, "w": 44.0, "sq": 0.4, "rot": -8.0, "c": Vector2(6, -26), "dmg": 64, "step": 24.0},
 ]
 const CHAIN_WINDOW := 0.28 ## 한 타가 끝난 뒤 이 안에 누르면 다음 타로 이어짐
 
@@ -349,7 +350,7 @@ func _slash_hit(a: Dictionary) -> void:
 	var heavy := combo_i == 3
 	var any := false
 	for d: PDummy in PDummy.all(get_tree()):
-		if _sector_hits(d.hit_rect(), cen, float(a.r) + 8.0, float(a.a0), float(a.a1), float(a.sq)):
+		if _sector_hits(d.hit_rect(), cen, float(a.r) + 8.0, float(a.a0), float(a.a1), float(a.sq), float(a.get("rot", 0.0))):
 			deal(d, int(a.dmg), heavy, cen)
 			any = true
 	if any:
@@ -361,15 +362,17 @@ func _slash_hit(a: Dictionary) -> void:
 
 
 ## 부채꼴(납작함 sq) 안에 사각형이 걸치는지. 각도는 앞 기준(도)
-func _sector_hits(rect: Rect2, cen: Vector2, r: float, a0: float, a1: float, sq: float) -> bool:
+## 기울인(rot, 도) 납작한(sq) 호 안에 rect가 들어오는지 — 그림(Slash)과 같은 변환을 거꾸로 적용
+func _sector_hits(rect: Rect2, cen: Vector2, r: float, a0: float, a1: float, sq: float, rot := 0.0) -> bool:
 	sq = maxf(sq, 0.6) # 그림은 납작한 회오리지만 판정은 위아래로 넉넉하게 (공중에서도 맞게)
+	var unrot := -deg_to_rad(rot) * float(facing)
 	var lo := deg_to_rad(minf(a0, a1)) - 0.25
 	var hi := deg_to_rad(maxf(a0, a1)) + 0.25
 	var p0 := rect.position
 	var p1 := rect.end
 	var m := rect.get_center()
 	for pt: Vector2 in [m, p0, p1, Vector2(p0.x, p1.y), Vector2(p1.x, p0.y), Vector2(m.x, p0.y), Vector2(m.x, p1.y), Vector2(p0.x, m.y), Vector2(p1.x, m.y)]:
-		var q := pt - cen
+		var q := (pt - cen).rotated(unrot)
 		q.x *= facing
 		q.y /= sq
 		var l := q.length()

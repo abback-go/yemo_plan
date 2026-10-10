@@ -534,7 +534,7 @@ class Flurry extends SlashSeries:
 		var any := false
 		for d: PDummy in PDummy.all(get_tree()):
 			# 회오리가 중심을 거의 한 바퀴 감싸므로 판정은 중심 둘레 전체
-			if eska._sector_hits(d.hit_rect(), cen, float(a.r) + 8.0, -180.0, 180.0, float(a.sq)):
+			if eska._sector_hits(d.hit_rect(), cen, float(a.r) + 8.0, -180.0, 180.0, float(a.sq), float(a.rot)):
 				eska.deal(d, dmg, heavy, global_position) # 밀리는 방향은 에스카 쪽에서
 				any = true
 		if any:
@@ -545,7 +545,8 @@ class Flurry extends SlashSeries:
 				Fx.zoom_punch(0.05)
 
 
-## 단공: 머리 위 한 점을 중심으로 납작한 회오리 참격(기본 3타와 같은 모양)이 기울기·방향을 번갈아 가며 휘감는다.
+## 단공: 머리 위 한 점을 중심으로 세로로 세운 회오리 참격이 모두 같은 방향으로 아래에서 위로 베어 올린다
+## (기울기만 -66 → -108도로 부채처럼 차례로 벌어짐 — 좌우 대칭이면 하트처럼 보여서 피함). 납작한 호를 약 -90도 돌려 세운다.
 ## 마지막에 가장 큰 회오리 + 어둠 폭발. 22×4 + 36 = 124
 class Upsweep extends SlashSeries:
 	var area := Rect2() ## 판정 구역 (전역 좌표)
@@ -553,11 +554,11 @@ class Upsweep extends SlashSeries:
 	func _ready() -> void:
 		z_index = 6
 		specs = [
-			[0.0, {"a0": -200.0, "a1": 150.0, "r": 92.0, "w": 24.0, "sq": 0.34, "rot": -24.0, "c": Vector2(-2, -104)}, 22, false],
-			[0.06, {"a0": 160.0, "a1": -190.0, "r": 108.0, "w": 24.0, "sq": 0.4, "rot": 18.0, "c": Vector2(2, -106)}, 22, false],
-			[0.12, {"a0": -210.0, "a1": 140.0, "r": 100.0, "w": 26.0, "sq": 0.3, "rot": -8.0, "c": Vector2(0, -102)}, 22, false],
-			[0.18, {"a0": 150.0, "a1": -200.0, "r": 118.0, "w": 24.0, "sq": 0.42, "rot": 28.0, "c": Vector2(-1, -107)}, 22, false],
-			[0.3, {"a0": -210.0, "a1": 160.0, "r": 136.0, "w": 40.0, "sq": 0.36, "rot": 0.0, "c": Vector2(0, -105)}, 36, true],
+			[0.0, {"a0": 170.0, "a1": -40.0, "r": 100.0, "w": 24.0, "sq": 0.36, "rot": -66.0, "c": Vector2(0, -104)}, 22, false],
+			[0.06, {"a0": 170.0, "a1": -40.0, "r": 108.0, "w": 24.0, "sq": 0.32, "rot": -80.0, "c": Vector2(0, -108)}, 22, false],
+			[0.12, {"a0": 170.0, "a1": -40.0, "r": 96.0, "w": 26.0, "sq": 0.4, "rot": -94.0, "c": Vector2(0, -102)}, 22, false],
+			[0.18, {"a0": 170.0, "a1": -40.0, "r": 112.0, "w": 24.0, "sq": 0.3, "rot": -108.0, "c": Vector2(0, -110)}, 22, false],
+			[0.3, {"a0": 175.0, "a1": -50.0, "r": 128.0, "w": 40.0, "sq": 0.38, "rot": -86.0, "c": Vector2(0, -128)}, 36, true],
 		]
 
 	func _judge(_a: Dictionary, dmg: int, heavy: bool, _cen: Vector2) -> void:
