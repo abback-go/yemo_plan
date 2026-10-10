@@ -18,14 +18,11 @@ const RUN_DECEL := 3200.0
 const AIR_ACCEL := 1900.0
 const GRAVITY := 1350.0
 const FALL_MAX := 330.0
-const JUMP_SPEED := 365.0
-const JUMP_HOLD_TIME := 0.20
-const JUMP_HOLD_GRAVITY := 0.42
-const JUMP_CUT := 0.45
+const JUMP_SPEED := 360.0 ## 높이 고정 (길게 눌러도 같음) — 약 46px (예전 길게 누르면 약 65px)
 const APEX_HANG := 0.55
 const COYOTE := 0.09
 const JUMP_BUFFER := 0.12
-const AIR_JUMP_SPEED := 345.0 ## 이단점프: 공중의 공간을 밟고 한 번 더 도약 (착지 전까지 1번)
+const AIR_JUMP_SPEED := 320.0 ## 이단점프: 공중의 공간을 밟고 한 번 더 도약 (착지 전까지 1번, 높이 고정)
 const ATTACK_BUFFER := 0.14
 const FAST_FALL_MAX := 440.0 ## 공중에서 ↓를 누르고 있으면
 const COMBO_WINDOW := 1.6 ## 이 시간 안에 다시 맞히면 연타 수가 이어진다
@@ -58,7 +55,6 @@ var cooldowns := {"cheonyeol": 0.0, "dangong": 0.0, "bonggong": 0.0, "ult": 0.0}
 
 var _coyote := 0.0
 var _jump_buf := 0.0
-var _jump_hold := 0.0
 var _atk_buf := 0.0
 var _was_floor := true
 
@@ -178,9 +174,7 @@ func _physics_process(delta: float) -> void:
 
 func _gravity(delta: float, mult := 1.0) -> void:
 	var g := GRAVITY * mult
-	if _jump_hold > 0.0 and Input.is_action_pressed("es_jump") and velocity.y < 0.0:
-		g *= JUMP_HOLD_GRAVITY
-	elif absf(velocity.y) < 60.0 and not is_on_floor():
+	if absf(velocity.y) < 60.0 and not is_on_floor():
 		g *= APEX_HANG
 	var cap := FALL_MAX
 	if Input.is_action_pressed("es_down") and not is_on_floor():
@@ -226,22 +220,17 @@ func _run(delta: float, dir_x: float, speed_mult := 1.0) -> void:
 
 
 func _normal(delta: float, dir_x: float) -> void:
-	_jump_hold = maxf(_jump_hold - delta, 0.0)
 	_run(delta, dir_x)
 	if _jump_buf > 0.0 and _coyote > 0.0:
 		_jump_buf = 0.0
 		_coyote = 0.0
 		velocity.y = -JUMP_SPEED
-		_jump_hold = JUMP_HOLD_TIME
 		art.squash(Vector2(0.82, 1.2))
 		if is_on_floor():
 			PVfx.dust(global_position, 4, 1.0, 14.0)
 		Sfx.play(&"jump", -6.0)
 	elif _jump_buf > 0.0 and _air_jump and not is_on_floor():
 		_double_jump(dir_x)
-	if not Input.is_action_pressed("es_jump") and velocity.y < 0.0 and _jump_hold > 0.0:
-		velocity.y *= JUMP_CUT
-		_jump_hold = 0.0
 	_gravity(delta)
 	_try_actions(dir_x)
 
@@ -251,7 +240,6 @@ func _double_jump(dir_x: float) -> void:
 	_jump_buf = 0.0
 	_air_jump = false
 	velocity.y = -AIR_JUMP_SPEED
-	_jump_hold = JUMP_HOLD_TIME * 0.8
 	if absf(dir_x) > 0.01:
 		velocity.x = signf(dir_x) * RUN_SPEED
 		facing = 1 if dir_x > 0.0 else -1
@@ -304,7 +292,6 @@ func _start_attack(i: int) -> void:
 	st_t = 0.0
 	_hit_done = false
 	_queued = false
-	_jump_hold = 0.0
 	var a: Dictionary = COMBO[i]
 	if is_on_floor():
 		velocity.x = facing * float(a.step)
@@ -488,7 +475,6 @@ func _start_cast(kind: String, dur: float) -> void:
 	cooldowns[kind] = CD[kind]
 	st = St.CAST
 	st_t = 0.0
-	_jump_hold = 0.0
 	if not is_on_floor():
 		velocity.y = minf(velocity.y, 0.0) * 0.3
 	if kind == "bonggong":
