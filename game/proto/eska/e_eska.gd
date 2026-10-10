@@ -197,7 +197,7 @@ func _ground_fx(delta: float) -> void:
 		_ghost_t -= delta
 		if _ghost_t <= 0.0:
 			_ghost_t = 0.14
-			EVfx.afterimage(art, 0.14, EVfx.VIOLET) # 최고 속도에서만 옅은 잔상
+			EVfx.afterimage(art, 0.14, EVfx.VIOLET, Vector2.ZERO, 0.4) # 최고 속도에서만 아주 옅은 잔상
 	if not is_on_floor() or st == St.BLINK:
 		return
 	if absf(vx) > 110.0:
@@ -246,7 +246,7 @@ func _normal(delta: float, dir_x: float) -> void:
 	_try_actions(dir_x)
 
 
-## 이단점프: 발밑 공중에 다크 회오리 고리가 생겨 그것을 밟고 가볍게 떠오른다(치맛자락이 우산처럼 퍼짐). 누른 방향으로 바로 꺾는다
+## 이단점프: 발밑 공중에 다크 회오리 고리가 생겨 그것을 밟고 도약, 몸이 아주 빠르게 한 바퀴(치맛자락이 우산처럼 퍼짐). 누른 방향으로 바로 꺾는다
 func _double_jump(dir_x: float) -> void:
 	_jump_buf = 0.0
 	_air_jump = false

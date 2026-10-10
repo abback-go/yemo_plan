@@ -53,6 +53,7 @@ var _was_floor := true
 var _prev_vy := 0.0
 var _snap_flash := 0.0 ## 천열 손끝 튕김 섬광
 var _glide := 0.0 ## 활주 정도 (0 = 서 있음, 1 = 최고 속도로 떠서 미끄러짐)
+var _spin := 1.0 ## 이단점프 한 바퀴 (0 → 1, 아주 빠르게)
 var _hair: Chain
 var _lock: Chain ## 앞쪽 옆머리
 var _sleeve: Chain
@@ -160,10 +161,10 @@ func snap_flash() -> void:
 	_snap_flash = 1.0
 
 
-## 이단점프: 몸은 돌지 않고, 치맛자락이 우산처럼 확 퍼지며 상체가 살짝 젖혀졌다가 부드럽게 돌아온다
+## 이단점프: 몸 가운데를 축으로 아주 빠르게 한 바퀴(0.18초, 처음에 거의 다 돌고 끝은 부드럽게) + 치맛자락이 우산처럼 퍼짐
 func air_flourish() -> void:
+	_spin = 0.0
 	_flare_v += 34.0
-	_lean_v -= 5.0
 
 
 # ═══════════════════════════════════════════════════════════
@@ -196,13 +197,18 @@ func tick(delta: float) -> void:
 			lean_want = -0.06 if body.cast_kind == "dangong" else 0.1
 		EEska.St.NORMAL:
 			# 활주할수록 몸을 앞으로 기울인다 (과하지 않게), 공중에서는 조금만
-			lean_want = clampf(vx * float(body.facing) / EEska.RUN_SPEED, -1.0, 1.0) * (0.17 if on_floor else 0.07)
+			lean_want = clampf(vx * float(body.facing) / EEska.RUN_SPEED, -1.0, 1.0) * (0.24 if on_floor else 0.09)
 	_lean_v += (lean_want - _lean) * 260.0 * dt - _lean_v * 18.0 * dt
 	_lean += _lean_v * dt
 	_tip_v += (-_tip * 140.0 - _tip_v * 6.0 - vx * float(body.facing) * 0.02 + vy * 0.006) * dt
 	_tip += _tip_v * dt
 	var glide_want := clampf(absf(vx) / EEska.RUN_SPEED, 0.0, 1.0) if on_floor and body.st == EEska.St.NORMAL else 0.0
+	var was_glide := _glide
 	_glide = lerpf(_glide, glide_want, 1.0 - exp(-dt * 10.0))
+	if was_glide < 0.35 and _glide >= 0.35:
+		# 확 미끄러져 나가는 순간: 앞으로 늘었다 돌아오고 발 뒤로 돌풍
+		squash(Vector2(1.14, 0.9))
+		EVfx.glide_burst(body.global_position, float(body.facing))
 	var flare_want := 0.0
 	if not on_floor:
 		flare_want = clampf(-vy / 300.0, -1.0, 1.0) * -1.6 + 0.6
@@ -213,7 +219,7 @@ func tick(delta: float) -> void:
 	_flare_v += (flare_want - _flare) * 160.0 * dt - _flare_v * 12.0 * dt
 	_flare += _flare_v * dt
 	var lift_want := 3.0 + sin(_t * 3.0) if body.st == EEska.St.ULT else 0.0
-	lift_want = maxf(lift_want, _glide * (3.0 + 0.6 * sin(_t * 4.0))) # 활주: 발이 땅에서 살짝 떠서 천천히 출렁인다
+	lift_want = maxf(lift_want, _glide * (3.4 + 1.0 * sin(_t * 5.0))) # 활주: 발이 땅에서 떠서 물결치듯 출렁인다
 	_lift = lerpf(_lift, lift_want, 1.0 - exp(-dt * 8.0))
 	if on_floor and absf(vx) > 20.0 and _glide < 0.3:
 		_step += dt * absf(vx) / 9.0
@@ -224,11 +230,15 @@ func tick(delta: float) -> void:
 	if body.st in [EEska.St.ATTACK, EEska.St.CAST, EEska.St.ULT]:
 		_hand_glow = 1.0
 	_snap_flash = maxf(_snap_flash - dt * 7.0, 0.0)
+	_spin = minf(_spin + delta / 0.18, 1.0)
 	scale = Vector2(float(body.facing) * _sq.x, _sq.y)
-	rotation = _lean * float(body.facing)
-	position = Vector2(0, -_lift)
+	var spin_a := TAU * (1.0 - pow(1.0 - _spin, 4.0)) if _spin < 1.0 else 0.0
+	rotation = (_lean + spin_a) * float(body.facing)
+	# 숙이기는 발을 축으로, 한 바퀴는 몸 가운데(발에서 18px 위)를 축으로
+	var pivot := Vector2(0, -18.0 * _sq.y)
+	position = Vector2(0, -_lift) + pivot.rotated(_lean * float(body.facing)) - pivot.rotated(rotation)
 	# 흔들리는 줄
-	var grav := Vector2(0, 460) + Vector2(-float(body.facing) * 300.0 * _glide, -40.0 * _glide)
+	var grav := Vector2(0, 460) + Vector2(-float(body.facing) * 420.0 * _glide, -60.0 * _glide)
 	var stiff := 0.11 - 0.03 * _glide
 	if body.st == EEska.St.ULT:
 		grav = Vector2(0, -160) # 떠오르는 힘에 머리카락이 위로 흩날림
@@ -238,7 +248,7 @@ func tick(delta: float) -> void:
 	_lock.step(to_global(Vector2(2.6, -29.5 + bob)), _to_g(_lock_rest()), grav, dt, 0.86, 0.12)
 	var sh := Vector2(1.5, -23.5 + bob)
 	var el := sh.lerp(_hand, 0.5)
-	var sleeve_g := Vector2(-float(body.facing) * 200.0 * _glide, 300.0 - 60.0 * _glide)
+	var sleeve_g := Vector2(-float(body.facing) * 280.0 * _glide, 300.0 - 80.0 * _glide)
 	_sleeve.step(to_global(el), _to_g(_sleeve_rest(el)), sleeve_g, dt, 0.86, 0.08)
 	_sleeve_b.step(to_global(Vector2(-1.8, -22.5 + bob)), _to_g(_sleeve_rest(Vector2(-1.8, -22.5))), sleeve_g, dt, 0.86, 0.08)
 	# 눈빛 꼬리 (빠를 때만)

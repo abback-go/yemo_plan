@@ -160,10 +160,19 @@ static func glide_wake(pos: Vector2, dir: float, k: float) -> void:
 	var pp := PParticles.get_layer(false)
 	pp.spawn(pos + Vector2(-dir * randf_range(2.0, 8.0), -randf_range(1.0, 4.0)), Vector2(-dir * randf_range(30.0, 70.0), -randf_range(4.0, 16.0)),
 		Vector2.ZERO, randf_range(0.28, 0.42), randf_range(3.0, 5.0), Color(PLUM, 0.45 * k), Color(INK, 0.0), 2, 3.0)
-	if randf() < 0.35 * k:
+	if randf() < 0.6 * k:
 		var lines := PParticles.get_layer(true)
 		lines.spawn(pos + Vector2(-dir * randf_range(6.0, 16.0), -randf_range(4.0, 36.0)), Vector2(-dir * randf_range(220.0, 320.0), 0.0),
 			Vector2.ZERO, randf_range(0.08, 0.14), randf_range(0.6, 1.0), Color(EDGE, 0.7), Color(MAGENTA, 0.0), 1, 0.0)
+
+
+## 활주 출발: 발 뒤로 짧게 터지는 보랏빛 돌풍 (멈춰 있다가 확 미끄러져 나갈 때)
+static func glide_burst(pos: Vector2, dir: float) -> void:
+	dark_bits(pos + Vector2(-dir * 4.0, -3.0), 5, 140.0, Vector2(-dir, -0.2), 35.0, 0.26, 2)
+	var lines := PParticles.get_layer(true)
+	for i in 4:
+		lines.spawn(pos + Vector2(-dir * randf_range(4.0, 10.0), -randf_range(6.0, 30.0)), Vector2(-dir * randf_range(300.0, 420.0), 0.0),
+			Vector2.ZERO, randf_range(0.1, 0.16), 1.0, Color(EDGE, 0.85), Color(MAGENTA, 0.0), 1, 0.0)
 
 
 ## 이단점프 발판: 발밑 공중에 납작한 다크 회오리 고리가 휘감기며 생겨 밟히고 퍼지며 사라진다
@@ -227,11 +236,11 @@ static func blink_trail(art: EArt, from: Vector2, to: Vector2, air: bool) -> voi
 	add(s, from, false)
 	for i in 3:
 		var f := (float(i) + 1.0) / 4.0
-		afterimage(art, 0.16 + 0.05 * float(i), BODY, (to - from) * f)
+		afterimage(art, 0.16 + 0.05 * float(i), VIOLET, (to - from) * f, 0.45)
 
 
 ## 잔상: 에스카의 마지막 그림을 그대로 보랏빛으로
-static func afterimage(art: EArt, life := 0.25, tint := VIOLET, offset := Vector2.ZERO) -> void:
+static func afterimage(art: EArt, life := 0.25, tint := VIOLET, offset := Vector2.ZERO, strength := 1.0) -> void:
 	if art.snap_i.is_empty():
 		return
 	var a := Afterimage.new()
@@ -239,6 +248,7 @@ static func afterimage(art: EArt, life := 0.25, tint := VIOLET, offset := Vector
 	a.idx = art.snap_i
 	a.life = life
 	a.tint = tint
+	a.strength = strength
 	a.z_index = -6 # 이펙트 층(5) 기준 → 캐릭터 뒤
 	a.material = Fx.add_material
 	Fx.effect_parent().add_child(a)
@@ -250,6 +260,7 @@ class Afterimage extends Node2D:
 	var idx := PackedInt32Array()
 	var life := 0.25
 	var tint := VIOLET
+	var strength := 1.0 ## 진하기 (1 = 기본)
 	var t := 0.0
 	var _cols := PackedColorArray()
 	var stretch_dir := 0 ## 0이 아니면: 이 방향으로 가늘고 길게 늘어나며 빨려 들어감 (순간이동 출발)
@@ -273,7 +284,7 @@ class Afterimage extends Node2D:
 	func _draw() -> void:
 		var a := (1.0 - t / life)
 		_cols.resize(v.size())
-		_cols.fill(Color(tint, 0.5 * a * a))
+		_cols.fill(Color(tint, 0.5 * strength * a * a))
 		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, v, _cols)
 
 
