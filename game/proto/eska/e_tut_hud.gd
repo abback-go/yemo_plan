@@ -69,6 +69,7 @@ func bars_to(a: float) -> void:
 
 
 func chapter(title: String, sub := "") -> void:
+	queue_redraw()
 	_chap = title
 	_chap_sub = sub
 	_chap_t = 0.0
@@ -121,6 +122,7 @@ func _process(delta: float) -> void:
 	_chap_t += real
 	_say_t += real
 	_nudge = maxf(_nudge - real * 1.6, 0.0)
+	var was_busy := _busy()
 	if _ptext != "":
 		_p_in = minf(_p_in + real * 4.0, 1.0)
 		if _p_done >= 0.0:
@@ -128,7 +130,13 @@ func _process(delta: float) -> void:
 			if _p_done > 1.0:
 				_ptext = ""
 				_keys = []
-	queue_redraw()
+	if was_busy or _busy():
+		queue_redraw()
+
+
+## 그릴 것이 있나 (없으면 다시 그리지 않음)
+func _busy() -> bool:
+	return _black > 0.0 or _bars > 0.0 or _chap_t < CHAP_LIFE or is_saying() or _ptext != ""
 
 
 func _draw() -> void:
@@ -208,7 +216,7 @@ func _draw_prompt() -> void:
 				parts.append([0, KEY_LABEL[k], kw])
 				w += kw + 3.0
 			else:
-				var lw := _font.get_string_size(k, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+				var lw := _font.get_string_size(k, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 4.0 # 글자 양옆 여백
 				parts.append([1, k, lw])
 				w += lw + 3.0
 		w += 6.0
@@ -220,8 +228,8 @@ func _draw_prompt() -> void:
 	if touching:
 		y = size.y * 0.24 + 34.0 * _bars # 터치: 버튼과 겹치지 않게 위쪽
 	var box := Rect2(x - 12, y - 17, w + 24 + (18.0 if _p_done >= 0.0 else 0.0), 26)
-	var pb := _panel.duplicate() as StyleBoxFlat
-	pb.bg_color.a *= a
+	var pb := _panel # 같은 상자를 색만 바꿔 쓴다 (그리는 순간의 색이 기록됨)
+	pb.bg_color = Color(INK, 0.72 * a)
 	pb.border_color = Color(MAGENTA.lerp(EDGE, _nudge), (0.45 + 0.5 * _nudge) * a)
 	if _p_done >= 0.0:
 		pb.border_color = Color(EDGE, a * (1.0 - minf(_p_done * 2.0, 0.6)))
@@ -230,8 +238,8 @@ func _draw_prompt() -> void:
 	for p: Array in parts:
 		if int(p[0]) == 0:
 			var r := Rect2(cx, y - 13, float(p[2]), 18)
-			var cb := _cap.duplicate() as StyleBoxFlat
-			cb.bg_color.a *= a
+			var cb := _cap
+			cb.bg_color = Color(INK, 0.92 * a)
 			cb.border_color = Color(PALE.lerp(EDGE, _nudge), a)
 			if _p_done >= 0.0:
 				cb.bg_color = Color(MAGENTA, a * maxf(0.0, 1.0 - _p_done * 3.0)).lerp(cb.bg_color, minf(_p_done * 3.0, 1.0))
@@ -239,7 +247,7 @@ func _draw_prompt() -> void:
 			var lw := _font.get_string_size(String(p[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 			draw_string(_font, Vector2(cx + (float(p[2]) - lw) * 0.5, y + 1), String(p[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, a))
 		else:
-			_text(Vector2(cx, y + 1), String(p[1]), 12, Color(VIOLET, a))
+			_text(Vector2(cx + 2.0, y + 1), String(p[1]), 12, Color(VIOLET, a))
 		cx += float(p[2]) + 3.0
 	if not parts.is_empty():
 		cx += 6.0
