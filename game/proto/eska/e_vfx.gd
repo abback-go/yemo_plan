@@ -189,30 +189,49 @@ class AirStep extends PVfx.Base:
 			pd.glow(Vector2.ZERO, 10.0, Color(EDGE, 0.8 * (1.0 - t / 0.1)), 0.0)
 
 
-## 순간이동: 떠난 자리에 공간이 세로로 갈라졌다 닫힘
-static func blink_out(pos: Vector2, dir: int) -> void:
-	var r := Rift.new()
-	r.dir = dir
-	add(r, pos, true)
-	pixels(pos, 8, 120.0, Vector2(-dir, 0), 50.0, 0.25)
+## 순간이동(이동기 — 피해 없음): 몸이 진행 방향으로 가늘고 길게 늘어나며 빨려 들어가듯 사라지고,
+## 떠난 자리엔 검은 틈(마젠타 테두리)이 잠깐 남았다 닫히며, 출발점→도착점에 다크 참격 한 줄이 그어지고 잔상이 남는다
+static func blink_out(art: EArt, pos: Vector2, dir: int) -> void:
+	var tear := Tear.new()
+	add(tear, pos, false)
+	dark_bits(pos, 6, 110.0, Vector2(-dir, 0), 60.0, 0.28, 1)
+	if art.snap_i.is_empty():
+		return
+	var g := Afterimage.new()
+	g.v = art.snap_v
+	g.idx = art.snap_i
+	g.life = 0.12
+	g.tint = EDGE
+	g.stretch_dir = dir
+	g.stretch_c = pos
+	g.z_index = 1
+	g.material = Fx.add_material
+	Fx.effect_parent().add_child(g)
+	g.base_xf = art.snap_xf
+	g.global_transform = art.snap_xf
 
 
+## 도착: 작은 틈에서 튀어나오듯 (몸은 길게 늘어났다 탁 돌아오는 건 EArt.squash가)
 static func blink_in(pos: Vector2, dir: int) -> void:
-	var r := Rift.new()
-	r.dir = dir
-	r.arrive = true
-	add(r, pos, true)
-	pixels(pos, 6, 90.0, Vector2(dir, 0), 60.0, 0.22)
+	var tear := Tear.new()
+	tear.small = true
+	add(tear, pos, false)
+	dark_bits(pos, 4, 90.0, Vector2(dir, 0), 60.0, 0.22)
 
 
-static func blink_trail(from: Vector2, to: Vector2) -> void:
-	var s := Streak.new()
+## 출발점 → 도착점: 다크 참격 한 줄(살짝 휨, 공중이면 더 휨) + 경로 위 잔상 셋. 그림만 — 피해 없음
+static func blink_trail(art: EArt, from: Vector2, to: Vector2, air: bool) -> void:
+	var s := TrailSlash.new()
 	s.to = to - from
-	add(s, from, true)
+	s.bend = (0.14 if air else 0.06) * (-1.0 if randf() < 0.5 else 1.0)
+	add(s, from, false)
+	for i in 3:
+		var f := (float(i) + 1.0) / 4.0
+		afterimage(art, 0.16 + 0.05 * float(i), BODY, (to - from) * f)
 
 
 ## 잔상: 에스카의 마지막 그림을 그대로 보랏빛으로
-static func afterimage(art: EArt, life := 0.25, tint := VIOLET) -> void:
+static func afterimage(art: EArt, life := 0.25, tint := VIOLET, offset := Vector2.ZERO) -> void:
 	if art.snap_i.is_empty():
 		return
 	var a := Afterimage.new()
@@ -223,7 +242,7 @@ static func afterimage(art: EArt, life := 0.25, tint := VIOLET) -> void:
 	a.z_index = -6 # 이펙트 층(5) 기준 → 캐릭터 뒤
 	a.material = Fx.add_material
 	Fx.effect_parent().add_child(a)
-	a.global_transform = art.snap_xf
+	a.global_transform = art.snap_xf.translated(offset)
 
 
 class Afterimage extends Node2D:
@@ -233,12 +252,22 @@ class Afterimage extends Node2D:
 	var tint := VIOLET
 	var t := 0.0
 	var _cols := PackedColorArray()
+	var stretch_dir := 0 ## 0이 아니면: 이 방향으로 가늘고 길게 늘어나며 빨려 들어감 (순간이동 출발)
+	var stretch_c := Vector2.ZERO ## 늘어나는 축의 중심 (전역)
+	var base_xf := Transform2D.IDENTITY
 
 	func _process(delta: float) -> void:
 		t += delta
 		if t >= life:
 			queue_free()
 			return
+		if stretch_dir != 0:
+			var e := 1.0 - pow(1.0 - t / life, 2.0)
+			var sx := lerpf(1.0, 3.2, e)
+			var sy := lerpf(1.0, 0.12, e)
+			var shift := float(stretch_dir) * 26.0 * e
+			var c := stretch_c
+			global_transform = Transform2D(Vector2(sx, 0), Vector2(0, sy), Vector2(c.x + shift - c.x * sx, c.y - c.y * sy)) * base_xf
 		queue_redraw()
 
 	func _draw() -> void:
@@ -460,47 +489,62 @@ class Impacts extends PDraw.Canvas:
 # 순간이동
 # ═══════════════════════════════════════════════════════════
 
-## 세로로 갈라졌다 닫히는 공간의 틈
-class Rift extends PVfx.Base:
-	var dir := 1
-	var arrive := false
+## 찢어진 공간의 틈: 들쭉날쭉한 세로 틈(검은 속 + 마젠타 테두리 + 가운데 흰 금)이 빠르게 벌어졌다 천천히 닫힌다 (보통 섞기)
+class Tear extends PVfx.Base:
+	var small := false
+	var _jl := PackedFloat32Array()
+	var _jr := PackedFloat32Array()
 
 	func _ready() -> void:
-		life = 0.22
-		z_index = 6
+		life = 0.16 if small else 0.3
+		z_index = 4
+		for i in 9:
+			_jl.append(randf_range(0.55, 1.0))
+			_jr.append(randf_range(0.55, 1.0))
+
+	func _shape(h: float, w: float) -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		var n := _jl.size()
+		for i in n:
+			var f := float(i) / float(n - 1)
+			pts.append(Vector2(w * pow(sin(f * PI), 0.8) * _jr[i], lerpf(-h, h, f)))
+		for i in range(n - 1, -1, -1):
+			var f := float(i) / float(n - 1)
+			pts.append(Vector2(-w * pow(sin(f * PI), 0.8) * _jl[i], lerpf(-h, h, f)))
+		return pts
 
 	func _paint() -> void:
 		var x := k()
-		var open := sin(x * PI)
-		var h := 24.0
-		var w := 5.5 * open
-		var pts := PackedVector2Array([Vector2(0, -h), Vector2(w * 0.6, -h * 0.4), Vector2(w, 0), Vector2(w * 0.5, h * 0.5), Vector2(0, h),
-			Vector2(-w * 0.5, h * 0.4), Vector2(-w, 0), Vector2(-w * 0.6, -h * 0.5)])
-		if w > 0.3:
-			pd.draw_colored_polygon(pts, Color(VIOLET, 0.6 * open))
-			pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(0.42, 1.0))
-			pd.draw_colored_polygon(pts, Color(WHITE, 0.95))
-			pd.draw_set_transform(Vector2.ZERO)
-		pd.glow(Vector2.ZERO, 16.0 * open, Color(PALE, 0.35), 0.0)
-		# 가로로 스치는 공간 흔들림 두 줄
-		var sx := float(-dir if not arrive else dir) * (6.0 + 18.0 * x)
-		pd.draw_line(Vector2(sx - 6, -h * 0.3), Vector2(sx + 6, -h * 0.3), Color(PALE, 0.6 * (1.0 - x)), 1.0)
-		pd.draw_line(Vector2(sx * 0.7 - 5, h * 0.25), Vector2(sx * 0.7 + 5, h * 0.25), Color(PALE, 0.5 * (1.0 - x)), 1.0)
+		var open := minf(x / 0.18, 1.0) * (1.0 - pow(clampf((x - 0.18) / 0.82, 0.0, 1.0), 1.5)) # 빠르게 열리고 천천히 닫힘
+		if open <= 0.01:
+			return
+		var h := (15.0 if small else 22.0) * (0.8 + 0.2 * open)
+		var w := (4.0 if small else 7.0) * open
+		pd.glow(Vector2.ZERO, h * 1.1, Color(MAGENTA, 0.25 * open), 0.0)
+		pd.draw_colored_polygon(_shape(h + 2.0, w + 2.2), Color(MAGENTA, 0.9 * open))
+		pd.draw_colored_polygon(_shape(h, w), Color(INK, 0.95))
+		pd.draw_line(Vector2(0, -h * 0.75), Vector2(0, h * 0.75), Color(EDGE, 0.8 * open), 1.0)
 
 
-## 출발점 → 도착점 한 줄 (아주 짧게)
-class Streak extends PVfx.Base:
+## 순간이동 경로의 다크 참격 한 줄 (그림만, 피해 없음): 출발점에서 도착점으로 순식간에 그어지고 꼬리부터 걷힌다
+class TrailSlash extends PVfx.Base:
 	var to := Vector2.ZERO
+	var bend := 0.06
 
 	func _ready() -> void:
-		life = 0.14
+		life = 0.34
 		z_index = 5
 
 	func _paint() -> void:
-		var f := 1.0 - k()
-		pd.line2(Vector2.ZERO, to, Color(VIOLET, 0.0), Color(WHITE, 0.95 * f), 1.0, 3.0 * f)
-		pd.line2(Vector2(0, -6), to + Vector2(0, -6), Color(VIOLET, 0.0), Color(PALE, 0.5 * f), 0.6, 1.2 * f)
-		pd.line2(Vector2(0, 7), to + Vector2(0, 7), Color(VIOLET, 0.0), Color(PALE, 0.4 * f), 0.6, 1.0 * f)
+		var len := to.length()
+		if len < 4.0:
+			return
+		var dv := to / len
+		var grow := 1.0 - pow(1.0 - clampf(t / 0.05, 0.0, 1.0), 2.0)
+		var e := clampf((t - 0.1) / (life - 0.1), 0.0, 1.0)
+		var se := e * e * (3.0 - 2.0 * e)
+		var f0 := 0.9 * se
+		EVfx.feather(pd, Vector2.ZERO, dv, len, bend, 13.0 * (1.0 - 0.5 * se), 1.0 - e * e, f0, maxf(grow, f0 + 0.02))
 
 
 # ═══════════════════════════════════════════════════════════

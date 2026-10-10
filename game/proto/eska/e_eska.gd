@@ -31,7 +31,7 @@ const FAST_FALL_MAX := 440.0 ## 공중에서 ↓를 누르고 있으면
 const COMBO_WINDOW := 1.6 ## 이 시간 안에 다시 맞히면 연타 수가 이어진다
 
 # 순간이동
-const BLINK_DIST := 76.0 ## 약 4.75타일
+const BLINK_DIST := 100.0 ## 약 6타일
 const BLINK_GONE := 0.07 ## 사라져 있는 시간
 const BLINK_CD := 0.26
 
@@ -450,9 +450,8 @@ func _start_blink(dir_x: float) -> void:
 	st = St.BLINK
 	st_t = 0.0
 	invuln = BLINK_GONE + 0.08
-	EVfx.afterimage(art, 0.3)
-	EVfx.blink_out(center(), d)
-	EVfx.blink_trail(center(), _blink_to + Vector2(0, -SIZE.y * 0.55))
+	EVfx.blink_out(art, center(), d)
+	EVfx.blink_trail(art, center(), _blink_to + Vector2(0, -SIZE.y * 0.55), not is_on_floor())
 	art.visible = false
 	velocity = Vector2.ZERO
 	Sfx.play_pitch(&"dash", 1.25, -4.0)
@@ -469,7 +468,8 @@ func _blink(_delta: float) -> void:
 		velocity.x = _blink_dir * RUN_SPEED
 		velocity.y = 0.0
 		EVfx.blink_in(center(), _blink_dir)
-		art.squash(Vector2(1.18, 0.86))
+		art.squash(Vector2(1.9, 0.5)) # 길게 늘어난 채 나타났다가 탁 돌아온다
+		PVfx.kick(Vector2(_blink_dir * 3.0, 0))
 
 
 # ═══════════════════════════════════════════════════════════

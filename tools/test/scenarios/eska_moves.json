@@ -7,7 +7,7 @@
 [90, "tap", "es_attack"], [95, "shot", "e06_hit4"], [104, "shot", "e07_hit4_crack"],
 [110, "eval", "dummy.hp"],
 [130, "tap", "es_blink"], [132, "shot", "e08_blink"], [140, "shot", "e09_blink_after"],
-[150, "press", "es_left"], [151, "release", "es_left"],
+[145, "eval", "eska.set('global_position', Vector2(620, 300))"], [150, "press", "es_left"], [151, "release", "es_left"],
 [160, "tap", "es_skill"], [168, "shot", "e10_cheonyeol_a"], [176, "shot", "e11_cheonyeol_b"],
 [200, "press", "es_up"], [201, "tap", "es_skill"], [205, "release", "es_up"], [210, "shot", "e12_dangong_a"], [224, "shot", "e13_dangong_b"],
 [260, "tap", "es_bind"], [270, "shot", "e14_bind_a"], [320, "shot", "e15_bind_hold"],
