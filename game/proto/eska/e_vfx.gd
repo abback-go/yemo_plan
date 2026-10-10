@@ -3,7 +3,7 @@ extends RefCounted
 ## 에스카 이펙트 v2 (전부 코드 그림, 수명이 끝나면 스스로 사라짐).
 ## 색 언어: 흰 중심(갈라진 공간 너머의 공허) + 보라 몸통 + 짙은 남보라 번짐. 꼬리는 투명 → 머리는 흰빛(그라데이션 띠).
 ## 참격 레퍼런스 = 던전슬래셔 기본공격(캐릭터보다 몇 배 큰 초승달, 들쭉날쭉한 가장자리, 얇은 궤적선, 네모 픽셀 불티, 맞은 자리의 흰 금),
-## 천열 = 백목련(부채처럼 펼쳐지는 수십 칼날), 단공 = 단혼파(공간 한 구역을 세로 참격이 찢음),
+## 천열 = 백목련(초승달 참격 여러 장이 부채처럼 흩어져 날아감), 단공 = 단혼파(공간 한 구역을 초승달 참격이 위로 베어 올림),
 ## 종언참 = 폭풍 속 거대 검(세상이 어두워지고 사방 참격선 → 하늘의 칼날이 화면을 세로로 가름).
 ## 성능: 이펙트 하나 = 노드 하나 = 그리기 호출 하나(PDraw 묶음). 입자는 PParticles 한 노드, 유리 파편은 Shards 한 노드.
 
@@ -65,6 +65,34 @@ static func feather(pd: PDraw, p0: Vector2, dir: Vector2, len: float, bend: floa
 	curve_blade(pd, p0, dir, len, bend, w * 1.9, Color(DEEP, 0.0), Color(DEEP, 0.55 * a), f0, f1)
 	curve_blade(pd, p0, dir, len, bend, w, Color(VIOLET, 0.1 * a), Color(VIOLET, 0.95 * a), f0, f1)
 	curve_blade(pd, p0, dir, len, bend, w * 0.45, Color(PALE, 0.0), Color(WHITE, a), f0, f1)
+
+
+## 초승달 참격 한 장: 볼록한 앞날(꼭짓점 c)이 dir을 향한다. r = 호의 반지름, half = 양쪽으로 벌어진 각(라디안), w = 가운데 두께.
+## 겹: 짙은 번짐 → 보라 몸통 → 앞날의 흰 심(공간이 갈라진 틈). 양 끝은 뾰족하다.
+static func crescent(pd: PDraw, c: Vector2, dir: Vector2, r: float, half: float, w: float, a: float, seg := 14) -> void:
+	if a <= 0.01 or w < 0.3:
+		return
+	var o := c - dir * r
+	var base := dir.angle()
+	for layer: Array in [[1.0, 1.9, Color(DEEP, 0.5 * a)], [1.0, 1.0, Color(VIOLET, 0.9 * a)], [1.0, 0.38, Color(WHITE, a)]]:
+		var lw: float = w * float(layer[1])
+		var rr := r + (lw - w) * 0.35 # 번짐은 앞으로 살짝 더 나온다
+		var outer := PackedVector2Array()
+		var inner := PackedVector2Array()
+		for i in seg + 1:
+			var f := float(i) / float(seg)
+			var ang := base + lerpf(-half, half, f)
+			var d := Vector2(cos(ang), sin(ang))
+			var thick := lw * pow(sin(f * PI), 0.85)
+			outer.append(o + d * rr)
+			inner.append(o + d * (rr - thick))
+		pd.strip(outer, inner, layer[2])
+
+
+## 초승달의 앞날·양 끝 (맞았는지 볼 때)
+static func crescent_points(c: Vector2, dir: Vector2, r: float, half: float) -> Array[Vector2]:
+	var o := c - dir * r
+	return [c, o + dir.rotated(half * 0.55) * r, o + dir.rotated(-half * 0.55) * r, o + dir.rotated(half) * r, o + dir.rotated(-half) * r]
 
 
 ## 네모 픽셀 불티 (흰색 → 보라로 사라짐)
@@ -407,63 +435,70 @@ class Streak extends PVfx.Base:
 
 
 # ═══════════════════════════════════════════════════════════
-# 천열 — 손가락을 튕기면 수십 칼날이 부채처럼 펼쳐진다
+# 천열 — 손가락을 튕기면 초승달 참격 여러 장이 부채처럼 흩어져 날아간다 (백목련)
 # ═══════════════════════════════════════════════════════════
 
 class Fan extends PVfx.Base:
-	const N := 18
-	const SPREAD := 50.0 ## 위아래 각도(도)
-	const LEN := 150.0
-	const GAP := 0.01 ## 칼날 사이 시간
-	const DMG := 14
+	const N := 14
+	const SPREAD := 38.0 ## 위아래 각도(도)
+	const GAP := 0.022 ## 참격 사이 시간
+	const FLY := 0.36 ## 한 장이 날아가는 시간
+	const DMG := 16
 	var eska: EEska
 	var dir := 1
 	var _ang := PackedFloat32Array()
-	var _len := PackedFloat32Array()
-	var _bend := PackedFloat32Array()
+	var _spd := PackedFloat32Array()
+	var _r := PackedFloat32Array()
+	var _half := PackedFloat32Array()
 	var _w := PackedFloat32Array()
-	var _fired := PackedByteArray()
+	var _hit: Array = [] ## 장마다 이미 벤 허수아비 (한 장은 한 번만)
 	var _hits := 0
 
 	func _ready() -> void:
-		life = N * GAP + 0.32
+		life = N * GAP + FLY + 0.02
 		z_index = 6
 		var order := range(N)
 		order.shuffle()
 		for i in N:
 			var f := float(order[i]) / float(N - 1)
-			_ang.append(deg_to_rad(lerpf(-SPREAD, SPREAD, f) + randf_range(-2.5, 2.5)))
-			_len.append(LEN * randf_range(0.72, 1.12))
-			# 모든 깃이 같은 쪽으로 휘어 부채(날개)처럼 겹친다 — 백목련
-			_bend.append(randf_range(0.22, 0.36) * float(dir))
-			_w.append(randf_range(7.0, 11.0))
-			_fired.append(0)
+			_ang.append(deg_to_rad(lerpf(-SPREAD, SPREAD, f) + randf_range(-3.0, 3.0)))
+			_spd.append(randf_range(560.0, 700.0))
+			_r.append(randf_range(24.0, 36.0))
+			_half.append(deg_to_rad(randf_range(58.0, 72.0)))
+			_w.append(randf_range(6.0, 9.0))
+			_hit.append({})
 		EVfx.pixels(position, 10, 90.0, Vector2(dir, 0), 90.0, 0.22)
-
-	func _tick(_delta: float) -> void:
-		for i in N:
-			if _fired[i] == 0 and t >= float(i) * GAP:
-				_fired[i] = 1
-				_blade_hit(i)
 
 	func _dirv(i: int) -> Vector2:
 		return Vector2(cos(_ang[i]) * dir, sin(_ang[i]))
 
-	func _blade_hit(i: int) -> void:
+	## 나간 지 age초 뒤 앞날 위치 (처음엔 빠르고 끝에서 살짝 느려진다)
+	func _pos(i: int, age: float) -> Vector2:
+		var k := clampf(age / FLY, 0.0, 1.0)
+		return _dirv(i) * _spd[i] * FLY * (k - 0.3 * k * k)
+
+	func _tick(_delta: float) -> void:
 		if not is_instance_valid(eska):
 			return
-		var dv := _dirv(i)
-		for d: PDummy in PDummy.all(get_tree()):
-			var rect := d.hit_rect().grow(4.0)
-			for s in 12:
-				var p := EVfx.curve_point(global_position, dv, _len[i], _bend[i], float(s) / 11.0)
-				if rect.has_point(p):
-					eska.deal(d, DMG, false, global_position)
-					_hits += 1
-					if _hits == 1:
-						Fx.hitstop(0.03)
-						Fx.shake(0.12, 0.1)
-					break
+		for i in N:
+			var age := t - float(i) * GAP
+			if age < 0.0 or age > FLY:
+				continue
+			var dv := _dirv(i)
+			var pts := EVfx.crescent_points(global_position + _pos(i, age), dv, _r[i], _half[i])
+			for d: PDummy in PDummy.all(get_tree()):
+				if (_hit[i] as Dictionary).has(d.get_instance_id()):
+					continue
+				var rect := d.hit_rect().grow(2.0)
+				for p: Vector2 in pts:
+					if rect.has_point(p):
+						(_hit[i] as Dictionary)[d.get_instance_id()] = true
+						eska.deal(d, DMG, false, global_position)
+						_hits += 1
+						if _hits == 1:
+							Fx.hitstop(0.03)
+							Fx.shake(0.12, 0.1)
+						break
 
 	func _paint() -> void:
 		# 손끝 튕김 고리
@@ -476,20 +511,24 @@ class Fan extends PVfx.Base:
 			pd.draw_set_transform(Vector2.ZERO)
 		for i in N:
 			var age := t - float(i) * GAP
-			if age < 0.0:
+			if age < 0.0 or age > FLY:
 				continue
-			var grow := 1.0 - pow(1.0 - clampf(age / 0.06, 0.0, 1.0), 3.0)
-			var fade := 1.0 - clampf((age - 0.08) / 0.22, 0.0, 1.0)
-			if fade <= 0.0:
-				continue
-			var f0 := 0.08 + 0.6 * (1.0 - fade) # 사라질 때 뿌리부터 걷힌다
-			EVfx.feather(pd, Vector2.ZERO, _dirv(i), _len[i], _bend[i], _w[i] * lerpf(0.6, 1.0, fade), fade, f0, maxf(grow, f0 + 0.02))
-			if grow < 1.0:
-				pd.glow(EVfx.curve_point(Vector2.ZERO, _dirv(i), _len[i], _bend[i], grow), 6.0, Color(WHITE, 0.85), 0.0)
+			var k := age / FLY
+			var grow := 0.45 + 0.55 * (1.0 - pow(1.0 - clampf(age / 0.06, 0.0, 1.0), 3.0)) # 손끝에서 작게 나와 커진다
+			var a := 1.0 - clampf((k - 0.6) / 0.4, 0.0, 1.0)
+			var dv := _dirv(i)
+			var p := _pos(i, age)
+			# 잔상 두 장 (지나온 자리에 희미하게)
+			for g in 2:
+				var gp := _pos(i, maxf(age - 0.022 * float(g + 1), 0.0))
+				EVfx.crescent(pd, gp, dv, _r[i] * grow, _half[i], _w[i] * grow * 0.7, a * (0.22 - 0.08 * float(g)), 10)
+			EVfx.crescent(pd, p, dv, _r[i] * grow, _half[i], _w[i] * grow, a)
+			if age < 0.05:
+				pd.glow(p, 7.0, Color(WHITE, 0.8), 0.0)
 
 
 # ═══════════════════════════════════════════════════════════
-# 단공 — 위쪽 공간 한 구역을 세로 참격이 갈가리 찢는다 (지상·공중)
+# 단공 — 위쪽 공간 한 구역을 초승달 참격이 잇달아 베어 올린다 (지상·공중)
 # ═══════════════════════════════════════════════════════════
 
 class Storm extends PVfx.Base:
@@ -498,7 +537,7 @@ class Storm extends PVfx.Base:
 	const FINAL_DMG := 36
 	var eska: EEska
 	var area := Rect2() ## 전역 좌표
-	var _streaks: Array = [] ## [시작 시각, 점들, 굵기]
+	var _streaks: Array = [] ## 초승달 한 장: [나온 시각, 출발점, 방향, 속도, 반지름, 벌어진 각, 두께]
 	var _next := 0.0
 	var _ticks := 0
 	var _final := false
@@ -508,15 +547,13 @@ class Storm extends PVfx.Base:
 		z_index = 6
 
 	func _tick(_delta: float) -> void:
-		# 아래에서 위로 휘어 올라가는 참격 (단혼파처럼 공간을 세로로 찢는 곡선 칼날들)
-		while _next <= t and t < 0.46:
-			_next += 0.016
-			var x := randf_range(area.position.x + 6.0, area.end.x - 6.0)
-			var p0 := Vector2(x, area.end.y - area.size.y * randf_range(0.0, 0.25))
-			var dv := Vector2.UP.rotated(randf_range(-0.32, 0.32))
-			var len := area.size.y * randf_range(0.6, 0.95)
-			var bend := randf_range(0.15, 0.32) * (-1.0 if randf() < 0.5 else 1.0)
-			_streaks.append([t, p0, dv, len, bend, randf_range(5.0, 9.0)])
+		# 아래에서 위로 초승달 참격이 잇달아 솟구친다 (단혼파처럼 공간 한 구역을 위로 베어 올림)
+		while _next <= t and t < 0.44:
+			_next += 0.026
+			var x := randf_range(area.position.x + 10.0, area.end.x - 10.0)
+			var p0 := Vector2(x, area.end.y - randf_range(0.0, 14.0))
+			var dv := Vector2.UP.rotated(randf_range(-0.3, 0.3))
+			_streaks.append([t, p0, dv, randf_range(620.0, 760.0), randf_range(20.0, 30.0), deg_to_rad(randf_range(58.0, 70.0)), randf_range(5.0, 8.0)])
 		if not is_instance_valid(eska):
 			return
 		if _ticks < TICKS and t >= 0.04 + float(_ticks) * 0.052:
@@ -553,19 +590,24 @@ class Storm extends PVfx.Base:
 			pd.draw_rect(Rect2(area.get_center().x - area.size.x * 0.5 * (1.0 - of), area.position.y, area.size.x * (1.0 - of), area.size.y), Color(WHITE, 0.25 * of))
 		for s: Array in _streaks:
 			var age: float = t - float(s[0])
-			if age > 0.2:
+			if age > 0.22:
 				continue
-			var grow := 1.0 - pow(1.0 - clampf(age / 0.05, 0.0, 1.0), 2.0)
-			var f := 1.0 - clampf((age - 0.05) / 0.15, 0.0, 1.0)
-			EVfx.feather(pd, s[1], s[2], float(s[3]), float(s[4]), float(s[5]) * lerpf(0.5, 1.0, f), f, 0.6 * (1.0 - f), maxf(grow, 0.62 * (1.0 - f) + 0.02))
+			var dv: Vector2 = s[2]
+			var p: Vector2 = s[1] + dv * float(s[3]) * age
+			var grow := 0.5 + 0.5 * (1.0 - pow(1.0 - clampf(age / 0.05, 0.0, 1.0), 2.0))
+			var a := 1.0 - clampf((age - 0.12) / 0.1, 0.0, 1.0)
+			EVfx.crescent(pd, p - dv * 14.0, dv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow * 0.7, a * 0.2, 10) # 잔상
+			EVfx.crescent(pd, p, dv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow, a)
 		if _final:
-			# 마지막: 구역을 X자로 가르는 두 줄
-			var ff := 1.0 - clampf((t - 0.5) / 0.2, 0.0, 1.0)
+			# 마지막: 구역 전체 폭의 큰 초승달 두 장이 엇갈려 솟구친다
+			var age := t - 0.5
+			var ff := 1.0 - clampf(age / 0.2, 0.0, 1.0)
 			if ff > 0.0:
-				var a := area.position
-				var b := area.end
-				pd.line2(Vector2(a.x, a.y), Vector2(b.x, b.y), Color(WHITE, ff), Color(PALE, ff), 6.0 * ff, 1.0)
-				pd.line2(Vector2(b.x, a.y), Vector2(a.x, b.y), Color(WHITE, ff), Color(PALE, ff), 6.0 * ff, 1.0)
+				var bottom := Vector2(area.get_center().x, area.end.y)
+				for side: float in [-1.0, 1.0]:
+					var dv := Vector2.UP.rotated(0.16 * side)
+					var p := bottom + dv * lerpf(20.0, area.size.y + 20.0, 1.0 - pow(1.0 - clampf(age / 0.18, 0.0, 1.0), 2.0))
+					EVfx.crescent(pd, p, dv, area.size.x * 0.5, deg_to_rad(66.0), 13.0 * ff, ff, 18)
 				pd.glow(area.get_center(), area.size.x * 0.7, Color(PALE, 0.35 * ff), 0.0)
 
 
