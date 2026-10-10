@@ -1,6 +1,6 @@
 {"scene": "res://proto/eska/eska_arena.tscn", "steps": [
 [20, "shot", "e01_idle"],
-[25, "press", "es_right"], [40, "shot", "e02_run"], [45, "release", "es_right"],
+[25, "press", "es_right"], [33, "shot", "e02_run"], [36, "release", "es_right"],
 [60, "tap", "es_attack"], [63, "shot", "e03_hit1"],
 [70, "tap", "es_attack"], [74, "shot", "e04_hit2"],
 [80, "tap", "es_attack"], [84, "shot", "e05_hit3"],
@@ -19,5 +19,6 @@
 [620, "touch", 1, 586, 306], [622, "shot", "e24_touch_attack"], [626, "untouch", 1, 586, 306],
 [630, "touch", 0, 115, 276], [645, "shot", "e25_touch_pad"], [646, "eval", "touch.pad_state()"], [647, "drag", 0, 106, 254], [648, "eval", "touch.pad_state()"], [650, "untouch", 0, 106, 254],
 [660, "touch", 0, 84, 245], [662, "touch", 1, 584, 234], [664, "shot", "e26_touch_up_skill"], [666, "untouch", 1, 584, 234], [668, "untouch", 0, 84, 245],
-[700, "quit"]
+[700, "press", "es_jump"], [708, "release", "es_jump"], [712, "press", "es_jump"], [715, "shot", "e27_double_jump"], [718, "release", "es_jump"], [722, "eval", "eska.global_position.y"], [740, "press", "es_left"], [756, "shot", "e28_glide"], [760, "release", "es_left"],
+[780, "quit"]
 ]}

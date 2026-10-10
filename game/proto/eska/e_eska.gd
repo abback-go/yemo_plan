@@ -1,7 +1,7 @@
 class_name EEska
 extends CharacterBody2D
 ## 에스카(종언의 마녀) 전투 시제품. 기획: Claude 문서 "새 컨셉: 종언의 마녀" 탭.
-## 조작: 이동 · 점프(1단) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능 — 팔을 휘두르지 않고 가리키기·튕기기 같은 가벼운 손짓, 제자리에서)
+## 조작: 이동(떠서 활주) · 점프 + 이단점프(공중에서 한 번) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능 — 팔을 휘두르지 않고 가리키기·튕기기 같은 가벼운 손짓, 제자리에서)
 ##       · 스킬 키: 그냥 = 천열(손가락을 튕기면 앞으로 거대한 참격 열 번) / ↑ = 단공(머리 위를 납작한 회오리 참격으로 연달아 휘감음)
 ##       · 봉공(공간 틀에 가둠) · 종언참(필살기). 스킬은 쿨다운만 쓴다.
 ## 공격 판정은 물리 없이 PDummy.hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
@@ -11,10 +11,10 @@ enum St { NORMAL, ATTACK, BLINK, CAST, ULT }
 const GROUP := &"e_eska"
 const SIZE := Vector2(10, 30)
 
-# 이동 (세라 시제품과 같은 감각에서 출발)
-const RUN_SPEED := 150.0
-const RUN_ACCEL := 2400.0
-const RUN_DECEL := 3000.0
+# 이동: 땅 위를 살짝 떠서 미끄러지듯 활주 (상체를 숙이고 빠르게)
+const RUN_SPEED := 210.0
+const RUN_ACCEL := 2800.0
+const RUN_DECEL := 3200.0
 const AIR_ACCEL := 1900.0
 const GRAVITY := 1350.0
 const FALL_MAX := 330.0
@@ -25,6 +25,7 @@ const JUMP_CUT := 0.45
 const APEX_HANG := 0.55
 const COYOTE := 0.09
 const JUMP_BUFFER := 0.12
+const AIR_JUMP_SPEED := 345.0 ## 이단점프: 공중의 공간을 밟고 한 번 더 도약 (착지 전까지 1번)
 const ATTACK_BUFFER := 0.14
 const FAST_FALL_MAX := 440.0 ## 공중에서 ↓를 누르고 있으면
 const COMBO_WINDOW := 1.6 ## 이 시간 안에 다시 맞히면 연타 수가 이어진다
@@ -67,6 +68,8 @@ var _queued := false
 var _chain_next := 0
 var _chain_t := 0.0
 var _air_hang := true ## 공중 연격으로 떠 있기 (착지 전까지 연격 한 바퀴)
+var _air_jump := true ## 이단점프 남았는지 (착지하면 다시)
+var _ghost_t := 0.0 ## 활주 잔상 간격
 
 var _air_blink := true
 var _blink_cd := 0.0
@@ -164,6 +167,7 @@ func _physics_process(delta: float) -> void:
 	if on_floor:
 		_air_blink = true
 		_air_hang = true
+		_air_jump = true
 		if not _was_floor:
 			EVfx.land_dust(global_position)
 			Sfx.play(&"land", -14.0)
@@ -185,16 +189,22 @@ func _gravity(delta: float, mult := 1.0) -> void:
 	velocity.y = minf(velocity.y + g * delta, cap)
 
 
-## 달리기 먼지 · 방향 바꿀 때 미끄러지는 먼지
+## 활주: 발밑에 낮게 깔리는 보랏빛 바람 · 뒤로 흐르는 속도선 · 짧은 잔상 / 방향 바꿀 때 미끄러지는 먼지
 func _ground_fx(delta: float) -> void:
+	var vx := velocity.x
+	var fast := absf(vx) > 150.0 and st == St.NORMAL
+	if fast:
+		_ghost_t -= delta
+		if _ghost_t <= 0.0:
+			_ghost_t = 0.09
+			EVfx.afterimage(art, 0.16, EVfx.BODY)
 	if not is_on_floor() or st == St.BLINK:
 		return
-	var vx := velocity.x
 	if absf(vx) > 110.0:
 		_dust_t -= delta
 		if _dust_t <= 0.0:
-			_dust_t = 0.16
-			PVfx.dust(global_position + Vector2(-signf(vx) * 3.0, 0), 2, 0.6, 10.0)
+			_dust_t = 0.045
+			EVfx.glide_wake(global_position, signf(vx), absf(vx) / RUN_SPEED)
 	var d := int(signf(Input.get_axis("es_left", "es_right")))
 	if d != 0 and d != _last_dir and absf(vx) > 90.0 and st == St.NORMAL:
 		PVfx.dust(global_position + Vector2(-d * 2.0, 0), 4, 1.2, 16.0)
@@ -227,11 +237,29 @@ func _normal(delta: float, dir_x: float) -> void:
 		if is_on_floor():
 			PVfx.dust(global_position, 4, 1.0, 14.0)
 		Sfx.play(&"jump", -6.0)
+	elif _jump_buf > 0.0 and _air_jump and not is_on_floor():
+		_double_jump(dir_x)
 	if not Input.is_action_pressed("es_jump") and velocity.y < 0.0 and _jump_hold > 0.0:
 		velocity.y *= JUMP_CUT
 		_jump_hold = 0.0
 	_gravity(delta)
 	_try_actions(dir_x)
+
+
+## 이단점프: 발밑 공중에 다크 회오리 고리가 생겨 그것을 밟고 도약, 몸이 한 바퀴 돈다. 누른 방향으로 바로 꺾는다
+func _double_jump(dir_x: float) -> void:
+	_jump_buf = 0.0
+	_air_jump = false
+	velocity.y = -AIR_JUMP_SPEED
+	_jump_hold = JUMP_HOLD_TIME * 0.8
+	if absf(dir_x) > 0.01:
+		velocity.x = signf(dir_x) * RUN_SPEED
+		facing = 1 if dir_x > 0.0 else -1
+	art.spin()
+	art.squash(Vector2(0.84, 1.18))
+	EVfx.air_step(global_position)
+	Sfx.play_pitch(&"jump", 1.3, -4.0)
+	Sfx.play_pitch(&"whoosh", 1.4, -10.0)
 
 
 ## 순간이동·스킬·공격 시작 (상태가 바뀌면 true)
@@ -315,8 +343,8 @@ func _attack(delta: float, dir_x: float) -> void:
 	if _atk_buf > 0.0:
 		_atk_buf = 0.0
 		_queued = true
-	# 판정 뒤에는 점프로 끊을 수 있다 (땅에서)
-	if _hit_done and _jump_buf > 0.0 and is_on_floor():
+	# 판정 뒤에는 점프로 끊을 수 있다 (땅에서는 점프, 공중에서는 이단점프)
+	if _hit_done and _jump_buf > 0.0 and (is_on_floor() or _air_jump):
 		st = St.NORMAL
 		_normal(delta, dir_x)
 		return

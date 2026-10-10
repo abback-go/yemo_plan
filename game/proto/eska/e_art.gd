@@ -52,6 +52,8 @@ var _step := 0.0 ## 달리기 걸음 위상
 var _was_floor := true
 var _prev_vy := 0.0
 var _snap_flash := 0.0 ## 천열 손끝 튕김 섬광
+var _spin := 1.0 ## 이단점프 한 바퀴 (0 → 1)
+var _glide := 0.0 ## 활주 정도 (0 = 서 있음, 1 = 최고 속도로 떠서 미끄러짐)
 var _hair: Chain
 var _lock: Chain ## 앞쪽 옆머리
 var _sleeve: Chain
@@ -159,6 +161,11 @@ func snap_flash() -> void:
 	_snap_flash = 1.0
 
 
+## 이단점프: 몸 가운데를 축으로 한 바퀴
+func spin() -> void:
+	_spin = 0.0
+
+
 # ═══════════════════════════════════════════════════════════
 # 한 프레임
 # ═══════════════════════════════════════════════════════════
@@ -188,21 +195,25 @@ func tick(delta: float) -> void:
 		EEska.St.CAST:
 			lean_want = -0.06 if body.cast_kind == "dangong" else 0.1
 		EEska.St.NORMAL:
-			lean_want = clampf(vx * float(body.facing) / EEska.RUN_SPEED, -1.0, 1.0) * 0.09 if on_floor else 0.0
+			# 활주할수록 상체(몸 전체)를 앞으로 크게 숙인다, 공중에서도 조금
+			lean_want = clampf(vx * float(body.facing) / EEska.RUN_SPEED, -1.0, 1.0) * (0.34 if on_floor else 0.14)
 	_lean_v += (lean_want - _lean) * 260.0 * dt - _lean_v * 18.0 * dt
 	_lean += _lean_v * dt
 	_tip_v += (-_tip * 140.0 - _tip_v * 6.0 - vx * float(body.facing) * 0.02 + vy * 0.006) * dt
 	_tip += _tip_v * dt
+	var glide_want := clampf(absf(vx) / EEska.RUN_SPEED, 0.0, 1.0) if on_floor and body.st == EEska.St.NORMAL else 0.0
+	_glide = lerpf(_glide, glide_want, 1.0 - exp(-dt * 10.0))
 	var flare_want := 0.0
 	if not on_floor:
 		flare_want = clampf(-vy / 300.0, -1.0, 1.0) * -1.6 + 0.6
 	elif absf(vx) > 20.0:
-		flare_want = 0.8
+		flare_want = 0.8 + 1.4 * _glide # 활주하면 치맛자락이 뒤로 길게 날림
 	if body.st == EEska.St.ULT:
 		flare_want = 2.6
 	_flare_v += (flare_want - _flare) * 160.0 * dt - _flare_v * 12.0 * dt
 	_flare += _flare_v * dt
 	var lift_want := 3.0 + sin(_t * 3.0) if body.st == EEska.St.ULT else 0.0
+	lift_want = maxf(lift_want, _glide * (3.5 + 0.8 * sin(_t * 9.0))) # 활주: 발이 땅에서 살짝 떠 있다
 	_lift = lerpf(_lift, lift_want, 1.0 - exp(-dt * 8.0))
 	if on_floor and absf(vx) > 20.0:
 		_step += dt * absf(vx) / 9.0
@@ -213,12 +224,17 @@ func tick(delta: float) -> void:
 	if body.st in [EEska.St.ATTACK, EEska.St.CAST, EEska.St.ULT]:
 		_hand_glow = 1.0
 	_snap_flash = maxf(_snap_flash - dt * 7.0, 0.0)
+	_spin = minf(_spin + delta / 0.34, 1.0)
 	scale = Vector2(float(body.facing) * _sq.x, _sq.y)
-	rotation = _lean * float(body.facing)
-	position = Vector2(0, -_lift)
+	# 이단점프 한 바퀴: 몸 가운데(발에서 18px 위)를 축으로 앞으로 돈다 (처음 빠르게, 끝에 느리게)
+	var spin_a := TAU * (1.0 - pow(1.0 - _spin, 3.0)) if _spin < 1.0 else 0.0
+	rotation = (_lean + spin_a) * float(body.facing)
+	# 숙이기는 발을 축으로, 한 바퀴는 몸 가운데를 축으로
+	var pivot := Vector2(0, -18.0 * _sq.y)
+	position = Vector2(0, -_lift) + pivot.rotated(_lean * float(body.facing)) - pivot.rotated(rotation)
 	# 흔들리는 줄
-	var grav := Vector2(0, 460)
-	var stiff := 0.11
+	var grav := Vector2(0, 460) + Vector2(-float(body.facing) * 520.0 * _glide, -80.0 * _glide)
+	var stiff := 0.11 - 0.05 * _glide
 	if body.st == EEska.St.ULT:
 		grav = Vector2(0, -160) # 떠오르는 힘에 머리카락이 위로 흩날림
 		stiff = 0.02
@@ -227,8 +243,9 @@ func tick(delta: float) -> void:
 	_lock.step(to_global(Vector2(2.6, -29.5 + bob)), _to_g(_lock_rest()), grav, dt, 0.86, 0.12)
 	var sh := Vector2(1.5, -23.5 + bob)
 	var el := sh.lerp(_hand, 0.5)
-	_sleeve.step(to_global(el), _to_g(_sleeve_rest(el)), Vector2(0, 300), dt, 0.86, 0.08)
-	_sleeve_b.step(to_global(Vector2(-1.8, -22.5 + bob)), _to_g(_sleeve_rest(Vector2(-1.8, -22.5))), Vector2(0, 300), dt, 0.86, 0.08)
+	var sleeve_g := Vector2(-float(body.facing) * 380.0 * _glide, 300.0 - 120.0 * _glide)
+	_sleeve.step(to_global(el), _to_g(_sleeve_rest(el)), sleeve_g, dt, 0.86, 0.08)
+	_sleeve_b.step(to_global(Vector2(-1.8, -22.5 + bob)), _to_g(_sleeve_rest(Vector2(-1.8, -22.5))), sleeve_g, dt, 0.86, 0.08)
 	# 눈빛 꼬리 (빠를 때만)
 	var fast := absf(vx) > 170.0 or body.st == EEska.St.ATTACK or body.st == EEska.St.ULT
 	if fast:
@@ -241,6 +258,8 @@ func tick(delta: float) -> void:
 
 
 func _bob() -> float:
+	if _glide > 0.3:
+		return 0.0 # 떠서 미끄러지는 중엔 걸음 출렁임 없음 (높이 출렁임은 _lift가)
 	if body.is_on_floor() and absf(body.velocity.x) > 20.0:
 		return -absf(sin(_step)) * 1.2
 	if body.is_on_floor() and body.st == EEska.St.NORMAL:
@@ -348,7 +367,7 @@ func _paint() -> void:
 	var fl := _flare
 	var back := -8.6 - fl * 1.5
 	var front := 6.6 + fl * 0.6
-	var stride := sin(_step) * (1.6 if run else 0.0)
+	var stride := sin(_step) * (1.6 if run else 0.0) * (1.0 - _glide)
 	var waist := -16.0 + bob
 	# 안감 (뒤쪽으로 비침)
 	pd.draw_colored_polygon(PackedVector2Array([Vector2(-2.5, waist + 1), Vector2(back + 0.2, -2.0 - fl * 0.6), Vector2(back + 3.4, -0.8), Vector2(-0.6, waist + 4)]), LINING)
@@ -371,7 +390,8 @@ func _paint() -> void:
 	pd.draw_line(Vector2(-0.4, waist + 3.0), Vector2(-0.8 - fl * 0.2, -3.0), CLOTH_SH, 1.0)
 	# 높은 트임 사이 다리 (달리면 앞뒤로)
 	var hip := Vector2(2.2, waist + 3.0)
-	var foot := Vector2(3.6 + stride * 1.6 + (1.4 if air else 0.0), -1.0 - (2.0 if air else maxf(0.0, -sin(_step)) * 1.4))
+	var foot := Vector2(3.6 + stride * 1.6 + (1.4 if air else 0.0), -1.0 - (2.0 if air else maxf(0.0, -sin(_step)) * 1.4 * (1.0 - _glide)))
+	foot = foot.lerp(Vector2(-1.2, -2.6), _glide) # 활주: 발끝을 뒤로 모아 끈다
 	pd.draw_line(hip, foot, SKIN_SH, 1.6)
 	pd.draw_line(hip + Vector2(0.4, 0), foot + Vector2(0.4, -1.2), SKIN, 0.8)
 	pd.draw_colored_polygon(PackedVector2Array([foot + Vector2(-1.4, -1.0), foot + Vector2(1.8, -0.4), foot + Vector2(2.2, 0.8), foot + Vector2(-1.2, 0.8)]), OUT) # 검은 구두

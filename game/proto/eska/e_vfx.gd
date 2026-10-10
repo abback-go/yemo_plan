@@ -155,6 +155,40 @@ static func land_dust(pos: Vector2) -> void:
 	PVfx.dust(pos, 5, 1.4, 12.0)
 
 
+## 활주 자취: 발밑에 낮게 깔리는 보랏빛 바람(보통 섞기) + 몸 높이에서 뒤로 흐르는 가는 속도선(가산). k = 속도 비율
+static func glide_wake(pos: Vector2, dir: float, k: float) -> void:
+	var pp := PParticles.get_layer(false)
+	pp.spawn(pos + Vector2(-dir * randf_range(2.0, 8.0), -randf_range(1.0, 4.0)), Vector2(-dir * randf_range(30.0, 70.0), -randf_range(4.0, 16.0)),
+		Vector2.ZERO, randf_range(0.28, 0.42), randf_range(3.0, 5.0), Color(PLUM, 0.45 * k), Color(INK, 0.0), 2, 3.0)
+	if randf() < 0.7 * k:
+		var lines := PParticles.get_layer(true)
+		lines.spawn(pos + Vector2(-dir * randf_range(6.0, 16.0), -randf_range(4.0, 36.0)), Vector2(-dir * randf_range(220.0, 320.0), 0.0),
+			Vector2.ZERO, randf_range(0.08, 0.14), randf_range(0.6, 1.0), Color(EDGE, 0.7), Color(MAGENTA, 0.0), 1, 0.0)
+
+
+## 이단점프 발판: 발밑 공중에 납작한 다크 회오리 고리가 휘감기며 생겨 밟히고 퍼지며 사라진다
+static func air_step(pos: Vector2) -> void:
+	add(AirStep.new(), pos, false)
+	dark_bits(pos, 6, 120.0, Vector2.DOWN, 70.0, 0.3, 2)
+
+
+class AirStep extends PVfx.Base:
+	func _ready() -> void:
+		life = 0.34
+		z_index = 4
+
+	func _paint() -> void:
+		var e := k()
+		var grow := 1.0 - pow(1.0 - clampf(t / 0.08, 0.0, 1.0), 2.0)
+		var r := lerpf(10.0, 30.0, 1.0 - pow(1.0 - e, 2.0))
+		var a0 := -PI * 0.85
+		pd.draw_set_transform(Vector2(0, 1.0), -0.08, Vector2(1.0, 0.28))
+		EVfx.dark_band(pd, r, a0, a0 + TAU * 1.02 * grow, 9.0 * (1.0 - 0.6 * e), 1.0 - e * e, 5, 36)
+		pd.draw_set_transform(Vector2.ZERO)
+		if t < 0.1:
+			pd.glow(Vector2.ZERO, 10.0, Color(EDGE, 0.8 * (1.0 - t / 0.1)), 0.0)
+
+
 ## 순간이동: 떠난 자리에 공간이 세로로 갈라졌다 닫힘
 static func blink_out(pos: Vector2, dir: int) -> void:
 	var r := Rift.new()
