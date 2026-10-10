@@ -31,7 +31,7 @@ const FAST_FALL_MAX := 440.0 ## 공중에서 ↓를 누르고 있으면
 const COMBO_WINDOW := 1.6 ## 이 시간 안에 다시 맞히면 연타 수가 이어진다
 
 # 순간이동
-const BLINK_DIST := 100.0 ## 약 6타일
+const BLINK_DIST := 150.0 ## 약 9타일 (100에서 1.5배)
 const BLINK_GONE := 0.07 ## 사라져 있는 시간
 const BLINK_CD := 0.26
 
