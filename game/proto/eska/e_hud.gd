@@ -1,7 +1,7 @@
 class_name EHud
 extends Control
 ## 에스카 시제품 화면 표시
-## - 왼쪽 위: 이름
+## - 왼쪽 위: 이름 + 빌드 번호(어느 버전이 떠 있는지 바로 확인)
 ## - 오른쪽 위: 연타 수(맞힐 때마다 튀어 오름) + 누적 피해, 끊기기 직전엔 흐려짐
 ## - 아래(키보드일 때만): 키 안내 + 스킬 쿨다운 (터치 중에는 버튼이 쿨다운을 보여 줌)
 ## 값이 바뀔 때만 다시 그린다 (글자 그리기는 비싸서).
@@ -41,7 +41,7 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var font := get_theme_default_font()
 	_text(font, Vector2(10, 18), "에스카 · 종언의 마녀", 12, Color(1, 1, 1, 0.9))
-	_text(font, Vector2(10, 32), "전투 시제품", 11, VIOLET)
+	_text(font, Vector2(10, 32), "전투 시제품 · 빌드 " + BuildInfo.COMMIT, 11, VIOLET)
 	if not is_instance_valid(eska):
 		return
 	_draw_combo(font)
