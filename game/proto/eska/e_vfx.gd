@@ -5,7 +5,7 @@ extends RefCounted
 ## 한두 프레임 꽉 찼다가 꼬리부터 걷히며 가늘어지고 옅어진다. 맞은 자리엔 빨강·흰 바늘 X자, 큰 타격엔 어둠 폭발.
 ## 파랑은 쓰지 않는다. 참격은 보통 섞기(검은 테두리가 보이게), 빛·불티만 가산 섞기.
 ## 참격 레퍼런스 = 던전슬래셔 기본공격(캐릭터보다 몇 배 큰 초승달, 들쭉날쭉한 가장자리, 얇은 궤적선, 네모 픽셀 불티, 맞은 자리의 흰 금),
-## 천열 = 앞으로 크고 긴 다크 참격 다섯 번, 단공 = 앞쪽 위를 세로로 긴 다크 참격이 연달아 베어 올림 + 어둠 폭발,
+## 천열 = 앞으로 크고 긴 다크 참격 다섯 번, 단공 = 머리 위를 큰 다크 참격이 연달아 가로지름 + 어둠 폭발,
 ## 종언참 = 폭풍 속 거대 검(세상이 어두워지고 사방 참격선 → 하늘의 칼날이 화면을 세로로 가름).
 ## 성능: 이펙트 하나 = 노드 하나 = 그리기 호출 하나(PDraw 묶음). 입자는 PParticles 한 노드, 유리 파편은 Shards 한 노드.
 
@@ -83,12 +83,13 @@ static func dark_band(pd: PDraw, r: float, a0: float, a1: float, w: float, a: fl
 	if a <= 0.01 or absf(a1 - a0) < 0.03:
 		return
 	var span := a1 - a0
-	var sg := maxi(seg, 6)
+	# 큰 호도 각지지 않게 호 길이(약 9px)마다 한 마디
+	var sg := clampi(maxi(seg, int(absf(span) * r / 9.0)), 6, 48)
 	if not lite:
 		band(pd, r + w * 0.45, a0 + span * 0.1, a1, w * 2.3, Color(MAGENTA, 0.0), Color(MAGENTA, 0.16 * a), maxi(sg - 8, 6)) # 번짐
-	band(pd, r + w * 0.18, a0, a1, w * 1.42, Color(INK, 0.92 * a * tail_a), Color(INK, 0.92 * a), sg, w * 0.55, jseed)
-	band(pd, r + w * 0.06, a0 + span * 0.03, a1, w * 1.14, Color(PLUM, a * tail_a), Color(PLUM, a), sg, w * 0.35, jseed + 5)
-	band(pd, r, a0 + span * 0.07, a1, w, Color(BODY, a * tail_a), Color(MAGENTA, a), sg, w * 0.2, jseed + 9)
+	band(pd, r + w * 0.18, a0, a1, w * 1.42, Color(INK, 0.92 * a * tail_a), Color(INK, 0.92 * a), sg, w * 0.16, jseed)
+	band(pd, r + w * 0.06, a0 + span * 0.03, a1, w * 1.14, Color(PLUM, a * tail_a), Color(PLUM, a), sg, w * 0.08, jseed + 5)
+	band(pd, r, a0 + span * 0.07, a1, w, Color(BODY, a * tail_a), Color(MAGENTA, a), sg)
 	for k in (1 if lite else 3):
 		var fk := float(k)
 		band(pd, r - w * (0.2 + 0.19 * fk), a0 + span * (0.16 + 0.12 * fk), a1 - span * 0.03 * fk, w * (0.1 - 0.018 * fk),
@@ -280,7 +281,7 @@ class Shards extends PDraw.Canvas:
 
 class Slash extends PVfx.Base:
 	const SWEEP := 0.05 ## 호가 끝까지 그려지는 시간
-	const HOLD := 0.035 ## 꽉 찬 채로 머무는 시간 (그 뒤 꼬리부터 걷히며 가늘어지고 옅어짐)
+	const HOLD := 0.08 ## 꽉 찬 채로 머무는 시간 (그 뒤 꼬리부터 걷히며 가늘어지고 옅어짐)
 	var r := 60.0
 	var w := 15.0
 	var a0 := 0.0
@@ -300,7 +301,7 @@ class Slash extends PVfx.Base:
 		rot = deg_to_rad(float(a.get("rot", 0.0)))
 		dir = facing
 		big = is_big
-		life = 0.42 if big else 0.28
+		life = 0.62 if big else 0.46
 		z_index = 6
 		_seed = randi() % 997
 
@@ -312,17 +313,17 @@ class Slash extends PVfx.Base:
 		pd.draw_set_transform(Vector2.ZERO, rot * dir, Vector2(dir, sq))
 		if t < SWEEP + HOLD:
 			var p := clampf(t / SWEEP, 0.0, 1.0)
-			var head := lerpf(a0, a1, 1.0 - pow(1.0 - p, 2.0))
+			var head := lerpf(a0, a1, 1.0 - pow(1.0 - p, 3.0))
 			EVfx.dark_band(pd, r, a0, head, w, 1.0, _seed, 30 if big else 24)
 			if p < 1.0:
-				# 휘두르는 머리의 분홍빛 섬광
-				var hp := Vector2(cos(head), sin(head)) * (r - w * 0.25)
-				pd.glow(hp, w * 1.1, Color(EDGE, 0.8), 0.0)
-				pd.draw_line(hp - Vector2(w * 1.3, 0), hp + Vector2(w * 1.3, 0), Color(EDGE, 0.9), 1.4)
+				# 휘두르는 머리의 분홍빛 섬광 (부드럽게 꺼짐)
+				var hp := Vector2(cos(head), sin(head)) * (r - w * 0.3)
+				pd.glow(hp, w * 0.8, Color(EDGE, 0.6 * (1.0 - p * p)), 0.0)
 		else:
 			var e := clampf((t - SWEEP - HOLD) / maxf(life - SWEEP - HOLD, 0.01), 0.0, 1.0)
-			var tail := lerpf(a0, a1, 0.85 * (1.0 - pow(1.0 - e, 2.0)))
-			EVfx.dark_band(pd, r, tail, a1, w * (1.0 - 0.55 * e), 1.0 - e * e, _seed, 30 if big else 24)
+			var se := e * e * (3.0 - 2.0 * e) # 부드럽게 시작해 부드럽게 끝남
+			var tail := lerpf(a0, a1, 0.88 * se)
+			EVfx.dark_band(pd, r, tail, a1, w * (1.0 - 0.5 * se), pow(1.0 - e, 1.6), _seed, 30 if big else 24)
 		pd.draw_set_transform(Vector2.ZERO)
 
 
@@ -531,19 +532,19 @@ class Flurry extends SlashSeries:
 				Fx.zoom_punch(0.05)
 
 
-## 단공: 앞쪽 위 공간을 세로로 길고 큰 참격이 연달아 베어 올리고, 마지막에 가장 큰 올려베기 + 어둠 폭발. 22×4 + 36 = 124
-## (가로로 누른 호를 -90도 돌려 세로로 길게 세운다 — 아래 앞에서 시작해 앞을 지나 위로)
+## 단공: 머리 위 공간을 큰 참격이 가로질러 연달아 벤다(뒤→앞, 앞→뒤 번갈아, 점점 높게). 마지막에 가장 큰 참격 + 어둠 폭발. 22×4 + 36 = 124
+## (납작한 호의 위쪽 절반만 — 머리 위로 둥글게 넘어간다)
 class Upsweep extends SlashSeries:
 	var area := Rect2() ## 판정 구역 (전역 좌표)
 
 	func _ready() -> void:
 		z_index = 6
 		specs = [
-			[0.0, {"a0": 125.0, "a1": -15.0, "r": 118.0, "w": 28.0, "sq": 0.7, "rot": -80.0, "c": Vector2(30, -92)}, 22, false],
-			[0.06, {"a0": 125.0, "a1": -15.0, "r": 128.0, "w": 28.0, "sq": 0.62, "rot": -100.0, "c": Vector2(40, -96)}, 22, false],
-			[0.12, {"a0": 125.0, "a1": -15.0, "r": 110.0, "w": 30.0, "sq": 0.75, "rot": -70.0, "c": Vector2(24, -88)}, 22, false],
-			[0.18, {"a0": 125.0, "a1": -15.0, "r": 130.0, "w": 28.0, "sq": 0.62, "rot": -106.0, "c": Vector2(44, -98)}, 22, false],
-			[0.3, {"a0": 125.0, "a1": -18.0, "r": 165.0, "w": 48.0, "sq": 0.7, "rot": -90.0, "c": Vector2(36, -115)}, 36, true],
+			[0.0, {"a0": -165.0, "a1": -15.0, "r": 96.0, "w": 26.0, "sq": 0.55, "rot": -8.0, "c": Vector2(0, -58)}, 22, false],
+			[0.06, {"a0": -15.0, "a1": -165.0, "r": 112.0, "w": 26.0, "sq": 0.45, "rot": 10.0, "c": Vector2(0, -72)}, 22, false],
+			[0.12, {"a0": -170.0, "a1": -10.0, "r": 102.0, "w": 28.0, "sq": 0.65, "rot": -14.0, "c": Vector2(0, -66)}, 22, false],
+			[0.18, {"a0": -10.0, "a1": -170.0, "r": 122.0, "w": 26.0, "sq": 0.42, "rot": 6.0, "c": Vector2(0, -86)}, 22, false],
+			[0.3, {"a0": -175.0, "a1": -5.0, "r": 142.0, "w": 44.0, "sq": 0.6, "rot": 0.0, "c": Vector2(0, -78)}, 36, true],
 		]
 
 	func _judge(_a: Dictionary, dmg: int, heavy: bool, _cen: Vector2) -> void:

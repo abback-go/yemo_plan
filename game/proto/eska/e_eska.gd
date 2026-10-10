@@ -2,7 +2,7 @@ class_name EEska
 extends CharacterBody2D
 ## 에스카(종언의 마녀) 전투 시제품. 기획: Claude 문서 "새 컨셉: 종언의 마녀" 탭.
 ## 조작: 이동 · 점프(1단) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능)
-##       · 스킬 키: 그냥 = 천열(손가락을 튕기면 앞으로 큰 참격 다섯 번) / ↑ = 단공(앞쪽 위를 세로 참격으로 연달아 베어 올림)
+##       · 스킬 키: 그냥 = 천열(손가락을 튕기면 앞으로 큰 참격 다섯 번) / ↑ = 단공(머리 위를 큰 참격으로 연달아 가로지름)
 ##       · 봉공(공간 틀에 가둠) · 종언참(필살기). 스킬은 쿨다운만 쓴다.
 ## 공격 판정은 물리 없이 PDummy.hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
 
@@ -484,7 +484,7 @@ func _cast(delta: float) -> void:
 				var up := EVfx.Upsweep.new()
 				up.eska = self
 				up.dir = facing
-				up.area = Rect2(global_position + Vector2(facing * 78 - 78, -250), Vector2(156, 250))
+				up.area = Rect2(global_position + Vector2(-140, -230), Vector2(280, 222)) # 머리 위 (양옆으로 넓게)
 				EVfx.add(up, global_position, false)
 				Sfx.play(&"storm", -6.0)
 			"bonggong":
