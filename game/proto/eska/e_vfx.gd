@@ -89,6 +89,11 @@ static func crescent(pd: PDraw, c: Vector2, dir: Vector2, r: float, half: float,
 		pd.strip(outer, inner, layer[2])
 
 
+## n번째 참격의 기울기(라디안): 황금비 수열로 -max~+max에 골고루 흩어 이웃한 참격끼리 각도가 겹치지 않게
+static func tilt_of(n: int, max_deg: float) -> float:
+	return deg_to_rad(lerpf(-max_deg, max_deg, fposmod(float(n) * 0.618034 + 0.31, 1.0)) + randf_range(-4.0, 4.0))
+
+
 ## 초승달의 앞날·양 끝 (맞았는지 볼 때)
 static func crescent_points(c: Vector2, dir: Vector2, r: float, half: float) -> Array[Vector2]:
 	var o := c - dir * r
@@ -450,6 +455,8 @@ class Fan extends PVfx.Base:
 	var _spd := PackedFloat32Array()
 	var _r := PackedFloat32Array()
 	var _half := PackedFloat32Array()
+	var _tilt := PackedFloat32Array() ## 초승달 모양이 날아가는 방향에서 돌아간 각 (장마다 다름)
+	var _spin := PackedFloat32Array() ## 날아가며 더 도는 각
 	var _w := PackedFloat32Array()
 	var _hit: Array = [] ## 장마다 이미 벤 허수아비 (한 장은 한 번만)
 	var _hits := 0
@@ -465,6 +472,8 @@ class Fan extends PVfx.Base:
 			_spd.append(randf_range(560.0, 700.0))
 			_r.append(randf_range(24.0, 36.0))
 			_half.append(deg_to_rad(randf_range(58.0, 72.0)))
+			_tilt.append(EVfx.tilt_of(i, 55.0))
+			_spin.append(randf_range(-0.5, 0.5))
 			_w.append(randf_range(6.0, 9.0))
 			_hit.append({})
 		EVfx.pixels(position, 10, 90.0, Vector2(dir, 0), 90.0, 0.22)
@@ -477,6 +486,10 @@ class Fan extends PVfx.Base:
 		var k := clampf(age / FLY, 0.0, 1.0)
 		return _dirv(i) * _spd[i] * FLY * (k - 0.3 * k * k)
 
+	## 초승달 앞날이 향하는 쪽 = 날아가는 방향을 장마다 다른 각만큼 돌린 것
+	func _facev(i: int, age: float) -> Vector2:
+		return _dirv(i).rotated((_tilt[i] + _spin[i] * clampf(age / FLY, 0.0, 1.0)) * float(dir))
+
 	func _tick(_delta: float) -> void:
 		if not is_instance_valid(eska):
 			return
@@ -484,12 +497,11 @@ class Fan extends PVfx.Base:
 			var age := t - float(i) * GAP
 			if age < 0.0 or age > FLY:
 				continue
-			var dv := _dirv(i)
-			var pts := EVfx.crescent_points(global_position + _pos(i, age), dv, _r[i], _half[i])
+			var pts := EVfx.crescent_points(global_position + _pos(i, age), _facev(i, age), _r[i], _half[i])
 			for d: PDummy in PDummy.all(get_tree()):
 				if (_hit[i] as Dictionary).has(d.get_instance_id()):
 					continue
-				var rect := d.hit_rect().grow(2.0)
+				var rect := d.hit_rect().grow(6.0) # 번짐까지 맞은 것으로
 				for p: Vector2 in pts:
 					if rect.has_point(p):
 						(_hit[i] as Dictionary)[d.get_instance_id()] = true
@@ -516,13 +528,13 @@ class Fan extends PVfx.Base:
 			var k := age / FLY
 			var grow := 0.45 + 0.55 * (1.0 - pow(1.0 - clampf(age / 0.06, 0.0, 1.0), 3.0)) # 손끝에서 작게 나와 커진다
 			var a := 1.0 - clampf((k - 0.6) / 0.4, 0.0, 1.0)
-			var dv := _dirv(i)
+			var fv := _facev(i, age)
 			var p := _pos(i, age)
 			# 잔상 두 장 (지나온 자리에 희미하게)
 			for g in 2:
 				var gp := _pos(i, maxf(age - 0.022 * float(g + 1), 0.0))
-				EVfx.crescent(pd, gp, dv, _r[i] * grow, _half[i], _w[i] * grow * 0.7, a * (0.22 - 0.08 * float(g)), 10)
-			EVfx.crescent(pd, p, dv, _r[i] * grow, _half[i], _w[i] * grow, a)
+				EVfx.crescent(pd, gp, fv, _r[i] * grow, _half[i], _w[i] * grow * 0.7, a * (0.22 - 0.08 * float(g)), 10)
+			EVfx.crescent(pd, p, fv, _r[i] * grow, _half[i], _w[i] * grow, a)
 			if age < 0.05:
 				pd.glow(p, 7.0, Color(WHITE, 0.8), 0.0)
 
@@ -537,7 +549,7 @@ class Storm extends PVfx.Base:
 	const FINAL_DMG := 36
 	var eska: EEska
 	var area := Rect2() ## 전역 좌표
-	var _streaks: Array = [] ## 초승달 한 장: [나온 시각, 출발점, 방향, 속도, 반지름, 벌어진 각, 두께]
+	var _streaks: Array = [] ## 초승달 한 장: [나온 시각, 출발점, 방향, 속도, 반지름, 벌어진 각, 두께, 앞날 방향(장마다 다르게 기울어짐)]
 	var _next := 0.0
 	var _ticks := 0
 	var _final := false
@@ -553,7 +565,7 @@ class Storm extends PVfx.Base:
 			var x := randf_range(area.position.x + 10.0, area.end.x - 10.0)
 			var p0 := Vector2(x, area.end.y - randf_range(0.0, 14.0))
 			var dv := Vector2.UP.rotated(randf_range(-0.3, 0.3))
-			_streaks.append([t, p0, dv, randf_range(620.0, 760.0), randf_range(20.0, 30.0), deg_to_rad(randf_range(58.0, 70.0)), randf_range(5.0, 8.0)])
+			_streaks.append([t, p0, dv, randf_range(620.0, 760.0), randf_range(20.0, 30.0), deg_to_rad(randf_range(58.0, 70.0)), randf_range(5.0, 8.0), dv.rotated(EVfx.tilt_of(_streaks.size(), 60.0))])
 		if not is_instance_valid(eska):
 			return
 		if _ticks < TICKS and t >= 0.04 + float(_ticks) * 0.052:
@@ -596,8 +608,9 @@ class Storm extends PVfx.Base:
 			var p: Vector2 = s[1] + dv * float(s[3]) * age
 			var grow := 0.5 + 0.5 * (1.0 - pow(1.0 - clampf(age / 0.05, 0.0, 1.0), 2.0))
 			var a := 1.0 - clampf((age - 0.12) / 0.1, 0.0, 1.0)
-			EVfx.crescent(pd, p - dv * 14.0, dv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow * 0.7, a * 0.2, 10) # 잔상
-			EVfx.crescent(pd, p, dv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow, a)
+			var fv: Vector2 = s[7]
+			EVfx.crescent(pd, p - dv * 14.0, fv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow * 0.7, a * 0.2, 10) # 잔상
+			EVfx.crescent(pd, p, fv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow, a)
 		if _final:
 			# 마지막: 구역 전체 폭의 큰 초승달 두 장이 엇갈려 솟구친다
 			var age := t - 0.5
@@ -607,7 +620,7 @@ class Storm extends PVfx.Base:
 				for side: float in [-1.0, 1.0]:
 					var dv := Vector2.UP.rotated(0.16 * side)
 					var p := bottom + dv * lerpf(20.0, area.size.y + 20.0, 1.0 - pow(1.0 - clampf(age / 0.18, 0.0, 1.0), 2.0))
-					EVfx.crescent(pd, p, dv, area.size.x * 0.5, deg_to_rad(66.0), 13.0 * ff, ff, 18)
+					EVfx.crescent(pd, p, dv.rotated(0.3 * side), area.size.x * 0.5, deg_to_rad(66.0), 13.0 * ff, ff, 18)
 				pd.glow(area.get_center(), area.size.x * 0.7, Color(PALE, 0.35 * ff), 0.0)
 
 
