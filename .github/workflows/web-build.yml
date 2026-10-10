@@ -75,14 +75,11 @@ jobs:
           ~/godot/godot --headless --export-release "Web" ../build/web/index.html
           test -f ../build/web/index.wasm
 
-      # 홈 화면 웹앱(오프라인): Godot 기본 서비스 워커는 설치할 때 index.wasm·index.pck를 저장하지 않는다.
-      # 그러면 첫 접속 뒤 바로 오프라인으로 열거나, 새 버전이 받아진 뒤 오프라인으로 열 때 게임이 안 뜬다.
-      # 설치 단계에서 전부 저장하게 바꾼다 (바뀌지 않았으면 실패).
-      - name: Cache the whole game on service worker install
-        run: |
-          sw=build/web/index.service.worker.js
-          sed -i 's/cache.addAll(CACHED_FILES)/cache.addAll(FULL_CACHE)/' "$sw"
-          grep -q 'cache.addAll(FULL_CACHE)' "$sw"
+      # 홈 화면 웹앱(오프라인) 서비스 워커 고치기 (자세한 이유는 tools/web_sw_patch.py 머리말):
+      # 설치할 때 게임 전부 저장(HTTP 캐시 건너뜀) + 새 버전 워커는 기다리지 않고 바로 교체 + 페이지 한 번 새로고침.
+      # 원문이 달라져 고치지 못하면 실패한다.
+      - name: Patch service worker (cache whole game, update immediately)
+        run: python3 tools/web_sw_patch.py build/web
 
       - name: Write build info
         run: echo "${GITHUB_REF_NAME} ${GITHUB_SHA::7} $(date -u +%Y-%m-%dT%H:%MZ)" > build/web/version.txt

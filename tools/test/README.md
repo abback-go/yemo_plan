@@ -69,7 +69,7 @@ node ../tools/test/web_smoke.mjs /tmp/out    # 타이틀 → 새로 시작 → �
 ## 모바일(터치·오프라인) 웹 시험
 ```bash
 $G --headless --export-release "Web" /tmp/web/index.html
-sed -i 's/cache.addAll(CACHED_FILES)/cache.addAll(FULL_CACHE)/' /tmp/web/index.service.worker.js   # 배포(web-build.yml)와 같게
+python3 ../tools/web_sw_patch.py /tmp/web   # 배포(web-build.yml)와 같게 서비스 워커 고치기
 (cd /tmp/web && python3 -m http.server 8766 &)
 node ../tools/test/web_mobile.mjs /tmp/out
 ```

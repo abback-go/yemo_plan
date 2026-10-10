@@ -94,4 +94,4 @@
 - 이 컨테이너에서는 `docs.godotengine.org`, `abback-go.github.io` 접속이 막혀 있음 → 공식 문서는 웹 검색 결과나 Godot 실행 파일의 `ClassDB`로 확인, 배포 확인은 GitHub Actions 실행 결과로.
 - `.claude/worktrees/`(서브에이전트 임시 사본)는 `.gitignore`에 들어 있음. 커밋은 `git add game docs tools` 처럼 경로를 지정.
 - 커밋 메시지·PR 본문은 한국어, 끝에 Co-Authored-By / Claude-Session 줄.
-- 오프라인 웹앱: Godot 기본 서비스 워커는 설치 때 `index.wasm`·`index.pck`를 저장하지 않아 첫 접속 직후·새 버전 직후 오프라인 실행이 깨진다(Playwright로 확인) → `web-build.yml`이 내보낸 뒤 `cache.addAll(FULL_CACHE)`로 바꾼다. Godot 버전을 올리면 이 치환이 아직 맞는지(grep 실패 시 CI 실패) 확인.
+- 오프라인 웹앱: Godot 기본 서비스 워커는 설치 때 `index.wasm`·`index.pck`를 저장하지 않아 첫 접속 직후·새 버전 직후 오프라인 실행이 깨지고(Playwright로 확인), 저장본을 먼저 쓰면서 새 워커는 탭이 다 닫힐 때까지 기다려 배포해도 이전 버전이 계속 뜬다(Playwright로 재현) → `web-build.yml`이 내보낸 뒤 `tools/web_sw_patch.py`로 고친다(설치 때 전부 저장·HTTP 캐시 건너뜀, 새 워커 바로 교체, 페이지가 열릴 때 갱신 확인 + 워커가 바뀌면 한 번 새로고침). Godot 버전을 올리면 이 치환이 아직 맞는지(원문을 못 찾으면 CI 실패) 확인.
