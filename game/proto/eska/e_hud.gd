@@ -16,6 +16,7 @@ const LOSE_T := 0.5
 
 var eska: EEska
 var touch: ETouch
+var show_keys := true ## 아래쪽 키 안내 (튜토리얼은 자기 안내 칸을 쓰므로 끔)
 var _sig := ""
 var _last_hits := 0
 var _pop := 0.0
@@ -74,7 +75,7 @@ func _draw() -> void:
 	_draw_hp()
 	_draw_combo(font)
 	_draw_banner(font)
-	if touch and touch.active:
+	if (touch and touch.active) or not show_keys:
 		return
 	var y := size.y - 20.0
 	_text(font, Vector2(10, y), "←→ 이동  Z 점프  X 연격  C 순간이동  ↓ 빨리 떨어지기  Esc 나가기", 11, Color(1, 1, 1, 0.6))

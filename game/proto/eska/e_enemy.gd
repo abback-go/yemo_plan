@@ -196,6 +196,12 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 
+## 장면이 거두어 감 (튜토리얼 끝 등 — 피해 숫자 없이 바로 쓰러짐)
+func banish() -> void:
+	if not is_dead():
+		_die(float(-facing))
+
+
 ## 에스카가 살아서 겨눌 수 있나
 func eska_ok() -> bool:
 	return is_instance_valid(eska) and not eska.is_dead()

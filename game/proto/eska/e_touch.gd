@@ -197,6 +197,17 @@ func _action_of(id: String) -> String:
 	return ""
 
 
+## 동작(es_*)의 화면 버튼 자리 [중심, 반지름] — 튜토리얼이 그 버튼 둘레를 빛낸다. 없으면 []
+func spot(action: String) -> Array:
+	for b: Array in BUTTONS:
+		if b[1] == action:
+			return [button_center(b), float(b[4])]
+	for a: Array in ARROWS:
+		if a[0] == action:
+			return [pad_center() + (a[1] as Vector2) * PAD_STEP, PAD_KEY]
+	return []
+
+
 func button_center(b: Array) -> Vector2:
 	var s := screen()
 	if b[0] == EXIT[0]:
