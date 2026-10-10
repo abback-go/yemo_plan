@@ -14,6 +14,15 @@
 | 음악·효과음 | `tools/gen_music.py` → `game/assets/music/*.ogg`, 효과음은 `game/autoload/sfx.gd`에서 실행 시 합성 |
 | 시험 도구 | `tools/test/` — 사용법 [`tools/test/README.md`](../tools/test/README.md), 시나리오 `tools/test/scenarios/` (`sys_*`, `chN_full` 등) |
 
+## 1.1 에스카 시제품 (2026-10-10 밤샘 작업)
+| 항목 | 위치 |
+|---|---|
+| 들어가기 | 웹 `?eska`(훈련장 — 허수아비 + 적 물결) · `?eska_tut`(튜토리얼 "종언의 문턱") · 타이틀 메뉴 "에스카 튜토리얼"/"에스카 시제품" |
+| 전투 사양·되돌리기 지점 | [`eska/combat_spec.md`](eska/combat_spec.md) (밤샘 전 = 커밋 `3015697`) |
+| 튜토리얼 기획 | [`eska/tutorial.md`](eska/tutorial.md) |
+| 코드 | `game/proto/eska/` (구조는 combat_spec.md 8절) |
+| 시험 | `eska_hits` · `eska_moves` · `eska_perf` · `eska_foes` · `eska_tutorial` · `eska_tutorial_bot`(실제 입력 자동 플레이) |
+
 ## 2. 사용자 작업 방식 (합의된 것)
 - 사용자는 **사지방 PC**(Git 없음, 재부팅 시 초기화)와 웹 빌드로 확인 → 변경 후 **ZIP 전달**(`git archive --prefix=yemo_game_v10/ HEAD game`) + 웹 반영 안내.
 - 진행 방향: **코드 그래픽으로 기능·흐름 먼저 → 재밌으면 아트**.
