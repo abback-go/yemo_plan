@@ -2,7 +2,7 @@ class_name EVfx
 extends RefCounted
 ## 에스카 이펙트 v2 (전부 코드 그림, 수명이 끝나면 스스로 사라짐).
 ## 색 언어(다크 참격, 스컬 '다크팔라딘' 참고): 검보라 테두리 → 짙은 자두빛 → 보라·마젠타 몸통(결 따라 가는 줄무늬) → 분홍빛 흰 앞날.
-## 한두 프레임 꽉 찼다가 조각으로 부서지며 보랏빛 조각·연기로 흩어진다. 맞은 자리엔 빨강·흰 바늘 X자, 큰 타격엔 어둠 폭발.
+## 한두 프레임 꽉 찼다가 꼬리부터 걷히며 가늘어지고 옅어진다. 맞은 자리엔 빨강·흰 바늘 X자, 큰 타격엔 어둠 폭발.
 ## 파랑은 쓰지 않는다. 참격은 보통 섞기(검은 테두리가 보이게), 빛·불티만 가산 섞기.
 ## 참격 레퍼런스 = 던전슬래셔 기본공격(캐릭터보다 몇 배 큰 초승달, 들쭉날쭉한 가장자리, 얇은 궤적선, 네모 픽셀 불티, 맞은 자리의 흰 금),
 ## 천열 = 앞으로 크고 긴 다크 참격 다섯 번, 단공 = 앞쪽 위를 세로로 긴 다크 참격이 연달아 베어 올림 + 어둠 폭발,
@@ -94,20 +94,6 @@ static func dark_band(pd: PDraw, r: float, a0: float, a1: float, w: float, a: fl
 		band(pd, r - w * (0.2 + 0.19 * fk), a0 + span * (0.16 + 0.12 * fk), a1 - span * 0.03 * fk, w * (0.1 - 0.018 * fk),
 			Color(STREAK, 0.4 * a * tail_a), Color(STREAK, (0.75 - 0.15 * fk) * a), maxi(sg - 6, 6))
 	band(pd, r + 0.5, a0 + span * 0.2, a1, w * 0.3, Color(EDGE, a * tail_a), Color(EDGE, a), maxi(sg - 4, 6))
-
-
-## 부서지는 다크 참격: 띠가 8조각으로 갈라져 조각마다 줄어들며 바깥으로 밀려난다 (erode 0 → 1)
-static func dark_band_broken(pd: PDraw, r: float, a0: float, a1: float, w: float, a: float, erode: float, jseed := 0) -> void:
-	var n := 8
-	for c in n:
-		var h1 := fposmod(sin(float(c * 31 + jseed) * 12.9898) * 43758.5453, 1.0)
-		var h2 := fposmod(sin(float(c * 17 + jseed * 3) * 78.233) * 24634.6345, 1.0)
-		var fc := (float(c) + 0.5) / float(n)
-		var half := 0.5 / float(n) * (1.0 - erode * (0.55 + 0.45 * h1)) * 1.08
-		if half <= 0.004:
-			continue
-		var rr := r + erode * w * (0.15 + 0.5 * h2)
-		dark_band(pd, rr, lerpf(a0, a1, fc - half), lerpf(a0, a1, fc + half), w * (1.0 - 0.78 * erode), a * (0.75 + 0.25 * h1), jseed + c * 7, 6, 0.55, true)
 
 
 ## 보랏빛 조각 + 연기 (보통 섞기 — 부서진 참격이 흩어지는 것)
@@ -294,7 +280,7 @@ class Shards extends PDraw.Canvas:
 
 class Slash extends PVfx.Base:
 	const SWEEP := 0.05 ## 호가 끝까지 그려지는 시간
-	const HOLD := 0.035 ## 꽉 찬 채로 머무는 시간 (그 뒤 조각나며 흩어짐)
+	const HOLD := 0.035 ## 꽉 찬 채로 머무는 시간 (그 뒤 꼬리부터 걷히며 가늘어지고 옅어짐)
 	var r := 60.0
 	var w := 15.0
 	var a0 := 0.0
@@ -304,7 +290,6 @@ class Slash extends PVfx.Base:
 	var dir := 1
 	var big := false
 	var _seed := 0
-	var _broke := false
 
 	func setup(a: Dictionary, facing: int, is_big: bool) -> void:
 		r = float(a.r)
@@ -323,23 +308,6 @@ class Slash extends PVfx.Base:
 	func _arc_point(an: float, rr: float) -> Vector2:
 		return position + Vector2(cos(an) * rr * dir, sin(an) * rr * sq).rotated(rot * dir)
 
-	func _tick(_delta: float) -> void:
-		if not _broke and t >= SWEEP + HOLD:
-			_broke = true
-			# 부서지는 순간 호를 따라 보랏빛 조각·연기가 결 방향으로 흩어진다
-			var n := 14 if big else 7
-			var pp := PParticles.get_layer(false)
-			for i in n:
-				var an := lerpf(a0, a1, randf_range(0.1, 1.0))
-				var p := _arc_point(an, r - w * 0.4)
-				var tang := (_arc_point(an + 0.05 * signf(a1 - a0), r) - _arc_point(an, r)).normalized()
-				pp.spawn(p, tang * randf_range(60, 200) + (p - position).normalized() * randf_range(20, 70), Vector2(0, 40),
-					randf_range(0.2, 0.38), randf_range(1.6, 3.4), MAGENTA if i % 3 else STREAK, PLUM, 0, 4.0)
-			for i in (4 if big else 2):
-				var p := _arc_point(lerpf(a0, a1, randf_range(0.3, 1.0)), r - w * 0.5)
-				pp.spawn(p, Vector2(randf_range(-20, 20), randf_range(-30, -8)), Vector2.ZERO, randf_range(0.35, 0.55), randf_range(5.0, 8.0),
-					Color(PLUM, 0.5), Color(INK, 0.0), 2, 3.0)
-
 	func _paint() -> void:
 		pd.draw_set_transform(Vector2.ZERO, rot * dir, Vector2(dir, sq))
 		if t < SWEEP + HOLD:
@@ -353,7 +321,8 @@ class Slash extends PVfx.Base:
 				pd.draw_line(hp - Vector2(w * 1.3, 0), hp + Vector2(w * 1.3, 0), Color(EDGE, 0.9), 1.4)
 		else:
 			var e := clampf((t - SWEEP - HOLD) / maxf(life - SWEEP - HOLD, 0.01), 0.0, 1.0)
-			EVfx.dark_band_broken(pd, r, a0, a1, w, 1.0 - e * e, 1.0 - pow(1.0 - e, 2.0), _seed)
+			var tail := lerpf(a0, a1, 0.85 * (1.0 - pow(1.0 - e, 2.0)))
+			EVfx.dark_band(pd, r, tail, a1, w * (1.0 - 0.55 * e), 1.0 - e * e, _seed, 30 if big else 24)
 		pd.draw_set_transform(Vector2.ZERO)
 
 
@@ -536,7 +505,7 @@ class SlashSeries extends Node2D:
 		pass
 
 
-## 천열: 앞쪽으로 화면을 가로지를 만큼 길고 거대한 참격 다섯 번 (납작한 타원 호, 마지막이 가장 크다 — 앞으로 약 270~390px). 40×4 + 64 = 224
+## 천열: 앞쪽으로 화면을 가로지를 만큼 길고 거대한 참격 다섯 번 (납작한 타원 호, 크기는 비슷하게 — 앞으로 약 260~340px, 마지막은 앞으로 가로 베기). 40×4 + 64 = 224
 class Flurry extends SlashSeries:
 	func _ready() -> void:
 		z_index = 6
@@ -545,7 +514,7 @@ class Flurry extends SlashSeries:
 			[0.05, {"a0": 70.0, "a1": -75.0, "r": 290.0, "w": 44.0, "sq": 0.26, "rot": 5.0, "c": Vector2(24, -28)}, 40, false],
 			[0.1, {"a0": -115.0, "a1": 65.0, "r": 240.0, "w": 46.0, "sq": 0.42, "rot": -14.0, "c": Vector2(16, -34)}, 40, false],
 			[0.15, {"a0": 85.0, "a1": -85.0, "r": 310.0, "w": 44.0, "sq": 0.24, "rot": 3.0, "c": Vector2(28, -26)}, 40, false],
-			[0.22, {"a0": -125.0, "a1": 90.0, "r": 360.0, "w": 70.0, "sq": 0.34, "rot": -4.0, "c": Vector2(30, -34)}, 64, true],
+			[0.22, {"a0": -70.0, "a1": 75.0, "r": 285.0, "w": 50.0, "sq": 0.28, "rot": 0.0, "c": Vector2(26, -30)}, 64, true],
 		]
 
 	func _judge(a: Dictionary, dmg: int, heavy: bool, cen: Vector2) -> void:
@@ -665,7 +634,7 @@ class BindFrame extends PVfx.Base:
 				var dv := Vector2(1.0, side * 1.15).normalized()
 				EVfx.feather(pd, -dv * L * 0.5, dv, L, 0.06 * side, 15.0 * (0.4 + 0.6 * bf), bf, 0.75 * (1.0 - bf), maxf(grow, 0.75 * (1.0 - bf) + 0.02))
 			return
-		# 걸리는 순간: 납작한 다크 회오리가 대상을 한 바퀴 휘감고 부서진다
+		# 걸리는 순간: 납작한 다크 회오리가 대상을 한 바퀴 휘감고 꼬리부터 걷힌다
 		if t < 0.34:
 			var rr := hs.x + 36.0
 			pd.draw_set_transform(Vector2(0, hs.y * 0.15), -0.14, Vector2(1.0, 0.34))
@@ -675,7 +644,8 @@ class BindFrame extends PVfx.Base:
 				EVfx.dark_band(pd, rr, a0, a0 + TAU * 1.02 * sw, 24.0, 1.0, 11, 40)
 			else:
 				var e := clampf((t - 0.1) / 0.24, 0.0, 1.0)
-				EVfx.dark_band_broken(pd, rr, a0, a0 + TAU * 1.02, 24.0, 1.0 - e * e, 1.0 - pow(1.0 - e, 2.0), 11)
+				var a1 := a0 + TAU * 1.02
+				EVfx.dark_band(pd, rr, lerpf(a0, a1, 0.85 * (1.0 - pow(1.0 - e, 2.0))), a1, 24.0 * (1.0 - 0.55 * e), 1.0 - e * e, 11, 40)
 			pd.draw_set_transform(Vector2.ZERO)
 		# 모서리 넷이 바깥에서 날아와 맞물린다
 		var form := clampf(t / 0.14, 0.0, 1.0)
