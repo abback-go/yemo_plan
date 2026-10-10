@@ -1,19 +1,32 @@
 class_name EHud
 extends Control
 ## 에스카 시제품 화면 표시
-## - 왼쪽 위: 이름 + 빌드 번호(어느 버전이 떠 있는지 바로 확인)
+## - 왼쪽 위: 이름 + 빌드 번호(어느 버전이 떠 있는지 바로 확인) + 체력 마름모(잃으면 갈라져 흩어짐, 하나 남으면 맥박)
+## - 가운데: 알림 글(banner — 물결 번호·쓰러짐·튜토리얼 단계 등)
 ## - 오른쪽 위: 연타 수(맞힐 때마다 튀어 오름) + 누적 피해, 끊기기 직전엔 흐려짐
 ## - 아래(키보드일 때만): 키 안내 + 스킬 쿨다운 (터치 중에는 버튼이 쿨다운을 보여 줌)
 ## 값이 바뀔 때만 다시 그린다 (글자 그리기는 비싸서).
 
 const PALE := Color("#d9ccff")
 const VIOLET := Color("#a98bff")
+const MAGENTA := Color("#e352ff")
+const INK := Color("#14081f")
+const PIP_GAP := 11.0
+const LOSE_T := 0.5
 
 var eska: EEska
 var touch: ETouch
 var _sig := ""
 var _last_hits := 0
 var _pop := 0.0
+var _hp_shown := -1
+var _lose: Array[float] = [] ## 마름모마다 갈라지는 중 남은 시간
+var _gain := 0.0 ## 다시 찼을 때 반짝임
+var _ban_title := ""
+var _ban_sub := ""
+var _ban_t := 0.0
+var _ban_dur := 0.0
+var _t := 0.0
 
 
 func _ready() -> void:
@@ -22,6 +35,11 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	# 부모가 CanvasLayer라 앵커만으로는 크기가 0으로 남는다 → 화면 크기를 직접 따라감 (화면 회전·창 크기 변경 포함)
+	var vs := get_viewport_rect().size
+	if size != vs:
+		size = vs
+		_sig = ""
 	if not is_instance_valid(eska):
 		return
 	if eska.hit_count != _last_hits:
@@ -29,10 +47,19 @@ func _process(delta: float) -> void:
 			_pop = 1.0
 		_last_hits = eska.hit_count
 	_pop = maxf(_pop - delta * 6.0, 0.0)
+	_t += delta
+	_track_hp(delta)
+	if _ban_t < _ban_dur:
+		_ban_t += delta
 	var sig := "%d|%d|%.1f|%s|%d|%d|%d|%d" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false),
 		ceili(eska.cd_left("cheonyeol") * 10.0), ceili(eska.cd_left("dangong") * 10.0), ceili(eska.cd_left("bonggong") * 10.0), ceili(eska.cd_left("ult") * 10.0)]
 	if _pop > 0.0:
 		sig += "|%.2f" % _pop
+	sig += "|%d|%.2f" % [eska.hp, _gain]
+	for l in _lose:
+		sig += "|%.2f" % l
+	if eska.hp == 1 or _ban_t < _ban_dur:
+		sig += "|%.2f" % _t
 	if sig != _sig:
 		_sig = sig
 		queue_redraw()
@@ -44,7 +71,9 @@ func _draw() -> void:
 	_text(font, Vector2(10, 32), "전투 시제품 · 빌드 " + BuildInfo.COMMIT, 11, VIOLET)
 	if not is_instance_valid(eska):
 		return
+	_draw_hp()
 	_draw_combo(font)
+	_draw_banner(font)
 	if touch and touch.active:
 		return
 	var y := size.y - 20.0
@@ -86,6 +115,87 @@ func _draw_combo(font: Font) -> void:
 	var dmg := "%d" % eska.hit_damage
 	var dw := font.get_string_size(dmg, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 	_text(font, Vector2(right - dw, 82.0), dmg, 11, Color(1, 1, 1, 0.65 * a))
+
+
+## 가운데 알림 글: 커지며 나타나 잠시 머물다 사라짐
+func banner(title: String, sub := "", dur := 1.8) -> void:
+	_ban_title = title
+	_ban_sub = sub
+	_ban_t = 0.0
+	_ban_dur = dur
+	queue_redraw()
+
+
+func _track_hp(delta: float) -> void:
+	if _lose.size() != EEska.MAX_HP:
+		_lose.resize(EEska.MAX_HP)
+		_lose.fill(0.0)
+	for i in _lose.size():
+		_lose[i] = maxf(_lose[i] - delta, 0.0)
+	_gain = maxf(_gain - delta * 2.0, 0.0)
+	if _hp_shown < 0:
+		_hp_shown = eska.hp
+	if eska.hp < _hp_shown:
+		for i in range(eska.hp, _hp_shown):
+			_lose[i] = LOSE_T
+	elif eska.hp > _hp_shown:
+		_gain = 1.0
+	_hp_shown = eska.hp
+
+
+## 체력 마름모 (왼쪽 위, 이름 아래)
+func _draw_hp() -> void:
+	var base := Vector2(16, 48)
+	var beat := 0.5 + 0.5 * sin(_t * 9.0) if eska.hp == 1 else 0.0
+	for i in EEska.MAX_HP:
+		var p := base + Vector2(PIP_GAP * i, 0)
+		var full := i < eska.hp
+		_diamond(p, 4.6, Color(INK, 0.85))
+		if full:
+			var s := 3.4 + beat * 0.8 + _gain * 0.8
+			_diamond(p, s, MAGENTA.lerp(Color.WHITE, _gain * 0.6 + beat * 0.3))
+			_diamond(p + Vector2(0, -0.8), s * 0.45, Color(1, 1, 1, 0.75))
+		else:
+			_diamond(p, 3.0, Color(VIOLET, 0.18))
+		var l := _lose[i] if i < _lose.size() else 0.0
+		if l > 0.0:
+			# 갈라짐: 흰 섬광 → 좌우 반쪽이 떨어지며 사라짐
+			var f := 1.0 - l / LOSE_T
+			var a := 1.0 - f
+			var off := Vector2(3.0 + f * 7.0, f * f * 10.0)
+			for sd in [-1.0, 1.0]:
+				var q: Vector2 = p + Vector2(sd * off.x, off.y)
+				draw_colored_polygon(PackedVector2Array([q + Vector2(0, -4), q + Vector2(sd * 4.0, 0), q + Vector2(0, 4)]), Color(MAGENTA.lerp(Color.WHITE, a), a))
+			if f < 0.3:
+				draw_circle(p, 7.0 * (1.0 - f / 0.3) + 2.0, Color(1, 1, 1, 0.8 * (1.0 - f / 0.3)))
+
+
+func _diamond(p: Vector2, r: float, c: Color) -> void:
+	draw_colored_polygon(PackedVector2Array([p + Vector2(0, -r * 1.25), p + Vector2(r, 0), p + Vector2(0, r * 1.25), p + Vector2(-r, 0)]), c)
+
+
+func _draw_banner(font: Font) -> void:
+	if _ban_t >= _ban_dur or _ban_title == "":
+		return
+	var inn := clampf(_ban_t / 0.22, 0.0, 1.0)
+	var out := clampf((_ban_dur - _ban_t) / 0.35, 0.0, 1.0)
+	var a := minf(inn, out)
+	var e := 1.0 - pow(1.0 - inn, 3.0)
+	var c := Vector2(size.x * 0.5, size.y * 0.3)
+	var fs := 26
+	var sc := 1.25 - 0.25 * e
+	var tw := font.get_string_size(_ban_title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	# 양옆으로 뻗는 가는 선
+	var lw := (60.0 + tw * 0.5) * e
+	draw_line(c + Vector2(-lw - tw * 0.5, -8), c + Vector2(-tw * 0.5 - 10, -8), Color(MAGENTA, 0.7 * a), 1.0)
+	draw_line(c + Vector2(tw * 0.5 + 10, -8), c + Vector2(lw + tw * 0.5, -8), Color(MAGENTA, 0.7 * a), 1.0)
+	draw_set_transform(c, 0.0, Vector2(sc, sc))
+	draw_string_outline(font, Vector2(-tw * 0.5, 0), _ban_title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 6, Color(INK, 0.9 * a))
+	draw_string(font, Vector2(-tw * 0.5, 0), _ban_title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(PALE.lerp(Color.WHITE, 1.0 - e), a))
+	draw_set_transform(Vector2.ZERO)
+	if _ban_sub != "":
+		var sw := font.get_string_size(_ban_sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		_text(font, c + Vector2(-sw * 0.5, 18), _ban_sub, 12, Color(VIOLET, a))
 
 
 func _text(font: Font, p: Vector2, s: String, fs: int, col: Color) -> void:

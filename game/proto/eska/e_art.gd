@@ -53,6 +53,8 @@ var _was_floor := true
 var _prev_vy := 0.0
 var _snap_flash := 0.0 ## 천열 손끝 튕김 섬광
 var _glide := 0.0 ## 활주 정도 (0 = 서 있음, 1 = 최고 속도로 떠서 미끄러짐)
+var _hurt_flash := 0.0 ## 맞은 순간 붉게
+var _fade := 1.0 ## 쓰러지면 0으로 사라짐
 var _spin := 1.0 ## 이단점프 한 바퀴 (0 → 1, 아주 빠르게)
 var _hair: Chain
 var _lock: Chain ## 앞쪽 옆머리
@@ -161,6 +163,23 @@ func snap_flash() -> void:
 	_snap_flash = 1.0
 
 
+## 맞음: 붉게 번쩍이고 움찔
+func hurt() -> void:
+	_hurt_flash = 1.0
+	squash(Vector2(1.18, 0.84))
+
+
+## 쓰러짐: 그림이 옅어지며 사라진다 (조각은 EEska가 뿌림)
+func dissolve() -> void:
+	_fade = 0.999
+
+
+func revive() -> void:
+	_fade = 1.0
+	_hurt_flash = 0.0
+	modulate = Color.WHITE
+
+
 ## 이단점프: 몸 가운데를 축으로 아주 빠르게 한 바퀴(0.18초, 처음에 거의 다 돌고 끝은 부드럽게) + 치맛자락이 우산처럼 퍼짐
 func air_flourish() -> void:
 	_spin = 0.0
@@ -230,6 +249,14 @@ func tick(delta: float) -> void:
 	if body.st in [EEska.St.ATTACK, EEska.St.CAST, EEska.St.ULT]:
 		_hand_glow = 1.0
 	_snap_flash = maxf(_snap_flash - dt * 7.0, 0.0)
+	# 피격 붉은빛 · 무적 깜빡임 · 쓰러지면 사라짐
+	_hurt_flash = maxf(_hurt_flash - dt * 5.0, 0.0)
+	if _fade < 1.0:
+		_fade = maxf(_fade - delta * 2.2, 0.0)
+	var alpha := _fade
+	if body.hurt_flicker > 0.0 and fmod(_t * 16.0, 1.0) < 0.45:
+		alpha *= 0.35
+	modulate = Color(1.0, 1.0 - 0.55 * _hurt_flash, 1.0 - 0.45 * _hurt_flash, alpha)
 	_spin = minf(_spin + delta / 0.18, 1.0)
 	scale = Vector2(float(body.facing) * _sq.x, _sq.y)
 	var spin_a := TAU * (1.0 - pow(1.0 - _spin, 4.0)) if _spin < 1.0 else 0.0

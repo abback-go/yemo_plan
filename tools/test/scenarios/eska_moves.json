@@ -1,4 +1,5 @@
 {"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
 [20, "shot", "e01_idle"],
 [25, "press", "es_right"], [33, "shot", "e02_run"], [36, "release", "es_right"],
 [60, "tap", "es_attack"], [63, "shot", "e03_hit1"],

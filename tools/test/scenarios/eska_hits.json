@@ -1,4 +1,5 @@
 {"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
 [5, "eval", "eska.set('global_position', Vector2(500, 300))"],
 [20, "eval", "dummy.hp"],
 [25, "tap", "es_attack"], [35, "tap", "es_attack"], [45, "tap", "es_attack"], [55, "tap", "es_attack"],

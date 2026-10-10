@@ -6,7 +6,10 @@ extends CharacterBody2D
 ##       · 봉공(공간 틀에 가둠) · 종언참(필살기). 스킬은 쿨다운만 쓴다.
 ## 공격 판정은 물리 없이 표적(ETarget: 허수아비·적)의 hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
 
-enum St { NORMAL, ATTACK, BLINK, CAST, ULT }
+enum St { NORMAL, ATTACK, BLINK, CAST, ULT, HURT, DEAD }
+
+signal hurt_taken(hp: int) ## 맞았을 때 (남은 체력)
+signal died ## 쓰러졌을 때 — 장면이 부활시킨다 (respawn)
 
 const GROUP := &"e_eska"
 const SIZE := Vector2(10, 30)
@@ -31,6 +34,12 @@ const COMBO_WINDOW := 1.6 ## 이 시간 안에 다시 맞히면 연타 수가 �
 const BLINK_DIST := 100.0 ## 약 6타일
 const BLINK_GONE := 0.07 ## 사라져 있는 시간
 const BLINK_CD := 0.26
+
+# 체력·피격
+const MAX_HP := 6
+const HURT_LOCK := 0.3 ## 맞은 뒤 조작이 막히는 시간
+const HURT_INVULN := 1.1 ## 맞은 뒤 무적(깜빡임)
+const RESPAWN_INVULN := 1.6 ## 부활 뒤 무적
 
 ## 스킬 쿨다운 (짧게 — 손맛 시험용)
 const CD := {"cheonyeol": 2.0, "dangong": 2.0, "bonggong": 6.0, "ult": 15.0}
@@ -78,6 +87,9 @@ var _cast_fired := false
 var _bind_target: Node2D
 
 var invuln := 0.0
+var hp := MAX_HP
+var hurt_flicker := 0.0 ## 맞은 뒤 깜빡이는 남은 시간 (그림이 읽는다)
+var controls_locked := false ## 연출 중 조작 막기 (튜토리얼 대사 등)
 
 # 연타 수 (화면 오른쪽 위)
 var hit_count := 0
@@ -145,7 +157,12 @@ func _physics_process(delta: float) -> void:
 		_jump_buf = JUMP_BUFFER
 	if Input.is_action_just_pressed("es_attack"):
 		_atk_buf = ATTACK_BUFFER
+	hurt_flicker = maxf(hurt_flicker - delta, 0.0)
 	var dir_x := Input.get_axis("es_left", "es_right")
+	if controls_locked:
+		dir_x = 0.0
+		_jump_buf = 0.0
+		_atk_buf = 0.0
 	match st:
 		St.NORMAL:
 			_normal(delta, dir_x)
@@ -157,6 +174,11 @@ func _physics_process(delta: float) -> void:
 			_cast(delta)
 		St.ULT:
 			_ult(delta)
+		St.HURT:
+			_hurt_state(delta)
+		St.DEAD:
+			velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
+			_gravity(delta)
 	if st != St.BLINK:
 		move_and_slide()
 	var on_floor := is_on_floor()
@@ -252,6 +274,8 @@ func _double_jump(dir_x: float) -> void:
 
 ## 순간이동·스킬·공격 시작 (상태가 바뀌면 true)
 func _try_actions(dir_x: float) -> bool:
+	if controls_locked:
+		return false
 	if Input.is_action_just_pressed("es_ult") and cd_left("ult") <= 0.0:
 		_start_ult()
 		return true
@@ -529,6 +553,8 @@ func _pick_target(reach: float) -> Node2D:
 	var best: Node2D = null
 	var best_s := INF
 	for d: Node2D in ETarget.alive(get_tree()):
+		if d.get("lockable") == false:
+			continue # 적 구슬 등은 겨누지 않음
 		var off: Vector2 = d.center() - center()
 		var dist := off.length()
 		if dist > reach:
@@ -538,6 +564,80 @@ func _pick_target(reach: float) -> Node2D:
 			best_s = s
 			best = d
 	return best
+
+
+# ═══════════════════════════════════════════════════════════
+# 체력 · 피격 · 쓰러짐 · 부활
+# ═══════════════════════════════════════════════════════════
+
+## 맞는 판정 사각형 (전역)
+func hurt_rect() -> Rect2:
+	return Rect2(global_position + Vector2(-SIZE.x * 0.5, -SIZE.y), SIZE)
+
+
+func is_dead() -> bool:
+	return st == St.DEAD
+
+
+## 적에게 맞음 (맞았으면 true). 순간이동 중·필살기 중·무적 중엔 안 맞는다
+func hurt(dmg: int, from: Vector2) -> bool:
+	if invuln > 0.0 or st in [St.ULT, St.DEAD, St.BLINK]:
+		return false
+	hp = maxi(hp - dmg, 0)
+	invuln = HURT_INVULN
+	hurt_flicker = HURT_INVULN
+	var d := signf(global_position.x - from.x)
+	if d == 0.0:
+		d = -float(facing)
+	velocity = Vector2(d * 190.0, -190.0)
+	st = St.HURT
+	st_t = 0.0
+	art.visible = true
+	art.hurt()
+	Fx.hitstop(0.09)
+	Fx.shake(0.55, 0.22)
+	PVfx.kick(Vector2(d * 4.0, -2.0))
+	Fx.flash(Color(1.0, 0.2, 0.3, 0.22), 0.16)
+	Sfx.play(&"hurt", -3.0)
+	EVfx.dark_bits(center(), 8, 160.0, Vector2(d, -0.4), 70.0, 0.4, 2)
+	hurt_taken.emit(hp)
+	if hp <= 0:
+		_die()
+	return true
+
+
+func _hurt_state(delta: float) -> void:
+	velocity.x = move_toward(velocity.x, 0.0, 700.0 * delta)
+	_gravity(delta)
+	if st_t >= HURT_LOCK:
+		st = St.NORMAL
+		st_t = 0.0
+
+
+func _die() -> void:
+	st = St.DEAD
+	st_t = 0.0
+	hurt_flicker = 0.0
+	art.dissolve()
+	EVfx.dark_bits(center(), 22, 220.0, Vector2.UP, 180.0, 0.7, 6)
+	EVfx.dark_burst(center(), 30.0)
+	Fx.slowmo(0.35, 0.5)
+	died.emit()
+
+
+## 장면이 부르는 부활: 자리를 옮기고 체력을 채운 뒤 공간 틈에서 나타난다
+func respawn(pos: Vector2) -> void:
+	global_position = pos
+	velocity = Vector2.ZERO
+	hp = MAX_HP
+	st = St.NORMAL
+	st_t = 0.0
+	invuln = RESPAWN_INVULN
+	hurt_flicker = RESPAWN_INVULN
+	art.revive()
+	EMoveFx.blink_in(center(), facing)
+	art.squash(Vector2(0.7, 1.35))
+	hurt_taken.emit(hp)
 
 
 # ═══════════════════════════════════════════════════════════
