@@ -6,7 +6,7 @@
 [103, "eval", "perf()"],
 [130, "tap", "es_skill"], [140, "press", "es_up"], [141, "tap", "es_skill"], [144, "release", "es_up"], [145, "tap", "es_bind"],
 [150, "eval", "perf()"],
-[200, "tap", "es_ult"],
+[200, "tap", "es_attack"], [210, "tap", "es_attack"], [220, "tap", "es_attack"], [230, "tap", "es_attack"],
 [235, "eval", "perf()"],
 [260, "eval", "perf()"],
 [300, "quit"]]}

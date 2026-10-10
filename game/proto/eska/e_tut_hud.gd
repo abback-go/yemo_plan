@@ -13,7 +13,7 @@ const MAGENTA := EVfx.MAGENTA
 const INK := EVfx.INK
 const EDGE := EVfx.EDGE
 const KEY_LABEL := {"es_left": "←", "es_right": "→", "es_up": "↑", "es_down": "↓", "es_jump": "Z", "es_attack": "X",
-	"es_blink": "C", "es_skill": "A", "es_bind": "S", "es_ult": "D"}
+	"es_blink": "C", "es_skill": "A", "es_bind": "S"}
 const SAY_CPS := 28.0 ## 자막 글자/초
 const SAY_HOLD := 2.6
 

@@ -2,7 +2,7 @@ class_name ETouch
 extends CanvasLayer
 ## 에스카 시제품 모바일 조작 (던전슬래셔 배치 참고).
 ## 왼쪽 아래 고정 방향키(↑↓←→, 대각선은 두 개가 같이 눌림) · 오른쪽 아래 버튼 6개:
-##              [봉공] [종언참]
+##              [봉공]
 ##       [순간이동]   [스킬]
 ##    [점프]   [공격]
 ## 스킬 버튼은 ↑를 누른 채 누르면 단공, 아니면 천열 (라벨이 바뀐다). 오른쪽 위 X는 나가기.
@@ -24,7 +24,6 @@ const BUTTONS := [
 	["jump", "es_jump", "점프", Vector2(-126, -40), 24.0, ""],
 	["blink", "es_blink", "순간", Vector2(-120, -110), 22.0, ""],
 	["skill", "es_skill", "천열", Vector2(-56, -126), 25.0, "skill"],
-	["ult", "es_ult", "종언참", Vector2(-58, -190), 22.0, "ult"],
 	["bind", "es_bind", "봉공", Vector2(-116, -178), 21.0, "bonggong"],
 ]
 ## 나가기: 오른쪽 위 모서리 기준
@@ -59,17 +58,15 @@ func _exit_tree() -> void:
 var _sig := ""
 
 
-## 바뀐 것이 있을 때만 다시 그린다 (누른 버튼·방향·화면 크기·쿨다운 초·종언참 준비 깜빡임)
+## 바뀐 것이 있을 때만 다시 그린다 (누른 버튼·방향·화면 크기·쿨다운 초)
 func _process(_delta: float) -> void:
 	_draw.visible = active
 	if not active:
 		return
 	var sig := "%s|%s|%s|%s" % [str(_held.keys()), str(_dirs.values()), str(screen()), str(is_instance_valid(eska) and eska.is_up_held())]
 	if is_instance_valid(eska):
-		for id: String in ["cheonyeol", "dangong", "bonggong", "ult"]:
+		for id: String in EEska.CD:
 			sig += "|%d" % ceili(eska.cd_left(id) * 8.0)
-		if eska.cd_left("ult") <= 0.0:
-			sig += "|%d" % (Time.get_ticks_msec() / 50)
 	if sig != _sig:
 		_sig = sig
 		_draw.queue_redraw()
@@ -304,9 +301,6 @@ class Pad extends Control:
 				pts.append(c + Vector2(cos(a), sin(a)) * r)
 			draw_colored_polygon(pts, Color(0, 0, 0, 0.55))
 		draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else 0.6), 2.0)
-		if id == "ult" and ratio <= 0.0:
-			var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.006)
-			draw_arc(c, r + 3.0, 0.0, TAU, 40, Color(1, 1, 1, 0.35 + 0.4 * pulse), 1.5)
 		var label: String = b[2]
 		if id == "skill" and is_instance_valid(tc.eska) and tc.eska.is_up_held():
 			label = "단공"

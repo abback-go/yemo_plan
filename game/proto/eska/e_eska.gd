@@ -3,10 +3,10 @@ extends CharacterBody2D
 ## 에스카(종언의 마녀) 전투 시제품. 기획: Claude 문서 "새 컨셉: 종언의 마녀" 탭.
 ## 조작: 이동(떠서 활주) · 점프 + 이단점프(공중에서 한 번) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능 — 팔을 휘두르지 않고 가리키기·튕기기 같은 가벼운 손짓, 제자리에서)
 ##       · 스킬 키: 그냥 = 천열(손가락을 튕기면 앞으로 거대한 참격 열 번) / ↑ = 단공(머리 위를 납작한 회오리 참격으로 연달아 휘감음)
-##       · 봉공(공간 틀에 가둠) · 종언참(필살기). 스킬은 쿨다운만 쓴다.
+##       · 봉공(공간 틀에 가둠). 스킬은 쿨다운만 쓴다.
 ## 공격 판정은 물리 없이 표적(ETarget: 허수아비·적)의 hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
 
-enum St { NORMAL, ATTACK, BLINK, CAST, ULT, HURT, DEAD }
+enum St { NORMAL, ATTACK, BLINK, CAST, HURT, DEAD }
 
 signal hurt_taken(hp: int) ## 맞았을 때 (남은 체력)
 signal died ## 쓰러졌을 때 — 장면이 부활시킨다 (respawn)
@@ -42,8 +42,8 @@ const HURT_INVULN := 1.1 ## 맞은 뒤 무적(깜빡임)
 const RESPAWN_INVULN := 1.6 ## 부활 뒤 무적
 
 ## 스킬 쿨다운 (짧게 — 손맛 시험용)
-const CD := {"cheonyeol": 5.0, "dangong": 2.0, "bonggong": 6.0, "ult": 15.0} ## 천열은 896 피해라 5초 (2초면 연격을 쓸 이유가 없어짐 — docs/eska/combat_spec.md 밸런스)
-const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공", "ult": "종언참"}
+const CD := {"cheonyeol": 5.0, "dangong": 2.0, "bonggong": 6.0} ## 천열은 896 피해라 5초 (2초면 연격을 쓸 이유가 없어짐 — docs/eska/combat_spec.md 밸런스)
+const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공"}
 
 ## 4타 연격. 각도는 도(0 = 앞, + = 아래). 호는 a0 → a1로 휘두른다. 납작한 회오리(sq)를 rot만큼 기울인다 —
 ## 1~3타는 앞쪽 한 곳(발 기준 앞 약 30px)을 중심으로 모아 친다. 1타 앞이 들린 대각 · 2타 앞이 내려간 가파른 대각(반대로 감음) · 3타 비스듬히 세워 아래에서 위로 올려 벰 · 4타 가장 큰 가로 회오리 (타마다 다른 각도)
@@ -60,7 +60,7 @@ var st := St.NORMAL
 var st_t := 0.0
 var facing := 1
 var art: EArt
-var cooldowns := {"cheonyeol": 0.0, "dangong": 0.0, "bonggong": 0.0, "ult": 0.0}
+var cooldowns := {"cheonyeol": 0.0, "dangong": 0.0, "bonggong": 0.0}
 
 var _coyote := 0.0
 var _jump_buf := 0.0
@@ -172,8 +172,6 @@ func _physics_process(delta: float) -> void:
 			_blink(delta)
 		St.CAST:
 			_cast(delta)
-		St.ULT:
-			_ult(delta)
 		St.HURT:
 			_hurt_state(delta)
 		St.DEAD:
@@ -276,9 +274,6 @@ func _double_jump(dir_x: float) -> void:
 func _try_actions(dir_x: float) -> bool:
 	if controls_locked:
 		return false
-	if Input.is_action_just_pressed("es_ult") and cd_left("ult") <= 0.0:
-		_start_ult()
-		return true
 	if Input.is_action_just_pressed("es_bind") and cd_left("bonggong") <= 0.0:
 		_start_cast("bonggong", 0.22)
 		return true
@@ -361,7 +356,7 @@ func _attack(delta: float, dir_x: float) -> void:
 		return
 	# 판정 뒤에는 순간이동·스킬로 끊을 수 있다
 	if _hit_done and (Input.is_action_just_pressed("es_blink") or Input.is_action_just_pressed("es_skill")
-			or Input.is_action_just_pressed("es_bind") or Input.is_action_just_pressed("es_ult")):
+			or Input.is_action_just_pressed("es_bind")):
 		if combo_i == 3 and not is_on_floor():
 			_air_hang = false
 		st = St.NORMAL
@@ -581,7 +576,7 @@ func is_dead() -> bool:
 
 ## 적에게 맞음 (맞았으면 true). 순간이동 중·필살기 중·무적 중엔 안 맞는다
 func hurt(dmg: int, from: Vector2) -> bool:
-	if invuln > 0.0 or st in [St.ULT, St.DEAD, St.BLINK]:
+	if invuln > 0.0 or st in [St.DEAD, St.BLINK]:
 		return false
 	hp = maxi(hp - dmg, 0)
 	invuln = HURT_INVULN
@@ -638,45 +633,3 @@ func respawn(pos: Vector2) -> void:
 	EMoveFx.blink_in(center(), facing)
 	art.squash(Vector2(0.7, 1.35))
 	hurt_taken.emit(hp)
-
-
-# ═══════════════════════════════════════════════════════════
-# 종언참 (필살기)
-# ═══════════════════════════════════════════════════════════
-
-const ULT_LOCK := 1.35
-
-func _start_ult() -> void:
-	cooldowns["ult"] = CD["ult"]
-	st = St.ULT
-	st_t = 0.0
-	invuln = ULT_LOCK + 0.3
-	velocity = Vector2.ZERO
-	var t := _pick_target(360.0)
-	var tx := t.global_position.x if is_instance_valid(t) else global_position.x + facing * 120.0
-	if is_instance_valid(t):
-		facing = 1 if t.global_position.x >= global_position.x else -1
-	var u := EUltFx.Ult.new()
-	u.eska = self
-	u.target_x = tx
-	u.floor_y = global_position.y if is_on_floor() else _floor_below()
-	EVfx.add(u, Vector2.ZERO, false)
-	EVfx.afterimage(art, 0.4)
-	Sfx.play(&"witch_time", -2.0)
-
-
-func _floor_below() -> float:
-	var q := PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2(0, 600), 1)
-	var hit := get_world_2d().direct_space_state.intersect_ray(q)
-	return float(hit.position.y) if hit else global_position.y
-
-
-func _ult(delta: float) -> void:
-	velocity.x = move_toward(velocity.x, 0.0, 1400.0 * delta)
-	if is_on_floor():
-		velocity.y = minf(velocity.y + GRAVITY * delta, FALL_MAX)
-	else:
-		velocity.y = move_toward(velocity.y, 0.0, 1200.0 * delta)
-	if st_t >= ULT_LOCK:
-		st = St.NORMAL
-		st_t = 0.0

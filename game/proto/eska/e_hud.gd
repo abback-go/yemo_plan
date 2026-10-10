@@ -57,8 +57,9 @@ func _process(delta: float) -> void:
 	_track_boss(delta)
 	if _ban_t < _ban_dur:
 		_ban_t += delta
-	var sig := "%d|%d|%.1f|%s|%d|%d|%d|%d" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false),
-		ceili(eska.cd_left("cheonyeol") * 10.0), ceili(eska.cd_left("dangong") * 10.0), ceili(eska.cd_left("bonggong") * 10.0), ceili(eska.cd_left("ult") * 10.0)]
+	var sig := "%d|%d|%.1f|%s" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false)]
+	for id: String in EEska.CD:
+		sig += "|%d" % ceili(eska.cd_left(id) * 10.0)
 	if _pop > 0.0:
 		sig += "|%.2f" % _pop
 	sig += "|%d|%.2f" % [eska.hp, _gain]
@@ -93,7 +94,7 @@ func _draw() -> void:
 	_text(font, Vector2(10, y), "←→ 이동  Z 점프  X 연격  C 순간이동  ↓ 빨리 떨어지기  W 적 물결  Esc 나가기", 11, Color(1, 1, 1, 0.6))
 	var x := 10.0
 	y = size.y - 36.0
-	for spec: Array in [["A", "cheonyeol"], ["↑A", "dangong"], ["S", "bonggong"], ["D", "ult"]]:
+	for spec: Array in [["A", "cheonyeol"], ["↑A", "dangong"], ["S", "bonggong"]]:
 		var id: String = spec[1]
 		var left := eska.cd_left(id)
 		var name: String = EEska.NAMES[id]

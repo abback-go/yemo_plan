@@ -233,12 +233,9 @@ func tick(delta: float) -> void:
 		flare_want = clampf(-vy / 300.0, -1.0, 1.0) * -1.6 + 0.6
 	elif absf(vx) > 20.0:
 		flare_want = 0.8 + 1.4 * _glide # 활주하면 치맛자락이 뒤로 길게 날림
-	if body.st == EEska.St.ULT:
-		flare_want = 2.6
 	_flare_v += (flare_want - _flare) * 160.0 * dt - _flare_v * 12.0 * dt
 	_flare += _flare_v * dt
-	var lift_want := 3.0 + sin(_t * 3.0) if body.st == EEska.St.ULT else 0.0
-	lift_want = maxf(lift_want, _glide * (3.4 + 1.0 * sin(_t * 5.0))) # 활주: 발이 땅에서 떠서 물결치듯 출렁인다
+	var lift_want := _glide * (3.4 + 1.0 * sin(_t * 5.0)) # 활주: 발이 땅에서 떠서 물결치듯 출렁인다
 	_lift = lerpf(_lift, lift_want, 1.0 - exp(-dt * 8.0))
 	if on_floor and absf(vx) > 20.0 and _glide < 0.3:
 		_step += dt * absf(vx) / 9.0
@@ -246,7 +243,7 @@ func tick(delta: float) -> void:
 		_step = lerpf(_step, roundf(_step / PI) * PI, 1.0 - exp(-dt * 12.0))
 	_hand = _hand.lerp(_hand_target(), 1.0 - exp(-dt * 46.0))
 	_hand_glow = maxf(_hand_glow - dt * 5.0, 0.0)
-	if body.st in [EEska.St.ATTACK, EEska.St.CAST, EEska.St.ULT]:
+	if body.st in [EEska.St.ATTACK, EEska.St.CAST]:
 		_hand_glow = 1.0
 	_snap_flash = maxf(_snap_flash - dt * 7.0, 0.0)
 	# 피격 붉은빛 · 무적 깜빡임 · 쓰러지면 사라짐
@@ -267,9 +264,6 @@ func tick(delta: float) -> void:
 	# 흔들리는 줄
 	var grav := Vector2(0, 460) + Vector2(-float(body.facing) * 420.0 * _glide, -60.0 * _glide)
 	var stiff := 0.11 - 0.03 * _glide
-	if body.st == EEska.St.ULT:
-		grav = Vector2(0, -160) # 떠오르는 힘에 머리카락이 위로 흩날림
-		stiff = 0.02
 	var bob := _bob()
 	_hair.step(to_global(Vector2(-2.6, -31.0 + bob)), _to_g(_hair_rest()), grav, dt, 0.82, stiff)
 	_lock.step(to_global(Vector2(2.6, -29.5 + bob)), _to_g(_lock_rest()), grav, dt, 0.86, 0.12)
@@ -279,7 +273,7 @@ func tick(delta: float) -> void:
 	_sleeve.step(to_global(el), _to_g(_sleeve_rest(el)), sleeve_g, dt, 0.86, 0.08)
 	_sleeve_b.step(to_global(Vector2(-1.8, -22.5 + bob)), _to_g(_sleeve_rest(Vector2(-1.8, -22.5))), sleeve_g, dt, 0.86, 0.08)
 	# 눈빛 꼬리 (빠를 때만)
-	var fast := absf(vx) > 170.0 or body.st == EEska.St.ATTACK or body.st == EEska.St.ULT
+	var fast := absf(vx) > 170.0 or body.st == EEska.St.ATTACK
 	if fast:
 		_eye_hist.append(to_global(Vector2(3.6, -28.9 + bob)))
 		if _eye_hist.size() > 7:
@@ -324,8 +318,6 @@ func _hand_target() -> Vector2:
 					return Vector2(5.5, -38)
 				_:
 					return Vector2(11.5, -21)
-		EEska.St.ULT:
-			return Vector2(2.5, -42)
 	if not body.is_on_floor():
 		return Vector2(5.5, -18.5) if body.velocity.y < 0.0 else Vector2(6.5, -21)
 	if _glide > 0.3:
@@ -375,7 +367,6 @@ func _paint() -> void:
 	var air := not body.is_on_floor()
 	var run := body.is_on_floor() and absf(body.velocity.x) > 20.0
 	var shimmer := 0.78 + 0.22 * sin(_t * 7.0)
-	var ult := body.st == EEska.St.ULT
 
 	# 바닥 그림자 (떠오르면 작아짐)
 	pd.draw_set_transform(Vector2(0, _lift), 0.0, Vector2(1.0, 0.24))
@@ -470,7 +461,7 @@ func _paint() -> void:
 	var eye_a := 0.7 + 0.3 * sin(_t * 3.0)
 	if body.st != EEska.St.NORMAL:
 		eye_a = 1.0
-	pd.glow(eye, 3.2 if not ult else 6.0, Color(GLOW, 0.55 * eye_a), 0.0)
+	pd.glow(eye, 3.2, Color(GLOW, 0.55 * eye_a), 0.0)
 	pd.draw_rect(Rect2(eye - Vector2(0.6, 0.5), Vector2(1.3, 1.0)), Color(GLOW_PALE, eye_a))
 	pd.draw_rect(Rect2(eye - Vector2(0.2, 0.3), Vector2(0.6, 0.5)), Color(1, 1, 1, eye_a))
 	# 눈빛 꼬리

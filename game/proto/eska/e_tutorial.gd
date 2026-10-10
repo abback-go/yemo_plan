@@ -1,7 +1,7 @@
 extends EStage
 ## 에스카 튜토리얼 "종언의 문턱" (기획: docs/eska/tutorial.md).
 ## 가로 4500px 한 줄 길: 깨어남 → 턱(점프·이단점프) → 장막·공허 틈(순간이동) → 허수아비(연격·천열)
-## → 등불 망령(단공) → 사냥개(피하기·봉공) → 검은 거상(종언참) → 끝 화면.
+## → 등불 망령(단공) → 사냥개(피하기·봉공) → 검은 거상(가두고 천열) → 끝 화면.
 ## 진행은 단계(STEPS) 하나씩: _enter_이름()(있으면)으로 시작하고 _tick_이름()이 true를 돌려주면 다음 단계로.
 ## 들어오는 길: 타이틀 메뉴 "에스카 튜토리얼" 또는 웹 주소 뒤 ?eska_tut
 
@@ -380,11 +380,12 @@ func _tick_finale() -> bool:
 		3:
 			if _st > 3.0:
 				_sub = 4
-				tut.say("이것으로 끝을 낸다.")
-				_ready_skill("ult")
-				tut.prompt(["es_ult"], "종언참")
+				tut.say("가두고, 갈라라.")
+				_ready_skill("bonggong")
+				_ready_skill("cheonyeol")
+				tut.prompt(["es_bind", "→", "es_skill"], "봉공으로 가두고 천열")
 		4, 5:
-			if eska.st == EEska.St.ULT:
+			if eska.st == EEska.St.CAST and eska.cast_kind == "cheonyeol" and is_instance_valid(boss) and boss.is_bound():
 				tut.done()
 			if _sub == 4 and is_instance_valid(boss) and boss.hp < boss.max_hp / 2:
 				_sub = 5

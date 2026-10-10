@@ -14,7 +14,6 @@
 [260, "tap", "es_bind"], [270, "shot", "e14_bind_a"], [320, "shot", "e15_bind_hold"],
 [330, "press", "es_jump"], [345, "release", "es_jump"], [346, "tap", "es_attack"], [349, "shot", "e16_air1"], [356, "tap", "es_attack"], [360, "shot", "e17_air2"],
 [410, "shot", "e18_bind_break"],
-[440, "tap", "es_ult"], [452, "shot", "e19_ult_a"], [470, "shot", "e20_ult_b"], [479, "shot", "e21_ult_slam"], [490, "shot", "e22_ult_c"], [530, "shot", "e23_ult_d"],
 [600, "eval", "dummy.hp"],
 [610, "eval", "eska.global_position"],
 [620, "touch", 1, 586, 306], [622, "shot", "e24_touch_attack"], [626, "untouch", 1, 586, 306],

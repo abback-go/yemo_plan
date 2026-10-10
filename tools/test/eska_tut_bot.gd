@@ -84,10 +84,8 @@ func _fight(e: EEska, step: String) -> void:
 	_face(1 if dx > 0.0 else -1)
 	if foe is ECaster and e.cd_left("dangong") <= 0.0:
 		_combo([[0.0, "es_up", true], [0.03, "es_skill"], [0.1, "es_up", false]])
-	elif step == "bonggong" and e.cd_left("bonggong") <= 0.0:
+	elif step in ["bonggong", "finale"] and e.cd_left("bonggong") <= 0.0:
 		_tap("es_bind")
-	elif step == "finale" and e.cd_left("ult") <= 0.0:
-		_tap("es_ult")
 	elif e.cd_left("cheonyeol") <= 0.0 and not foe is ECaster:
 		_tap("es_skill")
 	else:
@@ -139,7 +137,7 @@ func _run_seq(delta: float) -> void:
 
 
 func _release_all() -> void:
-	for a in ["es_left", "es_right", "es_up", "es_jump", "es_attack", "es_skill", "es_blink", "es_bind", "es_ult"]:
+	for a in ["es_left", "es_right", "es_up", "es_jump", "es_attack", "es_skill", "es_blink", "es_bind"]:
 		if Input.is_action_pressed(a):
 			Input.action_release(a)
 	_seq.clear()

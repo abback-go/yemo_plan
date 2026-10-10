@@ -27,7 +27,7 @@ var hp := 300
 var size := Vector2(20, 28) ## 피격 사각형 (원점 = 발밑 가운데)
 var knock_resist := 0.0 ## 0 = 잘 밀림 · 1 = 넉백·경직 없음
 var contact_dmg := 1
-var lockable := true ## 봉공·종언참이 겨눌 수 있나
+var lockable := true ## 봉공이 겨눌 수 있나
 var flying := false
 var facing := -1
 var x_min := 24.0 ## 움직일 수 있는 가로 범위 (장면이 정함)
