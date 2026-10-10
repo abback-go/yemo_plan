@@ -57,6 +57,9 @@ func _process(delta: float) -> void:
 			_spawn_one(String(q[1]), float(q[2]))
 	_alive = _alive.filter(func(e: EEnemy) -> bool: return is_instance_valid(e) and not e.is_dead())
 	if _alive.is_empty() and _queue.is_empty():
+		if wave > 0 and _wait >= REST:
+			stage.hud.banner("CLEAR", "다음 물결까지 잠시", 1.3)
+			Sfx.play(&"clear", -6.0)
 		_wait -= delta
 		if _wait <= 0.0:
 			_next()
