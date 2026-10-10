@@ -5,7 +5,7 @@ extends CanvasLayer
 ##              [봉공] [종언참]
 ##       [순간이동]   [스킬]
 ##    [점프]   [공격]
-## 스킬 버튼은 조이스틱을 위로 밀고 누르면 단공, 아니면 천열 (라벨이 바뀐다). 오른쪽 위 ×는 나가기.
+## 스킬 버튼은 조이스틱을 위로 밀고 누르면 단공, 아니면 천열 (라벨이 바뀐다). 오른쪽 위 X는 나가기.
 ## 버튼은 키보드와 같은 동작(InputEventAction, es_*)을 보낸다. 키를 누르면 숨고, 화면을 만지면 다시 보인다.
 
 const STICK_BASE := Vector2(78, 284)
@@ -26,7 +26,7 @@ const BUTTONS := [
 	["skill", "es_skill", "천열", Vector2(-56, -126), 25.0, "skill"],
 	["ult", "es_ult", "종언참", Vector2(-58, -190), 22.0, "ult"],
 	["bind", "es_bind", "봉공", Vector2(-116, -178), 21.0, "bonggong"],
-	["exit", "es_exit", "×", Vector2(-20, -340), 13.0, ""],
+	["exit", "es_exit", "X", Vector2(-20, -340), 13.0, ""],
 ]
 
 var eska: EEska
