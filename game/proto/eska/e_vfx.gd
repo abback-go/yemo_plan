@@ -536,16 +536,16 @@ class SlashSeries extends Node2D:
 		pass
 
 
-## 천열: 앞쪽으로 길고 큰 참격 다섯 번 (마지막이 가장 크다). 40×4 + 64 = 224
+## 천열: 앞쪽으로 화면을 가로지를 만큼 길고 거대한 참격 다섯 번 (납작한 타원 호, 마지막이 가장 크다 — 앞으로 약 270~390px). 40×4 + 64 = 224
 class Flurry extends SlashSeries:
 	func _ready() -> void:
 		z_index = 6
 		specs = [
-			[0.0, {"a0": -95.0, "a1": 60.0, "r": 110.0, "w": 30.0, "sq": 0.7, "rot": -12.0, "c": Vector2(14, -30)}, 40, false],
-			[0.05, {"a0": 75.0, "a1": -80.0, "r": 120.0, "w": 30.0, "sq": 0.55, "rot": 14.0, "c": Vector2(18, -28)}, 40, false],
-			[0.1, {"a0": -120.0, "a1": 70.0, "r": 104.0, "w": 32.0, "sq": 0.9, "rot": -32.0, "c": Vector2(10, -34)}, 40, false],
-			[0.15, {"a0": 95.0, "a1": -95.0, "r": 130.0, "w": 30.0, "sq": 0.45, "rot": 6.0, "c": Vector2(22, -26)}, 40, false],
-			[0.22, {"a0": -135.0, "a1": 95.0, "r": 150.0, "w": 50.0, "sq": 0.7, "rot": -6.0, "c": Vector2(24, -34)}, 64, true],
+			[0.0, {"a0": -100.0, "a1": 55.0, "r": 260.0, "w": 44.0, "sq": 0.32, "rot": -6.0, "c": Vector2(20, -30)}, 40, false],
+			[0.05, {"a0": 70.0, "a1": -75.0, "r": 290.0, "w": 44.0, "sq": 0.26, "rot": 5.0, "c": Vector2(24, -28)}, 40, false],
+			[0.1, {"a0": -115.0, "a1": 65.0, "r": 240.0, "w": 46.0, "sq": 0.42, "rot": -14.0, "c": Vector2(16, -34)}, 40, false],
+			[0.15, {"a0": 85.0, "a1": -85.0, "r": 310.0, "w": 44.0, "sq": 0.24, "rot": 3.0, "c": Vector2(28, -26)}, 40, false],
+			[0.22, {"a0": -125.0, "a1": 90.0, "r": 360.0, "w": 70.0, "sq": 0.34, "rot": -4.0, "c": Vector2(30, -34)}, 64, true],
 		]
 
 	func _judge(a: Dictionary, dmg: int, heavy: bool, cen: Vector2) -> void:
@@ -555,9 +555,11 @@ class Flurry extends SlashSeries:
 				eska.deal(d, dmg, heavy, cen)
 				any = true
 		if any:
-			Fx.hitstop(0.06 if heavy else 0.025)
-			Fx.shake(0.34 if heavy else 0.12, 0.14 if heavy else 0.08)
-			PVfx.kick(Vector2(dir * (4.0 if heavy else 2.0), 0))
+			Fx.hitstop(0.07 if heavy else 0.025)
+			Fx.shake(0.45 if heavy else 0.14, 0.16 if heavy else 0.08)
+			PVfx.kick(Vector2(dir * (5.0 if heavy else 2.0), 0))
+			if heavy:
+				Fx.zoom_punch(0.05)
 
 
 ## 단공: 앞쪽 위 공간을 세로로 길고 큰 참격이 연달아 베어 올리고, 마지막에 가장 큰 올려베기 + 어둠 폭발. 22×4 + 36 = 124
