@@ -29,6 +29,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `go` 방 등장위치 | 방 이동 (문 대신) |
 | `auto` true/false | 대사·멈춤 안내·습득 팝업·끝 화면 자동 넘김 |
 | `waitidle` [한도] | 대본이 끝날 때까지 단계 시계를 멈춤 (보스전 중엔 한도까지 기다림 → `WAIT TIMEOUT`) |
+| `attach` 스크립트 | 시험용 노드(자동 플레이 봇 등)를 지금 장면에 붙임 (game/ 기준 상대 경로) |
 | `godmode` | 세라 무적 + 체력 3 미만이면 5로 |
 | `kill` / `ehp` 값 / `ehpf` 비율 | 적 처치(붉은 불 999 피해라 해태·골렘 정면·아귀는 여러 번 필요) / 체력 설정 / 체력 비율로 |
 | `spawn_enemy` 종류 x y {속성} | 적 생성 (종류는 `enemies/enemy_registry.gd`) |
@@ -58,6 +59,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `eska_hits.json` | 에스카 시제품 피해 확인 (사양: `docs/eska/combat_spec.md`)(측정마다 체력을 다시 채움): 4타 158 · 천열 896(앞쪽 한 점을 감싸는 회오리 10번: 80×9+176) · 단공 124(머리 위 한 점을 감싸는 회오리 5번: 22×4+36) · 공중 연격 128 · 공중 연격 중 떠 있음 · 순간이동 거리(100 + 이동 관성) |
 | `eska_foes.json` | 에스카 시제품 적: 돌진형(웅크림·돌진 맞으면 체력 6→5) · 원거리(조준선·구슬) · 거구(들기·내려찍기 충격파 → 4) · 9 피해로 쓰러짐(0) → 1.5초 뒤 부활(6, 400,300). 모든 에스카 시나리오는 첫 프레임에 적 물결을 끈다(`waves.set('enabled', false)`) |
 | `eska_tutorial.json` | 에스카 튜토리얼 "종언의 문턱"을 처음부터 끝 화면까지 (순간이동 eval로 구간을 건너뛰며 각 단계 `step_name()` 확인, 적은 eval 피해로 처치). 끝에 `end sub=1` 이면 통과 · 기획 `docs/eska/tutorial.md` |
+| `eska_tutorial_bot.json` | 튜토리얼을 **실제 입력만으로** 끝까지 (자동 플레이 봇 `tools/test/eska_tut_bot.gd`를 `attach`로 붙임 — 턱·장막·틈·허수아비·적 셋을 직접 넘고 벰). 3000프레임에 `end sub=1` 이면 통과 |
 | `eska_perf.json` | 에스카 시제품 성능: 대기·연격·스킬 겹침·종언참 중 `perf()` (그리기 호출·도형·노드·처리 시간·입자). 그림 코드별 비용은 eval `bench(400)` (µs) |
 | `title_touch.json` | 터치: 타이틀 탭 → 설정 → 돌아가기 → 새로 시작 → 확인 (저장 기록이 있을 때 기준 좌표) |
 

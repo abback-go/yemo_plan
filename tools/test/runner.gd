@@ -432,6 +432,14 @@ func _process(_d: float) -> bool:
 				print("BGPERF ", s[2], " frames=", nf, " anim_draw_us_per_frame=", snappedf(float(st.anim_us) / nf, 0.1), " anim_items_per_frame=", snappedf(float(st.anim_n) / nf, 0.1), " anim_draws_per_frame=", snappedf(float(st.anim_draws) / nf, 0.01), " static_draw_us=", st.static_us, " static_cmds_drawn=", st.static_n, " recorded_static=", st.static_cmds, " recorded_anim=", st.anim_items, " room=", get_first_node_in_group("world").room.data.id)
 				st.reset()
 				_bg_f0 = frame
+			"attach":
+				# [frame, "attach", "스크립트 경로"] — 시험용 노드(자동 플레이 봇 등)를 지금 장면에 붙인다. 경로는 game/ 기준 상대 또는 절대
+				var path := String(s[2])
+				if not path.begins_with("res://") and not path.begins_with("/"):
+					path = ProjectSettings.globalize_path("res://").path_join(path).simplify_path()
+				var scr: Script = load(path)
+				current_scene.add_child(scr.new())
+				print("ATTACH ", path)
 			"eval":
 				# [frame, "eval", "식"] — World를 바탕으로 GDScript 식 하나 실행·출력 (성능 원인 찾기 등: "room.get_node('Background').set('visible', false)")
 				var ex := Expression.new()
