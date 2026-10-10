@@ -208,7 +208,7 @@ func tick(delta: float) -> void:
 	if was_glide < 0.35 and _glide >= 0.35:
 		# 확 미끄러져 나가는 순간: 앞으로 늘었다 돌아오고 발 뒤로 돌풍
 		squash(Vector2(1.14, 0.9))
-		EVfx.glide_burst(body.global_position, float(body.facing))
+		EMoveFx.glide_burst(body.global_position, float(body.facing))
 	var flare_want := 0.0
 	if not on_floor:
 		flare_want = clampf(-vy / 300.0, -1.0, 1.0) * -1.6 + 0.6

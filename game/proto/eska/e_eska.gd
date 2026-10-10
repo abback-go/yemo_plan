@@ -4,7 +4,7 @@ extends CharacterBody2D
 ## 조작: 이동(떠서 활주) · 점프 + 이단점프(공중에서 한 번) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능 — 팔을 휘두르지 않고 가리키기·튕기기 같은 가벼운 손짓, 제자리에서)
 ##       · 스킬 키: 그냥 = 천열(손가락을 튕기면 앞으로 거대한 참격 열 번) / ↑ = 단공(머리 위를 납작한 회오리 참격으로 연달아 휘감음)
 ##       · 봉공(공간 틀에 가둠) · 종언참(필살기). 스킬은 쿨다운만 쓴다.
-## 공격 판정은 물리 없이 PDummy.hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
+## 공격 판정은 물리 없이 표적(ETarget: 허수아비·적)의 hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
 
 enum St { NORMAL, ATTACK, BLINK, CAST, ULT }
 
@@ -75,7 +75,7 @@ var _blink_to := Vector2.ZERO
 var cast_kind := ""
 var _cast_dur := 0.0
 var _cast_fired := false
-var _bind_target: PDummy
+var _bind_target: Node2D
 
 var invuln := 0.0
 
@@ -198,7 +198,7 @@ func _ground_fx(delta: float) -> void:
 		_dust_t -= delta
 		if _dust_t <= 0.0:
 			_dust_t = 0.045
-			EVfx.glide_wake(global_position, signf(vx), absf(vx) / RUN_SPEED)
+			EMoveFx.glide_wake(global_position, signf(vx), absf(vx) / RUN_SPEED)
 	var d := int(signf(Input.get_axis("es_left", "es_right")))
 	if d != 0 and d != _last_dir and absf(vx) > 90.0 and st == St.NORMAL:
 		PVfx.dust(global_position + Vector2(-d * 2.0, 0), 4, 1.2, 16.0)
@@ -245,7 +245,7 @@ func _double_jump(dir_x: float) -> void:
 		facing = 1 if dir_x > 0.0 else -1
 	art.air_flourish()
 	art.squash(Vector2(0.9, 1.12))
-	EVfx.air_step(global_position)
+	EMoveFx.air_step(global_position)
 	Sfx.play_pitch(&"jump", 1.3, -4.0)
 	Sfx.play_pitch(&"whoosh", 1.4, -10.0)
 
@@ -299,7 +299,7 @@ func _start_attack(i: int) -> void:
 		velocity.y = minf(velocity.y, -30.0 if i == 0 else 10.0)
 		velocity.x *= 0.5
 	var c: Vector2 = a.c
-	var sl := EVfx.Slash.new()
+	var sl := ESkillFx.Slash.new()
 	sl.setup(a, facing, i == 3)
 	EVfx.add(sl, global_position + Vector2(c.x * facing, c.y), false) # 다크 참격은 보통 섞기 (검은 테두리가 보이게)
 	Sfx.play_pitch(&"sword_slash", [1.05, 1.15, 0.95, 0.78][i] * randf_range(0.96, 1.04), -4.0 if i < 3 else 0.0)
@@ -364,7 +364,7 @@ func _slash_hit(a: Dictionary) -> void:
 	var cen := global_position + Vector2(c.x * facing, c.y)
 	var heavy := combo_i == 3
 	var any := false
-	for d: PDummy in PDummy.all(get_tree()):
+	for d: Node2D in ETarget.alive(get_tree()):
 		if _sector_hits(d.hit_rect(), cen, float(a.r) + 8.0, float(a.a0), float(a.a1), float(a.sq), float(a.get("rot", 0.0))):
 			deal(d, int(a.dmg), heavy, cen)
 			any = true
@@ -402,7 +402,7 @@ func _sector_hits(rect: Rect2, cen: Vector2, r: float, a0: float, a1: float, sq:
 
 
 ## 피해 한 번 (이펙트 노드들도 이걸 부른다)
-func deal(d: PDummy, dmg: int, heavy: bool, from: Vector2) -> void:
+func deal(d: Node2D, dmg: int, heavy: bool, from: Vector2) -> void:
 	if not is_instance_valid(d):
 		return
 	d.take_hit(dmg, from, {"heavy": heavy, "launch": 1.5 if heavy else 0.0})
@@ -437,8 +437,8 @@ func _start_blink(dir_x: float) -> void:
 	st = St.BLINK
 	st_t = 0.0
 	invuln = BLINK_GONE + 0.08
-	EVfx.blink_out(art, center(), d)
-	EVfx.blink_trail(art, center(), _blink_to + Vector2(0, -SIZE.y * 0.55), not is_on_floor())
+	EMoveFx.blink_out(art, center(), d)
+	EMoveFx.blink_trail(art, center(), _blink_to + Vector2(0, -SIZE.y * 0.55), not is_on_floor())
 	art.visible = false
 	velocity = Vector2.ZERO
 	Sfx.play_pitch(&"dash", 1.25, -4.0)
@@ -454,7 +454,7 @@ func _blink(_delta: float) -> void:
 		_blink_cd = BLINK_CD
 		velocity.x = _blink_dir * RUN_SPEED
 		velocity.y = 0.0
-		EVfx.blink_in(center(), _blink_dir)
+		EMoveFx.blink_in(center(), _blink_dir)
 		art.squash(Vector2(1.9, 0.5)) # 길게 늘어난 채 나타났다가 탁 돌아온다
 		PVfx.kick(Vector2(_blink_dir * 3.0, 0))
 
@@ -493,7 +493,7 @@ func _cast(delta: float) -> void:
 		_cast_fired = true
 		match cast_kind:
 			"cheonyeol":
-				var fl := EVfx.Flurry.new()
+				var fl := ESkillFx.Flurry.new()
 				fl.eska = self
 				fl.dir = facing
 				EVfx.add(fl, global_position, false)
@@ -501,7 +501,7 @@ func _cast(delta: float) -> void:
 				Sfx.play_pitch(&"blip", 1.6, -2.0)
 				Sfx.play(&"whoosh", -4.0)
 			"dangong":
-				var up := EVfx.Upsweep.new()
+				var up := ESkillFx.Upsweep.new()
 				up.eska = self
 				up.dir = facing
 				up.area = Rect2(global_position + Vector2(-140, -230), Vector2(280, 222)) # 머리 위 (양옆으로 넓게)
@@ -509,10 +509,10 @@ func _cast(delta: float) -> void:
 				art.snap_flash()
 				Sfx.play(&"storm", -6.0)
 			"bonggong":
-				var fr := EVfx.BindFrame.new()
+				var fr := ESkillFx.BindFrame.new()
 				fr.eska = self
 				fr.target = _bind_target
-				var at := _bind_target.center() if is_instance_valid(_bind_target) else global_position + Vector2(facing * 70, -20)
+				var at: Vector2 = _bind_target.center() if is_instance_valid(_bind_target) else global_position + Vector2(facing * 70, -20)
 				EVfx.add(fr, at, false)
 				art.snap_flash()
 				Sfx.play(&"chain", -4.0)
@@ -525,15 +525,15 @@ func _cast(delta: float) -> void:
 
 
 ## 가장 가까운 허수아비 (앞쪽을 조금 더 쳐 줌)
-func _pick_target(reach: float) -> PDummy:
-	var best: PDummy = null
+func _pick_target(reach: float) -> Node2D:
+	var best: Node2D = null
 	var best_s := INF
-	for d: PDummy in PDummy.all(get_tree()):
-		var off := d.center() - center()
+	for d: Node2D in ETarget.alive(get_tree()):
+		var off: Vector2 = d.center() - center()
 		var dist := off.length()
 		if dist > reach:
 			continue
-		var s := dist * (0.7 if signf(off.x) == float(facing) else 1.3)
+		var s: float = dist * (0.7 if signf(off.x) == float(facing) else 1.3)
 		if s < best_s:
 			best_s = s
 			best = d
@@ -556,7 +556,7 @@ func _start_ult() -> void:
 	var tx := t.global_position.x if is_instance_valid(t) else global_position.x + facing * 120.0
 	if is_instance_valid(t):
 		facing = 1 if t.global_position.x >= global_position.x else -1
-	var u := EVfx.Ult.new()
+	var u := EUltFx.Ult.new()
 	u.eska = self
 	u.target_x = tx
 	u.floor_y = global_position.y if is_on_floor() else _floor_below()
