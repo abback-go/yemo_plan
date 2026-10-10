@@ -1,7 +1,9 @@
 class_name EVfx
 extends RefCounted
 ## 에스카 이펙트 v2 (전부 코드 그림, 수명이 끝나면 스스로 사라짐).
-## 색 언어: 흰 중심(갈라진 공간 너머의 공허) + 보라 몸통 + 짙은 남보라 번짐. 꼬리는 투명 → 머리는 흰빛(그라데이션 띠).
+## 색 언어(다크 참격, 스컬 '다크팔라딘' 참고): 검보라 테두리 → 짙은 자두빛 → 보라·마젠타 몸통(결 따라 가는 줄무늬) → 분홍빛 흰 앞날.
+## 한두 프레임 꽉 찼다가 조각으로 부서지며 보랏빛 조각·연기로 흩어진다. 맞은 자리엔 빨강·흰 바늘 X자, 큰 타격엔 어둠 폭발.
+## 파랑은 쓰지 않는다. 참격은 보통 섞기(검은 테두리가 보이게), 빛·불티만 가산 섞기.
 ## 참격 레퍼런스 = 던전슬래셔 기본공격(캐릭터보다 몇 배 큰 초승달, 들쭉날쭉한 가장자리, 얇은 궤적선, 네모 픽셀 불티, 맞은 자리의 흰 금),
 ## 천열 = 백목련(초승달 참격 여러 장이 부채처럼 흩어져 날아감), 단공 = 단혼파(공간 한 구역을 초승달 참격이 위로 베어 올림),
 ## 종언참 = 폭풍 속 거대 검(세상이 어두워지고 사방 참격선 → 하늘의 칼날이 화면을 세로로 가름).
@@ -12,6 +14,13 @@ const PALE := Color("#d9ccff")
 const VIOLET := Color("#a98bff")
 const DEEP := Color("#5b3fc0")
 const CLEAR := Color(0.66, 0.55, 1.0, 0.0)
+const INK := Color("#14081f") ## 참격 바깥 검보라 테두리
+const PLUM := Color("#3b1268")
+const BODY := Color("#9b3cff")
+const MAGENTA := Color("#e352ff")
+const STREAK := Color("#f293ff") ## 몸통 안 결무늬
+const EDGE := Color("#ffe4fb") ## 앞날 분홍빛 흰색
+const HIT_RED := Color("#ff2f58")
 
 
 static func add(n: Node2D, pos: Vector2, additive := false) -> Node2D:
@@ -60,23 +69,82 @@ static func curve_blade(pd: PDraw, p0: Vector2, dir: Vector2, len: float, bend: 
 	pd.strip_grad(l, r, c_tail, c_head)
 
 
-## 휘어진 칼날 한 자루 (짙은 번짐 → 보라 몸통 → 흰 심) — 천열·단공·종언참이 같이 쓴다
-static func feather(pd: PDraw, p0: Vector2, dir: Vector2, len: float, bend: float, w: float, a: float, f0 := 0.0, f1 := 1.0) -> void:
-	curve_blade(pd, p0, dir, len, bend, w * 1.9, Color(DEEP, 0.0), Color(DEEP, 0.55 * a), f0, f1)
-	curve_blade(pd, p0, dir, len, bend, w, Color(VIOLET, 0.1 * a), Color(VIOLET, 0.95 * a), f0, f1)
-	curve_blade(pd, p0, dir, len, bend, w * 0.45, Color(PALE, 0.0), Color(WHITE, a), f0, f1)
+## 휘어진 칼날 한 자루 (다크 질감: 검보라 테두리 → 자두빛 → 보라·마젠타 → 분홍빛 흰 심) — 종언참·봉공 X자가 같이 쓴다
+static func feather(pd: PDraw, p0: Vector2, dir: Vector2, len: float, bend: float, w: float, a: float, f0 := 0.0, f1 := 1.0, seg := 12) -> void:
+	curve_blade(pd, p0, dir, len, bend, w * 3.2, Color(MAGENTA, 0.0), Color(MAGENTA, 0.15 * a), f0, f1, maxi(seg - 4, 6))
+	curve_blade(pd, p0, dir, len, bend, w * 2.1, Color(INK, 0.0), Color(INK, 0.9 * a), f0, f1, seg)
+	curve_blade(pd, p0, dir, len, bend, w, Color(PLUM, 0.3 * a), Color(MAGENTA, a), f0, f1, seg)
+	curve_blade(pd, p0, dir, len, bend, w * 0.35, Color(STREAK, 0.0), Color(EDGE, a), f0, f1, seg)
+
+
+## 다크 참격 띠 (호): 바깥 반지름 r, 굵기 w, a0(꼬리) → a1(머리). tail_a = 꼬리 쪽 진하기(0이면 투명하게 사라짐)
+## 겹: 검보라 테두리(바깥으로 삐져나옴) · 자두빛 · 보라→마젠타 몸통 · 결무늬 3줄 · 분홍빛 흰 앞날
+static func dark_band(pd: PDraw, r: float, a0: float, a1: float, w: float, a: float, jseed := 0, seg := 26, tail_a := 0.0, lite := false) -> void:
+	if a <= 0.01 or absf(a1 - a0) < 0.03:
+		return
+	var span := a1 - a0
+	var sg := maxi(seg, 6)
+	if not lite:
+		band(pd, r + w * 0.45, a0 + span * 0.1, a1, w * 2.3, Color(MAGENTA, 0.0), Color(MAGENTA, 0.16 * a), maxi(sg - 8, 6)) # 번짐
+	band(pd, r + w * 0.18, a0, a1, w * 1.42, Color(INK, 0.92 * a * tail_a), Color(INK, 0.92 * a), sg, w * 0.55, jseed)
+	band(pd, r + w * 0.06, a0 + span * 0.03, a1, w * 1.14, Color(PLUM, a * tail_a), Color(PLUM, a), sg, w * 0.35, jseed + 5)
+	band(pd, r, a0 + span * 0.07, a1, w, Color(BODY, a * tail_a), Color(MAGENTA, a), sg, w * 0.2, jseed + 9)
+	for k in (1 if lite else 3):
+		var fk := float(k)
+		band(pd, r - w * (0.2 + 0.19 * fk), a0 + span * (0.16 + 0.12 * fk), a1 - span * 0.03 * fk, w * (0.1 - 0.018 * fk),
+			Color(STREAK, 0.4 * a * tail_a), Color(STREAK, (0.75 - 0.15 * fk) * a), maxi(sg - 6, 6))
+	band(pd, r + 0.5, a0 + span * 0.2, a1, w * 0.3, Color(EDGE, a * tail_a), Color(EDGE, a), maxi(sg - 4, 6))
+
+
+## 부서지는 다크 참격: 띠가 8조각으로 갈라져 조각마다 줄어들며 바깥으로 밀려난다 (erode 0 → 1)
+static func dark_band_broken(pd: PDraw, r: float, a0: float, a1: float, w: float, a: float, erode: float, jseed := 0) -> void:
+	var n := 8
+	for c in n:
+		var h1 := fposmod(sin(float(c * 31 + jseed) * 12.9898) * 43758.5453, 1.0)
+		var h2 := fposmod(sin(float(c * 17 + jseed * 3) * 78.233) * 24634.6345, 1.0)
+		var fc := (float(c) + 0.5) / float(n)
+		var half := 0.5 / float(n) * (1.0 - erode * (0.55 + 0.45 * h1)) * 1.08
+		if half <= 0.004:
+			continue
+		var rr := r + erode * w * (0.15 + 0.5 * h2)
+		dark_band(pd, rr, lerpf(a0, a1, fc - half), lerpf(a0, a1, fc + half), w * (1.0 - 0.78 * erode), a * (0.75 + 0.25 * h1), jseed + c * 7, 6, 0.55, true)
+
+
+## 보랏빛 조각 + 연기 (보통 섞기 — 부서진 참격이 흩어지는 것)
+static func dark_bits(pos: Vector2, n: int, speed: float, dir := Vector2.ZERO, spread := 180.0, life := 0.35, smoke := 0) -> void:
+	var pp := PParticles.get_layer(false)
+	var base := dir.angle() if dir != Vector2.ZERO else 0.0
+	for i in n:
+		var an := base + deg_to_rad(randf_range(-spread, spread))
+		var v := Vector2(cos(an), sin(an)) * randf_range(speed * 0.3, speed)
+		var col := MAGENTA if randf() < 0.6 else STREAK
+		pp.spawn(pos, v, Vector2(0, 60), life * randf_range(0.6, 1.0), randf_range(1.6, 3.2), col, PLUM, 0, 3.5)
+	for i in smoke:
+		var v := Vector2(randf_range(-30, 30), randf_range(-36, -6)) + dir * randf_range(10, 40)
+		pp.spawn(pos + Vector2(randf_range(-6, 6), randf_range(-6, 6)), v, Vector2.ZERO, randf_range(0.35, 0.6), randf_range(4.0, 7.0),
+			Color(PLUM, 0.55), Color(INK, 0.0), 2, 3.0)
+
+
+## 어둠 폭발 (큰 타격·마무리): 무늬 있는 검보라 구체가 순간 부풀었다 연기로 흩어진다
+static func dark_burst(pos: Vector2, rad: float) -> void:
+	var b := DarkBurst.new()
+	b.rad = rad
+	add(b, pos, false)
 
 
 ## 초승달 참격 한 장: 볼록한 앞날(꼭짓점 c)이 dir을 향한다. r = 호의 반지름, half = 양쪽으로 벌어진 각(라디안), w = 가운데 두께.
-## 겹: 짙은 번짐 → 보라 몸통 → 앞날의 흰 심(공간이 갈라진 틈). 양 끝은 뾰족하다.
-static func crescent(pd: PDraw, c: Vector2, dir: Vector2, r: float, half: float, w: float, a: float, seg := 14) -> void:
+## 다크 질감 겹: 검보라 테두리(앞으로 삐져나옴) → 자두빛 → 보라 → 마젠타 → 분홍빛 흰 앞날 + 결무늬. 양 끝은 뾰족하다.
+static func crescent(pd: PDraw, c: Vector2, dir: Vector2, r: float, half: float, w: float, a: float, seg := 12, simple := false) -> void:
 	if a <= 0.01 or w < 0.3:
 		return
 	var o := c - dir * r
 	var base := dir.angle()
-	for layer: Array in [[1.0, 1.9, Color(DEEP, 0.5 * a)], [1.0, 1.0, Color(VIOLET, 0.9 * a)], [1.0, 0.38, Color(WHITE, a)]]:
+	# [바깥으로 더 나오는 정도, 두께 배율, 색] — simple = 잔상용 한 겹
+	var layers: Array = [[0.0, 1.0, Color(BODY, a)]] if simple else [[0.5, 2.3, Color(MAGENTA, 0.14 * a)], [0.22, 1.55, Color(INK, 0.92 * a)],
+		[0.0, 0.95, Color(PLUM.lerp(BODY, 0.5), a)], [0.0, 0.62, Color(MAGENTA, a)], [0.0, 0.32, Color(EDGE, a)]]
+	for layer: Array in layers:
 		var lw: float = w * float(layer[1])
-		var rr := r + (lw - w) * 0.35 # 번짐은 앞으로 살짝 더 나온다
+		var rr := r + w * float(layer[0])
 		var outer := PackedVector2Array()
 		var inner := PackedVector2Array()
 		for i in seg + 1:
@@ -87,6 +155,20 @@ static func crescent(pd: PDraw, c: Vector2, dir: Vector2, r: float, half: float,
 			outer.append(o + d * rr)
 			inner.append(o + d * (rr - thick))
 		pd.strip(outer, inner, layer[2])
+	if simple:
+		return
+	# 몸통 안 결무늬 한 줄
+	var sl := PackedVector2Array()
+	var sr := PackedVector2Array()
+	for i in seg + 1:
+		var f := lerpf(0.15, 0.9, float(i) / float(seg))
+		var ang := base + lerpf(-half, half, f)
+		var d := Vector2(cos(ang), sin(ang))
+		var mid := r - w * 0.48 * pow(sin(f * PI), 0.85)
+		var tw := w * 0.07 * sin(f * PI)
+		sl.append(o + d * (mid + tw))
+		sr.append(o + d * (mid - tw))
+	pd.strip(sl, sr, Color(STREAK, 0.7 * a))
 
 
 ## n번째 참격의 기울기(라디안): 황금비 수열로 -max~+max에 골고루 흩어 이웃한 참격끼리 각도가 겹치지 않게
@@ -125,8 +207,10 @@ static func shards(pos: Vector2, n: int, speed: float, area := Vector2.ZERO, up 
 static func hit_crack(pos: Vector2, heavy: bool, dir: float) -> void:
 	var d := dir if dir != 0.0 else 1.0
 	Impacts.get_layer().spawn(pos, heavy)
-	pixels(pos, 10 if heavy else 5, 210.0 if heavy else 140.0, Vector2(d, -0.3), 70.0, 0.32, Vector2(0, 300))
+	pixels(pos, 6 if heavy else 3, 210.0 if heavy else 140.0, Vector2(d, -0.3), 70.0, 0.28, Vector2(0, 300))
+	dark_bits(pos, 8 if heavy else 4, 190.0 if heavy else 120.0, Vector2(d, -0.2), 80.0, 0.34, 2 if heavy else 0)
 	if heavy:
+		dark_burst(pos, 26.0)
 		shards(pos, 6, 150.0, Vector2(3, 3), 80.0)
 
 
@@ -260,15 +344,17 @@ class Shards extends PDraw.Canvas:
 
 class Slash extends PVfx.Base:
 	const SWEEP := 0.05 ## 호가 끝까지 그려지는 시간
+	const HOLD := 0.035 ## 꽉 찬 채로 머무는 시간 (그 뒤 조각나며 흩어짐)
 	var r := 60.0
 	var w := 15.0
 	var a0 := 0.0
 	var a1 := 1.0
 	var sq := 1.0
+	var rot := 0.0 ## 납작한 회오리를 기울이는 각
 	var dir := 1
 	var big := false
 	var _seed := 0
-	var _crack := PackedVector2Array()
+	var _broke := false
 
 	func setup(a: Dictionary, facing: int, is_big: bool) -> void:
 		r = float(a.r)
@@ -276,67 +362,93 @@ class Slash extends PVfx.Base:
 		a0 = deg_to_rad(float(a.a0))
 		a1 = deg_to_rad(float(a.a1))
 		sq = float(a.sq)
+		rot = deg_to_rad(float(a.get("rot", 0.0)))
 		dir = facing
 		big = is_big
-		life = 0.4 if big else 0.22
+		life = 0.42 if big else 0.28
 		z_index = 6
 		_seed = randi() % 997
-		if big:
-			# 4타: 호를 따라 남았다 닫히는 공간의 금
-			var n := 18
-			for i in n + 1:
-				var f := float(i) / float(n)
-				var an := lerpf(a0, a1, f)
-				var rr := r - w * 0.42 + randf_range(-3.0, 3.0)
-				_crack.append(Vector2(cos(an) * rr, sin(an) * rr))
 
-	func _ready() -> void:
-		var n := 16 if big else 8
-		var pp := PParticles.get_layer(true)
-		for i in n:
-			var an := lerpf(a0, a1, randf_range(0.4, 1.0))
-			var p := position + Vector2(cos(an) * r * dir, sin(an) * r * sq)
-			var tang := Vector2(-sin(an) * dir, cos(an) * sq) * signf(a1 - a0)
-			pp.spawn(p, (tang * randf_range(60, 190) + Vector2(cos(an) * dir, sin(an)) * randf_range(20, 90)), Vector2.ZERO,
-				randf_range(0.18, 0.34), randf_range(1.0, 2.4), WHITE, VIOLET, 0, 4.0)
+	## 호 위의 각 an 자리 (전역 좌표) — 납작하게 누르고 기울인 그대로
+	func _arc_point(an: float, rr: float) -> Vector2:
+		return position + Vector2(cos(an) * rr * dir, sin(an) * rr * sq).rotated(rot * dir)
+
+	func _tick(_delta: float) -> void:
+		if not _broke and t >= SWEEP + HOLD:
+			_broke = true
+			# 부서지는 순간 호를 따라 보랏빛 조각·연기가 결 방향으로 흩어진다
+			var n := 14 if big else 7
+			var pp := PParticles.get_layer(false)
+			for i in n:
+				var an := lerpf(a0, a1, randf_range(0.1, 1.0))
+				var p := _arc_point(an, r - w * 0.4)
+				var tang := (_arc_point(an + 0.05 * signf(a1 - a0), r) - _arc_point(an, r)).normalized()
+				pp.spawn(p, tang * randf_range(60, 200) + (p - position).normalized() * randf_range(20, 70), Vector2(0, 40),
+					randf_range(0.2, 0.38), randf_range(1.6, 3.4), MAGENTA if i % 3 else STREAK, PLUM, 0, 4.0)
+			for i in (4 if big else 2):
+				var p := _arc_point(lerpf(a0, a1, randf_range(0.3, 1.0)), r - w * 0.5)
+				pp.spawn(p, Vector2(randf_range(-20, 20), randf_range(-30, -8)), Vector2.ZERO, randf_range(0.35, 0.55), randf_range(5.0, 8.0),
+					Color(PLUM, 0.5), Color(INK, 0.0), 2, 3.0)
 
 	func _paint() -> void:
-		var p := clampf(t / SWEEP, 0.0, 1.0)
-		var head := lerpf(a0, a1, 1.0 - pow(1.0 - p, 2.0))
-		var fade := 1.0 - clampf((t - SWEEP) / maxf(life - SWEEP, 0.01), 0.0, 1.0)
-		var thin := lerpf(0.3, 1.0, fade)
-		# 꼬리가 머리를 따라 줄어든다 (휘두른 뒤 사라지는 결)
-		var tail := lerpf(a0, head, clampf((t - SWEEP * 0.5) / (life * 0.8), 0.0, 0.85))
-		var span := head - tail
-		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(dir, sq))
-		var jag := w * 0.34
-		EVfx.band(pd, r * 1.08, tail, head, w * 1.7 * thin, Color(DEEP, 0.0), Color(DEEP, 0.55 * fade), 26, jag * 1.4, _seed)
-		EVfx.band(pd, r, tail, head, w * thin, Color(VIOLET, 0.05), Color(VIOLET, 0.95 * fade), 26, jag, _seed + 3)
-		EVfx.band(pd, r - w * 0.14, tail + span * 0.1, head, w * 0.62 * thin, Color(PALE, 0.0), Color(PALE, fade), 24, jag * 0.5, _seed + 7)
-		EVfx.band(pd, r - w * 0.22, tail + span * 0.25, head, w * 0.3 * thin, Color(WHITE, 0.0), Color(WHITE, fade), 22)
-		EVfx.band(pd, r + 0.5, tail + span * 0.15, head, 1.6 * thin, Color(WHITE, 0.0), Color(WHITE, 0.9 * fade), 22) # 날 끝 빛
-		# 얇은 궤적선 두 겹 (살짝 어긋나게, 조금 늦게)
-		EVfx.band(pd, r * 1.2, tail + span * 0.3, lerpf(tail, head, 0.96), 2.4, Color(PALE, 0.0), Color(PALE, 0.8 * fade), 18)
-		EVfx.band(pd, r * 0.76, tail + span * 0.42, lerpf(tail, head, 0.9), 2.0, Color(VIOLET, 0.0), Color(VIOLET, 0.7 * fade), 16)
-		if p < 1.0:
-			# 휘두르는 머리의 별빛
-			var hp := Vector2(cos(head), sin(head)) * (r - w * 0.3)
-			pd.glow(hp, w * 1.1, Color(WHITE, 0.85), 0.0)
-			pd.draw_line(hp - Vector2(w * 1.2, 0), hp + Vector2(w * 1.2, 0), Color(WHITE, 0.9), 1.2)
-			pd.draw_line(hp - Vector2(0, w * 0.8), hp + Vector2(0, w * 0.8), Color(WHITE, 0.7), 1.0)
-		if big and t > SWEEP * 0.6:
-			var ck := clampf((t - SWEEP) / (life - SWEEP), 0.0, 1.0)
-			var cw := 3.0 * (1.0 - ck)
-			if cw > 0.2:
-				pd.draw_polyline(_crack, Color(VIOLET, 0.7 * (1.0 - ck)), cw + 2.5)
-				pd.draw_polyline(_crack, Color(WHITE, 0.95), cw)
+		pd.draw_set_transform(Vector2.ZERO, rot * dir, Vector2(dir, sq))
+		if t < SWEEP + HOLD:
+			var p := clampf(t / SWEEP, 0.0, 1.0)
+			var head := lerpf(a0, a1, 1.0 - pow(1.0 - p, 2.0))
+			EVfx.dark_band(pd, r, a0, head, w, 1.0, _seed, 30 if big else 24)
+			if p < 1.0:
+				# 휘두르는 머리의 분홍빛 섬광
+				var hp := Vector2(cos(head), sin(head)) * (r - w * 0.25)
+				pd.glow(hp, w * 1.1, Color(EDGE, 0.8), 0.0)
+				pd.draw_line(hp - Vector2(w * 1.3, 0), hp + Vector2(w * 1.3, 0), Color(EDGE, 0.9), 1.4)
+		else:
+			var e := clampf((t - SWEEP - HOLD) / maxf(life - SWEEP - HOLD, 0.01), 0.0, 1.0)
+			EVfx.dark_band_broken(pd, r, a0, a1, w, 1.0 - e * e, 1.0 - pow(1.0 - e, 2.0), _seed)
 		pd.draw_set_transform(Vector2.ZERO)
 
 
-## 맞은 자리의 십자 섬광 + 흰 금 (유리처럼) + 고리 — 장면에 한 노드, 여러 타격을 함께 그린다
+## 어둠 폭발: 검보라 구체가 순간 부풀며(무늬 고리·십자) 터지고, 테두리가 흩어지며 연기로 사라진다 — 보통 섞기
+class DarkBurst extends PVfx.Base:
+	var rad := 40.0
+	var _spin := 0.0
+
+	func _ready() -> void:
+		life = 0.42 + rad * 0.003
+		z_index = 6
+		_spin = randf() * TAU
+		EVfx.dark_bits(position, int(6 + rad * 0.25), rad * 4.5, Vector2.ZERO, 180.0, 0.4, int(2 + rad * 0.06))
+
+	func _paint() -> void:
+		var grow := 1.0 - pow(1.0 - clampf(t / 0.07, 0.0, 1.0), 3.0)
+		var fade := 1.0 - clampf((t - 0.09) / (life - 0.09), 0.0, 1.0)
+		if fade <= 0.0:
+			return
+		var R := rad * (0.35 + 0.65 * grow) * (1.0 + 0.18 * (1.0 - fade))
+		var a := fade * fade
+		pd.glow(Vector2.ZERO, R * 1.7, Color(MAGENTA, 0.3 * a), 0.0)
+		pd.draw_circle(Vector2.ZERO, R * 1.04, Color(INK, 0.9 * a))
+		pd.draw_circle(Vector2.ZERO, R * 0.86, Color(PLUM, 0.95 * a))
+		pd.glow(Vector2.ZERO, R * 0.8, Color(BODY, 0.6 * a), 0.0)
+		# 무늬: 도는 고리 조각 + 십자
+		var sp := _spin + t * 3.0
+		for i in 6:
+			var s0 := sp + float(i) * TAU / 6.0
+			pd.draw_arc(Vector2.ZERO, R * 0.6, s0, s0 + 0.62, 6, Color(STREAK, 0.8 * a), maxf(R * 0.05, 1.0))
+		for q in 2:
+			var d := Vector2.from_angle(sp * 0.5 + float(q) * PI / 2.0 + PI / 4.0) * R * 0.78
+			pd.draw_line(-d, d, Color(MAGENTA, 0.85 * a), maxf(R * 0.06, 1.0))
+		pd.draw_arc(Vector2.ZERO, R * 0.95, 0.0, TAU, 32, Color(MAGENTA, a), maxf(R * 0.07, 1.4))
+		pd.draw_arc(Vector2.ZERO, R * 0.99, 0.0, TAU, 32, Color(EDGE, 0.7 * a), 1.0)
+		# 터지는 순간의 분홍빛 흰 심
+		if t < 0.1:
+			var cf := 1.0 - t / 0.1
+			pd.glow(Vector2.ZERO, R * 0.6, Color(EDGE, 0.9 * cf), 0.0)
+
+
+## 맞은 자리: 가늘고 긴 빨강·흰 바늘이 X자로 교차 + 작은 섬광 + 마젠타 고리 — 장면에 한 노드, 여러 타격을 함께 그린다 (가산)
 class Impacts extends PDraw.Canvas:
 	static var _inst: Impacts
-	var items: Array = [] ## [위치, 나이, 수명, 큼, 각도, 금 줄들]
+	var items: Array = [] ## [위치, 나이, 수명, 큼, 바늘 각도들]
 
 	static func get_layer() -> Impacts:
 		if is_instance_valid(_inst) and _inst.is_inside_tree():
@@ -350,18 +462,11 @@ class Impacts extends PDraw.Canvas:
 	func spawn(pos: Vector2, heavy: bool) -> void:
 		if items.size() > 40:
 			items.pop_front()
-		var lines: Array[PackedVector2Array] = []
-		for i in (7 if heavy else 5):
-			var a := randf() * TAU
-			var l := randf_range(8.0, 24.0 if heavy else 15.0)
-			var pts := PackedVector2Array([pos])
-			var p := pos
-			for s in 3:
-				a += randf_range(-0.6, 0.6)
-				p += Vector2(cos(a), sin(a)) * l / 3.0
-				pts.append(p)
-			lines.append(pts)
-		items.append([pos, 0.0, 0.26 if heavy else 0.17, heavy, randf_range(-0.4, 0.4), lines])
+		var base := randf_range(0.5, 1.1) * (-1.0 if randf() < 0.5 else 1.0)
+		var angs := PackedFloat32Array([base, base + randf_range(1.2, 1.9)])
+		if heavy:
+			angs.append(base + randf_range(0.5, 0.9))
+		items.append([pos, 0.0, 0.24 if heavy else 0.16, heavy, angs])
 
 	func _process(delta: float) -> void:
 		var i := 0
@@ -380,16 +485,15 @@ class Impacts extends PDraw.Canvas:
 			var heavy: bool = it[3]
 			var k := float(it[1]) / float(it[2])
 			var f := 1.0 - k
-			var star := (34.0 if heavy else 20.0) * (1.0 - k * k)
-			pd.glow(pos, (18.0 if heavy else 11.0) * (0.6 + 0.4 * f), Color(PALE, 0.75 * f), 0.0)
-			for q in 4:
-				var d := Vector2.from_angle(float(it[4]) + float(q) * PI / 2.0)
-				var n := d.orthogonal() * (2.2 if heavy else 1.6) * f
-				var len := star * (1.0 if q % 2 == 0 else 0.55)
-				pd.draw_colored_polygon(PackedVector2Array([pos + n, pos + d * len, pos - n]), Color(WHITE, f))
-			for pts: PackedVector2Array in it[5]:
-				pd.draw_polyline(pts, Color(WHITE, f), 1.6 if heavy else 1.2)
-			pd.draw_arc(pos, lerpf(4.0, 22.0 if heavy else 13.0, k), 0.0, TAU, 20, Color(VIOLET, 0.85 * f), 1.6 if heavy else 1.2)
+			var reach := (46.0 if heavy else 30.0) * (1.0 - pow(1.0 - minf(k * 4.0, 1.0), 2.0)) # 순식간에 뻗는다
+			pd.glow(pos, (16.0 if heavy else 10.0) * (0.6 + 0.4 * f), Color(EDGE, 0.7 * f), 0.0)
+			for an: float in it[4]:
+				var d := Vector2.from_angle(an)
+				var n := d.orthogonal()
+				var hw := (2.4 if heavy else 1.7) * f
+				pd.draw_colored_polygon(PackedVector2Array([pos - d * reach, pos + n * hw, pos + d * reach, pos - n * hw]), Color(HIT_RED, 0.95 * f))
+				pd.draw_colored_polygon(PackedVector2Array([pos - d * reach * 0.8, pos + n * hw * 0.35, pos + d * reach * 0.8, pos - n * hw * 0.35]), Color(WHITE, f))
+			pd.draw_arc(pos, lerpf(4.0, 24.0 if heavy else 14.0, k), 0.0, TAU, 20, Color(MAGENTA, 0.85 * f), 1.6 if heavy else 1.2)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -445,7 +549,7 @@ class Streak extends PVfx.Base:
 
 class Fan extends PVfx.Base:
 	const N := 14
-	const SPREAD := 38.0 ## 위아래 각도(도)
+	const SPREAD := 42.0 ## 위아래 각도(도)
 	const GAP := 0.022 ## 참격 사이 시간
 	const FLY := 0.36 ## 한 장이 날아가는 시간
 	const DMG := 16
@@ -460,6 +564,7 @@ class Fan extends PVfx.Base:
 	var _w := PackedFloat32Array()
 	var _hit: Array = [] ## 장마다 이미 벤 허수아비 (한 장은 한 번만)
 	var _hits := 0
+	var _ended := PackedByteArray() ## 다 날아가 부서졌는지
 
 	func _ready() -> void:
 		life = N * GAP + FLY + 0.02
@@ -469,13 +574,14 @@ class Fan extends PVfx.Base:
 		for i in N:
 			var f := float(order[i]) / float(N - 1)
 			_ang.append(deg_to_rad(lerpf(-SPREAD, SPREAD, f) + randf_range(-3.0, 3.0)))
-			_spd.append(randf_range(560.0, 700.0))
-			_r.append(randf_range(24.0, 36.0))
+			_spd.append(randf_range(660.0, 820.0))
+			_r.append(randf_range(32.0, 46.0))
 			_half.append(deg_to_rad(randf_range(58.0, 72.0)))
 			_tilt.append(EVfx.tilt_of(i, 55.0))
 			_spin.append(randf_range(-0.5, 0.5))
-			_w.append(randf_range(6.0, 9.0))
+			_w.append(randf_range(9.0, 13.0))
 			_hit.append({})
+			_ended.append(0)
 		EVfx.pixels(position, 10, 90.0, Vector2(dir, 0), 90.0, 0.22)
 
 	func _dirv(i: int) -> Vector2:
@@ -495,6 +601,9 @@ class Fan extends PVfx.Base:
 			return
 		for i in N:
 			var age := t - float(i) * GAP
+			if _ended[i] == 0 and age >= FLY * 0.82:
+				_ended[i] = 1 # 날아간 끝에서 조각으로 부서진다
+				EVfx.dark_bits(global_position + _pos(i, FLY * 0.82), 3, 90.0, _dirv(i), 60.0, 0.3)
 			if age < 0.0 or age > FLY:
 				continue
 			var pts := EVfx.crescent_points(global_position + _pos(i, age), _facev(i, age), _r[i], _half[i])
@@ -533,14 +642,14 @@ class Fan extends PVfx.Base:
 			# 잔상 두 장 (지나온 자리에 희미하게)
 			for g in 2:
 				var gp := _pos(i, maxf(age - 0.022 * float(g + 1), 0.0))
-				EVfx.crescent(pd, gp, fv, _r[i] * grow, _half[i], _w[i] * grow * 0.7, a * (0.22 - 0.08 * float(g)), 10)
+				EVfx.crescent(pd, gp, fv, _r[i] * grow, _half[i], _w[i] * grow * 0.7, a * (0.3 - 0.1 * float(g)), 8, true)
 			EVfx.crescent(pd, p, fv, _r[i] * grow, _half[i], _w[i] * grow, a)
 			if age < 0.05:
-				pd.glow(p, 7.0, Color(WHITE, 0.8), 0.0)
+				pd.glow(p, 9.0, Color(EDGE, 0.8), 0.0)
 
 
 # ═══════════════════════════════════════════════════════════
-# 단공 — 위쪽 공간 한 구역을 초승달 참격이 잇달아 베어 올린다 (지상·공중)
+# 단공 — 위쪽 공간 한 구역을 다크 초승달 참격이 잇달아 베어 올리고, 마지막에 어둠 폭발 (지상·공중)
 # ═══════════════════════════════════════════════════════════
 
 class Storm extends PVfx.Base:
@@ -565,7 +674,7 @@ class Storm extends PVfx.Base:
 			var x := randf_range(area.position.x + 10.0, area.end.x - 10.0)
 			var p0 := Vector2(x, area.end.y - randf_range(0.0, 14.0))
 			var dv := Vector2.UP.rotated(randf_range(-0.3, 0.3))
-			_streaks.append([t, p0, dv, randf_range(620.0, 760.0), randf_range(20.0, 30.0), deg_to_rad(randf_range(58.0, 70.0)), randf_range(5.0, 8.0), dv.rotated(EVfx.tilt_of(_streaks.size(), 60.0))])
+			_streaks.append([t, p0, dv, randf_range(700.0, 860.0), randf_range(26.0, 40.0), deg_to_rad(randf_range(58.0, 70.0)), randf_range(8.0, 12.0), dv.rotated(EVfx.tilt_of(_streaks.size(), 60.0))])
 		if not is_instance_valid(eska):
 			return
 		if _ticks < TICKS and t >= 0.04 + float(_ticks) * 0.052:
@@ -576,7 +685,8 @@ class Storm extends PVfx.Base:
 			if _hit_all(FINAL_DMG, true):
 				Fx.hitstop(0.06)
 				Fx.shake(0.32, 0.16)
-			EVfx.pixels(area.get_center(), 16, 220.0, Vector2.UP, 160.0, 0.32, Vector2(0, 220))
+			EVfx.pixels(area.get_center(), 10, 220.0, Vector2.UP, 160.0, 0.32, Vector2(0, 220))
+			EVfx.dark_burst(area.get_center() + Vector2(0, area.size.y * 0.15), 48.0)
 			EVfx.shards(area.get_center(), 10, 180.0, area.size * 0.3, 60.0)
 			Sfx.play(&"sword_slash", -2.0)
 
@@ -593,13 +703,13 @@ class Storm extends PVfx.Base:
 	func _paint() -> void:
 		var env := clampf(t / 0.06, 0.0, 1.0) * (1.0 - clampf((t - 0.46) / 0.22, 0.0, 1.0))
 		# 찢기는 공간: 아래가 밝은 보랏빛 + 흰 바닥선 + 위아래 테두리
-		pd.rect_grad(area, Color(DEEP, 0.0), Color(VIOLET, 0.24 * env))
-		pd.draw_rect(Rect2(area.position.x, area.end.y - 2.0, area.size.x, 2.0), Color(PALE, 0.6 * env))
-		pd.draw_rect(Rect2(area.position.x, area.position.y, area.size.x, 1.0), Color(PALE, 0.25 * env))
+		pd.rect_grad(area, Color(PLUM, 0.0), Color(BODY, 0.3 * env))
+		pd.draw_rect(Rect2(area.position.x, area.end.y - 3.0, area.size.x, 3.0), Color(MAGENTA, 0.8 * env))
+		pd.draw_rect(Rect2(area.position.x, area.position.y, area.size.x, 1.0), Color(STREAK, 0.35 * env))
 		# 열리는 순간의 세로 섬광
 		if t < 0.1:
 			var of := 1.0 - t / 0.1
-			pd.draw_rect(Rect2(area.get_center().x - area.size.x * 0.5 * (1.0 - of), area.position.y, area.size.x * (1.0 - of), area.size.y), Color(WHITE, 0.25 * of))
+			pd.draw_rect(Rect2(area.get_center().x - area.size.x * 0.5 * (1.0 - of), area.position.y, area.size.x * (1.0 - of), area.size.y), Color(EDGE, 0.35 * of))
 		for s: Array in _streaks:
 			var age: float = t - float(s[0])
 			if age > 0.22:
@@ -609,7 +719,7 @@ class Storm extends PVfx.Base:
 			var grow := 0.5 + 0.5 * (1.0 - pow(1.0 - clampf(age / 0.05, 0.0, 1.0), 2.0))
 			var a := 1.0 - clampf((age - 0.12) / 0.1, 0.0, 1.0)
 			var fv: Vector2 = s[7]
-			EVfx.crescent(pd, p - dv * 14.0, fv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow * 0.7, a * 0.2, 10) # 잔상
+			EVfx.crescent(pd, p - dv * 14.0, fv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow * 0.7, a * 0.3, 8, true) # 잔상
 			EVfx.crescent(pd, p, fv, float(s[4]) * grow, float(s[5]), float(s[6]) * grow, a)
 		if _final:
 			# 마지막: 구역 전체 폭의 큰 초승달 두 장이 엇갈려 솟구친다
@@ -620,12 +730,12 @@ class Storm extends PVfx.Base:
 				for side: float in [-1.0, 1.0]:
 					var dv := Vector2.UP.rotated(0.16 * side)
 					var p := bottom + dv * lerpf(20.0, area.size.y + 20.0, 1.0 - pow(1.0 - clampf(age / 0.18, 0.0, 1.0), 2.0))
-					EVfx.crescent(pd, p, dv.rotated(0.3 * side), area.size.x * 0.5, deg_to_rad(66.0), 13.0 * ff, ff, 18)
-				pd.glow(area.get_center(), area.size.x * 0.7, Color(PALE, 0.35 * ff), 0.0)
+					EVfx.crescent(pd, p, dv.rotated(0.3 * side), area.size.x * 0.55, deg_to_rad(66.0), 20.0 * ff, ff, 18)
+				pd.glow(area.get_center(), area.size.x * 0.7, Color(MAGENTA, 0.3 * ff), 0.0)
 
 
 # ═══════════════════════════════════════════════════════════
-# 봉공 — 대상 둘레의 공간을 틀로 가둔다. 끝나면 유리처럼 깨지며 한 번 더 벤다.
+# 봉공 — 납작한 다크 회오리가 대상을 휘감고 공간을 틀로 가둔다. 끝나면 X자로 베어 깨뜨리고 어둠 폭발.
 # ═══════════════════════════════════════════════════════════
 
 class BindFrame extends PVfx.Base:
@@ -679,16 +789,35 @@ class BindFrame extends PVfx.Base:
 				Fx.hitstop(0.05)
 				Fx.shake(0.28, 0.14)
 			Sfx.play(&"crumble", -4.0)
+			EVfx.dark_burst(position, 40.0)
 			EVfx.shards(position, 26, 200.0, _size * 0.5, 60.0)
 			EVfx.pixels(position, 12, 160.0, Vector2.ZERO, 180.0, 0.3)
 
 	func _paint() -> void:
 		var hs := _size * 0.5
 		if _broken:
-			var bf := 1.0 - clampf((t - _break_at) / 0.25, 0.0, 1.0)
-			pd.draw_rect(Rect2(-hs * (1.0 + (1.0 - bf) * 0.35), _size * (1.0 + (1.0 - bf) * 0.35)), Color(PALE, 0.55 * bf), false, 2.0)
-			pd.glow(Vector2.ZERO, maxf(hs.x, hs.y) * 1.4, Color(WHITE, 0.4 * bf), 0.0)
+			var s := t - _break_at
+			var bf := 1.0 - clampf(s / 0.25, 0.0, 1.0)
+			pd.draw_rect(Rect2(-hs * (1.0 + (1.0 - bf) * 0.35), _size * (1.0 + (1.0 - bf) * 0.35)), Color(STREAK, 0.55 * bf), false, 2.0)
+			# 틀을 X자로 가르는 두 줄기 다크 참격
+			var L := _size.length() * 1.7
+			var grow := 1.0 - pow(1.0 - clampf(s / 0.05, 0.0, 1.0), 2.0)
+			for side: float in [-1.0, 1.0]:
+				var dv := Vector2(1.0, side * 1.15).normalized()
+				EVfx.feather(pd, -dv * L * 0.5, dv, L, 0.06 * side, 15.0 * (0.4 + 0.6 * bf), bf, 0.75 * (1.0 - bf), maxf(grow, 0.75 * (1.0 - bf) + 0.02))
 			return
+		# 걸리는 순간: 납작한 다크 회오리가 대상을 한 바퀴 휘감고 부서진다
+		if t < 0.34:
+			var rr := hs.x + 36.0
+			pd.draw_set_transform(Vector2(0, hs.y * 0.15), -0.14, Vector2(1.0, 0.34))
+			var a0 := -PI * 0.75
+			if t < 0.1:
+				var sw := 1.0 - pow(1.0 - t / 0.1, 2.0)
+				EVfx.dark_band(pd, rr, a0, a0 + TAU * 1.02 * sw, 24.0, 1.0, 11, 40)
+			else:
+				var e := clampf((t - 0.1) / 0.24, 0.0, 1.0)
+				EVfx.dark_band_broken(pd, rr, a0, a0 + TAU * 1.02, 24.0, 1.0 - e * e, 1.0 - pow(1.0 - e, 2.0), 11)
+			pd.draw_set_transform(Vector2.ZERO)
 		# 모서리 넷이 바깥에서 날아와 맞물린다
 		var form := clampf(t / 0.14, 0.0, 1.0)
 		var fe := 1.0 - pow(1.0 - form, 3.0)
@@ -743,7 +872,7 @@ class Ult extends Node2D:
 	func _ready() -> void:
 		for i in 30:
 			var a := -PI / 2.0 + randf_range(-PI * 0.95, PI * 0.95)
-			lines.append([a, randf_range(90.0, 300.0), randf_range(0.04, 0.42), randf_range(0.2, 0.4) * (-1.0 if randf() < 0.5 else 1.0), randf_range(5.0, 9.0)])
+			lines.append([a, randf_range(110.0, 340.0), randf_range(0.04, 0.42), randf_range(0.2, 0.4) * (-1.0 if randf() < 0.5 else 1.0), randf_range(7.0, 12.0)])
 		_dark = UltDark.new()
 		_dark.u = self
 		_dark.z_index = 4
@@ -817,6 +946,7 @@ class Ult extends Node2D:
 		Sfx.play(&"explode", 0.0)
 		Sfx.play(&"slam", -2.0)
 		_hit_column(SLAM_DMG, true, 48.0)
+		EVfx.dark_burst(Vector2(target_x, floor_y - 70.0), 84.0)
 		var pp := PParticles.get_layer(true)
 		for i in 44:
 			var p := Vector2(target_x + randf_range(-10, 10), floor_y - randf_range(0, 220))
@@ -837,7 +967,7 @@ class Ult extends Node2D:
 		return clampf(t / 0.12, 0.0, 1.0) * (1.0 - clampf((t - (END - 0.35)) / 0.35, 0.0, 1.0))
 
 
-## 세상을 어둡게 (보통 섞기 — 캐릭터·허수아비도 함께 어두워져 실루엣이 된다)
+## 세상을 어둡게 (보통 섞기 — 캐릭터·허수아비도 함께 어두워져 실루엣이 된다) + 그 위에 다크 참격선·X자
 class UltDark extends PDraw.Canvas:
 	var u: Ult
 
@@ -846,9 +976,29 @@ class UltDark extends PDraw.Canvas:
 		var c := cam.get_screen_center_position() if cam else Vector2(320, 180)
 		var a := 0.8 * u.env()
 		pd.draw_rect(Rect2(c - Vector2(700, 450), Vector2(1400, 900)), Color(0.03, 0.01, 0.07, a))
+		var t := u.t
+		var h := u.hand()
+		# 사방으로 몰아치는 휘어진 다크 참격 (폭풍 속 거대 검) — 검은 테두리가 보이게 보통 섞기로
+		for l: Array in u.lines:
+			var age: float = t - float(l[2])
+			if age < 0.0 or age > 0.34:
+				continue
+			var f := age / 0.34
+			var dv := Vector2(cos(float(l[0])), sin(float(l[0])))
+			var grow := minf(f * 2.2, 1.0)
+			EVfx.feather(pd, h + dv * 10.0, dv, float(l[1]), float(l[3]), float(l[4]) * (1.0 - f * 0.6), 1.0 - f, f * 0.7, maxf(grow, f * 0.7 + 0.02), 8)
+		# 내리꽂은 자리를 X자로 가르는 거대한 두 줄기
+		var s := t - Ult.SLAM
+		if s >= 0.0 and s < 0.42:
+			var xf := 1.0 - clampf((s - 0.06) / 0.36, 0.0, 1.0)
+			var grow := 1.0 - pow(1.0 - clampf(s / 0.06, 0.0, 1.0), 2.0)
+			var cen := Vector2(u.target_x, u.floor_y - 100.0)
+			for side: float in [-1.0, 1.0]:
+				var dv := Vector2(1.0, side * 1.2).normalized()
+				EVfx.feather(pd, cen - dv * 170.0, dv, 340.0, 0.05 * side, 26.0 * (0.4 + 0.6 * xf), xf, 0.7 * (1.0 - xf), maxf(grow, 0.7 * (1.0 - xf) + 0.02))
 
 
-## 빛나는 것들 (가산): 사방 참격선 · 공허의 칼날 · 세로로 갈라진 화면 · 바닥 충격파
+## 빛나는 것들 (가산): 손의 빛 · 공허의 칼날 · 세로로 갈라진 화면 · 바닥 충격파 (참격선·X자는 UltDark가 보통 섞기로)
 class UltGlow extends PDraw.Canvas:
 	var u: Ult
 
@@ -863,15 +1013,6 @@ class UltGlow extends PDraw.Canvas:
 			pd.glow(h, 11.0 + 6.0 * sin(t * 30.0), Color(WHITE, 0.95 * hf), 0.0)
 			var rr := lerpf(40.0, 4.0, fmod(t * 2.6, 1.0))
 			pd.draw_arc(h, rr, 0.0, TAU, 24, Color(PALE, 0.6 * hf), 1.2)
-		# 사방으로 몰아치는 휘어진 참격 (폭풍 속 거대 검)
-		for l: Array in u.lines:
-			var age: float = t - float(l[2])
-			if age < 0.0 or age > 0.34:
-				continue
-			var f := age / 0.34
-			var dv := Vector2(cos(float(l[0])), sin(float(l[0])))
-			var grow := minf(f * 2.2, 1.0)
-			EVfx.feather(pd, h + dv * 10.0, dv, float(l[1]), float(l[3]), float(l[4]) * (1.0 - f * 0.6), 1.0 - f, f * 0.7, maxf(grow, f * 0.7 + 0.02))
 		# 공허의 칼날 (하늘에서 형성 → 내리꽂힘)
 		if t < Ult.SLAM:
 			var form := clampf((t - 0.1) / (Ult.SLAM - 0.1), 0.0, 1.0)

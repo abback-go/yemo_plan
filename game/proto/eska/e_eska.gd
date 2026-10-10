@@ -2,7 +2,7 @@ class_name EEska
 extends CharacterBody2D
 ## 에스카(종언의 마녀) 전투 시제품. 기획: Claude 문서 "새 컨셉: 종언의 마녀" 탭.
 ## 조작: 이동 · 점프(1단) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능)
-##       · 스킬 키: 그냥 = 천열(손가락 튕겨 부채꼴 참격) / ↑ = 단공(위쪽 공간을 세로 참격으로 찢음)
+##       · 스킬 키: 그냥 = 천열(손가락 튕겨 초승달 참격 여러 장) / ↑ = 단공(위쪽 공간을 초승달 참격으로 베어 올림)
 ##       · 봉공(공간 틀에 가둠) · 종언참(필살기). 스킬은 쿨다운만 쓴다.
 ## 공격 판정은 물리 없이 PDummy.hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
 
@@ -41,10 +41,10 @@ const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공"
 ## 4타 연격. 각도는 도(0 = 앞, + = 아래). 호는 a0 → a1로 휘두른다.
 ## dur 한 타 길이 · hit 판정 시각 · next 다음 타를 받기 시작하는 시각 · r 반지름 · w 가장 굵은 곳 · sq 세로 납작함 · c 몸 기준 중심
 const COMBO := [
-	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": -80.0, "a1": 44.0, "r": 62.0, "w": 15.0, "sq": 1.0, "c": Vector2(2, -20), "dmg": 30, "step": 80.0},
-	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": 60.0, "a1": -64.0, "r": 62.0, "w": 15.0, "sq": 1.0, "c": Vector2(2, -18), "dmg": 30, "step": 80.0},
-	{"dur": 0.16, "hit": 0.04, "next": 0.08, "a0": -90.0, "a1": 90.0, "r": 78.0, "w": 17.0, "sq": 0.4, "c": Vector2(0, -17), "dmg": 34, "step": 90.0},
-	{"dur": 0.34, "hit": 0.06, "next": 0.34, "a0": -120.0, "a1": 76.0, "r": 104.0, "w": 30.0, "sq": 1.0, "c": Vector2(6, -26), "dmg": 64, "step": 150.0},
+	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": -84.0, "a1": 48.0, "r": 84.0, "w": 26.0, "sq": 0.82, "rot": -10.0, "c": Vector2(4, -22), "dmg": 30, "step": 80.0},
+	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": 64.0, "a1": -70.0, "r": 84.0, "w": 26.0, "sq": 0.82, "rot": 10.0, "c": Vector2(4, -20), "dmg": 30, "step": 80.0},
+	{"dur": 0.16, "hit": 0.04, "next": 0.08, "a0": -205.0, "a1": 150.0, "r": 104.0, "w": 28.0, "sq": 0.34, "rot": -9.0, "c": Vector2(0, -16), "dmg": 34, "step": 90.0},
+	{"dur": 0.34, "hit": 0.06, "next": 0.34, "a0": -125.0, "a1": 82.0, "r": 138.0, "w": 46.0, "sq": 1.0, "rot": 0.0, "c": Vector2(8, -30), "dmg": 64, "step": 150.0},
 ]
 const CHAIN_WINDOW := 0.28 ## 한 타가 끝난 뒤 이 안에 누르면 다음 타로 이어짐
 
@@ -285,7 +285,7 @@ func _start_attack(i: int) -> void:
 	var c: Vector2 = a.c
 	var sl := EVfx.Slash.new()
 	sl.setup(a, facing, i == 3)
-	EVfx.add(sl, global_position + Vector2(c.x * facing, c.y), true)
+	EVfx.add(sl, global_position + Vector2(c.x * facing, c.y), false) # 다크 참격은 보통 섞기 (검은 테두리가 보이게)
 	Sfx.play_pitch(&"sword_slash", [1.05, 1.15, 0.95, 0.78][i] * randf_range(0.96, 1.04), -4.0 if i < 3 else 0.0)
 	if i == 3:
 		Sfx.play(&"whoosh", -6.0)
@@ -476,15 +476,15 @@ func _cast(delta: float) -> void:
 				var fan := EVfx.Fan.new()
 				fan.eska = self
 				fan.dir = facing
-				EVfx.add(fan, global_position + Vector2(facing * 12, -23.5), true)
+				EVfx.add(fan, global_position + Vector2(facing * 12, -23.5), false)
 				art.snap_flash()
 				Sfx.play_pitch(&"blip", 1.6, -2.0)
 				Sfx.play(&"whoosh", -4.0)
 			"dangong":
 				var storm := EVfx.Storm.new()
 				storm.eska = self
-				storm.area = Rect2(global_position + Vector2(facing * 44 - 54, -150), Vector2(108, 148))
-				EVfx.add(storm, Vector2.ZERO, true)
+				storm.area = Rect2(global_position + Vector2(facing * 52 - 70, -194), Vector2(140, 192))
+				EVfx.add(storm, Vector2.ZERO, false)
 				Sfx.play(&"storm", -6.0)
 			"bonggong":
 				var fr := EVfx.BindFrame.new()
