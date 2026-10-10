@@ -120,21 +120,34 @@ func _paint_body(a: float) -> void:
 	# 몸통 (위가 넓은 사다리꼴)
 	var torso := PackedVector2Array([Vector2(-15, -18) + o, Vector2(14, -18) + o, Vector2(23, -50) + o, Vector2(10, -58) + o, Vector2(-12, -57) + o, Vector2(-24, -48) + o])
 	pd.draw_colored_polygon(torso, col(BLACK, a))
-	pd.draw_colored_polygon(PackedVector2Array([Vector2(-10, -22) + o, Vector2(9, -22) + o, Vector2(15, -44) + o, Vector2(-16, -44) + o]), col(SHADE, a))
+	# 가슴판 두 장 (가운데로 모이는 V) + 허리띠
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(-19, -47) + o, Vector2(-1, -45) + o, Vector2(-1, -27) + o, Vector2(-12, -31) + o]), col(SHADE, a))
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(1, -45) + o, Vector2(19, -48) + o, Vector2(12, -31) + o, Vector2(1, -27) + o]), col(SHADE, a))
+	pd.draw_rect(Rect2(Vector2(-15, -23) + o, Vector2(29, 4)), col(BONE_DIM, a * 0.8))
 	# 가슴의 붉은 금 (들어 올릴수록 밝아짐)
 	var glow := 0.45 + 0.55 * maxf(raise, smash)
-	var crack := PackedVector2Array([Vector2(-2, -48) + o, Vector2(2, -41) + o, Vector2(-3, -35) + o, Vector2(3, -28) + o, Vector2(0, -22) + o])
-	pd.glow(Vector2(0, -36) + o, 10.0 + 8.0 * glow, Color(RED, 0.3 * glow * a), 0.0)
+	var crack := PackedVector2Array([Vector2(-1, -46) + o, Vector2(2, -40) + o, Vector2(-2, -35) + o, Vector2(1, -28) + o])
+	pd.glow(Vector2(0, -37) + o, 10.0 + 8.0 * glow, Color(RED, 0.3 * glow * a), 0.0)
 	pd.draw_polyline(crack, Color(RED.lerp(RED_HOT, glow * 0.6), a), 2.0)
-	# 투구: 어깨 사이에 낮게, 앞으로 휜 뿔 둘 + 붉은 눈구멍
-	var h := Vector2(4, -58) + o + Vector2(1.5 * raise, -1.5 * raise)
-	pd.draw_colored_polygon(PackedVector2Array([h + Vector2(-8, 4), h + Vector2(-7, -6), h + Vector2(0, -10), h + Vector2(8, -6), h + Vector2(9, 3), h + Vector2(2, 6)]), col(BONE, a))
-	for s in [-1.0, 1.0]:
-		var b: Vector2 = h + Vector2(s * 6.0, -6.0)
-		pd.draw_colored_polygon(PackedVector2Array([b, b + Vector2(s * 4.0 + 3.0, -9.0), b + Vector2(s * 1.0 + 8.0, -12.0), b + Vector2(s * 2.0 + 1.0, -3.0)]), col(BONE_DIM, a))
-	pd.draw_rect(Rect2(h + Vector2(-2, -3), Vector2(10, 2.4)), col(BLACK, a))
-	pd.glow(h + Vector2(5, -2), 5.0 + 4.0 * glow, Color(RED, 0.5 * glow * a), 0.0)
-	pd.draw_rect(Rect2(h + Vector2(2, -2.6), Vector2(5, 1.6)), Color(RED.lerp(RED_HOT, glow), a))
+	# 투구: 어깨 사이에 낮게 박힌 뼈 투구 — 뒤로 크게 휜 숫양 뿔 둘 + T자 눈구멍의 붉은 빛
+	var h := Vector2(3, -57) + o + Vector2(1.5 * raise, -1.5 * raise)
+	for sd in [-1.0, 1.0]: # 뿔 (뒤쪽 것은 어둡게 먼저)
+		var base: Vector2 = h + Vector2(sd * 3.0 - 2.0, -7.0)
+		var horn := PackedVector2Array()
+		for i in 6:
+			var f := float(i) / 5.0
+			horn.append(base + Vector2(-f * 13.0 + sd * 2.0, -f * 9.0 + f * f * 10.0))
+		for i in range(1, horn.size()):
+			var w := 4.5 * (1.0 - float(i) / 6.0) + 1.0
+			var hc := col(BONE_DIM if sd < 0.0 else BONE, a)
+			pd.line2(horn[i - 1], horn[i], hc, hc, w + 0.8, w)
+	pd.draw_colored_polygon(PackedVector2Array([h + Vector2(-8, 5), h + Vector2(-9, -4), h + Vector2(-4, -10), h + Vector2(5, -10),
+		h + Vector2(10, -4), h + Vector2(10, 4), h + Vector2(3, 7)]), col(BONE, a))
+	pd.draw_line(h + Vector2(-7, -4), h + Vector2(-2, -9), col(BONE_DIM, a), 1.0)
+	pd.draw_rect(Rect2(h + Vector2(0, -4), Vector2(10, 2.6)), col(BLACK, a))
+	pd.draw_rect(Rect2(h + Vector2(5, -4), Vector2(2.6, 9)), col(BLACK, a))
+	pd.glow(h + Vector2(6, -3), 5.0 + 5.0 * glow, Color(RED, 0.55 * glow * a), 0.0)
+	pd.draw_rect(Rect2(h + Vector2(2, -3.4), Vector2(7, 1.4)), Color(RED.lerp(RED_HOT, glow), a))
 	# 어깨받이
 	for p: Vector2 in [Vector2(-20, -50), Vector2(18, -52)]:
 		var q := p + o

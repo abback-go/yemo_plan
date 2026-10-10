@@ -182,9 +182,8 @@ func _on_floor_at(x0: float, x1: float, top: float) -> bool:
 # ═══════════════════════════════════════════════════════════
 
 func _enter_wake() -> void:
-	eska.controls_locked = true
+	_cutscene(true)
 	eska.art.visible = false
-	tut.bars_to(1.0)
 	tut.fade_to(0.0, 1.6)
 
 
@@ -200,8 +199,7 @@ func _tick_wake() -> bool:
 		_sub = 3
 		tut.say("……봉인이 풀렸다. 다시, 걸어 볼까.")
 	if _st > 4.6:
-		eska.controls_locked = false
-		tut.bars_to(0.0)
+		_cutscene(false)
 		return true
 	return false
 
@@ -390,8 +388,7 @@ func _tick_finale() -> bool:
 				_sub = 1
 				_st = 0.0
 				gates["runner"].close()
-				eska.controls_locked = true
-				tut.bars_to(1.0)
+				_cutscene(true)
 				Music.play("boss", 1.2)
 				cam.set("focus_p", Vector2(4250, FLOOR - 70.0))
 				var tw := create_tween()
@@ -404,13 +401,14 @@ func _tick_finale() -> bool:
 				Fx.shake(0.9, 0.5)
 				Sfx.play_pitch(&"roar", 0.7, 0.0)
 				hud.banner("검은 거상", "문턱을 지키는 것", 2.2)
+				hud.boss = boss
+				hud.boss_name = "검은 거상"
 		2:
 			if _st > 2.6:
 				_sub = 3
 				var tw := create_tween()
 				tw.tween_property(cam, "focus_w", 0.0, 0.6).set_trans(Tween.TRANS_SINE)
-				eska.controls_locked = false
-				tut.bars_to(0.0)
+				_cutscene(false)
 				_st = 0.0
 		3:
 			if _st > 3.0:
@@ -468,6 +466,15 @@ func _on_end_chosen(what: String) -> void:
 			get_tree().change_scene_to_file("res://proto/eska/eska_arena.tscn")
 		_:
 			GameState.go_title()
+
+
+## 연출 중: 조작 막기 + 영화 띠 + 터치 버튼 숨김
+func _cutscene(on: bool) -> void:
+	eska.controls_locked = on
+	tut.bars_to(1.0 if on else 0.0)
+	touch.visible = not on
+	if on:
+		touch.release_all()
 
 
 func _dead(e: EEnemy) -> bool:

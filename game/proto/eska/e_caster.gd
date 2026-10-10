@@ -1,6 +1,6 @@
 class_name ECaster
 extends EEnemy
-## 원거리 "붉은 등불 망령": 에스카와 거리를 두고 떠다니다(옆 160~200 · 위 60), 등불이 타오르며 조준(0.75초, 붉은 조준선)
+## 원거리 "붉은 등불 망령": 에스카와 거리를 두고 떠다니다(옆 95~155 · 위 52~80 — 단공·천열이 닿는 거리), 등불이 타오르며 조준(0.75초, 붉은 조준선)
 ## → 핏빛 구슬 한 발(초속 150). 구슬은 참격으로 베어 없앨 수 있다(ECaster.Orb — 겨누기 대상은 아님).
 ## 조준하는 동안 맞으면 끊긴다.
 
@@ -47,7 +47,7 @@ func _think(delta: float) -> void:
 			var dx := global_position.x - ec.x
 			if absf(dx) > 40.0:
 				_side = signf(dx)
-			var want := ec + Vector2(_side * (160.0 + 30.0 * sin(t * 0.7)), -62.0 + sin(t * 1.3) * 14.0)
+			var want := ec + Vector2(_side * (125.0 + 30.0 * sin(t * 0.7)), -66.0 + sin(t * 1.3) * 14.0)
 			want.x = clampf(want.x, x_min + 20.0, x_max - 20.0)
 			if want.x <= x_min + 21.0 or want.x >= x_max - 21.0:
 				_side = -_side # 벽에 몰리면 반대편으로 건너감
