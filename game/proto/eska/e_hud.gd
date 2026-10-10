@@ -90,7 +90,7 @@ func _draw() -> void:
 	if (touch and touch.active) or not show_keys:
 		return
 	var y := size.y - 20.0
-	_text(font, Vector2(10, y), "←→ 이동  Z 점프  X 연격  C 순간이동  ↓ 빨리 떨어지기  Esc 나가기", 11, Color(1, 1, 1, 0.6))
+	_text(font, Vector2(10, y), "←→ 이동  Z 점프  X 연격  C 순간이동  ↓ 빨리 떨어지기  W 적 물결  Esc 나가기", 11, Color(1, 1, 1, 0.6))
 	var x := 10.0
 	y = size.y - 36.0
 	for spec: Array in [["A", "cheonyeol"], ["↑A", "dangong"], ["S", "bonggong"], ["D", "ult"]]:

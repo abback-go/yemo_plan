@@ -27,6 +27,24 @@ var _wait := FIRST_WAIT
 var _queue: Array = [] ## [남은 시간, 종류, 체력 배율]
 
 
+## 켜기/끄기 (훈련장 버튼·W 키): 끄면 남은 적을 거두고, 켜면 잠시 뒤 다음 물결부터
+func set_on(on: bool) -> void:
+	if on == enabled:
+		return
+	enabled = on
+	if on:
+		_wait = FIRST_WAIT
+		stage.hud.banner("적 물결 켬", "잠시 뒤 시작", 1.2)
+	else:
+		_queue.clear()
+		for e in _alive:
+			if is_instance_valid(e):
+				e.banish()
+		_alive.clear()
+		stage.hud.banner("적 물결 끔", "허수아비만 남음", 1.2)
+	Sfx.play(&"ui_ok", -6.0)
+
+
 static func make(kind: String) -> EEnemy:
 	match kind:
 		"caster":
