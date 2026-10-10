@@ -2,7 +2,7 @@ extends EStage
 ## 에스카 튜토리얼 "종언의 문턱" (기획: docs/eska/tutorial.md).
 ## 가로 4500px 한 줄 길: 깨어남 → 턱(점프·이단점프) → 장막·공허 틈(순간이동) → 허수아비(연격·천열)
 ## → 등불 망령(단공) → 사냥개(피하기·봉공) → 검은 거상(종언참) → 끝 화면.
-## 진행은 단계(STEPS) 하나씩: _enter_이름()으로 시작하고 _tick_이름()이 true를 돌려주면 다음 단계로.
+## 진행은 단계(STEPS) 하나씩: _enter_이름()(있으면)으로 시작하고 _tick_이름()이 true를 돌려주면 다음 단계로.
 ## 들어오는 길: 타이틀 메뉴 "에스카 튜토리얼" 또는 웹 주소 뒤 ?eska_tut
 
 const W := 4500.0
@@ -128,7 +128,7 @@ func _next() -> void:
 	_st = 0.0
 	_sub = 0
 	_idle = 0.0
-	if _step < STEPS.size():
+	if _step < STEPS.size() and has_method("_enter_" + STEPS[_step]):
 		call("_enter_" + STEPS[_step])
 
 
@@ -215,10 +215,6 @@ func _tick_move() -> bool:
 	return false
 
 
-func _enter_jump() -> void:
-	pass
-
-
 func _tick_jump() -> bool:
 	if _sub == 0 and eska.global_position.x > 520.0:
 		_sub = 1
@@ -227,10 +223,6 @@ func _tick_jump() -> bool:
 		tut.done()
 		return true
 	return false
-
-
-func _enter_double() -> void:
-	pass
 
 
 func _tick_double() -> bool:
@@ -244,10 +236,6 @@ func _tick_double() -> bool:
 	return false
 
 
-func _enter_blink() -> void:
-	pass
-
-
 func _tick_blink() -> bool:
 	if _sub == 0 and eska.global_position.x > 1180.0:
 		_sub = 1
@@ -257,10 +245,6 @@ func _tick_blink() -> bool:
 		tut.done()
 		return true
 	return false
-
-
-func _enter_gap() -> void:
-	pass
 
 
 func _tick_gap() -> bool:
@@ -273,10 +257,6 @@ func _tick_gap() -> bool:
 	return false
 
 
-func _enter_combo() -> void:
-	pass
-
-
 func _tick_combo() -> bool:
 	if _sub == 0 and eska.global_position.x > 1900.0:
 		_sub = 1
@@ -286,10 +266,6 @@ func _tick_combo() -> bool:
 		tut.done()
 		return true
 	return false
-
-
-func _enter_cheonyeol() -> void:
-	_sub = 0
 
 
 func _tick_cheonyeol() -> bool:
@@ -316,10 +292,6 @@ func _tick_cheonyeol() -> bool:
 	return false
 
 
-func _enter_dangong() -> void:
-	pass
-
-
 func _tick_dangong() -> bool:
 	if _sub == 0 and eska.global_position.x > 2640.0:
 		_sub = 1
@@ -344,10 +316,6 @@ func _orb_exists() -> bool:
 		if n is ECaster.Orb:
 			return true
 	return false
-
-
-func _enter_bonggong() -> void:
-	pass
 
 
 func _tick_bonggong() -> bool:
@@ -378,10 +346,6 @@ func _tick_bonggong() -> bool:
 		gates["caster"].open()
 		return true
 	return false
-
-
-func _enter_finale() -> void:
-	pass
 
 
 func _tick_finale() -> bool:

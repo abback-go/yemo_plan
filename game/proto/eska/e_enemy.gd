@@ -164,7 +164,8 @@ func _physics_process(delta: float) -> void:
 	t += delta
 	flash = maxf(flash - delta * 6.0, 0.0)
 	_bar = maxf(_bar - delta, 0.0)
-	_hp_trail = maxf(float(hp), _hp_trail - float(max_hp) * delta * 0.8) if _bar < 2.2 else _hp_trail
+	if _bar < 2.2: # 맞은 직후 0.3초는 깎인 자리를 밝게 남겼다가 따라 내려감
+		_hp_trail = maxf(float(hp), _hp_trail - float(max_hp) * delta * 0.8)
 	if is_dead():
 		dead_t += delta
 		if dead_t >= DEATH_TIME:
