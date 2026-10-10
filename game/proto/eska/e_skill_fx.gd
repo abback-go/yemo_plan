@@ -109,7 +109,7 @@ class SlashSeries extends Node2D:
 		var sl := Slash.new()
 		sl.setup(a, dir, heavy)
 		EVfx.add(sl, cen, false)
-		Sfx.play_pitch(&"sword_slash", (0.8 if heavy else randf_range(1.0, 1.2)), -3.0 if heavy else -6.0)
+		Sfx.play_pitch(&"es_slash_big" if heavy else &"es_slash", (0.9 if heavy else randf_range(1.0, 1.2)), -1.0 if heavy else -6.0)
 		_pending.append([t + 0.03, a, dmg, heavy, cen])
 
 	func _judge(_a: Dictionary, _dmg: int, _heavy: bool, _cen: Vector2) -> void:

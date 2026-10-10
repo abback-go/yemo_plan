@@ -42,7 +42,7 @@ const HURT_INVULN := 1.1 ## 맞은 뒤 무적(깜빡임)
 const RESPAWN_INVULN := 1.6 ## 부활 뒤 무적
 
 ## 스킬 쿨다운 (짧게 — 손맛 시험용)
-const CD := {"cheonyeol": 2.0, "dangong": 2.0, "bonggong": 6.0, "ult": 15.0}
+const CD := {"cheonyeol": 5.0, "dangong": 2.0, "bonggong": 6.0, "ult": 15.0} ## 천열은 896 피해라 5초 (2초면 연격을 쓸 이유가 없어짐 — docs/eska/combat_spec.md 밸런스)
 const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공", "ult": "종언참"}
 
 ## 4타 연격. 각도는 도(0 = 앞, + = 아래). 호는 a0 → a1로 휘두른다. 납작한 회오리(sq)를 rot만큼 기울인다 —
@@ -268,8 +268,8 @@ func _double_jump(dir_x: float) -> void:
 	art.air_flourish()
 	art.squash(Vector2(0.9, 1.12))
 	EMoveFx.air_step(global_position)
-	Sfx.play_pitch(&"jump", 1.3, -4.0)
-	Sfx.play_pitch(&"whoosh", 1.4, -10.0)
+	Sfx.play(&"es_air_step", -4.0)
+	Sfx.play_pitch(&"whoosh", 1.4, -12.0)
 
 
 ## 순간이동·스킬·공격 시작 (상태가 바뀌면 true)
@@ -326,11 +326,11 @@ func _start_attack(i: int) -> void:
 	var sl := ESkillFx.Slash.new()
 	sl.setup(a, facing, i == 3)
 	EVfx.add(sl, global_position + Vector2(c.x * facing, c.y), false) # 다크 참격은 보통 섞기 (검은 테두리가 보이게)
-	Sfx.play_pitch(&"sword_slash", [1.05, 1.15, 0.95, 0.78][i] * randf_range(0.96, 1.04), -4.0 if i < 3 else 0.0)
+	Sfx.play_pitch(&"es_snap", [1.0, 1.12, 0.94, 0.86][i] * randf_range(0.97, 1.03), -6.0)
+	Sfx.play_pitch(&"es_slash_big" if i == 3 else &"es_slash", [1.05, 1.15, 0.95, 1.0][i] * randf_range(0.96, 1.04), -3.0 if i < 3 else 0.0)
 	# 팔을 휘두르지 않고 손끝 하나로 — 손가락 끝이 반짝이며 공간이 갈라진다
 	art.snap_flash()
 	if i == 3:
-		Sfx.play(&"whoosh", -6.0)
 		art.squash(Vector2(1.04, 0.97))
 		EVfx.afterimage(art, 0.22)
 	else:
@@ -465,7 +465,7 @@ func _start_blink(dir_x: float) -> void:
 	EMoveFx.blink_trail(art, center(), _blink_to + Vector2(0, -SIZE.y * 0.55), not is_on_floor())
 	art.visible = false
 	velocity = Vector2.ZERO
-	Sfx.play_pitch(&"dash", 1.25, -4.0)
+	Sfx.play(&"es_blink", -3.0)
 
 
 func _blink(_delta: float) -> void:

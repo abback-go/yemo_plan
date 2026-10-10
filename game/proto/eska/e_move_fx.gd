@@ -28,6 +28,7 @@ static func glide_wake(pos: Vector2, dir: float, k: float) -> void:
 
 ## 활주 출발: 발 뒤로 짧게 터지는 보랏빛 돌풍 (멈춰 있다가 확 미끄러져 나갈 때)
 static func glide_burst(pos: Vector2, dir: float) -> void:
+	Sfx.play(&"es_glide", -10.0)
 	EVfx.dark_bits(pos + Vector2(-dir * 4.0, -3.0), 5, 140.0, Vector2(-dir, -0.2), 35.0, 0.26, 2)
 	var lines := PParticles.get_layer(true)
 	for i in 4:
@@ -86,6 +87,7 @@ static func blink_in(pos: Vector2, dir: int) -> void:
 	tear.small = true
 	EVfx.add(tear, pos, false)
 	EVfx.dark_bits(pos, 4, 90.0, Vector2(dir, 0), 60.0, 0.22)
+	Sfx.play(&"es_tear", -9.0)
 
 
 ## 출발점 → 도착점: 다크 참격 한 줄(살짝 휨, 공중이면 더 휨) + 경로 위 잔상 셋. 그림만 — 피해 없음

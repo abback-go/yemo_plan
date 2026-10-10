@@ -494,6 +494,44 @@ func _build_chapters() -> void:
 		{wave = "noise", dur = 1.2, vol = 0.1, bp = 2000.0, q = 0.4, attack = 0.5, decay = 0.8},
 		{wave = "sine", f0 = 1320.0, f1 = 1760.0, dur = 0.8, vol = 0.04, attack = 0.4, decay = 1.0, delay = 0.4},
 	], 11025)
+	_build_eska()
+
+
+# ─── 에스카 시제품 (proto/eska) ─────────────────────────
+# 손짓 한 번에 공간이 찢어지는 마녀: 칼 소리 대신 '튕김 → 찢김 → 낮은 울림'.
+func _build_eska() -> void:
+	_add_fast(&"es_snap", [ # 손가락 튕김: 짧고 마른 딱 + 아주 작은 울림
+		{wave = "noise", dur = 0.035, vol = 0.55, bp = 2700.0, q = 0.45, decay = 3.0},
+		{wave = "sine", f0 = 1900.0, f1 = 1300.0, dur = 0.05, vol = 0.12, tau = 0.012},
+		{wave = "sine", f0 = 240.0, f1 = 160.0, dur = 0.06, vol = 0.18, tau = 0.02},
+	])
+	_add_fast(&"es_slash", [ # 공간을 찢는 참격: 위로 쓸려 올라가는 '쉬익' + 낮은 무게 + 희미한 쇳빛
+		{wave = "noise", dur = 0.22, vol = 0.55, bp = 700.0, bp1 = 3400.0, q = 0.35, attack = 0.008, decay = 1.5},
+		{wave = "sine", f0 = 150.0, f1 = 55.0, dur = 0.2, vol = 0.32, tau = 0.07},
+		{wave = "sine", f0 = 1250.0, fm = 1.41, fm_i = 1.2, fm_i1 = 0.1, dur = 0.16, vol = 0.05, tau = 0.05, delay = 0.02},
+	])
+	_add_fast(&"es_slash_big", [ # 큰 참격(마무리·천열 끝): 길게 찢기 + 깊은 울림
+		{wave = "noise", dur = 0.42, vol = 0.6, bp = 350.0, bp1 = 2600.0, q = 0.3, attack = 0.015, decay = 1.3},
+		{wave = "sine", f0 = 110.0, f1 = 38.0, dur = 0.4, vol = 0.5, tau = 0.14},
+		{wave = "noise", dur = 0.35, vol = 0.25, lp = 0.06, attack = 0.02, decay = 1.2},
+		{wave = "sine", f0 = 880.0, fm = 2.01, fm_i = 1.5, fm_i1 = 0.0, dur = 0.3, vol = 0.05, tau = 0.09, delay = 0.04},
+	], 11025)
+	_add_fast(&"es_tear", [ # 공간 틈이 갈라짐: 지지직 떨리는 잡음 + 떨어지는 음
+		{wave = "noise", dur = 0.2, vol = 0.45, bp = 1900.0, bp1 = 500.0, q = 0.55, am = 55.0, am_depth = 0.7, decay = 1.4},
+		{wave = "sine", f0 = 620.0, f1 = 140.0, curve = "exp", dur = 0.18, vol = 0.14, decay = 1.6},
+	])
+	_add_fast(&"es_blink", [ # 순간이동: 빨려 들어가는 바람 + 위로 튀는 음 + 틈 소리
+		{wave = "noise", dur = 0.16, vol = 0.5, lp = 0.05, lp1 = 0.7, attack = 0.09, decay = 1.0},
+		{wave = "sine", f0 = 320.0, f1 = 1500.0, curve = "exp", dur = 0.12, vol = 0.1, decay = 1.4},
+		{wave = "noise", dur = 0.12, vol = 0.3, bp = 2400.0, q = 0.5, am = 70.0, am_depth = 0.6, decay = 2.0, delay = 0.1},
+	])
+	_add_fast(&"es_air_step", [ # 허공을 밟음: 유리 같은 맑은 '팅' + 짧은 바람
+		{wave = "sine", f0 = 720.0, f1 = 1080.0, fm = 2.0, fm_i = 0.8, fm_i1 = 0.1, dur = 0.18, vol = 0.2, tau = 0.05},
+		{wave = "noise", dur = 0.08, vol = 0.25, bp = 2200.0, q = 0.5, decay = 2.5},
+	])
+	_add_fast(&"es_glide", [ # 미끄러지듯 떠오름: 부드럽게 부푸는 바람
+		{wave = "noise", dur = 0.3, vol = 0.5, bp = 450.0, bp1 = 1400.0, q = 0.4, attack = 0.05, decay = 1.3},
+	], 11025)
 
 
 func _add(sound: StringName, layers: Array) -> void:
