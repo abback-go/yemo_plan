@@ -192,12 +192,12 @@ func _gravity(delta: float, mult := 1.0) -> void:
 ## 활주: 발밑에 낮게 깔리는 보랏빛 바람 · 뒤로 흐르는 속도선 · 짧은 잔상 / 방향 바꿀 때 미끄러지는 먼지
 func _ground_fx(delta: float) -> void:
 	var vx := velocity.x
-	var fast := absf(vx) > 150.0 and st == St.NORMAL
+	var fast := absf(vx) > 190.0 and st == St.NORMAL
 	if fast:
 		_ghost_t -= delta
 		if _ghost_t <= 0.0:
-			_ghost_t = 0.09
-			EVfx.afterimage(art, 0.16, EVfx.BODY)
+			_ghost_t = 0.14
+			EVfx.afterimage(art, 0.14, EVfx.VIOLET) # 최고 속도에서만 옅은 잔상
 	if not is_on_floor() or st == St.BLINK:
 		return
 	if absf(vx) > 110.0:
@@ -246,7 +246,7 @@ func _normal(delta: float, dir_x: float) -> void:
 	_try_actions(dir_x)
 
 
-## 이단점프: 발밑 공중에 다크 회오리 고리가 생겨 그것을 밟고 도약, 몸이 한 바퀴 돈다. 누른 방향으로 바로 꺾는다
+## 이단점프: 발밑 공중에 다크 회오리 고리가 생겨 그것을 밟고 가볍게 떠오른다(치맛자락이 우산처럼 퍼짐). 누른 방향으로 바로 꺾는다
 func _double_jump(dir_x: float) -> void:
 	_jump_buf = 0.0
 	_air_jump = false
@@ -255,8 +255,8 @@ func _double_jump(dir_x: float) -> void:
 	if absf(dir_x) > 0.01:
 		velocity.x = signf(dir_x) * RUN_SPEED
 		facing = 1 if dir_x > 0.0 else -1
-	art.spin()
-	art.squash(Vector2(0.84, 1.18))
+	art.air_flourish()
+	art.squash(Vector2(0.9, 1.12))
 	EVfx.air_step(global_position)
 	Sfx.play_pitch(&"jump", 1.3, -4.0)
 	Sfx.play_pitch(&"whoosh", 1.4, -10.0)

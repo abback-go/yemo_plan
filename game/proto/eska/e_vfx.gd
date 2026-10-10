@@ -160,7 +160,7 @@ static func glide_wake(pos: Vector2, dir: float, k: float) -> void:
 	var pp := PParticles.get_layer(false)
 	pp.spawn(pos + Vector2(-dir * randf_range(2.0, 8.0), -randf_range(1.0, 4.0)), Vector2(-dir * randf_range(30.0, 70.0), -randf_range(4.0, 16.0)),
 		Vector2.ZERO, randf_range(0.28, 0.42), randf_range(3.0, 5.0), Color(PLUM, 0.45 * k), Color(INK, 0.0), 2, 3.0)
-	if randf() < 0.7 * k:
+	if randf() < 0.35 * k:
 		var lines := PParticles.get_layer(true)
 		lines.spawn(pos + Vector2(-dir * randf_range(6.0, 16.0), -randf_range(4.0, 36.0)), Vector2(-dir * randf_range(220.0, 320.0), 0.0),
 			Vector2.ZERO, randf_range(0.08, 0.14), randf_range(0.6, 1.0), Color(EDGE, 0.7), Color(MAGENTA, 0.0), 1, 0.0)
