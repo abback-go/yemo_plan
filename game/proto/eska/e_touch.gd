@@ -54,9 +54,22 @@ func _exit_tree() -> void:
 	release_all()
 
 
+var _sig := ""
+
+
+## 바뀐 것이 있을 때만 다시 그린다 (누른 버튼·조이스틱 위치·쿨다운 초·종언참 준비 깜빡임)
 func _process(_delta: float) -> void:
 	_draw.visible = active
-	if active:
+	if not active:
+		return
+	var sig := "%s|%s|%s" % [str(_held.keys()), str(_stick_pos.round()), str(is_instance_valid(eska) and eska.is_up_held())]
+	if is_instance_valid(eska):
+		for id: String in ["cheonyeol", "dangong", "bonggong", "ult"]:
+			sig += "|%d" % ceili(eska.cd_left(id) * 8.0)
+		if eska.cd_left("ult") <= 0.0:
+			sig += "|%d" % (Time.get_ticks_msec() / 50)
+	if sig != _sig:
+		_sig = sig
 		_draw.queue_redraw()
 
 

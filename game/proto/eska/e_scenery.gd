@@ -2,7 +2,8 @@ class_name EScenery
 extends RefCounted
 ## 에스카 시제품 배경: 마녀 분위기의 일자형 마당.
 ## 보랏빛 안개 하늘 · 떠 있는 고딕 첨탑들(대표 일러스트 배경) · 무너진 아치 기둥 · 보라 촛불 · 떠다니는 흰 빛 입자.
-## 멀리 있는 층은 Parallax2D로 느리게 움직인다. 정적인 층은 한 번만 그린다.
+## 멀리 있는 층은 Parallax2D로 느리게 움직인다. 정적인 층은 한 번만 그린다(움직이는 것은 촛불·빛 입자·안개 덩이뿐).
+## 깊이: 하늘(화면 고정) → 먼 첨탑 → 가까운 첨탑 → 빛줄기 → 안개 → 기둥·바닥 → [캐릭터] → 빛 입자 → 전경 실루엣(빠르게 지나감)
 
 const SKY_TOP := Color("#07050c")
 const SKY_BOT := Color("#1d1430")
@@ -33,6 +34,15 @@ static func build(root: Node2D, width: float, floor_y: float) -> void:
 		sp.width = width
 		sp.floor_y = floor_y
 		px.add_child(sp)
+	var shaft_px := Parallax2D.new()
+	shaft_px.scroll_scale = Vector2(0.2, 0.1)
+	shaft_px.z_index = -6
+	root.add_child(shaft_px)
+	var shafts := Shafts.new()
+	shafts.floor_y = floor_y
+	shafts.width = width
+	shafts.material = Fx.add_material
+	shaft_px.add_child(shafts)
 	var mist_px := Parallax2D.new()
 	mist_px.scroll_scale = Vector2(0.5, 0.3)
 	mist_px.z_index = -5
@@ -46,6 +56,23 @@ static func build(root: Node2D, width: float, floor_y: float) -> void:
 	ground.floor_y = floor_y
 	ground.z_index = -2
 	root.add_child(ground)
+	var candles := Candles.new()
+	candles.floor_y = floor_y
+	candles.z_index = -1
+	root.add_child(candles)
+	var fog := Fog.new()
+	fog.width = width
+	fog.floor_y = floor_y
+	fog.z_index = 2
+	root.add_child(fog)
+	var front_px := Parallax2D.new()
+	front_px.scroll_scale = Vector2(1.35, 1.0)
+	front_px.z_index = 12
+	root.add_child(front_px)
+	var front := Foreground.new()
+	front.width = width
+	front.floor_y = floor_y
+	front_px.add_child(front)
 	var motes := Motes.new()
 	motes.width = width
 	motes.floor_y = floor_y
@@ -126,15 +153,10 @@ class Mist extends PDraw.Canvas:
 			pd.rect_grad(Rect2(-400, y, width + 1200, 22), Color(MIST, 0.12 - 0.03 * float(i)), Color(MIST, 0.0))
 
 
-## 바닥 돌판 · 무너진 아치 기둥 · 보라 촛불
+## 바닥 돌판 · 무너진 아치 기둥 (정적 — 한 번만 그림)
 class Ground extends PDraw.Canvas:
 	var width := 1280.0
 	var floor_y := 300.0
-	var _t := 0.0
-
-	func _process(delta: float) -> void:
-		_t += delta
-		queue_redraw()
 
 	func _paint() -> void:
 		var rng := RandomNumberGenerator.new()
@@ -180,16 +202,6 @@ class Ground extends PDraw.Canvas:
 				p += Vector2(rng.randf_range(4, 12), rng.randf_range(1, 4))
 				pts.append(p)
 			pd.draw_polyline(pts, Color(CRACK, 0.3), 1.0)
-		# 촛불 (보라 불꽃)
-		var cxs := [150.0, 410.0, 760.0, 1010.0, 1180.0]
-		for i in cxs.size():
-			var c := Vector2(float(cxs[i]), floor_y)
-			pd.draw_rect(Rect2(c + Vector2(-2, -9), Vector2(4, 9)), Color("#cfc6d8"))
-			pd.draw_rect(Rect2(c + Vector2(-4, -1), Vector2(8, 1)), Color("#3a3448"))
-			var fl := 1.0 + 0.25 * sin(_t * 11.0 + float(i) * 2.1)
-			pd.glow(c + Vector2(0, -13), 14.0 * fl, Color(0.6, 0.45, 1.0, 0.22), 0.0)
-			pd.draw_colored_polygon(PackedVector2Array([c + Vector2(-1.6, -10), c + Vector2(1.6, -10), c + Vector2(0, -10 - 5.0 * fl)]), Color("#b59cff"))
-			pd.draw_rect(Rect2(c + Vector2(-0.5, -12), Vector2(1, 2)), Color(1, 1, 1, 0.9))
 
 
 ## 떠다니는 흰 빛 입자 (천천히 위로)
@@ -221,3 +233,101 @@ class Motes extends PDraw.Canvas:
 			var a := 0.35 + 0.35 * sin(t * 2.0 + _ph[i])
 			var s := 1.0 if i % 3 else 2.0
 			pd.draw_rect(Rect2(_p[i].round(), Vector2(s, s)), Color(0.9, 0.86, 1.0, a))
+
+
+## 보라 촛불 (깜빡이는 작은 노드 — 바닥과 따로 그려서 바닥은 다시 그리지 않는다)
+class Candles extends PDraw.Canvas:
+	const XS := [150.0, 410.0, 760.0, 1010.0, 1180.0]
+	var floor_y := 300.0
+	var _t := 0.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _paint() -> void:
+		for i in XS.size():
+			var c := Vector2(float(XS[i]), floor_y)
+			pd.draw_rect(Rect2(c + Vector2(-2, -9), Vector2(4, 9)), Color("#cfc6d8"))
+			pd.draw_rect(Rect2(c + Vector2(-2, -9), Vector2(1, 9)), Color("#efe8f5"))
+			pd.draw_rect(Rect2(c + Vector2(-4, -1), Vector2(8, 1)), Color("#3a3448"))
+			var fl := 1.0 + 0.25 * sin(_t * 11.0 + float(i) * 2.1) + 0.1 * sin(_t * 23.0 + float(i))
+			pd.glow(c + Vector2(0, -13), 16.0 * fl, Color(0.6, 0.45, 1.0, 0.2), 0.0)
+			pd.glow(c + Vector2(0, -1), 12.0 * fl, Color(0.6, 0.45, 1.0, 0.12), 0.0) # 바닥에 번지는 빛
+			pd.draw_colored_polygon(PackedVector2Array([c + Vector2(-1.7, -10), c + Vector2(1.7, -10), c + Vector2(sin(_t * 7.0 + float(i)) * 0.6, -10 - 5.5 * fl)]), Color("#b59cff"))
+			pd.draw_rect(Rect2(c + Vector2(-0.5, -12), Vector2(1, 2)), Color(1, 1, 1, 0.9))
+
+
+## 하늘의 공허 빛에서 비스듬히 내려오는 빛줄기 (가산, 정적)
+class Shafts extends PDraw.Canvas:
+	var floor_y := 300.0
+	var width := 1280.0
+
+	func _paint() -> void:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 991
+		var x := 120.0
+		while x < width * 0.4 + 640.0:
+			var w := rng.randf_range(14.0, 36.0)
+			var top := Vector2(x, floor_y - 360.0)
+			var slant := rng.randf_range(60.0, 110.0)
+			var a := rng.randf_range(0.03, 0.07)
+			var l := PackedVector2Array([top, top + Vector2(slant, 360.0)])
+			var r := PackedVector2Array([top + Vector2(w, 0), top + Vector2(slant + w * 1.8, 360.0)])
+			pd.strip_grad(l, r, Color(0.7, 0.6, 1.0, a), Color(0.7, 0.6, 1.0, 0.0))
+			x += rng.randf_range(90.0, 180.0)
+
+
+## 바닥 가까이 천천히 흐르는 안개 덩이 (보통 섞기)
+class Fog extends PDraw.Canvas:
+	var width := 1280.0
+	var floor_y := 300.0
+	var _x := PackedFloat32Array()
+	var _s := PackedFloat32Array()
+
+	func _ready() -> void:
+		for i in 9:
+			_x.append(randf_range(0.0, width))
+			_s.append(randf_range(5.0, 12.0))
+
+	func _process(delta: float) -> void:
+		for i in _x.size():
+			_x[i] = fposmod(_x[i] + _s[i] * delta, width + 200.0)
+		queue_redraw()
+
+	func _paint() -> void:
+		for i in _x.size():
+			var c := Vector2(_x[i] - 100.0, floor_y - 6.0 - float(i % 3) * 5.0)
+			pd.draw_set_transform(c, 0.0, Vector2(1.0, 0.28))
+			pd.glow(Vector2.ZERO, 60.0 + float(i % 4) * 14.0, Color(0.42, 0.33, 0.62, 0.1), 0.0)
+		pd.draw_set_transform(Vector2.ZERO)
+
+
+## 전경 실루엣: 카메라보다 빨리 지나가는 매달린 사슬·부서진 기둥 끝 (깊이감, 정적)
+class Foreground extends PDraw.Canvas:
+	var width := 1280.0
+	var floor_y := 300.0
+
+	func _paint() -> void:
+		var col := Color("#040306")
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 313
+		var x := -100.0
+		while x < width * 1.35 + 200.0:
+			if rng.randf() < 0.5:
+				# 위에서 늘어진 사슬
+				var len := rng.randf_range(40.0, 110.0)
+				var top := floor_y - 420.0
+				var y := top
+				while y < top + 120.0 + len:
+					pd.draw_rect(Rect2(x - 1.5, y, 3, 5), col)
+					pd.draw_rect(Rect2(x - 2.5, y + 5, 5, 2), col)
+					y += 7.0
+				pd.draw_colored_polygon(PackedVector2Array([Vector2(x - 6, y), Vector2(x + 6, y), Vector2(x, y + 9)]), col)
+			else:
+				# 바닥에서 솟은 부서진 기둥 끝
+				var h := rng.randf_range(26.0, 54.0)
+				var bw := rng.randf_range(16.0, 26.0)
+				pd.draw_colored_polygon(PackedVector2Array([Vector2(x - bw * 0.5, floor_y + 60), Vector2(x + bw * 0.5, floor_y + 60),
+					Vector2(x + bw * 0.5, floor_y + 40 - h * 0.6), Vector2(x + bw * 0.1, floor_y + 40 - h), Vector2(x - bw * 0.3, floor_y + 40 - h * 0.7), Vector2(x - bw * 0.5, floor_y + 40 - h * 0.8)]), col)
+			x += rng.randf_range(260.0, 420.0)

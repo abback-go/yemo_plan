@@ -71,3 +71,39 @@ func _solid(r: Rect2) -> void:
 	cs.position = r.get_center()
 	b.add_child(cs)
 	add_child(b)
+
+
+## 시험 실행기 eval용 성능 수치: 그리기 호출 · 그린 도형 · 노드 수 · 처리 시간(ms) · 입자 수
+func perf() -> String:
+	var pp := PParticles.get_layer(true)
+	return "draws=%d prims=%d nodes=%d process_ms=%.2f particles=%d" % [
+		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+		Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME),
+		Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
+		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		pp.count()]
+
+
+## 시험 실행기 eval용: 그림 코드 하나를 n번 돌린 평균 시간(µs) — 최적화 대상 찾기
+func bench(n: int) -> String:
+	var out := ""
+	var t0 := Time.get_ticks_usec()
+	for i in n:
+		eska.art.tick(1.0 / 60.0)
+	out += "art_tick=%.1f " % (float(Time.get_ticks_usec() - t0) / n)
+	t0 = Time.get_ticks_usec()
+	for i in n:
+		eska.art._paint()
+		eska.art.pd.clear()
+	out += "art_paint=%.1f " % (float(Time.get_ticks_usec() - t0) / n)
+	for node: Node in find_children("*", "", true, false):
+		if node is PDraw.Canvas and node != eska.art and node.has_method("_paint"):
+			var c := node as PDraw.Canvas
+			t0 = Time.get_ticks_usec()
+			for i in n:
+				c._paint()
+				c.pd.clear()
+			var us := float(Time.get_ticks_usec() - t0) / n
+			if us > 20.0:
+				out += "%s=%.1f " % [c.get_script().get_global_name() if c.get_script().get_global_name() != "" else str(c.get_class()) + ":" + c.name, us]
+	return out

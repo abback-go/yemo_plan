@@ -136,6 +136,9 @@ class PCamera extends Camera2D:
 	var target: CharacterBody2D ## 세라(PSera) 또는 에스카(EEska) — facing 값을 가진 몸
 	var _look := 0.0
 	var look_y := -30.0 ## 몸보다 이만큼 위를 화면 가운데로
+	var zoom_extra := 0.0 ## 연출용 추가 확대 (필살기 등)
+	var focus_w := 0.0 ## 0 = 몸을 따라감, 1 = focus_p를 화면 가운데로
+	var focus_p := Vector2.ZERO
 	var _shake_amp := 0.0
 	var _shake_left := 0.0
 	var _shake_time := 0.0
@@ -158,7 +161,7 @@ class PCamera extends Camera2D:
 		if is_instance_valid(target):
 			var want := float(target.get("facing")) * 46.0 * clampf(absf(target.velocity.x) / 150.0, 0.3, 1.0)
 			_look = lerpf(_look, want, 1.0 - exp(-real * 2.5))
-			global_position = target.global_position + Vector2(_look, look_y)
+			global_position = (target.global_position + Vector2(_look, look_y)).lerp(focus_p, focus_w)
 		# 멈춤(hitstop)으로 time_scale이 0에 가까우면 real이 튀므로 한 프레임 길이로 자름 (용수철이 폭주하지 않게)
 		var kd := minf(real, 1.0 / 30.0)
 		_kick_v += (-_kick * 900.0 - _kick_v * 34.0) * kd
@@ -171,7 +174,7 @@ class PCamera extends Camera2D:
 		else:
 			offset = _kick.round()
 		_punch = move_toward(_punch, 0.0, real * 0.6)
-		zoom = Vector2.ONE * (1.0 + _punch)
+		zoom = Vector2.ONE * (1.0 + _punch + zoom_extra)
 
 	func shake(amplitude_px: float, duration: float) -> void:
 		if amplitude_px >= _shake_amp * clampf(_shake_left / maxf(_shake_time, 0.001), 0.0, 1.0):

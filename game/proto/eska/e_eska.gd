@@ -26,6 +26,8 @@ const APEX_HANG := 0.55
 const COYOTE := 0.09
 const JUMP_BUFFER := 0.12
 const ATTACK_BUFFER := 0.14
+const FAST_FALL_MAX := 440.0 ## 공중에서 ↓를 누르고 있으면
+const COMBO_WINDOW := 1.6 ## 이 시간 안에 다시 맞히면 연타 수가 이어진다
 
 # 순간이동
 const BLINK_DIST := 76.0 ## 약 4.75타일
@@ -77,6 +79,13 @@ var _bind_target: PDummy
 
 var invuln := 0.0
 
+# 연타 수 (화면 오른쪽 위)
+var hit_count := 0
+var hit_damage := 0
+var combo_left := 0.0
+var _dust_t := 0.0
+var _last_dir := 1
+
 
 static func find(tree: SceneTree) -> EEska:
 	return tree.get_first_node_in_group(GROUP) as EEska
@@ -125,6 +134,10 @@ func _physics_process(delta: float) -> void:
 	_blink_cd = maxf(_blink_cd - delta, 0.0)
 	_chain_t = maxf(_chain_t - delta, 0.0)
 	invuln = maxf(invuln - delta, 0.0)
+	combo_left = maxf(combo_left - delta, 0.0)
+	if combo_left <= 0.0:
+		hit_count = 0
+		hit_damage = 0
 	_coyote = COYOTE if is_on_floor() else maxf(_coyote - delta, 0.0)
 	_jump_buf = maxf(_jump_buf - delta, 0.0)
 	_atk_buf = maxf(_atk_buf - delta, 0.0)
@@ -152,7 +165,9 @@ func _physics_process(delta: float) -> void:
 		_air_hang = true
 		if not _was_floor:
 			EVfx.land_dust(global_position)
+			Sfx.play(&"land", -14.0)
 	_was_floor = on_floor
+	_ground_fx(delta)
 	art.tick(delta)
 
 
@@ -162,7 +177,29 @@ func _gravity(delta: float, mult := 1.0) -> void:
 		g *= JUMP_HOLD_GRAVITY
 	elif absf(velocity.y) < 60.0 and not is_on_floor():
 		g *= APEX_HANG
-	velocity.y = minf(velocity.y + g * delta, FALL_MAX)
+	var cap := FALL_MAX
+	if Input.is_action_pressed("es_down") and not is_on_floor():
+		g *= 1.35
+		cap = FAST_FALL_MAX
+	velocity.y = minf(velocity.y + g * delta, cap)
+
+
+## 달리기 먼지 · 방향 바꿀 때 미끄러지는 먼지
+func _ground_fx(delta: float) -> void:
+	if not is_on_floor() or st == St.BLINK:
+		return
+	var vx := velocity.x
+	if absf(vx) > 110.0:
+		_dust_t -= delta
+		if _dust_t <= 0.0:
+			_dust_t = 0.16
+			PVfx.dust(global_position + Vector2(-signf(vx) * 3.0, 0), 2, 0.6, 10.0)
+	var d := int(signf(Input.get_axis("es_left", "es_right")))
+	if d != 0 and d != _last_dir and absf(vx) > 90.0 and st == St.NORMAL:
+		PVfx.dust(global_position + Vector2(-d * 2.0, 0), 4, 1.2, 16.0)
+		art.squash(Vector2(1.12, 0.9))
+	if d != 0:
+		_last_dir = d
 
 
 func _run(delta: float, dir_x: float, speed_mult := 1.0) -> void:
@@ -185,6 +222,9 @@ func _normal(delta: float, dir_x: float) -> void:
 		_coyote = 0.0
 		velocity.y = -JUMP_SPEED
 		_jump_hold = JUMP_HOLD_TIME
+		art.squash(Vector2(0.82, 1.2))
+		if is_on_floor():
+			PVfx.dust(global_position, 4, 1.0, 14.0)
 		Sfx.play(&"jump", -6.0)
 	if not Input.is_action_pressed("es_jump") and velocity.y < 0.0 and _jump_hold > 0.0:
 		velocity.y *= JUMP_CUT
@@ -249,6 +289,10 @@ func _start_attack(i: int) -> void:
 	Sfx.play_pitch(&"sword_slash", [1.05, 1.15, 0.95, 0.78][i] * randf_range(0.96, 1.04), -4.0 if i < 3 else 0.0)
 	if i == 3:
 		Sfx.play(&"whoosh", -6.0)
+		art.squash(Vector2(1.12, 0.9))
+		EVfx.afterimage(art, 0.22)
+	else:
+		art.squash(Vector2(1.05, 0.96))
 
 
 func _attack(delta: float, dir_x: float) -> void:
@@ -268,6 +312,11 @@ func _attack(delta: float, dir_x: float) -> void:
 	if _atk_buf > 0.0:
 		_atk_buf = 0.0
 		_queued = true
+	# 판정 뒤에는 점프로 끊을 수 있다 (땅에서)
+	if _hit_done and _jump_buf > 0.0 and is_on_floor():
+		st = St.NORMAL
+		_normal(delta, dir_x)
+		return
 	# 판정 뒤에는 순간이동·스킬로 끊을 수 있다
 	if _hit_done and (Input.is_action_just_pressed("es_blink") or Input.is_action_just_pressed("es_skill")
 			or Input.is_action_just_pressed("es_bind") or Input.is_action_just_pressed("es_ult")):
@@ -336,6 +385,9 @@ func deal(d: PDummy, dmg: int, heavy: bool, from: Vector2) -> void:
 	if not is_instance_valid(d):
 		return
 	d.take_hit(dmg, from, {"heavy": heavy, "launch": 1.5 if heavy else 0.0})
+	hit_count += 1
+	hit_damage += dmg
+	combo_left = COMBO_WINDOW
 	EVfx.hit_crack(d.center() + Vector2(randf_range(-4, 4), randf_range(-8, 8)), heavy, signf(d.global_position.x - from.x))
 	Sfx.play(&"hit_heavy" if heavy else &"hit", -6.0 if not heavy else -2.0)
 
@@ -364,6 +416,7 @@ func _start_blink(dir_x: float) -> void:
 	st = St.BLINK
 	st_t = 0.0
 	invuln = BLINK_GONE + 0.08
+	EVfx.afterimage(art, 0.3)
 	EVfx.blink_out(center(), d)
 	EVfx.blink_trail(center(), _blink_to + Vector2(0, -SIZE.y * 0.55))
 	art.visible = false
@@ -382,6 +435,7 @@ func _blink(_delta: float) -> void:
 		velocity.x = _blink_dir * RUN_SPEED
 		velocity.y = 0.0
 		EVfx.blink_in(center(), _blink_dir)
+		art.squash(Vector2(1.18, 0.86))
 
 
 # ═══════════════════════════════════════════════════════════
@@ -422,7 +476,8 @@ func _cast(delta: float) -> void:
 				var fan := EVfx.Fan.new()
 				fan.eska = self
 				fan.dir = facing
-				EVfx.add(fan, global_position + Vector2(facing * 10, -22), true)
+				EVfx.add(fan, global_position + Vector2(facing * 12, -23.5), true)
+				art.snap_flash()
 				Sfx.play_pitch(&"blip", 1.6, -2.0)
 				Sfx.play(&"whoosh", -4.0)
 			"dangong":
@@ -438,6 +493,9 @@ func _cast(delta: float) -> void:
 				var at := _bind_target.center() if is_instance_valid(_bind_target) else global_position + Vector2(facing * 70, -20)
 				EVfx.add(fr, at, false)
 				Sfx.play(&"chain", -4.0)
+	if _cast_fired and Input.is_action_just_pressed("es_blink") and _blink_cd <= 0.0 and (is_on_floor() or _air_blink):
+		_start_blink(Input.get_axis("es_left", "es_right"))
+		return
 	if st_t >= _cast_dur:
 		st = St.NORMAL
 		st_t = 0.0
@@ -480,6 +538,7 @@ func _start_ult() -> void:
 	u.target_x = tx
 	u.floor_y = global_position.y if is_on_floor() else _floor_below()
 	EVfx.add(u, Vector2.ZERO, false)
+	EVfx.afterimage(art, 0.4)
 	Sfx.play(&"witch_time", -2.0)
 
 

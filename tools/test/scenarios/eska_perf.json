@@ -1,0 +1,11 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[5, "eval", "eska.set('global_position', Vector2(470, 300))"],
+[60, "eval", "perf()"],
+[70, "tap", "es_attack"], [80, "tap", "es_attack"], [90, "tap", "es_attack"], [100, "tap", "es_attack"],
+[103, "eval", "perf()"],
+[130, "tap", "es_skill"], [140, "press", "es_up"], [141, "tap", "es_skill"], [144, "release", "es_up"], [145, "tap", "es_bind"],
+[150, "eval", "perf()"],
+[200, "tap", "es_ult"],
+[235, "eval", "perf()"],
+[260, "eval", "perf()"],
+[300, "quit"]]}
