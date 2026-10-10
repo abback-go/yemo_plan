@@ -3,10 +3,13 @@
 [20, "eval", "dummy.hp"],
 [25, "tap", "es_attack"], [35, "tap", "es_attack"], [45, "tap", "es_attack"], [55, "tap", "es_attack"],
 [70, "eval", "dummy.hp"], [72, "shot", "h01_after_combo"],
-[90, "tap", "es_skill"], [130, "eval", "dummy.hp"],
-[140, "press", "es_up"], [141, "tap", "es_skill"], [146, "release", "es_up"], [190, "eval", "dummy.hp"],
-[200, "eval", "eska.global_position"],
-[210, "press", "es_jump"], [222, "release", "es_jump"], [224, "tap", "es_attack"], [232, "tap", "es_attack"], [240, "tap", "es_attack"], [248, "tap", "es_attack"], [252, "eval", "eska.global_position.y"], [262, "eval", "dummy.hp"], [262, "shot", "h02_air"],
-[300, "tap", "es_blink"], [310, "eval", "eska.global_position"], [312, "tap", "es_blink"], [320, "eval", "eska.global_position"],
-[330, "quit"]
+[75, "eval", "dummy.set('hp', dummy.max_hp)"],
+[90, "tap", "es_skill"], [170, "eval", "dummy.hp"],
+[175, "eval", "dummy.set('hp', dummy.max_hp)"],
+[180, "press", "es_up"], [181, "tap", "es_skill"], [186, "release", "es_up"], [240, "eval", "dummy.hp"],
+[245, "eval", "dummy.set('hp', dummy.max_hp)"],
+[250, "eval", "eska.global_position"],
+[260, "press", "es_jump"], [272, "release", "es_jump"], [274, "tap", "es_attack"], [282, "tap", "es_attack"], [290, "tap", "es_attack"], [298, "tap", "es_attack"], [302, "eval", "eska.global_position.y"], [312, "eval", "dummy.hp"], [312, "shot", "h02_air"],
+[350, "tap", "es_blink"], [360, "eval", "eska.global_position"], [362, "tap", "es_blink"], [370, "eval", "eska.global_position"],
+[380, "quit"]
 ]}
