@@ -7,6 +7,9 @@ extends CharacterBody2D
 ## 강자(보스)용: 버팀(포이즈) — max_poise > 0이면 맞을 때 opts["poise"]만큼 깎이고, 0이 되면 무너져(break_t초) 받는 피해가 늘어난다.
 ##   맞지 않고 poise_delay초가 지나면 다시 찬다. 무너짐 동안은 _think 대신 _broken_think가 불린다.
 ##   그 밖의 갈고리: _intercept_hit(받아넘기기·무적 연출) · _death_fx(쓰러짐 연출) · death_time · show_bar.
+## 쓴 물(던짐): haste(sec, mult) — 그동안 생각·공격·움직임 시간이 mult배로 빨리 흐른다(강자도). 몸에 쓴빛이 돌고 뒤로 잔바람이 흩날림.
+## 튕겨낼 수 있는 발사체 약속(loop2_plan.md 9장): 그룹 PROJECTILE_GROUP("es_projectile") + deflect(by: Node2D) -> bool (지워졌으면 true).
+##   구슬(ECaster.Orb) · 비검(EKenseiFx.Wave) · 천검 칼빛(EKenseiFx.RainBlade)이 지킨다. 단공이 부른다. 판정 구역은 deflect_rect()로 알 수 있다.
 ## 색: 검정·뼈흰색·핏빛 빨강 (에스카의 보라와 섞이지 않게, 파랑 없음).
 ## 그림 좌표: 원점 = 발밑 가운데, 오른쪽을 보는 모습으로 그린다(facing이 -1이면 뒤집힘).
 
@@ -25,6 +28,10 @@ const BONE_DIM := Color("#a3978a")
 const RED := Color("#ff2b3d")
 const RED_DEEP := Color("#7d0c1f")
 const RED_HOT := Color("#ffb0a6")
+const PROJECTILE_GROUP := &"es_projectile" ## 튕겨낼 수 있는 발사체 그룹 (단공이 deflect를 부름)
+const HASTE_TINT := Color("#c99a4e") ## 쓴 물로 빨라진 몸에 도는 쓴 호박빛 (파랑 없음)
+const HASTE_TINT_K := 0.14 ## 몸 색에 섞이는 정도 (은은하게)
+const HASTE_WISP_GAP := 0.07 ## 뒤로 흩날리는 잔바람 사이 (초)
 
 var max_hp := 300
 var hp := 300
@@ -36,6 +43,9 @@ var still_resist := 0.0 ## 강자: 공간 고정 중에도 이만큼의 빠르�
 var status_resist := 0.0 ## 강자: 묶음·기절 시간이 (1 - 이 값)배로 줄어듦 (물약 속박·비명)
 var vuln_t := 0.0 ## 부식: 남은 시간 동안 받는 피해 × vuln_mult
 var vuln_mult := 1.0
+var haste_t := 0.0 ## 쓴 물: 남은 시간 동안 생각·공격·움직임이 haste_mult배로 빨리 흐름
+var haste_mult := 1.0
+var _haste_wisp := 0.0
 var flying := false
 var facing := -1
 var x_min := 24.0 ## 움직일 수 있는 가로 범위 (장면이 정함)
@@ -202,6 +212,19 @@ func set_vuln(sec: float, mult: float) -> void:
 	vuln_mult = maxf(mult, 1.0)
 
 
+## 쓴 물(던짐): sec초 동안 생각·공격 시간(준비·숨 고르기·쿨다운)과 움직임이 mult배로 빨라진다. 강자도 걸린다(버팀과 상관없음)
+func haste(sec: float, mult: float) -> void:
+	if is_dead():
+		return
+	haste_t = maxf(haste_t, sec)
+	haste_mult = maxf(mult, 1.0)
+
+
+## 지금 빨라진 배수 (쓴 물이 없으면 1)
+func haste_k() -> float:
+	return haste_mult if haste_t > 0.0 else 1.0
+
+
 ## 흑성: point 쪽으로 이번 프레임 끌려감 (넉백 버팀만큼 덜 끌림)
 func pull(point: Vector2, strength: float, delta: float) -> void:
 	var k := 1.0 - knock_resist * 0.8
@@ -286,8 +309,12 @@ func _physics_process(delta: float) -> void:
 		eska = EEska.find(get_tree())
 	_bound = maxf(_bound - delta, 0.0)
 	vuln_t = maxf(vuln_t - delta, 0.0)
+	haste_t = maxf(haste_t - delta, 0.0)
 	var slow := _bound > 0.0 and still_resist > 0.0 # 강자: 굳은 공간을 버티며 느리게 움직임
-	var d := delta * still_resist if slow else delta
+	var tk := (still_resist if slow else 1.0) * haste_k() # 이 적의 시간 배수 (굳음 × 쓴 물)
+	var d := delta * tk
+	if haste_t > 0.0:
+		_haste_fx(delta)
 	_tick_poise(d)
 	if spawn_t > 0.0:
 		spawn_t -= d
@@ -310,10 +337,10 @@ func _physics_process(delta: float) -> void:
 		_think(d)
 	if not flying and (_bound <= 0.0 or slow):
 		velocity.y = minf(velocity.y + GRAVITY * d, FALL_MAX)
-	if slow:
-		velocity *= still_resist
+	if tk != 1.0 and tk > 0.0:
+		velocity *= tk
 		move_and_slide()
-		velocity /= still_resist
+		velocity /= tk
 	else:
 		move_and_slide()
 	global_position.x = clampf(global_position.x, x_min, x_max)
@@ -330,6 +357,18 @@ func _tick_poise(delta: float) -> void:
 	_poise_idle += delta
 	if _poise_idle >= poise_delay and poise < max_poise:
 		poise = minf(poise + max_poise * poise_regen * delta, max_poise)
+
+
+## 쓴 물로 빨라진 동안: 몸 뒤로 쓴 호박빛 잔바람이 흩날림 (은은하게)
+func _haste_fx(delta: float) -> void:
+	_haste_wisp -= delta
+	if _haste_wisp > 0.0:
+		return
+	_haste_wisp = HASTE_WISP_GAP
+	var back := -float(facing) if absf(velocity.x) < 10.0 else -signf(velocity.x)
+	var p := global_position + Vector2(randf_range(-size.x, size.x) * 0.4, -randf_range(0.15, 0.9) * size.y)
+	PParticles.get_layer(false).spawn(p, Vector2(back * randf_range(40.0, 90.0), randf_range(-20.0, -4.0)), Vector2.ZERO,
+		randf_range(0.18, 0.3), randf_range(1.0, 1.8), Color(HASTE_TINT, 0.7), Color(HASTE_TINT, 0.0), 1, 1.0)
 
 
 ## 장면이 거두어 감 (튜토리얼 끝 등 — 피해 숫자 없이 바로 쓰러짐)
@@ -402,6 +441,8 @@ func col(c: Color, a := 1.0) -> Color:
 	if _bound > 0.0:
 		var l := c.get_luminance()
 		out = out.lerp(Color(l * 0.85, l * 0.82, l * 1.0), 0.7)
+	if haste_t > 0.0:
+		out = out.lerp(HASTE_TINT, HASTE_TINT_K * (0.75 + 0.25 * sin(t * 14.0)))
 	out = out.lerp(Color.WHITE, flash * 0.85)
 	out.a *= a
 	return out

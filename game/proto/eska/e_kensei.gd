@@ -22,8 +22,11 @@ enum S { INTRO, IDLE, WALK, IAI_WIND, IAI_DASH, IAI_FOLLOW, IAI_SHEATHE, IAI_RES
 	RAIN_WIND, RAIN_HOLD, RAIN_REST, VICTOR }
 
 # ─── 몸·체력 ─────────────────────────────────────────────
-const HP := 28000 ## 봇으로 맞춤 (tools/test/eska_boss_bot.gd): 잘하는 사람 흉내(피하기 20% 놓침·틈 30% 흘림, 대마법·물약 없이) 한 판 약 2분
-const POISE := 2000.0
+## 봇으로 맞춤 (tools/test/eska_boss_bot.gd — 마법·물약·대마법 모두 사용, 루프2): 33600(기획 시작값)이면 잘하는 사람 약 1.6분으로 너무 짧아
+## 42000 · 버팀 2400 → 잘하는 사람(놓침 20%·틈 30% 흘림) 약 2.0~2.5분, 서툰 사람(35%·50%·반응 0.2초) 약 3~4.3분·쓰러짐 0~1번.
+## 다른 작업자의 마법·물약 개편(낙성 겨눔·단공 튕겨내기·메아리)이 합쳐지면 다시 잴 것.
+const HP := 42000
+const POISE := 2400.0
 const PHASE2_AT := 0.55 ## 체력이 이 몫 아래로 내려가면 2막
 const STILL_RESIST_P2 := 0.25
 const BODY := Vector2(16, 50) ## 피격 사각형 (에스카 30 — 모자 포함 약 45 — 보다 머리 하나 큼)
@@ -59,6 +62,9 @@ const IAI_REST := [0.75, 0.55]
 const IAI_BAND := Vector2(-27.0, -2.0) ## 베는 높이 (발 기준 위·아래) — 점프로 넘을 수 있게 낮게
 const IAI_DMG := 2
 const IAI_RETURN := 0.35 ## 2막: 되돌아 한 번 더 베는 확률
+const IAI_DIM_LEAD := 0.45 ## 베기 이만큼 전부터 화면이 살짝 어두워지기 시작 (번뜩임 때 가장 어두움)
+const DIM_IN := 5.0 ## 어두워지는 빠르기 (초당)
+const DIM_OUT := 3.0 ## 밝아지는 빠르기
 
 # ─── 삼연참 ─────────────────────────────────────────────
 const TRI_WIND := [0.45, 0.38]
@@ -67,6 +73,12 @@ const TRI_STEP := [26.0, 26.0, 36.0]
 const TRI_REACH := [54.0, 54.0, 66.0]
 const TRI_REST := [0.75, 0.6]
 const TRI_DMG := 1
+const TRI_H := 40.0 ## 삼연참 베는 높이 (발 기준 위로) — 점프 한 번(약 46px)으로 넘을 수 있게 (예전 48)
+const TRI_ARC_Y := -21.0 ## 삼연참 칼자국 가운데 높이 (판정 높이에 맞춰 조금 낮춤)
+const TRI_ARC_SQUASH := 0.62 ## 삼연참 칼자국 세로 납작함 (판정 위 끝과 그림 위 끝이 맞게)
+const CUT_H := 48.0 ## 그 밖의 앞 베기(반격) 높이
+const CUT_ARC_Y := -24.0
+const CUT_ARC_SQUASH := 0.7
 
 # ─── 비검 ───────────────────────────────────────────────
 const WAVE_WIND := [0.55, 0.45]
@@ -182,6 +194,8 @@ var pz_alpha := 1.0
 var _grip := false ## 오른손이 칼자루를 잡고 있나 (칼집 안일 때)
 var _snap := false ## 이번 프레임 자세를 바로 맞춤 (베는 순간)
 var _glint := 0.0 ## 칼코등이·칼끝 번뜩임 세기
+var _glint_s := 1.0 ## 이번 번뜩임의 처음 세기 (십자 별 크기)
+var _dim := 0.0 ## 발도 예고 중 화면 어두움 (0~1, 장면이 dim_k()로 읽음)
 var _glint_at := Vector2.ZERO ## 번뜩이는 자리 (몸 기준)
 var _glint_mode := 0
 var _eye_glint := 0.0
@@ -242,6 +256,11 @@ func open_eyes() -> void:
 	Sfx.play_pitch(&"kb_glint", 0.8, -4.0)
 
 
+## 발도 예고 중 화면 어두움 (0~1) — 장면이 배경을 살짝 어둡게 한다
+func dim_k() -> float:
+	return _dim
+
+
 func p() -> int:
 	return phase - 1
 
@@ -259,7 +278,7 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 	super._physics_process(delta)
 	var k := EKenseiFx.time_k(self) if (_bound > 0.0 or EStill.active()) else 1.0
-	_anim(delta * k)
+	_anim(delta * k * haste_k())
 
 
 func _think(delta: float) -> void:
@@ -545,6 +564,7 @@ func _rest_done() -> void:
 ## 예고: 번뜩임 + 소리 (자리 = 몸 기준, mode가 GLINT_TSUBA·GLINT_TIP이면 칼코등이·칼끝을 따라감)
 func _tell(at: Vector2, strength: float, mode := GLINT_FIXED) -> void:
 	_glint = strength
+	_glint_s = maxf(strength, 0.01)
 	_glint_at = at
 	_glint_mode = mode
 	Sfx.play_pitch(&"kb_glint", randf_range(0.97, 1.05), -6.0 + 3.0 * strength)
@@ -625,25 +645,26 @@ func _tri_cut() -> void:
 	if _k == 2:
 		a0 = -1.6
 		a1 = 0.6
-	_cut_front(reach, TRI_DMG, a0, a1, reach * 0.55)
+	_cut_front(reach, TRI_DMG, a0, a1, reach * 0.55, TRI_H, TRI_ARC_Y, TRI_ARC_SQUASH)
 	var ang := 0.9 if _k == 0 else (-1.1 if _k == 1 else -0.15)
 	_draw_blade_now(Vector2(13, -27 + (4 if _k == 0 else -3)), ang)
 	Sfx.play_pitch(&"kb_draw", randf_range(1.05, 1.15) - 0.08 * float(_k), -3.0)
 
 
-## 앞을 벰: 초승달 칼자국 + 앞 reach 안의 에스카에게 피해
-func _cut_front(reach: float, dmg: int, a0: float, a1: float, r: float) -> void:
-	var c := global_position + Vector2(float(facing) * 12.0, -24.0)
+## 앞을 벰: 초승달 칼자국 + 앞 reach 안, 발에서 h 높이까지의 에스카에게 피해 (칼자국 가운데 높이 arc_y · 납작함 squash)
+func _cut_front(reach: float, dmg: int, a0: float, a1: float, r: float, h := CUT_H, arc_y := CUT_ARC_Y, squash := CUT_ARC_SQUASH) -> void:
+	var c := global_position + Vector2(float(facing) * 12.0, arc_y)
 	var arc := EKenseiFx.Arc.new()
 	arc.dir = facing
 	arc.r = r
 	arc.a0 = a0
 	arc.a1 = a1
 	arc.w = 6.0 + reach * 0.06
+	arc.squash = squash
 	PVfx.add(arc, c, true)
 	var x0 := global_position.x + float(facing) * -6.0
 	var x1 := global_position.x + float(facing) * reach
-	var rect := Rect2(Vector2(minf(x0, x1), global_position.y - 48.0), Vector2(absf(x1 - x0), 48.0))
+	var rect := Rect2(Vector2(minf(x0, x1), global_position.y - h), Vector2(absf(x1 - x0), h))
 	_hit_eska(rect, dmg, false)
 	# 1막: 거둔 뒤 칼자국 자리에 가는 참격선이 한 번 더 터짐 (그림만)
 	var sl := EKenseiFx.SlashLine.new()
@@ -927,6 +948,11 @@ func _anim(delta: float) -> void:
 		var ts := _tsuba()
 		_glint_at = (ts[0] as Vector2) + ((ts[1] as Vector2) * BLADE_L * pz_out if _glint_mode == GLINT_TIP else Vector2.ZERO)
 	_eye_glint = maxf(_eye_glint - delta * 1.5, 0.0)
+	var dim_to := 0.0
+	if st == S.IAI_WIND and not is_dead():
+		var wt := _wind(IAI_WIND)
+		dim_to = smoothstep(wt - IAI_DIM_LEAD, wt - IAI_GLINT, st_t)
+	_dim = move_toward(_dim, dim_to, delta * (DIM_IN if dim_to > _dim else DIM_OUT))
 	_aura = move_toward(_aura, 1.0 if phase == 2 and not is_dead() else 0.0, delta * 1.5)
 	if st != S.CTR_STANCE and st != S.CTR_RELAX:
 		_ring = maxf(_ring - delta * 4.0, 0.0)
@@ -1652,9 +1678,9 @@ func _paint_shine(q: PDraw) -> void:
 			q.line2(Vector2(10, y), Vector2(10.0 + reach * k, y), Color(EKenseiFx.WHITE, 0.4 * k * a), Color(EKenseiFx.RED, 0.0), 1.0, 0.5)
 	# 번뜩임 (예고)
 	if _glint > 0.0:
-		var g := _glint
-		q.glow(_glint_at, 16.0 * g, Color(EKenseiFx.WHITE, 0.25 * g * a), 0.0)
-		EKenseiFx.glint(q, _glint_at, 3.0 + 8.0 * g, minf(g * 1.4, 1.0) * a)
+		var g := _glint / _glint_s
+		q.glow(_glint_at, 14.0 * _glint, Color(EKenseiFx.WHITE, 0.2 * _glint * a), 0.0)
+		EKenseiFx.star(q, _glint_at, g, _glint_s, minf(g * 1.4, 1.0) * a)
 	# 눈빛
 	var eye := head + Vector2(2.4, -0.4)
 	if pz_eyes > 0.5:

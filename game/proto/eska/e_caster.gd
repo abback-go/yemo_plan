@@ -2,6 +2,7 @@ class_name ECaster
 extends EEnemy
 ## 원거리 "붉은 등불 망령": 에스카와 거리를 두고 떠다니다(옆 95~155 · 위 52~80 — 단공·천열이 닿는 거리), 등불이 타오르며 조준(0.75초, 붉은 조준선)
 ## → 핏빛 구슬 한 발(초속 150). 구슬은 참격으로 베어 없앨 수 있다(ECaster.Orb — 겨누기 대상은 아님).
+## 구슬은 튕겨낼 수 있는 발사체(EEnemy.PROJECTILE_GROUP): 단공이 deflect()를 부르면 흰 십자 불꽃과 함께 산산이 깨진다.
 ## 조준하는 동안 맞으면 끊긴다.
 
 enum S { FLOAT, AIM }
@@ -151,7 +152,9 @@ func _paint_aim(a: float, f: float) -> void:
 
 
 ## 핏빛 구슬: 참격으로 벨 수 있는 표적(체력 1, 겨누기 대상 아님). 에스카에 닿으면 피해 1, 땅·벽에 닿거나 4초 지나면 터짐
+## 튕겨낼 수 있는 발사체: deflect(by)면 산산이 깨짐 (EKenseiFx.shatter — 흰 십자 불꽃 + 붉은 파편)
 class Orb extends PDraw.Canvas:
+	const RADIUS := 6.0
 	var vel := Vector2.ZERO
 	var lockable := false
 	var _life := 4.0
@@ -162,10 +165,27 @@ class Orb extends PDraw.Canvas:
 
 	func _ready() -> void:
 		add_to_group(PDummy.GROUP)
+		add_to_group(EEnemy.PROJECTILE_GROUP)
 		z_index = 4
 
 	func hit_rect() -> Rect2:
-		return Rect2(global_position - Vector2(6, 6), Vector2(12, 12))
+		return Rect2(global_position - Vector2(RADIUS, RADIUS), Vector2(RADIUS * 2.0, RADIUS * 2.0))
+
+	## 튕겨낼 수 있는 발사체 약속: 판정 구역 (전역)
+	func deflect_rect() -> Rect2:
+		return hit_rect()
+
+	## 단공이 지움: 산산이 깨진다 (지웠으면 true)
+	func deflect(by: Node2D) -> bool:
+		if _dead:
+			return false
+		var away := (global_position - by.global_position).normalized() if is_instance_valid(by) else Vector2.UP
+		EKenseiFx.shatter(global_position, away, 1.0, EEnemy.RED_HOT)
+		_dead = true
+		remove_from_group(PDummy.GROUP)
+		remove_from_group(EEnemy.PROJECTILE_GROUP)
+		queue_free()
+		return true
 
 	func center() -> Vector2:
 		return global_position
@@ -215,6 +235,7 @@ class Orb extends PDraw.Canvas:
 			return
 		_dead = true
 		remove_from_group(PDummy.GROUP)
+		remove_from_group(EEnemy.PROJECTILE_GROUP)
 		var pp := PParticles.get_layer(true)
 		for i in (10 if cut else 6):
 			pp.spawn(global_position, Vector2.from_angle(randf() * TAU) * randf_range(40, 140), Vector2(0, 200), randf_range(0.2, 0.4), randf_range(1.0, 2.2),

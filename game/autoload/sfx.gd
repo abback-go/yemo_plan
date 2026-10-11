@@ -716,6 +716,15 @@ func _build_eska_boss() -> void:
 		{wave = "sine", f0 = 196.0, dur = 1.8, vol = 0.12, tau = 0.6},
 		{wave = "noise", dur = 2.0, vol = 0.3, bp = 500.0, bp1 = 200.0, q = 0.4, attack = 0.2, decay = 1.2},
 	], 11025)
+	_add_fast(&"kb_shatter", [ # 튕겨낸 발사체(구슬·비검·천검 칼빛)가 갈려 깨짐: 유리 같은 '쨍' + 짧은 쇳울림
+		{wave = "noise", dur = 0.06, vol = 0.55, bp = 5200.0, q = 0.3, decay = 2.8},
+		{wave = "sine", f0 = 4200.0, f1 = 3600.0, fm = 1.73, fm_i = 1.3, fm_i1 = 0.1, dur = 0.22, vol = 0.09, tau = 0.05},
+		{wave = "noise", dur = 0.12, vol = 0.3, bp = 2400.0, bp1 = 900.0, q = 0.35, decay = 2.0, delay = 0.02},
+	])
+	_add_fast(&"kb_gust", [ # 등장 근접: 눈을 뜨는 순간 몰아치는 바람 한 자락
+		{wave = "noise", dur = 0.9, vol = 0.5, bp = 500.0, bp1 = 1600.0, q = 0.3, attack = 0.08, decay = 1.6},
+		{wave = "noise", dur = 0.5, vol = 0.18, bp = 3200.0, q = 0.5, attack = 0.05, decay = 2.0, delay = 0.05},
+	], 11025)
 	_add_fast(&"kb_wind", [ # 바람 한 줄기 (배경)
 		{wave = "noise", dur = 1.6, vol = 0.4, bp = 300.0, bp1 = 900.0, q = 0.3, attack = 0.6, decay = 1.3},
 		{wave = "noise", dur = 1.2, vol = 0.12, bp = 2400.0, q = 0.5, attack = 0.4, decay = 1.5, delay = 0.3},

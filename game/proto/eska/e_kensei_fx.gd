@@ -7,6 +7,9 @@ extends RefCounted
 ## - Wave(비검) · RainBlade(천검)는 에스카를 다치게 하는 위험물 — 봉공(공간 고정) 중에는 검성의 버팀(still_resist)만큼만 흐른다
 ## - Impact: 낙화 착지 충격 · Sheath: 2막에 내던진 칼집 · Drift: 바람에 날리는 꽃잎·잎(먹·붉은빛·뼈흰)
 ## 위험물은 GROUP에 들어 장면이 한꺼번에 거둘 수 있다(에스카가 쓰러져 처음부터 할 때).
+## 비검·천검 칼빛은 튕겨낼 수 있는 발사체(EEnemy.PROJECTILE_GROUP): 단공이 deflect(by)를 부르면 비검은 산산이 깨지고,
+##   아직 땅에 닿지 않은 천검 칼빛은 잘려 나간다(땅에 닿은 칼빛은 못 지움 → false). 판정 구역은 deflect_rect().
+## - Shatter: 지워진 발사체 자리의 흰 십자 불꽃 + 고리 + 파편 줄 (구슬도 같이 씀 — shatter())
 
 const INK := Color("#0b090c")
 const BONE := Color("#ece4d6")
@@ -15,6 +18,8 @@ const RED := Color("#e0182f")
 const RED_HOT := Color("#ff6a5c")
 const RED_DEEP := Color("#6e0a16")
 const GROUP := &"kensei_hazard"
+const STAR_R := 9.0 ## 예고 번뜩임 십자 별의 팔 길이 (세기 1일 때, px)
+const STAR_HOLD := 0.75 ## 번뜩임 세기가 이 위면 별이 다 핀 크기로 머묾 (첫 두어 프레임 또렷하게)
 
 static var wind := Vector2(46.0, 0.0) ## 지금 바람 (왼쪽 → 오른쪽: 입구에서 검성 쪽으로) (장면이 정함 — 꽃잎·머리칼·옷자락이 같이 쓴다)
 
@@ -57,6 +62,41 @@ static func glint(pd: PDraw, p: Vector2, s: float, al: float, red_rim := true) -
 		pd.draw_colored_polygon(PackedVector2Array([p - dv * l, p + dv.orthogonal() * 0.7, p + dv * l, p - dv.orthogonal() * 0.7]), Color(WHITE, al))
 
 
+## 예고 번뜩임: 또렷한 십자 별 (팔 길이 STAR_R × 세기, 가로·세로 같은 길이 + 짧은 대각 반짝임) — 가산 노드에서 그린다
+## g = 번뜩임 세기(1 → 0으로 줄어듦). 처음엔 다 핀 크기로 머물다(STAR_HOLD) 줄어든다
+static func star(pd: PDraw, p: Vector2, g: float, strength: float, al: float) -> void:
+	if al <= 0.01 or g <= 0.0:
+		return
+	var grow := 1.0 if g >= STAR_HOLD else g / STAR_HOLD
+	var r := STAR_R * strength * (0.35 + 0.65 * grow)
+	pd.glow(p, r * 1.5, Color(RED, 0.22 * al), 0.0)
+	pd.glow(p, r * 0.7, Color(WHITE, 0.55 * al), 0.0)
+	for dv: Vector2 in [Vector2(1, 0), Vector2(0, 1)]:
+		var o := dv.orthogonal()
+		pd.draw_colored_polygon(PackedVector2Array([p - dv * r, p + o * 0.9, p + dv * r, p - o * 0.9]), Color(WHITE, al))
+	var dg := r * 0.38
+	for dv: Vector2 in [Vector2(0.7071, 0.7071), Vector2(0.7071, -0.7071)]:
+		pd.draw_line(p - dv * dg, p + dv * dg, Color(WHITE, 0.6 * al), 1.0)
+	pd.draw_rect(Rect2(p - Vector2(1, 1), Vector2(2, 2)), Color(1, 1, 1, al))
+
+
+## 튕겨낸(지운) 발사체: 흰 십자 불꽃 + 고리 + 파편 줄 + 불티 + 맑은 깨짐 소리. dir = 튕겨 나가는 쪽, s = 크기 배수, rim = 파편 색
+static func shatter(pos: Vector2, dir: Vector2, s := 1.0, rim := RED_HOT) -> void:
+	var sh := Shatter.new()
+	sh.s = s
+	sh.rim = rim
+	sh.dir = dir if dir != Vector2.ZERO else Vector2.UP
+	PVfx.add(sh, pos, true)
+	var pp := PParticles.get_layer(true)
+	var base := sh.dir.angle()
+	for i in int(10.0 * s):
+		var an := base + randf_range(-1.4, 1.4)
+		var v := Vector2(cos(an), sin(an)) * randf_range(70.0, 190.0) * s
+		pp.spawn(pos, v, Vector2(0, 240), randf_range(0.2, 0.4), randf_range(1.0, 2.0), WHITE if i % 2 == 0 else rim, RED_DEEP, 1, 3.0)
+	Sfx.play_pitch(&"kb_shatter", randf_range(0.95, 1.08), -3.0)
+	Fx.shake(0.18 * s, 0.08)
+
+
 ## 흰 불티 + 붉은 잔불 (칼이 스친 자리)
 static func sparks(pos: Vector2, n: int, dir: Vector2, speed := 160.0, spread := 60.0) -> void:
 	var pp := PParticles.get_layer(true)
@@ -76,6 +116,34 @@ static func petals(pos: Vector2, n: int, area: Vector2, speed := 60.0) -> void:
 	for i in n:
 		var p := pos + Vector2(randf_range(-area.x, area.x), randf_range(-area.y, area.y))
 		d.spawn(p, Vector2.from_angle(randf() * TAU) * randf_range(speed * 0.3, speed) + Vector2(0, -20), randf_range(0.9, 1.8))
+
+
+## 지워진 발사체 자리: 흰 십자 불꽃(크게 → 작게) + 넓어지는 고리 + 바깥으로 튀는 파편 줄 (가산)
+class Shatter extends PVfx.Base:
+	var s := 1.0
+	var rim := RED_HOT
+	var dir := Vector2.UP
+	var _rays: Array[Vector2] = []
+
+	func _ready() -> void:
+		life = 0.3
+		z_index = 7
+		for i in 6:
+			_rays.append(Vector2.from_angle(dir.angle() + randf_range(-1.6, 1.6)) * randf_range(0.7, 1.0))
+
+	func _paint() -> void:
+		var x := k()
+		var a := 1.0 - smoothstep(0.3, 1.0, x)
+		var go := 1.0 - pow(1.0 - x, 3.0)
+		var r := 16.0 * s * (1.0 - 0.6 * x)
+		pd.glow(Vector2.ZERO, 14.0 * s, Color(rim, 0.35 * a), 0.0)
+		for dv: Vector2 in [Vector2(1, 0), Vector2(0, 1)]:
+			var o := dv.orthogonal()
+			pd.draw_colored_polygon(PackedVector2Array([-dv * r, o * 1.1, dv * r, -o * 1.1]), Color(WHITE, a))
+		pd.draw_arc(Vector2.ZERO, (4.0 + 20.0 * go) * s, 0.0, TAU, 20, Color(WHITE, 0.7 * a), 1.2)
+		for ray: Vector2 in _rays:
+			var p0 := ray * (6.0 + 18.0 * go) * s
+			pd.line2(p0, p0 + ray * 7.0 * s * (1.0 - x), Color(rim, 0.0), Color(WHITE, a), 0.6, 1.4)
 
 
 ## 위험물 공통 바탕: 시간은 time_k로 흐르고, 장면이 GROUP으로 거둔다
@@ -224,9 +292,24 @@ class Wave extends KenseiHazard:
 
 	func _ready() -> void:
 		super._ready()
+		add_to_group(EEnemy.PROJECTILE_GROUP)
 		life = 6.0
 		z_index = 6
 		material = Fx.add_material
+
+	## 튕겨낼 수 있는 발사체 약속: 판정 구역 (전역)
+	func deflect_rect() -> Rect2:
+		return Rect2(global_position + Vector2(-HALF_W - 6.0, -HEIGHT - 4.0), Vector2(HALF_W * 2.0 + 12.0, HEIGHT + 4.0))
+
+	## 단공이 가름: 파도가 산산이 깨진다 (지웠으면 true)
+	func deflect(_by: Node2D) -> bool:
+		if is_queued_for_deletion():
+			return false
+		remove_from_group(EEnemy.PROJECTILE_GROUP)
+		EKenseiFx.shatter(global_position + Vector2(0, -HEIGHT * 0.5), Vector2(-float(dir), -0.6).normalized(), 1.3)
+		EKenseiFx.sparks(global_position + Vector2(0, -6), 8, Vector2(-float(dir), -0.4), 150.0, 50.0)
+		queue_free()
+		return true
 
 	func _tick(delta: float) -> void:
 		position.x += float(dir) * speed * delta
@@ -259,20 +342,43 @@ class Wave extends KenseiHazard:
 
 
 ## 천검: 땅에 예고선(warn초) → 하늘에서 칼빛 한 줄이 내리꽂힘(피해) → 잔광
+## 아직 떨어지지 않은 칼빛은 단공으로 잘라 낼 수 있다 (deflect — 예고가 걷히고 부러진 칼빛 두 조각이 흩어짐)
 class RainBlade extends KenseiHazard:
 	const HALF_W := 6.0
+	const CUT_LIFE := 0.4 ## 잘린 뒤 조각이 흩어져 사라지기까지
 	var warn := 0.75
 	var top := -340.0 ## 칼빛이 시작하는 높이 (이 노드 기준 — 노드는 바닥에 놓임)
 	var dmg := 1
 	var _fell := false
+	var _cut_t := -1.0 ## 잘린 순간의 t (-1 = 안 잘림)
+	var _cut_y := -60.0 ## 잘린 높이 (이 노드 기준)
 
 	func _ready() -> void:
 		super._ready()
+		add_to_group(EEnemy.PROJECTILE_GROUP)
 		life = warn + 0.45
 		z_index = 6
 		material = Fx.add_material
 
+	## 튕겨낼 수 있는 발사체 약속: 판정 구역 (전역) — 칼빛이 떨어질 기둥 전체
+	func deflect_rect() -> Rect2:
+		return Rect2(global_position + Vector2(-HALF_W, top), Vector2(HALF_W * 2.0, -top))
+
+	## 단공이 가름: 아직 떨어지지 않은 칼빛이면 잘려 나간다 (지웠으면 true · 이미 떨어졌으면 false)
+	func deflect(by: Node2D) -> bool:
+		if _fell or _cut_t >= 0.0:
+			return false
+		_cut_t = t
+		life = t + CUT_LIFE
+		remove_from_group(EEnemy.PROJECTILE_GROUP)
+		var hy := (by.global_position.y - 60.0) if is_instance_valid(by) else global_position.y - 60.0
+		_cut_y = clampf(hy - global_position.y, top * 0.5, -40.0)
+		EKenseiFx.shatter(global_position + Vector2(0, _cut_y), Vector2.UP, 0.9)
+		return true
+
 	func _tick(_delta: float) -> void:
+		if _cut_t >= 0.0:
+			return
 		if not _fell and t >= warn:
 			_fell = true
 			Sfx.play_pitch(&"kb_rain", randf_range(0.92, 1.1), -6.0)
@@ -282,6 +388,9 @@ class RainBlade extends KenseiHazard:
 			hurt_eska(Rect2(position + Vector2(-HALF_W, top), Vector2(HALF_W * 2.0, -top)), dmg, position + Vector2(0, -40))
 
 	func _paint() -> void:
+		if _cut_t >= 0.0:
+			_paint_cut()
+			return
 		if t < warn:
 			var f := t / warn
 			var blink := 0.65 + 0.35 * sin(t * (16.0 + 34.0 * f))
@@ -307,6 +416,18 @@ class RainBlade extends KenseiHazard:
 			pd.glow(Vector2.ZERO, 24.0 * fade + 6.0, Color(RED_HOT, 0.6 * fade), 0.0)
 			pd.glow(Vector2.ZERO, 10.0, Color(WHITE, 0.8 * fade), 0.0)
 			pd.draw_set_transform(Vector2.ZERO)
+
+
+	## 잘린 칼빛: 예고 기둥이 빠르게 걷히고, 짧은 칼빛 두 조각이 돌며 양옆으로 흩어짐
+	func _paint_cut() -> void:
+		var k := clampf((t - _cut_t) / CUT_LIFE, 0.0, 1.0)
+		var fade := 1.0 - k
+		pd.convex_colors(PackedVector2Array([Vector2(-HALF_W, 0), Vector2(HALF_W, 0), Vector2(HALF_W, -60.0), Vector2(-HALF_W, -60.0)]),
+			PackedColorArray([Color(RED, 0.25 * fade * fade), Color(RED, 0.25 * fade * fade), Color(RED, 0.0), Color(RED, 0.0)]))
+		for sgn in [-1.0, 1.0]:
+			var c := Vector2(sgn * 26.0 * k, _cut_y - 10.0 * k + 60.0 * k * k)
+			var d := Vector2.from_angle(-PI * 0.5 + sgn * (0.3 + 5.0 * k)) * 11.0
+			EKenseiFx.blade_light(pd, c - d, c + d, 4.0 * fade + 0.5, fade)
 
 
 ## 낙화 착지: 흰 고리 + 땅을 달리는 칼빛 물결 + 갈라진 금 (가산)
