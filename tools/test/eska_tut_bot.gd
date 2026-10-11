@@ -1,10 +1,10 @@
 extends Node
 ## 에스카 튜토리얼 자동 플레이 봇 (시험용 — 순간이동 eval 없이 실제 입력만으로 끝까지 가는지 본다).
 ## 시나리오에서 [2, "attach", "../tools/test/eska_tut_bot.gd"] 로 붙인다 (eska_tutorial_bot.json).
-## 하는 일: 단계(STEPS)마다 정해진 손놀림 — 오른쪽으로 가며 턱 앞에서 점프·이단점프, 장막 앞에서 순간이동, 틈에서 점프→점프→순간이동,
-## 허수아비 앞에서 베기·천열, 망령 구슬이 몸 가까이 오면 ↑+스킬(딱 맞춤), 높이 뜬 망령에 ↓+스킬(낙성),
-## 가마솥 앞에서 ↑ → 달이기 화면에서 Z(거미줄)·Z(거미줄)·Z(달이기)·Z(넘기기)·Esc(닫기), 사냥개가 웅크리면 ↓+물약(속박),
-## 거상: 다가가 천열 → 느려지면 곧바로 ↓+물약(틈 달이기) → 싸워 게이지를 채우고 D(고르기) → S(대마법).
+## 하는 일: 단계(STEPS)마다 정해진 손놀림 — 오른쪽으로 가며 공허 틈 앞에서 점프→점프→순간이동,
+## 허수아비 앞에서 베기·천열, 망령 구슬이 몸 가까이 오면 ↑+스킬(딱 맞춤 — 0.5배·0.75배 두 번), 높이 뜬 망령에 ↓+스킬(낙성),
+## 가마솥 옆(12px — 솥에 겹치지 않게)에서 ↑ → 달이기 화면에서 Z(거미줄)·Z(거미줄)·Z(달이기)·Z(넘기기)·Esc(닫기), 사냥개가 웅크리면 ↓+물약(속박),
+## 거상: 다가가 천열 → 곧바로 ↓+물약(틈 달이기: 처음은 느려짐, 두 번째는 실전 박자) → 싸워 게이지를 채우고 D(고르기) → S(대마법).
 ## 적이 있으면 다가가 베고 스킬, 예고 동작이면 점프로 피한다. 달이기 화면이 열려 게임이 멈춘 동안에도 돌아야 해서 PROCESS_MODE_ALWAYS.
 
 const PERFECT_DIST := 52.0 ## 구슬이 몸 가운데에서 이 안으로 들어오면 단공 (딱 맞춤 70 안, 몸에 닿기 전)
@@ -14,6 +14,8 @@ const THROW_MIN := 100.0 ## 속박: 사냥개가 앞으로 이 거리 ~ THROW_MA
 const THROW_MAX := 200.0
 const BOSS_RANGE := 190.0 ## 거상 앞 천열 거리
 const UI_GAP := 0.18 ## 달이기 화면에서 누름 사이 (실제 초)
+const POT_SIDE := 12.0 ## 가마솥 앞 서는 자리: 솥 가운데에서 왼쪽으로 이만큼 (그림이 겹치지 않게)
+const PIT_JUMP := 40.0 ## 공허 틈 가장자리 이만큼 앞에서 점프
 
 var stage: Node
 var _t := 0.0
@@ -47,29 +49,26 @@ func _physics_process(delta: float) -> void:
 		_log_t = 2.0
 		print("BOT t=%.1f step=%s sub=%d x=%d hp=%d gauge=%.2f" % [_t, step, sub, int(x), e.hp, e.gauge_ratio()])
 	match step:
-		"move", "jump", "double", "blink", "gap":
+		"move", "gap":
 			_hold("es_right", true)
 			if not _seq.is_empty():
 				return
-			if e.is_on_floor() and x > 560.0 and x < 600.0:
-				_tap("es_jump")
-			elif e.is_on_floor() and x > 820.0 and x < 860.0:
-				_combo([[0.0, "es_jump"], [0.25, "es_jump"]])
-			elif x > 1255.0 and x < 1300.0 and e.is_on_floor():
-				_tap("es_blink")
-			elif x > 1440.0 and x < 1480.0 and e.is_on_floor():
+			var px: float = stage.PIT_X
+			if x > px - PIT_JUMP - 20.0 and x < px - PIT_JUMP + 20.0 and e.is_on_floor():
 				_combo([[0.0, "es_jump"], [0.28, "es_jump"], [0.55, "es_blink"]])
 		"combo":
-			_go_to(1975.0, 6.0)
-			if absf(x - 1975.0) < 10.0 and _seq.is_empty():
-				_combo([[0.0, "es_attack"], [0.36, "es_attack"], [0.72, "es_attack"]])
+			var cx: float = stage.COMBO_X - 35.0
+			_go_to(cx, 6.0)
+			if absf(x - cx) < 10.0 and _seq.is_empty():
+				_tap("es_attack")
 		"cheonyeol":
-			_go_to(2120.0, 6.0)
-			if absf(x - 2120.0) < 10.0 and _seq.is_empty() and sub == 1:
+			var tx: float = stage.CHEON_XS[0] - 170.0
+			_go_to(tx, 6.0)
+			if absf(x - tx) < 10.0 and _seq.is_empty() and sub == 1:
 				_face(1)
 				_tap("es_skill")
 		"dangong":
-			if sub <= 1:
+			if sub <= 3:
 				_deflect(e)
 			else:
 				_fight(e, step)
@@ -87,7 +86,7 @@ func _physics_process(delta: float) -> void:
 
 ## 단공 딱 맞춤: 제자리에서 구슬을 기다렸다가 몸 가까이 오면 ↑+스킬
 func _deflect(e: EEska) -> void:
-	if e.global_position.x < 2660.0:
+	if e.global_position.x < stage.GATE_DUMMIES + 100.0:
 		_hold("es_right", true)
 		return
 	_hold("es_right", false)
@@ -132,8 +131,9 @@ func _nakseong(e: EEska) -> void:
 ## 가마솥: 앞에 서서 ↑를 톡 (뗄 때 열림)
 func _cauldron(e: EEska, sub: int) -> void:
 	var pot: Node2D = stage.pot_rest
-	_go_to(pot.global_position.x, 4.0)
-	if sub == 2 and absf(e.global_position.x - pot.global_position.x) < 8.0 and e.is_on_floor() and _seq.is_empty() and stage.pot_rest.ui == null:
+	var px := pot.global_position.x - POT_SIDE
+	_go_to(px, 3.0)
+	if sub == 2 and absf(e.global_position.x - px) < 6.0 and e.is_on_floor() and _seq.is_empty() and stage.pot_rest.ui == null:
 		_combo([[0.1, "es_up"]])
 
 
@@ -193,10 +193,10 @@ func _hound(e: EEska, sub: int) -> void:
 	_fight(e, "hound")
 
 
-## 거상: 천열 → (느려짐) ↓+물약 → 싸움 → D → S
+## 거상: 천열 → 곧바로 ↓+물약 (sub 4·5 = 첫 시도·느려짐, sub 8 = 두 번째·느림 없음) → 싸움 → D(sub 12) → S(sub 14)
 func _finale(e: EEska, sub: int) -> void:
 	var boss: Node2D = stage.boss
-	if sub == 4 and is_instance_valid(boss):
+	if (sub == 4 or sub == 8) and is_instance_valid(boss):
 		var dx := boss.global_position.x - e.global_position.x
 		if not _seq.is_empty():
 			return
@@ -208,16 +208,15 @@ func _finale(e: EEska, sub: int) -> void:
 		_hold("es_left", false)
 		_face(1 if dx > 0.0 else -1)
 		if e.cd_left("cheonyeol") <= 0.0 and e.st == EEska.St.NORMAL:
-			_tap("es_skill")
+			# 천열 → 시전 중에 ↓+물약을 눌러 둠 (입력 기억으로 시전이 끝나자마자 던짐)
+			_combo([[0.0, "es_skill"], [0.06, "es_down", true], [0.08, "es_potion"], [0.4, "es_down", false]])
 		return
 	if sub == 5:
-		if _seq.is_empty() and stage.eska.belt.slot(2).get("left", 0) > 0:
-			_combo([[0.0, "es_down", true], [0.02, "es_potion"], [0.3, "es_down", false]])
-		return
-	if sub == 10 and _seq.is_empty():
+		return # 첫 시도에서 이미 눌러 둠
+	if sub == 12 and _seq.is_empty():
 		_tap("es_ult_next")
 		return
-	if sub == 12 and _seq.is_empty() and e.st == EEska.St.NORMAL:
+	if sub == 14 and _seq.is_empty() and e.st == EEska.St.NORMAL:
 		_tap("es_bind")
 		return
 	_fight(e, "finale")

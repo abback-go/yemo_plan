@@ -132,6 +132,14 @@ func nudge() -> void:
 		_nudge = 1.0
 
 
+## 안내 칸·자막을 바로 지움 (연출이 시작될 때 지난 단계 안내가 남지 않게)
+func clear() -> void:
+	_ptext = ""
+	_keys = []
+	_say = ""
+	queue_redraw()
+
+
 func has_prompt() -> bool:
 	return _ptext != ""
 
@@ -278,7 +286,12 @@ func _draw_prompt() -> void:
 			var lw := _font.get_string_size(k, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 4.0 # 글자 양옆 여백
 			parts.append([1, k, lw])
 			w += lw + 3.0
-	if not parts.is_empty():
+	# 키 칸 글과 설명이 같으면(터치: [점프] 점프) 설명은 빼고 키 칸 하나만
+	for p: Array in parts:
+		if int(p[0]) == 0 and String(p[1]) == ptext:
+			ptext = ""
+			break
+	if not parts.is_empty() and ptext != "":
 		w += 6.0
 	var tw := _font.get_string_size(ptext, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	w += tw
@@ -309,7 +322,7 @@ func _draw_prompt() -> void:
 		else:
 			_text(Vector2(cx + 2.0, y + 1), String(p[1]), 12, Color(VIOLET, a))
 		cx += float(p[2]) + 3.0
-	if not parts.is_empty():
+	if not parts.is_empty() and ptext != "":
 		cx += 6.0
 	_text(Vector2(cx, y + 1), ptext, fs, Color(PALE.lerp(Color.WHITE, 0.3), a))
 	if _p_done >= 0.0:
@@ -380,25 +393,21 @@ class BrewTip extends Control:
 			_line = line
 			queue_redraw()
 
-	## 지금 달이기 화면 상태에 맞는 한 줄
+	## 지금 달이기 화면 상태에 맞는 할 일 한 줄 (키 이름은 달이기 화면 아래 줄이 이미 보여 주므로 여기선 할 일만 — 두 줄 중복 없게)
 	func _text_for(ui: EBrewUI) -> String:
-		var touching := EKeys.touch_mode
-		match ui.phase:
-			"brewing":
-				return "달이는 중…"
-			"reveal":
-				return "화면을 눌러 넘기기" if touching else "{es_jump} 넘기기"
+		if ui.phase != "pick": # 달이는 중·결과 화면은 달이기 화면이 스스로 안내
+			return ""
 		var slot: Dictionary = ui.eska.belt.slot(WANT_SLOT) if is_instance_valid(ui.eska) else {}
 		if String(slot.get("id", "")) == want:
-			return "↓칸에 담겼다 — ✕로 닫기" if touching else "↓칸에 담겼다 — Esc로 닫기"
+			return "할 일 ③ 다 됐다 — 닫고 나간다"
 		var only_web := ui.sel.all(func(i: String) -> bool: return i == WANT_ING)
 		if not only_web:
-			return "거미줄 둘이어야 한다 — 가마솥 칸을 눌러 빼기" if touching else "거미줄 둘이어야 한다 — {es_attack} 빼기"
+			return "거미줄 둘이어야 한다 — 빼고 다시"
 		if ui.sel.size() < 2:
-			return "거미줄을 두 번 눌러 넣기" if touching else "거미줄을 두 번 넣기 — 고르기 ←→↑↓ · 넣기 {es_jump}"
+			return "할 일 ① 거미줄을 두 번 넣는다"
 		if ui.target != WANT_SLOT:
-			return "오른쪽에서 ↓칸을 골라 담기"
-		return "달이기 — ↓칸에 담긴다" if touching else "{es_jump} 달이기 — ↓칸에 담긴다"
+			return "할 일 ② 오른쪽 ↓칸을 골라 담는다"
+		return "할 일 ② 달이기 — ↓칸에 담긴다"
 
 	func _draw() -> void:
 		if _line == "":
