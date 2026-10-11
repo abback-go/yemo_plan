@@ -12,8 +12,8 @@ const FLOOR := 300.0
 const GATE_X := 300.0 ## 무너진 문 (싸움 중엔 여기에 장막)
 const TRIGGER_X := 380.0 ## 이 줄을 넘으면 싸움 시작
 const BOSS_X := 860.0
-const CAULDRON_X := 84.0
-const RESPAWN := Vector2(150, FLOOR)
+const CAULDRON_X := 252.0 ## 가마솥 (loop4: 터치 방향키 밖 — 예전 84는 엄지 밑)
+const RESPAWN := Vector2(300, FLOOR) ## 부활 자리 (문 아래, 가마솥 곁 — 방향키 밖)
 const WIND := 46.0 ## 바람 세기 (꽃잎·머리칼·자락)
 const INTRO_T := 3.2 ## (시험 호환) 처음 만남 연출을 건너뛸 때 쓰는 값
 const INTRO_PAN := 1.1 ## 처음 만남: 카메라가 검성 쪽으로 다가가는 시간 (실제 시간)
@@ -440,7 +440,7 @@ func _backdrop() -> void:
 		m.layer = int(spec[1])
 		m.width = art_w
 		m.floor_y = FLOOR
-		px.add_child(m)
+		_place_static(px, m, Rect2(-320, FLOOR - 300.0, art_w + 1100.0, 620.0), 0)
 	for spec: Array in [[0.32, 0, -7], [0.55, 1, -6]]:
 		var px := Parallax2D.new()
 		px.scroll_scale = Vector2(float(spec[0]), float(spec[0]) * 0.5)
@@ -450,21 +450,17 @@ func _backdrop() -> void:
 		b.layer = int(spec[1])
 		b.width = art_w
 		b.floor_y = FLOOR
-		px.add_child(b)
+		_place_static(px, b, Rect2(-260, FLOOR - 500.0, art_w + 900.0, 560.0), 0)
 	var wall := Wall.new()
 	wall.width = art_w
 	wall.floor_y = FLOOR
-	wall.z_index = -4
-	add_child(wall)
+	_place_static(self, wall, Rect2(GATE_X, FLOOR - 80.0, art_w - GATE_X + 20.0, 82.0), -4)
 	var ground := Ground.new()
 	ground.width = art_w
 	ground.floor_y = FLOOR
-	ground.z_index = -2
-	add_child(ground)
+	_place_static(self, ground, Rect2(-40, FLOOR, art_w + 80.0, 400.0), -2)
 	var gate := Gate.new()
-	gate.position = Vector2(GATE_X, FLOOR)
-	gate.z_index = -1
-	add_child(gate)
+	_place_static(self, gate, Rect2(GATE_X - 56.0, FLOOR - 134.0, 150.0, 140.0), -1, Vector2(GATE_X, FLOOR))
 	var drift := EKenseiFx.Drift.new()
 	drift.z_index = 9
 	add_child(drift)
@@ -475,12 +471,45 @@ func _backdrop() -> void:
 	var front := Front.new()
 	front.width = art_w
 	front.floor_y = FLOOR
-	front_px.add_child(front)
+	_place_static(front_px, front, Rect2(-130, FLOOR - 20.0, art_w * 1.3 + 400.0, 62.0), 0)
 	# 처음부터 꽃잎이 화면에 흩어져 있게
 	for i in 40:
 		drift.spawn(Vector2(randf_range(0.0, W), randf_range(FLOOR - 220.0, FLOOR - 6.0)), Vector2(WIND, 0), randf_range(3.0, 9.0))
 
 
+## 정지 배경 조각 c(그리기 명령 수천 개)를 parent에 붙인다. 굽기가 켜져 있으면(시험 실행기 "bake_bg"를 따름 — 기본 켬)
+## r(부모 좌표, at = c의 자리) 크기 텍스처에 한 번 그려 Sprite2D 한 장으로 보인다 — 겉모습은 같고 매 프레임 도형 수가 크게 준다 (loop4 5장).
+## 투명 바탕에 섞어 그린 결과는 알파가 곱해진 색이라 Sprite는 PREMULT_ALPHA로 그린다 (world/themes/backdrop_kit.gd _bake와 같은 방식)
+func _place_static(parent: Node, c: CanvasItem, r: Rect2, z: int, at := Vector2.ZERO) -> void:
+	if not BACKDROP_KIT.BAKE:
+		c.position = at
+		c.z_index = z
+		parent.add_child(c)
+		return
+	var org := r.position.floor()
+	var vp := SubViewport.new()
+	vp.size = Vector2i((r.end - org).ceil())
+	vp.transparent_bg = true
+	vp.disable_3d = true
+	vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	c.position = at - org
+	vp.add_child(c)
+	parent.add_child(vp)
+	var spr := Sprite2D.new()
+	spr.centered = false
+	spr.position = org
+	spr.texture = vp.get_texture()
+	spr.z_index = z
+	if _premult == null:
+		_premult = CanvasItemMaterial.new()
+		_premult.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+	spr.material = _premult
+	parent.add_child(spr)
+
+
+const BACKDROP_KIT := preload("res://world/themes/backdrop_kit.gd") ## 굽기 켜고 끄기(BAKE)를 같이 씀
+static var _premult: CanvasItemMaterial
 const INK := Color("#08070a")
 const MOON := Color("#ebe3d6")
 const HAZE := Color("#3a1418")
