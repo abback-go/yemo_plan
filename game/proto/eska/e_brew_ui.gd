@@ -437,7 +437,7 @@ class View extends Control:
 		var pv := u.preview()
 		var pname := "재료를 넣으세요" if pv == "" else ("???" if pv == "?" else EBrewUI._pname(pv, u.strong))
 		var pcol := EBrewUI.DIM if pv == "" or pv == "?" else EPotions.color(pv).lightened(0.25)
-		_text(font, Vector2(292 - _w(font, pname, 12) * 0.5, 149), pname, 12, pcol)
+		_text(font, Vector2(292 - _w(font, pname, 12) * 0.5, 150), pname, 12, pcol)
 		var bl := "달이기"
 		_text(font, Vector2(br.get_center().x - _w(font, bl, 13) * 0.5, br.end.y - 8), bl, 13, Color(1, 1, 1, 0.95 if ready else 0.4))
 		for i in 3:
@@ -481,9 +481,11 @@ class View extends Control:
 		var body := PackedVector2Array()
 		for i in 20:
 			var an := float(i) / 19.0 * PI
-			body.append(c + Vector2(cos(an) * 44.0, sin(an) * 30.0))
+			body.append(c + Vector2(cos(an) * 44.0, sin(an) * 26.0))
 		pd.convex(body, Color("#241f2c"))
-		pd.draw_arc(c, 40.0, PI * 0.55, PI * 0.9, 8, Color("#4a4058", 0.8), 1.6)
+		pd.draw_set_transform(c, 0.0, Vector2(1.0, 26.0 / 44.0))
+		pd.draw_arc(Vector2.ZERO, 39.0, PI * 0.55, PI * 0.85, 8, Color("#4a4058", 0.8), 2.0) # 쇠빛
+		pd.draw_set_transform(Vector2.ZERO)
 		# 아가리 + 물약
 		pd.draw_set_transform(c, 0.0, Vector2(1.0, 0.22))
 		pd.draw_circle(Vector2.ZERO, 46.0, Color("#0a090e"))

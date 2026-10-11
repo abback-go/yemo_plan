@@ -543,9 +543,9 @@ class DrinkBurst extends PVfx.Base:
 	func _paint() -> void:
 		var f := k()
 		var a := 1.0 - f
-		pd.glow(Vector2.ZERO, 26.0 * (0.5 + 0.5 * f), Color(col, 0.5 * a), 0.0)
-		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(0.75, 1.0))
-		pd.draw_arc(Vector2.ZERO, 8.0 + 22.0 * (1.0 - pow(1.0 - f, 2.0)), 0.0, TAU, 28, Color(acc, 0.9 * a), 2.0 * a + 0.6)
+		pd.glow(Vector2.ZERO, 14.0 + 10.0 * f, Color(col, 0.35 * a * a), 0.0)
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(0.7, 1.0))
+		pd.draw_arc(Vector2.ZERO, 10.0 + 18.0 * (1.0 - pow(1.0 - f, 2.0)), 0.0, TAU, 28, Color(acc, 0.7 * a), 1.2 * a + 0.5)
 		pd.draw_set_transform(Vector2.ZERO)
 
 
@@ -600,6 +600,7 @@ class BuffView extends PDraw.Canvas:
 	var buffs: Node ## EPotions.Buffs
 	var icons := false
 	var t := 0.0
+	var _shown := false
 
 	func _ready() -> void:
 		if icons:
@@ -610,11 +611,10 @@ class BuffView extends PDraw.Canvas:
 
 	func _process(delta: float) -> void:
 		t += delta
-		if (buffs.list as Dictionary).is_empty():
-			if not pd.is_empty() or visible:
-				queue_redraw()
-			return
-		queue_redraw()
+		var any := not (buffs.list as Dictionary).is_empty()
+		if any or _shown: # 걸린 동안만 매 프레임, 다 풀리면 한 번 지우고 멈춤
+			queue_redraw()
+		_shown = any
 
 	func _paint() -> void:
 		var list: Dictionary = buffs.list
