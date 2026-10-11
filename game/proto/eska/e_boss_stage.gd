@@ -30,7 +30,7 @@ const DIM_MAX := 0.3 ## 발도 예고 때 배경 어두움 최대 (먹빛 막의
 const CAM_MARGIN_DEFAULT := 240.0 ## 터치 카메라 여유 (EStage.cam_margin_touch가 없을 때)
 const ART_SHAKE_PAD := 60.0 ## 흔들림·확대 펀치 여유 — 카메라 여유에 더해 오른쪽 배경을 더 그림
 const ART_EXTRA_MIN := 300.0 ## 오른쪽 끝 너머로 그리는 배경 최소 폭
-const HINTS: Array[String] = ["↑A 단공: 비검·천검을 가른다", "물약을 열린 틈에 던지면 스며든다", "눈 감은 반격 자세엔 비명·속박"]
+const HINTS: Array[String] = ["{es_up}+{es_skill} 단공: 비검·천검을 가른다", "물약을 열린 틈에 던지면 스며든다", "눈 감은 반격 자세엔 비명·속박"]
 const FRAME_PULL := 0.85 ## 싸움 중 카메라를 둘 사이 가운데로 당기는 정도 (1 = 정가운데)
 
 enum F { WAIT, INTRO, FIGHT, WON }
