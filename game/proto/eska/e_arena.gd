@@ -63,6 +63,10 @@ func _start() -> void:
 
 func _process(delta: float) -> void:
 	super._process(delta)
+	var show_btns := not hud.cinematic # 연출 중엔 시험 버튼도 숨김
+	for b: Button in [_wave_btn, _still_btn, _gauge_btn]:
+		if b.visible != show_btns:
+			b.visible = show_btns
 	if Input.is_action_just_pressed("es_waves"):
 		_toggle_waves()
 	if Input.is_action_just_pressed("es_still_t"):

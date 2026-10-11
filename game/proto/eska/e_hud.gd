@@ -1,12 +1,14 @@
 class_name EHud
 extends Control
 ## 에스카 시제품 화면 표시
-## - 왼쪽 위: 이름 + 빌드 번호(어느 버전이 떠 있는지 바로 확인) + 체력 마름모(잃으면 갈라져 흩어짐, 하나 남으면 맥박)
+## - 왼쪽 위: 옅은 어둠 바탕(배경이 밝아도 읽히게) + 이름 + 체력 마름모(잃으면 갈라져 흩어짐, 하나 남으면 맥박)
 ##   + 종언 게이지 = 그믐달이 보름달로 차오르는 달(가득이면 맥박) + 고른 대마법 이름 (design.md 3-4 #6)
 ##   + 허리띠 물약 3칸(없음·↑·↓ 표시, 남은 병 점, 빈 칸은 흐리게, F가 지금 고를 칸은 테두리)
 ## - 가운데: 알림 글(banner — 물결 번호·쓰러짐·튜토리얼 단계 등)
-## - 오른쪽 위: 연타 수(맞힐 때마다 튀어 오름) + 누적 피해, 끊기기 직전엔 흐려짐
-## - 아래(키보드일 때만): 키 안내 + 스킬 쿨다운 (터치 중에는 버튼이 쿨다운을 보여 줌)
+## - 오른쪽 위: 연타 수(맞힐 때마다 튀어 오름) + 누적 피해, 끊기기 직전엔 흐려짐 — 시험 버튼 아래(y COMBO_Y)
+## - 아래(키보드일 때만): 키 안내 + 스킬 쿨다운 (터치 중에는 버튼이 쿨다운을 보여 줌).
+##   장면 안내 context_hints가 있으면 기본 키 안내 대신 그 줄들을, cinematic(연출 중)이면 안내를 모두 숨긴다
+## - 오른쪽 아래 구석: 아주 작은 빌드 번호 (어느 버전이 떠 있는지 확인용)
 ## 값이 바뀔 때만 다시 그린다 (글자 그리기는 비싸서).
 
 const PALE := Color("#d9ccff")
@@ -27,6 +29,13 @@ const BELT_GAP := 24.0
 const BELT_MARKS := ["•", "↑", "↓"] ## 칸마다 누르는 방향 (F와 같이)
 const POTION_DEFAULT := Color("#c06bff") ## EPotions가 색을 알려 주지 않을 때 병 색
 const DENY_SHAKE := 2.5 ## 게이지가 모자라 막혔을 때 달이 흔들리는 폭(px)
+const COMBO_Y := 104.0 ## 연타 숫자 글자 바닥선 (숫자 윗끝 약 y 86 — 오른쪽 위 시험 버튼(아래 끝 56)과 겹치지 않게)
+const SHADE_R := Vector2(230, 104) ## 왼쪽 위 옅은 어둠 바탕의 크기 (모서리에서 타원으로 옅어짐)
+const SHADE_IN := 0.55 ## 어둠 바탕: 이 비율 안쪽은 고른 진하기
+const SHADE_A := 0.42 ## 어둠 바탕 진하기
+const SHADE_SEG := 12
+const HINT_LINE := 16.0 ## 아래 안내 줄 간격
+const BUILD_FS := 8 ## 빌드 번호 글자 크기
 
 var eska: EEska
 var touch: ETouch
@@ -34,7 +43,9 @@ var boss: EEnemy ## 화면 위 가운데 큰 체력바로 보여 줄 적 (튜토
 var boss_name := ""
 var _boss_trail := 1.0
 var _boss_a := 0.0
-var show_keys := true ## 아래쪽 키 안내 (튜토리얼은 자기 안내 칸을 쓰므로 끔)
+var show_keys := true ## 아래쪽 기본 키 안내 (튜토리얼은 자기 안내 칸을 쓰므로 끔)
+var context_hints: Array[String] = [] ## 장면 안내 (비어 있지 않으면 기본 키 안내 대신 이 줄들 — 위에서 아래 순서, 보스장 등)
+var cinematic := false ## 연출 중: 아래 안내를 모두 숨김 (훈련장 시험 버튼도 이 값을 보고 숨는다)
 var _sig := ""
 var _last_hits := 0
 var _pop := 0.0
@@ -50,6 +61,9 @@ var _ult_shown := -1
 var _ult_pop := 0.0
 
 static var _look_cache := {} ## 물약 id → {"name", "color"}
+var _shade_v := PackedVector2Array() ## 왼쪽 위 어둠 바탕 (한 번 만들어 둠)
+var _shade_c := PackedColorArray()
+var _shade_i := PackedInt32Array()
 
 
 func _ready() -> void:
@@ -80,7 +94,7 @@ func _process(delta: float) -> void:
 	_ult_pop = maxf(_ult_pop - delta, 0.0)
 	if _ban_t < _ban_dur:
 		_ban_t += delta
-	var sig := "%d|%d|%.1f|%s" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false)]
+	var sig := "%d|%d|%.1f|%s|%s|%s" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false), str(cinematic), str(context_hints)]
 	for id: String in EEska.CD:
 		sig += "|%d" % ceili(eska.cd_left(id) * 10.0)
 	if _pop > 0.0:
@@ -108,8 +122,9 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var font := get_theme_default_font()
+	_draw_shade()
 	_text(font, Vector2(10, 18), "에스카 · 종언의 마녀", 12, Color(1, 1, 1, 0.9))
-	_text(font, Vector2(10, 32), "전투 시제품 · 빌드 " + BuildInfo.COMMIT, 11, VIOLET)
+	_draw_build(font)
 	if not is_instance_valid(eska):
 		return
 	_draw_hp()
@@ -120,7 +135,12 @@ func _draw() -> void:
 	_draw_banner(font)
 	if size.y > size.x and _t < 6.0:
 		_draw_rotate_hint(font)
-	if (touch and touch.active) or not show_keys:
+	if (touch and touch.active) or cinematic:
+		return
+	if not context_hints.is_empty():
+		_draw_context_hints(font)
+		return
+	if not show_keys:
 		return
 	var y := size.y - 20.0
 	_text(font, Vector2(10, y), "←→ 이동  Z 점프  X 베기  C 순간이동  ↓ 빨리 떨어지기  F·↑F·↓F 물약  W 적 물결  G 게이지  Esc 나가기", 11, Color(1, 1, 1, 0.6))
@@ -141,6 +161,46 @@ func _draw() -> void:
 	_text(font, Vector2(x, y), ult, 11, Color(1, 1, 1, 0.9) if full else Color(1, 1, 1, 0.5))
 
 
+## 장면 안내 줄들 (기본 키 안내 자리 — 마지막 줄이 맨 아래)
+func _draw_context_hints(font: Font) -> void:
+	var n := context_hints.size()
+	for i in n:
+		var y := size.y - 20.0 - HINT_LINE * float(n - 1 - i)
+		_text(font, Vector2(10, y), context_hints[i], 11, Color(1, 1, 1, 0.7))
+
+
+## 왼쪽 위 옅은 어둠 바탕: 모서리에서 타원으로 옅어진다 (안쪽은 고른 진하기, 바깥 띠에서 0으로) — 삼각형 묶음 하나로 한 번에 그림
+func _draw_shade() -> void:
+	if _shade_v.is_empty():
+		_build_shade()
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), _shade_i, _shade_v, _shade_c)
+
+
+## 어둠 바탕 모양: 0 = 모서리, 1~SEG+1 = 안쪽 고리, 그 뒤 SEG+1개 = 바깥 고리 (모양이 고정이라 한 번만 만듦)
+func _build_shade() -> void:
+	var dark := Color(INK, SHADE_A)
+	var clear := Color(INK, 0.0)
+	_shade_v.append(Vector2.ZERO)
+	_shade_c.append(dark)
+	for ring in 2:
+		for i in SHADE_SEG + 1:
+			var a := PI * 0.5 * float(i) / float(SHADE_SEG)
+			var d := Vector2(cos(a) * SHADE_R.x, sin(a) * SHADE_R.y)
+			_shade_v.append(d * (SHADE_IN if ring == 0 else 1.0))
+			_shade_c.append(dark if ring == 0 else clear)
+	var o := SHADE_SEG + 2 # 바깥 고리 첫 번호
+	for i in SHADE_SEG:
+		_shade_i.append_array([0, 1 + i, 2 + i]) # 안쪽 부채
+		_shade_i.append_array([1 + i, o + i, o + i + 1, 1 + i, o + i + 1, 2 + i]) # 바깥 띠
+
+
+## 빌드 번호: 오른쪽 아래 구석에 아주 작게
+func _draw_build(font: Font) -> void:
+	var s := "빌드 " + BuildInfo.COMMIT
+	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, BUILD_FS).x
+	draw_string(font, Vector2(size.x - w - 4.0, size.y - 4.0), s, HORIZONTAL_ALIGNMENT_LEFT, -1, BUILD_FS, Color(PALE, 0.3))
+
+
 func _draw_combo(font: Font) -> void:
 	if eska.hit_count <= 1:
 		return
@@ -151,19 +211,19 @@ func _draw_combo(font: Font) -> void:
 	var sc := 1.0 + _pop * 0.35
 	var nsz := font.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 	var hit_w := font.get_string_size("HIT", HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-	var base := Vector2(right - hit_w - 4.0, 62.0)
+	var base := Vector2(right - hit_w - 4.0, COMBO_Y)
 	draw_set_transform(base, 0.0, Vector2(sc, sc))
 	draw_string_outline(font, Vector2(-nsz.x, 0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color(0.08, 0.02, 0.16, a))
 	draw_string(font, Vector2(-nsz.x, 0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(PALE.lerp(Color.WHITE, _pop), a))
 	draw_set_transform(Vector2.ZERO)
-	_text(font, Vector2(right - hit_w, 62.0), "HIT", 11, Color(VIOLET, a))
+	_text(font, Vector2(right - hit_w, COMBO_Y), "HIT", 11, Color(VIOLET, a))
 	# 끊기기까지 남은 시간 막대 + 누적 피해
 	var bw := 60.0
-	draw_rect(Rect2(right - bw, 68.0, bw, 2.0), Color(1, 1, 1, 0.12 * a))
-	draw_rect(Rect2(right - bw, 68.0, bw * eska.combo_left / EEska.COMBO_WINDOW, 2.0), Color(VIOLET, 0.9 * a))
+	draw_rect(Rect2(right - bw, COMBO_Y + 6.0, bw, 2.0), Color(1, 1, 1, 0.12 * a))
+	draw_rect(Rect2(right - bw, COMBO_Y + 6.0, bw * eska.combo_left / EEska.COMBO_WINDOW, 2.0), Color(VIOLET, 0.9 * a))
 	var dmg := "%d" % eska.hit_damage
 	var dw := font.get_string_size(dmg, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-	_text(font, Vector2(right - dw, 82.0), dmg, 11, Color(1, 1, 1, 0.65 * a))
+	_text(font, Vector2(right - dw, COMBO_Y + 20.0), dmg, 11, Color(1, 1, 1, 0.65 * a))
 
 
 ## 세로 화면: 가로로 돌리라는 작은 안내 (처음 6초만, 막지는 않음 — 휴대폰을 돌리는 그림이 천천히 기울어짐)

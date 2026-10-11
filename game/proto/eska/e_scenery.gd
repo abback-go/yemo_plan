@@ -14,6 +14,9 @@ const MIST := Color("#5a4290")
 const STONE := Color("#141019")
 const STONE_TOP := Color("#2c2438")
 const CRACK := Color("#8a74c4")
+const MARGIN := 240.0 ## 무대 오른쪽 끝 너머로 더 그리는 폭 (터치 중 카메라 여유 EStage.cam_margin_touch 180 + 흔들림)
+const END_PILLAR_W := 34.0 ## 무대 오른쪽 끝(벽)을 알리는 큰 기둥 너비
+const END_PILLAR_H := 230.0
 
 
 static func build(root: Node2D, width: float, floor_y: float) -> void:
@@ -171,7 +174,7 @@ class Ground extends PDraw.Canvas:
 		var hs: Array[float] = []
 		var broken: Array[bool] = []
 		var x := 80.0
-		while x < width:
+		while x < width + MARGIN:
 			xs.append(x)
 			hs.append(rng.randf_range(100.0, 150.0))
 			broken.append(rng.randf() < 0.35)
@@ -191,11 +194,12 @@ class Ground extends PDraw.Canvas:
 				var ny := floor_y - minf(ph, hs[i + 1])
 				var rad := (nx - px) * 0.5
 				pd.draw_arc(Vector2(px + rad, ny), rad, PI, TAU, 28, NEAR, 6.0)
+		_end_pillar()
 		# 바닥
 		pd.draw_rect(Rect2(-400, floor_y, width + 800, 260), STONE)
-		pd.draw_rect(Rect2(-60, floor_y, width + 120, 2), STONE_TOP)
+		pd.draw_rect(Rect2(-60, floor_y, width + MARGIN + 120, 2), STONE_TOP)
 		var bx := -60.0
-		while bx < width + 60.0:
+		while bx < width + MARGIN + 60.0:
 			pd.draw_line(Vector2(bx, floor_y + 2), Vector2(bx, floor_y + 12), Color(0, 0, 0, 0.5), 1.0)
 			bx += rng.randf_range(28.0, 52.0)
 		# 바닥의 희미한 흰 금
@@ -208,6 +212,19 @@ class Ground extends PDraw.Canvas:
 				pts.append(p)
 			pd.draw_polyline(pts, Color(CRACK, 0.3), 1.0)
 
+	## 무대 오른쪽 끝: 벽 자리에 서 있는 큰 기둥 (보이지 않는 벽을 그림으로 알림 — 그 너머로도 마당이 이어져 보인다)
+	func _end_pillar() -> void:
+		var x0 := width - 16.0
+		var top := floor_y - END_PILLAR_H
+		pd.draw_rect(Rect2(x0, top, END_PILLAR_W, END_PILLAR_H), NEAR)
+		pd.draw_rect(Rect2(x0 - 5, top - 6, END_PILLAR_W + 10, 7), NEAR)
+		pd.draw_rect(Rect2(x0 - 4, floor_y - 10, END_PILLAR_W + 8, 10), NEAR)
+		pd.draw_colored_polygon(PackedVector2Array([Vector2(x0 - 5, top - 6), Vector2(x0 + END_PILLAR_W + 5, top - 6), Vector2(x0 + END_PILLAR_W * 0.6, top - 22), Vector2(x0 + 6, top - 12)]), NEAR)
+		pd.draw_line(Vector2(x0 + 2, top + 2), Vector2(x0 + 2, floor_y - 12), Color(STONE_TOP, 0.6), 1.0) # 무대 쪽 모서리 빛
+		for i in 3:
+			var y := top + 40.0 + float(i) * 62.0
+			pd.draw_line(Vector2(x0 + 6, y), Vector2(x0 + END_PILLAR_W - 6, y + 4.0), Color(CRACK, 0.18), 1.0)
+
 
 ## 떠다니는 흰 빛 입자 (천천히 위로)
 class Motes extends PDraw.Canvas:
@@ -218,7 +235,7 @@ class Motes extends PDraw.Canvas:
 
 	func _ready() -> void:
 		for i in 46:
-			_p.append(Vector2(randf_range(0, width), randf_range(floor_y - 330, floor_y)))
+			_p.append(Vector2(randf_range(0, width + MARGIN), randf_range(floor_y - 330, floor_y)))
 			_ph.append(randf() * TAU)
 
 	func _process(delta: float) -> void:
@@ -228,7 +245,7 @@ class Motes extends PDraw.Canvas:
 			p.x += sin(_ph[i] + p.y * 0.03) * delta * 4.0
 			if p.y < floor_y - 340.0:
 				p.y = floor_y
-				p.x = randf_range(0, width)
+				p.x = randf_range(0, width + MARGIN)
 			_p[i] = p
 		queue_redraw()
 
@@ -292,12 +309,12 @@ class Fog extends PDraw.Canvas:
 
 	func _ready() -> void:
 		for i in 9:
-			_x.append(randf_range(0.0, width))
+			_x.append(randf_range(0.0, width + MARGIN))
 			_s.append(randf_range(5.0, 12.0))
 
 	func _process(delta: float) -> void:
 		for i in _x.size():
-			_x[i] = fposmod(_x[i] + _s[i] * delta, width + 200.0)
+			_x[i] = fposmod(_x[i] + _s[i] * delta, width + MARGIN + 200.0)
 		queue_redraw()
 
 	func _paint() -> void:

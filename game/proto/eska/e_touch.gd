@@ -6,7 +6,8 @@ extends CanvasLayer
 ##              [대마법](고르기)
 ##     [물약] [순간]    [스킬]
 ##         [점프]    [공격]
-## 스킬 버튼은 방향키 ↑ = 단공, ↓ = 낙성, 그냥 = 천열 (라벨이 바뀐다).
+## 스킬 버튼은 방향키 ↑ = 단공, ↓ = 낙성, 그냥 = 천열 (라벨이 바뀐다). 쿨다운 중에도 이름은 그대로 두고, 둘레 호가 남은 몫만큼 비고
+## 이름 아래 작은 남은 초가 붙는다. 공격 버튼은 누르고 있으면 계속 벤다(EEska가 눌림을 봄).
 ## 대마법 버튼(S): 고른 대마법 이름 + 종언 게이지 달(차오름, 가득이면 밝게 맥박) · 옆 작은 버튼(D)으로 고르기 순환.
 ## 물약 버튼(F): 방향키 방향(그냥·↑·↓)에 해당하는 허리띠 칸의 병 색 + 남은 병 수. 오른쪽 위 X는 나가기.
 ## 화면 비율이 달라도 방향키는 왼쪽 아래, 버튼은 오른쪽 아래 모서리에 붙는다.
@@ -26,7 +27,7 @@ const HIT_PAD := 6.0
 const BUTTONS := [
 	["attack", "es_attack", "공격", Vector2(-56, -56), 31.0, ""],
 	["jump", "es_jump", "점프", Vector2(-139, -42), 24.0, ""],
-	["blink", "es_blink", "순간", Vector2(-121, -111), 22.0, ""],
+	["blink", "es_blink", "순간", Vector2(-121, -111), 26.0, ""],
 	["skill", "es_skill", "천열", Vector2(-54, -140), 25.0, "skill"],
 	["potion", "es_potion", "물약", Vector2(-204, -100), 21.0, ""],
 	["ult", "es_bind", "대마법", Vector2(-134, -190), 24.0, ""],
@@ -35,6 +36,8 @@ const BUTTONS := [
 ## 대마법 버튼에 쓰는 짧은 이름 (원 안에 들어가게)
 const ULT_SHORT := {"blackstar": "흑성", "meteor": "유성우", "doom": "운석", "bonggong": "봉공"}
 const ULT_PULSE := 12.0 ## 게이지가 가득일 때 맥박 그림을 초당 이만큼만 다시 그림
+const CD_ARC_W := 3.0 ## 쿨다운 호 굵기
+const CD_DIM := 0.4 ## 쿨다운 중 이름 진하기
 ## 나가기: 오른쪽 위 모서리 기준
 const EXIT := ["exit", "es_exit", "X", Vector2(-20, 20), 13.0, ""]
 const ARROWS := [["es_left", Vector2.LEFT], ["es_right", Vector2.RIGHT], ["es_up", Vector2.UP], ["es_down", Vector2.DOWN]]
@@ -320,25 +323,30 @@ class Pad extends Control:
 					return
 		var cd: Array = tc.cooldown_of(String(b[5]))
 		var ratio: float = cd[0]
-		if ratio > 0.0:
-			var pts := PackedVector2Array([c])
-			var steps := 24
-			for i in steps + 1:
-				var a := -PI / 2.0 + TAU * ratio * float(i) / float(steps)
-				pts.append(c + Vector2(cos(a), sin(a)) * r)
-			draw_colored_polygon(pts, Color(0, 0, 0, 0.55))
-		draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else 0.6), 2.0)
 		var label: String = b[2]
 		if id == "skill" and is_instance_valid(tc.eska):
 			label = EEska.NAMES[tc.eska.skill_for_dir()]
 		var fs := 11 if label.length() >= 3 else 12
 		if ratio > 0.0:
-			label = "%d" % ceili(float(cd[1]))
-			fs = 14
+			# 쿨다운: 바탕을 어둡게, 둘레는 찬 몫(1 - 남은 몫)만 밝은 호로 — 위에서 시계 방향으로 다시 차오름
+			draw_circle(c, r, Color(0, 0, 0, 0.35))
+			draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.25), 2.0)
+			var done := 1.0 - ratio
+			if done > 0.0:
+				draw_arc(c, r - 1.0, -PI / 2.0, -PI / 2.0 + TAU * done, maxi(int(40.0 * done), 3), Color(RING, 0.95), CD_ARC_W)
+		else:
+			draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else 0.6), 2.0)
 		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var tp := c + Vector2(-tw * 0.5, 4)
+		var tp := c + Vector2(-tw * 0.5, 4 if ratio <= 0.0 else 1)
+		var la := (0.95 if held else 0.85) if ratio <= 0.0 else CD_DIM
 		draw_string_outline(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.7))
-		draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.95 if held else 0.85))
+		draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, la))
+		if ratio > 0.0:
+			var sec := "%d" % ceili(float(cd[1]))
+			var sw := font.get_string_size(sec, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+			var sp := c + Vector2(-sw * 0.5, 12)
+			draw_string_outline(font, sp, sec, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, 3, Color(0, 0, 0, 0.7))
+			draw_string(font, sp, sec, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(EVfx.PALE, 0.9))
 
 	## 대마법(S): 둘레 고리 = 종언 게이지(위에서 시계 방향으로 참), 가운데 위 달이 차오름, 아래 고른 대마법 이름.
 	## 가득이면 고리·달이 밝게 맥박. 모자라면 전체가 흐림
