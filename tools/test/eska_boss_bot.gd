@@ -34,6 +34,8 @@ func _ready() -> void:
 	stage = get_tree().current_scene
 	miss_rate = float(OS.get_environment("ESKA_BOT_MISS")) if OS.has_environment("ESKA_BOT_MISS") else 0.0
 	skip_rate = float(OS.get_environment("ESKA_BOT_SKIP")) if OS.has_environment("ESKA_BOT_SKIP") else 0.0
+	if OS.has_environment("ESKA_BOT_SEED"):
+		seed(int(OS.get_environment("ESKA_BOT_SEED"))) # 판마다 다른 흐름 (검성의 기술 고르기도 바뀜)
 	print("BOT skill miss=%.2f skip=%.2f" % [miss_rate, skip_rate])
 
 
@@ -146,10 +148,14 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 					soon = b._wind(EKensei.TRI_WIND) - b.st_t <= BLINK_LEAD
 				else:
 					soon = b._k < 2 and float(EKensei.TRI_GAP[p]) - b.st_t <= BLINK_LEAD
+				# 등 뒤가 벽이면 물러설 수 없으니 검성을 뚫고 순간이동
+				var cornered := (-to < 0 and e.global_position.x < 370.0) or (-to > 0 and e.global_position.x > 1050.0)
 				if soon and dist < 100.0 and blink_ready and _seen_t >= REACT * 0.5:
-					_blink(-to)
-				else:
+					_blink(to if cornered else -to)
+				elif not cornered:
 					_walk(-to)
+				else:
+					_walk(0)
 				return true
 		EKensei.S.LEAP_WIND, EKensei.S.LEAP_UP, EKensei.S.LEAP_HANG, EKensei.S.LEAP_FALL:
 			var lx: float = b.get("_leap_x")
@@ -175,7 +181,8 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 		if n is EKenseiFx.Wave:
 			var w := n as EKenseiFx.Wave
 			var rel := ex - w.position.x
-			if signf(rel) == float(w.dir) and absf(rel) < 46.0 and e.is_on_floor() and _seq.is_empty() and not w.has_meta("bot_seen"):
+			var close := 30.0 + (w.speed + maxf(-e.velocity.x * float(w.dir), 0.0)) * 0.09 # 다가오는 빠르기만큼 일찍
+			if signf(rel) == float(w.dir) and absf(rel) < close and e.is_on_floor() and _seq.is_empty() and not w.has_meta("bot_seen"):
 				w.set_meta("bot_seen", true)
 				if randf() < miss_rate:
 					missed += 1

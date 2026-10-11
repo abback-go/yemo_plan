@@ -82,6 +82,7 @@ const CTR_WIND := [0.36, 0.3]
 const CTR_REACH := 62.0
 const CTR_RELAX := 0.6
 const CTR_COOL := 4.0
+const CTR_GRACE := 0.3 ## 자세를 잡고 고리가 다 그려지기까지 — 이 사이에 들어온 타격(이미 날린 천열 등)은 그냥 맞는다
 const CTR_DMG := 1
 
 # ─── 막 전환 ─────────────────────────────────────────────
@@ -112,6 +113,11 @@ const RAIN_TWICE_BELOW := 0.3 ## 체력이 이 몫 아래면 두 번째 줄(반 
 
 # ─── 쓰러짐 ─────────────────────────────────────────────
 const DEFEAT_T := 4.6
+
+# 번뜩임 자리: 고정 · 칼코등이를 따라 · 칼끝을 따라
+const GLINT_FIXED := 0
+const GLINT_TSUBA := 1
+const GLINT_TIP := 2
 
 # ─── 색 (먹·뼈흰·붉은 끈) ────────────────────────────────
 const INK := Color("#0b090c")
@@ -177,6 +183,7 @@ var _grip := false ## 오른손이 칼자루를 잡고 있나 (칼집 안일 때
 var _snap := false ## 이번 프레임 자세를 바로 맞춤 (베는 순간)
 var _glint := 0.0 ## 칼코등이·칼끝 번뜩임 세기
 var _glint_at := Vector2.ZERO ## 번뜩이는 자리 (몸 기준)
+var _glint_mode := 0
 var _eye_glint := 0.0
 var _aura := 0.0
 var _hair: EArt.Chain
@@ -283,7 +290,7 @@ func _think(delta: float) -> void:
 			velocity.x = 0.0
 			var wt := _wind(IAI_WIND)
 			if st_t >= wt - IAI_GLINT and _glint <= 0.0:
-				_tell(Vector2(5, -17), 1.0)
+				_tell(Vector2(5, -17), 1.0, GLINT_TSUBA)
 			if st_t >= wt:
 				_iai_go()
 		S.IAI_DASH:
@@ -318,7 +325,7 @@ func _think(delta: float) -> void:
 			velocity.x = 0.0
 			var wt := _wind(TRI_WIND)
 			if st_t >= wt - 0.16 and _glint <= 0.0:
-				_tell(Vector2(5, -22), 0.8)
+				_tell(Vector2(5, -22), 0.8, GLINT_TSUBA)
 			if st_t >= wt:
 				_k = 0
 				_go(S.TRI_CUT)
@@ -328,7 +335,7 @@ func _think(delta: float) -> void:
 			velocity.x = float(facing) * step / 0.06 if st_t < 0.06 else 0.0
 			var gap: float = TRI_GAP[p()]
 			if _k < 2 and st_t >= gap - 0.1 and _glint <= 0.0:
-				_tell(Vector2(6, -23), 0.7)
+				_tell(Vector2(6, -23), 0.7, GLINT_TSUBA)
 			if st_t >= gap:
 				if _k < 2:
 					_k += 1
@@ -346,7 +353,7 @@ func _think(delta: float) -> void:
 			velocity.x = move_toward(velocity.x, 0.0, 300.0 * delta)
 			var wt := _wind(WAVE_WIND)
 			if st_t >= wt - 0.18 and _glint <= 0.0:
-				_tell(Vector2(4, -17), 0.9)
+				_tell(Vector2(4, -17), 0.9, GLINT_TSUBA)
 			if st_t >= wt:
 				_wave_n = 0
 				_go(S.WAVE_CUT)
@@ -364,7 +371,7 @@ func _think(delta: float) -> void:
 				_rest_done()
 		S.CTR_STANCE:
 			velocity.x = 0.0
-			_ring = minf(_ring + delta * 4.0, 1.0)
+			_ring = minf(_ring + delta / CTR_GRACE, 1.0)
 			if st_t >= float(CTR_HOLD[p()]):
 				_go(S.CTR_RELAX)
 				st_t = CTR_RELAX - 0.35
@@ -376,7 +383,7 @@ func _think(delta: float) -> void:
 			velocity.x = 0.0
 			var wt: float = CTR_WIND[p()]
 			if st_t >= wt - 0.16 and _glint <= 0.0:
-				_tell(Vector2(5, -17), 1.0)
+				_tell(Vector2(5, -17), 1.0, GLINT_TSUBA)
 			if st_t >= wt:
 				_go(S.CTR_CUT)
 				_cut_front(CTR_REACH, CTR_DMG, -1.3, 1.0, 34.0)
@@ -395,7 +402,7 @@ func _think(delta: float) -> void:
 		S.LEAP_WIND:
 			velocity.x = 0.0
 			if st_t >= LEAP_WIND - 0.18 and _glint <= 0.0:
-				_tell(Vector2(3, -84), 0.9)
+				_tell(Vector2(3, -84), 0.9, GLINT_TIP)
 			if st_t >= LEAP_WIND:
 				_leap_go()
 		S.LEAP_UP:
@@ -431,7 +438,7 @@ func _think(delta: float) -> void:
 		S.RAIN_WIND:
 			velocity.x = 0.0
 			if st_t >= RAIN_WIND - 0.2 and _glint <= 0.0:
-				_tell(Vector2(3, -92), 1.2)
+				_tell(Vector2(3, -92), 1.2, GLINT_TIP)
 			if st_t >= RAIN_WIND:
 				_rain_fire()
 				_go(S.RAIN_HOLD)
@@ -535,10 +542,11 @@ func _rest_done() -> void:
 		_idle_for = COMBO_IDLE
 
 
-## 예고: 번뜩임 + 소리 (자리 = 몸 기준)
-func _tell(at: Vector2, strength: float) -> void:
+## 예고: 번뜩임 + 소리 (자리 = 몸 기준, mode가 GLINT_TSUBA·GLINT_TIP이면 칼코등이·칼끝을 따라감)
+func _tell(at: Vector2, strength: float, mode := GLINT_FIXED) -> void:
 	_glint = strength
 	_glint_at = at
+	_glint_mode = mode
 	Sfx.play_pitch(&"kb_glint", randf_range(0.97, 1.05), -6.0 + 3.0 * strength)
 
 
@@ -704,7 +712,7 @@ func _intercept_hit(_dmg: int, from: Vector2, _opts: Dictionary) -> bool:
 		EKenseiFx.sparks(center() + Vector2(float(facing) * 6.0, -6.0), 4, (from - center()).normalized(), 120.0, 50.0)
 		return true
 	_pressed = 2.0
-	if st == S.CTR_STANCE and _bound <= 0.0:
+	if st == S.CTR_STANCE and _bound <= 0.0 and st_t >= CTR_GRACE:
 		_counter_triggered()
 		return true
 	return false
@@ -715,6 +723,14 @@ func _counter_triggered() -> void:
 	Sfx.play_pitch(&"kb_chime", 1.5, 0.0)
 	Sfx.play_pitch(&"kb_step", 1.3, -4.0)
 	_afterimage(Vector2.ZERO, 0.35)
+	# 받아넘김: 칼집에서 반쯤 뽑은 칼날이 번쩍 — 흰 초승달 하나
+	var arc := EKenseiFx.Arc.new()
+	arc.dir = facing
+	arc.r = 20.0
+	arc.a0 = -1.8
+	arc.a1 = 1.2
+	arc.w = 5.0
+	PVfx.add(arc, center() + Vector2(float(facing) * 4.0, -4.0), true)
 	EKenseiFx.petals(center(), 14, Vector2(8, 20), 90.0)
 	EKenseiFx.sparks(center(), 6, Vector2.UP, 120.0, 180.0)
 	pz_alpha = 0.0
@@ -907,6 +923,9 @@ func _anim(delta: float) -> void:
 	if delta <= 0.0:
 		return
 	_glint = maxf(_glint - delta * 2.6, 0.0)
+	if _glint > 0.0 and _glint_mode != GLINT_FIXED:
+		var ts := _tsuba()
+		_glint_at = (ts[0] as Vector2) + ((ts[1] as Vector2) * BLADE_L * pz_out if _glint_mode == GLINT_TIP else Vector2.ZERO)
 	_eye_glint = maxf(_eye_glint - delta * 1.5, 0.0)
 	_aura = move_toward(_aura, 1.0 if phase == 2 and not is_dead() else 0.0, delta * 1.5)
 	if st != S.CTR_STANCE and st != S.CTR_RELAX:
