@@ -73,6 +73,8 @@ var _sig := ""
 
 ## 바뀐 것이 있을 때만 다시 그린다 (누른 버튼·방향·화면 크기·쿨다운 초)
 func _process(delta: float) -> void:
+	if EKeys.touch_mode != active: # 안내 글(EKeys.label)이 입력 방식을 따라가게
+		EKeys.touch_mode = active
 	_draw.visible = active
 	if not active:
 		return
@@ -394,9 +396,7 @@ class Pad extends Control:
 		var look := EHud.potion_look(sl)
 		draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else (0.6 if ok else 0.3)), 2.0)
 		EHud.bottle(self, c + Vector2(-3.0, 1.0), 1.5, look.color, 1.0 if ok else 0.4, ok)
-		var mark: String = EHud.BELT_MARKS[i]
-		draw_string_outline(font, c + Vector2(5.0, -6.0), mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 3, Color(0, 0, 0, 0.7))
-		draw_string(font, c + Vector2(5.0, -6.0), mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(EVfx.PALE, 0.9))
+		EHud.belt_mark(self, font, c + Vector2(5.0, -6.0), i, 10, Color(EVfx.PALE, 0.9))
 		var num := "%d" % left if has else "-"
 		draw_string_outline(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.75))
 		draw_string(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.95 if ok else 0.45))

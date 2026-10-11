@@ -32,6 +32,21 @@ static func label(action: String) -> String:
 	return String(LABELS[action][1 if touch_mode else 0])
 
 
+## 방향 + 동작 이름 (예: 키보드 "↓+A" · 터치 "↓+스킬")
+static func with_dir(dir_action: String, action: String) -> String:
+	return label(dir_action) + "+" + label(action)
+
+
+## 글 안의 {es_동작} 자리를 지금 입력 방식의 이름으로 바꾼다 (장면 안내·안내판이 씀). 예: "{es_up}+{es_skill} 단공"
+static func fmt(text: String) -> String:
+	if not text.contains("{"):
+		return text
+	var out := text
+	for a: String in LABELS:
+		out = out.replace("{" + a + "}", label(a))
+	return out
+
+
 static func register() -> void:
 	for a: String in KEYS:
 		if not InputMap.has_action(a):
