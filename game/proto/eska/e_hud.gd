@@ -340,42 +340,14 @@ static func bottle(ci: CanvasItem, c: Vector2, s: float, liquid: Color, a: float
 	ci.draw_rect(Rect2(c + Vector2(-1.4 * s, -r - 5.2 * s), Vector2(2.8 * s, 1.8 * s)), Color(0.55, 0.42, 0.31, a)) # 코르크
 
 
-## 물약 표시용 이름·색: 허리띠 칸 {"id", ...} → {"name", "color"}. EPotions가 알려 주면 그것을 쓴다
-## (지원: 정적 함수 info(id)/look(id) → {"name","color"} · name_of(id)/color_of(id) · 상수 사전 POTIONS/DATA/INFO[id]의 "name"/"color")
+## 물약 표시용 이름·색: 허리띠 칸 {"id", ...} → {"name", "color"} (EPotions 자료)
 static func potion_look(sl: Dictionary) -> Dictionary:
 	var id := String(sl.get("id", ""))
 	if id == "":
 		return {"name": "", "color": POTION_DEFAULT}
-	if _look_cache.has(id):
-		return _look_cache[id]
-	var out := {"name": id, "color": POTION_DEFAULT}
-	var scr: Script = EPotions
-	var methods := {}
-	for m: Dictionary in scr.get_script_method_list():
-		methods[String(m.name)] = true
-	var info = null
-	for fn: String in ["info", "look"]:
-		if methods.has(fn):
-			info = scr.call(fn, id)
-			break
-	if info == null:
-		var consts := scr.get_script_constant_map()
-		for cn: String in ["POTIONS", "DATA", "INFO"]:
-			if consts.has(cn) and consts[cn] is Dictionary and (consts[cn] as Dictionary).has(id):
-				info = consts[cn][id]
-				break
-	if info is Dictionary:
-		out.name = String(info.get("name", id))
-		if info.get("color") is Color:
-			out.color = info.color
-	if methods.has("name_of"):
-		out.name = String(scr.call("name_of", id))
-	if methods.has("color_of"):
-		var col = scr.call("color_of", id)
-		if col is Color:
-			out.color = col
-	_look_cache[id] = out
-	return out
+	if not _look_cache.has(id):
+		_look_cache[id] = {"name": EPotions.display_name(id), "color": EPotions.color(id)}
+	return _look_cache[id]
 
 
 func _diamond(p: Vector2, r: float, c: Color) -> void:
