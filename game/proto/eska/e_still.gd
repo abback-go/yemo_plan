@@ -155,7 +155,7 @@ func _burst_all() -> void:
 			continue
 		any = true
 		if is_instance_valid(eska):
-			eska.deal(tg, amt, true, tg.center() + Vector2(0, -10))
+			eska.deal(tg, amt, true, tg.center() + Vector2(0, -10), {"ult": true}) # 대마법 피해 — 게이지를 채우지 않음
 		else:
 			tg.take_hit(amt, tg.center(), {"heavy": true})
 		EVfx.dark_burst(tg.center(), 34.0)
