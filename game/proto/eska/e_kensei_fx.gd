@@ -34,12 +34,14 @@ static func blade_light(pd: PDraw, a: Vector2, b: Vector2, w: float, al: float) 
 		return
 	var d := (b - a)
 	var n := d.normalized().orthogonal()
-	# 양 끝이 뾰족한 마름모꼴 띠 3겹
-	for spec: Array in [[2.6, Color(RED, 0.32 * al)], [1.5, Color(RED_HOT, 0.75 * al)], [0.7, Color(WHITE, al)]]:
+	# 양 끝이 뾰족하고 몸통은 곧은 긴 칼날꼴 띠 3겹 (바깥 붉은 잔광 → 흰 심)
+	var tip := minf(0.22, 30.0 / maxf(d.length(), 1.0))
+	for spec: Array in [[2.4, Color(RED, 0.3 * al)], [1.45, Color(RED_HOT, 0.75 * al)], [0.65, Color(WHITE, al)]]:
 		var k: float = spec[0]
 		var c: Color = spec[1]
 		var hw := w * 0.5 * k
-		pd.draw_colored_polygon(PackedVector2Array([a, a + d * 0.5 + n * hw, b, a + d * 0.5 - n * hw]), c)
+		pd.draw_colored_polygon(PackedVector2Array([a, a + d * tip + n * hw, a + d * 0.5 + n * hw * 1.1, b - d * tip + n * hw, b,
+			b - d * tip - n * hw, a + d * 0.5 - n * hw * 1.1, a + d * tip - n * hw]), c)
 
 
 ## 십자 반짝임 (칼코등이·눈·칼끝 번뜩임): 크기 s, 진하기 a — 가산 노드에서 그린다

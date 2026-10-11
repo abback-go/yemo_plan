@@ -37,8 +37,8 @@ const LEG_A := 12.5
 const LEG_B := 12.5
 const HAIR_N := 9
 const HAIR_SEG := 2.9
-const TAIL_N := 8
-const TAIL_SEG := 3.6
+const TAIL_N := 10
+const TAIL_SEG := 3.7
 const TRAIL_MIN := 7.0 ## 칼끝이 한 프레임에 이만큼 넘게 움직일 때만 붉은 잔광 (천천히 거둘 땐 없음)
 const WALK_V := 52.0
 const IDLE_T := [Vector2(0.8, 1.2), Vector2(0.45, 0.8)] ## 다음 기술까지 쉬는 시간 (1막, 2막)
@@ -123,8 +123,8 @@ const HAKAMA_SH := Color("#0f0c10")
 const HAIR := Color("#f1ece4")
 const HAIR_SH := Color("#bdb3a8")
 const HAIR_DEEP := Color("#857b72")
-const SKIN := Color("#e6dccf")
-const SKIN_SH := Color("#b9a998")
+const SKIN := Color("#cfb9a5")
+const SKIN_SH := Color("#9d8571")
 const STEEL := Color("#8e8a8c")
 const STEEL_HI := Color("#e4e0da")
 const STEEL_SH := Color("#4a4649")
@@ -573,7 +573,7 @@ func _iai_go() -> void:
 	sl.a = Vector2(_dash_from - float(facing) * 6.0, y)
 	sl.b = Vector2(_dash_to + float(facing) * 10.0, y)
 	sl.delay = IAI_DASH_T + IAI_FOLLOW_T + IAI_SHEATHE_T + IAI_BURST
-	sl.w = 12.0
+	sl.w = 8.0
 	sl.on_burst = _iai_burst
 	PVfx.add(sl, sl.a, false)
 	Fx.shake(0.3, 0.1)
@@ -762,6 +762,7 @@ func _on_poise_break() -> void:
 	Fx.shake(0.8, 0.25)
 	EKenseiFx.sparks(center(), 18, Vector2.UP, 200.0, 180.0)
 	EVfx.shards(center(), 10, 160.0, Vector2(8, 14), 60.0)
+	Fx.ring(center(), 8.0, 60.0, Color(1, 1, 1, 0.8), 0.3, 2.0)
 
 
 func _on_poise_recover() -> void:
@@ -805,6 +806,8 @@ func _phase_tick() -> void:
 		Fx.flash(Color(1, 0.96, 0.92, 0.45), 0.25)
 		EKenseiFx.petals(center() + Vector2(0, -10), 40, Vector2(30, 30), 160.0)
 		EKenseiFx.sparks(global_position + Vector2(float(facing) * 8.0, -60.0), 20, Vector2.UP, 220.0, 180.0)
+		Fx.ring(center(), 10.0, 150.0, Color(1.0, 0.96, 0.92, 0.9), 0.45, 3.0)
+		Fx.ring(center(), 6.0, 90.0, Color(EKenseiFx.RED_HOT, 0.8), 0.35, 2.0)
 		phase_changed.emit(2)
 	if st_t >= PHASE_T:
 		_go(S.IDLE)
@@ -1223,11 +1226,11 @@ func _rest_line(root: Vector2, n: int, step: Vector2, curl := Vector2.ZERO) -> P
 
 
 func _rest_tail() -> PackedVector2Array:
-	return _rest_line(_tail_root(), TAIL_N, Vector2(-1.2, 3.4), Vector2(-0.35, 0.0))
+	return _rest_line(_tail_root(), TAIL_N, Vector2(-1.4, 3.3), Vector2(-0.3, -0.05))
 
 
 func _rest_lining() -> PackedVector2Array:
-	return _rest_line(_tail_root() + Vector2(2.0, 1.0), TAIL_N - 1, Vector2(-0.6, 3.4), Vector2(-0.3, 0.0))
+	return _rest_line(_tail_root() + Vector2(2.0, 1.0), TAIL_N - 2, Vector2(-0.8, 3.4), Vector2(-0.25, 0.0))
 
 
 func _rest_cord() -> PackedVector2Array:
@@ -1356,7 +1359,8 @@ func _paint_body(a0: float) -> void:
 		var p := hip + fwd * lerpf(2.0, 3.5 + sway * f, f) + Vector2(0, 2.0 + f * 19.0)
 		front_edge.append(to_l * p)
 	pd.strip(front_edge, tail, col(COAT, a))
-	pd.draw_polyline(tail, col(RIM, a * 0.9), 0.8)
+	pd.draw_polyline(tail, col(RIM, a), 1.1)
+	pd.draw_line(tail[n - 1], front_edge[n - 1], col(COAT_HI, a), 1.0) # 자락 끝단
 	# 머리칼 (높이 묶은 긴 흰 머리 — 아래 그늘색 + 위 밝은 결)
 	var hair := inv * _hair.p
 	_ribbon(hair, 3.6, 0.8, col(HAIR_SH, a), Color(0, 0, 0, 0))
@@ -1427,7 +1431,7 @@ func _paint_body(a0: float) -> void:
 	_head_paint(head, a)
 
 	# ── 7) 앞 팔 (오른손: 칼) — 넓은 소매가 아래로 늘어짐
-	var sa := shf - up * 0.6
+	var sa := sh + fwd * 1.0 - up * 1.0
 	var elf := _ik(sa, pz_rh, ARM_A, ARM_B, 1.0)
 	pd.line2(sa, elf, col(COAT, a), col(COAT, a), 5.2, 4.6)
 	pd.line2(elf, pz_rh, col(COAT, a), col(COAT, a), 4.4, 3.4)
@@ -1566,26 +1570,25 @@ func _sword_paint(a: float) -> void:
 	pd.draw_line(tsu + n * 2.8 + b * 1.2, tsu - n * 2.8 + b * 1.2, col(STEEL, a), 0.6)
 
 
-## 서양식 철 견갑 세 겹: 어깨 s를 덮는 둥근 판(가로축 fwd, 위쪽 up)이 팔 방향 d로 조금씩 내려가며 겹침
+## 서양식 철 견갑 두 겹: 어깨 관절 s를 덮는 둥근 판(가로축 fwd, 위쪽 up)이 팔 방향 d로 살짝 내려가며 겹침
 func _pauldron(s: Vector2, d: Vector2, fwd: Vector2, up: Vector2, a: float) -> void:
-	for i in range(2, -1, -1):
-		var c := s + d * (float(i) * 1.9) + up * 0.8
-		var w := 4.6 - float(i) * 0.6
-		var hgt := 3.2 - float(i) * 0.5
+	for i in range(1, -1, -1):
+		var c := s + d * (float(i) * 2.0 + 0.4) + up * 0.6
+		var w := 3.6 - float(i) * 0.6
+		var hgt := 2.6 - float(i) * 0.4
 		var outer := PackedVector2Array()
 		var inner := PackedVector2Array()
 		for j in 9:
 			var an := PI * float(j) / 8.0
 			outer.append(c + fwd * (cos(an) * w) + up * (sin(an) * hgt))
-			inner.append(c + fwd * (cos(an) * (w - 0.9)) + up * (sin(an) * (hgt - 0.9)) - up * 0.2)
-		outer.append(c - up * 1.0 - fwd * w * 0.8)
-		outer.append(c - up * 1.0 + fwd * w * 0.8)
-		outer.reverse()
+			inner.append(c + fwd * (cos(an) * (w - 0.8)) + up * (sin(an) * (hgt - 0.8)))
+		outer.append(c - up * 0.9 - fwd * w * 0.8)
+		outer.append(c - up * 0.9 + fwd * w * 0.8)
 		pd.draw_colored_polygon(outer, col(STEEL_SH, a))
 		pd.draw_colored_polygon(inner, col(STEEL, a))
-		pd.draw_line(c + up * (hgt - 0.8) - fwd * 1.8, c + up * (hgt - 0.9) + fwd * 1.6, col(STEEL_HI, a), 0.8)
-	pd.draw_circle(s + up * 2.6 + fwd * 1.6, 0.6, col(STEEL_HI, a)) # 징
-	pd.line2(s - fwd * 3.6 + up * 0.4, s - fwd * 3.8 - up * 3.6, col(CORD, a), col(CORD_DEEP, a), 0.9, 0.6) # 붉은 매듭 끈
+		pd.draw_polyline(inner.slice(2, 7), col(STEEL_HI, a), 0.7)
+	pd.draw_circle(s + up * 2.2 + fwd * 1.0, 0.5, col(Color.WHITE, a)) # 징
+	pd.line2(s - fwd * 2.8 + up * 0.2, s - fwd * 3.0 - up * 3.4, col(CORD, a), col(CORD_DEEP, a), 0.9, 0.6) # 붉은 매듭 끈
 
 
 ## 빛(가산) 층: 번뜩임 · 눈빛 · 칼빛과 붉은 잔광 · 2막 기운 · 반격 고리 · 낙화 표식
