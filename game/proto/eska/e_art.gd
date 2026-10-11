@@ -12,8 +12,8 @@ extends PDraw.Canvas
 ## - 잔상: 마지막 그림(삼각형 묶음)을 남겨 두고 EVfx.Afterimage가 보라빛으로 그린다.
 ## - 대마법 의식: 몸이 떠오르고 두 팔을 펼침, 머리칼·치맛자락이 위로 날리고 등 뒤에 보랏빛 고리가 돈다.
 ## - 물약: 마시기(병을 입에 대고 고개를 젖힘, 몸 전체가 물약 색으로 물듦) · 던지기(팔을 뒤로 젖혔다 위로 휘둘러 던짐). 병 색은 허리띠 칸 물약 색.
-## - 테두리 빛: 실루엣 바깥 1px 옅은 보랏빛 (어두운 보라 배경·검은 보스와 겹쳐도 읽히게). 같은 삼각형 묶음을 상하좌우 1px 밀어
-##   몸 뒤에 한 번씩 더 그리고, 셰이더가 진한 조각(알파 RIM_SOLID 이상)만 테두리 색으로 칠한다 (번짐·그림자는 빼고).
+## - 테두리 빛: 실루엣 바깥 1px 옅은 보랏빛 (어두운 보라 배경·검은 보스와 겹쳐도 읽히게). 같은 삼각형 묶음 중 진한 조각(알파 RIM_SOLID 이상)만
+##   골라 대각선 두 방향(↘·↖)으로 1px 밀어 몸 뒤에 그린다 (번짐·그림자 삼각형은 빼서 도형 수를 줄임 — 예전 상하좌우 4번 그리기의 약 1/3).
 
 const OUT := Color("#0a090e")
 const CLOTH := Color("#15121b")
@@ -37,14 +37,13 @@ const GLASS := Color("#e9e2f4") ## 물약 병 유리 빛
 const CORK := Color("#8a6a4e")
 const RIM_LIGHT := Color(0.84, 0.78, 1.0, 0.6) ## 1px 테두리 빛 (옅은 보랏빛 흰색)
 const RIM_SOLID := 0.8 ## 이 알파 이상인 조각만 테두리 빛을 낸다
-const RIM_OFFS: Array[Vector2] = [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]
+const RIM_OFFS: Array[Vector2] = [Vector2(1, 1), Vector2(-1, -1)] ## 대각선 두 방향이면 위·아래·양옆이 다 1px씩 덮인다
 const RIM_SHADER := """
 shader_type canvas_item;
 render_mode unshaded;
 uniform vec4 rim : source_color;
-uniform float solid = 0.8;
 void fragment() {
-	COLOR = vec4(rim.rgb, rim.a * step(solid, COLOR.a));
+	COLOR = vec4(rim.rgb, rim.a * step(0.001, COLOR.a));
 }
 """
 const BOTTLE_W := 3.0 ## 마시는 병 몸통 너비 (px)
@@ -175,7 +174,6 @@ func _ready() -> void:
 		_rim_mat = ShaderMaterial.new()
 		_rim_mat.shader = sh
 		_rim_mat.set_shader_parameter("rim", RIM_LIGHT)
-		_rim_mat.set_shader_parameter("solid", RIM_SOLID)
 	_rim_ci = RenderingServer.canvas_item_create()
 	RenderingServer.canvas_item_set_parent(_rim_ci, get_canvas_item())
 	RenderingServer.canvas_item_set_draw_behind_parent(_rim_ci, true)
@@ -444,16 +442,35 @@ func _draw() -> void:
 	pd.flush(self)
 
 
-## 테두리 빛: 같은 삼각형 묶음을 상하좌우 1px 밀어 몸 뒤 그림 자리에 그린다 (셰이더가 진한 조각만 테두리 색으로)
+## 테두리 빛: 진한 삼각형(세 꼭짓점 모두 알파 RIM_SOLID 이상)만 골라 대각선 두 방향으로 1px 밀어 몸 뒤 그림 자리에 그린다
+## (셰이더는 색만 테두리 색으로 바꿈). 고르는 일은 꼭짓점 알파 표 한 번 + 삼각형 한 번 훑기
 func _paint_rim() -> void:
 	if not _rim_ci.is_valid():
 		return
 	RenderingServer.canvas_item_clear(_rim_ci)
-	if pd.idx.is_empty():
+	var idx := pd.idx
+	var n := idx.size()
+	if n == 0:
 		return
+	var cols := pd.c
+	var keep := PackedInt32Array()
+	keep.resize(n)
+	var k := 0
+	for i in range(0, n, 3):
+		var a := idx[i]
+		var b := idx[i + 1]
+		var c := idx[i + 2]
+		if cols[a].a >= RIM_SOLID and cols[b].a >= RIM_SOLID and cols[c].a >= RIM_SOLID:
+			keep[k] = a
+			keep[k + 1] = b
+			keep[k + 2] = c
+			k += 3
+	if k == 0:
+		return
+	keep.resize(k)
 	for off: Vector2 in RIM_OFFS:
 		RenderingServer.canvas_item_add_set_transform(_rim_ci, Transform2D(0.0, off))
-		RenderingServer.canvas_item_add_triangle_array(_rim_ci, pd.idx, pd.v, pd.c)
+		RenderingServer.canvas_item_add_triangle_array(_rim_ci, keep, pd.v, cols)
 
 
 # ═══════════════════════════════════════════════════════════

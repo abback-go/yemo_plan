@@ -17,20 +17,22 @@ const MAGENTA := Color("#e352ff")
 const INK := Color("#14081f")
 const PIP_GAP := 11.0
 const LOSE_T := 0.5
-const MOON_C := Vector2(89, 47) ## 종언 게이지 달 중심 (체력 마름모 오른쪽)
+const ROW_UP := 14.0 ## 예전 "전투 시제품 · 빌드" 줄을 지운 만큼 체력·달·허리띠를 위로 올림
+const HP_POS := Vector2(16, 48.0 - ROW_UP) ## 체력 마름모 첫 칸 (이름 아래)
+const MOON_C := Vector2(89, 47.0 - ROW_UP) ## 종언 게이지 달 중심 (체력 마름모 오른쪽)
 const MOON_R := 7.0
 const MOON_MIN := 0.04 ## 이보다 적게 차면 밝은 부분을 그리지 않음 (너무 얇은 초승달은 삼각분할이 안 됨)
 const MOON_PULSE := 15.0 ## 가득일 때 맥박 그림을 초당 이만큼만 다시 그림 (글자 그리기가 비싸서)
 const FULL_FLASH := 0.6 ## 막 가득 찼을 때 퍼지는 고리 시간
 const POP_T := 0.35 ## 대마법을 바꿨을 때 이름이 튀어 오르는 시간
 const BELT_X := 18.0 ## 허리띠 첫 칸 병 가운데
-const BELT_Y := 72.0
+const BELT_Y := 72.0 - ROW_UP
 const BELT_GAP := 24.0
 const BELT_MARKS := ["•", "↑", "↓"] ## 칸마다 누르는 방향 (F와 같이)
 const POTION_DEFAULT := Color("#c06bff") ## EPotions가 색을 알려 주지 않을 때 병 색
 const DENY_SHAKE := 2.5 ## 게이지가 모자라 막혔을 때 달이 흔들리는 폭(px)
 const COMBO_Y := 104.0 ## 연타 숫자 글자 바닥선 (숫자 윗끝 약 y 86 — 오른쪽 위 시험 버튼(아래 끝 56)과 겹치지 않게)
-const SHADE_R := Vector2(230, 104) ## 왼쪽 위 옅은 어둠 바탕의 크기 (모서리에서 타원으로 옅어짐)
+const SHADE_R := Vector2(220, 90) ## 왼쪽 위 옅은 어둠 바탕의 크기 (모서리에서 타원으로 옅어짐)
 const SHADE_IN := 0.55 ## 어둠 바탕: 이 비율 안쪽은 고른 진하기
 const SHADE_A := 0.42 ## 어둠 바탕 진하기
 const SHADE_SEG := 12
@@ -283,7 +285,7 @@ func _draw_boss(font: Font) -> void:
 	var w := minf(300.0, size.x * 0.46)
 	var x := size.x * 0.5 - w * 0.5
 	var f := clampf(float(boss.hp) / float(boss.max_hp), 0.0, 1.0) if is_instance_valid(boss) else 0.0
-	var y := 13.0 if size.x >= 520.0 else 66.0 # 좁은(세로) 화면은 왼쪽 위 이름·체력 아래로
+	var y := 13.0 if size.x >= 520.0 else BELT_Y + 20.0 # 좁은(세로) 화면은 왼쪽 위 이름·체력·허리띠 아래로
 	if size.x < 520.0:
 		w = size.x - 40.0
 		x = 20.0
@@ -299,7 +301,7 @@ func _draw_boss(font: Font) -> void:
 
 ## 체력 마름모 (왼쪽 위, 이름 아래)
 func _draw_hp() -> void:
-	var base := Vector2(16, 48)
+	var base := HP_POS
 	var beat := 0.5 + 0.5 * sin(_t * 9.0) if eska.hp == 1 else 0.0
 	for i in EEska.MAX_HP:
 		var p := base + Vector2(PIP_GAP * i, 0)
