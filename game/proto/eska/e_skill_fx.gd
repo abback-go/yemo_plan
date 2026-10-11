@@ -19,9 +19,14 @@ const EDGE := EVfx.EDGE
 # 기본공격 참격
 # ═══════════════════════════════════════════════════════════
 
+## 균열 베기 (design.md 3-1): 흰 금이 호를 따라 번쩍 → 공간이 초승달로 찢어져 벌어짐(안은 검은 무 + 별빛, 보랏빛·분홍빛 흰 테)
+## → 유리 파편과 까마귀 깃털이 튐 → 꼬리부터 꿰매듯 닫혀 가는 빛 줄만 남았다 사라진다. 한두 프레임에 꽉 차는 빠르기는 그대로.
 class Slash extends PVfx.Base:
-	const SWEEP := 0.05 ## 호가 끝까지 그려지는 시간
-	const HOLD := 0.08 ## 꽉 찬 채로 머무는 시간 (그 뒤 꼬리부터 걷히며 가늘어지고 옅어짐)
+	const SWEEP := 0.05 ## 호가 끝까지 찢어지는 시간
+	const HOLD := 0.07 ## 꽉 벌어진 채 머무는 시간 (그 뒤 꼬리부터 꿰매어 닫힘)
+	const OPEN := 0.035 ## 금이 틈으로 벌어지는 시간
+	const CLOSE_BIG := 0.24 ## 꿰매어 닫히는 데 걸리는 시간 (큰 참격)
+	const CLOSE := 0.18
 	var r := 60.0
 	var w := 15.0
 	var a0 := 0.0
@@ -30,7 +35,11 @@ class Slash extends PVfx.Base:
 	var rot := 0.0 ## 납작한 회오리를 기울이는 각
 	var dir := 1
 	var big := false
+	var ghost := 0.0 ## 메아리(물약) 복사본: 1이면 옅고 비치는 틈, 깃털 없음
 	var _seed := 0
+	var _burst := false
+	var _closed := false
+	var _xf := Transform2D.IDENTITY
 
 	func setup(a: Dictionary, facing: int, is_big: bool) -> void:
 		r = float(a.r)
@@ -44,33 +53,83 @@ class Slash extends PVfx.Base:
 		life = 0.62 if big else 0.46
 		z_index = 6
 		_seed = randi() % 997
+		_xf = Transform2D(rot * dir, Vector2(dir, sq), 0.0, Vector2.ZERO)
 
 	## 호 위의 각 an 자리 (전역 좌표) — 납작하게 누르고 기울인 그대로
 	func _arc_point(an: float, rr: float) -> Vector2:
 		return position + Vector2(cos(an) * rr * dir, sin(an) * rr * sq).rotated(rot * dir)
 
+	func _close_time() -> float:
+		return CLOSE_BIG if big else CLOSE
+
+	func _tick(_delta: float) -> void:
+		# 틈이 다 벌어지는 순간: 찢긴 자리에서 유리 파편이 튀고, 그중 몇은 까마귀 깃털이 되어 흩날린다
+		if not _burst and t >= SWEEP:
+			_burst = true
+			var n := (5 if big else 3) - int(ghost * 2.0)
+			for i in n:
+				var an := lerpf(a0, a1, (float(i) + 0.5 + randf_range(-0.3, 0.3)) / float(n))
+				var p := _arc_point(an, r - w * 0.4)
+				var out := (p - position).normalized()
+				EVfx.shards(p, 2, 150.0, Vector2(3, 3), 40.0)
+				EVfx.pixels(p, 2, 120.0, out, 50.0, 0.25)
+			if ghost < 0.5:
+				var fp := _arc_point(lerpf(a0, a1, randf_range(0.45, 0.85)), r - w * 0.3)
+				EVfx.feathers(fp, 2 if big else 1, 70.0, Vector2(6, 4), (fp - position).normalized())
+		if not _closed and t >= SWEEP + HOLD + _close_time() * 0.6 and ghost < 0.5 and big and r > 160.0:
+			_closed = true
+			Sfx.play_pitch(&"es_tear_close", randf_range(1.0, 1.15), -16.0)
+
 	func _paint() -> void:
-		pd.draw_set_transform(Vector2.ZERO, rot * dir, Vector2(dir, sq))
-		# 공간이 먼저 한 줄로 갈라진다: 호 전체를 따라 가는 흰 금이 순간 번쩍이고, 그 금을 따라 참격이 지나간다
-		var tear := 1.0 - clampf(t / (SWEEP + 0.07), 0.0, 1.0)
-		if tear > 0.0:
-			var tc := Color(EDGE, tear)
-			EVfx.band(pd, r - w * 0.3 + 1.2, a0, a1, 2.4 * tear + 0.6, tc, tc, 40)
-			EVfx.band(pd, r - w * 0.3 + 3.0, a0, a1, 5.0 * tear, Color(MAGENTA, 0.0), Color(MAGENTA, 0.35 * tear), 24)
-		if t < SWEEP + HOLD:
-			var p := clampf(t / SWEEP, 0.0, 1.0)
-			var head := lerpf(a0, a1, 1.0 - pow(1.0 - p, 3.0))
-			EVfx.dark_band(pd, r, a0, head, w, 1.0, _seed, 30 if big else 24)
-			if p < 1.0:
-				# 휘두르는 머리의 분홍빛 섬광 (부드럽게 꺼짐)
-				var hp := Vector2(cos(head), sin(head)) * (r - w * 0.3)
-				pd.glow(hp, w * 0.8, Color(EDGE, 0.6 * (1.0 - p * p)), 0.0)
-		else:
-			var e := clampf((t - SWEEP - HOLD) / maxf(life - SWEEP - HOLD, 0.01), 0.0, 1.0)
-			var se := e * e * (3.0 - 2.0 * e) # 부드럽게 시작해 부드럽게 끝남
-			var tail := lerpf(a0, a1, 0.88 * se)
-			EVfx.dark_band(pd, r, tail, a1, w * (1.0 - 0.5 * se), pow(1.0 - e, 1.6), _seed, 30 if big else 24)
-		pd.draw_set_transform(Vector2.ZERO)
+		var p := clampf(t / SWEEP, 0.0, 1.0)
+		var head := lerpf(a0, a1, 1.0 - pow(1.0 - p, 3.0))
+		# 공간이 먼저 한 줄로 갈라진다: 호 전체를 따라 흰 금이 순간 번쩍이고, 그 금을 따라 틈이 찢어진다
+		var tear := (1.0 - clampf(t / (SWEEP + 0.04), 0.0, 1.0)) * (1.0 if big else 0.55)
+		if tear > 0.0 and ghost < 0.5:
+			var cp := PackedVector2Array()
+			var cn := PackedVector2Array()
+			for i in 17:
+				var an := lerpf(a0, a1, float(i) / 16.0)
+				var u := Vector2(cos(an), sin(an))
+				cp.append(_xf * (u * (r - w * 0.3)))
+				cn.append(_xf.basis_xform(u))
+			EVfx.crack(pd, cp, cn, tear, _seed)
+		var span := head - a0
+		if absf(span) < 0.03:
+			return
+		# 틈 모양: 바깥 반지름 r, 가장 굵은 곳 w (꼬리 쪽이 굵은 초승달) — 납작하게 누르고 기울인 그대로
+		var seg := clampi(int(absf(span) * r / 10.0), 10, 36)
+		var pts := PackedVector2Array()
+		var nrm := PackedVector2Array()
+		var hw := PackedFloat32Array()
+		pts.resize(seg + 1)
+		nrm.resize(seg + 1)
+		hw.resize(seg + 1)
+		for i in seg + 1:
+			var f := float(i) / float(seg)
+			var an := lerpf(a0, head, f)
+			var thick := w * sin(pow(f, 0.72) * PI)
+			var u := Vector2(cos(an), sin(an))
+			pts[i] = _xf * (u * (r - thick * 0.5))
+			nrm[i] = _xf.basis_xform(u)
+			hw[i] = thick * 0.5
+		# 벌어짐: 금 → 틈 (살짝 더 벌어졌다 자리 잡음) · 닫힘: 꼬리부터 지퍼처럼 꿰맴 · 꿰맨 자국은 남았다 사라짐
+		var o := clampf(t / OPEN, 0.0, 1.0)
+		var open := o * o * (3.0 - 2.0 * o) * (1.0 + 0.14 * sin(clampf(t / 0.14, 0.0, 1.0) * PI))
+		var ct := _close_time()
+		var z := clampf((t - SWEEP - HOLD) / ct, 0.0, 1.0)
+		var zip := z * z * (3.0 - 2.0 * z) * 1.02
+		var after := clampf((t - SWEEP - HOLD - ct) / maxf(life - SWEEP - HOLD - ct, 0.01), 0.0, 1.0)
+		var fade := 1.0 - after # 메아리는 rift의 ghost가 옅게 (진하기를 낮추면 무 밑의 번짐이 비쳐 납작한 보라 띠가 됨)
+		var oz: Array = EVfx.rift_open(hw, open, zip, 0.9, fade)
+		EVfx.rift(pd, pts, nrm, oz[0], oz[1], _seed, t, ghost, 0.5 if ghost > 0.5 else 1.0)
+		if p < 1.0:
+			# 찢어 나가는 머리의 분홍빛 섬광
+			pd.glow(pts[seg], w * 0.7, Color(EDGE, 0.7 * (1.0 - p * p)), 0.0)
+		elif zip > 0.0 and zip < 1.0:
+			# 꿰매는 바늘 끝: 지퍼가 지나가는 자리에 작은 별빛
+			var zi := clampi(int(zip * float(seg)), 0, seg)
+			EVfx.star4(pd, pts[zi], 3.5 + w * 0.06, t * 9.0, Color(EDGE, 0.9 * fade), Color(MAGENTA, 0.45 * fade))
 
 
 # ═══════════════════════════════════════════════════════════
@@ -78,9 +137,12 @@ class Slash extends PVfx.Base:
 # ═══════════════════════════════════════════════════════════
 
 ## 다크 참격 여러 번을 차례로 내보내는 틀: 그림은 참격마다 Slash 노드, 이 노드는 순서와 판정만 맡는다
+## 범위는 eska.mods.size(확장 물약)를 곱한다 (반지름·굵기·중심 거리 — 그림과 판정 모두).
 class SlashSeries extends Node2D:
+	const ECHO_GHOST := 0.999 ## power가 이보다 작으면 메아리 복사본 — 옅고 비치는 틈
 	var eska: EEska
 	var dir := 1
+	var power := 1.0 ## 피해 배수 (메아리 물약: 0.35초 뒤 50% 세기로 한 번 더 = 0.5)
 	var t := 0.0
 	var specs: Array = [] ## [나갈 시각, Slash 설정, 피해, 큼]
 	var _next := 0
@@ -103,14 +165,27 @@ class SlashSeries extends Node2D:
 		if _next >= specs.size() and _pending.is_empty():
 			queue_free()
 
-	func _fire(a: Dictionary, dmg: int, heavy: bool) -> void:
+	func _size() -> float:
+		return float(eska.mods.get("size", 1.0)) if is_instance_valid(eska) else 1.0
+
+	func _fire(a0: Dictionary, dmg: int, heavy: bool) -> void:
+		var a := a0.duplicate()
+		var s := _size()
+		if s != 1.0:
+			a.r = float(a.r) * s
+			a.w = float(a.w) * s
+			a.c = (a.c as Vector2) * s
 		var c: Vector2 = a.c
 		var cen := position + Vector2(c.x * dir, c.y)
 		var sl := Slash.new()
 		sl.setup(a, dir, heavy)
+		var echo := power < ECHO_GHOST
+		if echo:
+			sl.ghost = 1.0
 		EVfx.add(sl, cen, false)
-		Sfx.play_pitch(&"es_slash_big" if heavy else &"es_slash", (0.9 if heavy else randf_range(1.0, 1.2)), -1.0 if heavy else -6.0)
-		_pending.append([t + 0.03, a, dmg, heavy, cen])
+		Sfx.play_pitch(&"es_slash_big" if heavy else &"es_slash", (0.9 if heavy else randf_range(1.0, 1.2)) * (1.12 if echo else 1.0),
+			(-1.0 if heavy else -6.0) - (6.0 if echo else 0.0))
+		_pending.append([t + 0.03, a, int(round(float(dmg) * power)), heavy, cen])
 
 	func _judge(_a: Dictionary, _dmg: int, _heavy: bool, _cen: Vector2) -> void:
 		pass
@@ -164,6 +239,10 @@ class Upsweep extends SlashSeries:
 			[0.18, {"a0": 170.0, "a1": -40.0, "r": 116.0, "w": 24.0, "sq": 0.24, "rot": -58.0, "c": Vector2(2, -110)}, 22, false],
 			[0.3, {"a0": 175.0, "a1": -50.0, "r": 128.0, "w": 40.0, "sq": 0.4, "rot": -96.0, "c": Vector2(0, -126)}, 36, true],
 		]
+		var s := _size()
+		if s != 1.0: # 확장 물약: 판정 구역도 발밑 가운데를 기준으로 넓힌다
+			var bc := Vector2(area.get_center().x, area.end.y)
+			area = Rect2(bc + (area.position - bc) * s, area.size * s)
 
 	func _judge(_a: Dictionary, dmg: int, heavy: bool, _cen: Vector2) -> void:
 		var any := false
@@ -174,6 +253,8 @@ class Upsweep extends SlashSeries:
 		if heavy:
 			EVfx.dark_burst(Vector2(area.get_center().x, area.position.y + area.size.y * 0.45), 52.0)
 			EVfx.shards(area.get_center(), 10, 180.0, area.size * 0.3, 60.0)
+			if power >= ECHO_GHOST:
+				EVfx.feathers(area.get_center(), 3, 110.0, area.size * 0.15)
 			if any:
 				Fx.hitstop(0.06)
 				Fx.shake(0.34, 0.16)
