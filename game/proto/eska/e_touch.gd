@@ -1,11 +1,14 @@
 class_name ETouch
 extends CanvasLayer
 ## 에스카 시제품 모바일 조작 (던전슬래셔 배치 참고).
-## 왼쪽 아래 고정 방향키(↑↓←→, 대각선은 두 개가 같이 눌림) · 오른쪽 아래 버튼 6개:
-##              [봉공]
-##       [순간이동]   [스킬]
-##    [점프]   [공격]
-## 스킬 버튼은 ↑를 누른 채 누르면 단공, 아니면 천열 (라벨이 바뀐다). 오른쪽 위 X는 나가기.
+## 왼쪽 아래 고정 방향키(↑↓←→, 대각선은 두 개가 같이 눌림) · 오른쪽 아래 버튼 7개 — 공격(가장 큼)을 엄지 자리 삼아
+## 가까운 고리에 점프·순간·스킬, 바깥 고리에 물약·대마법(+작은 고르기):
+##              [대마법](고르기)
+##     [물약] [순간]    [스킬]
+##         [점프]    [공격]
+## 스킬 버튼은 방향키 ↑ = 단공, ↓ = 낙성, 그냥 = 천열 (라벨이 바뀐다).
+## 대마법 버튼(S): 고른 대마법 이름 + 종언 게이지 달(차오름, 가득이면 밝게 맥박) · 옆 작은 버튼(D)으로 고르기 순환.
+## 물약 버튼(F): 방향키 방향(그냥·↑·↓)에 해당하는 허리띠 칸의 병 색 + 남은 병 수. 오른쪽 위 X는 나가기.
 ## 화면 비율이 달라도 방향키는 왼쪽 아래, 버튼은 오른쪽 아래 모서리에 붙는다.
 ## 버튼은 키보드와 같은 동작(InputEventAction, es_*)을 보낸다. 키를 누르면 숨고, 화면을 만지면 다시 보인다.
 
@@ -19,13 +22,19 @@ const VERT_K := 0.75 ## |세로| ≥ |가로|×0.75 이면 ↑/↓ (겹치는 �
 const HIT_PAD := 6.0
 
 ## id, 동작, 라벨, 오른쪽 아래 모서리 기준 위치, 반지름, 쿨다운 키
+## 공격 중심에서 가까운 고리(약 84px): 점프·순간·스킬 / 바깥 고리(약 150px): 물약·대마법 + 대마법 옆 작은 고르기
 const BUTTONS := [
-	["attack", "es_attack", "공격", Vector2(-54, -54), 31.0, ""],
-	["jump", "es_jump", "점프", Vector2(-126, -40), 24.0, ""],
-	["blink", "es_blink", "순간", Vector2(-120, -110), 22.0, ""],
-	["skill", "es_skill", "천열", Vector2(-56, -126), 25.0, "skill"],
-	["bind", "es_bind", "봉공", Vector2(-116, -178), 21.0, "bonggong"],
+	["attack", "es_attack", "공격", Vector2(-56, -56), 31.0, ""],
+	["jump", "es_jump", "점프", Vector2(-139, -42), 24.0, ""],
+	["blink", "es_blink", "순간", Vector2(-121, -111), 22.0, ""],
+	["skill", "es_skill", "천열", Vector2(-54, -140), 25.0, "skill"],
+	["potion", "es_potion", "물약", Vector2(-204, -100), 21.0, ""],
+	["ult", "es_bind", "대마법", Vector2(-134, -190), 24.0, ""],
+	["ult_next", "es_ult_next", "", Vector2(-84, -210), 14.0, ""],
 ]
+## 대마법 버튼에 쓰는 짧은 이름 (원 안에 들어가게)
+const ULT_SHORT := {"blackstar": "흑성", "meteor": "유성우", "doom": "운석", "bonggong": "봉공"}
+const ULT_PULSE := 12.0 ## 게이지가 가득일 때 맥박 그림을 초당 이만큼만 다시 그림
 ## 나가기: 오른쪽 위 모서리 기준
 const EXIT := ["exit", "es_exit", "X", Vector2(-20, 20), 13.0, ""]
 const ARROWS := [["es_left", Vector2.LEFT], ["es_right", Vector2.RIGHT], ["es_up", Vector2.UP], ["es_down", Vector2.DOWN]]
@@ -38,6 +47,7 @@ var _pad_index := -1
 var _pad_pos := Vector2.ZERO ## 방향키를 누른 손가락 위치 (화면 좌표)
 var _dirs := {"es_left": false, "es_right": false, "es_up": false, "es_down": false}
 var _draw: Pad
+var _t := 0.0 ## 맥박용 시간
 
 
 func _ready() -> void:
@@ -59,14 +69,20 @@ var _sig := ""
 
 
 ## 바뀐 것이 있을 때만 다시 그린다 (누른 버튼·방향·화면 크기·쿨다운 초)
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_draw.visible = active
 	if not active:
 		return
-	var sig := "%s|%s|%s|%s" % [str(_held.keys()), str(_dirs.values()), str(screen()), str(is_instance_valid(eska) and eska.is_up_held())]
+	var sig := "%s|%s|%s" % [str(_held.keys()), str(_dirs.values()), str(screen())]
 	if is_instance_valid(eska):
+		sig += "|%s|%d|%d|%d" % [eska.skill_for_dir(), eska.potion_slot_for_dir(), eska.ult_index, int(eska.gauge_ratio() * 60.0)]
 		for id: String in EEska.CD:
 			sig += "|%d" % ceili(eska.cd_left(id) * 8.0)
+		for sl: Dictionary in eska.belt.slots:
+			sig += "|%s%d" % [String(sl.get("id", "")), int(sl.get("left", 0))]
+		if eska.gauge_ratio() >= 1.0:
+			_t += delta
+			sig += "|%d" % int(_t * ULT_PULSE)
 	if sig != _sig:
 		_sig = sig
 		_draw.queue_redraw()
@@ -237,7 +253,7 @@ func cooldown_of(key: String) -> Array:
 		return [0.0, 0.0]
 	var id := key
 	if key == "skill":
-		id = "dangong" if eska.is_up_held() else "cheonyeol"
+		id = eska.skill_for_dir()
 	return [eska.cd_ratio(id), eska.cd_left(id)]
 
 
@@ -291,6 +307,17 @@ class Pad extends Control:
 		var r: float = b[4]
 		var held := tc.is_held(String(b[1]))
 		draw_circle(c, r, Color(RING, 0.45) if held else Color(0.04, 0.03, 0.08, 0.45))
+		if is_instance_valid(tc.eska):
+			match id:
+				"ult":
+					_draw_ult(tc, font, c, r, held)
+					return
+				"ult_next":
+					_draw_cycle(c, r, held)
+					return
+				"potion":
+					_draw_potion(tc, font, c, r, held)
+					return
 		var cd: Array = tc.cooldown_of(String(b[5]))
 		var ratio: float = cd[0]
 		if ratio > 0.0:
@@ -302,8 +329,8 @@ class Pad extends Control:
 			draw_colored_polygon(pts, Color(0, 0, 0, 0.55))
 		draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else 0.6), 2.0)
 		var label: String = b[2]
-		if id == "skill" and is_instance_valid(tc.eska) and tc.eska.is_up_held():
-			label = "단공"
+		if id == "skill" and is_instance_valid(tc.eska):
+			label = EEska.NAMES[tc.eska.skill_for_dir()]
 		var fs := 11 if label.length() >= 3 else 12
 		if ratio > 0.0:
 			label = "%d" % ceili(float(cd[1]))
@@ -312,3 +339,56 @@ class Pad extends Control:
 		var tp := c + Vector2(-tw * 0.5, 4)
 		draw_string_outline(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.7))
 		draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.95 if held else 0.85))
+
+	## 대마법(S): 둘레 고리 = 종언 게이지(위에서 시계 방향으로 참), 가운데 위 달이 차오름, 아래 고른 대마법 이름.
+	## 가득이면 고리·달이 밝게 맥박. 모자라면 전체가 흐림
+	func _draw_ult(tc: ETouch, font: Font, c: Vector2, r: float, held: bool) -> void:
+		var e := tc.eska
+		var f := e.gauge_ratio()
+		var full := f >= 1.0
+		var beat := 0.5 + 0.5 * sin(tc._t * 6.0) if full else 0.0
+		if full:
+			draw_circle(c, r + 3.0 + 2.0 * beat, Color(EVfx.MAGENTA, 0.18 + 0.14 * beat))
+			draw_circle(c, r, Color(EVfx.PLUM, 0.55 + 0.2 * beat))
+		draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.35), 2.0)
+		if f > 0.0:
+			draw_arc(c, r, -PI / 2.0, -PI / 2.0 + TAU * f, maxi(int(40.0 * f), 3), EVfx.EDGE if full else Color(RING, 0.95), 3.0 if full else 2.5)
+		var mc := c + Vector2(0, -7.0)
+		var mr := 6.5
+		draw_circle(mc, mr + 1.0, Color(EVfx.INK, 0.9))
+		if f >= EHud.MOON_MIN:
+			draw_colored_polygon(EHud.moon_shape(mc, mr, f), EVfx.PALE.lerp(Color.WHITE, 0.5 * beat) if full else Color(EVfx.PALE, 0.75))
+		draw_arc(mc, mr + 1.0, 0.0, TAU, 20, Color(RING, 0.7), 1.0)
+		var label: String = ULT_SHORT.get(e.selected_ult(), "")
+		var fs := 11
+		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var tp := c + Vector2(-tw * 0.5, 13.0)
+		draw_string_outline(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.75))
+		draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.95) if full or held else Color(1, 1, 1, 0.55))
+
+	## 대마법 고르기(D): 작은 원 안에 도는 화살표
+	func _draw_cycle(c: Vector2, r: float, held: bool) -> void:
+		var col := Color(1, 1, 1, 0.95 if held else 0.7)
+		draw_arc(c, r, 0.0, TAU, 24, Color(RING, 0.95 if held else 0.6), 1.5)
+		var ar := r * 0.5
+		draw_arc(c, ar, -PI * 0.15, PI * 1.35, 14, col, 1.5)
+		var tip := c + Vector2(cos(-PI * 0.15), sin(-PI * 0.15)) * ar
+		draw_colored_polygon(PackedVector2Array([tip + Vector2(3.5, 0.5), tip + Vector2(-2.5, -2.5), tip + Vector2(-0.5, 3.5)]), col)
+
+	## 물약(F): 방향키 방향(그냥·↑·↓)에 맞는 허리띠 칸의 병 + 남은 병 수 + 칸 표시. 빈 칸·다 쓴 칸은 흐림
+	func _draw_potion(tc: ETouch, font: Font, c: Vector2, r: float, held: bool) -> void:
+		var e := tc.eska
+		var i := e.potion_slot_for_dir()
+		var sl: Dictionary = e.belt.slots[i] if i < e.belt.slots.size() else {}
+		var has := String(sl.get("id", "")) != ""
+		var left := int(sl.get("left", 0))
+		var ok := has and left > 0
+		var look := EHud.potion_look(sl)
+		draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else (0.6 if ok else 0.3)), 2.0)
+		EHud.bottle(self, c + Vector2(-3.0, 1.0), 1.5, look.color, 1.0 if ok else 0.4, ok)
+		var mark: String = EHud.BELT_MARKS[i]
+		draw_string_outline(font, c + Vector2(5.0, -6.0), mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 3, Color(0, 0, 0, 0.7))
+		draw_string(font, c + Vector2(5.0, -6.0), mark, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(EVfx.PALE, 0.9))
+		var num := "%d" % left if has else "-"
+		draw_string_outline(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.75))
+		draw_string(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.95 if ok else 0.45))

@@ -2,6 +2,8 @@ class_name EHud
 extends Control
 ## 에스카 시제품 화면 표시
 ## - 왼쪽 위: 이름 + 빌드 번호(어느 버전이 떠 있는지 바로 확인) + 체력 마름모(잃으면 갈라져 흩어짐, 하나 남으면 맥박)
+##   + 종언 게이지 = 그믐달이 보름달로 차오르는 달(가득이면 맥박) + 고른 대마법 이름 (design.md 3-4 #6)
+##   + 허리띠 물약 3칸(없음·↑·↓ 표시, 남은 병 점, 빈 칸은 흐리게, F가 지금 고를 칸은 테두리)
 ## - 가운데: 알림 글(banner — 물결 번호·쓰러짐·튜토리얼 단계 등)
 ## - 오른쪽 위: 연타 수(맞힐 때마다 튀어 오름) + 누적 피해, 끊기기 직전엔 흐려짐
 ## - 아래(키보드일 때만): 키 안내 + 스킬 쿨다운 (터치 중에는 버튼이 쿨다운을 보여 줌)
@@ -13,6 +15,18 @@ const MAGENTA := Color("#e352ff")
 const INK := Color("#14081f")
 const PIP_GAP := 11.0
 const LOSE_T := 0.5
+const MOON_C := Vector2(89, 47) ## 종언 게이지 달 중심 (체력 마름모 오른쪽)
+const MOON_R := 7.0
+const MOON_MIN := 0.04 ## 이보다 적게 차면 밝은 부분을 그리지 않음 (너무 얇은 초승달은 삼각분할이 안 됨)
+const MOON_PULSE := 15.0 ## 가득일 때 맥박 그림을 초당 이만큼만 다시 그림 (글자 그리기가 비싸서)
+const FULL_FLASH := 0.6 ## 막 가득 찼을 때 퍼지는 고리 시간
+const POP_T := 0.35 ## 대마법을 바꿨을 때 이름이 튀어 오르는 시간
+const BELT_X := 18.0 ## 허리띠 첫 칸 병 가운데
+const BELT_Y := 72.0
+const BELT_GAP := 24.0
+const BELT_MARKS := ["•", "↑", "↓"] ## 칸마다 누르는 방향 (F와 같이)
+const POTION_DEFAULT := Color("#c06bff") ## EPotions가 색을 알려 주지 않을 때 병 색
+const DENY_SHAKE := 2.5 ## 게이지가 모자라 막혔을 때 달이 흔들리는 폭(px)
 
 var eska: EEska
 var touch: ETouch
@@ -32,6 +46,10 @@ var _ban_sub := ""
 var _ban_t := 0.0
 var _ban_dur := 0.0
 var _t := 0.0
+var _ult_shown := -1
+var _ult_pop := 0.0
+
+static var _look_cache := {} ## 물약 id → {"name", "color"}
 
 
 func _ready() -> void:
@@ -55,6 +73,11 @@ func _process(delta: float) -> void:
 	_t += delta
 	_track_hp(delta)
 	_track_boss(delta)
+	if eska.ult_index != _ult_shown:
+		if _ult_shown >= 0:
+			_ult_pop = POP_T
+		_ult_shown = eska.ult_index
+	_ult_pop = maxf(_ult_pop - delta, 0.0)
 	if _ban_t < _ban_dur:
 		_ban_t += delta
 	var sig := "%d|%d|%.1f|%s" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false)]
@@ -63,6 +86,13 @@ func _process(delta: float) -> void:
 	if _pop > 0.0:
 		sig += "|%.2f" % _pop
 	sig += "|%d|%.2f" % [eska.hp, _gain]
+	sig += "|g%d|%d|%.2f|%.2f|%d" % [int(eska.gauge_ratio() * 200.0), eska.ult_index, _ult_pop, eska.ult_denied, eska.potion_slot_for_dir()]
+	if eska.gauge_ratio() >= 1.0:
+		sig += "|%d" % int(_t * MOON_PULSE)
+		if eska.ult_full_t < FULL_FLASH:
+			sig += "|%.2f" % eska.ult_full_t
+	for sl: Dictionary in eska.belt.slots:
+		sig += "|%s%d" % [String(sl.get("id", "")), int(sl.get("left", 0))]
 	for l in _lose:
 		sig += "|%.2f" % l
 	if _boss_a > 0.0:
@@ -83,6 +113,8 @@ func _draw() -> void:
 	if not is_instance_valid(eska):
 		return
 	_draw_hp()
+	_draw_gauge(font)
+	_draw_belt(font)
 	_draw_boss(font)
 	_draw_combo(font)
 	_draw_banner(font)
@@ -91,10 +123,10 @@ func _draw() -> void:
 	if (touch and touch.active) or not show_keys:
 		return
 	var y := size.y - 20.0
-	_text(font, Vector2(10, y), "←→ 이동  Z 점프  X 베기  C 순간이동  ↓ 빨리 떨어지기  W 적 물결  Esc 나가기", 11, Color(1, 1, 1, 0.6))
+	_text(font, Vector2(10, y), "←→ 이동  Z 점프  X 베기  C 순간이동  ↓ 빨리 떨어지기  F·↑F·↓F 물약  W 적 물결  G 게이지  Esc 나가기", 11, Color(1, 1, 1, 0.6))
 	var x := 10.0
 	y = size.y - 36.0
-	for spec: Array in [["A", "cheonyeol"], ["↑A", "dangong"], ["S", "bonggong"]]:
+	for spec: Array in [["A", "cheonyeol"], ["↑A", "dangong"], ["↓A", "nakseong"]]:
 		var id: String = spec[1]
 		var left := eska.cd_left(id)
 		var name: String = EEska.NAMES[id]
@@ -104,6 +136,9 @@ func _draw() -> void:
 			label += " %.1f" % left
 		_text(font, Vector2(x, y), label, 11, col)
 		x += font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0
+	var full := eska.gauge_ratio() >= 1.0
+	var ult := "S 대마법 %s %s  D 고르기" % [EEska.ULT_NAMES[eska.selected_ult()], "가득" if full else "%d%%" % int(eska.gauge_ratio() * 100.0)]
+	_text(font, Vector2(x, y), ult, 11, Color(1, 1, 1, 0.9) if full else Color(1, 1, 1, 0.5))
 
 
 func _draw_combo(font: Font) -> void:
@@ -227,6 +262,120 @@ func _draw_hp() -> void:
 				draw_colored_polygon(PackedVector2Array([q + Vector2(0, -4), q + Vector2(sd * 4.0, 0), q + Vector2(0, 4)]), Color(MAGENTA.lerp(Color.WHITE, a), a))
 			if f < 0.3:
 				draw_circle(p, 7.0 * (1.0 - f / 0.3) + 2.0, Color(1, 1, 1, 0.8 * (1.0 - f / 0.3)))
+
+
+## 종언 게이지: 그믐(빈 검은 원)에서 오른쪽부터 차올라 보름달이 된다. 가득이면 맥박 + 막 찼을 때 퍼지는 고리.
+## 옆에 고른 대마법 이름 (바꾸면 튀어 오름). 게이지가 모자란데 S를 누르면 달이 흔들린다
+func _draw_gauge(font: Font) -> void:
+	var f := eska.gauge_ratio()
+	var full := f >= 1.0
+	var c := MOON_C
+	if eska.ult_denied > 0.0:
+		c.x += sin(eska.ult_denied * 70.0) * DENY_SHAKE * (eska.ult_denied / EEska.ULT_DENY_GAP)
+	var beat := 0.5 + 0.5 * sin(_t * 6.0) if full else 0.0
+	if full:
+		draw_circle(c, MOON_R + 4.0 + beat * 2.0, Color(MAGENTA, 0.16 + 0.12 * beat))
+	draw_circle(c, MOON_R + 1.2, Color(INK, 0.9))
+	draw_circle(c, MOON_R, Color(VIOLET, 0.14))
+	if f >= MOON_MIN:
+		draw_colored_polygon(moon_shape(c, MOON_R, f), PALE.lerp(Color.WHITE, 0.4 + 0.4 * beat) if full else Color(PALE, 0.9))
+	draw_arc(c, MOON_R + 1.2, 0.0, TAU, 24, Color(VIOLET, 0.8 if full else 0.45), 1.0)
+	if full and eska.ult_full_t < FULL_FLASH:
+		var k := eska.ult_full_t / FULL_FLASH
+		draw_arc(c, MOON_R + 2.0 + k * 14.0, 0.0, TAU, 28, Color(EVfx.EDGE, 1.0 - k), 1.5)
+	var name: String = EEska.ULT_NAMES[eska.selected_ult()]
+	var sc := 1.0 + 0.35 * (_ult_pop / POP_T)
+	var p := Vector2(MOON_C.x + MOON_R + 8.0, MOON_C.y + 4.0)
+	draw_set_transform(p, 0.0, Vector2(sc, sc))
+	var col := Color.WHITE if full else Color(PALE, 0.7)
+	draw_string_outline(font, Vector2.ZERO, name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 3, Color(0, 0, 0, 0.7))
+	draw_string(font, Vector2.ZERO, name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, col.lerp(EVfx.EDGE, _ult_pop / POP_T))
+	draw_set_transform(Vector2.ZERO)
+
+
+## 달 모양(밝은 부분): 오른쪽 가장자리 반원 + 명암 경계(타원). f 0 = 그믐, 0.5 = 반달, 1 = 보름 (터치 버튼도 씀)
+static func moon_shape(c: Vector2, r: float, f: float, n := 12) -> PackedVector2Array:
+	var k := cos(clampf(f, 0.0, 1.0) * PI) # 경계 타원의 가로 배수 (1 → -1)
+	var pts := PackedVector2Array()
+	for i in n + 1:
+		var a := -PI / 2.0 + PI * float(i) / float(n)
+		pts.append(c + Vector2(cos(a), sin(a)) * r)
+	for i in range(1, n):
+		var a := PI / 2.0 - PI * float(i) / float(n)
+		pts.append(c + Vector2(cos(a) * r * k, sin(a) * r))
+	return pts
+
+
+## 허리띠 3칸: 병(빈 칸은 테두리만) · 칸 방향 표시 · 남은 병 점. F가 지금 고를 칸은 밝은 테두리
+func _draw_belt(font: Font) -> void:
+	var slots: Array = eska.belt.slots
+	var pick := eska.potion_slot_for_dir()
+	for i in slots.size():
+		var sl: Dictionary = slots[i]
+		var c := Vector2(BELT_X + BELT_GAP * i, BELT_Y)
+		var has := String(sl.get("id", "")) != ""
+		var left := int(sl.get("left", 0))
+		var mx := int(sl.get("max", 0))
+		var look := potion_look(sl)
+		var a := 1.0 if has and left > 0 else 0.35
+		if i == pick and (touch == null or not touch.active):
+			draw_rect(Rect2(c + Vector2(-9, -13), Vector2(20, 26)), Color(VIOLET, 0.16)) # F가 지금 고를 칸
+		bottle(self, c, 1.0, look.color if has else Color(VIOLET, 0.0), a, has and left > 0)
+		_text(font, c + Vector2(6.0, -6.0), BELT_MARKS[i], 9, Color(PALE, 0.75))
+		for d in mx:
+			var dp := c + Vector2((float(d) - float(mx - 1) * 0.5) * 3.5, 9.0)
+			draw_rect(Rect2(dp - Vector2(1, 1), Vector2(2, 2)), Color(PALE, 0.9) if d < left else Color(PALE, 0.2))
+
+
+## 물약 병 그림 (HUD·터치 버튼이 같이 씀): c = 몸통 가운데, s = 배율, liquid = 물약 색, filled = 차 있음
+static func bottle(ci: CanvasItem, c: Vector2, s: float, liquid: Color, a: float, filled: bool) -> void:
+	var r := 4.2 * s
+	ci.draw_circle(c, r + 1.0 * s, Color(INK, 0.85 * a))
+	ci.draw_rect(Rect2(c + Vector2(-1.8 * s, -r - 4.2 * s), Vector2(3.6 * s, 4.6 * s)), Color(INK, 0.85 * a))
+	if filled:
+		ci.draw_circle(c + Vector2(0, 0.6 * s), r * 0.8, Color(liquid, a))
+		ci.draw_circle(c + Vector2(-1.4, -1.2) * s, 0.9 * s, Color(1, 1, 1, 0.85 * a))
+	ci.draw_arc(c, r, 0.0, TAU, 16, Color(PALE, 0.7 * a), 1.0)
+	ci.draw_rect(Rect2(c + Vector2(-1.1 * s, -r - 3.4 * s), Vector2(2.2 * s, 3.0 * s)), Color(PALE, 0.5 * a), false, 1.0)
+	ci.draw_rect(Rect2(c + Vector2(-1.4 * s, -r - 5.2 * s), Vector2(2.8 * s, 1.8 * s)), Color(0.55, 0.42, 0.31, a)) # 코르크
+
+
+## 물약 표시용 이름·색: 허리띠 칸 {"id", ...} → {"name", "color"}. EPotions가 알려 주면 그것을 쓴다
+## (지원: 정적 함수 info(id)/look(id) → {"name","color"} · name_of(id)/color_of(id) · 상수 사전 POTIONS/DATA/INFO[id]의 "name"/"color")
+static func potion_look(sl: Dictionary) -> Dictionary:
+	var id := String(sl.get("id", ""))
+	if id == "":
+		return {"name": "", "color": POTION_DEFAULT}
+	if _look_cache.has(id):
+		return _look_cache[id]
+	var out := {"name": id, "color": POTION_DEFAULT}
+	var scr: Script = EPotions
+	var methods := {}
+	for m: Dictionary in scr.get_script_method_list():
+		methods[String(m.name)] = true
+	var info = null
+	for fn: String in ["info", "look"]:
+		if methods.has(fn):
+			info = scr.call(fn, id)
+			break
+	if info == null:
+		var consts := scr.get_script_constant_map()
+		for cn: String in ["POTIONS", "DATA", "INFO"]:
+			if consts.has(cn) and consts[cn] is Dictionary and (consts[cn] as Dictionary).has(id):
+				info = consts[cn][id]
+				break
+	if info is Dictionary:
+		out.name = String(info.get("name", id))
+		if info.get("color") is Color:
+			out.color = info.color
+	if methods.has("name_of"):
+		out.name = String(scr.call("name_of", id))
+	if methods.has("color_of"):
+		var col = scr.call("color_of", id)
+		if col is Color:
+			out.color = col
+	_look_cache[id] = out
+	return out
 
 
 func _diamond(p: Vector2, r: float, c: Color) -> void:

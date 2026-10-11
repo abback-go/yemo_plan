@@ -337,8 +337,8 @@ func _tick_bonggong() -> bool:
 	if _sub == 3 and not tut.has_prompt():
 		_sub = 4
 		_ready_skill("bonggong")
-		tut.prompt(["es_bind"], "봉공 — 공간을 굳혀 모두 멈춘다")
-	if _sub >= 4 and eska.cast_kind == "bonggong" and eska.st == EEska.St.CAST:
+		tut.prompt(["es_bind"], "대마법 봉공 — 공간을 굳혀 모두 멈춘다")
+	if _sub >= 4 and eska.ult_kind == "bonggong" and eska.st == EEska.St.ULT:
 		tut.done()
 	if _sub >= 1 and _dead(foe):
 		tut.done()
@@ -383,7 +383,7 @@ func _tick_finale() -> bool:
 				tut.say("굳히고, 갈라라.")
 				_ready_skill("bonggong")
 				_ready_skill("cheonyeol")
-				tut.prompt(["es_bind", "→", "es_skill"], "봉공으로 굳히고 천열")
+				tut.prompt(["es_bind", "→", "es_skill"], "대마법 봉공으로 굳히고 천열")
 		4, 5:
 			if eska.st == EEska.St.CAST and eska.cast_kind == "cheonyeol" and is_instance_valid(boss) and boss.is_bound():
 				tut.done()
@@ -438,7 +438,12 @@ func _on_end_chosen(what: String) -> void:
 
 
 ## 배우라고 안내하는 순간에는 그 기술을 바로 쓸 수 있게 (먼저 써 버려 쿨다운 중이면 헷갈림)
+## 대마법(봉공)은 쿨다운 대신 종언 게이지를 가득 채우고 그 대마법을 골라 둔다 (S 한 번이면 나가게)
 func _ready_skill(id: String) -> void:
+	if EEska.ULTS.has(id):
+		eska.fill_gauge()
+		eska.ult_index = EEska.ULTS.find(id)
+		return
 	eska.cooldowns[id] = 0.0
 
 

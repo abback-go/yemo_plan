@@ -3,17 +3,25 @@ extends EStage
 ## 적 물결은 오른쪽 위 버튼이나 W 키로 켜고 끈다 (기본 켜짐).
 ## 오른쪽 끝은 공간 고정 시험 구역: 떨어지는 돌을 봉공으로 굳혀 밟고 높은 턱(점프로는 안 닿음)에 오른다.
 ## 봉공 진화(굳은 동안 준 피해의 50%가 깨질 때 터짐)는 오른쪽 위 두 번째 버튼이나 T 키로 켜고 끈다.
+## 종언 게이지는 오른쪽 위 세 번째 버튼 "게이지 가득"이나 G 키로 바로 채운다 (대마법 시험). 왼쪽 끝에 마녀의 가마솥.
 ## 들어오는 길: 타이틀 메뉴 "에스카 시제품" 또는 웹 주소 뒤 ?eska
 
 const W := 1280.0
 const FLOOR := 300.0
 const SHELF := Rect2(1150, FLOOR - 200.0, 114, 14) ## 공간 고정 시험: 이단점프(81)로는 안 닿는 높은 턱
 const ROCK_XS: Array[float] = [1040.0, 1096.0] ## 돌이 떨어지는 두 기둥 (반 간격씩 어긋남 → 굳히면 엇갈린 계단)
+const CAULDRON_X := 250.0 ## 가마솥 자리 (부활 자리 왼쪽)
+const BTN_TOP := [8.0, 34.0] ## 오른쪽 위 시험 버튼들의 위 끝 (적 물결 · 봉공 진화). 그 아래는 연타 수 자리
+const BTN_W := 104.0 ## 시험 버튼 너비
+const BTN_RIGHT := -42.0 ## 첫 줄 버튼 오른쪽 끝 (나가기 ✕ 왼쪽)
+const BTN_COL2 := -110.0 ## "게이지 가득"은 왼쪽 옆 줄에 (연타 수와 겹치지 않게)
 
 var dummy: PDummy
 var waves: EWaves
 var _wave_btn: Button
 var _still_btn: Button
+var _gauge_btn: Button
+var cauldron: ECauldron
 var shelf_hits := 0 ## 시험 구역 턱에 오른 횟수
 var _on_shelf := false
 
@@ -38,16 +46,19 @@ func _build() -> void:
 	fall.top = FLOOR - 430.0
 	fall.floor_y = FLOOR
 	add_child(fall)
+	cauldron = ECauldron.place(self, Vector2(CAULDRON_X, FLOOR))
 
 
 func _start() -> void:
 	waves = EWaves.new()
 	waves.stage = self
 	add_child(waves)
-	_wave_btn = _make_button("적 물결: 켜짐", 8.0, _toggle_waves)
+	_wave_btn = _make_button("적 물결: 켜짐", BTN_TOP[0], _toggle_waves)
 	hud.get_parent().add_child(_wave_btn)
-	_still_btn = _make_button(_still_label(), 34.0, _toggle_still)
+	_still_btn = _make_button(_still_label(), BTN_TOP[1], _toggle_still)
 	hud.get_parent().add_child(_still_btn)
+	_gauge_btn = _make_button("게이지 가득", BTN_TOP[0], _fill_gauge, BTN_COL2)
+	hud.get_parent().add_child(_gauge_btn)
 
 
 func _process(delta: float) -> void:
@@ -56,6 +67,8 @@ func _process(delta: float) -> void:
 		_toggle_waves()
 	if Input.is_action_just_pressed("es_still_t"):
 		_toggle_still()
+	if Input.is_action_just_pressed("es_gauge_fill"):
+		_fill_gauge()
 	var up := eska.is_on_floor() and eska.global_position.y <= SHELF.position.y + 2.0 and eska.global_position.x > SHELF.position.x
 	if up and not _on_shelf:
 		shelf_hits += 1
@@ -75,18 +88,23 @@ func _toggle_still() -> void:
 	_still_btn.text = _still_label()
 
 
+## 시험용: 종언 게이지를 바로 가득 (대마법 시험)
+func _fill_gauge() -> void:
+	eska.fill_gauge()
+
+
 func _still_label() -> String:
 	return "봉공 진화: 켜짐" if eska.still_evolved else "봉공 진화: 꺼짐"
 
 
-## 오른쪽 위(나가기 ✕ 왼쪽) 작은 버튼 — 터치·마우스 모두. 키보드 포커스는 받지 않음 (Z·X가 눌러 버리지 않게)
-func _make_button(text: String, top: float, on_press: Callable) -> Button:
+## 오른쪽 위(나가기 ✕ 왼쪽) 작은 버튼 — 터치·마우스 모두. shift = 옆 줄로 옮기는 양(음수 = 왼쪽). 키보드 포커스는 받지 않음 (Z·X가 눌러 버리지 않게)
+func _make_button(text: String, top: float, on_press: Callable, shift := 0.0) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	b.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	b.offset_left = -146.0
-	b.offset_right = -42.0
+	b.offset_left = BTN_RIGHT - BTN_W + shift
+	b.offset_right = BTN_RIGHT + shift
 	b.offset_top = top
 	b.offset_bottom = top + 22.0
 	b.add_theme_font_size_override("font_size", 11)
@@ -144,5 +162,6 @@ class ShelfMark extends Node2D:
 		pd.flush(self)
 		var f := ThemeDB.fallback_font
 		var at := Vector2(shelf.position.x - 296.0, shelf.position.y + 70.0) # 돌 기둥 왼쪽
-		draw_string(f, at, "봉공(S)으로 떨어지는 돌을", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(EVfx.PALE, 0.75))
+		draw_string(f, at, "대마법 봉공으로 떨어지는 돌을", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(EVfx.PALE, 0.75))
 		draw_string(f, at + Vector2(0, 14), "굳혀 밟고 오르기 →", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(EVfx.PALE, 0.75))
+		draw_string(f, at + Vector2(0, 28), "(D로 봉공 고르기 · 게이지 가득이면 S · G 채우기)", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(EVfx.PALE, 0.55))

@@ -10,6 +10,8 @@ extends PDraw.Canvas
 ## - 몸: 늘이고 누르기(점프·착지·타격), 앞으로 기울기(달리기·공격), 모자 끝·치마 자락은 용수철.
 ## - 눈빛: 빠르게 움직일 때 보랏빛 꼬리를 남긴다.
 ## - 잔상: 마지막 그림(삼각형 묶음)을 남겨 두고 EVfx.Afterimage가 보라빛으로 그린다.
+## - 대마법 의식: 몸이 떠오르고 두 팔을 펼침, 머리칼·치맛자락이 위로 날리고 등 뒤에 보랏빛 고리가 돈다.
+## - 물약: 마시기(병을 입에 대고 고개를 젖힘) · 던지기(팔을 뒤로 젖혔다 위로 휘둘러 던짐). 병 색은 허리띠 칸 물약 색.
 
 const OUT := Color("#0a090e")
 const CLOTH := Color("#15121b")
@@ -29,6 +31,18 @@ const HAIR_DEEP := Color("#7a7290")
 const SKIN := Color("#f0e6e2")
 const SKIN_SH := Color("#c9b4b4")
 const SKIN_HI := Color("#fff8f4")
+const GLASS := Color("#e9e2f4") ## 물약 병 유리 빛
+
+const SLASH_TIP := Vector2(13.0, -25.5) ## 베기 손짓 끝(손가락이 가리키는 자리) — 문장이 뜨는 곳
+const ULT_HAND := Vector2(11.5, -32.0) ## 의식: 앞손을 앞 위로 펼침
+const ULT_BACK_HAND := Vector2(-10.5, -31.0) ## 의식: 뒷손을 뒤 위로 펼침
+const ULT_RING_R := 17.0 ## 의식: 등 뒤 고리 반지름
+const DRINK_LIPS := Vector2(5.0, -27.4) ## 마시기: 병 입구를 대는 자리
+const DRINK_TILT := -0.34 ## 마시기: 고개를 뒤로 젖히는 각 (라디안)
+const HEAD_PIVOT := Vector2(1.0, -25.0) ## 고개를 젖힐 때 축 (목)
+const THROW_BACK := Vector2(-5.5, -36.0) ## 던지기: 팔을 뒤 위로 젖힌 자리
+const THROW_OUT := Vector2(12.5, -31.0) ## 던지기: 위로 휘둘러 던진 자리
+const THROW_WIND := 0.45 ## 던지기: 진행도 이만큼까지 젖히기, 그 뒤 휘두르기
 
 var body: EEska
 var snap_xf := Transform2D.IDENTITY ## 마지막 그림의 전역 변환 (잔상용)
@@ -62,6 +76,11 @@ var _sleeve: Chain
 var _sleeve_b: Chain
 var _eye_hist := PackedVector2Array()
 var _ready_done := false
+var _ult := 0.0 ## 대마법 의식 정도 (0~1 — 고리·몸빛)
+var _ult_spin := 0.0 ## 등 뒤 고리 회전
+var _bottle_col := EHud.POTION_DEFAULT ## 지금 든 물약 병 색
+var _head_tilt := 0.0
+var _was_item := false
 
 
 class Chain:
@@ -209,9 +228,18 @@ func tick(delta: float) -> void:
 	_sq_v += (Vector2.ONE - _sq) * 320.0 * dt - _sq_v * 20.0 * dt
 	_sq += _sq_v * dt
 	var lean_want := 0.0
+	var ult_on := body.st == EEska.St.ULT
+	var item_p := body.item_progress() if body.st == EEska.St.ITEM else 0.0
 	match body.st:
 		EEska.St.CAST:
 			lean_want = -0.06 if body.cast_kind == "dangong" else 0.1
+		EEska.St.ULT:
+			lean_want = -0.07 # 의식: 가슴을 펴고 살짝 뒤로
+		EEska.St.ITEM:
+			if body.item_kind == "drink":
+				lean_want = -0.06
+			else:
+				lean_want = -0.12 if item_p < THROW_WIND else 0.16 # 던지기: 젖혔다가 앞으로
 		EEska.St.NORMAL:
 			# 활주할수록 몸을 앞으로 기울인다 (과하지 않게), 공중에서는 조금만
 			lean_want = clampf(vx * float(body.facing) / EEska.RUN_SPEED, -1.0, 1.0) * (0.24 if on_floor else 0.09)
@@ -227,7 +255,9 @@ func tick(delta: float) -> void:
 		squash(Vector2(1.14, 0.9))
 		EMoveFx.glide_burst(body.global_position, float(body.facing))
 	var flare_want := 0.0
-	if not on_floor:
+	if ult_on:
+		flare_want = 2.3 + 0.4 * sin(_t * 11.0) # 의식: 치맛자락이 위로 들려 펄럭임
+	elif not on_floor:
 		flare_want = clampf(-vy / 300.0, -1.0, 1.0) * -1.6 + 0.6
 	elif absf(vx) > 20.0:
 		flare_want = 0.8 + 1.4 * _glide # 활주하면 치맛자락이 뒤로 길게 날림
@@ -241,8 +271,18 @@ func tick(delta: float) -> void:
 		_step = lerpf(_step, roundf(_step / PI) * PI, 1.0 - exp(-dt * 12.0))
 	_hand = _hand.lerp(_hand_target(), 1.0 - exp(-dt * 46.0))
 	_hand_glow = maxf(_hand_glow - dt * 5.0, 0.0)
-	if body.st == EEska.St.CAST or body.slash_t < EEska.SLASH_POSE:
+	if body.st == EEska.St.CAST or body.st == EEska.St.ULT or body.slash_t < EEska.SLASH_POSE:
 		_hand_glow = 1.0
+	_ult = move_toward(_ult, 1.0 if ult_on else 0.0, dt * (6.0 if ult_on else 3.0))
+	_ult_spin += dt * (2.0 + 6.0 * _ult)
+	var in_item := body.st == EEska.St.ITEM
+	if in_item and not _was_item: # 물약 동작이 막 시작됨: 고른 칸의 물약 색으로 병을 칠한다
+		_bottle_col = EHud.potion_look(_slot_of(body.last_potion_slot)).color
+	_was_item = in_item
+	var tilt_want := 0.0
+	if in_item and body.item_kind == "drink":
+		tilt_want = DRINK_TILT * smoothstep(0.15, 0.4, item_p)
+	_head_tilt = lerpf(_head_tilt, tilt_want, 1.0 - exp(-dt * 18.0))
 	_snap_flash = maxf(_snap_flash - dt * 7.0, 0.0)
 	# 피격 붉은빛 · 무적 깜빡임 · 쓰러지면 사라짐
 	_hurt_flash = maxf(_hurt_flash - dt * 5.0, 0.0)
@@ -262,12 +302,16 @@ func tick(delta: float) -> void:
 	# 흔들리는 줄
 	var grav := Vector2(0, 460) + Vector2(-float(body.facing) * 420.0 * _glide, -60.0 * _glide)
 	var stiff := 0.11 - 0.03 * _glide
+	if _ult > 0.0: # 의식: 머리칼·소매가 위로 떠오른다 (아래에서 바람이 올라오듯)
+		grav = grav.lerp(Vector2(-float(body.facing) * 90.0 + sin(_t * 7.0) * 120.0, -380.0), _ult)
+		stiff *= 1.0 - 0.6 * _ult
 	var bob := _bob()
 	_hair.step(to_global(Vector2(-2.6, -31.0 + bob)), _to_g(_hair_rest()), grav, dt, 0.82, stiff)
 	_lock.step(to_global(Vector2(2.6, -29.5 + bob)), _to_g(_lock_rest()), grav, dt, 0.86, 0.12)
 	var sh := Vector2(1.5, -23.5 + bob)
 	var el := sh.lerp(_hand, 0.5)
 	var sleeve_g := Vector2(-float(body.facing) * 280.0 * _glide, 300.0 - 80.0 * _glide)
+	sleeve_g = sleeve_g.lerp(Vector2(sin(_t * 9.0) * 80.0, -260.0), _ult)
 	_sleeve.step(to_global(el), _to_g(_sleeve_rest(el)), sleeve_g, dt, 0.86, 0.08)
 	_sleeve_b.step(to_global(Vector2(-1.8, -22.5 + bob)), _to_g(_sleeve_rest(Vector2(-1.8, -22.5))), sleeve_g, dt, 0.86, 0.08)
 	# 눈빛 꼬리 (빠를 때만)
@@ -305,8 +349,19 @@ func _hand_target() -> Vector2:
 					return Vector2(12.5, -23.5)
 				"dangong":
 					return Vector2(5.5, -38)
+				"nakseong":
+					return Vector2(10.5, -36) # 앞쪽 하늘을 가리킴
 				_:
 					return Vector2(11.5, -21)
+		EEska.St.ULT:
+			return ULT_HAND
+		EEska.St.ITEM:
+			var p := body.item_progress()
+			if body.item_kind == "drink":
+				return Vector2(3.5, -18.0).lerp(DRINK_LIPS, smoothstep(0.0, 0.3, p))
+			if p < THROW_WIND:
+				return Vector2(3.0, -20.0).lerp(THROW_BACK, smoothstep(0.0, THROW_WIND * 0.8, p))
+			return THROW_BACK.lerp(THROW_OUT, smoothstep(THROW_WIND, THROW_WIND + 0.25, p))
 	if not body.is_on_floor():
 		return Vector2(5.5, -18.5) if body.velocity.y < 0.0 else Vector2(6.5, -21)
 	if _glide > 0.3:
@@ -315,6 +370,21 @@ func _hand_target() -> Vector2:
 	if absf(body.velocity.x) > 20.0:
 		return Vector2(2.5 + sin(_step) * 3.0, -15.5 - absf(cos(_step)) * 0.8)
 	return Vector2(3, -15.5)
+
+
+## 손끝(전역 좌표) — 문장(EVfx.sigil)이 뜨는 자리. 지금 동작의 손짓 끝 자세 기준 (몸 기울기·눌림은 무시)
+func fingertip() -> Vector2:
+	var h := _hand_target()
+	if body.st == EEska.St.NORMAL and body.slash_t < EEska.SLASH_POSE:
+		h = SLASH_TIP
+	return body.global_position + Vector2(h.x * float(body.facing), h.y - _lift)
+
+
+func _slot_of(i: int) -> Dictionary:
+	var slots: Array = body.belt.slots
+	if i < 0 or i >= slots.size():
+		return {}
+	return slots[i]
 
 
 func _draw() -> void:
@@ -362,9 +432,22 @@ func _paint() -> void:
 	pd.glow(Vector2.ZERO, 10.0 - _lift * 0.8, Color(0, 0, 0, 0.55), 0.0)
 	pd.draw_set_transform(Vector2.ZERO)
 
+	# ── 대마법 의식: 등 뒤 보랏빛 번짐 + 도는 고리(일곱 마디)
+	if _ult > 0.0:
+		_paint_ult_ring(o)
+
 	# ── 뒤 소매 (몸 뒤, 반투명)
 	var sb := _ribbon(_sleeve_b.p, 3.6, 5.2)
 	pd.strip(sb[0], sb[1], Color(SLEEVE, 0.4))
+	# 의식: 뒷팔도 뒤 위로 펼친다
+	if _ult > 0.0:
+		var bsh := o + Vector2(-1.6, -23.0)
+		var bh := bsh.lerp(o + ULT_BACK_HAND, _ult)
+		var bel := bsh.lerp(bh, 0.5) + Vector2(0, 1.2)
+		pd.draw_line(bsh, bel, SKIN_SH, 1.6)
+		pd.draw_line(bel, bh, SKIN_SH, 1.4)
+		pd.glow(bh, 5.0, Color(GLOW, 0.45 * _ult), 0.0)
+		pd.draw_circle(bh, 1.2, Color(1, 1, 1, 0.9 * _ult))
 
 	# ── 뒤 머리 (긴 백발, 흔들리는 줄)
 	var hr := _ribbon(_hair.p, 7.4, 2.4)
@@ -427,7 +510,12 @@ func _paint() -> void:
 	pd.draw_rect(Rect2(Vector2(-3.4, waist - 9.0), Vector2(7.2, 0.8)), SKIN_HI)
 	pd.draw_rect(Rect2(Vector2(-0.2, waist - 10.6), Vector2(2.2, 1.8)), SKIN_SH)
 
-	# ── 얼굴 (모자 챙 그늘, 앞머리가 오른쪽 눈을 덮는다)
+	# ── 얼굴 (모자 챙 그늘, 앞머리가 오른쪽 눈을 덮는다) — 마실 때는 목을 축으로 고개를 젖힌다
+	var head_xf := Transform2D.IDENTITY
+	if absf(_head_tilt) > 0.001:
+		var pv := o + HEAD_PIVOT
+		head_xf = Transform2D(_head_tilt, pv - pv.rotated(_head_tilt))
+		pd.draw_set_transform_matrix(head_xf)
 	var hc := o + Vector2(1.3, -29.2)
 	pd.draw_circle(hc, 3.3, SKIN)
 	pd.draw_rect(Rect2(hc + Vector2(-2.6, -3.2), Vector2(5.6, 1.6)), Color(SKIN_SH, 0.9)) # 챙 그늘
@@ -463,7 +551,7 @@ func _paint() -> void:
 
 	# ── 모자: 챙 (윗면·아랫면, 갈라진 끝에 흰 공허) + 꺾인 뾰족 머리
 	var brim_c := o + Vector2(0.4, -33.5)
-	pd.draw_set_transform(brim_c, -0.07 + _tip * 0.05, Vector2.ONE)
+	pd.draw_set_transform_matrix(head_xf * Transform2D(-0.07 + _tip * 0.05, brim_c))
 	var brim := PackedVector2Array()
 	var brim_top := PackedVector2Array()
 	for i in 24:
@@ -479,7 +567,7 @@ func _paint() -> void:
 		var sz: float = spec[1]
 		pd.glow(Vector2(x + sgn * 1.5, 0.4), 3.0, Color(GLOW_PALE, 0.3 * shimmer), 0.0)
 		pd.draw_colored_polygon(PackedVector2Array([Vector2(x + sgn * 2.8 * sz, -0.6), Vector2(x - sgn * 0.7, 0.1), Vector2(x + sgn * 2.4 * sz, 1.6)]), Color(1, 1, 1, shimmer))
-	pd.draw_set_transform(Vector2.ZERO)
+	pd.draw_set_transform_matrix(head_xf)
 	var tip := Vector2(-4.4 - _tip * 2.0, -45.8 + absf(_tip) * 0.6)
 	var crown := PackedVector2Array([o + Vector2(-5.0, -34.3), o + Vector2(5.2, -34.5), o + Vector2(2.6, -39.2),
 		o + Vector2(-0.4, -42.4), o + tip, o + tip + Vector2(-1.6, 0.9), o + Vector2(-3.4, -41.6), o + Vector2(-4.6, -38.0)])
@@ -487,6 +575,7 @@ func _paint() -> void:
 	pd.draw_colored_polygon(PackedVector2Array([o + Vector2(1.6, -34.5), o + Vector2(5.2, -34.5), o + Vector2(2.6, -39.2), o + Vector2(0.4, -40.6)]), CLOTH_HI) # 빛 받는 쪽
 	pd.draw_line(o + Vector2(-4.6, -35.3), o + Vector2(4.6, -35.5), LINING, 1.4) # 보라 띠
 	pd.draw_line(o + Vector2(-4.2, -36.0), o + Vector2(4.2, -36.2), Color(LINING_HI, 0.6), 0.6)
+	pd.draw_set_transform(Vector2.ZERO)
 
 	# ── 앞팔 + 시스루 소매 + 손빛
 	var sh := o + Vector2(1.5, -23.5)
@@ -511,6 +600,42 @@ func _paint() -> void:
 		for k in 4:
 			var a := float(k) * PI / 2.0 + PI / 4.0
 			pd.draw_line(hand, hand + Vector2(cos(a), sin(a)) * (4.0 + 8.0 * (1.0 - sf)), Color(1, 1, 1, sf), 1.0)
+	# ── 물약 병 (마시는 동안 / 던지기는 손을 떠나기 전까지)
+	if body.st == EEska.St.ITEM and (body.item_kind == "drink" or not body.item_fired()):
+		var ip := body.item_progress()
+		var axis := Vector2.UP # 병 바닥 → 입구
+		if body.item_kind == "drink":
+			axis = Vector2.UP.lerp(Vector2(-0.75, 0.66), smoothstep(0.15, 0.4, ip)).normalized() # 입에 대고 바닥을 들어 올림
+		else:
+			axis = Vector2.UP.rotated(-0.9 + 1.6 * smoothstep(THROW_WIND, THROW_WIND + 0.25, ip))
+		_paint_bottle(hand, axis)
+
+
+## 물약 병: 입구가 손(neck)에, axis 방향이 바닥 → 입구. 둥근 몸통에 물약 색, 유리 빛, 코르크
+func _paint_bottle(neck: Vector2, axis: Vector2) -> void:
+	var base := neck - axis * 5.2
+	pd.draw_circle(base, 3.0, OUT)
+	pd.draw_line(base + axis * 1.5, neck + axis * 0.6, OUT, 2.6)
+	pd.draw_circle(base, 2.3, _bottle_col.darkened(0.15))
+	pd.draw_circle(base + Vector2(0.3, 0.5), 1.5, _bottle_col)
+	pd.draw_line(base + axis * 1.5, neck, Color(GLASS, 0.85), 1.3)
+	pd.draw_circle(base + Vector2(-0.9, -0.9), 0.6, Color(1, 1, 1, 0.9))
+	pd.draw_line(neck, neck + axis * 1.1, Color("#8a6a4e"), 1.6) # 코르크
+	pd.glow(base, 4.5, Color(_bottle_col, 0.25), 0.0)
+
+
+## 의식: 등 뒤 보랏빛 번짐 + 일곱 마디로 끊긴 고리가 돌고, 안쪽 고리는 거꾸로 돈다
+func _paint_ult_ring(o: Vector2) -> void:
+	var k := _ult
+	var c := o + Vector2(-1.0, -22.0)
+	var r := ULT_RING_R * (0.6 + 0.4 * k)
+	pd.glow(c, r + 8.0, Color(GLOW, 0.22 * k), 0.0)
+	for i in 7:
+		var a0 := _ult_spin + TAU * float(i) / 7.0
+		pd.draw_arc(c, r, a0, a0 + TAU / 7.0 * 0.7, 6, Color(GLOW_PALE, 0.75 * k), 1.0)
+		var tip := c + Vector2(cos(a0), sin(a0)) * (r + 2.5)
+		pd.draw_line(c + Vector2(cos(a0), sin(a0)) * (r - 1.5), tip, Color(GLOW, 0.8 * k), 1.0)
+	pd.draw_arc(c, r * 0.68, -_ult_spin * 1.4, -_ult_spin * 1.4 + TAU * 0.8, 18, Color(GLOW, 0.45 * k), 0.8)
 
 
 ## 띠 가장자리를 중심선에서 d만큼 더 바깥으로 (윤곽용)

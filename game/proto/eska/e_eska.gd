@@ -3,11 +3,13 @@ extends CharacterBody2D
 ## 에스카(종언의 마녀) 전투 시제품. 기획: Claude 문서 "새 컨셉: 종언의 마녀" 탭.
 ## 조작: 이동(떠서 활주) · 점프 + 이단점프(공중에서 한 번) · 순간이동(지상은 자유, 공중은 착지 전까지 1번)
 ##       · 베기(기본 공격): 손가락 한 번 튕기면 앞에 큰 참격 하나 — 이동을 막지 않아 달리고 뛰고 떨어지는 중에도 자유롭게 나간다
-##       · 스킬 키: 그냥 = 천열(손가락을 튕기면 앞으로 거대한 참격 열 번) / ↑ = 단공(머리 위를 납작한 회오리 참격으로 연달아 휘감음)
-##       · 봉공(공간 고정 — 화면 전체를 굳힘, EStill). 스킬은 쿨다운만 쓴다.
+##       · 고급 마법 키: 그냥 = 천열(손가락을 튕기면 앞으로 거대한 참격 열 번) / ↑ = 단공(머리 위를 납작한 회오리 참격으로 연달아 휘감음)
+##         / ↓ = 낙성(앞쪽 하늘을 찢어 별 조각이 쏟아짐, EMagicFx). 고급 마법은 각자 쿨다운만 쓴다.
+##       · 대마법(흑성·유성우·종말의 운석·봉공): 종언 게이지가 가득일 때 고른 하나를 짧은 의식과 함께 발동 → 게이지 0. 고르기는 언제나.
+##       · 물약: 허리띠 3칸(그냥·↑·↓) — 마시기·던지기 동작(St.ITEM)은 EPotions가 start_item으로 맡긴다.
 ## 공격 판정은 물리 없이 표적(ETarget: 허수아비·적)의 hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
 
-enum St { NORMAL, BLINK, CAST, HURT, DEAD }
+enum St { NORMAL, BLINK, CAST, HURT, DEAD, ULT, ITEM }
 
 signal hurt_taken(hp: int) ## 맞았을 때 (남은 체력)
 signal died ## 쓰러졌을 때 — 장면이 부활시킨다 (respawn)
@@ -42,11 +44,30 @@ const HURT_LOCK := 0.3 ## 맞은 뒤 조작이 막히는 시간
 const HURT_INVULN := 1.1 ## 맞은 뒤 무적(깜빡임)
 const RESPAWN_INVULN := 1.6 ## 부활 뒤 무적
 
-## 스킬 쿨다운 (짧게 — 손맛 시험용)
-const CD := {"cheonyeol": 5.0, "dangong": 2.0, "bonggong": 30.0} ## 천열은 896 피해라 5초 (2초면 연격을 쓸 이유가 없어짐) · 봉공은 화면 전체를 5초 굳혀 30초 — docs/eska/combat_spec.md 밸런스
-const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공"}
+## 고급 마법 쿨다운 (짧게 — 손맛 시험용)
+const CD := {"cheonyeol": 5.0, "dangong": 2.0, "nakseong": 4.0} ## 천열은 896 피해라 5초 (2초면 연격을 쓸 이유가 없어짐) — docs/eska/combat_spec.md 밸런스
+const NAMES := {"cheonyeol": "천열", "dangong": "단공", "nakseong": "낙성"}
+## 고급 마법 시전: 동작 시간 · 마법이 나가는 시각 (초)
+const CAST_DUR := {"cheonyeol": 0.26, "dangong": 0.32, "nakseong": 0.3}
+const CAST_FIRE := {"cheonyeol": 0.07, "dangong": 0.06, "nakseong": 0.08}
+const ECHO_DELAY := 0.35 ## 메아리 물약: 고급 마법이 이만큼 뒤에 한 번 더 (세기는 mods.echo)
+const UPSWEEP_AREA := Rect2(-140, -230, 280, 222) ## 단공 판정: 발 기준 머리 위 (양옆으로 넓게)
+
+## 대마법: 고르는 순서 · 이름. 종언 게이지가 가득일 때만 S로 발동 (봉공도 이제 쿨다운 대신 게이지를 다 쓴다)
+const ULTS := ["blackstar", "meteor", "doom", "bonggong"]
+const ULT_NAMES := {"blackstar": "흑성", "meteor": "유성우", "doom": "종말의 운석", "bonggong": "봉공"}
+const ULT_RITUAL := 0.4 ## 의식 동작: 떠오르며 손을 펼친 뒤 이 시각에 대마법이 나간다 (그동안 무적)
+const ULT_END := 0.52 ## 의식이 끝나고 다시 움직이는 시각
+const ULT_RISE := 36.0 ## 의식 중 떠오르는 빠르기 (px/초 — 약 12px)
+const ULT_SIGIL := 2.5 ## 의식 때 손끝 문장 크기
+const ULT_DENY_GAP := 0.35 ## 게이지가 모자랄 때 "안 됨" 알림 사이 간격 (연타해도 소리가 겹치지 않게)
 const STILL_TIME := 5.0 ## 봉공(공간 고정)이 공간을 굳히는 시간 (고정)
 const STILL_BURST := 0.5 ## 진화한 봉공(1장 무구): 굳은 동안 준 피해의 이만큼이 깨질 때 한꺼번에 터짐
+const SIGIL := 1.0 ## 베기·고급 마법 때 손끝 문장 크기
+
+## 물약 동작 (EPotions가 start_item으로 맡김)
+const DRINK_MOVE := 0.4 ## 마시는 동안 이동 빠르기 배수
+const THROW_HANG := 20.0 ## 공중에서 던질 때 낙하 속도를 이만큼으로 잡아 둠 (잠깐 머묾)
 
 ## 베기(기본 공격) — 예전 4타의 가장 큰 가로 참격 하나. 납작한 회오리(sq)를 rot만큼 기울인 호를 a0 → a1로 휘두른다 (각도는 도, 0 = 앞, + = 아래)
 ## hit 판정 시각 · r 반지름 · w 가장 굵은 곳 · c 몸 기준 중심. 참격은 튕긴 자리에 걸리고, 몸이 움직여도 그 자리에서 벤다
@@ -58,7 +79,7 @@ var st := St.NORMAL
 var st_t := 0.0
 var facing := 1
 var art: EArt
-var cooldowns := {"cheonyeol": 0.0, "dangong": 0.0, "bonggong": 0.0}
+var cooldowns := {"cheonyeol": 0.0, "dangong": 0.0, "nakseong": 0.0}
 
 var _coyote := 0.0
 var _jump_buf := 0.0
@@ -70,6 +91,7 @@ var _atk_cd := 0.0
 var _slash_pending := false
 var _slash_at := Vector2.ZERO ## 참격이 걸린 자리 (전역)
 var _slash_dir := 1
+var _slash_size := 1.0 ## 베기를 튕긴 순간의 범위 배수 (확장 물약)
 var _air_hang := true ## 공중 첫 베기는 살짝 떠오름 (착지 전까지 1번)
 var _air_jump := true ## 이단점프 남았는지 (착지하면 다시)
 var _ghost_t := 0.0 ## 활주 잔상 간격
@@ -83,11 +105,26 @@ var cast_kind := ""
 var _cast_dur := 0.0
 var _cast_fired := false
 var still_evolved := false ## 봉공 진화 (1장 무구를 거두면 켜짐 — 훈련장은 버튼/T 키로 시험)
+var ult_index := 0 ## 고른 대마법 (ULTS 번호)
+var ult_kind := "" ## 지금 의식 중인 대마법
+var _ult_fired := false
+var ult_denied := 0.0 ## 게이지가 모자라 막힌 뒤 남은 시간 (화면 표시가 흔들림에 씀)
+var ult_full_t := 0.0 ## 게이지가 막 가득 찬 뒤 시간 (화면 표시가 번쩍임에 씀)
+var item_kind := "" ## 물약 동작 "drink" | "throw"
+var _item_dur := 0.0
+var _item_fire_at := 0.0
+var _item_cb := Callable()
+var _item_fired := false
+var fx_spawned := 0 ## 고급 마법·대마법 이펙트를 만든 수 (메아리 포함 — 시험용)
+var last_potion_slot := -1 ## 마지막으로 F로 고른 허리띠 칸 (화면 표시·시험용)
+var _leech_acc := 0.0 ## 포식 물약: 쌓인 피해
 
 ## 물약이 바꾸는 값 (EPotions가 켜고 끈다): size 범위 배수 · cd_rate 고급 마법 쿨다운이 줄어드는 빠르기 · speed 이동 배수
 ## echo 고급 마법이 한 번 더 나가는 세기(0 = 없음) · leech 이만큼 피해마다 체력 +1 (0 = 없음) · gauge 종언 게이지 차는 배수 · dmg 주는 피해 배수
 var mods := {"size": 1.0, "cd_rate": 1.0, "speed": 1.0, "echo": 0.0, "leech": 0, "gauge": 1.0, "dmg": 1.0}
 const GAUGE_MAX := 6600.0 ## 종언 게이지: 대마법이 아닌 피해 이만큼이면 가득 (초당 약 220이면 30초) — design.md 3-3
+const GAUGE_RATE := 220.0 ## cd_left가 대마법까지 남은 시간을 셀 때 쓰는 초당 피해 (기본 베기 기준)
+const ULT_NOT_SELECTED := 1.0 ## 게이지가 가득해도 고르지 않은 대마법은 cd_left가 이만큼 (0이 아니게)
 var gauge := 0.0
 var belt := EPotions.Belt.new()
 
@@ -128,16 +165,76 @@ func center() -> Vector2:
 	return global_position + Vector2(0, -SIZE.y * 0.55)
 
 
+## 남은 쿨다운(초). 대마법 id는 쿨다운이 없어서 "지금 S로 쓸 수 있나"로 답한다:
+## 게이지가 가득하고 그 대마법이 골라져 있으면 0, 아니면 게이지가 다 차기까지 남은 몫(초당 약 220 기준 초)
+## (자동 플레이 봇처럼 cd_left로 쓸 수 있는지 묻는 쪽이 그대로 동작하게)
 func cd_left(id: String) -> float:
+	if ULTS.has(id):
+		if gauge_ratio() >= 1.0 and selected_ult() == id:
+			return 0.0
+		return maxf((GAUGE_MAX - gauge) / GAUGE_RATE, ULT_NOT_SELECTED)
 	return float(cooldowns.get(id, 0.0))
 
 
 func cd_ratio(id: String) -> float:
+	if not CD.has(id):
+		return 0.0 if cd_left(id) <= 0.0 else 1.0 - gauge_ratio()
 	return clampf(cd_left(id) / float(CD[id]), 0.0, 1.0)
 
 
 func is_up_held() -> bool:
 	return Input.is_action_pressed("es_up")
+
+
+func is_down_held() -> bool:
+	return Input.is_action_pressed("es_down")
+
+
+## 고급 마법 키가 지금 고를 마법: ↓ = 낙성 · ↑ = 단공 · 그냥 = 천열
+func skill_for_dir() -> String:
+	if is_down_held():
+		return "nakseong"
+	if is_up_held():
+		return "dangong"
+	return "cheonyeol"
+
+
+## 물약 키가 지금 고를 허리띠 칸: 그냥 0 · ↑ 1 · ↓ 2
+func potion_slot_for_dir() -> int:
+	if is_up_held():
+		return 1
+	if is_down_held():
+		return 2
+	return 0
+
+
+# ── 종언 게이지 · 대마법 고르기
+
+func gauge_ratio() -> float:
+	return clampf(gauge / GAUGE_MAX, 0.0, 1.0)
+
+
+## 게이지를 채운다 (막 가득 차면 번쩍임 + 소리)
+func add_gauge(amount: float) -> void:
+	var was_full := gauge >= GAUGE_MAX
+	gauge = clampf(gauge + amount, 0.0, GAUGE_MAX)
+	if not was_full and gauge >= GAUGE_MAX:
+		ult_full_t = 0.0
+		Sfx.play(&"star_twinkle", -4.0)
+
+
+func fill_gauge() -> void:
+	add_gauge(GAUGE_MAX)
+
+
+func selected_ult() -> String:
+	return ULTS[posmod(ult_index, ULTS.size())]
+
+
+## 대마법 고르기 순환 (D) — 언제나 가능
+func next_ult() -> void:
+	ult_index = posmod(ult_index + 1, ULTS.size())
+	Sfx.play(&"ui_move", -6.0)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -146,8 +243,11 @@ func is_up_held() -> bool:
 
 func _physics_process(delta: float) -> void:
 	st_t += delta
+	var cd_step := delta * float(mods.cd_rate) # 가속 물약: 고급 마법 쿨다운이 더 빨리 준다
 	for k in cooldowns:
-		cooldowns[k] = maxf(float(cooldowns[k]) - delta, 0.0)
+		cooldowns[k] = maxf(float(cooldowns[k]) - cd_step, 0.0)
+	ult_denied = maxf(ult_denied - delta, 0.0)
+	ult_full_t += delta
 	_blink_cd = maxf(_blink_cd - delta, 0.0)
 	_atk_cd = maxf(_atk_cd - delta, 0.0)
 	slash_t += delta
@@ -172,6 +272,8 @@ func _physics_process(delta: float) -> void:
 		dir_x = 0.0
 		_jump_buf = 0.0
 		_atk_buf = 0.0
+	elif Input.is_action_just_pressed("es_ult_next") and st != St.DEAD:
+		next_ult()
 	match st:
 		St.NORMAL:
 			_normal(delta, dir_x)
@@ -181,6 +283,10 @@ func _physics_process(delta: float) -> void:
 			_cast(delta)
 		St.HURT:
 			_hurt_state(delta)
+		St.ULT:
+			_ult(delta)
+		St.ITEM:
+			_item(delta, dir_x)
 		St.DEAD:
 			velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
 			_gravity(delta)
@@ -247,7 +353,7 @@ func _run(delta: float, dir_x: float, speed_mult := 1.0) -> void:
 
 
 func _normal(delta: float, dir_x: float) -> void:
-	_run(delta, dir_x)
+	_run(delta, dir_x, float(mods.speed))
 	if _jump_buf > 0.0 and _coyote > 0.0:
 		_jump_buf = 0.0
 		_coyote = 0.0
@@ -268,7 +374,7 @@ func _double_jump(dir_x: float) -> void:
 	_air_jump = false
 	velocity.y = -AIR_JUMP_SPEED
 	if absf(dir_x) > 0.01:
-		velocity.x = signf(dir_x) * RUN_SPEED
+		velocity.x = signf(dir_x) * RUN_SPEED * float(mods.speed)
 		facing = 1 if dir_x > 0.0 else -1
 	art.air_flourish()
 	art.squash(Vector2(0.9, 1.12))
@@ -281,16 +387,21 @@ func _double_jump(dir_x: float) -> void:
 func _try_actions(dir_x: float) -> bool:
 	if controls_locked:
 		return false
-	if Input.is_action_just_pressed("es_bind") and cd_left("bonggong") <= 0.0:
-		_start_cast("bonggong", 0.22)
-		return true
+	if Input.is_action_just_pressed("es_bind"):
+		if gauge_ratio() >= 1.0:
+			_start_ult()
+			return true
+		_deny_ult()
 	if Input.is_action_just_pressed("es_skill"):
-		if is_up_held():
-			if cd_left("dangong") <= 0.0:
-				_start_cast("dangong", 0.32)
-				return true
-		elif cd_left("cheonyeol") <= 0.0:
-			_start_cast("cheonyeol", 0.26)
+		var kind := skill_for_dir()
+		if cd_left(kind) <= 0.0:
+			_start_cast(kind)
+			return true
+	if Input.is_action_just_pressed("es_potion"):
+		last_potion_slot = potion_slot_for_dir()
+		if not EPotions.use(self, last_potion_slot):
+			Sfx.play(&"block", -14.0) # 빈 칸 · 쓸 수 없음
+		if st != St.NORMAL:
 			return true
 	if Input.is_action_just_pressed("es_blink") and _blink_cd <= 0.0 and (is_on_floor() or _air_blink):
 		_start_blink(dir_x)
@@ -318,12 +429,19 @@ func _fire_slash() -> void:
 	var c: Vector2 = SLASH.c
 	_slash_at = global_position + Vector2(c.x * facing, c.y)
 	_slash_pending = true
+	_slash_size = float(mods.size)
 	if not is_on_floor() and _air_hang:
 		_air_hang = false
 		velocity.y = minf(velocity.y, -40.0) # 공중 첫 베기: 살짝 떠오름
+	var shape := SLASH
+	if _slash_size != 1.0: # 확장 물약: 참격 반지름·굵기를 같이 키움
+		shape = SLASH.duplicate()
+		shape.r = float(SLASH.r) * _slash_size
+		shape.w = float(SLASH.w) * _slash_size
 	var sl := ESkillFx.Slash.new()
-	sl.setup(SLASH, facing, true)
+	sl.setup(shape, facing, true)
 	EVfx.add(sl, _slash_at, false) # 다크 참격은 보통 섞기 (검은 테두리가 보이게)
+	EVfx.sigil(art.fingertip(), SIGIL) # 손끝 문장이 번쩍인 뒤 공간이 찢긴다 (design.md 3-4)
 	Sfx.play_pitch(&"es_snap", 0.86 * randf_range(0.97, 1.03), -6.0)
 	Sfx.play_pitch(&"es_slash_big", randf_range(0.96, 1.04), 0.0)
 	art.snap_flash()
@@ -334,7 +452,7 @@ func _fire_slash() -> void:
 func _slash_hit() -> void:
 	var any := false
 	for d: Node2D in ETarget.alive(get_tree()):
-		if _sector_hits(d.hit_rect(), _slash_at, float(SLASH.r) + 8.0, float(SLASH.a0), float(SLASH.a1), float(SLASH.sq), float(SLASH.rot), _slash_dir):
+		if _sector_hits(d.hit_rect(), _slash_at, float(SLASH.r) * _slash_size + 8.0, float(SLASH.a0), float(SLASH.a1), float(SLASH.sq), float(SLASH.rot), _slash_dir):
 			deal(d, int(SLASH.dmg), true, _slash_at)
 			any = true
 	if any:
@@ -371,12 +489,19 @@ func _sector_hits(rect: Rect2, cen: Vector2, r: float, a0: float, a1: float, sq:
 
 
 ## 피해 한 번 (이펙트 노드들도 이걸 부른다). opts: "ult" = 대마법 피해(게이지를 채우지 않음) · "poise" = 강자 버팀을 깎는 양(기본 = 피해)
+## 물약: mods.dmg 배수를 곱하고, 대마법이 아니면 종언 게이지를 채우며(mods.gauge 배수), mods.leech마다 체력 +1
 func deal(d: Node2D, dmg: int, heavy: bool, from: Vector2, opts := {}) -> void:
 	if not is_instance_valid(d):
 		return
+	var mult := float(mods.dmg)
+	if mult != 1.0:
+		dmg = roundi(float(dmg) * mult)
 	d.take_hit(dmg, from, {"heavy": heavy, "launch": 1.5 if heavy else 0.0, "poise": opts.get("poise", dmg)})
 	if EStill.active():
 		EStill.current.store(d, dmg) # 진화한 봉공: 굳은 동안 준 피해를 쌓아 둠
+	if not opts.get("ult", false):
+		add_gauge(float(dmg) * float(mods.gauge))
+	_leech(dmg)
 	hit_count += 1
 	hit_damage += dmg
 	combo_left = COMBO_WINDOW
@@ -384,10 +509,83 @@ func deal(d: Node2D, dmg: int, heavy: bool, from: Vector2, opts := {}) -> void:
 	Sfx.play(&"hit_heavy" if heavy else &"hit", -6.0 if not heavy else -2.0)
 
 
+## 포식 물약: 준 피해가 mods.leech만큼 쌓일 때마다 체력 +1 (가득이면 그대로, 0 = 꺼짐)
+func _leech(dmg: int) -> void:
+	var every := float(mods.leech)
+	if every <= 0.0:
+		_leech_acc = 0.0
+		return
+	_leech_acc += float(dmg)
+	while _leech_acc >= every:
+		_leech_acc -= every
+		if hp < MAX_HP and st != St.DEAD:
+			hp += 1
+			hurt_taken.emit(hp)
+			EVfx.dark_bits(center(), 6, 60.0, Vector2.UP, 50.0, 0.4)
+
+
+# ═══════════════════════════════════════════════════════════
+# 물약 동작 (마시기 · 던지기)
+# ═══════════════════════════════════════════════════════════
+
 ## 물약 마시기·던지기 동작 (EPotions가 부름): dur초 동안 동작, fire_at초에 on_fire를 부른다. kind = "drink" | "throw"
-## (틀: 지금은 바로 부름 — 담당 작업자가 상태·그림을 채운다)
-func start_item(_kind: String, _dur: float, _fire_at: float, on_fire: Callable) -> void:
-	on_fire.call()
+## 마시기: 40% 빠르기로만 움직이고 공격·마법은 막힘. fire_at 전에 맞으면 끊겨서 on_fire를 부르지 않는다.
+## 던지기: 짧게(약 0.22초), 공중에서도 됨 (잠깐 머묾)
+func start_item(kind: String, dur: float, fire_at: float, on_fire: Callable) -> void:
+	if st == St.DEAD:
+		return
+	item_kind = kind
+	_item_dur = dur
+	_item_fire_at = fire_at
+	_item_cb = on_fire
+	_item_fired = false
+	st = St.ITEM
+	st_t = 0.0
+	_atk_buf = 0.0
+	if kind == "throw":
+		if not is_on_floor():
+			velocity.y = minf(velocity.y, THROW_HANG)
+		Sfx.play_pitch(&"whoosh", 1.3, -8.0)
+	else:
+		Sfx.play(&"potion", -6.0)
+
+
+## 물약 동작 진행도 0~1 (그림이 읽는다)
+func item_progress() -> float:
+	return clampf(st_t / maxf(_item_dur, 0.01), 0.0, 1.0)
+
+
+## 물약 효과가 났는가 (던지기: 병이 손을 떠났는가 — 그림이 읽는다)
+func item_fired() -> bool:
+	return _item_fired
+
+
+func _item(delta: float, dir_x: float) -> void:
+	if item_kind == "drink":
+		_run(delta, dir_x, DRINK_MOVE * float(mods.speed))
+		_gravity(delta)
+	else:
+		_run(delta, dir_x, float(mods.speed))
+		if is_on_floor():
+			_gravity(delta)
+		else:
+			velocity.y = move_toward(velocity.y, THROW_HANG, GRAVITY * delta) # 던지는 동안 공중에 잠깐 머문다
+	if not _item_fired and st_t >= _item_fire_at:
+		_item_fired = true
+		var cb := _item_cb
+		_item_cb = Callable()
+		if cb.is_valid():
+			cb.call()
+	if st_t >= _item_dur:
+		_end_item()
+
+
+func _end_item() -> void:
+	item_kind = ""
+	_item_cb = Callable()
+	if st == St.ITEM:
+		st = St.NORMAL
+		st_t = 0.0
 
 
 # ═══════════════════════════════════════════════════════════
@@ -437,23 +635,24 @@ func _blink(_delta: float) -> void:
 
 
 # ═══════════════════════════════════════════════════════════
-# 스킬: 천열 · 단공 · 봉공
+# 고급 마법: 천열 · 단공 · 낙성
 # ═══════════════════════════════════════════════════════════
 
-func _start_cast(kind: String, dur: float) -> void:
+func _start_cast(kind: String) -> void:
 	var dir_x := Input.get_axis("es_left", "es_right")
 	if dir_x > 0.01:
 		facing = 1
 	elif dir_x < -0.01:
 		facing = -1
 	cast_kind = kind
-	_cast_dur = dur
+	_cast_dur = float(CAST_DUR[kind])
 	_cast_fired = false
 	cooldowns[kind] = CD[kind]
 	st = St.CAST
 	st_t = 0.0
 	if not is_on_floor():
 		velocity.y = minf(velocity.y, 0.0) * 0.3
+	EVfx.sigil(art.fingertip(), SIGIL)
 
 
 func _cast(delta: float) -> void:
@@ -462,36 +661,132 @@ func _cast(delta: float) -> void:
 		velocity.y = minf(velocity.y + GRAVITY * delta, FALL_MAX)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
-		velocity.y = move_toward(velocity.y, 20.0, 900.0 * delta) # 시전 중엔 공중에 잠깐 머문다
-	var fire_at: float = {"cheonyeol": 0.07, "dangong": 0.06, "bonggong": 0.07}.get(cast_kind, 0.05)
-	if not _cast_fired and st_t >= fire_at:
+		velocity.y = move_toward(velocity.y, 20.0, 900.0 * delta) # 시전 중엔 공중에 잠깐 머문다 (낙성도 지상과 같게 — 내려찍기 없음)
+	if not _cast_fired and st_t >= float(CAST_FIRE.get(cast_kind, 0.05)):
 		_cast_fired = true
+		_spawn_skill(cast_kind, facing, global_position, 0.0)
+		art.snap_flash()
 		match cast_kind:
 			"cheonyeol":
-				var fl := ESkillFx.Flurry.new()
-				fl.eska = self
-				fl.dir = facing
-				EVfx.add(fl, global_position, false)
-				art.snap_flash()
 				Sfx.play_pitch(&"blip", 1.6, -2.0)
 				Sfx.play(&"whoosh", -4.0)
 			"dangong":
-				var up := ESkillFx.Upsweep.new()
-				up.eska = self
-				up.dir = facing
-				up.area = Rect2(global_position + Vector2(-140, -230), Vector2(280, 222)) # 머리 위 (양옆으로 넓게)
-				EVfx.add(up, global_position, false)
-				art.snap_flash()
 				Sfx.play(&"storm", -6.0)
-			"bonggong":
-				EStill.cast(self, STILL_TIME, STILL_BURST if still_evolved else 0.0)
-				art.snap_flash()
+			"nakseong":
+				Sfx.play_pitch(&"sky_crack", 1.2, -6.0)
+		var echo := float(mods.echo)
+		if echo > 0.0: # 메아리 물약: 같은 마법이 조금 뒤 같은 자리에서 한 번 더
+			get_tree().create_timer(ECHO_DELAY, false).timeout.connect(_spawn_skill.bind(cast_kind, facing, global_position, echo))
 	if _cast_fired and Input.is_action_just_pressed("es_blink") and _blink_cd <= 0.0 and (is_on_floor() or _air_blink):
 		_start_blink(Input.get_axis("es_left", "es_right"))
 		return
 	if st_t >= _cast_dur:
 		st = St.NORMAL
 		st_t = 0.0
+
+
+## 고급 마법 이펙트 하나를 at(발 위치)에 만든다. power > 0 = 메아리(그 세기로 — 세기 필드는 이펙트 쪽이 읽음)
+func _spawn_skill(kind: String, dir: int, at: Vector2, power: float) -> void:
+	if not is_inside_tree():
+		return
+	var n: Node2D
+	match kind:
+		"cheonyeol":
+			var fl := ESkillFx.Flurry.new()
+			fl.eska = self
+			fl.dir = dir
+			n = fl
+		"dangong":
+			var up := ESkillFx.Upsweep.new()
+			up.eska = self
+			up.dir = dir
+			var k := float(mods.size)
+			var sz := UPSWEEP_AREA.size * k
+			up.area = Rect2(at + Vector2(-sz.x * 0.5, UPSWEEP_AREA.end.y - sz.y), sz) # 머리 위 (양옆으로 넓게, 확장 물약이면 발 위 기준으로 커짐)
+			n = up
+		"nakseong":
+			var nk := EMagicFx.Nakseong.new()
+			nk.eska = self
+			nk.dir = dir
+			n = nk
+		_:
+			return
+	if power > 0.0:
+		n.set("power", power)
+	fx_spawned += 1
+	EVfx.add(n, at, false)
+
+
+# ═══════════════════════════════════════════════════════════
+# 대마법: 흑성 · 유성우 · 종말의 운석 · 봉공 (종언 게이지 가득 = 1번)
+# ═══════════════════════════════════════════════════════════
+
+## 의식 시작: 무적, 떠오르며 손을 펼치고 손끝에 큰 문장 → ULT_RITUAL초에 대마법
+func _start_ult() -> void:
+	var dir_x := Input.get_axis("es_left", "es_right")
+	if dir_x > 0.01:
+		facing = 1
+	elif dir_x < -0.01:
+		facing = -1
+	ult_kind = selected_ult()
+	gauge = 0.0
+	_ult_fired = false
+	st = St.ULT
+	st_t = 0.0
+	velocity = Vector2(velocity.x * 0.3, -ULT_RISE)
+	EVfx.sigil(art.fingertip(), ULT_SIGIL)
+	Fx.zoom_punch(0.04)
+	Sfx.play(&"magic_learn", -6.0)
+	Sfx.play_pitch(&"es_tear", 0.7, -6.0)
+
+
+func _ult(delta: float) -> void:
+	velocity.x = move_toward(velocity.x, 0.0, 900.0 * delta)
+	velocity.y = -ULT_RISE if st_t < ULT_RITUAL else move_toward(velocity.y, 0.0, 600.0 * delta) # 의식 중엔 천천히 떠오른다
+	if not _ult_fired and st_t >= ULT_RITUAL:
+		_ult_fired = true
+		_fire_ult(ult_kind)
+	if st_t >= ULT_END:
+		st = St.NORMAL
+		st_t = 0.0
+
+
+func _fire_ult(kind: String) -> void:
+	Fx.hitstop(0.08)
+	Fx.zoom_punch(0.09)
+	Fx.shake(0.6, 0.25)
+	art.snap_flash()
+	Sfx.play(&"star_burst", -3.0)
+	var n: Node2D
+	match kind:
+		"blackstar":
+			var bs := EMagicFx.BlackStar.new()
+			bs.eska = self
+			bs.dir = facing
+			n = bs
+		"meteor":
+			var ms := EMagicFx.MeteorShower.new()
+			ms.eska = self
+			ms.dir = facing
+			n = ms
+		"doom":
+			var dm := EMagicFx.DoomMeteor.new()
+			dm.eska = self
+			dm.dir = facing
+			n = dm
+		"bonggong":
+			EStill.cast(self, STILL_TIME, STILL_BURST if still_evolved else 0.0)
+	if n != null:
+		fx_spawned += 1
+		EVfx.add(n, global_position, false)
+
+
+## 게이지가 모자랄 때: 작은 막힘 소리 + 화면 표시가 살짝 흔들림 (연타해도 소리는 ULT_DENY_GAP마다 한 번)
+func _deny_ult() -> void:
+	if ult_denied > 0.0:
+		return
+	ult_denied = ULT_DENY_GAP
+	Sfx.play(&"block", -12.0)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -507,10 +802,12 @@ func is_dead() -> bool:
 	return st == St.DEAD
 
 
-## 적에게 맞음 (맞았으면 true). 순간이동 중·필살기 중·무적 중엔 안 맞는다
+## 적에게 맞음 (맞았으면 true). 순간이동 중·대마법 의식 중·무적 중엔 안 맞는다. 물약을 마시다 맞으면 마시기가 끊긴다
 func hurt(dmg: int, from: Vector2) -> bool:
-	if invuln > 0.0 or st in [St.DEAD, St.BLINK]:
+	if invuln > 0.0 or st in [St.DEAD, St.BLINK, St.ULT]:
 		return false
+	if st == St.ITEM:
+		_end_item() # 아직 효과가 나기 전이면 on_fire를 부르지 않고 버린다
 	hp = maxi(hp - dmg, 0)
 	invuln = HURT_INVULN
 	hurt_flicker = HURT_INVULN
@@ -543,6 +840,8 @@ func _hurt_state(delta: float) -> void:
 
 
 func _die() -> void:
+	item_kind = ""
+	_item_cb = Callable()
 	st = St.DEAD
 	st_t = 0.0
 	hurt_flicker = 0.0
@@ -560,6 +859,9 @@ func respawn(pos: Vector2) -> void:
 	hp = MAX_HP
 	st = St.NORMAL
 	st_t = 0.0
+	item_kind = ""
+	_item_cb = Callable()
+	belt.refill() # 쓰러지면 허리띠 물약이 다시 가득 (design.md 4-2)
 	invuln = RESPAWN_INVULN
 	hurt_flicker = RESPAWN_INVULN
 	art.revive()

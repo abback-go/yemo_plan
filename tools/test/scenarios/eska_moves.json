@@ -11,6 +11,7 @@
 [145, "eval", "eska.set('global_position', Vector2(620, 300))"], [150, "press", "es_left"], [151, "release", "es_left"],
 [160, "tap", "es_skill"], [168, "shot", "e10_cheonyeol_a"], [176, "shot", "e11_cheonyeol_b"],
 [200, "press", "es_up"], [201, "tap", "es_skill"], [205, "release", "es_up"], [210, "shot", "e12_dangong_a"], [224, "shot", "e13_dangong_b"],
+[250, "eval", "eska.fill_gauge()"], [251, "eval", "eska.set('ult_index', 3)"],
 [260, "tap", "es_bind"], [270, "shot", "e14_bind_a"], [320, "shot", "e15_bind_hold"],
 [330, "press", "es_jump"], [345, "release", "es_jump"], [346, "tap", "es_attack"], [349, "shot", "e16_air1"], [356, "tap", "es_attack"], [360, "shot", "e17_air2"],
 [410, "shot", "e18_bind_break"],
