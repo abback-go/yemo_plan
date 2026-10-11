@@ -23,7 +23,7 @@ const BOTTLE_PAD := 3.0 ## 표적 판정 사각형을 이만큼 넓혀 맞힘
 const BOTTLE_SPIN := 14.0 ## 도는 빠르기 (rad/s)
 const RIFT_BEND := 1400.0 ## 열린 틈 가까이를 지나는 병이 그쪽으로 휘는 세기 (px/s²)
 const SUCK_BITS := 12 ## 틈에 빨려 드는 자리로 모여드는 알갱이 수
-const FRESH_GOLD := Color("#ffd77a") ## 갓 찢긴 틈에 스민 표시 (금빛 섬광·빛살·번지는 머리)
+const FRESH_STAR := Color("#fffaf0") ## 갓 찢긴 틈 신호: 흰 별빛 (물약 색과 겹치지 않게 — 호박색 속박에서도 구별)
 const FRESH_SPARKS := 10
 
 
@@ -270,6 +270,25 @@ static func draw_cocoon(pd: PDraw, rc: Rect2, origin: Vector2, t: float, a: floa
 		pd.draw_rect(Rect2(lp.x + w * 0.5 - 0.8, y0 - 0.8, 1.6, 1.6), Color(col, a))
 
 
+## 방사형 거미줄 원반 (깨진 자리 그물 · 틈 속박에 걸린 표적): c 가운데(로컬), rr 반지름, sq 세로 눌림, spokes 바큇살 수, rings 둘레 실 자리(반지름 비율)
+static func draw_web_disc(pd: PDraw, c: Vector2, rr: float, sq: float, col: Color, acc: Color, a: float, spokes := 12, rings: Array = [0.3, 0.55, 0.78, 0.98]) -> void:
+	pd.draw_set_transform(c, 0.0, Vector2(1.0, sq))
+	pd.glow(Vector2.ZERO, rr * 1.05, Color(col, 0.16 * a), 0.0)
+	pd.draw_set_transform(Vector2.ZERO)
+	for i in spokes:
+		var d := Vector2.from_angle(float(i) / spokes * TAU)
+		pd.draw_line(c, c + Vector2(d.x, d.y * sq) * rr, Color(col, 0.6 * a), 1.0)
+	for ring: float in rings:
+		for i in spokes:
+			var a0 := float(i) / spokes * TAU
+			var a1 := float(i + 1) / spokes * TAU
+			var p0 := c + Vector2(cos(a0), sin(a0) * sq) * rr * ring
+			var p1 := c + Vector2(cos(a1), sin(a1) * sq) * rr * ring
+			var m := c + Vector2(cos((a0 + a1) * 0.5), sin((a0 + a1) * 0.5) * sq) * rr * ring * 0.86 # 살짝 처진 실
+			pd.draw_line(p0, m, Color(acc, 0.45 * a), 1.0)
+			pd.draw_line(m, p1, Color(acc, 0.45 * a), 1.0)
+
+
 ## 기절한 표적 머리 위에 도는 별 셋
 static func draw_stun_stars(pd: PDraw, rc: Rect2, origin: Vector2, t: float, a: float, acc: Color) -> void:
 	var head := Vector2(rc.get_center().x, rc.position.y - 6.0) - origin
@@ -303,7 +322,7 @@ static func rift_brew(id: String, strong: bool, pts: PackedVector2Array, w: floa
 	if fresh: # 갓 찢긴 틈: 멈춤·흔들림 + 금빛 반짝임이 튐
 		Fx.hitstop(EPotions.RIFT_HITSTOP)
 		Fx.shake(0.2, 0.14)
-		PVfx.sparks(at, FRESH_SPARKS, FRESH_GOLD, 150.0, 0.4, Vector2.UP, 180.0, Vector2(0, 120))
+		PVfx.sparks(at, FRESH_SPARKS, FRESH_STAR, 150.0, 0.4, Vector2.UP, 180.0, Vector2(0, 120))
 	else:
 		Fx.shake(0.08, 0.08)
 	match id: # 물약마다 덧붙는 소리 (틈 자체는 es_rift_brew)
@@ -618,7 +637,7 @@ class Bottle extends PDraw.Canvas:
 		var c := EPotions.color(id)
 		if _ring >= 0.0 and _ring < RING_T: # 닿은 순간 물약 색 고리
 			var f := _ring / RING_T
-			pd.draw_arc(Vector2.ZERO, 5.0 + 12.0 * f, 0.0, TAU, 18, Color(EPotionFx.FRESH_GOLD if _fresh else EPotions.accent(id), 1.0 - f), 2.0 * (1.0 - f) + 0.6)
+			pd.draw_arc(Vector2.ZERO, 5.0 + 12.0 * f, 0.0, TAU, 18, Color(EPotionFx.FRESH_STAR if _fresh else EPotions.accent(id), 1.0 - f), 2.0 * (1.0 - f) + 0.6)
 			pd.draw_arc(Vector2.ZERO, 3.0 + 8.0 * f, 0.0, TAU, 14, Color(c, 0.8 * (1.0 - f)), 1.0)
 		if _mode != "" and _hold <= 0: # 빨려 드는 쪽으로 늘어난 빛 꼬리
 			var d := _to - global_position
@@ -722,24 +741,7 @@ class Splash extends PDraw.Canvas:
 	## 속박: 땅에 펼쳐진 호박색 거미줄 그물 + 묶인 적을 감는 실(고치)
 	func _paint_web(e: float, fade: float) -> void:
 		var a := fade
-		var spokes := 12
-		var sq := 0.3
-		var rr := r * e
-		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, sq))
-		pd.glow(Vector2.ZERO, rr * 1.05, Color(col, 0.16 * a), 0.0)
-		pd.draw_set_transform(Vector2.ZERO)
-		for i in spokes:
-			var d := Vector2.from_angle(float(i) / spokes * TAU)
-			pd.draw_line(Vector2.ZERO, Vector2(d.x, d.y * sq) * rr, Color(col, 0.6 * a), 1.0)
-		for ring: float in [0.3, 0.55, 0.78, 0.98]:
-			for i in spokes:
-				var a0 := float(i) / spokes * TAU
-				var a1 := float(i + 1) / spokes * TAU
-				var p0 := Vector2(cos(a0), sin(a0) * sq) * rr * ring
-				var p1 := Vector2(cos(a1), sin(a1) * sq) * rr * ring
-				var m := Vector2(cos((a0 + a1) * 0.5), sin((a0 + a1) * 0.5) * sq) * rr * ring * 0.86 # 살짝 처진 실
-				pd.draw_line(p0, m, Color(acc, 0.45 * a), 1.0)
-				pd.draw_line(m, p1, Color(acc, 0.45 * a), 1.0)
+		EPotionFx.draw_web_disc(pd, Vector2.ZERO, r * e, 0.3, col, acc, a, 12)
 		for d in tracked:
 			if not _alive(d):
 				continue
@@ -982,10 +984,11 @@ class BuffView extends PDraw.Canvas:
 ## 틈 달이기: 물약 색의 밝은 머리가 스며든 자리에서 틈 가장자리를 타고 양쪽으로 번지고(틈 테가 물드는 그림은 ERifts가 그림),
 ## 번지는 머리가 표적의 가장 가까운 자리에 닿는 순간 효과가 걸린다. 틈이 꿰매지는 순간(ERifts.left(rift_id) = 0) 틈을 따라 번쩍이며 한 번 더(stitch_one).
 ## 물약마다 남는 그림:
-## 속박 = 틈을 따라 쳐진 호박색 거미줄(불규칙 방사형 실 + 처진 줄 + 이슬, 점점 흐려짐) + 표적으로 뻗은 실·고치 · 비명 = 틈이 떨며 자리마다 음파 고리 + 머리 위 별
-## 부식 = 틈에 맺힌 디더 초록 연기가 뚝뚝 떨어져 바닥에 웅덩이로 고임(틈 둘레·웅덩이에 든 적에게 부식) · 흐린 물 = 틈을 덮은 잿빛 일렁임 · 쓴 물 = 갈색 김.
+## 속박 = 틈을 따라 쳐진 호박색 거미줄(불규칙 방사형 실 + 처진 줄 + 이슬, 지나간 자리부터 1초 안에 흐려짐) + 묶인 표적에 방사형 거미줄 원반 하나 · 비명 = 틈이 떨며 자리마다 음파 고리 + 머리 위 별
+## 부식 = 틈을 따라 맺힌 디더 덩어리 4~6개가 늘어지며 뚝뚝 떨어져 바닥에 거품 점 있는 납작한 웅덩이로 고임(테두리선 없음, 틈 둘레·웅덩이에 든 적에게 부식) · 흐린 물 = 틈을 덮은 잿빛 일렁임 · 쓴 물 = 갈색 김.
 ## 흑성(pts 없음): 가운데서 물약 색 고리가 퍼지며 닿는 표적마다.
-## 갓 찢긴 틈(fresh)이면 스며든 자리에서 금빛 빛살이 터지고 번지는 머리가 금빛 — 늦은 틈은 물약 색만 (보상 차이가 보이게).
+## 갓 찢긴 틈(fresh)이면 스며든 자리에서 흰 네 갈래 별빛이 튀고 금띠 두른 작은 병(진한 표시)이 떠오름 — 색이 아니라 모양으로 구별
+## (틈 가장자리 섬광·꿰맴 선은 ERifts 쪽). 늦은 틈은 물약 색 고리만.
 ## 비용: 틈을 10px마다 표본으로 나누고, 부식은 디더 사각형(삼각형 2개)만 쓴다.
 class RiftBrew extends PDraw.Canvas:
 	const RACE_V := 700.0 ## 물약 색이 틈을 타고 번지는 빠르기 (px/s)
@@ -1004,15 +1007,24 @@ class RiftBrew extends PDraw.Canvas:
 	const PUFF_EVERY := 3 ## 쓴 물: 이 표본마다 김 덩이 하나
 	const ROT_TICK := 0.1
 	const ROT_REACH := 8.0 ## 독안개는 틈 ± (RIFT_BAND + 이만큼)
-	const DRIP_EVERY := 3 ## 부식: 이 표본마다(약 30px) 떨어지는 줄기 하나
-	const DRIP_MAX := 14 ## 부식: 줄기 수 상한 (긴 틈은 간격을 넓힘)
+	const DRIP_MIN_N := 4 ## 부식: 틈을 따라 맺히는 덩어리 수 (틈 길이 DRIP_SPAN마다 하나, 4~6개)
+	const DRIP_MAX_N := 6
+	const DRIP_SPAN := 70.0
+	const BLOB_SAG := 0.6 ## 부식 덩어리: 한 번 도는 동안 이만큼은 늘어지고 나머지는 떨어짐
+	const BLOB_ROWS := 5 ## 늘어진 덩어리 최대 길이 (디더 칸)
+	const POOL_BUBBLES := 3 ## 웅덩이마다 거품 점
 	const DRIP_FALL := 400.0 ## 부식: 바닥을 찾는 아래 거리 (없으면 DRIP_NO_FLOOR 아래에서 끊김)
 	const DRIP_NO_FLOOR := 40.0
 	const POOL_W := 14.0 ## 부식 웅덩이 반폭 (자라는 끝)
 	const POOL_GROW := 10.0 ## 웅덩이가 자라는 빠르기 (px/s)
 	const DITHER := 2.0 ## 디더 칸 크기 (px)
-	const FRESH_T := 0.3 ## 갓 찢긴 틈: 금빛 빛살이 터지는 시간
-	const FRESH_RAYS := 8
+	const FRESH_T := 0.35 ## 갓 찢긴 틈: 흰 별빛이 튀는 시간
+	const FRESH_STARS := 6
+	const FRESH_MARK_T := 0.7 ## 갓 찢긴 틈: 진한 표시(금띠 병)가 떠올랐다 사라지는 시간
+	const STRAND_FADE := 1.0 ## 속박: 틈을 따라 남는 실이 흐려지는 시간 (지나간 자리부터)
+	const DISC_MIN := 16.0 ## 속박: 표적에 걸리는 거미줄 원반 반지름 (몸 크기에 맞춰 더 크게)
+	const DISC_SPOKES := 8 ## 원반 바큇살 (깨진 자리 그물 12보다 적게 — 표적 여럿이면 그림 비용)
+	const DISC_RINGS := [0.38, 0.7, 1.0]
 	var id := ""
 	var strong := false
 	var rift_id := 0 ## 스며든 틈 번호 (꿰매지는 순간을 ERifts.left로 봄, 0 = 흑성 등)
@@ -1069,10 +1081,11 @@ class RiftBrew extends PDraw.Canvas:
 		if not _star and id == "bitter_t":
 			for i in range(0, _s.size(), PUFF_EVERY):
 				_puffs.append([i, randf_range(8.0, 13.0), randf() * TAU])
-		if not _star and id == "rot":
-			var stride := maxi(DRIP_EVERY, ceili(float(_s.size()) / float(DRIP_MAX)))
-			for i in range(0, _s.size(), stride):
-				_drips.append([i, randf(), randf_range(1.1, 1.8), _s[i].y + DRIP_NO_FLOOR])
+		if not _star and id == "rot" and _s.size() > 1:
+			var n := clampi(roundi(float(_s.size()) * STEP / DRIP_SPAN), DRIP_MIN_N, DRIP_MAX_N)
+			for q in n: # 틈 양 끝을 조금 비우고 고르게
+				var i := clampi(roundi((float(q) + 0.5) / float(n) * float(_s.size() - 1)), 0, _s.size() - 1)
+				_drips.append([i, randf(), randf_range(0.7, 1.1), _s[i].y + DRIP_NO_FLOOR])
 			_floor_pending = true
 		if not _star and id == "bind" and _s.size() > 1:
 			_build_web()
@@ -1260,18 +1273,22 @@ class RiftBrew extends PDraw.Canvas:
 		if t < ENTRY_T:
 			var f := t / ENTRY_T
 			var e := f * f
-			var ring := EPotionFx.FRESH_GOLD if fresh else acc
+			var ring := EPotionFx.FRESH_STAR if fresh else acc
 			pd.glow(Vector2.ZERO, 7.0, Color(ring, 0.8 * (1.0 - f)), 0.0)
 			pd.draw_arc(Vector2.ZERO, ENTRY_R * (1.0 - e) + 1.5, 0.0, TAU, 16, Color(ring, 1.0 - f), 1.4)
 			pd.draw_arc(Vector2.ZERO, ENTRY_R * 1.5 * (1.0 - e) + 2.0, 0.0, TAU, 16, Color(col, 0.55 * (1.0 - f)), 1.0)
-		if fresh and t < FRESH_T:
+		if fresh and t < FRESH_T: # 흰 네 갈래 별빛이 튀어 나감
 			var g := t / FRESH_T
 			var ge := 1.0 - pow(1.0 - g, 3.0)
-			for q in FRESH_RAYS:
-				var d := Vector2.from_angle(float(q) / FRESH_RAYS * TAU + 0.2)
-				var ln := (14.0 if q % 2 == 0 else 8.0) + 18.0 * ge
-				pd.line2(d * (4.0 + 10.0 * ge), d * ln, Color(1, 1, 1, 0.95 * (1.0 - g)), Color(EPotionFx.FRESH_GOLD, 0.0), 2.0 * (1.0 - g) + 0.6)
-			pd.glow(Vector2.ZERO, 12.0 + 8.0 * ge, Color(EPotionFx.FRESH_GOLD, 0.5 * (1.0 - g)), 0.0)
+			for q in FRESH_STARS:
+				var d := Vector2.from_angle(float(q) / FRESH_STARS * TAU + 0.5)
+				var sp := d * (6.0 + 22.0 * ge) + Vector2(0, 10.0 * g * g)
+				var sz := 3.6 * (1.0 - g) + 1.0
+				EPotionFx.star4(pd, sp, sz + 0.8, Color(OUT, 0.5 * (1.0 - g)))
+				EPotionFx.star4(pd, sp, sz, Color(EPotionFx.FRESH_STAR, 1.0 - g))
+		if fresh and t < FRESH_MARK_T: # 진한 표시: 금띠 두른 작은 병이 떠올랐다 사라짐
+			var m := t / FRESH_MARK_T
+			EPotionFx.draw_bottle(pd, Vector2(0, -10.0 - 16.0 * m), id, 0.9, 0.85, 1.0 - m * m, 0.0, true)
 		if _star:
 			_paint_star(front, fade)
 		else:
@@ -1299,6 +1316,8 @@ class RiftBrew extends PDraw.Canvas:
 			var hot := clampf(1.0 - age / HOT_T, 0.0, 1.0)
 			if hot <= 0.0: # 지나간 자리의 물듦은 ERifts가 그림
 				continue
+			if id == "rot": # 부식은 테두리선 없이 (덩어리·웅덩이만) — 번지는 머리만 아래에서
+				continue
 			var c := col.lerp(acc, hot)
 			var a := hot * fade
 			var o0 := _n[i] * half
@@ -1311,7 +1330,7 @@ class RiftBrew extends PDraw.Canvas:
 		if front < _far + STEP:
 			for i in _s.size():
 				if absf(_sd[i] - front) < STEP * 0.5:
-					pd.glow(_s[i], 7.0, Color(EPotionFx.FRESH_GOLD if fresh else acc, 0.9), 0.0)
+					pd.glow(_s[i], 7.0, Color(acc, 0.9), 0.0)
 					pd.draw_rect(Rect2(_s[i] - Vector2(1.2, 1.2), Vector2(2.4, 2.4)), Color.WHITE)
 
 	## 속박: 틈을 따라 쳐진 호박색 거미줄 (불규칙 방사형 실 + 처진 줄 + 이슬) — 번짐이 지나간 자리부터 드러나고 점점 흐려짐
@@ -1323,24 +1342,36 @@ class RiftBrew extends PDraw.Canvas:
 		for q in _web_d.size():
 			if _web_d[q] > front:
 				continue
+			var sa := a * _strand_a(_web_d[q], front) # 지나간 자리부터 STRAND_FADE 안에 흐려짐
+			if sa <= 0.0:
+				continue
 			var p0 := _web[q * 2]
 			var p1 := _web[q * 2 + 1]
 			var k := _web_k[q]
 			if k >= 1.0: # 처진 줄은 어두운 테 위에 (참격·틈 위에서도 보이게)
-				pd.draw_line(p0, p1, Color(OUT, 0.4 * a), 2.2)
-			pd.draw_line(p0, p1, Color(acc if k >= 0.8 else col, 0.9 * k * a), 1.0)
+				pd.draw_line(p0, p1, Color(OUT, 0.4 * sa), 2.2)
+			pd.draw_line(p0, p1, Color(acc if k >= 0.8 else col, 0.9 * k * sa), 1.0)
 		for dw in _dew:
 			if dw.z <= front:
-				pd.draw_rect(Rect2(dw.x - 1.0, dw.y - 1.0, 2.0, 2.0), Color(col, a))
-		# 표적으로 뻗은 실 (가장 가까운 표본에서 몸 위쪽으로)
+				var da := a * _strand_a(dw.z, front)
+				if da > 0.0:
+					pd.draw_rect(Rect2(dw.x - 1.0, dw.y - 1.0, 2.0, 2.0), Color(col, da))
+		# 표적으로 뻗은 실 (가장 가까운 표본에서 몸 가운데로, 같이 흐려짐)
 		for d in tracked:
 			if not _alive(d):
 				continue
+			var ta := a * _strand_a(float(_reach.get(d, 0.0)), front)
+			if ta <= 0.0:
+				continue
 			var rc: Rect2 = d.hit_rect()
-			var top := to_local(Vector2(rc.get_center().x, rc.position.y + 4.0))
-			var from := _nearest(top)
-			pd.draw_line(from, top, Color(OUT, 0.45 * a), 2.2)
-			pd.draw_line(from, top, Color(acc, 0.85 * a), 1.0)
+			var mid := to_local(rc.get_center())
+			var from := _nearest(mid)
+			pd.draw_line(from, mid, Color(OUT, 0.45 * ta), 2.2)
+			pd.draw_line(from, mid, Color(acc, 0.85 * ta), 1.0)
+
+	## 틈을 따라 남는 실의 진하기: 번짐이 지나간 뒤 STRAND_FADE초에 걸쳐 0으로
+	func _strand_a(d: float, front: float) -> float:
+		return clampf(1.0 - (front - d) / RACE_V / STRAND_FADE, 0.0, 1.0)
 
 	## 비명: 번진 자리마다 떨리는 틈 + 끊어져 퍼지는 음파 고리
 	func _paint_rings(front: float) -> void:
@@ -1388,7 +1419,7 @@ class RiftBrew extends PDraw.Canvas:
 			return 0.0
 		return minf((front - _sd[i]) / RACE_V * POOL_GROW, POOL_W)
 
-	## 부식: 틈에 맺힌 디더 초록 연기 → 뚝뚝 떨어지는 방울 → 바닥에 고이는 디더 웅덩이 (사각형만 — 싸게)
+	## 부식: 틈을 따라 맺힌 디더 덩어리가 아래로 늘어지다 떨어지고(4~6개), 바닥엔 거품 점이 있는 납작한 디더 웅덩이 — 테두리선 없음, 사각형만
 	func _paint_drip(front: float) -> void:
 		var hold := EPotions.ROT_CLOUD_T * _k
 		var dark := col.darkened(0.45)
@@ -1403,25 +1434,36 @@ class RiftBrew extends PDraw.Canvas:
 				continue
 			var p := (_s[i] / DITHER).round() * DITHER
 			var fy: float = dr[3]
-			# 틈에 맺힌 연기 (2px 칸 체크무늬)
-			for cy in 2:
-				for cx in range(-2, 3):
-					if (cx + cy + flick) % 2 == 0:
-						pd.draw_rect(Rect2(p + Vector2(cx, cy) * DITHER, Vector2(DITHER, DITHER)), Color(col if cy == 0 else dark, 0.6 * ca))
-			# 떨어지는 방울 + 꼬리
-			if fy - p.y > 6.0:
-				var f := fmod(age * float(dr[2]) + float(dr[1]), 1.0)
-				var y := lerpf(p.y + DITHER * 2.0, fy - 2.0, f * f)
-				pd.draw_rect(Rect2(p.x, y, DITHER, DITHER * 1.5), Color(acc, 0.9 * ca))
-				pd.draw_rect(Rect2(p.x + 0.5, y - 5.0, 1.0, 4.0), Color(col, 0.45 * ca))
-			# 바닥 웅덩이 (두 줄 디더, 가운데부터 자람)
+			var cyc := fmod(age * float(dr[2]) + float(dr[1]), 1.0)
+			var sag := clampf(cyc / BLOB_SAG, 0.0, 1.0)
+			# 맺힌 덩어리: 위는 넓고 아래로 갈수록 좁게, 늘어지는 만큼 길어짐
+			var rows := 2 + int(round(sag * float(BLOB_ROWS - 2))) if cyc < BLOB_SAG else 2
+			for row in rows:
+				var half := maxi(2 - int(float(row) * 0.6), 0)
+				for cx in range(-half, half + 1):
+					if (cx + row + flick) % 2 == 0 or row == rows - 1:
+						pd.draw_rect(Rect2(p + Vector2(cx, row) * DITHER, Vector2(DITHER, DITHER)), Color(col if row < 2 else dark, 0.7 * ca))
+			# 떨어지는 방울 (늘어진 끝이 끊어져 바닥까지)
+			if cyc >= BLOB_SAG and fy - p.y > 6.0:
+				var f := (cyc - BLOB_SAG) / (1.0 - BLOB_SAG)
+				var y := lerpf(p.y + DITHER * float(BLOB_ROWS), fy - 2.0, f * f)
+				pd.draw_rect(Rect2(p.x, y, DITHER, DITHER * 2.0), Color(col, 0.9 * ca))
+				pd.draw_rect(Rect2(p.x, y + DITHER * 2.0, DITHER, DITHER), Color(dark, 0.8 * ca))
+			# 바닥 웅덩이: 납작한 디더 두 줄(아래 줄이 더 넓음) + 올라와 터지는 거품 점
 			var pw := floorf(_pool_w(i, front) / DITHER) * DITHER
 			var x := -pw
 			while x < pw:
 				for row in 2:
-					if (int(x / DITHER) + row + flick) % 2 == 0:
-						pd.draw_rect(Rect2(p.x + x, fy - DITHER * float(row + 1), DITHER, DITHER), Color(col if row == 0 else dark, (0.65 - 0.25 * float(row)) * ca))
+					var inner := absf(x) < pw - DITHER * 2.0 or row == 0
+					if inner and (int(x / DITHER) + row + flick) % 2 == 0:
+						pd.draw_rect(Rect2(p.x + x, fy - DITHER * float(2 - row), DITHER, DITHER), Color(col if row == 0 else dark, (0.55 + 0.15 * float(row)) * ca))
 				x += DITHER
+			if pw >= DITHER * 3.0:
+				for q in POOL_BUBBLES:
+					var ph := fmod(t * 1.3 + float(q) * 0.37 + float(dr[1]), 1.0)
+					var bx := roundf(sin(float(q) * 2.7 + float(dr[1]) * 6.0) * (pw - DITHER) / DITHER) * DITHER
+					if ph < 0.75:
+						pd.draw_rect(Rect2(p.x + bx, fy - DITHER * 2.0 - roundf(ph * 3.0), 1.0 + roundf(ph * 1.5), 1.0 + roundf(ph * 1.5)), Color(acc, 0.85 * ca))
 
 	## 흐린 물: 틈을 덮은 잿빛 일렁임 (틈이 1초 더 열려 있는 동안)
 	func _paint_murky(front: float, fade: float) -> void:
@@ -1449,8 +1491,9 @@ class RiftBrew extends PDraw.Canvas:
 			match id:
 				"bind":
 					var bound: bool = d.is_bound() if d.has_method("is_bound") else t < EPotions.BIND_T * _k
-					if bound:
-						EPotionFx.draw_cocoon(pd, rc, global_position, t, fade, col, acc, false)
+					if bound: # 표적엔 방사형 거미줄 원반 하나 (깨진 자리 그물과 같은 그림)
+						var rr := maxf(DISC_MIN, maxf(rc.size.x, rc.size.y) * 0.75)
+						EPotionFx.draw_web_disc(pd, rc.get_center() - global_position, rr, 0.6, col, acc, fade, DISC_SPOKES, DISC_RINGS)
 				"scream":
 					var left := EPotions.scream_time(strong) + float(_reach.get(d, 0.0)) / RACE_V - t
 					if _stitch_t >= 0.0:
