@@ -41,6 +41,7 @@ var contact_dmg := 1
 var lockable := true ## 겨누기 대상인가 (구슬 등은 false)
 var still_resist := 0.0 ## 강자: 공간 고정 중에도 이만큼의 빠르기로 움직임 (0 = 완전히 멈춤)
 var status_resist := 0.0 ## 강자: 묶음·기절 시간이 (1 - 이 값)배로 줄어듦 (물약 속박·비명)
+var hold_cap := 0.0 ## 강자: 한 번에 묶이거나(root) 기절하는(stun) 최대 시간 (0 = 상한 없음) — 저항을 무시하는 틈 물약도 이 위로는 못 묶음
 var vuln_t := 0.0 ## 부식: 남은 시간 동안 받는 피해 × vuln_mult
 var vuln_mult := 1.0
 var haste_t := 0.0 ## 쓴 물: 남은 시간 동안 생각·공격·움직임이 haste_mult배로 빨리 흐름
@@ -196,14 +197,19 @@ func is_bound() -> bool:
 
 ## 속박: sec초 묶음 (하던 동작 끊김). 강자는 status_resist만큼 짧게
 func root(sec: float) -> void:
-	bind(sec * (1.0 - status_resist), false)
+	bind(_cap_hold(sec * (1.0 - status_resist)), false)
 
 
 ## 비명: 하던 동작이 끊기고 sec초 기절 (경직). 강자는 status_resist만큼 짧게
 func stun(sec: float) -> void:
-	stagger = maxf(stagger, sec * (1.0 - status_resist))
+	stagger = maxf(stagger, _cap_hold(sec * (1.0 - status_resist)))
 	velocity.x = 0.0
 	_interrupted()
+
+
+## 강자 최대 묶임·기절 (hold_cap)
+func _cap_hold(sec: float) -> float:
+	return minf(sec, hold_cap) if hold_cap > 0.0 else sec
 
 
 ## 부식: sec초 동안 받는 피해 × mult

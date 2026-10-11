@@ -22,11 +22,11 @@ enum S { INTRO, IDLE, WALK, IAI_WIND, IAI_DASH, IAI_FOLLOW, IAI_SHEATHE, IAI_RES
 	RAIN_WIND, RAIN_HOLD, RAIN_REST, VICTOR }
 
 # ─── 몸·체력 ─────────────────────────────────────────────
-## 봇으로 맞춤 (tools/test/eska_boss_bot.gd — 마법·물약·대마법 모두 사용, 루프2): 33600(기획 시작값)이면 잘하는 사람 약 1.6분으로 너무 짧아
-## 42000 · 버팀 2400 → 잘하는 사람(놓침 20%·틈 30% 흘림) 약 2.0~2.5분, 서툰 사람(35%·50%·반응 0.2초) 약 3~4.3분·쓰러짐 0~1번.
-## 다른 작업자의 마법·물약 개편(낙성 겨눔·단공 튕겨내기·메아리)이 합쳐지면 다시 잴 것.
-const HP := 42000
-const POISE := 2400.0
+## 봇으로 맞춤 (tools/test/eska_boss_bot.gd — 마법·물약·대마법·틈 달이기·단공 딱 맞춤 모두 사용, FRAME_CLOCK=1):
+## 시작값 48000·3600에선 잘함 113~121초·무너짐 6~7번 → 52000·5400: 잘함 126~133초·무너짐 5~6번, 서툼 128~183초(쓰러지면 290~306초)
+const HP := 52000
+const POISE := 5400.0
+const HOLD_CAP := 2.5 ## 한 번에 묶이거나 기절하는 최대 시간 (틈에 스민 진한 속박 4.5초 → 2.5초 — EEnemy.hold_cap)
 const PHASE2_AT := 0.55 ## 체력이 이 몫 아래로 내려가면 2막
 const STILL_RESIST_P2 := 0.25
 const BODY := Vector2(16, 50) ## 피격 사각형 (에스카 30 — 모자 포함 약 45 — 보다 머리 하나 큼)
@@ -96,6 +96,11 @@ const CTR_RELAX := 0.6
 const CTR_COOL := 4.0
 const CTR_GRACE := 0.3 ## 자세를 잡고 고리가 다 그려지기까지 — 이 사이에 들어온 타격(이미 날린 천열 등)은 그냥 맞는다
 const CTR_DMG := 1
+const CTR_RING_R := 52.0 ## 반격 자세 발밑 고리 반지름 (다 조여든 크기 — 예전 30)
+const CTR_RING_FROM := 16.0 ## 고리가 이만큼 더 크게 시작해 조여듦
+const CTR_GUARD := Vector2(24.0, 36.0) ## 몸을 두른 세운 타원 (가로·세로 반지름) — "지금 때리면 받아친다"
+const CTR_GUARD_Y := -26.0 ## 타원 가운데 높이 (발 기준)
+const CTR_GUARD_ARCS := 4 ## 타원을 도는 끊긴 호 수
 
 # ─── 막 전환 ─────────────────────────────────────────────
 const PHASE_T := 3.0
@@ -223,6 +228,7 @@ func _init() -> void:
 	still_resist = 0.0
 	status_resist = 0.6
 	max_poise = POISE
+	hold_cap = HOLD_CAP
 	break_time = 2.0
 	break_mult = 1.25
 	death_time = DEFEAT_T
@@ -1690,16 +1696,29 @@ func _paint_shine(q: PDraw) -> void:
 		q.glow(eye + Vector2(0.4, 0), 3.5 + _eye_glint * 4.0, Color(EKenseiFx.WHITE, 0.45 * ea * a), 0.0)
 		if _eye_glint > 0.05:
 			q.line2(eye, eye + Vector2(10.0 * _eye_glint, -0.6), Color(EKenseiFx.WHITE, _eye_glint * a), Color(EKenseiFx.RED, 0.0), 1.0)
-	# 반격 자세: 발밑 고리 (붉은 원이 조여듦) — 이때 때리면 반격
+	# 반격 자세: 발밑 큰 고리(조여듦) + 몸을 두른 끊긴 타원이 돎 — 이때 때리면(누르고 있기 베기 포함) 받아친다
 	if _ring > 0.01:
-		var rr := 30.0 + 8.0 * (1.0 - _ring)
+		var rr := CTR_RING_R + CTR_RING_FROM * (1.0 - _ring)
 		var pulse := 0.7 + 0.3 * sin(t * 9.0)
+		var ra := _ring * a
 		q.draw_set_transform_matrix(_base * Transform2D(0.0, Vector2(1.0, 0.28), 0.0, Vector2(0, -1)))
-		q.draw_arc(Vector2.ZERO, rr, 0.0, TAU, 40, Color(EKenseiFx.RED_HOT, 0.75 * _ring * pulse * a), 1.4)
-		q.draw_arc(Vector2.ZERO, rr - 5.0, 0.0, TAU, 40, Color(EKenseiFx.WHITE, 0.35 * _ring * a), 0.8)
+		q.glow(Vector2.ZERO, rr, Color(EKenseiFx.RED, 0.16 * ra * pulse), 0.0)
+		q.draw_arc(Vector2.ZERO, rr, 0.0, TAU, 48, Color(EKenseiFx.RED_HOT, 0.85 * ra * pulse), 2.0)
+		q.draw_arc(Vector2.ZERO, rr - 6.0, 0.0, TAU, 48, Color(EKenseiFx.WHITE, 0.45 * ra), 1.0)
 		q.draw_set_transform_matrix(_base)
+		# 몸을 두른 타원: 끊긴 호 넷이 천천히 돌며, 다 그려지면(받아칠 준비) 밝아짐
+		var gc := Vector2(0, CTR_GUARD_Y)
+		var ready_k := 1.0 if _ring >= 1.0 else 0.55
+		for i in CTR_GUARD_ARCS:
+			var a0 := t * 1.6 + TAU * float(i) / float(CTR_GUARD_ARCS)
+			var pts := PackedVector2Array()
+			for k in 9:
+				var an := a0 + 0.9 * _ring * float(k) / 8.0
+				pts.append(gc + Vector2(cos(an) * CTR_GUARD.x, sin(an) * CTR_GUARD.y))
+			q.draw_polyline(pts, Color(EKenseiFx.RED_HOT, 0.8 * ra * pulse * ready_k), 1.4)
+		q.glow(gc, CTR_GUARD.x * 1.1, Color(EKenseiFx.RED, 0.14 * ra * pulse), 0.0)
 		var hg := Vector2(5, -20)
-		q.glow(hg, 10.0, Color(EKenseiFx.RED, 0.3 * _ring * pulse * a), 0.0)
+		q.glow(hg, 12.0, Color(EKenseiFx.RED, 0.35 * ra * pulse), 0.0)
 	# 낙화: 떨어질 자리 표식
 	if st in [S.LEAP_UP, S.LEAP_HANG, S.LEAP_FALL]:
 		var gy := _floor_y() - global_position.y

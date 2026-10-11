@@ -5,7 +5,9 @@ extends Node
 ##   이동 · 기본 베기 · 천열 · 낙성(↓A, 조금 떨어진 틈에) · 순간이동(예고 끝에 맞춰 피함) · 점프(비검 파도·낙화 충격파)
 ##   · 단공(↑A)으로 다가오는 비검 파도·머리 위 천검 칼빛을 지움 (단공이 튕겨내기를 할 줄 알 때만 — 모르면 예전처럼 점프·피하기)
 ##   · 대마법(게이지 가득: 무너짐·묶임·긴 틈에 종말의 운석, 오래 기다리면 아무 틈에나)
-##   · 물약: 체력 3 이하면 치유(F) · 메아리(↑F)를 틈 앞에 · 반격 자세(눈 감음)에 속박/비명(↓F) 던지기 · 열린 틈(ERifts)이 검성 곁이면 ↓F 던져 넣기
+##   · 물약: 체력 3 이하면 치유(F) · 메아리(↑F)를 틈 앞에 · 반격 자세(눈 감음)에 속박/비명(↓F) 던지기
+##   · 틈 달이기(루프3): 천열을 쓰고 0.3~0.5초 뒤 ↓F를 던져 천열이 찢은 틈에 스미게 (진함 + 강자 저항 무시 + 꿰맬 때 한 번 더)
+##   · 단공은 "딱 맞춤"(발사체가 몸 70px 안에 왔을 때 지움 → 쿨다운 초기화·게이지)을 노려 그 거리에서 누름
 ## 다른 작업자가 만드는 기능(단공 튕겨내기·물약 개편·틈 달이기)은 있으면 쓰고, 없으면 건너뛴다 — 합친 뒤 그대로 다시 잴 수 있게.
 ## 사람처럼 반응이 늦도록 예고를 본 뒤 REACT초가 지나야 움직인다. 2초마다 상태, 끝나면 "BOT RESULT" 한 줄.
 ## 솜씨 조절(환경 변수):
@@ -25,8 +27,13 @@ const THROW_MAX := 135.0
 const HEAL_AT := 3 ## 체력이 이 아래(이하)면 치유
 const ULT_WANT := "doom" ## 고를 대마법 (한 방 3600 — 무너짐·묶임에 맞춰)
 const ULT_IMPATIENT := 6.0 ## 게이지가 가득 찬 뒤 이만큼 지나면 아무 틈에나 쓴다
-const DEFLECT_WAVE_LEAD := 0.16 ## 파도가 이만큼(초) 뒤 닿을 거리에서 단공
-const DEFLECT_RAIN_LEAD := 0.22 ## 천검 칼빛이 떨어지기 이만큼 전에 단공
+const DANGONG_FIRE := 0.06 ## 단공을 누른 뒤 판정이 생기기까지 (EEska.CAST_FIRE)
+const PERFECT_AIM := 58.0 ## 판정이 생기는 순간 파도가 몸에서 이만큼 안이면 "딱 맞춤" (EKenseiFx.Wave 판정 반너비 15 포함, 기준 70)
+const PERFECT_MIN := 22.0 ## 이보다 가까우면 이미 늦음 (파도에 맞음)
+const DEFLECT_RAIN_LEAD := 0.18 ## 천검 칼빛이 떨어지기 이만큼 전에 단공 (판정 0.22초 안에 떨어지기 전)
+const RIFT_THROW_MIN := 0.3 ## 천열 뒤 이만큼~ 지나 틈에 던짐 (병이 손 근처 틈을 무시하는 0.12초·40px를 지나 천열 틈에 닿게)
+const RIFT_THROW_MAX := 0.5
+const RIFT_THROW_WAIT := 0.3 ## 던질 때가 됐는데 다른 동작 중이면 이만큼 더 기다렸다가 포기
 const DEFLECT_CHECK := 0.25 ## 단공 뒤 이만큼 지나 발사체가 남아 있으면 "튕겨내기 없음"으로 봄
 const DEFLECT_GIVE_UP := 2 ## 이만큼 실패하면 튕겨내기를 그만 씀
 const SLOT_HEAL := 0
@@ -65,6 +72,9 @@ var n_echo := 0
 var n_throw := 0
 var n_throw_ctr := 0
 var n_rift_throw := 0
+var n_perfect := 0 ## 단공 "딱 맞춤" (쿨다운이 바로 초기화된 것)
+var _rift_plan := -1.0 ## 천열 뒤 틈에 던질 때까지 남은 시간 (-1 = 없음)
+var _brews0 := 0 ## 시작 때 EPotions.rift_brews (틈에 스민 병 수 셈)
 var n_break := 0 ## 검성 버팀이 무너진 횟수
 var n_hurt := 0 ## 맞은 횟수 (봇이 직접 셈 — 치유와 상관없이)
 var _break_hooked: Node = null
@@ -122,6 +132,8 @@ func _process(_delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	_t += delta
 	_act_cd = maxf(_act_cd - delta, 0.0)
+	if _rift_plan > -RIFT_THROW_WAIT:
+		_rift_plan -= delta
 	_run_seq(delta)
 	_tick_deflect_watch(delta)
 	var e: EEska = stage.get("eska")
@@ -132,6 +144,7 @@ func _physics_process(delta: float) -> void:
 	if not e.hurt_taken.is_connected(_on_hurt):
 		e.hurt_taken.connect(_on_hurt)
 		_setup_belt(e)
+		_brews0 = EPotions.rift_brews
 	if e.hp > _last_hp:
 		_last_hp = e.hp # 치유 물약 (신호 없이 오름)
 
@@ -180,8 +193,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _kit_summary() -> String:
-	return "hurts=%d breaks=%d cheonyeol=%d nakseong=%d dangong=%d deflect=%d(ok=%s) ult=%d heal=%d echo=%d throw=%d(ctr=%d rift=%d)" % [
-		n_hurt, n_break, n_cheonyeol, n_nakseong, n_dangong, n_deflect, str(_deflect_ok), n_ult, n_heal, n_echo, n_throw, n_throw_ctr, n_rift_throw]
+	return "hurts=%d breaks=%d cheonyeol=%d nakseong=%d dangong=%d deflect=%d(perfect=%d ok=%s) ult=%d heal=%d echo=%d throw=%d(ctr=%d rift=%d brewed=%d)" % [
+		n_hurt, n_break, n_cheonyeol, n_nakseong, n_dangong, n_deflect, n_perfect, str(_deflect_ok), n_ult, n_heal, n_echo, n_throw, n_throw_ctr, n_rift_throw,
+		EPotions.rift_brews - _brews0]
 
 
 func _fight(e: EEska, b: EKensei) -> void:
@@ -213,6 +227,9 @@ func _fight(e: EEska, b: EKensei) -> void:
 		if dist < 160.0 and e.cd_left("cheonyeol") <= 0.0 and e.is_on_floor():
 			n_cheonyeol += 1
 			_tap("es_skill")
+			# 틈 달이기: 천열이 찢은 틈에 0.3~0.5초 뒤 병을 넣음 (검성이 던지는 거리 안이고 아직 묶이지 않았을 때)
+			if use_kit and dist <= THROW_MAX and not b.is_bound() and _slot_is_throw(e, SLOT_THROW):
+				_rift_plan = randf_range(RIFT_THROW_MIN, RIFT_THROW_MAX)
 		elif use_kit and dist >= NAK_MIN and dist <= NAK_MAX and e.cd_left("nakseong") <= 0.0 and e.facing == to and e.is_on_floor():
 			n_nakseong += 1
 			_combo([[0.0, "es_down", true], [0.0, "es_skill", true], [0.05, "es_skill", false], [0.08, "es_down", false]])
@@ -241,10 +258,15 @@ func _kit(e: EEska, b: EKensei, dist: float, to: int, punish: bool) -> bool:
 		n_throw_ctr += 1
 		_use_slot(SLOT_THROW)
 		return true
-	# 3) 열린 틈이 검성 곁이면 던져 넣음 (틈 달이기 — ERifts가 틈을 등록할 때만)
-	if dist >= THROW_MIN and dist <= THROW_MAX and e.facing == to and _slot_is_throw(e, SLOT_THROW) and not hazard:
-		var rift: Dictionary = ERifts.at(b.center(), 40.0)
-		if not rift.is_empty():
+	# 3) 틈 달이기: 천열 뒤 정해 둔 때가 되면 던짐 (검성 쪽을 보고)
+	if _rift_plan <= 0.0 and _rift_plan > -RIFT_THROW_WAIT:
+		if not _slot_is_throw(e, SLOT_THROW) or dist > THROW_MAX + 20.0:
+			_rift_plan = -RIFT_THROW_WAIT
+		elif e.facing != to:
+			_tap("es_right" if to > 0 else "es_left")
+			return true
+		else:
+			_rift_plan = -RIFT_THROW_WAIT
 			n_throw += 1
 			n_rift_throw += 1
 			_use_slot(SLOT_THROW)
@@ -285,7 +307,8 @@ func _deflect(e: EEska, b: EKensei) -> bool:
 		if n is EKenseiFx.Wave:
 			var w := n as EKenseiFx.Wave
 			var rel := ex - w.position.x
-			target = signf(rel) == float(w.dir) and absf(rel) < 24.0 + w.speed * DEFLECT_WAVE_LEAD
+			var at_fire := absf(rel) - w.speed * DANGONG_FIRE # 판정이 생길 때의 거리
+			target = signf(rel) == float(w.dir) and at_fire <= PERFECT_AIM and at_fire >= PERFECT_MIN
 		elif n is EKenseiFx.RainBlade:
 			var r := n as EKenseiFx.RainBlade
 			target = r.t < r.warn and r.warn - r.t < DEFLECT_RAIN_LEAD and absf(r.position.x - ex) < EKenseiFx.RainBlade.HALF_W + 10.0
@@ -319,6 +342,9 @@ func _tick_deflect_watch(delta: float) -> void:
 		var gone: bool = not is_instance_valid(n) or not (n as Node).is_in_group(PROJECTILE_GROUP)
 		if gone:
 			n_deflect += 1
+			var e: EEska = stage.get("eska")
+			if e != null and e.cd_left("dangong") <= 0.0:
+				n_perfect += 1 # 딱 맞춤이면 쿨다운이 바로 초기화됨
 		else:
 			_deflect_fail += 1
 			if _deflect_fail >= DEFLECT_GIVE_UP and n_deflect == 0:
