@@ -17,7 +17,7 @@ var cam_top := -260.0 ## 카메라가 올라갈 수 있는 위 끝
 var respawn_at := Vector2(400, 300)
 ## 터치 중 카메라 여유: 오른쪽 끝(벽)에서도 캐릭터가 오른쪽 아래 버튼(엄지) 밑에 오지 않게 카메라가 무대 오른쪽 끝을 이만큼 넘어 볼 수 있다.
 ## 배경(EScenery)은 EScenery.MARGIN만큼 더 그려 둔다. 다른 배경을 쓰는 장면(보스장)은 이 값을 바꾸거나 자기 배경을 그만큼 늘린다
-var cam_margin_touch := 180.0
+var cam_margin_touch := 240.0 ## 180이면 벽에 붙을 때 물약 버튼과 몸이 겹침 (루프2 코어 측정)
 var music := "boss"
 
 var eska: EEska
