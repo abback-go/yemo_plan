@@ -442,8 +442,8 @@ static func feathers(pos: Vector2, n: int, speed: float, area := Vector2.ZERO, d
 ## 흩날리는 검은 깃털 — 장면에 한 노드 (보통 섞기: 검은색이 보이게, 보랏빛 테로 어둠 속에서도 읽힘)
 class Feathers extends PDraw.Canvas:
 	const MAX := 28 ## (루프3: 90 → 28, 도형 수)
-	const LEN_MIN := 5.0 ## 깃털 길이(px) — 너무 작으면 점으로 보여 마녀 신호가 안 읽힘 (loop2_plan 6장)
-	const LEN_MAX := 7.0
+	const LEN_MIN := 6.5 ## 깃털 길이(px) — 너무 작으면 보라 조각으로 읽혀 마녀 신호가 안 읽힘 (loop4_plan 6장: 7px)
+	const LEN_MAX := 7.5
 	const RIM := 1.0 ## 옅은 보랏빛 테 두께(px): 어두운 배경에서도 깃털 모양이 보이게
 	static var _inst: Feathers
 	var pos := PackedVector2Array()
@@ -510,7 +510,7 @@ class Feathers extends PDraw.Canvas:
 				rim.append(q + (q - p).normalized() * RIM)
 			pd.convex(rim, Color(VIOLET, 0.5 * a))
 			pd.convex(shape, Color(INK, 0.95 * a))
-			pd.draw_line(p - d * L * 0.7, p + d * L * 0.45, Color(VIOLET.lerp(PALE, 0.35), 0.9 * a), 1.0) # 깃대 1px (몸보다 조금 길게)
+			pd.draw_line(p - d * L * 0.7, p + d * L * 0.45, Color(WHITE, 0.9 * a), 1.0) # 흰 깃대 1px (몸보다 조금 길게 — 깃털로 읽히게)
 
 
 ## 마녀 문장: 원 두 겹 + 일곱 갈래 별 {7/2} + 원 사이 작은 룬 일곱. 툭 커지며 번쩍 → 돌며 옅어짐 (가산)

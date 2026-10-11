@@ -401,7 +401,7 @@ static func number(key: Object, pos: Vector2, value: int, heavy := false, fox :=
 
 class Numbers extends Node2D:
 	static var inst: Numbers
-	var items: Array = [] ## [대상, 위치, 값, 나이, 큼, 여우불, 합친 횟수, 마지막 타격 뒤 시간, 대상 자리(어긋남 전), 쌓인 칸]
+	var items: Array = [] ## [대상, 위치, 값, 나이, 큼, 여우불, 합친 횟수, 마지막 타격 뒤 시간, 대상 자리(어긋남 전), 쌓인 칸, 같은 숫자로 묶인 다른 표적들]
 	var _font: Font
 	const LIFE := 0.75
 	const MERGE := 0.25
@@ -412,6 +412,7 @@ class Numbers extends Node2D:
 	const HOLD_AGE := 0.2 ## 합칠 때 나이를 여기까지만 되돌림 (숫자가 다시 바닥으로 튀지 않고 떠 있는 채 커짐)
 	const BUMP_Y := 11.0 ## 같은 대상의 새 숫자가 뜨면 아직 떠 있는 예전 숫자를 이만큼 위로 밀어 겹치지 않게
 	const STACK_R := 16.0 ## 서로 이 거리 안에 붙은 표적들의 숫자는 어긋남 대신 위아래로 쌓는다 (loop3_plan 4장)
+	const STACK_MAX := 3 ## 쌓는 칸 최대 (loop4_plan 6장) — 넘치면 같은 숫자를 "값×N"으로 묶음
 	const STACK_H := 25.0 ## 쌓는 칸 높이 (합쳐져 커진 글자도 겹치지 않게)
 
 	func _ready() -> void:
@@ -420,16 +421,22 @@ class Numbers extends Node2D:
 
 	func add(key: Object, pos: Vector2, value: int, heavy: bool, fox: bool) -> void:
 		for it: Array in items:
-			if it[0] == key and float(it[7]) < MERGE:
+			if float(it[7]) >= MERGE:
+				continue
+			if it[0] == key:
 				it[2] = int(it[2]) + value
 				it[3] = minf(float(it[3]), HOLD_AGE)
 				it[4] = bool(it[4]) or heavy
 				it[6] = int(it[6]) + 1
 				it[7] = 0.0
 				return
+			if (it[10] as Array).has(key): # 같은 숫자로 묶인 표적(×N): 대표 숫자가 대신 셈 — 반짝임만
+				it[7] = 0.0
+				return
 		var at := pos + _offset(key)
 		var slot := 0
 		var anchor_found := false
+		var same: Array = [] ## 쌓이는 칸이 넘칠 때 묶을 같은 숫자
 		for it: Array in items:
 			if it[0] == key:
 				it[1] = (it[1] as Vector2) + Vector2(0, -BUMP_Y)
@@ -438,7 +445,16 @@ class Numbers extends Node2D:
 					at = it[1] # 붙어 선 표적들은 같은 세로줄에서
 					anchor_found = true
 				slot = maxi(slot, int(it[9]) + 1) # 그 위 칸으로
-		items.append([key, at, value, 0.0, heavy, fox, 0, 0.0, pos, slot])
+				if int(it[2]) == value and same.is_empty():
+					same = it
+		if slot >= STACK_MAX:
+			if not same.is_empty(): # 넘치면 같은 숫자는 하나로: "896×8"
+				(same[10] as Array).append(key)
+				same[3] = minf(float(same[3]), HOLD_AGE)
+				same[7] = 0.0
+				return
+			slot = STACK_MAX - 1 # 같은 숫자가 없으면 맨 위 칸에 겹쳐 둠
+		items.append([key, at, value, 0.0, heavy, fox, 0, 0.0, pos, slot, []])
 		if items.size() > MAX_ITEMS:
 			items.pop_front()
 
@@ -475,10 +491,13 @@ class Numbers extends Node2D:
 				col = PData.FIRE_HOT if not big else PData.FIRE_CORE
 			col = col.lerp(Color.WHITE, pop * 0.7)
 			col.a = a
-			var p: Vector2 = (it[1] as Vector2) + Vector2(-40, -8 - rise - STACK_H * float(it[9]))
+			var p: Vector2 = (it[1] as Vector2) + Vector2(-60, -8 - rise - STACK_H * float(it[9]))
 			var s := str(it[2])
-			draw_string_outline(_font, p, s, HORIZONTAL_ALIGNMENT_CENTER, 80, sz, 4, Color(0.08, 0.03, 0.06, a))
-			draw_string(_font, p, s, HORIZONTAL_ALIGNMENT_CENTER, 80, sz, col)
+			var many := (it[10] as Array).size()
+			if many > 0:
+				s += "×%d" % (many + 1)
+			draw_string_outline(_font, p, s, HORIZONTAL_ALIGNMENT_CENTER, 120, sz, 4, Color(0.08, 0.03, 0.06, a))
+			draw_string(_font, p, s, HORIZONTAL_ALIGNMENT_CENTER, 120, sz, col)
 
 
 ## 변신 순간: 세라 뒤로 빛의 꼬리(꼬리 수만큼)가 부채꼴로 확 펼쳐졌다 사라지고, 위로 빛기둥이 선다

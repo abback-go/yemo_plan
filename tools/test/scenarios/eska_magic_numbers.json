@@ -5,10 +5,13 @@
 [10, "eval", "dummy.set('position', Vector2(480, 300))"],
 [12, "eval", "spawn_foe('runner', 488, 300)"],
 [13, "eval", "spawn_foe('runner', 474, 300)"],
+[14, "eval", "spawn_foe('runner', 483, 300)"],
+[15, "eval", "spawn_foe('runner', 477, 300)"],
+[16, "eval", "spawn_foe('runner', 486, 300)"],
 [40, "eval", "get_node('MagicCast').big_hp()"],
 [41, "eval", "foes()"],
 [42, "tap", "es_skill"],
-[60, "shot", "nb01"], [80, "shot", "nb02"],
+[50, "shot", "nb00"], [60, "shot", "nb01"], [80, "shot", "nb02"],
 [90, "eval", "get_node('MagicCast').nums(true)"],
 [100, "quit"]
 ]}
