@@ -547,7 +547,59 @@ func _build_eska_magic() -> void:
 
 # ─── 에스카: 물약·가마솥 (e_potions.gd 담당) ─────────────
 func _build_eska_potion() -> void:
-	pass
+	_add_fast(&"es_pot_uncork", [ # 마개 따기: 퐁 + 아주 작은 거품 쉭
+		{wave = "sine", f0 = 950.0, f1 = 480.0, dur = 0.06, vol = 0.32, tau = 0.016},
+		{wave = "noise", dur = 0.03, vol = 0.4, bp = 3200.0, q = 0.5, decay = 3.0},
+		{wave = "noise", dur = 0.16, vol = 0.1, bp = 5200.0, q = 0.6, decay = 1.5, delay = 0.03},
+	])
+	_add_fast(&"es_pot_gulp", [ # 들이켬: 꿀꺽 두 번 + 몸에 도는 반짝임
+		{wave = "sine", f0 = 270.0, f1 = 140.0, dur = 0.1, vol = 0.42, tau = 0.04},
+		{wave = "sine", f0 = 240.0, f1 = 120.0, dur = 0.1, vol = 0.36, tau = 0.04, delay = 0.13},
+		{wave = "noise", dur = 0.24, vol = 0.14, lp = 0.08, am = 14.0, am_depth = 0.8},
+		{wave = "sine", f0 = 1400.0, f1 = 2100.0, fm = 2.0, fm_i = 0.6, fm_i1 = 0.0, dur = 0.28, vol = 0.05, tau = 0.08, delay = 0.18},
+	])
+	_add_fast(&"es_pot_throw", [ # 병이 돌며 날아감: 휙휙 떨리는 바람
+		{wave = "noise", dur = 0.26, vol = 0.5, bp = 600.0, bp1 = 1800.0, q = 0.4, attack = 0.03, decay = 1.2, am = 22.0, am_depth = 0.5},
+	], 11025)
+	_add_fast(&"es_pot_shatter", [ # 유리 깨짐: 쨍그랑 (비조화 배음 셋) + 물 튀김 + 둔한 쿵
+		{wave = "noise", dur = 0.24, vol = 0.5, bp = 4600.0, q = 0.3, decay = 2.0},
+		{wave = "sine", f0 = 2600.0, fm = 1.43, fm_i = 2.0, fm_i1 = 0.2, dur = 0.3, vol = 0.12, tau = 0.06},
+		{wave = "sine", f0 = 3400.0, fm = 2.7, fm_i = 1.6, fm_i1 = 0.1, dur = 0.26, vol = 0.09, tau = 0.05, delay = 0.03},
+		{wave = "sine", f0 = 1900.0, fm = 1.9, fm_i = 1.2, fm_i1 = 0.1, dur = 0.3, vol = 0.08, tau = 0.07, delay = 0.06},
+		{wave = "noise", dur = 0.2, vol = 0.3, lp = 0.15, decay = 1.5, delay = 0.02},
+		{wave = "sine", f0 = 150.0, f1 = 60.0, dur = 0.1, vol = 0.25, tau = 0.04},
+	])
+	var bub := [{wave = "noise", dur = 0.7, vol = 0.22, lp = 0.05, attack = 0.08, decay = 1.0, am = 9.0, am_depth = 0.6}]
+	for i in 7: # 보글보글: 위로 튀는 짧은 거품 소리들
+		bub.append({wave = "sine", f0 = 260.0 + 70.0 * float(i % 3), f1 = 620.0 + 90.0 * float(i % 2), curve = "exp", dur = 0.05, vol = 0.16, tau = 0.018, delay = 0.04 + 0.085 * float(i)})
+	_add_fast(&"es_brew_bubble", bub)
+	_add_fast(&"es_brew_plop", [ # 재료가 솥에 퐁당
+		{wave = "sine", f0 = 380.0, f1 = 920.0, curve = "exp", dur = 0.08, vol = 0.3, tau = 0.03},
+		{wave = "noise", dur = 0.06, vol = 0.14, lp = 0.2, decay = 2.0},
+	])
+	_add_fast(&"es_brew_done", [ # 다 달였다: 맑은 종 셋
+		{wave = "sine", f0 = 880.0, fm = 2.0, fm_i = 0.5, fm_i1 = 0.0, dur = 0.6, vol = 0.14, tau = 0.22},
+		{wave = "sine", f0 = 1320.0, fm = 2.0, fm_i = 0.5, fm_i1 = 0.0, dur = 0.6, vol = 0.12, tau = 0.22, delay = 0.08},
+		{wave = "sine", f0 = 1760.0, fm = 2.0, fm_i = 0.4, fm_i1 = 0.0, dur = 0.7, vol = 0.1, tau = 0.25, delay = 0.16},
+	], 11025)
+	_add_fast(&"es_pot_discover", [ # 새 물약: 짧은 마녀풍 팡파르 (라 단조로 올라가 높은 미에서 반짝)
+		{wave = "tri", f0 = 440.0, dur = 0.16, vol = 0.16, tau = 0.08},
+		{wave = "tri", f0 = 523.25, dur = 0.16, vol = 0.16, tau = 0.08, delay = 0.08},
+		{wave = "tri", f0 = 659.25, dur = 0.18, vol = 0.16, tau = 0.09, delay = 0.16},
+		{wave = "tri", f0 = 880.0, dur = 0.6, vol = 0.16, tau = 0.3, delay = 0.24, vib = 6.0, vib_depth = 0.01},
+		{wave = "sine", f0 = 1318.5, fm = 2.0, fm_i = 0.8, fm_i1 = 0.0, dur = 0.8, vol = 0.1, tau = 0.3, delay = 0.24},
+		{wave = "noise", dur = 0.6, vol = 0.06, bp = 6500.0, q = 0.5, attack = 0.1, decay = 1.2, delay = 0.24, am = 18.0, am_depth = 0.7},
+	])
+	_add_fast(&"es_pot_no", [ # 없음: 낮게 떨어지는 짧은 삑삑
+		{wave = "square", f0 = 330.0, f1 = 300.0, dur = 0.07, vol = 0.1, lp = 0.3},
+		{wave = "square", f0 = 250.0, f1 = 210.0, dur = 0.09, vol = 0.1, lp = 0.3, delay = 0.08},
+	])
+	_add_fast(&"es_pot_refill", [ # 가마솥에 들러 허리띠가 가득: 위로 올라가는 반짝임
+		{wave = "sine", f0 = 1100.0, f1 = 1600.0, fm = 2.0, fm_i = 0.8, fm_i1 = 0.0, dur = 0.25, vol = 0.1, tau = 0.09},
+		{wave = "sine", f0 = 1400.0, f1 = 2000.0, fm = 2.0, fm_i = 0.8, fm_i1 = 0.0, dur = 0.25, vol = 0.09, tau = 0.09, delay = 0.07},
+		{wave = "sine", f0 = 1760.0, f1 = 2400.0, fm = 2.0, fm_i = 0.7, fm_i1 = 0.0, dur = 0.3, vol = 0.08, tau = 0.1, delay = 0.14},
+		{wave = "noise", dur = 0.3, vol = 0.12, bp = 900.0, bp1 = 2400.0, q = 0.5, attack = 0.05, decay = 1.3},
+	])
 
 
 # (구분용 빈 줄 — 담당 영역끼리 붙지 않게)
