@@ -67,6 +67,7 @@ const MURKY_R := 44.0 ## 흐린 물(던짐): 아무 일도 없는 물보라 반�
 # ─── 틈 달이기 (loop2_plan.md 2장): 던진 병이 열린 틈에 닿으면 깨지지 않고 스며들어 틈 모양을 따라 퍼진다 ──
 const RIFT_TOUCH := 10.0 ## 병이 틈(가운데 선 + 굵기 절반)에서 이만큼 안이면 닿음
 const RIFT_AIM := 24.0 ## 이 안의 열린 틈 쪽으로 병이 살짝 휜다 (조준 조금 너그럽게 — 40은 거의 저절로 들어가서 loop3에서 줄임)
+const RIFT_FRESH := 0.5 ## "갓 찢긴 틈": 열린 지 이 시간 안의 틈에 닿은 병만 보상(진함·저항 무시·꿰맬 때 한 번 더) — loop4 4장
 const RIFT_SELF_T := 0.12 ## 던진 뒤 이 시간 동안은 틈 무시 (자기 손 근처 틈 — 단공 등 — 이 병을 삼키지 않게)
 const RIFT_SELF_R := 40.0 ## 손에서 이 거리 안에서도 틈 무시 (둘 다 지나야 틈에 닿음)
 const RIFT_STITCH_POISE := 300 ## 틈이 꿰매질 때 한 번 더: 속박 → 강자 버팀 피해
@@ -93,9 +94,9 @@ const POTIONS := {
 	"surge": {"name": "충만", "kind": "drink", "doses": 2, "color": Color("#e352ff"), "accent": Color("#ffe9a8"), "desc": "종언 게이지 +35%"},
 	"haste": {"name": "가속", "kind": "drink", "doses": 2, "color": Color("#ff8ad8"), "accent": Color("#fff3b0"), "desc": "고급 마법 쿨다운 즉시 초기화 · 4초 이동 +15%"},
 	"grow": {"name": "확장", "kind": "drink", "doses": 2, "color": Color("#9150e8"), "accent": Color("#ffb3f2"), "desc": "12초: 모든 마법 범위 1.35배"},
-	"bind": {"name": "속박", "kind": "throw", "doses": 3, "color": Color("#ffb347"), "accent": Color("#fff0c8"), "desc": "깨진 자리 반경 56: 3초 묶음"},
-	"scream": {"name": "비명", "kind": "throw", "doses": 2, "color": Color("#e9e4f2"), "accent": Color("#ffffff"), "desc": "반경 70: 하던 동작이 끊기고 1.2초 기절"},
-	"rot": {"name": "부식", "kind": "throw", "doses": 3, "color": Color("#8fe04a"), "accent": Color("#e6ffb0"), "desc": "독안개 4초: 들어간 적은 8초 동안 받는 피해 +30%"},
+	"bind": {"name": "속박", "kind": "throw", "doses": 4, "color": Color("#ffb347"), "accent": Color("#fff0c8"), "desc": "깨진 자리 반경 56: 3초 묶음"},
+	"scream": {"name": "비명", "kind": "throw", "doses": 3, "color": Color("#e9e4f2"), "accent": Color("#ffffff"), "desc": "반경 70: 하던 동작이 끊기고 1.2초 기절"},
+	"rot": {"name": "부식", "kind": "throw", "doses": 4, "color": Color("#8fe04a"), "accent": Color("#e6ffb0"), "desc": "독안개 4초: 들어간 적은 8초 동안 받는 피해 +30%"},
 	"murky": {"name": "흐린 물", "kind": "drink", "doses": 2, "color": Color("#8f877c"), "accent": Color("#d6d0c6"), "desc": "밍밍하다. 아무 일도 없다"},
 	"murky_t": {"name": "흐린 물", "kind": "throw", "doses": 2, "color": Color("#8f877c"), "accent": Color("#d6d0c6"), "desc": "물보라만 튄다. 아무 일도 없다"},
 	"bitter": {"name": "쓴 물", "kind": "drink", "doses": 2, "color": Color("#a2793a"), "accent": Color("#e8c98a"), "desc": "마시면 1초 비틀거리며 느려진다"},
@@ -492,13 +493,13 @@ static func _vuln(d: Node2D, sec: float, mult: float) -> void:
 		d.set_vuln(sec, mult)
 
 
-## id 물약을 표적 하나에 (rift = 틈·흑성에서 — 강자 저항 무시, 쓴 물이 받는 피해도 늘림)
-static func apply_one(d: Node2D, id: String, strong: bool, rift := false) -> void:
+## id 물약을 표적 하나에 (rift = 틈·흑성에서 — 쓴 물이 받는 피해도 늘림 · full = 강자 저항 무시: 갓 찢긴 틈·흑성)
+static func apply_one(d: Node2D, id: String, strong: bool, rift := false, full := false) -> void:
 	match id:
 		"bind":
-			bind_one(d, strong, rift)
+			bind_one(d, strong, full)
 		"scream":
-			scream_one(d, strong, rift)
+			scream_one(d, strong, full)
 		"rot":
 			rot_one(d, strong)
 		"bitter_t":
@@ -515,6 +516,11 @@ static func stitch_one(d: Node2D, id: String) -> void:
 			_stun(d, RIFT_STITCH_STUN, true)
 		"rot":
 			rot_one(d, true)
+
+
+## 갓 찢긴 틈인가 (열린 지 RIFT_FRESH초 안)
+static func rift_fresh(rift: Dictionary) -> bool:
+	return ERifts.age(rift) < RIFT_FRESH
 
 
 ## 이 틈에 물약이 스며들 만한가: 틈 ± RIFT_BAND 안에 살아 있는 표적이 있어야 (아무도 없는 틈은 병을 삼키지 않음). 흐린 물은 늘 (틈을 늘리는 게 일이라)
@@ -557,20 +563,21 @@ static func splash(tree: SceneTree, _eska: EEska, id: String, strong: bool, pos:
 
 
 ## 틈 달이기: 병이 열린 틈(ERifts의 틈 하나)에 스며들었다 — 효과가 틈 모양을 따라 퍼진다 (틈 ± RIFT_BAND 안의 적).
-## 틈에 스민 물약은 **저절로 진하고 강자 저항(status_resist)을 무시**하며, **틈이 꿰매질 때 한 번 더** 걸린다(stitch_one) — loop3 1장.
+## **갓 찢긴 틈**(fresh — 닿은 순간 ERifts.age < RIFT_FRESH)에 스민 물약만 **저절로 진하고 강자 저항(status_resist)을 무시**하며
+## **틈이 꿰매질 때 한 번 더** 걸린다(stitch_one) — loop3 1장 · loop4 4장. 늦은 틈은 틈 모양으로 퍼지기만 (병 그대로의 세기).
 ## 속박 = 틈을 따라 거미줄 · 비명 = 틈이 울려 자리마다 기절 · 부식 = 틈 전체에서 독안개 · 흐린 물 = 틈이 1초 더 · 쓴 물 = 빨라지지만 피해 +15%
 ## 효과는 물약 색이 틈을 타고 번지다 표적에 닿는 순간 걸린다 (EPotionFx.RiftBrew). 걸릴 표적 수를 돌려준다
-static func rift_brew(tree: SceneTree, _eska: EEska, id: String, _strong: bool, rift: Dictionary, at: Vector2) -> int:
+static func rift_brew(tree: SceneTree, _eska: EEska, id: String, strong: bool, rift: Dictionary, at: Vector2, fresh := true) -> int:
 	var pts: PackedVector2Array = rift.get("pts", PackedVector2Array())
 	ERifts.infuse(rift, id, color(id))
 	if id.begins_with("murky"):
 		ERifts.extend(rift, RIFT_MURKY_EXTEND)
 	var targets := along(tree, pts, RIFT_BAND)
-	var fx := EPotionFx.rift_brew(id, true, pts, float(rift.get("w", 12.0)), at)
+	var fx := EPotionFx.rift_brew(id, strong or fresh, pts, float(rift.get("w", 12.0)), at, fresh)
 	fx.targets = targets
-	fx.rift_id = int(rift.get("id", 0))
+	fx.rift_id = int(rift.get("id", 0)) if fresh else 0 # 늦은 틈은 꿰맬 때 한 번 더 없음
 	rift_brews += 1
-	last_splash = {"id": id, "pos": at, "hits": targets.size(), "rift": int(rift.get("id", 0))}
+	last_splash = {"id": id, "pos": at, "hits": targets.size(), "rift": int(rift.get("id", 0)), "fresh": fresh}
 	return targets.size()
 
 
@@ -601,12 +608,17 @@ static func star_brew(tree: SceneTree, _eska: EEska, id: String, _strong: bool, 
 ## 흑성에 끌려온(끌어당기는 반경 안의) 적 모두에게 id 물약 (stitch = 붕괴 직전 두 번째 — 꿰매질 때 한 번 더)
 static func _star_apply(tree: SceneTree, id: String, c: Vector2, r: float, stitch: bool) -> int:
 	var targets := in_radius(tree, c, r)
-	var fx := EPotionFx.rift_brew(id, true, PackedVector2Array(), 0.0, c)
+	var fx := EPotionFx.rift_brew(id, true, PackedVector2Array(), 0.0, c, true) # 흑성은 늘 보상 (대마법 게이지를 다 쓰므로)
 	fx.targets = targets
 	fx.stitch_only = stitch
 	if not stitch:
 		last_splash = {"id": id, "pos": c, "hits": targets.size(), "star": true}
 	return targets.size()
+
+
+## 시험용: 지금 떠 있는 틈 달이기 그림의 비용 (EPotionFx.brew_cost)
+static func brew_cost() -> String:
+	return EPotionFx.brew_cost()
 
 
 ## 반경 r 원에 맞히는 판정 사각형이 걸치는 살아 있는 표적들
