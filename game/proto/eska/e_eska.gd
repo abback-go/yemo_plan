@@ -1,12 +1,13 @@
 class_name EEska
 extends CharacterBody2D
 ## 에스카(종언의 마녀) 전투 시제품. 기획: Claude 문서 "새 컨셉: 종언의 마녀" 탭.
-## 조작: 이동(떠서 활주) · 점프 + 이단점프(공중에서 한 번) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능 — 팔을 휘두르지 않고 가리키기·튕기기 같은 가벼운 손짓, 제자리에서)
+## 조작: 이동(떠서 활주) · 점프 + 이단점프(공중에서 한 번) · 순간이동(지상은 자유, 공중은 착지 전까지 1번)
+##       · 베기(기본 공격): 손가락 한 번 튕기면 앞에 큰 참격 하나 — 이동을 막지 않아 달리고 뛰고 떨어지는 중에도 자유롭게 나간다
 ##       · 스킬 키: 그냥 = 천열(손가락을 튕기면 앞으로 거대한 참격 열 번) / ↑ = 단공(머리 위를 납작한 회오리 참격으로 연달아 휘감음)
 ##       · 봉공(공간 고정 — 화면 전체를 굳힘, EStill). 스킬은 쿨다운만 쓴다.
 ## 공격 판정은 물리 없이 표적(ETarget: 허수아비·적)의 hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
 
-enum St { NORMAL, ATTACK, BLINK, CAST, HURT, DEAD }
+enum St { NORMAL, BLINK, CAST, HURT, DEAD }
 
 signal hurt_taken(hp: int) ## 맞았을 때 (남은 체력)
 signal died ## 쓰러졌을 때 — 장면이 부활시킨다 (respawn)
@@ -47,16 +48,11 @@ const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공"
 const STILL_TIME := 5.0 ## 봉공(공간 고정)이 공간을 굳히는 시간 (고정)
 const STILL_BURST := 0.5 ## 진화한 봉공(1장 무구): 굳은 동안 준 피해의 이만큼이 깨질 때 한꺼번에 터짐
 
-## 4타 연격. 각도는 도(0 = 앞, + = 아래). 호는 a0 → a1로 휘두른다. 납작한 회오리(sq)를 rot만큼 기울인다 —
-## 1~3타는 앞쪽 한 곳(발 기준 앞 약 30px)을 중심으로 모아 친다. 1타 앞이 들린 대각 · 2타 앞이 내려간 가파른 대각(반대로 감음) · 3타 비스듬히 세워 아래에서 위로 올려 벰 · 4타 가장 큰 가로 회오리 (타마다 다른 각도)
-## dur 한 타 길이 · hit 판정 시각 · next 다음 타를 받기 시작하는 시각 · r 반지름 · w 가장 굵은 곳 · sq 세로 납작함 · c 몸 기준 중심
-const COMBO := [
-	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": -190.0, "a1": 40.0, "r": 74.0, "w": 26.0, "sq": 0.34, "rot": -22.0, "c": Vector2(30, -26), "dmg": 30, "step": 12.0},
-	{"dur": 0.15, "hit": 0.035, "next": 0.07, "a0": 150.0, "a1": -80.0, "r": 78.0, "w": 26.0, "sq": 0.3, "rot": 38.0, "c": Vector2(32, -28), "dmg": 30, "step": 12.0},
-	{"dur": 0.16, "hit": 0.04, "next": 0.08, "a0": 170.0, "a1": -60.0, "r": 100.0, "w": 28.0, "sq": 0.36, "rot": -50.0, "c": Vector2(26, -30), "dmg": 34, "step": 14.0},
-	{"dur": 0.34, "hit": 0.06, "next": 0.34, "a0": -200.0, "a1": 160.0, "r": 140.0, "w": 44.0, "sq": 0.4, "rot": -8.0, "c": Vector2(6, -26), "dmg": 64, "step": 24.0},
-]
-const CHAIN_WINDOW := 0.28 ## 한 타가 끝난 뒤 이 안에 누르면 다음 타로 이어짐
+## 베기(기본 공격) — 예전 4타의 가장 큰 가로 참격 하나. 납작한 회오리(sq)를 rot만큼 기울인 호를 a0 → a1로 휘두른다 (각도는 도, 0 = 앞, + = 아래)
+## hit 판정 시각 · r 반지름 · w 가장 굵은 곳 · c 몸 기준 중심. 참격은 튕긴 자리에 걸리고, 몸이 움직여도 그 자리에서 벤다
+const SLASH := {"dur": 0.34, "hit": 0.06, "a0": -200.0, "a1": 160.0, "r": 140.0, "w": 44.0, "sq": 0.4, "rot": -8.0, "c": Vector2(6, -26), "dmg": 70}
+const SLASH_RECOVER := 0.32 ## 다음 베기까지 (후딜) — 초당 약 220 피해 (예전 연격 약 200)
+const SLASH_POSE := 0.22 ## 손짓이 보이는 시간
 
 var st := St.NORMAL
 var st_t := 0.0
@@ -69,12 +65,12 @@ var _jump_buf := 0.0
 var _atk_buf := 0.0
 var _was_floor := true
 
-var combo_i := 0
-var _hit_done := false
-var _queued := false
-var _chain_next := 0
-var _chain_t := 0.0
-var _air_hang := true ## 공중 연격으로 떠 있기 (착지 전까지 연격 한 바퀴)
+var slash_t := 9.0 ## 마지막 베기 뒤 시간 (그림이 손짓에 씀)
+var _atk_cd := 0.0
+var _slash_pending := false
+var _slash_at := Vector2.ZERO ## 참격이 걸린 자리 (전역)
+var _slash_dir := 1
+var _air_hang := true ## 공중 첫 베기는 살짝 떠오름 (착지 전까지 1번)
 var _air_jump := true ## 이단점프 남았는지 (착지하면 다시)
 var _ghost_t := 0.0 ## 활주 잔상 간격
 
@@ -146,7 +142,11 @@ func _physics_process(delta: float) -> void:
 	for k in cooldowns:
 		cooldowns[k] = maxf(float(cooldowns[k]) - delta, 0.0)
 	_blink_cd = maxf(_blink_cd - delta, 0.0)
-	_chain_t = maxf(_chain_t - delta, 0.0)
+	_atk_cd = maxf(_atk_cd - delta, 0.0)
+	slash_t += delta
+	if _slash_pending and slash_t >= float(SLASH.hit):
+		_slash_pending = false
+		_slash_hit()
 	invuln = maxf(invuln - delta, 0.0)
 	combo_left = maxf(combo_left - delta, 0.0)
 	if combo_left <= 0.0:
@@ -168,8 +168,6 @@ func _physics_process(delta: float) -> void:
 	match st:
 		St.NORMAL:
 			_normal(delta, dir_x)
-		St.ATTACK:
-			_attack(delta, dir_x)
 		St.BLINK:
 			_blink(delta)
 		St.CAST:
@@ -290,118 +288,61 @@ func _try_actions(dir_x: float) -> bool:
 	if Input.is_action_just_pressed("es_blink") and _blink_cd <= 0.0 and (is_on_floor() or _air_blink):
 		_start_blink(dir_x)
 		return true
-	if _atk_buf > 0.0:
+	if _atk_buf > 0.0 and _atk_cd <= 0.0:
 		_atk_buf = 0.0
-		var i := _chain_next if _chain_t > 0.0 else 0
-		_start_attack(i)
-		return true
+		_fire_slash() # 상태는 그대로 — 이동을 막지 않는다
 	return false
 
 
 # ═══════════════════════════════════════════════════════════
-# 4타 연격
+# 베기 (기본 공격)
 # ═══════════════════════════════════════════════════════════
 
-func _start_attack(i: int) -> void:
+## 손가락 한 번 튕기면 앞에 큰 참격 하나. 움직임은 그대로 두고, 참격만 그 자리에 건다
+func _fire_slash() -> void:
 	var dir_x := Input.get_axis("es_left", "es_right")
 	if dir_x > 0.01:
 		facing = 1
 	elif dir_x < -0.01:
 		facing = -1
-	combo_i = i
-	st = St.ATTACK
-	st_t = 0.0
-	_hit_done = false
-	_queued = false
-	var a: Dictionary = COMBO[i]
-	if is_on_floor():
-		velocity.x = facing * float(a.step)
-	elif _air_hang:
-		velocity.y = minf(velocity.y, -30.0 if i == 0 else 10.0)
-		velocity.x *= 0.5
-	var c: Vector2 = a.c
+	_atk_cd = SLASH_RECOVER
+	slash_t = 0.0
+	_slash_dir = facing
+	var c: Vector2 = SLASH.c
+	_slash_at = global_position + Vector2(c.x * facing, c.y)
+	_slash_pending = true
+	if not is_on_floor() and _air_hang:
+		_air_hang = false
+		velocity.y = minf(velocity.y, -40.0) # 공중 첫 베기: 살짝 떠오름
 	var sl := ESkillFx.Slash.new()
-	sl.setup(a, facing, i == 3)
-	EVfx.add(sl, global_position + Vector2(c.x * facing, c.y), false) # 다크 참격은 보통 섞기 (검은 테두리가 보이게)
-	Sfx.play_pitch(&"es_snap", [1.0, 1.12, 0.94, 0.86][i] * randf_range(0.97, 1.03), -6.0)
-	Sfx.play_pitch(&"es_slash_big" if i == 3 else &"es_slash", [1.05, 1.15, 0.95, 1.0][i] * randf_range(0.96, 1.04), -3.0 if i < 3 else 0.0)
-	# 팔을 휘두르지 않고 손끝 하나로 — 손가락 끝이 반짝이며 공간이 갈라진다
+	sl.setup(SLASH, facing, true)
+	EVfx.add(sl, _slash_at, false) # 다크 참격은 보통 섞기 (검은 테두리가 보이게)
+	Sfx.play_pitch(&"es_snap", 0.86 * randf_range(0.97, 1.03), -6.0)
+	Sfx.play_pitch(&"es_slash_big", randf_range(0.96, 1.04), 0.0)
 	art.snap_flash()
-	if i == 3:
-		art.squash(Vector2(1.04, 0.97))
-		EVfx.afterimage(art, 0.22)
-	else:
-		art.squash(Vector2(1.02, 0.99))
+	art.squash(Vector2(1.04, 0.97))
+	EVfx.afterimage(art, 0.22)
 
 
-func _attack(delta: float, dir_x: float) -> void:
-	var a: Dictionary = COMBO[combo_i]
-	if is_on_floor():
-		velocity.x = move_toward(velocity.x, 0.0, 1100.0 * delta)
-		velocity.y = minf(velocity.y + GRAVITY * delta, FALL_MAX)
-	elif _air_hang:
-		velocity.y = minf(velocity.y + GRAVITY * 0.2 * delta, 50.0)
-		velocity.x = move_toward(velocity.x, dir_x * RUN_SPEED * 0.4, 700.0 * delta)
-	else:
-		_gravity(delta)
-		velocity.x = move_toward(velocity.x, dir_x * RUN_SPEED * 0.6, AIR_ACCEL * delta)
-	if not _hit_done and st_t >= float(a.hit):
-		_hit_done = true
-		_slash_hit(a)
-	if _atk_buf > 0.0:
-		_atk_buf = 0.0
-		_queued = true
-	# 판정 뒤에는 점프로 끊을 수 있다 (땅에서는 점프, 공중에서는 이단점프)
-	if _hit_done and _jump_buf > 0.0 and (is_on_floor() or _air_jump):
-		st = St.NORMAL
-		_normal(delta, dir_x)
-		return
-	# 판정 뒤에는 순간이동·스킬로 끊을 수 있다
-	if _hit_done and (Input.is_action_just_pressed("es_blink") or Input.is_action_just_pressed("es_skill")
-			or Input.is_action_just_pressed("es_bind")):
-		if combo_i == 3 and not is_on_floor():
-			_air_hang = false
-		st = St.NORMAL
-		if _try_actions(dir_x):
-			return
-	if _queued and combo_i < 3 and st_t >= float(a.next):
-		_start_attack(combo_i + 1)
-		return
-	if st_t >= float(a.dur):
-		st = St.NORMAL
-		st_t = 0.0
-		if combo_i < 3:
-			_chain_next = combo_i + 1
-			_chain_t = CHAIN_WINDOW
-		else:
-			_chain_next = 0
-			_chain_t = 0.0
-			if not is_on_floor():
-				_air_hang = false # 공중 연격 한 바퀴 뒤엔 떨어진다
-
-
-func _slash_hit(a: Dictionary) -> void:
-	var c: Vector2 = a.c
-	var cen := global_position + Vector2(c.x * facing, c.y)
-	var heavy := combo_i == 3
+func _slash_hit() -> void:
 	var any := false
 	for d: Node2D in ETarget.alive(get_tree()):
-		if _sector_hits(d.hit_rect(), cen, float(a.r) + 8.0, float(a.a0), float(a.a1), float(a.sq), float(a.get("rot", 0.0))):
-			deal(d, int(a.dmg), heavy, cen)
+		if _sector_hits(d.hit_rect(), _slash_at, float(SLASH.r) + 8.0, float(SLASH.a0), float(SLASH.a1), float(SLASH.sq), float(SLASH.rot), _slash_dir):
+			deal(d, int(SLASH.dmg), true, _slash_at)
 			any = true
 	if any:
-		Fx.hitstop(0.075 if heavy else 0.04)
-		PVfx.kick(Vector2(facing * (5.0 if heavy else 2.5), 0))
-		Fx.shake(0.4 if heavy else 0.14, 0.18 if heavy else 0.1)
-		if heavy:
-			Fx.zoom_punch(0.05)
+		Fx.hitstop(0.06)
+		PVfx.kick(Vector2(_slash_dir * 5.0, 0))
+		Fx.shake(0.4, 0.18)
+		Fx.zoom_punch(0.05)
 
 
 ## 부채꼴(납작함 sq) 안에 사각형이 걸치는지. 각도는 앞 기준(도)
 ## 기울인(rot, 도) 납작한(sq) 호 안에 rect가 들어오는지 — 그림(Slash)과 같은 변환을 거꾸로 적용
-func _sector_hits(rect: Rect2, cen: Vector2, r: float, a0: float, a1: float, sq: float, rot := 0.0) -> bool:
+func _sector_hits(rect: Rect2, cen: Vector2, r: float, a0: float, a1: float, sq: float, rot := 0.0, dir := 0) -> bool:
 	sq = maxf(sq, 0.6) # 그림은 납작한 회오리지만 판정은 위아래로 넉넉하게 (공중에서도 맞게)
-	var unrot := -deg_to_rad(rot) * float(facing)
+	var f := dir if dir != 0 else facing # 방향 (0 = 지금 바라보는 쪽)
+	var unrot := -deg_to_rad(rot) * float(f)
 	var lo := deg_to_rad(minf(a0, a1)) - 0.25
 	var hi := deg_to_rad(maxf(a0, a1)) + 0.25
 	var p0 := rect.position
@@ -409,7 +350,7 @@ func _sector_hits(rect: Rect2, cen: Vector2, r: float, a0: float, a1: float, sq:
 	var m := rect.get_center()
 	for pt: Vector2 in [m, p0, p1, Vector2(p0.x, p1.y), Vector2(p1.x, p0.y), Vector2(m.x, p0.y), Vector2(m.x, p1.y), Vector2(p0.x, m.y), Vector2(p1.x, m.y)]:
 		var q := (pt - cen).rotated(unrot)
-		q.x *= facing
+		q.x *= f
 		q.y /= sq
 		var l := q.length()
 		if l > r:

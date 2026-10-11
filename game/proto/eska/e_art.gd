@@ -210,8 +210,6 @@ func tick(delta: float) -> void:
 	_sq += _sq_v * dt
 	var lean_want := 0.0
 	match body.st:
-		EEska.St.ATTACK:
-			lean_want = 0.03 if body.combo_i < 3 else 0.05 # 몸은 거의 그대로, 손짓만
 		EEska.St.CAST:
 			lean_want = -0.06 if body.cast_kind == "dangong" else 0.1
 		EEska.St.NORMAL:
@@ -243,7 +241,7 @@ func tick(delta: float) -> void:
 		_step = lerpf(_step, roundf(_step / PI) * PI, 1.0 - exp(-dt * 12.0))
 	_hand = _hand.lerp(_hand_target(), 1.0 - exp(-dt * 46.0))
 	_hand_glow = maxf(_hand_glow - dt * 5.0, 0.0)
-	if body.st in [EEska.St.ATTACK, EEska.St.CAST]:
+	if body.st == EEska.St.CAST or body.slash_t < EEska.SLASH_POSE:
 		_hand_glow = 1.0
 	_snap_flash = maxf(_snap_flash - dt * 7.0, 0.0)
 	# 피격 붉은빛 · 무적 깜빡임 · 쓰러지면 사라짐
@@ -273,7 +271,7 @@ func tick(delta: float) -> void:
 	_sleeve.step(to_global(el), _to_g(_sleeve_rest(el)), sleeve_g, dt, 0.86, 0.08)
 	_sleeve_b.step(to_global(Vector2(-1.8, -22.5 + bob)), _to_g(_sleeve_rest(Vector2(-1.8, -22.5))), sleeve_g, dt, 0.86, 0.08)
 	# 눈빛 꼬리 (빠를 때만)
-	var fast := absf(vx) > 170.0 or body.st == EEska.St.ATTACK
+	var fast := absf(vx) > 170.0 or body.slash_t < EEska.SLASH_POSE
 	if fast:
 		_eye_hist.append(to_global(Vector2(3.6, -28.9 + bob)))
 		if _eye_hist.size() > 7:
@@ -295,21 +293,12 @@ func _bob() -> float:
 
 func _hand_target() -> Vector2:
 	var s := Vector2(1.5, -23.5)
+	if body.st == EEska.St.NORMAL and body.slash_t < EEska.SLASH_POSE:
+		# 베기: 손가락을 들었다가 앞으로 한 번 튕겨 가리킨다 (달리거나 떨어지는 중에도 손만)
+		var k := clampf(body.slash_t / (float(EEska.SLASH.hit) * 1.3), 0.0, 1.0)
+		k = 1.0 - pow(1.0 - k, 3.0)
+		return Vector2(7.0, -34.0).lerp(Vector2(13.0, -25.5), k)
 	match body.st:
-		EEska.St.ATTACK:
-			# 가벼운 손짓: 1타 가리키기 · 2타 손끝 튀기기 · 3타 가슴 앞에서 손가락 튕기기 · 4타 손가락을 들었다 내려 가리키기
-			var a: Dictionary = EEska.COMBO[body.combo_i]
-			var k := clampf(body.st_t / maxf(float(a.hit) * 1.3, 0.001), 0.0, 1.0)
-			k = 1.0 - pow(1.0 - k, 3.0)
-			match body.combo_i:
-				0:
-					return Vector2(9.0, -22.0).lerp(Vector2(12.5, -25.0), k)
-				1:
-					return Vector2(10.0, -28.0).lerp(Vector2(12.5, -22.5), k)
-				2:
-					return Vector2(7.5, -23.0).lerp(Vector2(9.0, -25.5), k)
-				_:
-					return Vector2(7.0, -34.0).lerp(Vector2(13.0, -25.5), k)
 		EEska.St.CAST:
 			match body.cast_kind:
 				"cheonyeol":

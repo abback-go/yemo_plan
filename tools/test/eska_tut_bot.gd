@@ -2,7 +2,7 @@ extends Node
 ## 에스카 튜토리얼 자동 플레이 봇 (시험용 — 순간이동 eval 없이 실제 입력만으로 끝까지 가는지 본다).
 ## 시나리오에서 [2, "attach", "../tools/test/eska_tut_bot.gd"] 로 붙인다 (eska_tutorial_bot.json).
 ## 하는 일: 단계(STEPS)마다 정해진 손놀림 — 오른쪽으로 가며 턱 앞에서 점프·이단점프, 장막 앞에서 순간이동, 틈에서 점프→점프→순간이동,
-## 허수아비 앞에서 연격·천열, 적이 있으면 다가가 베고 스킬, 예고 동작이면 점프로 피한다.
+## 허수아비 앞에서 베기·천열, 적이 있으면 다가가 베고 스킬, 예고 동작이면 점프로 피한다.
 
 var stage: Node
 var _t := 0.0
@@ -43,7 +43,7 @@ func _physics_process(delta: float) -> void:
 		"combo":
 			_go_to(1975.0, 6.0)
 			if absf(x - 1975.0) < 10.0 and _seq.is_empty():
-				_combo([[0.0, "es_attack"], [0.16, "es_attack"], [0.32, "es_attack"], [0.5, "es_attack"]])
+				_combo([[0.0, "es_attack"], [0.36, "es_attack"], [0.72, "es_attack"]])
 		"cheonyeol":
 			_go_to(2120.0, 6.0)
 			if absf(x - 2120.0) < 10.0 and _seq.is_empty() and stage._sub == 1:
@@ -89,7 +89,7 @@ func _fight(e: EEska, step: String) -> void:
 	elif e.cd_left("cheonyeol") <= 0.0 and not foe is ECaster:
 		_tap("es_skill")
 	else:
-		_combo([[0.0, "es_attack"], [0.16, "es_attack"], [0.32, "es_attack"], [0.5, "es_attack"]])
+		_combo([[0.0, "es_attack"], [0.36, "es_attack"], [0.72, "es_attack"]])
 
 
 func _go_to(tx: float, tol: float) -> void:
