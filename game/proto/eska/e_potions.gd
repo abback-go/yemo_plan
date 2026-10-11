@@ -36,7 +36,7 @@ const BIND_T := 3.0 ## 속박: 묶는 시간 (강자는 status_resist만큼 짧�
 const BIND_R := 56.0
 const SCREAM_T := 1.2 ## 비명: 기절 시간 (하던 동작 끊김)
 const SCREAM_R := 70.0
-const SCREAM_POISE := 400 ## 비명: 강자 버팀 피해 (break_poise가 있을 때만)
+const SCREAM_POISE := 400 ## 비명: 강자 버팀 피해 (EEnemy.poise_damage — 버팀이 없는 적은 아무 일 없음)
 const ROT_R := 56.0 ## 부식: 독안개 반경
 const ROT_CLOUD_T := 4.0 ## 독안개가 남는 시간
 const ROT_VULN_T := 8.0 ## 안개에 들어간 적: 이 시간 동안 받는 피해 × ROT_VULN
@@ -337,8 +337,8 @@ static func splash(tree: SceneTree, eska: EEska, id: String, strong: bool, pos: 
 				hits += 1
 				if d.has_method("stun"):
 					d.stun(SCREAM_T * k)
-				if d.has_method("break_poise") and float(d.get("status_resist") if d.get("status_resist") != null else 0.0) > 0.0:
-					d.break_poise(SCREAM_POISE)
+				if d.has_method("poise_damage"):
+					d.poise_damage(SCREAM_POISE)
 				fx.track(d)
 		"rot":
 			fx.rot_k = k # 안개가 남아 있는 동안 스스로 들어온 적에게 건다 (EPotionFx.Splash)
