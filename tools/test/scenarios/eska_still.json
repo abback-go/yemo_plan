@@ -1,0 +1,18 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[5, "eval", "spawn_foe('runner', 720, 300)"], [6, "eval", "spawn_foe('caster', 640, 200)"],
+[60, "eval", "foes()"],
+[70, "tap", "es_bind"],
+[78, "shot", "s01_cast"],
+[95, "shot", "s02_frozen"], [95, "eval", "foes()"],
+[140, "eval", "foes()"], [140, "eval", "eska.cd_left('bonggong')"],
+[180, "eval", "foes()"], [182, "shot", "s03_released"],
+[200, "tap", "es_still_t"], [205, "eval", "eska.still_time"],
+[210, "eval", "waves.call('set_on', false)"],
+[220, "eval", "eska.set('global_position', Vector2(980, 300))"],
+[260, "eval", "eska.cooldowns.set('bonggong', 0.0)"], [262, "tap", "es_bind"],
+[275, "eval", "put_on_rock()"], [276, "shot", "s04_on_rock"],
+[300, "eval", "eska.is_on_floor()"], [300, "eval", "eska.global_position"], [301, "shot", "s05_standing"],
+[470, "eval", "eska.global_position"], [470, "shot", "s06_after_release"],
+[480, "quit"]
+]}

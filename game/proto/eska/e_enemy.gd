@@ -2,7 +2,7 @@ class_name EEnemy
 extends CharacterBody2D
 ## 에스카 시제품의 적 공통 바탕 — 허수아비와 같은 표적 약속(ETarget)을 지키고, 에스카를 맞힐 수 있다.
 ## 하위 종류(ERunner 돌진 · ECaster 원거리 · EColossus 거구)는 _think(생각·움직임)와 _paint_body(그림)만 채운다.
-## 공통: 틈에서 나타남 · 피격 번쩍임·피해 숫자·넉백(knock_resist만큼 버팀)·경직 · 봉공에 묶이면 멈춤(+30%)
+## 공통: 틈에서 나타남 · 피격 번쩍임·피해 숫자·넉백(knock_resist만큼 버팀)·경직 · 봉공(공간 고정)에 굳으면 멈춤(하던 동작은 풀린 뒤 이어서)
 ##       · 몸통 닿으면 피해(_contact_now가 참일 때) · 쓰러지면 흩어져 사라짐.
 ## 색: 검정·뼈흰색·핏빛 빨강 (에스카의 보라와 섞이지 않게, 파랑 없음).
 ## 그림 좌표: 원점 = 발밑 가운데, 오른쪽을 보는 모습으로 그린다(facing이 -1이면 뒤집힘).
@@ -27,7 +27,8 @@ var hp := 300
 var size := Vector2(20, 28) ## 피격 사각형 (원점 = 발밑 가운데)
 var knock_resist := 0.0 ## 0 = 잘 밀림 · 1 = 넉백·경직 없음
 var contact_dmg := 1
-var lockable := true ## 봉공이 겨눌 수 있나
+var lockable := true ## 겨누기 대상인가 (구슬 등은 false)
+var still_resist := 0.0 ## 강자: 공간 고정 중에도 이만큼의 빠르기로 움직임 (0 = 완전히 멈춤)
 var flying := false
 var facing := -1
 var x_min := 24.0 ## 움직일 수 있는 가로 범위 (장면이 정함)
@@ -123,6 +124,12 @@ func unbind() -> void:
 	_bound = 0.0
 
 
+## 봉공(공간 고정, EStill): sec초 동안 굳는다. 묶기(bind)와 달리 준비 동작을 끊지 않고, 풀리면 하던 걸 이어서 한다. 받는 피해는 그대로
+func freeze(sec: float) -> void:
+	_bound = sec
+	_bind_awake = false
+
+
 func is_bound() -> bool:
 	return _bound > 0.0
 
@@ -175,23 +182,30 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(eska):
 		eska = EEska.find(get_tree())
 	_bound = maxf(_bound - delta, 0.0)
+	var slow := _bound > 0.0 and still_resist > 0.0 # 강자: 굳은 공간을 버티며 느리게 움직임
+	var d := delta * still_resist if slow else delta
 	if spawn_t > 0.0:
-		spawn_t -= delta
+		spawn_t -= d
 		velocity.x = 0.0
-	elif _bound > 0.0:
+	elif _bound > 0.0 and not slow:
 		velocity = Vector2.ZERO
 	elif stagger > 0.0:
-		stagger -= delta
-		velocity.x = move_toward(velocity.x, 0.0, 520.0 * delta)
+		stagger -= d
+		velocity.x = move_toward(velocity.x, 0.0, 520.0 * d)
 		if flying:
-			velocity.y = move_toward(velocity.y, 0.0, 520.0 * delta)
+			velocity.y = move_toward(velocity.y, 0.0, 520.0 * d)
 	else:
-		_think(delta)
-	if not flying and _bound <= 0.0:
-		velocity.y = minf(velocity.y + GRAVITY * delta, FALL_MAX)
-	move_and_slide()
+		_think(d)
+	if not flying and (_bound <= 0.0 or slow):
+		velocity.y = minf(velocity.y + GRAVITY * d, FALL_MAX)
+	if slow:
+		velocity *= still_resist
+		move_and_slide()
+		velocity /= still_resist
+	else:
+		move_and_slide()
 	global_position.x = clampf(global_position.x, x_min, x_max)
-	if spawn_t <= 0.0 and _bound <= 0.0 and stagger <= 0.0 and contact_dmg > 0 and _contact_now() and eska_ok():
+	if spawn_t <= 0.0 and (_bound <= 0.0 or slow) and stagger <= 0.0 and contact_dmg > 0 and _contact_now() and eska_ok():
 		if eska.hurt_rect().intersects(hit_rect()):
 			eska.hurt(contact_dmg, center())
 	queue_redraw()
@@ -262,11 +276,12 @@ func xf(pos := Vector2.ZERO, rot := 0.0, sc := Vector2.ONE) -> void:
 	pd.draw_set_transform_matrix(_base * Transform2D(rot, sc, 0.0, pos))
 
 
-## 색 하나: 맞으면 흰빛, 묶이면 검붉게 굳음, a = 투명도
+## 색 하나: 맞으면 흰빛, 굳으면(봉공) 색이 빠진 잿빛 보라, a = 투명도
 func col(c: Color, a := 1.0) -> Color:
 	var out := c
 	if _bound > 0.0:
-		out = out.lerp(Color("#3a1030"), 0.35)
+		var l := c.get_luminance()
+		out = out.lerp(Color(l * 0.85, l * 0.82, l * 1.0), 0.7)
 	out = out.lerp(Color.WHITE, flash * 0.85)
 	out.a *= a
 	return out

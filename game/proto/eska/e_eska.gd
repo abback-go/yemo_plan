@@ -3,7 +3,7 @@ extends CharacterBody2D
 ## 에스카(종언의 마녀) 전투 시제품. 기획: Claude 문서 "새 컨셉: 종언의 마녀" 탭.
 ## 조작: 이동(떠서 활주) · 점프 + 이단점프(공중에서 한 번) · 순간이동(지상은 자유, 공중은 착지 전까지 1번) · 4타 연격(공중 가능 — 팔을 휘두르지 않고 가리키기·튕기기 같은 가벼운 손짓, 제자리에서)
 ##       · 스킬 키: 그냥 = 천열(손가락을 튕기면 앞으로 거대한 참격 열 번) / ↑ = 단공(머리 위를 납작한 회오리 참격으로 연달아 휘감음)
-##       · 봉공(공간 틀에 가둠). 스킬은 쿨다운만 쓴다.
+##       · 봉공(공간 고정 — 화면 전체를 굳힘, EStill). 스킬은 쿨다운만 쓴다.
 ## 공격 판정은 물리 없이 표적(ETarget: 허수아비·적)의 hit_rect()와 부채꼴·선분으로 계산한다(세라 시제품과 같은 방식).
 
 enum St { NORMAL, ATTACK, BLINK, CAST, HURT, DEAD }
@@ -42,8 +42,10 @@ const HURT_INVULN := 1.1 ## 맞은 뒤 무적(깜빡임)
 const RESPAWN_INVULN := 1.6 ## 부활 뒤 무적
 
 ## 스킬 쿨다운 (짧게 — 손맛 시험용)
-const CD := {"cheonyeol": 5.0, "dangong": 2.0, "bonggong": 6.0} ## 천열은 896 피해라 5초 (2초면 연격을 쓸 이유가 없어짐 — docs/eska/combat_spec.md 밸런스)
+const CD := {"cheonyeol": 5.0, "dangong": 2.0, "bonggong": 9.0} ## 천열은 896 피해라 5초 (2초면 연격을 쓸 이유가 없어짐) · 봉공은 화면 전체를 굳혀 9초 — docs/eska/combat_spec.md 밸런스
 const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공"}
+const STILL_BASE := 1.5 ## 봉공(공간 고정) 기본 시간
+const STILL_EVOLVED := 3.0 ## 진화한 봉공 (1장 무구)
 
 ## 4타 연격. 각도는 도(0 = 앞, + = 아래). 호는 a0 → a1로 휘두른다. 납작한 회오리(sq)를 rot만큼 기울인다 —
 ## 1~3타는 앞쪽 한 곳(발 기준 앞 약 30px)을 중심으로 모아 친다. 1타 앞이 들린 대각 · 2타 앞이 내려간 가파른 대각(반대로 감음) · 3타 비스듬히 세워 아래에서 위로 올려 벰 · 4타 가장 큰 가로 회오리 (타마다 다른 각도)
@@ -84,7 +86,7 @@ var _blink_to := Vector2.ZERO
 var cast_kind := ""
 var _cast_dur := 0.0
 var _cast_fired := false
-var _bind_target: Node2D
+var still_time := STILL_BASE ## 봉공이 공간을 굳히는 시간 (진화하면 STILL_EVOLVED)
 
 var invuln := 0.0
 var hp := MAX_HP
@@ -496,8 +498,6 @@ func _start_cast(kind: String, dur: float) -> void:
 	st_t = 0.0
 	if not is_on_floor():
 		velocity.y = minf(velocity.y, 0.0) * 0.3
-	if kind == "bonggong":
-		_bind_target = _pick_target(240.0)
 
 
 func _cast(delta: float) -> void:
@@ -528,37 +528,14 @@ func _cast(delta: float) -> void:
 				art.snap_flash()
 				Sfx.play(&"storm", -6.0)
 			"bonggong":
-				var fr := ESkillFx.BindFrame.new()
-				fr.eska = self
-				fr.target = _bind_target
-				var at: Vector2 = _bind_target.center() if is_instance_valid(_bind_target) else global_position + Vector2(facing * 70, -20)
-				EVfx.add(fr, at, false)
+				EStill.cast(self, still_time)
 				art.snap_flash()
-				Sfx.play(&"chain", -4.0)
 	if _cast_fired and Input.is_action_just_pressed("es_blink") and _blink_cd <= 0.0 and (is_on_floor() or _air_blink):
 		_start_blink(Input.get_axis("es_left", "es_right"))
 		return
 	if st_t >= _cast_dur:
 		st = St.NORMAL
 		st_t = 0.0
-
-
-## 가장 가까운 허수아비 (앞쪽을 조금 더 쳐 줌)
-func _pick_target(reach: float) -> Node2D:
-	var best: Node2D = null
-	var best_s := INF
-	for d: Node2D in ETarget.alive(get_tree()):
-		if d.get("lockable") == false:
-			continue # 적 구슬 등은 겨누지 않음
-		var off: Vector2 = d.center() - center()
-		var dist := off.length()
-		if dist > reach:
-			continue
-		var s: float = dist * (0.7 if signf(off.x) == float(facing) else 1.3)
-		if s < best_s:
-			best_s = s
-			best = d
-	return best
 
 
 # ═══════════════════════════════════════════════════════════

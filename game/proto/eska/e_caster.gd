@@ -157,6 +157,7 @@ class Orb extends PDraw.Canvas:
 	var _life := 4.0
 	var _t := 0.0
 	var _dead := false
+	var _still := 0.0 ## 봉공(공간 고정)으로 굳은 남은 시간 — 그동안 날지도, 사라지지도, 맞히지도 않는다
 	var _trail := PackedVector2Array()
 
 	func _ready() -> void:
@@ -178,11 +179,17 @@ class Orb extends PDraw.Canvas:
 	func bind(_sec: float, _awake: bool, _fox := true, _style := "") -> void:
 		pass
 
+	func freeze(sec: float) -> void:
+		_still = sec
+
 	func unbind() -> void:
-		pass
+		_still = 0.0
 
 	func _process(delta: float) -> void:
 		if _dead:
+			return
+		if _still > 0.0:
+			_still -= delta
 			return
 		_t += delta
 		global_position += vel * delta
