@@ -11,7 +11,7 @@
 [70, "tap", "es_ult_next"], [72, "eval", "eska.selected_ult()"],
 [80, "tap", "es_ult_next"], [82, "eval", "eska.selected_ult()"],
 [90, "tap", "es_ult_next"], [92, "eval", "eska.selected_ult()"],
-[95, "eval", "eska.set('gauge', 3300.0)"], [97, "shot", "u02_half_moon"],
+[95, "eval", "eska.set('gauge', 3800.0)"], [97, "shot", "u02_half_moon"],
 [100, "tap", "es_gauge_fill"], [102, "eval", "eska.gauge_ratio()"], [104, "shot", "u03_full_moon"],
 [106, "eval", "eska.fx_spawned"],
 [110, "tap", "es_bind"],

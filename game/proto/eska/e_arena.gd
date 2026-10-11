@@ -4,6 +4,7 @@ extends EStage
 ## 오른쪽 끝은 공간 고정 시험 구역: 떨어지는 돌을 봉공으로 굳혀 밟고 높은 턱(점프로는 안 닿음)에 오른다.
 ## 봉공 진화(굳은 동안 준 피해의 50%가 깨질 때 터짐)는 오른쪽 위 두 번째 버튼이나 T 키로 켜고 끈다.
 ## 종언 게이지는 오른쪽 위 세 번째 버튼 "게이지 가득"이나 G 키로 바로 채운다 (대마법 시험). 왼쪽 끝에 마녀의 가마솥.
+## 허수아비 위에 틈 달이기 안내판 (천열로 찢은 틈에 물약을 던져 넣기 — loop3 1장).
 ## 들어오는 길: 타이틀 메뉴 "에스카 시제품" 또는 웹 주소 뒤 ?eska
 
 const W := 1280.0
@@ -11,6 +12,7 @@ const FLOOR := 300.0
 const SHELF := Rect2(1150, FLOOR - 200.0, 114, 14) ## 공간 고정 시험: 이단점프(81)로는 안 닿는 높은 턱
 const ROCK_XS: Array[float] = [1040.0, 1096.0] ## 돌이 떨어지는 두 기둥 (반 간격씩 어긋남 → 굳히면 엇갈린 계단)
 const CAULDRON_X := 250.0 ## 가마솥 자리 (부활 자리 왼쪽)
+const RIFT_SIGN := Vector2(468, FLOOR - 150.0) ## 틈 달이기 안내판 글자 왼쪽 위 (허수아비 위 — 처음 화면에 다 보이게)
 const BTN_TOP := [8.0, 34.0] ## 오른쪽 위 시험 버튼들의 위 끝 (적 물결 · 봉공 진화). 그 아래는 연타 수 자리
 const BTN_W := 104.0 ## 시험 버튼 너비
 const BTN_RIGHT := -42.0 ## 첫 줄 버튼 오른쪽 끝 (나가기 ✕ 왼쪽)
@@ -47,6 +49,9 @@ func _build() -> void:
 	fall.floor_y = FLOOR
 	add_child(fall)
 	cauldron = ECauldron.place(self, Vector2(CAULDRON_X, FLOOR))
+	var sign := RiftSign.new()
+	sign.at = RIFT_SIGN
+	add_child(sign)
 
 
 func _start() -> void:
@@ -169,3 +174,27 @@ class ShelfMark extends Node2D:
 		draw_string(f, at, "대마법 봉공으로 떨어지는 돌을", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(EVfx.PALE, 0.75))
 		draw_string(f, at + Vector2(0, 14), "굳혀 밟고 오르기 →", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(EVfx.PALE, 0.75))
 		draw_string(f, at + Vector2(0, 28), "(D로 봉공 고르기 · 게이지 가득이면 S · G 채우기)", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(EVfx.PALE, 0.55))
+
+
+## 틈 달이기 안내판: 작은 틈 그림 + 안내 글씨 (시험 구역 안내판과 같은 방식, 정적 — 한 번만 그림)
+class RiftSign extends Node2D:
+	const LINES := ["틈 달이기", "천열(A)로 찢은 틈이 열려 있을 때", "물약을 던져 넣으면(↓F 속박 등)", "진하게 스며들어 강자에게도 다 걸린다"]
+	const LINE_H := 14.0
+	var at := Vector2.ZERO
+	var pd := PDraw.new()
+
+	func _ready() -> void:
+		z_index = -1
+
+	func _draw() -> void:
+		# 왼쪽 작은 틈: 검은 무 + 마젠타 테 + 흰 금 (안내하는 대상을 그림으로)
+		var c := at + Vector2(-12, 22)
+		var tear := PackedVector2Array([c + Vector2(0, -16), c + Vector2(3, -6), c + Vector2(2, 4), c + Vector2(0, 16), c + Vector2(-2, 5), c + Vector2(-3, -7)])
+		pd.glow(c, 18.0, Color(EVfx.MAGENTA, 0.18), 0.0)
+		pd.outlined(tear, EVfx.VOID, EVfx.MAGENTA, 1.0)
+		pd.draw_line(c + Vector2(0, -11), c + Vector2(0, 11), Color(EVfx.EDGE, 0.8), 1.0)
+		pd.flush(self)
+		var f := ThemeDB.fallback_font
+		for i in LINES.size():
+			var col := Color(EVfx.EDGE, 0.85) if i == 0 else Color(EVfx.PALE, 0.75)
+			draw_string(f, at + Vector2(0, LINE_H * float(i) + 11.0), LINES[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12 if i == 0 else 11, col)

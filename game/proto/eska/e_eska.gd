@@ -34,6 +34,7 @@ const JUMP_BUFFER := 0.12
 const AIR_JUMP_SPEED := 320.0 ## 이단점프: 공중의 공간을 밟고 한 번 더 도약 (착지 전까지 1번, 높이 고정)
 const ATTACK_BUFFER := 0.14
 const ACTION_BUFFER := 0.12 ## 순간이동·고급 마법·물약·대마법 입력 기억 — 시전·의식·물약 동작·피격 경직 중에 눌러도 끝나는 순간 꺼내 쓴다
+## (순간이동·물약은 시전·의식 중엔 이 시간이 줄지 않는다 — 시전 0.26~0.32초·의식 0.52초가 0.12초보다 길어서 누른 F·C가 사라지던 문제, loop3 1장)
 const FAST_FALL_MAX := 440.0 ## 공중에서 ↓를 누르고 있으면
 const COMBO_WINDOW := 1.6 ## 이 시간 안에 다시 맞히면 연타 수가 이어진다
 
@@ -148,7 +149,7 @@ var _leech_acc := 0.0 ## 포식 물약: 쌓인 피해
 ## 물약이 바꾸는 값 (EPotions가 켜고 끈다): size 범위 배수 · cd_rate 고급 마법 쿨다운이 줄어드는 빠르기 · speed 이동 배수
 ## echo 고급 마법이 한 번 더 나가는 세기(0 = 없음) · leech 이만큼 피해마다 체력 +1 (0 = 없음) · gauge 종언 게이지 차는 배수 · dmg 주는 피해 배수
 var mods := {"size": 1.0, "cd_rate": 1.0, "speed": 1.0, "echo": 0.0, "leech": 0, "gauge": 1.0, "dmg": 1.0}
-const GAUGE_MAX := 6600.0 ## 종언 게이지: 대마법이 아닌 피해 이만큼이면 가득 (초당 약 220이면 30초) — design.md 3-3
+const GAUGE_MAX := 7600.0 ## 종언 게이지: 대마법이 아닌 피해 이만큼이면 가득 (초당 약 220이면 약 35초) — design.md 3-3, loop3 3장 (6600 → 7600)
 const GAUGE_RATE := 220.0 ## cd_left가 대마법까지 남은 시간을 셀 때 쓰는 초당 피해 (기본 베기 기준)
 const ULT_NOT_SELECTED := 1.0 ## 게이지가 가득해도 고르지 않은 대마법은 cd_left가 이만큼 (0이 아니게)
 var gauge := 0.0
@@ -290,9 +291,10 @@ func _physics_process(delta: float) -> void:
 	_coyote = COYOTE if is_on_floor() else maxf(_coyote - delta, 0.0)
 	_jump_buf = maxf(_jump_buf - delta, 0.0)
 	_atk_buf = maxf(_atk_buf - delta, 0.0)
-	_buf_blink = maxf(_buf_blink - delta, 0.0)
+	if st != St.CAST and st != St.ULT: # 시전·의식 중에 누른 순간이동·물약은 그 상태가 끝날 때까지 기억
+		_buf_blink = maxf(_buf_blink - delta, 0.0)
+		_buf_potion = maxf(_buf_potion - delta, 0.0)
 	_buf_skill = maxf(_buf_skill - delta, 0.0)
-	_buf_potion = maxf(_buf_potion - delta, 0.0)
 	_buf_ult = maxf(_buf_ult - delta, 0.0)
 	_poll_presses()
 	hurt_flicker = maxf(hurt_flicker - delta, 0.0)
