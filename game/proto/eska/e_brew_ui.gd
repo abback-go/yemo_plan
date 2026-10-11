@@ -13,6 +13,12 @@ const BREW_TIME := 0.9 ## 달이는 연출 시간 (실제 시간)
 const REVEAL_MIN := 0.35 ## 결과 화면을 넘길 수 있기까지
 const UNPAUSE_FRAMES := 2 ## 닫은 뒤 몇 프레임 뒤에 게임을 다시 움직임 (닫은 키가 게임에 새지 않게)
 const TAP_PAD := 4.0
+const BOOK_X := 16.0 ## 마녀 수첩 첫 칸 (패널 좌표)
+const BOOK_Y := 228.0
+const BOOK_GAP := 48.0
+const BOOK_W := 44.0
+const BOOK_H := 76.0
+const MEMO_CYCLE := 4.0 ## 수첩 머리에 보이는 메모가 바뀌는 간격 (초)
 
 # 색 (EHud·EVfx와 같은 계열, 파랑 없음)
 const INK := Color("#14081f")
@@ -75,6 +81,13 @@ func _build_items() -> void:
 	for i in 3:
 		_items["slot:%d" % i] = Rect2(392, 52 + i * 40, 152, 34)
 	_items["close"] = Rect2(PANEL.x - 30, 6, 24, 22)
+	for i in EPotions.NOTEBOOK_ORDER.size(): # 마녀 수첩 칸 (고르면 아래 줄에 설명·메모)
+		_items["book:%d" % i] = book_rect(i)
+
+
+## 마녀 수첩 칸 i의 자리 (패널 좌표)
+static func book_rect(i: int) -> Rect2:
+	return Rect2(BOOK_X + BOOK_GAP * float(i), BOOK_Y, BOOK_W, BOOK_H)
 
 
 func is_open() -> bool:
@@ -218,6 +231,8 @@ func activate(id: String) -> void:
 			brew()
 		"close":
 			close()
+		_:
+			pass # 수첩 칸: 고르기만 (아래 줄에 설명·메모)
 
 
 ## X: 마지막 재료를 뺌 (진하게 → 둘째 → 첫째), 다 비었으면 닫기
@@ -295,23 +310,28 @@ func info_line() -> String:
 			return "%s — %s" % [EPotions.ing_name(ing), EPotions.INGREDIENTS[ing]["mean"]]
 		"sock":
 			if int(parts[1]) == 2:
-				return "달이슬을 하나 더: 진한 물약 (효과 1.5배 · 병 하나 적게)"
+				return "달이슬을 하나 더: 진한 물약 (한 번에 강하게 · 병 하나 적게)"
 			return "넣은 재료 — 누르면 뺀다"
 		"slot":
 			var s: Dictionary = eska.belt.slot(int(parts[1])) if is_instance_valid(eska) else {}
 			var id := String(s.get("id", ""))
 			if id == "":
 				return "빈 칸 — 여기에 담는다"
-			return "%s %s · %s" % [EPotions.SLOT_KEYS[int(parts[1])], _pname(id, bool(s.get("strong", false))), EPotions.desc(id)]
+			return "%s %s · %s" % [EPotions.SLOT_KEYS[int(parts[1])], _pname(id, bool(s.get("strong", false))), EPotions.desc_of(id, bool(s.get("strong", false)))]
 		"brew":
 			var pv := preview()
 			if pv == "":
 				return "재료 두 가지를 넣어야 달일 수 있다"
 			if pv == "?":
 				return "모르는 조합 — 달여 보면 안다"
-			return "%s · %s" % [_pname(pv, strong), EPotions.desc(pv)]
+			return "%s · %s" % [_pname(pv, strong), EPotions.desc_of(pv, strong)]
 		"close":
 			return "가마솥을 떠난다"
+		"book":
+			var bid: String = EPotions.NOTEBOOK_ORDER[int(parts[1])]
+			if EPotions.discovered(bid):
+				return "%s — %s" % [EPotions.display_name(bid), EPotions.desc(bid)]
+			return "마녀의 메모: 「%s」" % EPotions.hint(bid)
 	return ""
 
 
@@ -513,11 +533,12 @@ class View extends Control:
 		var n := EPotions.NOTEBOOK_ORDER.size()
 		for i in n:
 			var bid: String = EPotions.NOTEBOOK_ORDER[i]
-			var x := 16.0 + 48.0 * float(i)
-			var r := Rect2(x, 228, 44, 76)
+			var r := EBrewUI.book_rect(i)
+			var x := r.position.x
 			var found := EPotions.discovered(bid)
+			var foc := u.focus == "book:%d" % i and u.phase == "pick"
 			pd.draw_rect(r, Color(0, 0, 0, 0.25))
-			pd.draw_rect(r, Color(EBrewUI.VIOLET, 0.22 if found else 0.1), false, 1.0)
+			pd.draw_rect(r, EBrewUI.MAGENTA if foc else Color(EBrewUI.VIOLET, 0.22 if found else 0.1), false, 1.6 if foc else 1.0)
 			var shown := bid if EPotions.kind(bid) != "" else bid
 			if found:
 				pd.glow(Vector2(x + 22, 246), 16.0, Color(EPotions.color(bid), 0.18), 0.0)
@@ -529,6 +550,7 @@ class View extends Control:
 					EPotionFx.draw_ingredient(pd, Vector2(x + 32, 290), String(pr[1]), 0.62)
 			else:
 				EPotionFx.draw_bottle(pd, Vector2(x + 22, 246), "", 1.5, 0.0, 0.35)
+				_quill(Vector2(x + 22, 292), Color(EBrewUI.PALE, 0.35)) # 메모가 적힌 칸
 
 	func _paint_book_text(u: EBrewUI, font: Font) -> void:
 		var n := EPotions.NOTEBOOK_ORDER.size()
@@ -545,10 +567,19 @@ class View extends Control:
 					var cnt := "조합 %d" % rec.size()
 					_text(font, Vector2(x + 22 - _w(font, cnt, 9) * 0.5, 294), cnt, 9, EBrewUI.DIM)
 			else:
-				_text(font, Vector2(x + 22 - _w(font, "?", 10) * 0.5, 276), "?", 10, EBrewUI.DIM)
+				_text(font, Vector2(x + 22 - _w(font, "메모", 9) * 0.5, 276), "메모", 9, EBrewUI.DIM)
 		_text(font, Vector2(16, 222), "마녀 수첩", 10, EBrewUI.VIOLET)
 		var cnt2 := "%d / %d" % [found_n, n]
-		_text(font, Vector2(16 + _w(font, "마녀 수첩", 10) + 8, 222), cnt2, 10, EBrewUI.DIM)
+		var cx := 16 + _w(font, "마녀 수첩", 10) + 8
+		_text(font, Vector2(cx, 222), cnt2, 10, EBrewUI.DIM)
+		# 아직 모르는 물약의 메모 하나 (MEMO_CYCLE초마다 바뀜)
+		var unknown: Array[String] = []
+		for bid: String in EPotions.NOTEBOOK_ORDER:
+			if not EPotions.discovered(bid):
+				unknown.append(bid)
+		if not unknown.is_empty():
+			var memo := "「%s」" % EPotions.hint(unknown[int(u.t / EBrewUI.MEMO_CYCLE) % unknown.size()])
+			_text(font, Vector2(cx + _w(font, cnt2, 10) + 14, 222), memo, 9, Color(EBrewUI.GOLD, 0.6))
 
 	## 결과 공개: 패널을 덮고 큰 병이 차오름 + 이름 · 설명 · 담은 칸. 처음 만든 물약이면 "새 물약!"
 	func _paint_reveal(u: EBrewUI, font: Font) -> void:
@@ -590,7 +621,7 @@ class View extends Control:
 		_text(font, Vector2(W * 0.5 - _w(font, nm, 22) * 0.5, 196), nm, 22, Color(c.lightened(0.3), a))
 		var line2 := "%s · %d병 · %s 칸에 담았다" % [EBrewUI.kind_label(id), EPotions.doses_of(id, st), EPotions.SLOT_KEYS[u.target]]
 		_text(font, Vector2(W * 0.5 - _w(font, line2, 11) * 0.5, 216), line2, 11, Color(EBrewUI.VIOLET, a))
-		var d := EPotions.desc(id)
+		var d := EPotions.desc_of(id, st)
 		_text(font, Vector2(W * 0.5 - _w(font, d, 12) * 0.5, 238), d, 12, Color(EBrewUI.PALE, a))
 		var rk := "%s + %s%s" % [EPotions.ing_name(u.sel[0]), EPotions.ing_name(u.sel[1]), " + 달이슬" if st else ""] if u.sel.size() == 2 else ""
 		_text(font, Vector2(W * 0.5 - _w(font, rk, 10) * 0.5, 258), rk, 10, Color(EBrewUI.DIM, a))
@@ -607,6 +638,12 @@ class View extends Control:
 			pd.glow(r.get_center(), r.size.x * 0.75, Color(EBrewUI.MAGENTA, 0.08 + 0.04 * sin(ui.t * 5.0)), 0.0)
 		if chosen:
 			_diamond(r.position + Vector2(r.size.x - 6, 6), 2.4, EBrewUI.MAGENTA)
+
+	## 작은 깃펜 (수첩에 메모가 적힌 칸)
+	func _quill(p: Vector2, c: Color) -> void:
+		pd.draw_line(p + Vector2(-6, 4), p + Vector2(5, -5), c, 1.0)
+		pd.convex(PackedVector2Array([p + Vector2(5, -5), p + Vector2(1, -4), p + Vector2(-2, 0), p + Vector2(2, -1)]), c)
+		pd.draw_line(p + Vector2(-8, 5), p + Vector2(-3, 5), c, 0.8)
 
 	func _diamond(p: Vector2, r: float, c: Color) -> void:
 		pd.convex(PackedVector2Array([p + Vector2(0, -r * 1.25), p + Vector2(r, 0), p + Vector2(0, r * 1.25), p + Vector2(-r, 0)]), c)

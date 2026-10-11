@@ -46,6 +46,12 @@ static func place(stage: Node, pos: Vector2) -> ECauldron:
 func _ready() -> void:
 	z_index = -1
 	t = randf() * 3.0
+	# 터치 버튼 입력은 장면 맨 끝에 붙인 작은 노드가 받는다: _input은 나중에 붙은 노드가 먼저 받으므로,
+	# 장면을 지을 때 놓인 가마솥보다 늦게 붙는 터치 조작(ETouch)이 왼쪽 아래 방향 패드 자리에서 손가락을 먼저 가져가 버리지 않게
+	var catcher := TouchCatch.new()
+	catcher.cauldron = self
+	get_tree().current_scene.add_child.call_deferred(catcher)
+	tree_exiting.connect(catcher.queue_free)
 
 
 func _process(delta: float) -> void:
@@ -128,8 +134,8 @@ func _on_ui_closed() -> void:
 		eska.belt.refill()
 
 
-## 터치·마우스로 달이기 버튼을 누름 (가까이 있을 때만)
-func _input(event: InputEvent) -> void:
+## 터치·마우스로 달이기 버튼을 누름 (가까이 있을 때만) — TouchCatch가 넘겨 줌
+func touch_input(event: InputEvent) -> void:
 	if not near or ui != null or not is_instance_valid(eska):
 		return
 	var pos := Vector2.INF
@@ -143,6 +149,15 @@ func _input(event: InputEvent) -> void:
 	if BTN.grow(BTN_PAD).has_point(world - global_position) and _can_open():
 		get_viewport().set_input_as_handled()
 		open()
+
+
+## 장면 맨 끝에서 입력을 먼저 받아 가마솥에 넘기는 노드
+class TouchCatch extends Node:
+	var cauldron: ECauldron
+
+	func _input(event: InputEvent) -> void:
+		if is_instance_valid(cauldron):
+			cauldron.touch_input(event)
 
 
 func _touch_on() -> bool:

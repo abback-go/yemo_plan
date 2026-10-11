@@ -641,6 +641,14 @@ func _build_eska_potion() -> void:
 		{wave = "square", f0 = 330.0, f1 = 300.0, dur = 0.07, vol = 0.1, lp = 0.3},
 		{wave = "square", f0 = 250.0, f1 = 210.0, dur = 0.09, vol = 0.1, lp = 0.3, delay = 0.08},
 	])
+	_add_fast(&"es_rift_brew", [ # 틈 달이기: 병이 틈에 빨려 드는 '쉬익'(올라가며 부풂) → 0.12초에 삼키는 깊은 '꿀렁' + 틈이 유리처럼 울리고 물약이 가장자리를 타는 지지직
+		{wave = "noise", dur = 0.14, vol = 0.45, bp = 400.0, bp1 = 3800.0, q = 0.4, attack = 0.12, decay = 0.3},
+		{wave = "sine", f0 = 300.0, f1 = 1400.0, curve = "exp", dur = 0.13, vol = 0.06, attack = 0.1, decay = 0.4},
+		{wave = "sine", f0 = 95.0, f1 = 38.0, dur = 0.32, vol = 0.55, tau = 0.1, delay = 0.12},
+		{wave = "sine", f0 = 1760.0, fm = 1.41, fm_i = 1.2, fm_i1 = 0.1, dur = 0.6, vol = 0.1, tau = 0.25, delay = 0.12},
+		{wave = "sine", f0 = 2640.0, dur = 0.5, vol = 0.05, tau = 0.2, delay = 0.15},
+		{wave = "noise", dur = 0.35, vol = 0.16, bp = 2500.0, q = 0.5, am = 30.0, am_depth = 0.7, decay = 1.4, delay = 0.12},
+	], 11025)
 	_add_fast(&"es_pot_refill", [ # 가마솥에 들러 허리띠가 가득: 위로 올라가는 반짝임
 		{wave = "sine", f0 = 1100.0, f1 = 1600.0, fm = 2.0, fm_i = 0.8, fm_i1 = 0.0, dur = 0.25, vol = 0.1, tau = 0.09},
 		{wave = "sine", f0 = 1400.0, f1 = 2000.0, fm = 2.0, fm_i = 0.8, fm_i1 = 0.0, dur = 0.25, vol = 0.09, tau = 0.09, delay = 0.07},

@@ -45,5 +45,17 @@
 [910, "eval", "eska.belt.set_slot(2, 'murky_t', false)"],
 [912, "press", "es_right"], [930, "eval", "eska.belt.potions().use(eska, 2)"], [931, "release", "es_right"],
 [980, "eval", "eska.belt.potions().last_splash"],
-[990, "quit"]
+[1000, "eval", "eska.set('global_position', Vector2(700, 300))"], [1000, "eval", "eska.set('hp', 6)"],
+[1002, "eval", "eska.belt.set_slot(2, 'rot', true)"],
+[1005, "eval", "spawn_foe('runner', 850, 300)"],
+[1045, "eval", "eska.belt.potions().use(eska, 2)"],
+[1090, "eval", "eska.belt.potions().last_splash"], [1090, "eval", "get_tree().get_nodes_in_group('p_target').back().vuln_t"], [1090, "eval", "get_tree().get_nodes_in_group('p_target').back().vuln_mult"],
+[1100, "eval", "get_tree().get_nodes_in_group('p_target').back().banish()"],
+[1110, "eval", "eska.set('global_position', Vector2(700, 300))"], [1110, "eval", "eska.set('hp', 6)"],
+[1112, "eval", "eska.belt.set_slot(2, 'scream', true)"],
+[1115, "eval", "spawn_foe('runner', 850, 300)"],
+[1155, "eval", "eska.belt.potions().use(eska, 2)"],
+[1205, "eval", "eska.belt.potions().last_splash"], [1205, "eval", "get_tree().get_nodes_in_group('p_target').back().stagger"],
+[1207, "shot", "t10_strong_scream"],
+[1220, "quit"]
 ]}
