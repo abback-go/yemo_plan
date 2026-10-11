@@ -270,3 +270,46 @@ class Lantern extends PDraw.Canvas:
 		pd.glow(Vector2(0, -32), (22.0 + 30.0 * _flare) * fl, Color(MAGENTA, 0.22 + 0.3 * _flare), 0.0)
 		pd.draw_colored_polygon(PackedVector2Array([Vector2(-3, -29), Vector2(0, -38.0 - 3.0 * fl), Vector2(3, -29)]), Color(BODY, 0.95))
 		pd.draw_colored_polygon(PackedVector2Array([Vector2(-1.5, -29.5), Vector2(0, -35.0 - 2.0 * fl), Vector2(1.5, -29.5)]), EDGE)
+
+
+## "딱 맞춤" 고리: 단공을 배우는 동안 에스카 몸 둘레에 딱 맞춤 거리(ESkillFx.Upsweep.PERFECT_R)를 점선 고리로 보여 준다.
+## 구슬이 고리 안에 들어오면 고리가 밝고 굵어진다 — "지금 ↑+스킬". on을 끄면 줄어들며 사라짐.
+class PerfectRing extends PDraw.Canvas:
+	const DASHES := 24
+	const FADE_V := 4.0 ## 나타나고 사라지는 빠르기 (초당)
+	var eska: EEska
+	var on := true
+	var lit := 0.0 ## 구슬이 안에 있을 때 1 (부드럽게)
+	var _k := 0.0
+	var _t := 0.0
+
+	func _ready() -> void:
+		z_index = 4
+
+	func _process(delta: float) -> void:
+		_t += delta
+		_k = move_toward(_k, 1.0 if on else 0.0, delta * FADE_V)
+		if not is_instance_valid(eska):
+			return
+		global_position = eska.center()
+		var inside := false
+		if on:
+			for n: Node in get_tree().get_nodes_in_group(EEnemy.PROJECTILE_GROUP):
+				if n is Node2D and (n as Node2D).global_position.distance_to(global_position) <= ESkillFx.Upsweep.PERFECT_R:
+					inside = true
+					break
+		lit = move_toward(lit, 1.0 if inside else 0.0, delta * 10.0)
+		visible = _k > 0.0
+		queue_redraw()
+
+	func _paint() -> void:
+		var r := ESkillFx.Upsweep.PERFECT_R * (0.85 + 0.15 * _k)
+		var a := _k * (0.28 + 0.6 * lit)
+		var w := 1.0 + 1.5 * lit
+		var c := MAGENTA.lerp(EDGE, lit)
+		var spin := _t * 0.4
+		for i in DASHES:
+			var a0 := spin + TAU * float(i) / float(DASHES)
+			pd.draw_arc(Vector2.ZERO, r, a0, a0 + TAU / float(DASHES) * 0.55, 3, Color(c, a), w)
+		if lit > 0.0:
+			pd.glow(Vector2.ZERO, r * 0.9, Color(MAGENTA, 0.08 * lit * _k), 0.0)

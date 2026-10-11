@@ -1,7 +1,7 @@
 class_name ETutEnd
 extends Control
-## 튜토리얼 끝 화면: 어두운 막 위에 "돌파" 제목 · 기록(걸린 시간·쓰러짐·맞음·최고 연타) · 버튼 셋.
-## 기록 줄은 하나씩 차례로 나타난다. 버튼은 키보드(↑↓·Enter/Space/Z)와 터치 모두. 고른 것은 chosen 신호로 알린다.
+## 튜토리얼 끝 화면: 어두운 막 위에 "돌파" 제목 · 익힌 마녀의 기술(마름모 줄) · 기록 두 줄 칸(걸린 시간·쓰러짐·맞음·최고 연타·딱 맞춤·틈 달이기) · 버튼 셋.
+## 기술·기록은 하나씩 차례로 나타난다. 버튼은 키보드(↑↓·Enter/Space/Z)와 터치 모두. 고른 것은 chosen 신호로 알린다.
 
 signal chosen(what: String) ## "retry" · "arena" · "title"
 
@@ -11,7 +11,12 @@ const MAGENTA := EVfx.MAGENTA
 const INK := EVfx.INK
 const EDGE := EVfx.EDGE
 
-var stats: Array = [] ## [[이름, 값], ...]
+const COL_W := 136.0 ## 기록 한 칸(이름 ~ 값) 너비 — 두 칸이 나란히
+const COL_GAP := 24.0
+const ROW_H := 17.0
+
+var stats: Array = [] ## [[이름, 값], ...] — 왼쪽 칸부터 위→아래, 반씩 나눠 두 칸
+var learned: Array = [] ## 익힌 기술 이름 (제목 아래 한 줄)
 var _t := 0.0
 var _font: Font
 var _buttons: Array[Button] = []
@@ -82,7 +87,7 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.0, 0.04, minf(_t / 0.6, 1.0) * 0.72))
-	var c := Vector2(size.x * 0.5, size.y * 0.22)
+	var c := Vector2(size.x * 0.5, size.y * 0.19)
 	var inn := clampf(_t / 0.6, 0.0, 1.0)
 	var e := 1.0 - pow(1.0 - inn, 3.0)
 	var title := "종언의 문턱 — 돌파"
@@ -95,18 +100,36 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO)
 	var lw := (tw * 0.5 + 60.0) * e
 	draw_line(c + Vector2(-lw, 12), c + Vector2(lw, 12), Color(MAGENTA, 0.7 * inn), 1.0)
-	# 기록: 한 줄씩
+	# 익힌 기술: 제목 아래 한 줄, 마름모로 이어짐
+	var lw_all := 0.0
+	for nm: String in learned:
+		lw_all += _font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 22.0
+	var lx := c.x - lw_all * 0.5
+	for i in learned.size():
+		var k := clampf((_t - 0.5 - 0.12 * float(i)) / 0.25, 0.0, 1.0)
+		var nm := String(learned[i])
+		var nw := _font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		if k > 0.0:
+			var d := Vector2(lx + 5.0, c.y + 29.0)
+			draw_colored_polygon(PackedVector2Array([d + Vector2(0, -3.5), d + Vector2(3.5, 0), d + Vector2(0, 3.5), d + Vector2(-3.5, 0)]), Color(MAGENTA.lerp(EDGE, 0.4), k))
+			_text(Vector2(lx + 14.0, c.y + 33.0 + 4.0 * (1.0 - k)), nm, 11, Color(PALE, k))
+		lx += nw + 22.0
+	# 기록: 두 칸, 한 줄씩
+	var half := ceili(stats.size() / 2.0)
 	for i in stats.size():
-		var k := clampf((_t - 0.6 - 0.18 * float(i)) / 0.25, 0.0, 1.0)
+		var k := clampf((_t - 0.9 - 0.15 * float(i)) / 0.25, 0.0, 1.0)
 		if k <= 0.0:
 			continue
-		var y := c.y + 36.0 + 18.0 * float(i) + 6.0 * (1.0 - k)
+		var col := i / half
+		var row := i % half
+		var x0 := c.x - COL_W - COL_GAP * 0.5 + float(col) * (COL_W + COL_GAP)
+		var y := c.y + 58.0 + ROW_H * float(row) + 6.0 * (1.0 - k)
 		var name := String(stats[i][0])
 		var val := String(stats[i][1])
 		var vw := _font.get_string_size(val, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
-		_text(Vector2(c.x - 110.0, y), name, 12, Color(VIOLET, k))
-		_text(Vector2(c.x + 110.0 - vw, y), val, 13, Color(PALE.lerp(Color.WHITE, 0.4), k))
-		draw_line(Vector2(c.x - 110.0, y + 4), Vector2(c.x + 110.0, y + 4), Color(VIOLET, 0.15 * k), 1.0)
+		_text(Vector2(x0, y), name, 12, Color(VIOLET, k))
+		_text(Vector2(x0 + COL_W - vw, y), val, 13, Color(PALE.lerp(Color.WHITE, 0.4), k))
+		draw_line(Vector2(x0, y + 4), Vector2(x0 + COL_W, y + 4), Color(VIOLET, 0.15 * k), 1.0)
 
 
 func _text(p: Vector2, s: String, fs: int, col: Color) -> void:
