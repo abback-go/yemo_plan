@@ -660,6 +660,14 @@ func _build_eska_potion() -> void:
 		{wave = "sine", f0 = 2640.0, dur = 0.5, vol = 0.05, tau = 0.2, delay = 0.15},
 		{wave = "noise", dur = 0.35, vol = 0.16, bp = 2500.0, q = 0.5, am = 30.0, am_depth = 0.7, decay = 1.4, delay = 0.12},
 	], 11025)
+	_add_fast(&"es_rift_fresh", [ # 갓 찢긴 틈에 스밈: 빨려 드는 쉬익 → 삼키는 꿀렁 + 금빛 종 셋이 빠르게 올라감 + 반짝임 (늦은 틈 es_rift_brew와 구별)
+		{wave = "noise", dur = 0.12, vol = 0.4, bp = 600.0, bp1 = 4200.0, q = 0.4, attack = 0.1, decay = 0.3},
+		{wave = "sine", f0 = 95.0, f1 = 40.0, dur = 0.28, vol = 0.45, tau = 0.09, delay = 0.1},
+		{wave = "sine", f0 = 1318.5, fm = 2.0, fm_i = 0.6, fm_i1 = 0.0, dur = 0.35, vol = 0.12, tau = 0.12, delay = 0.1},
+		{wave = "sine", f0 = 1760.0, fm = 2.0, fm_i = 0.6, fm_i1 = 0.0, dur = 0.35, vol = 0.11, tau = 0.12, delay = 0.16},
+		{wave = "sine", f0 = 2637.0, fm = 2.0, fm_i = 0.5, fm_i1 = 0.0, dur = 0.5, vol = 0.1, tau = 0.2, delay = 0.22},
+		{wave = "noise", dur = 0.4, vol = 0.08, bp = 7000.0, q = 0.5, am = 24.0, am_depth = 0.7, attack = 0.05, decay = 1.2, delay = 0.12},
+	], 11025)
 	_add_fast(&"es_pot_refill", [ # 가마솥에 들러 허리띠가 가득: 위로 올라가는 반짝임
 		{wave = "sine", f0 = 1100.0, f1 = 1600.0, fm = 2.0, fm_i = 0.8, fm_i1 = 0.0, dur = 0.25, vol = 0.1, tau = 0.09},
 		{wave = "sine", f0 = 1400.0, f1 = 2000.0, fm = 2.0, fm_i = 0.8, fm_i1 = 0.0, dur = 0.25, vol = 0.09, tau = 0.09, delay = 0.07},
