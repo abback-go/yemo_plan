@@ -29,6 +29,9 @@ var knock_resist := 0.0 ## 0 = 잘 밀림 · 1 = 넉백·경직 없음
 var contact_dmg := 1
 var lockable := true ## 겨누기 대상인가 (구슬 등은 false)
 var still_resist := 0.0 ## 강자: 공간 고정 중에도 이만큼의 빠르기로 움직임 (0 = 완전히 멈춤)
+var status_resist := 0.0 ## 강자: 묶음·기절 시간이 (1 - 이 값)배로 줄어듦 (물약 속박·비명)
+var vuln_t := 0.0 ## 부식: 남은 시간 동안 받는 피해 × vuln_mult
+var vuln_mult := 1.0
 var flying := false
 var facing := -1
 var x_min := 24.0 ## 움직일 수 있는 가로 범위 (장면이 정함)
@@ -90,6 +93,8 @@ func take_hit(dmg: int, from: Vector2, opts := {}) -> void:
 	var d := dmg
 	if _bound > 0.0 and _bind_awake:
 		d = int(round(float(d) * 1.3))
+	if vuln_t > 0.0:
+		d = int(round(float(d) * vuln_mult))
 	hp -= d
 	flash = 1.0
 	_bar = 2.5
@@ -132,6 +137,35 @@ func freeze(sec: float) -> void:
 
 func is_bound() -> bool:
 	return _bound > 0.0
+
+
+# ─── 물약·대마법이 거는 상태 (design.md 4장) ─────────────
+
+## 속박: sec초 묶음 (하던 동작 끊김). 강자는 status_resist만큼 짧게
+func root(sec: float) -> void:
+	bind(sec * (1.0 - status_resist), false)
+
+
+## 비명: 하던 동작이 끊기고 sec초 기절 (경직). 강자는 status_resist만큼 짧게
+func stun(sec: float) -> void:
+	stagger = maxf(stagger, sec * (1.0 - status_resist))
+	velocity.x = 0.0
+	_interrupted()
+
+
+## 부식: sec초 동안 받는 피해 × mult
+func set_vuln(sec: float, mult: float) -> void:
+	vuln_t = maxf(vuln_t, sec)
+	vuln_mult = maxf(mult, 1.0)
+
+
+## 흑성: point 쪽으로 이번 프레임 끌려감 (넉백 버팀만큼 덜 끌림)
+func pull(point: Vector2, strength: float, delta: float) -> void:
+	var k := 1.0 - knock_resist * 0.8
+	var to := point - center()
+	global_position.x += clampf(to.x, -strength * delta * k, strength * delta * k)
+	if flying:
+		global_position.y += clampf(to.y, -strength * delta * k, strength * delta * k)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -182,6 +216,7 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(eska):
 		eska = EEska.find(get_tree())
 	_bound = maxf(_bound - delta, 0.0)
+	vuln_t = maxf(vuln_t - delta, 0.0)
 	var slow := _bound > 0.0 and still_resist > 0.0 # 강자: 굳은 공간을 버티며 느리게 움직임
 	var d := delta * still_resist if slow else delta
 	if spawn_t > 0.0:

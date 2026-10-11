@@ -532,6 +532,30 @@ func _build_eska() -> void:
 	_add_fast(&"es_glide", [ # 미끄러지듯 떠오름: 부드럽게 부푸는 바람
 		{wave = "noise", dur = 0.3, vol = 0.5, bp = 450.0, bp1 = 1400.0, q = 0.4, attack = 0.05, decay = 1.3},
 	], 11025)
+	_build_eska_magic()
+	_build_eska_potion()
+	_build_eska_boss()
+
+
+# ─── 에스카: 낙성·대마법 (e_magic_fx.gd 담당) ─────────────
+func _build_eska_magic() -> void:
+	pass
+
+
+# (구분용 빈 줄 — 담당 영역끼리 붙지 않게)
+
+
+# ─── 에스카: 물약·가마솥 (e_potions.gd 담당) ─────────────
+func _build_eska_potion() -> void:
+	pass
+
+
+# (구분용 빈 줄 — 담당 영역끼리 붙지 않게)
+
+
+# ─── 에스카: 검성 보스 (e_kensei.gd 담당) ─────────────────
+func _build_eska_boss() -> void:
+	pass
 
 
 func _add(sound: StringName, layers: Array) -> void:

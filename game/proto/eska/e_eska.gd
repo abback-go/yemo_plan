@@ -84,6 +84,13 @@ var _cast_dur := 0.0
 var _cast_fired := false
 var still_evolved := false ## 봉공 진화 (1장 무구를 거두면 켜짐 — 훈련장은 버튼/T 키로 시험)
 
+## 물약이 바꾸는 값 (EPotions가 켜고 끈다): size 범위 배수 · cd_rate 고급 마법 쿨다운이 줄어드는 빠르기 · speed 이동 배수
+## echo 고급 마법이 한 번 더 나가는 세기(0 = 없음) · leech 이만큼 피해마다 체력 +1 (0 = 없음) · gauge 종언 게이지 차는 배수 · dmg 주는 피해 배수
+var mods := {"size": 1.0, "cd_rate": 1.0, "speed": 1.0, "echo": 0.0, "leech": 0, "gauge": 1.0, "dmg": 1.0}
+const GAUGE_MAX := 6600.0 ## 종언 게이지: 대마법이 아닌 피해 이만큼이면 가득 (초당 약 220이면 30초) — design.md 3-3
+var gauge := 0.0
+var belt := EPotions.Belt.new()
+
 var invuln := 0.0
 var hp := MAX_HP
 var hurt_flicker := 0.0 ## 맞은 뒤 깜빡이는 남은 시간 (그림이 읽는다)
@@ -363,11 +370,11 @@ func _sector_hits(rect: Rect2, cen: Vector2, r: float, a0: float, a1: float, sq:
 	return false
 
 
-## 피해 한 번 (이펙트 노드들도 이걸 부른다)
-func deal(d: Node2D, dmg: int, heavy: bool, from: Vector2) -> void:
+## 피해 한 번 (이펙트 노드들도 이걸 부른다). opts: "ult" = 대마법 피해(게이지를 채우지 않음) · "poise" = 강자 버팀을 깎는 양(기본 = 피해)
+func deal(d: Node2D, dmg: int, heavy: bool, from: Vector2, opts := {}) -> void:
 	if not is_instance_valid(d):
 		return
-	d.take_hit(dmg, from, {"heavy": heavy, "launch": 1.5 if heavy else 0.0})
+	d.take_hit(dmg, from, {"heavy": heavy, "launch": 1.5 if heavy else 0.0, "poise": opts.get("poise", dmg)})
 	if EStill.active():
 		EStill.current.store(d, dmg) # 진화한 봉공: 굳은 동안 준 피해를 쌓아 둠
 	hit_count += 1
@@ -375,6 +382,12 @@ func deal(d: Node2D, dmg: int, heavy: bool, from: Vector2) -> void:
 	combo_left = COMBO_WINDOW
 	EVfx.hit_crack(d.center() + Vector2(randf_range(-4, 4), randf_range(-8, 8)), heavy, signf(d.global_position.x - from.x))
 	Sfx.play(&"hit_heavy" if heavy else &"hit", -6.0 if not heavy else -2.0)
+
+
+## 물약 마시기·던지기 동작 (EPotions가 부름): dur초 동안 동작, fire_at초에 on_fire를 부른다. kind = "drink" | "throw"
+## (틀: 지금은 바로 부름 — 담당 작업자가 상태·그림을 채운다)
+func start_item(_kind: String, _dur: float, _fire_at: float, on_fire: Callable) -> void:
+	on_fire.call()
 
 
 # ═══════════════════════════════════════════════════════════
