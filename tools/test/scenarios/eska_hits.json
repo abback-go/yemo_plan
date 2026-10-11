@@ -1,0 +1,16 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[5, "eval", "eska.set('global_position', Vector2(500, 300))"],
+[20, "eval", "dummy.hp"],
+[25, "tap", "es_attack"], [35, "tap", "es_attack"], [45, "tap", "es_attack"], [55, "tap", "es_attack"],
+[70, "eval", "dummy.hp"], [72, "shot", "h01_after_combo"],
+[75, "eval", "dummy.set('hp', dummy.max_hp)"],
+[90, "tap", "es_skill"], [170, "eval", "dummy.hp"],
+[175, "eval", "dummy.set('hp', dummy.max_hp)"],
+[180, "press", "es_up"], [181, "tap", "es_skill"], [186, "release", "es_up"], [240, "eval", "dummy.hp"],
+[245, "eval", "dummy.set('hp', dummy.max_hp)"],
+[250, "eval", "eska.global_position"],
+[260, "press", "es_jump"], [272, "release", "es_jump"], [274, "tap", "es_attack"], [282, "tap", "es_attack"], [290, "tap", "es_attack"], [298, "tap", "es_attack"], [302, "eval", "eska.global_position.y"], [312, "eval", "dummy.hp"], [312, "shot", "h02_air"],
+[350, "tap", "es_blink"], [360, "eval", "eska.global_position"], [362, "tap", "es_blink"], [370, "eval", "eska.global_position"],
+[380, "quit"]
+]}

@@ -1,0 +1,9 @@
+{"scene": "res://proto/eska/eska_tutorial.tscn", "steps": [
+[2, "attach", "../tools/test/eska_tut_bot.gd"],
+[1300, "eval", "step_name()"],
+[1300, "shot", "b01_bonggong"],
+[2000, "shot", "b02_finale"],
+[3000, "eval", "step_name()"],
+[3000, "shot", "b03_end"],
+[3010, "quit"]
+]}

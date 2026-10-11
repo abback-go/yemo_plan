@@ -1,0 +1,26 @@
+{
+  "scene": "res://ui/title.tscn",
+  "steps": [
+    [9, "setting", "touch_scale", 1],
+    [40, "touch", 0, 320, 200],
+    [42, "untouch", 0, 320, 200],
+    [60, "shot", "title_menu"],
+    [80, "touch", 0, 300, 240],
+    [82, "untouch", 0, 300, 240],
+    [100, "shot", "title_options"],
+    [110, "touch", 0, 300, 325],
+    [112, "untouch", 0, 300, 325],
+    [130, "shot", "title_back"],
+    [140, "touch", 0, 300, 222],
+    [142, "untouch", 0, 300, 222],
+    [150, "shot", "title_legacy"],
+    [160, "touch", 0, 300, 204],
+    [162, "untouch", 0, 300, 204],
+    [180, "shot", "title_confirm"],
+    [190, "touch", 0, 300, 256],
+    [192, "untouch", 0, 300, 256],
+    [520, "status", "title_end"],
+    [521, "shot", "title_started"],
+    [530, "quit"]
+  ]
+}
