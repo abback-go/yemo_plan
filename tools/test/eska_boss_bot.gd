@@ -112,7 +112,7 @@ func _fight(e: EEska, b: EKensei) -> void:
 		_walk(0)
 	if not _seq.is_empty():
 		return
-	if punish and dist < 150.0:
+	if punish and dist < 150.0 and not _wave_near(e):
 		if e.facing != to:
 			_tap("es_right" if to > 0 else "es_left")
 			return
@@ -170,6 +170,18 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 				if b.st == EKensei.S.LEAP_FALL and blink_ready and absf(ldx) < EKensei.LEAP_REACH:
 					_blink(away)
 				return true
+		EKensei.S.WAVE_WIND:
+			# 낮게 웅크림 = 비검: 바로 앞이면 파도가 나오는 순간에 맞춰 뛴다
+			var left := b._wind(EKensei.WAVE_WIND) - b.st_t
+			if dist < 80.0:
+				_walk(0)
+				if not _dodged and left <= 0.1 and e.is_on_floor() and _seen_t >= REACT:
+					_dodged = true
+					if randf() < miss_rate:
+						missed += 1
+					else:
+						_combo([[0.0, "es_jump", true], [0.3, "es_jump", false]])
+				return true
 		EKensei.S.CTR_STANCE, EKensei.S.PHASE, EKensei.S.RAIN_WIND:
 			_walk(0)
 			if dist < 90.0:
@@ -205,6 +217,17 @@ func _on_hurt(hp: int) -> void:
 	var b: Variant = stage.get("boss")
 	var what: String = EKensei.S.keys()[(b as EKensei).st] if is_instance_valid(b) else "?"
 	print("BOT HURT hp=%d boss_st=%s fight=%.1fs" % [hp, what, float(_fight_frames) / 60.0])
+
+
+## 비검 파도가 가까이 오고 있나 (천열처럼 몸이 묶이는 기술을 쓰기 전에 본다)
+func _wave_near(e: EEska) -> bool:
+	for n: Node in get_tree().get_nodes_in_group(EKenseiFx.GROUP):
+		if n is EKenseiFx.Wave:
+			var w := n as EKenseiFx.Wave
+			var rel := e.global_position.x - w.position.x
+			if signf(rel) == float(w.dir) and absf(rel) < 160.0:
+				return true
+	return false
 
 
 func _blink(dir: int) -> void:

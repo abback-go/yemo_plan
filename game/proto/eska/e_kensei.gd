@@ -22,7 +22,7 @@ enum S { INTRO, IDLE, WALK, IAI_WIND, IAI_DASH, IAI_FOLLOW, IAI_SHEATHE, IAI_RES
 	RAIN_WIND, RAIN_HOLD, RAIN_REST, VICTOR }
 
 # ─── 몸·체력 ─────────────────────────────────────────────
-const HP := 26000
+const HP := 28000 ## 봇으로 맞춤 (tools/test/eska_boss_bot.gd): 잘하는 사람 흉내(피하기 20% 놓침·틈 30% 흘림, 대마법·물약 없이) 한 판 약 2분
 const POISE := 2000.0
 const PHASE2_AT := 0.55 ## 체력이 이 몫 아래로 내려가면 2막
 const STILL_RESIST_P2 := 0.25
@@ -70,7 +70,7 @@ const TRI_DMG := 1
 
 # ─── 비검 ───────────────────────────────────────────────
 const WAVE_WIND := [0.55, 0.45]
-const WAVE_SPEED := [250.0, 290.0]
+const WAVE_SPEED := [230.0, 270.0]
 const WAVE_SECOND := 0.4 ## 2막: 두 번째 파도까지
 const WAVE_REST := [0.7, 0.5]
 
@@ -94,10 +94,10 @@ const LEAP_WIND := 0.4
 const LEAP_VY := -560.0
 const LEAP_G := 980.0
 const LEAP_HANG := 0.45
-const LEAP_LOCK := 0.24 ## 내리꽂기 이만큼 전에 표식이 멈춤
+const LEAP_LOCK := 0.3 ## 내리꽂기 이만큼 전에 표식이 멈춤 (멈춘 뒤 떨어지기까지 약 0.5초 — 걸어서 빠져나갈 수 있게)
 const LEAP_FALL_V := 820.0
 const LEAP_CORE := 22.0 ## 가운데: 피해 2
-const LEAP_REACH := 78.0 ## 충격파: 땅에 있으면 피해 1
+const LEAP_REACH := 66.0 ## 충격파: 땅에 있으면 피해 1 (점프로도 피함)
 const LEAP_REST := 0.9
 
 # ─── 천검 (2막) ──────────────────────────────────────────

@@ -212,7 +212,7 @@ class CutMark extends PVfx.Base:
 
 ## 비검: 땅을 타고 미끄러지는 초승달 참격파 (높이 HEIGHT — 점프로 넘는다), 벽에 닿으면 흩어짐
 class Wave extends KenseiHazard:
-	const HEIGHT := 20.0
+	const HEIGHT := 18.0
 	const HALF_W := 9.0
 	var dir := 1
 	var speed := 250.0
