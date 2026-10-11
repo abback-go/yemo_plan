@@ -2,7 +2,10 @@ class_name EEska
 extends CharacterBody2D
 ## 에스카(종언의 마녀) 전투 시제품. 기획: Claude 문서 "새 컨셉: 종언의 마녀" 탭.
 ## 조작: 이동(떠서 활주) · 점프 + 이단점프(공중에서 한 번) · 순간이동(지상은 자유, 공중은 착지 전까지 1번)
-##       · 베기(기본 공격): 손가락 한 번 튕기면 앞에 큰 참격 하나 — 이동을 막지 않아 달리고 뛰고 떨어지는 중에도 자유롭게 나간다
+##       · 베기(기본 공격): 손가락 한 번 튕기면 앞에 큰 참격 하나 — 이동을 막지 않아 달리고 뛰고 떨어지는 중에도 자유롭게 나간다.
+##         누르고 있으면 SLASH_RECOVER마다 저절로 다시 벤다
+##       · 입력 기억: 순간이동·고급 마법·물약·대마법은 0.12초 기억 — 시전·의식·물약 동작·피격 경직이 끝나는 순간 꺼내 쓴다
+##       · 순간이동 경로 찢기: 맞힌 뒤 0.6초 안에 순간이동하면 지나간 길이 찢겨 50 피해 (1초에 한 번, 틈 등록부 ERifts에 등록)
 ##       · 고급 마법 키: 그냥 = 천열(손가락을 튕기면 앞으로 거대한 참격 열 번) / ↑ = 단공(머리 위를 납작한 회오리 참격으로 연달아 휘감음)
 ##         / ↓ = 낙성(앞쪽 하늘을 찢어 별 조각이 쏟아짐, EMagicFx). 고급 마법은 각자 쿨다운만 쓴다.
 ##       · 대마법(흑성·유성우·종말의 운석·봉공): 종언 게이지가 가득일 때 고른 하나를 짧은 의식과 함께 발동 → 게이지 0. 고르기는 언제나.
@@ -30,6 +33,7 @@ const COYOTE := 0.09
 const JUMP_BUFFER := 0.12
 const AIR_JUMP_SPEED := 320.0 ## 이단점프: 공중의 공간을 밟고 한 번 더 도약 (착지 전까지 1번, 높이 고정)
 const ATTACK_BUFFER := 0.14
+const ACTION_BUFFER := 0.12 ## 순간이동·고급 마법·물약·대마법 입력 기억 — 시전·의식·물약 동작·피격 경직 중에 눌러도 끝나는 순간 꺼내 쓴다
 const FAST_FALL_MAX := 440.0 ## 공중에서 ↓를 누르고 있으면
 const COMBO_WINDOW := 1.6 ## 이 시간 안에 다시 맞히면 연타 수가 이어진다
 
@@ -37,6 +41,14 @@ const COMBO_WINDOW := 1.6 ## 이 시간 안에 다시 맞히면 연타 수가 �
 const BLINK_DIST := 150.0 ## 약 9타일 (100에서 1.5배)
 const BLINK_GONE := 0.07 ## 사라져 있는 시간
 const BLINK_CD := 0.26
+const BLINK_INVULN := 0.2 ## 순간이동 무적 (사라짐 0.07초 + 나타난 뒤 0.13초)
+## 순간이동 경로 찢기: 맞힌 뒤 TEAR_WINDOW초 안에 순간이동하면 지나간 길이 찢겨 그 위의 적에게 TEAR_DMG (TEAR_CD초에 한 번)
+const TEAR_WINDOW := 0.6
+const TEAR_DMG := 50
+const TEAR_CD := 1.0
+const TEAR_W := 18.0 ## 찢긴 길의 굵기 (판정·틈 등록 — 물약을 부어 넣을 수 있음)
+const TEAR_LIFE := 0.8 ## 찢긴 길이 열려 있는 시간
+const TEAR_STEP := 6.0 ## 경로 판정: 이 간격으로 점을 찍어 표적 사각형에 닿는지 본다
 
 # 체력·피격
 const MAX_HP := 6
@@ -59,11 +71,13 @@ const ULT_NAMES := {"blackstar": "흑성", "meteor": "유성우", "doom": "종�
 const ULT_RITUAL := 0.4 ## 의식 동작: 떠오르며 손을 펼친 뒤 이 시각에 대마법이 나간다 (그동안 무적)
 const ULT_END := 0.52 ## 의식이 끝나고 다시 움직이는 시각
 const ULT_RISE := 36.0 ## 의식 중 떠오르는 빠르기 (px/초 — 약 12px)
-const ULT_SIGIL := 2.5 ## 의식 때 손끝 문장 크기
+const ULT_SIGIL := 2.5 ## 의식 때 몸 뒤에 펼쳐지는 큰 문장 크기 (손끝에는 SIGIL 크기)
+const ULT_SIGIL_Z := -6 ## 의식 문장을 몸 뒤로: 이펙트 층(z 5) 기준 -6 = 전체 z -1 (에스카 0보다 뒤, 바닥 -2보다 앞)
+const ULT_SIGIL_UP := 20.0 ## 의식 문장 중심: 발에서 이만큼 위 (등 한가운데)
 const ULT_DENY_GAP := 0.35 ## 게이지가 모자랄 때 "안 됨" 알림 사이 간격 (연타해도 소리가 겹치지 않게)
 const STILL_TIME := 5.0 ## 봉공(공간 고정)이 공간을 굳히는 시간 (고정)
 const STILL_BURST := 0.5 ## 진화한 봉공(1장 무구): 굳은 동안 준 피해의 이만큼이 깨질 때 한꺼번에 터짐
-const SIGIL := 1.0 ## 베기·고급 마법 때 손끝 문장 크기
+const SIGIL := 1.4 ## 베기·고급 마법 때 손끝 문장 크기 (작아서 안 보인다는 평가로 1.0 → 1.4)
 
 ## 물약 동작 (EPotions가 start_item으로 맡김)
 const DRINK_MOVE := 0.4 ## 마시는 동안 이동 빠르기 배수
@@ -100,6 +114,18 @@ var _air_blink := true
 var _blink_cd := 0.0
 var _blink_dir := 1
 var _blink_to := Vector2.ZERO
+var _since_hit := 9.0 ## 마지막으로 맞힌 뒤 시간 (순간이동 경로 찢기)
+var _tear_cd := 0.0
+var tears := 0 ## 경로 찢기가 난 횟수 (시험용)
+
+## 입력 기억 (남은 시간 — 0이면 없음). 고급 마법·물약은 누른 순간의 방향을 같이 기억한다
+var _buf_blink := 0.0
+var _buf_skill := 0.0
+var _buf_skill_kind := ""
+var _buf_potion := 0.0
+var _buf_potion_slot := 0
+var _buf_ult := 0.0
+var _phys_seen := -1 ## 지난 _process 때의 물리 틱 번호 (멈춤 중 누름 놓치지 않기)
 
 var cast_kind := ""
 var _cast_dur := 0.0
@@ -250,6 +276,8 @@ func _physics_process(delta: float) -> void:
 	ult_full_t += delta
 	_blink_cd = maxf(_blink_cd - delta, 0.0)
 	_atk_cd = maxf(_atk_cd - delta, 0.0)
+	_since_hit += delta
+	_tear_cd = maxf(_tear_cd - delta, 0.0)
 	slash_t += delta
 	if _slash_pending and slash_t >= float(SLASH.hit):
 		_slash_pending = false
@@ -262,16 +290,18 @@ func _physics_process(delta: float) -> void:
 	_coyote = COYOTE if is_on_floor() else maxf(_coyote - delta, 0.0)
 	_jump_buf = maxf(_jump_buf - delta, 0.0)
 	_atk_buf = maxf(_atk_buf - delta, 0.0)
-	if Input.is_action_just_pressed("es_jump"):
-		_jump_buf = JUMP_BUFFER
-	if Input.is_action_just_pressed("es_attack"):
-		_atk_buf = ATTACK_BUFFER
+	_buf_blink = maxf(_buf_blink - delta, 0.0)
+	_buf_skill = maxf(_buf_skill - delta, 0.0)
+	_buf_potion = maxf(_buf_potion - delta, 0.0)
+	_buf_ult = maxf(_buf_ult - delta, 0.0)
+	_poll_presses()
 	hurt_flicker = maxf(hurt_flicker - delta, 0.0)
 	var dir_x := Input.get_axis("es_left", "es_right")
 	if controls_locked:
 		dir_x = 0.0
 		_jump_buf = 0.0
 		_atk_buf = 0.0
+		_forget_inputs()
 	elif Input.is_action_just_pressed("es_ult_next") and st != St.DEAD:
 		next_ult()
 	match st:
@@ -383,30 +413,81 @@ func _double_jump(dir_x: float) -> void:
 	Sfx.play_pitch(&"whoosh", 1.4, -12.0)
 
 
-## 순간이동·스킬·공격 시작 (상태가 바뀌면 true)
+## 입력 기억: 눌린 순간을 기억한다 (점프 JUMP_BUFFER · 베기 ATTACK_BUFFER · 나머지 ACTION_BUFFER초, 상태와 상관없이).
+## 꺼내 쓰는 건 평소 상태의 _try_actions (시전·의식·물약 동작·피격 경직이 끝나는 순간 _resume이 바로 부름)
+func _poll_presses() -> void:
+	if Input.is_action_just_pressed("es_jump"):
+		_jump_buf = JUMP_BUFFER
+	if Input.is_action_just_pressed("es_attack"):
+		_atk_buf = ATTACK_BUFFER
+	if controls_locked or st == St.DEAD:
+		return
+	if Input.is_action_just_pressed("es_blink"):
+		_buf_blink = ACTION_BUFFER
+	if Input.is_action_just_pressed("es_skill"):
+		_buf_skill = ACTION_BUFFER
+		_buf_skill_kind = skill_for_dir()
+	if Input.is_action_just_pressed("es_potion"):
+		_buf_potion = ACTION_BUFFER
+		_buf_potion_slot = potion_slot_for_dir()
+	if Input.is_action_just_pressed("es_bind"):
+		_buf_ult = ACTION_BUFFER
+
+
+## 멈춤(히트스톱)으로 시간이 거의 멈춘 프레임엔 물리 틱이 돌지 않아 그 프레임의 짧은 누름을 물리에서 못 본다 →
+## 이번 프레임에 물리 틱이 한 번도 없었으면 여기서 대신 기억해 둔다 (기억 시간은 물리 틱에서만 줄어서 멈춤이 풀린 뒤 꺼내 씀)
+func _process(_delta: float) -> void:
+	var pf := Engine.get_physics_frames()
+	if pf == _phys_seen:
+		_poll_presses()
+	_phys_seen = pf
+
+
+func _forget_inputs() -> void:
+	_buf_blink = 0.0
+	_buf_skill = 0.0
+	_buf_potion = 0.0
+	_buf_ult = 0.0
+
+
+## 시전·의식·피격 경직이 끝남: 평소 상태로 돌아가며 그동안 기억해 둔 입력(ACTION_BUFFER)을 같은 프레임에 꺼낸다
+func _resume() -> void:
+	st = St.NORMAL
+	st_t = 0.0
+	_try_actions(Input.get_axis("es_left", "es_right"))
+
+
+func _can_blink() -> bool:
+	return _blink_cd <= 0.0 and (is_on_floor() or _air_blink)
+
+
+## 순간이동·스킬·공격 시작 (상태가 바뀌면 true). 기억해 둔 입력(0.12초)을 여기서 꺼낸다
+## 공격은 누르고 있으면 SLASH_RECOVER마다 저절로 다시 벤다 (터치 공격 버튼도 같음)
 func _try_actions(dir_x: float) -> bool:
 	if controls_locked:
 		return false
-	if Input.is_action_just_pressed("es_bind"):
+	if _buf_ult > 0.0:
+		_buf_ult = 0.0
 		if gauge_ratio() >= 1.0:
 			_start_ult()
 			return true
 		_deny_ult()
-	if Input.is_action_just_pressed("es_skill"):
-		var kind := skill_for_dir()
-		if cd_left(kind) <= 0.0:
-			_start_cast(kind)
-			return true
-	if Input.is_action_just_pressed("es_potion"):
-		last_potion_slot = potion_slot_for_dir()
+	if _buf_skill > 0.0 and cd_left(_buf_skill_kind) <= 0.0:
+		_buf_skill = 0.0
+		_start_cast(_buf_skill_kind)
+		return true
+	if _buf_potion > 0.0:
+		_buf_potion = 0.0
+		last_potion_slot = _buf_potion_slot
 		if not EPotions.use(self, last_potion_slot):
 			Sfx.play(&"block", -14.0) # 빈 칸 · 쓸 수 없음
 		if st != St.NORMAL:
 			return true
-	if Input.is_action_just_pressed("es_blink") and _blink_cd <= 0.0 and (is_on_floor() or _air_blink):
+	if _buf_blink > 0.0 and _can_blink():
+		_buf_blink = 0.0
 		_start_blink(dir_x)
 		return true
-	if _atk_buf > 0.0 and _atk_cd <= 0.0:
+	if _atk_cd <= 0.0 and (_atk_buf > 0.0 or Input.is_action_pressed("es_attack")):
 		_atk_buf = 0.0
 		_fire_slash() # 상태는 그대로 — 이동을 막지 않는다
 	return false
@@ -502,6 +583,7 @@ func deal(d: Node2D, dmg: int, heavy: bool, from: Vector2, opts := {}) -> void:
 	if not opts.get("ult", false):
 		add_gauge(float(dmg) * float(mods.gauge))
 	_leech(dmg)
+	_since_hit = 0.0
 	hit_count += 1
 	hit_damage += dmg
 	combo_left = COMBO_WINDOW
@@ -578,6 +660,8 @@ func _item(delta: float, dir_x: float) -> void:
 			cb.call()
 	if st_t >= _item_dur:
 		_end_item()
+		if st == St.NORMAL:
+			_try_actions(Input.get_axis("es_left", "es_right")) # 기억해 둔 입력을 바로 꺼냄
 
 
 func _end_item() -> void:
@@ -611,12 +695,34 @@ func _start_blink(dir_x: float) -> void:
 		_air_blink = false
 	st = St.BLINK
 	st_t = 0.0
-	invuln = BLINK_GONE + 0.08
+	invuln = BLINK_INVULN
+	var to_c := _blink_to + Vector2(0, -SIZE.y * 0.55)
 	EMoveFx.blink_out(art, center(), d)
-	EMoveFx.blink_trail(art, center(), _blink_to + Vector2(0, -SIZE.y * 0.55), not is_on_floor())
+	EMoveFx.blink_trail(art, center(), to_c, not is_on_floor())
+	if _since_hit <= TEAR_WINDOW and _tear_cd <= 0.0:
+		_tear_path(center(), to_c)
 	art.visible = false
 	velocity = Vector2.ZERO
 	Sfx.play(&"es_blink", -3.0)
+
+
+## 순간이동 경로 찢기: 지나간 길(from → to)이 찢겨 그 위의 표적에 TEAR_DMG, 열린 틈으로 등록 (던진 물약이 스며들 수 있게)
+func _tear_path(from: Vector2, to: Vector2) -> void:
+	_tear_cd = TEAR_CD
+	tears += 1
+	var n := maxi(int(from.distance_to(to) / TEAR_STEP), 1)
+	for d: Node2D in ETarget.alive(get_tree()):
+		var r: Rect2 = d.hit_rect().grow(TEAR_W * 0.5)
+		for i in n + 1:
+			if r.has_point(from.lerp(to, float(i) / float(n))):
+				deal(d, TEAR_DMG, false, from)
+				break
+	ERifts.open(PackedVector2Array([from, to]), TEAR_W, TEAR_LIFE)
+	var tear := PathTear.new()
+	tear.to = to - from
+	EVfx.add(tear, from, false)
+	Sfx.play_pitch(&"es_tear", 1.25, -5.0)
+	Fx.shake(0.25, 0.1)
 
 
 func _blink(_delta: float) -> void:
@@ -677,12 +783,12 @@ func _cast(delta: float) -> void:
 		var echo := float(mods.echo)
 		if echo > 0.0: # 메아리 물약: 같은 마법이 조금 뒤 같은 자리에서 한 번 더
 			get_tree().create_timer(ECHO_DELAY, false).timeout.connect(_spawn_skill.bind(cast_kind, facing, global_position, echo))
-	if _cast_fired and Input.is_action_just_pressed("es_blink") and _blink_cd <= 0.0 and (is_on_floor() or _air_blink):
+	if _cast_fired and _buf_blink > 0.0 and _can_blink(): # 마법이 나간 뒤엔 순간이동으로 끊을 수 있다
+		_buf_blink = 0.0
 		_start_blink(Input.get_axis("es_left", "es_right"))
 		return
 	if st_t >= _cast_dur:
-		st = St.NORMAL
-		st_t = 0.0
+		_resume()
 
 
 ## 고급 마법 이펙트 하나를 at(발 위치)에 만든다. power > 0 = 메아리(그 세기로 — 세기 필드는 이펙트 쪽이 읽음)
@@ -734,7 +840,8 @@ func _start_ult() -> void:
 	st = St.ULT
 	st_t = 0.0
 	velocity = Vector2(velocity.x * 0.3, -ULT_RISE)
-	EVfx.sigil(art.fingertip(), ULT_SIGIL)
+	EVfx.sigil(art.fingertip(), SIGIL)
+	_ritual_sigil()
 	Fx.zoom_punch(0.04)
 	Sfx.play(&"magic_learn", -6.0)
 	Sfx.play_pitch(&"es_tear", 0.7, -6.0)
@@ -747,8 +854,7 @@ func _ult(delta: float) -> void:
 		_ult_fired = true
 		_fire_ult(ult_kind)
 	if st_t >= ULT_END:
-		st = St.NORMAL
-		st_t = 0.0
+		_resume()
 
 
 func _fire_ult(kind: String) -> void:
@@ -779,6 +885,15 @@ func _fire_ult(kind: String) -> void:
 	if n != null:
 		fx_spawned += 1
 		EVfx.add(n, global_position, false)
+
+
+## 의식 문장: 몸 뒤(등 한가운데)에 큰 문장 — 손끝 문장과 달리 캐릭터를 가리지 않게 z를 몸 뒤로 내린다
+func _ritual_sigil() -> void:
+	var s := EVfx.Sigil.new()
+	s.size = ULT_SIGIL
+	EVfx.add(s, global_position + Vector2(0, -ULT_SIGIL_UP), true)
+	s.z_index = ULT_SIGIL_Z # Sigil._ready가 앞(z 7)으로 정하므로 붙인 뒤에 내린다
+	Sfx.play_pitch(&"es_sigil", 0.8, -7.0)
 
 
 ## 게이지가 모자랄 때: 작은 막힘 소리 + 화면 표시가 살짝 흔들림 (연타해도 소리는 ULT_DENY_GAP마다 한 번)
@@ -835,8 +950,7 @@ func _hurt_state(delta: float) -> void:
 	velocity.x = move_toward(velocity.x, 0.0, 700.0 * delta)
 	_gravity(delta)
 	if st_t >= HURT_LOCK:
-		st = St.NORMAL
-		st_t = 0.0
+		_resume()
 
 
 func _die() -> void:
@@ -868,3 +982,26 @@ func respawn(pos: Vector2) -> void:
 	EMoveFx.blink_in(center(), facing)
 	art.squash(Vector2(0.7, 1.35))
 	hurt_taken.emit(hp)
+
+
+## 순간이동 경로 찢기 그림: 출발점 → 도착점 곧은 틈이 순식간에 벌어졌다가 출발점 쪽부터 꿰매어 닫힌다 (EVfx.rift — 다른 마법의 틈과 같은 말투)
+class PathTear extends PVfx.Base:
+	const HALF_W := 5.0 ## 그림의 반폭 (판정 굵기 TEAR_W보다 가늘게 — 길이 찢긴 줄로 읽히게)
+	const SEG := 14
+	const OPEN_T := 0.06 ## 벌어지는 시간
+	var to := Vector2.ZERO
+	var _shape: Array = []
+	var _seed := 0
+
+	func _ready() -> void:
+		life = TEAR_LIFE
+		z_index = 4
+		_seed = randi() % 997
+		_shape = EVfx.rift_line(Vector2.ZERO, to, HALF_W, SEG, _seed, 2.0)
+
+	func _paint() -> void:
+		var x := k()
+		var open := minf(t / OPEN_T, 1.0)
+		var zip := clampf((x - 0.3) / 0.7, 0.0, 1.0)
+		var oa: Array = EVfx.rift_open(_shape[2], open, zip, 0.6, 1.0 - x * x)
+		EVfx.rift(pd, _shape[0], _shape[1], oa[0], oa[1], _seed, t)

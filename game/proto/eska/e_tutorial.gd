@@ -447,9 +447,10 @@ func _ready_skill(id: String) -> void:
 	eska.cooldowns[id] = 0.0
 
 
-## 연출 중: 조작 막기 + 영화 띠 + 터치 버튼 숨김
+## 연출 중: 조작 막기 + 영화 띠 + 터치 버튼 숨김 + 화면 아래 안내 숨김
 func _cutscene(on: bool) -> void:
 	eska.controls_locked = on
+	hud.cinematic = on
 	tut.bars_to(1.0 if on else 0.0)
 	touch.visible = not on
 	if on:

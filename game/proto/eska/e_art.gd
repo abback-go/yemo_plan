@@ -11,7 +11,9 @@ extends PDraw.Canvas
 ## - 눈빛: 빠르게 움직일 때 보랏빛 꼬리를 남긴다.
 ## - 잔상: 마지막 그림(삼각형 묶음)을 남겨 두고 EVfx.Afterimage가 보라빛으로 그린다.
 ## - 대마법 의식: 몸이 떠오르고 두 팔을 펼침, 머리칼·치맛자락이 위로 날리고 등 뒤에 보랏빛 고리가 돈다.
-## - 물약: 마시기(병을 입에 대고 고개를 젖힘) · 던지기(팔을 뒤로 젖혔다 위로 휘둘러 던짐). 병 색은 허리띠 칸 물약 색.
+## - 물약: 마시기(병을 입에 대고 고개를 젖힘, 몸 전체가 물약 색으로 물듦) · 던지기(팔을 뒤로 젖혔다 위로 휘둘러 던짐). 병 색은 허리띠 칸 물약 색.
+## - 테두리 빛: 실루엣 바깥 1px 옅은 보랏빛 (어두운 보라 배경·검은 보스와 겹쳐도 읽히게). 같은 삼각형 묶음을 상하좌우 1px 밀어
+##   몸 뒤에 한 번씩 더 그리고, 셰이더가 진한 조각(알파 RIM_SOLID 이상)만 테두리 색으로 칠한다 (번짐·그림자는 빼고).
 
 const OUT := Color("#0a090e")
 const CLOTH := Color("#15121b")
@@ -32,6 +34,22 @@ const SKIN := Color("#f0e6e2")
 const SKIN_SH := Color("#c9b4b4")
 const SKIN_HI := Color("#fff8f4")
 const GLASS := Color("#e9e2f4") ## 물약 병 유리 빛
+const CORK := Color("#8a6a4e")
+const RIM_LIGHT := Color(0.84, 0.78, 1.0, 0.6) ## 1px 테두리 빛 (옅은 보랏빛 흰색)
+const RIM_SOLID := 0.8 ## 이 알파 이상인 조각만 테두리 빛을 낸다
+const RIM_OFFS: Array[Vector2] = [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]
+const RIM_SHADER := """
+shader_type canvas_item;
+render_mode unshaded;
+uniform vec4 rim : source_color;
+uniform float solid = 0.8;
+void fragment() {
+	COLOR = vec4(rim.rgb, rim.a * step(solid, COLOR.a));
+}
+"""
+const BOTTLE_W := 3.0 ## 마시는 병 몸통 너비 (px)
+const BOTTLE_L := 5.0 ## 마시는 병 몸통 길이 (px)
+const DRINK_TINT := 0.45 ## 마시는 동안 몸 전체가 물약 색으로 물드는 정도 (0~1)
 
 const SLASH_TIP := Vector2(13.0, -25.5) ## 베기 손짓 끝(손가락이 가리키는 자리) — 문장이 뜨는 곳
 const ULT_HAND := Vector2(11.5, -32.0) ## 의식: 앞손을 앞 위로 펼침
@@ -81,6 +99,9 @@ var _ult_spin := 0.0 ## 등 뒤 고리 회전
 var _bottle_col := EHud.POTION_DEFAULT ## 지금 든 물약 병 색
 var _head_tilt := 0.0
 var _was_item := false
+var _tint := 0.0 ## 마시는 동안 물약 색 물듦 (0~1)
+var _rim_ci := RID() ## 테두리 빛을 그리는 몸 뒤 그림 자리 (RenderingServer 직접)
+static var _rim_mat: ShaderMaterial
 
 
 class Chain:
@@ -145,6 +166,25 @@ func _sleeve_rest(root: Vector2) -> PackedVector2Array:
 func _to_g(pts: PackedVector2Array) -> PackedVector2Array:
 	var xf := global_transform
 	return xf * pts
+
+
+func _ready() -> void:
+	if _rim_mat == null:
+		var sh := Shader.new()
+		sh.code = RIM_SHADER
+		_rim_mat = ShaderMaterial.new()
+		_rim_mat.shader = sh
+		_rim_mat.set_shader_parameter("rim", RIM_LIGHT)
+		_rim_mat.set_shader_parameter("solid", RIM_SOLID)
+	_rim_ci = RenderingServer.canvas_item_create()
+	RenderingServer.canvas_item_set_parent(_rim_ci, get_canvas_item())
+	RenderingServer.canvas_item_set_draw_behind_parent(_rim_ci, true)
+	RenderingServer.canvas_item_set_material(_rim_ci, _rim_mat.get_rid())
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE and _rim_ci.is_valid():
+		RenderingServer.free_rid(_rim_ci)
 
 
 func _ensure() -> void:
@@ -280,9 +320,12 @@ func tick(delta: float) -> void:
 		_bottle_col = EHud.potion_look(_slot_of(body.last_potion_slot)).color
 	_was_item = in_item
 	var tilt_want := 0.0
+	var tint_want := 0.0
 	if in_item and body.item_kind == "drink":
 		tilt_want = DRINK_TILT * smoothstep(0.15, 0.4, item_p)
+		tint_want = smoothstep(0.1, 0.45, item_p)
 	_head_tilt = lerpf(_head_tilt, tilt_want, 1.0 - exp(-dt * 18.0))
+	_tint = move_toward(_tint, tint_want, dt * 4.0)
 	_snap_flash = maxf(_snap_flash - dt * 7.0, 0.0)
 	# 피격 붉은빛 · 무적 깜빡임 · 쓰러지면 사라짐
 	_hurt_flash = maxf(_hurt_flash - dt * 5.0, 0.0)
@@ -291,7 +334,10 @@ func tick(delta: float) -> void:
 	var alpha := _fade
 	if body.hurt_flicker > 0.0 and fmod(_t * 16.0, 1.0) < 0.45:
 		alpha *= 0.35
-	modulate = Color(1.0, 1.0 - 0.55 * _hurt_flash, 1.0 - 0.45 * _hurt_flash, alpha)
+	var tint := Color.WHITE
+	if _tint > 0.0: # 마시는 동안: 몸 전체가 물약 색으로 물든다 (어두운 옷은 그대로, 흰 머리·피부가 물듦)
+		tint = Color.WHITE.lerp(_bottle_col.lightened(0.25), DRINK_TINT * _tint * (0.85 + 0.15 * sin(_t * 14.0)))
+	modulate = Color(tint.r, tint.g * (1.0 - 0.55 * _hurt_flash), tint.b * (1.0 - 0.45 * _hurt_flash), alpha)
 	_spin = minf(_spin + delta / 0.18, 1.0)
 	scale = Vector2(float(body.facing) * _sq.x, _sq.y)
 	var spin_a := TAU * (1.0 - pow(1.0 - _spin, 4.0)) if _spin < 1.0 else 0.0
@@ -394,7 +440,20 @@ func _draw() -> void:
 	snap_c = pd.c.duplicate()
 	snap_i = pd.idx.duplicate()
 	snap_xf = global_transform
+	_paint_rim()
 	pd.flush(self)
+
+
+## 테두리 빛: 같은 삼각형 묶음을 상하좌우 1px 밀어 몸 뒤 그림 자리에 그린다 (셰이더가 진한 조각만 테두리 색으로)
+func _paint_rim() -> void:
+	if not _rim_ci.is_valid():
+		return
+	RenderingServer.canvas_item_clear(_rim_ci)
+	if pd.idx.is_empty():
+		return
+	for off: Vector2 in RIM_OFFS:
+		RenderingServer.canvas_item_add_set_transform(_rim_ci, Transform2D(0.0, off))
+		RenderingServer.canvas_item_add_triangle_array(_rim_ci, pd.idx, pd.v, pd.c)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -611,17 +670,20 @@ func _paint() -> void:
 		_paint_bottle(hand, axis)
 
 
-## 물약 병: 입구가 손(neck)에, axis 방향이 바닥 → 입구. 둥근 몸통에 물약 색, 유리 빛, 코르크
+## 물약 병 (BOTTLE_W × BOTTLE_L px 몸통): 입구가 손(neck)에, axis 방향이 바닥 → 입구. 검은 테두리 · 물약 색 · 유리 빛 한 점 · 코르크
 func _paint_bottle(neck: Vector2, axis: Vector2) -> void:
-	var base := neck - axis * 5.2
-	pd.draw_circle(base, 3.0, OUT)
-	pd.draw_line(base + axis * 1.5, neck + axis * 0.6, OUT, 2.6)
-	pd.draw_circle(base, 2.3, _bottle_col.darkened(0.15))
-	pd.draw_circle(base + Vector2(0.3, 0.5), 1.5, _bottle_col)
-	pd.draw_line(base + axis * 1.5, neck, Color(GLASS, 0.85), 1.3)
-	pd.draw_circle(base + Vector2(-0.9, -0.9), 0.6, Color(1, 1, 1, 0.9))
-	pd.draw_line(neck, neck + axis * 1.1, Color("#8a6a4e"), 1.6) # 코르크
-	pd.glow(base, 4.5, Color(_bottle_col, 0.25), 0.0)
+	var side := axis.orthogonal()
+	var hw := BOTTLE_W * 0.5
+	var top := neck - axis * 1.6 # 목 아래 = 몸통 위
+	var bot := top - axis * BOTTLE_L
+	var body_pts := PackedVector2Array([bot + side * hw, top + side * hw, top - side * hw, bot - side * hw])
+	pd.glow(bot.lerp(top, 0.5), 5.0, Color(_bottle_col, 0.3), 0.0)
+	pd.outlined(body_pts, _bottle_col, OUT, 0.8)
+	pd.draw_line(bot + side * (hw - 0.5), top + side * (hw - 0.5), _bottle_col.darkened(0.3), 1.0) # 그늘진 옆면
+	pd.draw_line(top, neck, OUT, 2.2) # 목
+	pd.draw_line(top, neck - axis * 0.2, Color(GLASS, 0.9), 1.0)
+	pd.draw_line(neck, neck + axis * 1.4, CORK, 1.8) # 코르크
+	pd.draw_rect(Rect2(bot.lerp(top, 0.7) - side * (hw - 0.8) - Vector2(0.5, 0.5), Vector2(1.0, 1.0)), Color(1, 1, 1, 0.95)) # 유리 빛
 
 
 ## 의식: 등 뒤 보랏빛 번짐 + 일곱 마디로 끊긴 고리가 돌고, 안쪽 고리는 거꾸로 돈다

@@ -2,6 +2,7 @@ class_name EStage
 extends Node2D
 ## 에스카 장면 공통 바탕 (훈련장 EArena · 튜토리얼 ETutorial).
 ## 하는 일: 화면 꽉 채우기(높이 360 기준, 넓은 화면은 옆이 더 보임, 배율은 소수 허용 — 나가면 원래 설정으로),
+##          터치 중엔 카메라가 오른쪽 끝을 cam_margin_touch만큼 넘어 봄,
 ##          이펙트 층, 에스카·카메라·터치 조작·화면 표시, 쓰러지면 잠시 뒤 부활, Esc로 나가기, 시험용 성능 수치.
 ## 하위 장면은 _build()에서 땅·배경·표적을 놓고 stage_w·floor_y·respawn_at을 정한다. 다 만든 뒤 _start()가 불린다.
 
@@ -14,6 +15,9 @@ var stage_w := 1280.0
 var floor_y := 300.0
 var cam_top := -260.0 ## 카메라가 올라갈 수 있는 위 끝
 var respawn_at := Vector2(400, 300)
+## 터치 중 카메라 여유: 오른쪽 끝(벽)에서도 캐릭터가 오른쪽 아래 버튼(엄지) 밑에 오지 않게 카메라가 무대 오른쪽 끝을 이만큼 넘어 볼 수 있다.
+## 배경(EScenery)은 EScenery.MARGIN만큼 더 그려 둔다. 다른 배경을 쓰는 장면(보스장)은 이 값을 바꾸거나 자기 배경을 그만큼 늘린다
+var cam_margin_touch := 180.0
 var music := "boss"
 
 var eska: EEska
@@ -101,6 +105,9 @@ func _exit_tree() -> void:
 
 
 func _process(_delta: float) -> void:
+	var right := int(stage_w + (cam_margin_touch if touch.active else 0.0))
+	if cam.limit_right != right:
+		cam.limit_right = right
 	if Input.is_action_just_pressed("es_exit"):
 		touch.release_all()
 		Fx.reset()
@@ -138,6 +145,11 @@ func _on_eska_died() -> void:
 ## 부활 자리: 기본은 respawn_at (튜토리얼은 마지막 확인점으로 바꾼다)
 func _respawn_point() -> Vector2:
 	return respawn_at
+
+
+## 시험 실행기 eval용: pos에서 r 안에 열린 틈(ERifts)이 있나 (식에서는 전역 클래스 이름을 못 써서)
+func rift_at(pos: Vector2, r := 4.0) -> bool:
+	return not ERifts.at(pos, r).is_empty()
 
 
 ## 시험 실행기 eval용 성능 수치: 그리기 호출 · 그린 도형 · 노드 수 · 처리 시간(ms) · 입자 수
