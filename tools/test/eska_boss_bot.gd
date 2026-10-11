@@ -1,15 +1,38 @@
 extends Node
 ## 검성 보스전 자동 플레이 봇 (시험용 — 전투 시간·맞은 횟수로 난이도를 잰다).
 ## 시나리오에서 [2, "attach", "../tools/test/eska_boss_bot.gd"] 로 붙인다 (eska_boss_bot.json).
-## 쓰는 것: 이동 · 기본 베기 · 천열 · 순간이동(예고 끝에 맞춰 피함) · 점프(비검 파도·낙화 충격파만). 물약·대마법·봉공·단공은 안 씀.
+## 루프2: 에스카의 기술을 모두 쓴다 —
+##   이동 · 기본 베기 · 천열 · 낙성(↓A, 조금 떨어진 틈에) · 순간이동(예고 끝에 맞춰 피함) · 점프(비검 파도·낙화 충격파)
+##   · 단공(↑A)으로 다가오는 비검 파도·머리 위 천검 칼빛을 지움 (단공이 튕겨내기를 할 줄 알 때만 — 모르면 예전처럼 점프·피하기)
+##   · 대마법(게이지 가득: 무너짐·묶임·긴 틈에 종말의 운석, 오래 기다리면 아무 틈에나)
+##   · 물약: 체력 3 이하면 치유(F) · 메아리(↑F)를 틈 앞에 · 반격 자세(눈 감음)에 속박/비명(↓F) 던지기 · 열린 틈(ERifts)이 검성 곁이면 ↓F 던져 넣기
+## 다른 작업자가 만드는 기능(단공 튕겨내기·물약 개편·틈 달이기)은 있으면 쓰고, 없으면 건너뛴다 — 합친 뒤 그대로 다시 잴 수 있게.
 ## 사람처럼 반응이 늦도록 예고를 본 뒤 REACT초가 지나야 움직인다. 2초마다 상태, 끝나면 "BOT RESULT" 한 줄.
-## 솜씨 조절(환경 변수): ESKA_BOT_MISS = 피하기를 놓칠 확률(기본 0) · ESKA_BOT_SKIP = 반격 틈을 그냥 보낼 확률(기본 0)
-##   예) 잘하는 사람 흉내: ESKA_BOT_MISS=0.2 ESKA_BOT_SKIP=0.3
+## 솜씨 조절(환경 변수):
+##   ESKA_BOT_MISS = 피하기를 놓칠 확률(기본 0) · ESKA_BOT_SKIP = 반격 틈을 그냥 보낼 확률(기본 0)
+##   ESKA_BOT_REACT = 반응 시간(기본 0.12) · ESKA_BOT_SEED = 난수 씨앗 · ESKA_BOT_BELT = 허리띠 "heal,echo,bind" (빈 값이면 기본)
+##   ESKA_BOT_KIT = 0이면 예전처럼 마법·물약·대마법 없이 (비교용) · ESKA_BOT_DEFLECT = 1이면 단공 튕겨내기를 처음부터 시도
+##   예) 잘하는 사람: ESKA_BOT_MISS=0.2 ESKA_BOT_SKIP=0.3 · 서툰 사람: ESKA_BOT_MISS=0.35 ESKA_BOT_SKIP=0.5 ESKA_BOT_REACT=0.2
 
-const REACT := 0.12 ## 예고를 알아차리는 데 걸리는 시간
-const BLINK_LEAD := 0.07 ## 공격이 나가기 이만큼 전에 순간이동 (무적 0.15초)
+const REACT_DEFAULT := 0.12 ## 예고를 알아차리는 데 걸리는 시간
+const BLINK_LEAD := 0.07 ## 공격이 나가기 이만큼 전에 순간이동 (무적 0.15~0.2초)
 const NEAR := 64.0 ## 때릴 때 붙는 거리
 const SAFE := 120.0 ## 기다릴 때 거리
+const NAK_MIN := 60.0 ## 낙성을 쓰는 거리 (이보다 가까우면 천열·베기)
+const NAK_MAX := 220.0
+const THROW_MIN := 30.0 ## 물약을 던지는 거리 (병이 포물선으로 약 130px 날아감)
+const THROW_MAX := 135.0
+const HEAL_AT := 3 ## 체력이 이 아래(이하)면 치유
+const ULT_WANT := "doom" ## 고를 대마법 (한 방 3600 — 무너짐·묶임에 맞춰)
+const ULT_IMPATIENT := 6.0 ## 게이지가 가득 찬 뒤 이만큼 지나면 아무 틈에나 쓴다
+const DEFLECT_WAVE_LEAD := 0.16 ## 파도가 이만큼(초) 뒤 닿을 거리에서 단공
+const DEFLECT_RAIN_LEAD := 0.22 ## 천검 칼빛이 떨어지기 이만큼 전에 단공
+const DEFLECT_CHECK := 0.25 ## 단공 뒤 이만큼 지나 발사체가 남아 있으면 "튕겨내기 없음"으로 봄
+const DEFLECT_GIVE_UP := 2 ## 이만큼 실패하면 튕겨내기를 그만 씀
+const SLOT_HEAL := 0
+const SLOT_ECHO := 1
+const SLOT_THROW := 2
+const PROJECTILE_GROUP := &"es_projectile"
 
 var stage: Node
 var _t := 0.0
@@ -23,20 +46,71 @@ var dodges := 0
 var missed := 0
 var miss_rate := 0.0
 var skip_rate := 0.0
+var react := REACT_DEFAULT
+var use_kit := true
 var _skip := false ## 이번 틈은 그냥 보냄
 var _done_t := 0.0
 var _fight_frames := 0 ## 싸움 중 프레임 수 (게임 시간 = /60 — 멈춤·느려짐 연출 포함, 실제 체감 시간)
 const QUIT_AFTER := 7.0 ## 이기고 이만큼 뒤 끝냄 (끝 화면까지 보이게)
 const GIVE_UP := 600.0 ## 이만큼(초) 지나도 못 이기면 끝냄
 
+# 기술 쓴 횟수 (결과 줄)
+var n_cheonyeol := 0
+var n_nakseong := 0
+var n_dangong := 0
+var n_deflect := 0 ## 단공으로 지운 발사체 수 (확인된 것)
+var n_ult := 0
+var n_heal := 0
+var n_echo := 0
+var n_throw := 0
+var n_throw_ctr := 0
+var n_rift_throw := 0
+var n_break := 0 ## 검성 버팀이 무너진 횟수
+var n_hurt := 0 ## 맞은 횟수 (봇이 직접 셈 — 치유와 상관없이)
+var _break_hooked: Node = null
+var _last_hp := EEska.MAX_HP
+var _deflect_ok := false ## 단공이 튕겨내기를 할 줄 아나 (소스로 짐작 + 실제로 확인)
+var _deflect_fail := 0
+var _deflect_watch: Array = [] ## [남은 시간, 노드]
+var _full_t := 0.0 ## 게이지가 가득 찬 뒤 시간
+var _ctr_thrown := false ## 이번 반격 자세에 이미 던졌나
+var _act_cd := 0.0 ## 물약·대마법 고르기 등 "생각하는" 동작 사이 최소 간격
+
 
 func _ready() -> void:
 	stage = get_tree().current_scene
-	miss_rate = float(OS.get_environment("ESKA_BOT_MISS")) if OS.has_environment("ESKA_BOT_MISS") else 0.0
-	skip_rate = float(OS.get_environment("ESKA_BOT_SKIP")) if OS.has_environment("ESKA_BOT_SKIP") else 0.0
+	miss_rate = _env_f("ESKA_BOT_MISS", 0.0)
+	skip_rate = _env_f("ESKA_BOT_SKIP", 0.0)
+	react = _env_f("ESKA_BOT_REACT", REACT_DEFAULT)
+	use_kit = OS.get_environment("ESKA_BOT_KIT") != "0"
 	if OS.has_environment("ESKA_BOT_SEED"):
 		seed(int(OS.get_environment("ESKA_BOT_SEED"))) # 판마다 다른 흐름 (검성의 기술 고르기도 바뀜)
-	print("BOT skill miss=%.2f skip=%.2f" % [miss_rate, skip_rate])
+	_deflect_ok = use_kit and (_source_has("res://proto/eska/e_skill_fx.gd", "es_projectile") or _source_has("res://proto/eska/e_eska.gd", "es_projectile")
+		or _source_has("res://proto/eska/e_magic_fx.gd", "es_projectile")) or OS.get_environment("ESKA_BOT_DEFLECT") == "1"
+	print("BOT skill miss=%.2f skip=%.2f react=%.2f kit=%s deflect_guess=%s" % [miss_rate, skip_rate, react, str(use_kit), str(_deflect_ok)])
+
+
+func _env_f(name: String, def: float) -> float:
+	return float(OS.get_environment(name)) if OS.has_environment(name) and OS.get_environment(name) != "" else def
+
+
+## 스크립트 소스에 글자가 있나 (다른 작업자의 기능이 들어왔는지 짐작 — 실제 동작은 쓰면서 확인)
+func _source_has(path: String, what: String) -> bool:
+	if not ResourceLoader.exists(path):
+		return false
+	var sc := load(path) as GDScript
+	return sc != null and sc.source_code.contains(what)
+
+
+## 처음 한 번: 허리띠를 정함 (ESKA_BOT_BELT)
+func _setup_belt(e: EEska) -> void:
+	var belt := OS.get_environment("ESKA_BOT_BELT")
+	if belt == "":
+		return
+	var ids := belt.split(",")
+	for i in mini(ids.size(), 3):
+		if EPotions.has(ids[i]):
+			e.belt.set_slot(i, ids[i], false)
 
 
 ## 그려지는 프레임마다 (멈춤 연출 중에도 하나씩 — 사람이 느끼는 시간)
@@ -47,7 +121,9 @@ func _process(_delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	_t += delta
+	_act_cd = maxf(_act_cd - delta, 0.0)
 	_run_seq(delta)
+	_tick_deflect_watch(delta)
 	var e: EEska = stage.get("eska")
 	var bo: Variant = stage.get("boss")
 	var b: EKensei = bo if is_instance_valid(bo) else null
@@ -55,23 +131,26 @@ func _physics_process(delta: float) -> void:
 		return
 	if not e.hurt_taken.is_connected(_on_hurt):
 		e.hurt_taken.connect(_on_hurt)
+		_setup_belt(e)
+	if e.hp > _last_hp:
+		_last_hp = e.hp # 치유 물약 (신호 없이 오름)
 
 	_log_t -= delta
 	if _log_t <= 0.0:
 		_log_t = 2.0
-		print("BOT t=%.1f fight=%.1fs %s boss=%s" % [_t, float(_fight_frames) / 60.0, stage.fight_state(), stage.boss_info()])
+		print("BOT t=%.1f fight=%.1fs %s boss=%s gauge=%d%%" % [_t, float(_fight_frames) / 60.0, stage.fight_state(), stage.boss_info(), int(e.gauge_ratio() * 100.0)])
 	var fight: int = stage.get("fight")
 	if fight == EBossStage.F.WON:
 		if not _done:
 			_done = true
 			_done_t = _t
-			print("BOT RESULT won fight_time=%.1fs (game frames/60) deaths=%d hits_taken=%d dodges=%d missed=%d" % [float(_fight_frames) / 60.0, int(stage.get("deaths")), int(stage.get("hits_taken")), dodges, missed])
+			print("BOT RESULT won fight_time=%.1fs (game frames/60) deaths=%d hits_taken=%d dodges=%d missed=%d %s" % [float(_fight_frames) / 60.0, int(stage.get("deaths")), int(stage.get("hits_taken")), dodges, missed, _kit_summary()])
 		_release_all()
 		if _t - _done_t > QUIT_AFTER:
 			get_tree().quit()
 		return
 	if _t > GIVE_UP:
-		print("BOT RESULT gave_up fight_time=%.1fs %s boss=%s" % [float(_fight_frames) / 60.0, stage.fight_state(), stage.boss_info()])
+		print("BOT RESULT gave_up fight_time=%.1fs %s boss=%s %s" % [float(_fight_frames) / 60.0, stage.fight_state(), stage.boss_info(), _kit_summary()])
 		get_tree().quit()
 		return
 	if e.is_dead() or e.controls_locked:
@@ -89,20 +168,35 @@ func _physics_process(delta: float) -> void:
 		_seen_t = 0.0
 		_dodged = false
 		_skip = randf() < skip_rate
+		if b.st != EKensei.S.CTR_STANCE:
+			_ctr_thrown = false
 	else:
 		_seen_t += delta
+	if _break_hooked != b:
+		_break_hooked = b
+		b.poise_broken.connect(func(_x: EEnemy) -> void: n_break += 1)
+	_full_t = _full_t + delta if e.gauge_ratio() >= 1.0 else 0.0
 	_fight(e, b)
+
+
+func _kit_summary() -> String:
+	return "hurts=%d breaks=%d cheonyeol=%d nakseong=%d dangong=%d deflect=%d(ok=%s) ult=%d heal=%d echo=%d throw=%d(ctr=%d rift=%d)" % [
+		n_hurt, n_break, n_cheonyeol, n_nakseong, n_dangong, n_deflect, str(_deflect_ok), n_ult, n_heal, n_echo, n_throw, n_throw_ctr, n_rift_throw]
 
 
 func _fight(e: EEska, b: EKensei) -> void:
 	var dx := b.global_position.x - e.global_position.x
 	var dist := absf(dx)
 	var to := 1 if dx > 0.0 else -1
+	if use_kit and _seq.is_empty() and _deflect(e, b):
+		return
 	if _dodge(e, b, dist, to):
 		return
-	var punish := b.st in [EKensei.S.IAI_REST, EKensei.S.TRI_REST, EKensei.S.WAVE_REST, EKensei.S.CTR_RELAX, EKensei.S.LEAP_REST, EKensei.S.RAIN_HOLD, EKensei.S.RAIN_REST, EKensei.S.IDLE, EKensei.S.WALK, EKensei.S.IAI_SHEATHE, EKensei.S.IAI_FOLLOW] or b.break_t > 0.0
-	if b.st == EKensei.S.CTR_STANCE or b.st == EKensei.S.PHASE or (_skip and b.break_t <= 0.0):
+	var punish := b.st in [EKensei.S.IAI_REST, EKensei.S.TRI_REST, EKensei.S.WAVE_REST, EKensei.S.CTR_RELAX, EKensei.S.LEAP_REST, EKensei.S.RAIN_HOLD, EKensei.S.RAIN_REST, EKensei.S.IDLE, EKensei.S.WALK, EKensei.S.IAI_SHEATHE, EKensei.S.IAI_FOLLOW] or b.break_t > 0.0 or b.is_bound()
+	if b.st == EKensei.S.CTR_STANCE or b.st == EKensei.S.PHASE or (_skip and b.break_t <= 0.0 and not b.is_bound()):
 		punish = false
+	if use_kit and _seq.is_empty() and _act_cd <= 0.0 and _kit(e, b, dist, to, punish):
+		return
 	var want := NEAR if punish else SAFE
 	if dist > want + 14.0:
 		_walk(to)
@@ -112,14 +206,175 @@ func _fight(e: EEska, b: EKensei) -> void:
 		_walk(0)
 	if not _seq.is_empty():
 		return
-	if punish and dist < 150.0 and not _wave_near(e):
-		if e.facing != to:
+	if punish and not _wave_near(e):
+		if dist < 150.0 and e.facing != to:
 			_tap("es_right" if to > 0 else "es_left")
 			return
-		if e.cd_left("cheonyeol") <= 0.0 and dist < 160.0 and e.is_on_floor():
+		if dist < 160.0 and e.cd_left("cheonyeol") <= 0.0 and e.is_on_floor():
+			n_cheonyeol += 1
 			_tap("es_skill")
-		elif float(e.get("_atk_cd")) <= 0.0:
+		elif use_kit and dist >= NAK_MIN and dist <= NAK_MAX and e.cd_left("nakseong") <= 0.0 and e.facing == to and e.is_on_floor():
+			n_nakseong += 1
+			_combo([[0.0, "es_down", true], [0.0, "es_skill", true], [0.05, "es_skill", false], [0.08, "es_down", false]])
+		elif dist < 150.0 and float(e.get("_atk_cd")) <= 0.0:
 			_tap("es_attack")
+
+
+## 물약·대마법 (쓸 때 true — 이번 프레임은 그것만)
+func _kit(e: EEska, b: EKensei, dist: float, to: int, punish: bool) -> bool:
+	if e.st != EEska.St.NORMAL or not e.is_on_floor():
+		return false
+	var calm := b.st in [EKensei.S.IDLE, EKensei.S.WALK, EKensei.S.IAI_REST, EKensei.S.TRI_REST, EKensei.S.WAVE_REST, EKensei.S.LEAP_REST, EKensei.S.RAIN_REST, EKensei.S.CTR_RELAX] or b.break_t > 0.0 or b.is_bound()
+	var hazard := _hazard_near(e)
+	# 1) 치유: 체력이 낮고 지금 안전하면
+	if e.hp <= HEAL_AT and calm and not hazard and (dist > 90.0 or b.break_t > 0.0 or b.is_bound()) and _slot_ready(e, SLOT_HEAL, "heal"):
+		n_heal += 1
+		_use_slot(SLOT_HEAL)
+		return true
+	# 2) 반격 자세(눈 감음): 속박·비명을 던져 깸
+	if b.st == EKensei.S.CTR_STANCE and not _ctr_thrown and _seen_t >= react and dist >= THROW_MIN and dist <= THROW_MAX and _slot_is_throw(e, SLOT_THROW):
+		if e.facing != to:
+			_tap("es_right" if to > 0 else "es_left")
+			return true
+		_ctr_thrown = true
+		n_throw += 1
+		n_throw_ctr += 1
+		_use_slot(SLOT_THROW)
+		return true
+	# 3) 열린 틈이 검성 곁이면 던져 넣음 (틈 달이기 — ERifts가 틈을 등록할 때만)
+	if dist >= THROW_MIN and dist <= THROW_MAX and e.facing == to and _slot_is_throw(e, SLOT_THROW) and not hazard:
+		var rift: Dictionary = ERifts.at(b.center(), 40.0)
+		if not rift.is_empty():
+			n_throw += 1
+			n_rift_throw += 1
+			_use_slot(SLOT_THROW)
+			return true
+	# 4) 대마법: 게이지 가득 → 고른 것을 맞춘 뒤 무너짐·묶임·긴 틈에 (오래 기다리면 아무 틈에나)
+	if e.gauge_ratio() >= 1.0:
+		if e.selected_ult() != ULT_WANT:
+			_tap("es_ult_next")
+			_act_cd = 0.12
+			return true
+		var good := b.break_t > 0.6 or b.is_bound() or b.st in [EKensei.S.LEAP_REST, EKensei.S.CTR_RELAX, EKensei.S.IAI_REST, EKensei.S.TRI_REST]
+		if (good or (_full_t > ULT_IMPATIENT and punish)) and dist < 260.0 and not hazard:
+			n_ult += 1
+			_hold("es_left", false)
+			_hold("es_right", false)
+			_tap("es_bind")
+			_act_cd = 0.6
+			return true
+	# 5) 메아리: 걸려 있지 않고, 검성이 멀거나 쉬는 동안 (천열이 곧 돌아올 때)
+	if not _echo_on(e) and calm and not hazard and dist > 110.0 and e.cd_left("cheonyeol") < 1.0 and _slot_ready(e, SLOT_ECHO, "echo"):
+		n_echo += 1
+		_use_slot(SLOT_ECHO)
+		return true
+	return false
+
+
+## 단공으로 발사체 지우기 (쓰면 true)
+func _deflect(e: EEska, b: EKensei) -> bool:
+	if not _deflect_ok or e.cd_left("dangong") > 0.0 or e.st != EEska.St.NORMAL or not e.is_on_floor():
+		return false
+	if b.st in [EKensei.S.IAI_WIND, EKensei.S.IAI_DASH, EKensei.S.CTR_WIND, EKensei.S.TRI_CUT, EKensei.S.LEAP_HANG, EKensei.S.LEAP_FALL]:
+		return false # 몸으로 오는 공격이 먼저
+	var ex := e.global_position.x
+	for n: Node in get_tree().get_nodes_in_group(PROJECTILE_GROUP):
+		if n.has_meta("bot_deflect"):
+			continue
+		var target := false
+		if n is EKenseiFx.Wave:
+			var w := n as EKenseiFx.Wave
+			var rel := ex - w.position.x
+			target = signf(rel) == float(w.dir) and absf(rel) < 24.0 + w.speed * DEFLECT_WAVE_LEAD
+		elif n is EKenseiFx.RainBlade:
+			var r := n as EKenseiFx.RainBlade
+			target = r.t < r.warn and r.warn - r.t < DEFLECT_RAIN_LEAD and absf(r.position.x - ex) < EKenseiFx.RainBlade.HALF_W + 10.0
+		elif n is Node2D:
+			target = (n as Node2D).global_position.distance_to(e.center()) < 90.0
+		if not target:
+			continue
+		if randf() < miss_rate:
+			n.set_meta("bot_deflect", true)
+			missed += 1
+			return false
+		n.set_meta("bot_deflect", true)
+		_deflect_watch.append([DEFLECT_CHECK, n])
+		n_dangong += 1
+		_hold("es_left", false)
+		_hold("es_right", false)
+		_combo([[0.0, "es_up", true], [0.0, "es_skill", true], [0.05, "es_skill", false], [0.08, "es_up", false]])
+		return true
+	return false
+
+
+## 단공 뒤: 발사체가 지워졌나 확인 (안 지워졌으면 튕겨내기가 아직 없는 것으로 보고 점프·피하기로 돌아감)
+func _tick_deflect_watch(delta: float) -> void:
+	var keep: Array = []
+	for it: Array in _deflect_watch:
+		it[0] = float(it[0]) - delta
+		if float(it[0]) > 0.0:
+			keep.append(it)
+			continue
+		var n: Variant = it[1]
+		var gone: bool = not is_instance_valid(n) or not (n as Node).is_in_group(PROJECTILE_GROUP)
+		if gone:
+			n_deflect += 1
+		else:
+			_deflect_fail += 1
+			if _deflect_fail >= DEFLECT_GIVE_UP and n_deflect == 0:
+				_deflect_ok = false
+				print("BOT deflect not available — falling back to jump/dodge")
+	_deflect_watch = keep
+
+
+func _slot_ready(e: EEska, slot: int, want_id: String) -> bool:
+	var s: Dictionary = e.belt.slot(slot)
+	return String(s.get("id", "")) == want_id and int(s.get("left", 0)) > 0
+
+
+func _slot_is_throw(e: EEska, slot: int) -> bool:
+	var s: Dictionary = e.belt.slot(slot)
+	var id := String(s.get("id", ""))
+	return id in ["bind", "scream"] and int(s.get("left", 0)) > 0
+
+
+func _echo_on(e: EEska) -> bool:
+	if float(e.mods.get("echo", 0.0)) > 0.0:
+		return true
+	for it: Dictionary in EPotions.active_buffs(e):
+		if String(it.get("id", "")) == "echo":
+			return true
+	return false
+
+
+## 허리띠 칸 쓰기: 0 = F · 1 = ↑F · 2 = ↓F
+func _use_slot(slot: int) -> void:
+	_hold("es_left", false)
+	_hold("es_right", false)
+	_act_cd = 0.5
+	match slot:
+		SLOT_ECHO:
+			_combo([[0.0, "es_up", true], [0.0, "es_potion", true], [0.05, "es_potion", false], [0.08, "es_up", false]])
+		SLOT_THROW:
+			_combo([[0.0, "es_down", true], [0.0, "es_potion", true], [0.05, "es_potion", false], [0.08, "es_down", false]])
+		_:
+			_tap("es_potion")
+
+
+## 비검 파도·천검 칼빛이 곧 닿나 (물약을 마실 때 본다)
+func _hazard_near(e: EEska) -> bool:
+	var ex := e.global_position.x
+	for n: Node in get_tree().get_nodes_in_group(EKenseiFx.GROUP):
+		if n is EKenseiFx.Wave:
+			var w := n as EKenseiFx.Wave
+			var rel := ex - w.position.x
+			if signf(rel) == float(w.dir) and absf(rel) < 200.0:
+				return true
+		elif n is EKenseiFx.RainBlade:
+			var r := n as EKenseiFx.RainBlade
+			if r.t < r.warn + 0.1 and absf(r.position.x - ex) < 40.0:
+				return true
+	return false
 
 
 ## 위험하면 피한다 (피하는 중이면 true)
@@ -130,7 +385,7 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 		EKensei.S.IAI_WIND:
 			var left := b._wind(EKensei.IAI_WIND) - b.st_t
 			_walk(0)
-			if not _dodged and _seen_t >= REACT and left <= BLINK_LEAD and blink_ready:
+			if not _dodged and _seen_t >= react and left <= BLINK_LEAD and blink_ready:
 				_blink(to) # 일섬이 지나가는 순간 무적으로 뚫고 그 뒤로
 			return true
 		EKensei.S.IAI_DASH:
@@ -150,7 +405,7 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 					soon = b._k < 2 and float(EKensei.TRI_GAP[p]) - b.st_t <= BLINK_LEAD
 				# 등 뒤가 벽이면 물러설 수 없으니 검성을 뚫고 순간이동
 				var cornered := (-to < 0 and e.global_position.x < 370.0) or (-to > 0 and e.global_position.x > 1050.0)
-				if soon and dist < 100.0 and blink_ready and _seen_t >= REACT * 0.5:
+				if soon and dist < 100.0 and blink_ready and _seen_t >= react * 0.5:
 					_blink(to if cornered else -to)
 				elif not cornered:
 					_walk(-to)
@@ -175,7 +430,7 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 			var left := b._wind(EKensei.WAVE_WIND) - b.st_t
 			if dist < 80.0:
 				_walk(0)
-				if not _dodged and left <= 0.1 and e.is_on_floor() and _seen_t >= REACT:
+				if not _dodged and left <= 0.1 and e.is_on_floor() and _seen_t >= react:
 					_dodged = true
 					if randf() < miss_rate:
 						missed += 1
@@ -183,6 +438,8 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 						_combo([[0.0, "es_jump", true], [0.3, "es_jump", false]])
 				return true
 		EKensei.S.CTR_STANCE, EKensei.S.PHASE, EKensei.S.RAIN_WIND:
+			if b.st == EKensei.S.CTR_STANCE and use_kit and not _ctr_thrown and _slot_is_throw(e, SLOT_THROW):
+				return false # 던질 자리로 (_kit이 맡음)
 			_walk(0)
 			if dist < 90.0:
 				_walk(-to)
@@ -196,6 +453,8 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 			var close := 30.0 + (w.speed + maxf(-e.velocity.x * float(w.dir), 0.0)) * 0.09 # 다가오는 빠르기만큼 일찍
 			if signf(rel) == float(w.dir) and absf(rel) < close and e.is_on_floor() and _seq.is_empty() and not w.has_meta("bot_seen"):
 				w.set_meta("bot_seen", true)
+				if w.has_meta("bot_deflect") and _deflect_ok:
+					continue # 단공으로 지우는 중
 				if randf() < miss_rate:
 					missed += 1
 					return false
@@ -203,17 +462,23 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 				return true
 		elif n is EKenseiFx.RainBlade:
 			var r := n as EKenseiFx.RainBlade
+			if r.has_meta("bot_deflect") and _deflect_ok:
+				continue
 			if r.t < r.warn and absf(r.position.x - ex) < EKenseiFx.RainBlade.HALF_W + 9.0:
 				_walk(1 if ex >= r.position.x else -1)
 				if r.warn - r.t < 0.12 and blink_ready:
 					_blink(1 if ex >= r.position.x else -1)
 				return true
-	# 낙화 착지 뒤 남은 충격 — 없음 (즉시)
 	return false
 
 
 ## 맞았을 때 무엇에 맞았는지 (공정함 점검용)
 func _on_hurt(hp: int) -> void:
+	if hp >= _last_hp:
+		_last_hp = hp
+		return # 부활·포식으로 오른 것
+	_last_hp = hp
+	n_hurt += 1
 	var b: Variant = stage.get("boss")
 	var what: String = EKensei.S.keys()[(b as EKensei).st] if is_instance_valid(b) else "?"
 	print("BOT HURT hp=%d boss_st=%s fight=%.1fs" % [hp, what, float(_fight_frames) / 60.0])
@@ -283,7 +548,7 @@ func _run_seq(delta: float) -> void:
 
 
 func _release_all() -> void:
-	for a in ["es_left", "es_right", "es_up", "es_jump", "es_attack", "es_skill", "es_blink", "es_bind"]:
+	for a in ["es_left", "es_right", "es_up", "es_down", "es_jump", "es_attack", "es_skill", "es_blink", "es_bind", "es_potion", "es_ult_next"]:
 		if Input.is_action_pressed(a):
 			Input.action_release(a)
 	_seq.clear()

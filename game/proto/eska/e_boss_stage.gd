@@ -4,7 +4,8 @@ extends EStage
 ## 왼쪽 입구에 가마솥(쉼터)과 무너진 문. 문을 지나 TRIGGER_X를 넘으면 싸움이 열리고 뒤로 먹빛 장막이 닫힌다.
 ## 쓰러지면 입구에서 다시 일어서고(물약 가득), 검성은 처음(체력 가득·1막)부터 다시 선다 — 문을 지나면 다시 시작.
 ## 이기면 끝 화면(다시 겨루기·훈련장·타이틀). 들어오는 길: 타이틀 메뉴 "에스카 보스전 (검성)" 또는 웹 주소 뒤 ?eska_boss
-## 기준서: docs/eska/design.md 6장.
+## 기준서: docs/eska/design.md 6장. 루프2(loop2_plan.md 6장): 등장 근접 연출 · 뼈흰+붉은 선 이름 자막(BossTitle) · 발도 예고 때 배경이 살짝 어두워짐(Dim)
+##   · 입구 장막 = 먹빛 연기 + 부적 · 보스장 안내(hud.context_hints) · 연출 중 안내 숨김(hud.cinematic) · 터치 카메라 여유만큼 오른쪽 배경 연장.
 
 const W := 1120.0
 const FLOOR := 300.0
@@ -14,10 +15,26 @@ const BOSS_X := 860.0
 const CAULDRON_X := 84.0
 const RESPAWN := Vector2(150, FLOOR)
 const WIND := 46.0 ## 바람 세기 (꽃잎·머리칼·자락)
-const INTRO_T := 3.2 ## 처음 만남 연출 길이 (실제 시간)
+const INTRO_T := 3.2 ## (시험 호환) 처음 만남 연출을 건너뛸 때 쓰는 값
+const INTRO_PAN := 1.1 ## 처음 만남: 카메라가 검성 쪽으로 다가가는 시간 (실제 시간)
+const CLOSE_T := 0.8 ## 처음 만남: 얼굴 근접 (눈을 뜨고 바람이 몰아침)
+const CLOSE_EYES := 0.22 ## 근접이 시작되고 이만큼 뒤 눈을 뜸
+const CLOSE_ZOOM := 2.3 ## 근접 때 카메라 추가 확대 (얼굴이 화면을 채우게)
+const TITLE_T := 2.2 ## 처음 만남 이름 자막 길이 — 자막이 끝나야 싸움이 열림 (검성은 그 전엔 움직이지 않음)
+const RETRY_TITLE_T := 1.3 ## 다시 할 때 짧은 자막
+const PHASE_TITLE_T := 2.2
+const BREAK_TITLE_T := 1.2
+const GUST_WIND := 3.4 ## 눈을 뜰 때 바람 배수
+const CALM_WIND := 0.5 ## 다가갈 때 고요한 바람
+const DIM_MAX := 0.3 ## 발도 예고 때 배경 어두움 최대 (먹빛 막의 진하기)
+const CAM_MARGIN_DEFAULT := 240.0 ## 터치 카메라 여유 (EStage.cam_margin_touch가 없을 때)
+const ART_SHAKE_PAD := 60.0 ## 흔들림·확대 펀치 여유 — 카메라 여유에 더해 오른쪽 배경을 더 그림
+const ART_EXTRA_MIN := 300.0 ## 오른쪽 끝 너머로 그리는 배경 최소 폭
+const HINTS: Array[String] = ["↑A 단공: 비검·천검을 가른다", "물약을 열린 틈에 던지면 스며든다", "눈 감은 반격 자세엔 비명·속박"]
 const FRAME_PULL := 0.85 ## 싸움 중 카메라를 둘 사이 가운데로 당기는 정도 (1 = 정가운데)
 
 enum F { WAIT, INTRO, FIGHT, WON }
+enum I { PAN, CLOSE, TITLE } ## 처음 만남 연출 단계
 
 var boss: EKensei
 var fight := F.WAIT
@@ -35,14 +52,22 @@ var _wind_k := 1.0 ## 바람 배수 (연출이 올림)
 var _wind_sfx := 3.0
 var _petal_t := 0.0
 var closeup := 0.0 ## 시험용: 검성을 확대해 보기 (카메라 추가 확대 배수)
+var _margin := CAM_MARGIN_DEFAULT ## 오른쪽 끝 너머로 더 그리는 배경 폭 (터치 카메라 여유)
 var _cine_t := 0.0
 var _cine_p := Vector2.ZERO
 var _cine_w := 0.0
 var _cine_zoom := 0.0
+var _cine_rate := 2.5 ## 연출 카메라 확대가 따라가는 빠르기
+var _intro_step := I.PAN
+var _title: BossTitle
+var _dim: Dim
+var _cine_hold := false ## 연출 중 (막 전환 등) — 끝나면 안내를 다시 보임
 
 
 func _build() -> void:
 	stage_w = W
+	var m: Variant = get("cam_margin_touch")
+	_margin = float(m) if m != null else CAM_MARGIN_DEFAULT
 	floor_y = FLOOR
 	cam_top = FLOOR - 520.0
 	respawn_at = RESPAWN
@@ -65,10 +90,16 @@ func _build() -> void:
 
 func _start() -> void:
 	hud.boss_name = "검성"
+	hud.set("context_hints", HINTS) # 코어가 안내 칸을 더함 (없으면 아무 일 없음)
 	var layer := hud.get_parent()
 	_poise_bar = PoiseBar.new()
 	_poise_bar.stage = self
 	layer.add_child(_poise_bar)
+	_title = BossTitle.new()
+	layer.add_child(_title)
+	_dim = Dim.new()
+	_dim.stage = self
+	add_child(_dim)
 	eska.hurt_taken.connect(_on_hurt)
 	_spawn_boss()
 	EKenseiFx.wind = Vector2(WIND, 0)
@@ -105,7 +136,13 @@ func _process(delta: float) -> void:
 		F.FIGHT:
 			_clock += real
 			_frame_both(real)
+			if _cine_hold and is_instance_valid(boss) and boss.st != EKensei.S.PHASE:
+				_cine_hold = false
+				_cinematic(false)
+	_title.advance(real)
 	_tick_cine(real)
+	if eska.hp > _hp_seen: # 물약으로 차오른 체력 (신호 없이 오름) — 맞은 횟수를 셀 기준을 맞춤
+		_hp_seen = eska.hp
 	if closeup > 0.0 and is_instance_valid(boss):
 		cam.set("focus_p", boss.global_position + Vector2(0, -28))
 		cam.set("focus_w", 1.0)
@@ -113,12 +150,18 @@ func _process(delta: float) -> void:
 	_tick_wind(delta)
 
 
-## 연출 카메라: dur초(실제 시간) 동안 p를 w만큼 가운데로, zoom만큼 더 확대 — 끝나면 부드럽게 돌아옴
-func _cine(p: Vector2, w: float, zoom: float, dur: float) -> void:
+## 연출 카메라: dur초(실제 시간) 동안 p를 w만큼 가운데로, zoom만큼 더 확대 — 끝나면 부드럽게 돌아옴 (rate = 확대 따라가는 빠르기)
+func _cine(p: Vector2, w: float, zoom: float, dur: float, rate := 2.5) -> void:
 	_cine_p = p
 	_cine_w = w
 	_cine_zoom = zoom
 	_cine_t = dur
+	_cine_rate = rate
+
+
+## 연출 중: 화면 키 안내·시험 버튼 숨김 (코어 HUD가 cinematic을 읽음 — 없으면 아무 일 없음)
+func _cinematic(on: bool) -> void:
+	hud.set("cinematic", on)
 
 
 func _tick_cine(real: float) -> void:
@@ -128,9 +171,9 @@ func _tick_cine(real: float) -> void:
 	if _cine_t > 0.0:
 		_cine_t -= real
 		var fp := cam.get("focus_p") as Vector2
-		cam.set("focus_p", fp.lerp(_cine_p, 1.0 - exp(-real * 4.0)))
-		cam.set("focus_w", move_toward(float(cam.get("focus_w")), _cine_w, real * 1.6))
-		cam.set("zoom_extra", lerpf(z, _cine_zoom, 1.0 - exp(-real * 2.5)))
+		cam.set("focus_p", fp.lerp(_cine_p, 1.0 - exp(-real * maxf(4.0, _cine_rate))))
+		cam.set("focus_w", move_toward(float(cam.get("focus_w")), _cine_w, real * maxf(1.6, _cine_rate * 0.6)))
+		cam.set("zoom_extra", lerpf(z, _cine_zoom, 1.0 - exp(-real * _cine_rate)))
 	elif z > 0.001:
 		cam.set("zoom_extra", move_toward(z, 0.0, real * 0.8))
 
@@ -148,61 +191,92 @@ func _frame_both(real: float) -> void:
 	cam.set("focus_w", move_toward(float(cam.get("focus_w")), want, real * 1.5))
 
 
-## 문을 지남: 처음엔 긴 만남 연출, 다시 할 때는 짧게
+## 문을 지남: 처음엔 긴 만남 연출(다가감 → 얼굴 근접 → 이름 자막), 다시 할 때는 짧은 자막만. 자막이 끝나야 싸움이 열린다
 func _open_fight() -> void:
 	fight = F.INTRO
 	_intro_t = 0.0
+	_intro_step = I.PAN
 	_curtain_on(true)
+	_cinematic(true)
+	eska.controls_locked = true
+	touch.release_all()
+	touch.visible = false
 	if _first:
-		eska.controls_locked = true
-		touch.release_all()
-		touch.visible = false
 		cam.set("focus_p", eska.global_position + Vector2(0, -70))
-		_cine(boss.global_position + Vector2(-30, -46), 1.0, 0.55, INTRO_T - 0.3)
-		_wind_k = 2.2
+		_cine(boss.global_position + Vector2(-30, -46), 1.0, 0.55, INTRO_PAN + 0.4)
+		_wind_k = CALM_WIND
 		Music.play("", 0.8)
 	else:
-		_intro_t = INTRO_T - 0.7
+		_intro_step = I.TITLE
+		boss.open_eyes()
+		_show_boss("다시 마주 선다", RETRY_TITLE_T)
 
 
 func _tick_intro() -> void:
-	if _first and _intro_t >= 1.5 and not boss._eyes_open:
-		boss.open_eyes()
-		_wind_k = 1.0
-		Fx.shake(0.3, 0.2)
-	if _first and _intro_t >= 1.7 and hud.boss == null:
-		_show_boss("칼을 뽑은 것을 본 이는 없다", 2.4)
-	if _intro_t >= INTRO_T:
-		if not _first:
-			boss.open_eyes()
-			_show_boss("다시 마주 선다", 1.4)
-		fight = F.FIGHT
-		_first = false
-		eska.controls_locked = false
-		touch.visible = true
-		boss.begin()
+	match _intro_step:
+		I.PAN:
+			if _intro_t >= INTRO_PAN:
+				_intro_step = I.CLOSE
+				# 얼굴 근접: 빠르게 당겨 머리를 화면 가운데로
+				_cine(boss.global_position + Vector2(float(boss.facing) * 3.0, -46), 1.0, CLOSE_ZOOM, CLOSE_T, 9.0)
+		I.CLOSE:
+			if _intro_t >= INTRO_PAN + CLOSE_EYES and not boss._eyes_open:
+				boss.open_eyes()
+				_gust()
+			if _intro_t >= INTRO_PAN + CLOSE_T:
+				_intro_step = I.TITLE
+				_wind_k = 1.2
+				_cine(boss.global_position + Vector2(-40, -40), 1.0, 0.4, TITLE_T, 3.0)
+				_show_boss("칼을 뽑은 것을 본 이는 없다", TITLE_T)
+		I.TITLE:
+			if not _title.busy():
+				_begin_fight()
+
+
+## 근접 중 눈을 뜨는 순간: 바람이 몰아쳐 머리칼·자락·꽃잎이 한쪽으로 쏠림
+func _gust() -> void:
+	_wind_k = GUST_WIND
+	Fx.shake(0.25, 0.25)
+	Sfx.play_pitch(&"kb_gust", 1.0, -3.0)
+	var d := EKenseiFx.Drift.get_layer()
+	if d != null:
+		var r := _view_rect()
+		for i in 26:
+			d.spawn(Vector2(r.position.x + randf_range(-10.0, r.size.x * 0.6), randf_range(r.position.y, r.end.y)), Vector2(WIND * GUST_WIND * randf_range(1.2, 2.0), randf_range(-30, 30)), randf_range(1.2, 2.4))
+
+
+## 싸움을 엶: 조작이 풀리고 검성이 움직이기 시작
+func _begin_fight() -> void:
+	fight = F.FIGHT
+	_first = false
+	_cinematic(false)
+	eska.controls_locked = false
+	touch.visible = true
+	boss.begin()
 
 
 func _show_boss(sub: String, dur: float) -> void:
 	hud.boss = boss
-	hud.banner("검성", sub, dur)
+	_title.show_title("검성", sub, dur)
 	Music.play("shingye_tension", 0.6)
 	Sfx.play_pitch(&"kb_sheath", 0.8, -2.0)
 
 
-## 막 전환이 시작됨: 검성 쪽으로 살짝 당겨 확대
+## 막 전환이 시작됨: 검성 쪽으로 살짝 당겨 확대 · 안내 숨김 (검성이 PHASE를 벗어나면 다시 보임)
 func _on_phase_start() -> void:
 	_cine((boss.global_position + eska.global_position) * 0.5 * 0.4 + boss.global_position * 0.6 + Vector2(0, -50), 0.9, 0.35, 2.4)
+	_cinematic(true)
+	_cine_hold = true
 
 
 func _on_phase(_p: int) -> void:
 	Music.play("boss", 0.4)
-	hud.banner("검성 · 발검", "칼집을 버렸다", 2.2)
+	_title.show_title("검성 · 발검", "칼집을 버렸다", PHASE_TITLE_T)
 	_wind_k = 1.5
 
 
 func _on_break(_e: EEnemy) -> void:
-	hud.banner("무너짐", "지금 — 대마법을 넣을 때", 1.3)
+	_title.show_title("무너짐", "지금 — 대마법을 넣을 때", BREAK_TITLE_T, true)
 
 
 func _on_hurt(hp: int) -> void:
@@ -271,6 +345,8 @@ func _reset_fight() -> void:
 	hud.boss = null
 	_spawn_boss()
 	_curtain_on(false)
+	_cinematic(false)
+	_cine_hold = false
 	fight = F.WAIT
 	_wind_k = 1.0
 	Music.play("shingye", 1.0)
@@ -280,6 +356,7 @@ func _reset_fight() -> void:
 
 func _on_boss_died(_e: EEnemy) -> void:
 	fight = F.WON
+	_cinematic(true)
 	_cine(boss.global_position + Vector2(0, -34), 1.0, 0.7, EKensei.DEFEAT_T + 0.6)
 	eska.invuln = 999.0
 	_curtain_on(false)
@@ -287,7 +364,7 @@ func _on_boss_died(_e: EEnemy) -> void:
 	Music.play("", 1.5)
 	await get_tree().create_timer(EKensei.DEFEAT_T - 0.4, true, false, true).timeout
 	Music.jingle("jingle_chapter")
-	hud.banner("검을 거두다", "검성을 넘었다", 2.4)
+	_title.show_title("검을 거두다", "검성을 넘었다", 2.4)
 	await get_tree().create_timer(2.2, true, false, true).timeout
 	eska.controls_locked = true
 	touch.release_all()
@@ -318,8 +395,9 @@ func skip_intro(x := 520.0) -> String:
 	eska.global_position = Vector2(x, FLOOR)
 	eska.velocity = Vector2.ZERO
 	_open_fight()
+	_title.show_title("", "", 0.0)
 	_intro_t = INTRO_T
-	_tick_intro()
+	_begin_fight()
 	return boss.info()
 
 
@@ -346,7 +424,9 @@ func fight_state() -> String:
 # 배경
 # ═══════════════════════════════════════════════════════════
 
+## 배경: 오른쪽 끝(W) 너머로 (터치 카메라 여유 + 흔들림, 최소 ART_EXTRA_MIN) 더 그린다 (터치 카메라 여유로 그쪽이 보일 때 빈 곳이 아니라 그림이 보이게)
 func _backdrop() -> void:
+	var art_w := W + maxf(_margin + ART_SHAKE_PAD, ART_EXTRA_MIN)
 	var sky_layer := CanvasLayer.new()
 	sky_layer.layer = -10
 	add_child(sky_layer)
@@ -358,7 +438,7 @@ func _backdrop() -> void:
 		add_child(px)
 		var m := Mountains.new()
 		m.layer = int(spec[1])
-		m.width = W
+		m.width = art_w
 		m.floor_y = FLOOR
 		px.add_child(m)
 	for spec: Array in [[0.32, 0, -7], [0.55, 1, -6]]:
@@ -368,16 +448,16 @@ func _backdrop() -> void:
 		add_child(px)
 		var b := Bamboo.new()
 		b.layer = int(spec[1])
-		b.width = W
+		b.width = art_w
 		b.floor_y = FLOOR
 		px.add_child(b)
 	var wall := Wall.new()
-	wall.width = W
+	wall.width = art_w
 	wall.floor_y = FLOOR
 	wall.z_index = -4
 	add_child(wall)
 	var ground := Ground.new()
-	ground.width = W
+	ground.width = art_w
 	ground.floor_y = FLOOR
 	ground.z_index = -2
 	add_child(ground)
@@ -393,7 +473,7 @@ func _backdrop() -> void:
 	front_px.z_index = 12
 	add_child(front_px)
 	var front := Front.new()
-	front.width = W
+	front.width = art_w
 	front.floor_y = FLOOR
 	front_px.add_child(front)
 	# 처음부터 꽃잎이 화면에 흩어져 있게
@@ -625,8 +705,10 @@ class Gate extends PDraw.Canvas:
 		for f: float in [0.25, 0.5, 0.75]:
 			var p := Vector2(lerpf(-24.0, 24.0, f), -92.0 + sin(f * PI) * 7.0)
 			pd.draw_polyline(PackedVector2Array([p, p + Vector2(2, 3), p + Vector2(-1, 6), p + Vector2(2, 9), p + Vector2(-1, 12)]), Color("#e6ddcf"), 1.6)
-		pd.draw_line(Vector2(-24, -92), Vector2(-26, -76), Color("#c81e2e"), 1.0)
-		pd.draw_line(Vector2(24, -92), Vector2(27, -78), Color("#c81e2e"), 1.0)
+		# 줄 끝 붉은 매듭 (세로 붉은 선은 천검 예고와 헷갈려 쓰지 않음)
+		for sx: float in [-24.0, 24.0]:
+			pd.draw_circle(Vector2(sx, -92), 1.8, Color("#c81e2e"))
+			pd.draw_colored_polygon(PackedVector2Array([Vector2(sx - 2.5, -88), Vector2(sx, -91), Vector2(sx + 2.5, -88), Vector2(sx, -86)]), Color("#8a1420"))
 
 
 ## 전경: 화면 아래 마른 풀 실루엣 (바람 쪽으로 기욺)
@@ -649,8 +731,20 @@ class Front extends PDraw.Canvas:
 			x += rng.randf_range(60.0, 140.0)
 
 
-## 싸움 중 입구를 막는 먹빛 장막 (붉은 실이 위로 흐름)
+## 싸움 중 입구를 막는 장막: 피어오르며 소용돌이치는 먹빛 연기 + 금줄에 매달려 펄럭이는 흰 부적, 연기 속을 맴도는 부적 둘
+## (붉은 세로선은 쓰지 않는다 — 천검 예고와 겹쳐 보임. 붉은빛은 부적의 작은 인장만)
 class Curtain extends PDraw.Canvas:
+	const H := 112.0 ## 장막 높이
+	const HALF := 26.0 ## 장막 반폭
+	const PUFFS := 16 ## 연기 덩이 수
+	const TAGS := 4 ## 금줄에 매달린 부적 수
+	const ROPE_Y := -100.0
+	const PAPER := Color("#e9e1d2")
+	const SEAL := Color("#b8182a")
+	const SMOKE := Color("#09070a")
+	const SMOKE_MID := Color("#2b2429") ## 연기 몸 (어두운 배경에서도 덩이가 읽히게 잿빛을 섞음)
+	const SMOKE_HI := Color("#6d6266") ## 달빛 받은 연기 가장자리
+	const ROPE := Color("#6e6258")
 	var _t := 0.0
 	var _a := 0.0
 	var _closing := false
@@ -671,33 +765,177 @@ class Curtain extends PDraw.Canvas:
 
 	func _paint() -> void:
 		var a := _a
-		# 먹빛 안개 막 (가운데가 짙음) + 바닥의 붉은 기운
-		pd.rect_hgrad(Rect2(-24, -110, 24, 110), Color(INK, 0.0), Color(INK, 0.6 * a))
-		pd.rect_hgrad(Rect2(0, -110, 24, 110), Color(INK, 0.6 * a), Color(INK, 0.0))
-		pd.draw_set_transform(Vector2(0, -1), 0.0, Vector2(1.0, 0.25))
-		pd.glow(Vector2.ZERO, 34.0, Color("#e0182f", 0.45 * a), 0.0)
+		var w := EKenseiFx.wind.x / WIND
+		# 바닥에 고인 먹빛
+		pd.draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.3))
+		pd.glow(Vector2.ZERO, 40.0, Color(SMOKE, 0.8 * a), 0.0)
 		pd.draw_set_transform(Vector2.ZERO)
-		# 위아래로 늘어진 붉은 실 (바람에 물결침)
-		for i in 5:
-			var x0 := (float(i) - 2.0) * 9.0
-			var pts := PackedVector2Array()
-			for k in 12:
-				var f := float(k) / 11.0
-				pts.append(Vector2(x0 + sin(_t * 2.0 + f * 5.0 + float(i)) * 2.0 * f, -96.0 + f * 96.0))
-			pd.draw_polyline(pts, Color("#e0182f", (0.45 + 0.2 * sin(_t * 3.0 + float(i))) * a), 1.0)
-		# 위로 흐르는 불티
-		for i in 7:
-			var x := (float(i) - 3.0) * 6.0 + sin(_t * 1.3 + float(i)) * 2.0
-			var f := fmod(_t * 0.5 + float(i) * 0.37, 1.0)
-			var y := -f * 100.0
-			pd.line2(Vector2(x, y), Vector2(x, y - 5.0), Color("#ff6a5c", 0.0), Color("#ff6a5c", 0.8 * a * (1.0 - f)), 1.0, 0.6)
-		# 줄에 매달린 흰 부적 셋 (희미하게 빛남)
-		for i in 3:
-			var x := (float(i) - 1.0) * 14.0
-			var sway := sin(_t * 2.4 + float(i)) * 1.2
-			pd.glow(Vector2(x + sway, -80.0), 7.0, Color("#ece4d6", 0.25 * a), 0.0)
-			pd.draw_rect(Rect2(x - 2.0 + sway, -88.0, 4.0, 11.0), Color("#ece4d6", 0.9 * a))
-			pd.draw_line(Vector2(x + sway, -86.0), Vector2(x + sway, -79.0), Color("#c81e2e", 0.9 * a), 1.0)
+		# 먹빛 연기: 아래에서 피어올라 커지며 옅어지는 덩이 (바람 쪽으로 살짝 쏠림)
+		for i in PUFFS:
+			var f := fmod(_t * 0.32 + float(i) / float(PUFFS), 1.0)
+			var x := sin(_t * 0.8 + float(i) * 1.7) * (6.0 + 10.0 * f) + w * 6.0 * f
+			var p := Vector2(x, -4.0 - f * H)
+			var r := 10.0 + 12.0 * f
+			var al := sin(f * PI) * a
+			pd.glow(p + Vector2(-r * 0.25, -r * 0.3), r * 0.9, Color(SMOKE_HI, 0.3 * al), 0.0) # 달빛 받은 연기 윗면
+			pd.glow(p, r, Color(SMOKE_MID, 0.7 * al), 0.3 * al)
+			pd.glow(p + Vector2(r * 0.2, r * 0.2), r * 0.6, Color(SMOKE, 0.8 * al), 0.0) # 아래쪽 짙은 먹
+		# 연기 결: 위로 말려 올라가는 가는 잿빛 줄 몇 가닥
+		for i in 4:
+			var f := fmod(_t * 0.45 + float(i) * 0.25, 1.0)
+			var wisp := PackedVector2Array()
+			for k in 6:
+				var g := float(k) / 5.0
+				wisp.append(Vector2(sin(_t * 1.4 + float(i) * 2.0 + g * 3.0) * (5.0 + 6.0 * g) + w * 4.0 * g, -10.0 - (f * 0.6 + g * 0.35) * H))
+			pd.draw_polyline(wisp, Color(SMOKE_HI, 0.35 * sin(f * PI) * a), 1.0)
+		# 금줄 (가로로 처진 새끼줄)
+		var rope := PackedVector2Array()
+		for k in 9:
+			var f := float(k) / 8.0
+			rope.append(Vector2(lerpf(-HALF, HALF, f), ROPE_Y + sin(f * PI) * 6.0 + sin(_t * 1.8 + f * 4.0) * 0.8))
+		pd.draw_polyline(rope, Color(ROPE, 0.9 * a), 2.0)
+		# 매달린 부적: 바람에 펄럭이며 흔들림
+		for i in TAGS:
+			var f := (float(i) + 0.5) / float(TAGS)
+			var top := Vector2(lerpf(-HALF, HALF, f), ROPE_Y + sin(f * PI) * 6.0 + 1.0)
+			var ang := sin(_t * 2.6 + float(i) * 1.3) * 0.25 - w * 0.18
+			_talisman(top, ang, 1.0, a)
+		# 연기 속을 맴도는 부적 둘
+		for i in 2:
+			var an := _t * (0.9 + 0.2 * float(i)) + float(i) * PI
+			var c := Vector2(cos(an) * 14.0, -40.0 - 26.0 * float(i) + sin(an * 1.3) * 10.0)
+			_talisman(c + Vector2(0, -6), an * 1.6, 0.8, a * (0.6 + 0.4 * sin(an)))
+
+	## 흰 부적 한 장: 위 끝 top에서 ang만큼 기울어 매달림 (붉은 인장 + 먹 획 몇 개)
+	func _talisman(top: Vector2, ang: float, sc: float, a: float) -> void:
+		if a <= 0.02:
+			return
+		var d := Vector2(-sin(ang), cos(ang))
+		var n := d.orthogonal()
+		var l := 13.0 * sc
+		var hw := 2.6 * sc
+		var flap := sin(_t * 9.0 + top.x) * 0.8 * sc # 끝단이 펄럭임
+		pd.glow(top + d * l * 0.5, 7.0 * sc, Color(PAPER, 0.18 * a), 0.0)
+		pd.draw_colored_polygon(PackedVector2Array([top + n * hw, top - n * hw, top + d * l - n * (hw + flap), top + d * l + n * (hw - flap)]), Color(PAPER, 0.92 * a))
+		pd.draw_circle(top + d * l * 0.3, 1.3 * sc, Color(SEAL, 0.95 * a))
+		for k in 3:
+			var q := top + d * l * (0.5 + 0.13 * float(k))
+			pd.draw_line(q - n * hw * 0.6, q + n * hw * 0.5, Color(INK, 0.8 * a), 0.7)
+
+
+## 발도 예고 때 배경을 살짝 어둡게: 땅·담·하늘 위, 검성·에스카·이펙트 아래 (z -1) 먹빛 막
+class Dim extends Node2D:
+	var stage: EBossStage
+	var _shown := 0.0
+
+	func _ready() -> void:
+		z_index = -1
+
+	func _process(_delta: float) -> void:
+		var k := 0.0
+		if is_instance_valid(stage) and is_instance_valid(stage.boss) and not stage.boss.is_dead():
+			k = stage.boss.dim_k()
+		if absf(k - _shown) > 0.002 or (k == 0.0 and _shown != 0.0):
+			_shown = k
+			queue_redraw()
+
+	func _draw() -> void:
+		if _shown <= 0.0:
+			return
+		draw_rect(stage._view_rect().grow(40.0), Color(INK, DIM_MAX * _shown))
+
+
+## 이름 자막: 뼈흰 큰 글자 + 가운데에서 양옆으로 그어지는 붉은 가로선 + 아래 작은 글 (보랏빛 알림 대신 검성 전용)
+## 시간은 장면이 advance(실제 시간)로 흘려 준다 — 멈춤·느려짐 연출에 흔들리지 않게
+class BossTitle extends Control:
+	const BONE := Color("#ece4d6")
+	const BONE_DIM := Color("#a3978a")
+	const LINE := Color("#d01c2c")
+	const LINE_HOT := Color("#ff6a5c")
+	const IN_T := 0.35
+	const OUT_T := 0.4
+	const LINE_STEPS := 12 ## 붉은 선이 끝으로 옅어지는 단계
+	var _name := ""
+	var _sub := ""
+	var _t := 0.0
+	var _dur := 0.0
+	var _small := false
+	var _font: Font
+
+	func _ready() -> void:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_font = get_theme_default_font()
+
+	## 자막을 띄움 (small = 무너짐 같은 짧은 알림 — 글자가 작음)
+	func show_title(title: String, sub: String, dur: float, small := false) -> void:
+		_name = title
+		_sub = sub
+		_t = 0.0
+		_dur = dur
+		_small = small
+		queue_redraw()
+
+	## 아직 자막이 떠 있나
+	func busy() -> bool:
+		return _name != "" and _t < _dur
+
+	func advance(real: float) -> void:
+		var vs := get_viewport_rect().size
+		if size != vs:
+			size = vs
+		if _t < _dur:
+			_t += real
+			queue_redraw()
+
+	func _draw() -> void:
+		if _name == "" or _t >= _dur:
+			return
+		var inn := clampf(_t / IN_T, 0.0, 1.0)
+		var out := clampf((_dur - _t) / OUT_T, 0.0, 1.0)
+		var a := minf(inn, out)
+		var e := 1.0 - pow(1.0 - inn, 3.0)
+		var fs := 20 if _small else 30
+		var c := Vector2(size.x * 0.5, size.y * (0.3 if _small else 0.34))
+		var tw := _font.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		# 글자 뒤 옅은 먹빛 띠 (어느 배경에서도 읽히게)
+		var band_h := 34.0 if _small else 50.0
+		var bw := tw * 0.5 + 120.0
+		_hband(Rect2(c.x - bw, c.y - float(fs) * 0.95, bw * 2.0, band_h), 0.5 * a)
+		# 이름: 살짝 크게 시작해 제자리로 (뼈흰, 먹 테두리)
+		var sc := 1.12 - 0.12 * e
+		draw_set_transform(c, 0.0, Vector2(sc, sc))
+		draw_string_outline(_font, Vector2(-tw * 0.5, 0), _name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 6, Color(INK, 0.9 * a))
+		draw_string(_font, Vector2(-tw * 0.5, 0), _name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(BONE.lerp(Color.WHITE, 1.0 - e), a))
+		draw_set_transform(Vector2.ZERO)
+		# 붉은 가로선: 가운데에서 양옆으로 그어짐 (가운데가 진하고 끝으로 옅어짐)
+		var ly := c.y + (7.0 if _small else 10.0)
+		var lw := (tw * 0.5 + (50.0 if _small else 80.0)) * e
+		for i in LINE_STEPS:
+			var f0 := float(i) / float(LINE_STEPS)
+			var f1 := float(i + 1) / float(LINE_STEPS)
+			var col := Color(LINE, (0.95 - 0.75 * f0) * a)
+			draw_line(Vector2(c.x + lw * f0, ly), Vector2(c.x + lw * f1, ly), col, 1.0)
+			draw_line(Vector2(c.x - lw * f0, ly), Vector2(c.x - lw * f1, ly), col, 1.0)
+		draw_rect(Rect2(c.x - 2.0, ly - 1.0, 4.0, 2.0), Color(LINE_HOT, a))
+		if _sub != "":
+			var sfs := 11 if _small else 12
+			var sw := _font.get_string_size(_sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs).x
+			var k := clampf((_t - 0.15) / IN_T, 0.0, 1.0) * out
+			var sp := Vector2(c.x - sw * 0.5, ly + float(sfs) + 5.0)
+			draw_string_outline(_font, sp, _sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs, 3, Color(0, 0, 0, 0.7 * k))
+			draw_string(_font, sp, _sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs, Color(BONE_DIM, k))
+
+	## 가운데가 짙고 양옆으로 옅어지는 가로 띠
+	func _hband(r: Rect2, al: float) -> void:
+		var half := r.size.x * 0.5
+		var n := 10
+		var w := half / float(n)
+		for i in n:
+			var f := float(i) / float(n)
+			var c := Color(INK, al * (1.0 - f) * (1.0 - f))
+			draw_rect(Rect2(r.position.x + half + w * float(i), r.position.y, w + 0.5, r.size.y), c)
+			draw_rect(Rect2(r.position.x + half - w * float(i + 1), r.position.y, w + 0.5, r.size.y), c)
 
 
 ## 보스 체력바 아래 가는 버팀 막대 (뼈빛 — 무너지면 붉게 깜빡이며 다시 차오름)
