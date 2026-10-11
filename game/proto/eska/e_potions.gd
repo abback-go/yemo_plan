@@ -51,8 +51,8 @@ const BIND_RESIST_CUT := 0.5 ## 진한 속박: 강자의 status_resist를 이 �
 const SCREAM_T := 1.2 ## 비명: 기절 시간 (하던 동작 끊김)
 const SCREAM_T_STRONG := 2.4 ## 진한 비명: 한 병으로 보통 2병만큼
 const SCREAM_R := 70.0
-const SCREAM_POISE := 400 ## 비명: 강자 버팀 피해 (EEnemy.poise_damage — 버팀이 없는 적은 아무 일 없음)
-const SCREAM_POISE_STRONG := 1000 ## 진한 비명: 반격 자세를 확실히 깨고 버팀 1000
+const SCREAM_POISE := 250 ## 비명: 강자 버팀 피해 (EEnemy.poise_damage — 버팀이 없는 적은 아무 일 없음) — loop3 3장
+const SCREAM_POISE_STRONG := 700 ## 진한 비명: 반격 자세를 확실히 깨고 버팀 700
 const ROT_R := 56.0 ## 부식: 독안개 반경
 const ROT_CLOUD_T := 4.0 ## 독안개가 남는 시간 (진한 = × 1.5)
 const ROT_VULN_T := 8.0 ## 안개에 들어간 적: 이 시간 동안 받는 피해 × ROT_VULN (진한 = × 1.5)
@@ -66,7 +66,11 @@ const MURKY_R := 44.0 ## 흐린 물(던짐): 아무 일도 없는 물보라 반�
 
 # ─── 틈 달이기 (loop2_plan.md 2장): 던진 병이 열린 틈에 닿으면 깨지지 않고 스며들어 틈 모양을 따라 퍼진다 ──
 const RIFT_TOUCH := 10.0 ## 병이 틈(가운데 선 + 굵기 절반)에서 이만큼 안이면 닿음
-const RIFT_AIM := 40.0 ## 이 안의 열린 틈 쪽으로 병이 살짝 휜다 (조준 너그럽게)
+const RIFT_AIM := 24.0 ## 이 안의 열린 틈 쪽으로 병이 살짝 휜다 (조준 조금 너그럽게 — 40은 거의 저절로 들어가서 loop3에서 줄임)
+const RIFT_SELF_T := 0.12 ## 던진 뒤 이 시간 동안은 틈 무시 (자기 손 근처 틈 — 단공 등 — 이 병을 삼키지 않게)
+const RIFT_SELF_R := 40.0 ## 손에서 이 거리 안에서도 틈 무시 (둘 다 지나야 틈에 닿음)
+const RIFT_STITCH_POISE := 300 ## 틈이 꿰매질 때 한 번 더: 속박 → 강자 버팀 피해
+const RIFT_STITCH_STUN := 0.4 ## 틈이 꿰매질 때 한 번 더: 비명 → 기절 다시 (강자 저항 무시). 부식 → 시간 갱신
 const RIFT_BAND := 24.0 ## 틈 전체 길이 ± 이만큼 안의 적에게 효과
 const RIFT_MURKY_EXTEND := 1.0 ## 흐린 물: 틈이 이만큼 더 열려 있음
 const RIFT_BITTER_VULN := 1.15 ## 쓴 물: 틈의 적이 빨라지지만 받는 피해 +15%
@@ -326,6 +330,7 @@ class Belt extends RefCounted:
 
 static var rift_brews := 0 ## 시험용: 틈에 스며든 병 수
 static var star_brews := 0 ## 시험용: 흑성에 빨려 든 병 수
+static var stitches := 0 ## 시험용: 틈이 꿰매질 때 한 번 더 걸린 수 (틈 하나에 1)
 
 
 ## 칸 번호(0 없음 · 1 ↑ · 2 ↓)의 물약을 쓴다. 썼으면 true
@@ -415,22 +420,39 @@ static func _throw(eska: EEska, id: String, strong: bool) -> void:
 
 # ─── 던지는 물약이 표적 하나에 거는 것 (깨진 자리 · 틈 · 흑성이 같이 쓴다) ──
 
-## 속박: 묶음. 진한 속박은 강자의 status_resist를 절반만 받는다
-static func bind_one(d: Node2D, strong: bool) -> void:
+## 속박: 묶음. 진한 속박은 강자의 status_resist를 절반만 받는다. full = 저항 무시 (틈에 스민 물약)
+static func bind_one(d: Node2D, strong: bool, full := false) -> void:
 	if not d.has_method("root"):
 		return
 	var sec := BIND_T * (STRONG_MULT if strong else 1.0)
-	var res: Variant = d.get("status_resist")
-	var sr := float(res) if res != null else 0.0
-	if strong and sr > 0.0 and sr < 1.0: # root가 (1 - sr)을 곱하므로 미리 나눠 (1 - sr × 절반)이 되게
-		sec *= (1.0 - sr * BIND_RESIST_CUT) / (1.0 - sr)
+	var sr := _resist(d)
+	if sr > 0.0 and sr < 1.0: # root가 (1 - sr)을 곱하므로 미리 나눠 둔다
+		if full:
+			sec /= 1.0 - sr
+		elif strong: # (1 - sr × 절반)이 되게
+			sec *= (1.0 - sr * BIND_RESIST_CUT) / (1.0 - sr)
 	d.root(sec)
 
 
+## 강자 저항 (status_resist, 없으면 0)
+static func _resist(d: Node2D) -> float:
+	var res: Variant = d.get("status_resist")
+	return float(res) if res != null else 0.0
+
+
+## 기절 sec초 (full = 강자 저항 무시 — stun이 (1 - sr)을 곱하므로 미리 나눔)
+static func _stun(d: Node2D, sec: float, full: bool) -> void:
+	if not d.has_method("stun"):
+		return
+	var sr := _resist(d)
+	if full and sr > 0.0 and sr < 1.0:
+		sec /= 1.0 - sr
+	d.stun(sec)
+
+
 ## 비명: 하던 동작이 끊기고 기절 + 강자 버팀 피해. 진한 비명은 반격 자세를 확실히 깬다 (break_counter가 있으면)
-static func scream_one(d: Node2D, strong: bool) -> void:
-	if d.has_method("stun"):
-		d.stun(scream_time(strong))
+static func scream_one(d: Node2D, strong: bool, full := false) -> void:
+	_stun(d, scream_time(strong), full)
 	if d.has_method("poise_damage"):
 		d.poise_damage(SCREAM_POISE_STRONG if strong else SCREAM_POISE)
 	if strong and d.has_method("break_counter"):
@@ -470,17 +492,40 @@ static func _vuln(d: Node2D, sec: float, mult: float) -> void:
 		d.set_vuln(sec, mult)
 
 
-## id 물약을 표적 하나에 (rift = 틈·흑성에서 — 쓴 물이 받는 피해도 늘림)
+## id 물약을 표적 하나에 (rift = 틈·흑성에서 — 강자 저항 무시, 쓴 물이 받는 피해도 늘림)
 static func apply_one(d: Node2D, id: String, strong: bool, rift := false) -> void:
 	match id:
 		"bind":
-			bind_one(d, strong)
+			bind_one(d, strong, rift)
 		"scream":
-			scream_one(d, strong)
+			scream_one(d, strong, rift)
 		"rot":
 			rot_one(d, strong)
 		"bitter_t":
 			bitter_one(d, strong, RIFT_BITTER_VULN if rift else 1.0)
+
+
+## 틈이 꿰매질 때 한 번 더 (틈에 스민 물약): 속박 → 버팀 피해 · 비명 → 기절 다시 · 부식 → 시간 갱신
+static func stitch_one(d: Node2D, id: String) -> void:
+	match id:
+		"bind":
+			if d.has_method("poise_damage"):
+				d.poise_damage(RIFT_STITCH_POISE)
+		"scream":
+			_stun(d, RIFT_STITCH_STUN, true)
+		"rot":
+			rot_one(d, true)
+
+
+## 이 틈에 물약이 스며들 만한가: 틈 ± RIFT_BAND 안에 살아 있는 표적이 있어야 (아무도 없는 틈은 병을 삼키지 않음). 흐린 물은 늘 (틈을 늘리는 게 일이라)
+static func rift_live(tree: SceneTree, rift: Dictionary, id: String) -> bool:
+	if id.begins_with("murky"):
+		return true
+	var pts: PackedVector2Array = rift.get("pts", PackedVector2Array())
+	for d: Node2D in ETarget.alive(tree):
+		if rect_to_line(d.hit_rect(), pts) <= RIFT_BAND:
+			return true
+	return false
 
 
 ## 병이 깨진 자리에 효과를 건다 (EPotionFx.Bottle이 부름). 맞은 표적 수를 돌려준다
@@ -512,44 +557,55 @@ static func splash(tree: SceneTree, _eska: EEska, id: String, strong: bool, pos:
 
 
 ## 틈 달이기: 병이 열린 틈(ERifts의 틈 하나)에 스며들었다 — 효과가 틈 모양을 따라 퍼진다 (틈 ± RIFT_BAND 안의 적).
-## 속박 = 틈을 따라 거미줄 한 줄 · 비명 = 틈이 울려 자리마다 기절 · 부식 = 틈 전체에서 독안개 · 흐린 물 = 틈이 1초 더 · 쓴 물 = 빨라지지만 피해 +15%
+## 틈에 스민 물약은 **저절로 진하고 강자 저항(status_resist)을 무시**하며, **틈이 꿰매질 때 한 번 더** 걸린다(stitch_one) — loop3 1장.
+## 속박 = 틈을 따라 거미줄 · 비명 = 틈이 울려 자리마다 기절 · 부식 = 틈 전체에서 독안개 · 흐린 물 = 틈이 1초 더 · 쓴 물 = 빨라지지만 피해 +15%
 ## 효과는 물약 색이 틈을 타고 번지다 표적에 닿는 순간 걸린다 (EPotionFx.RiftBrew). 걸릴 표적 수를 돌려준다
-static func rift_brew(tree: SceneTree, _eska: EEska, id: String, strong: bool, rift: Dictionary, at: Vector2) -> int:
+static func rift_brew(tree: SceneTree, _eska: EEska, id: String, _strong: bool, rift: Dictionary, at: Vector2) -> int:
 	var pts: PackedVector2Array = rift.get("pts", PackedVector2Array())
 	ERifts.infuse(rift, id, color(id))
 	if id.begins_with("murky"):
 		ERifts.extend(rift, RIFT_MURKY_EXTEND)
 	var targets := along(tree, pts, RIFT_BAND)
-	var fx := EPotionFx.rift_brew(id, strong, pts, float(rift.get("w", 12.0)), at)
+	var fx := EPotionFx.rift_brew(id, true, pts, float(rift.get("w", 12.0)), at)
 	fx.targets = targets
+	fx.rift_id = int(rift.get("id", 0))
 	rift_brews += 1
 	last_splash = {"id": id, "pos": at, "hits": targets.size(), "rift": int(rift.get("id", 0))}
 	return targets.size()
 
 
-## 흑성이 병을 빨아들였다: 그 색의 검은 별이 되어 끌려온 적 모두에게 효과.
-## 마법 쪽에 absorb(id, color, apply)가 있으면 그것이 연출하고 apply를 부른다 (apply는 인자 없이 — 걸린 표적 수를 돌려줌). 없으면 바로 건다
-static func star_brew(tree: SceneTree, _eska: EEska, id: String, strong: bool, star: Node2D) -> void:
-	star_brews += 1
+## 흑성이 병을 빨아들였다: 그 색의 검은 별이 되어 끌려온 적 모두에게 효과 (틈과 같이 저절로 진하고 저항 무시).
+## 흑성의 absorb(id, color, apply)가 연출하고 apply를 부른다(인자 없이 — 걸린 표적 수를 돌려줌): 빨아들인 순간 + 붕괴 직전.
+## 붕괴 직전 두 번째 부름 = 꿰매질 때 한 번 더(stitch_one). 흑성이 사라졌거나 더 못 빨아들이면 false (병은 그 자리에서 깨짐 — 효과·기록 없음)
+static func star_brew(tree: SceneTree, _eska: EEska, id: String, _strong: bool, star: Node2D) -> bool:
+	if not is_instance_valid(star) or not star.is_inside_tree():
+		return false
 	var c := EPotionFx.star_center(star)
 	var r := EPotionFx.star_radius(star)
-	var apply := func() -> int: return _star_apply(tree, id, strong, c, r)
-	if is_instance_valid(star) and star.has_method("absorb"):
-		star.absorb(id, color(id), apply)
-	elif EPotionFx.has_static(EMagicFx, "absorb"):
-		var scr: GDScript = EMagicFx
-		scr.call("absorb", id, color(id), apply)
+	var calls := [0]
+	var apply := func() -> int:
+		calls[0] += 1
+		if not is_instance_valid(star):
+			return 0
+		return _star_apply(tree, id, EPotionFx.star_center(star), r, calls[0] > 1)
+	if star.has_method("absorb"):
+		if not bool(star.absorb(id, color(id), apply)):
+			return false
 	else:
 		apply.call()
+	star_brews += 1
 	EPotionFx.star_gulp(id, c)
+	return true
 
 
-## 흑성에 끌려온(끌어당기는 반경 안의) 적 모두에게 id 물약
-static func _star_apply(tree: SceneTree, id: String, strong: bool, c: Vector2, r: float) -> int:
+## 흑성에 끌려온(끌어당기는 반경 안의) 적 모두에게 id 물약 (stitch = 붕괴 직전 두 번째 — 꿰매질 때 한 번 더)
+static func _star_apply(tree: SceneTree, id: String, c: Vector2, r: float, stitch: bool) -> int:
 	var targets := in_radius(tree, c, r)
-	var fx := EPotionFx.rift_brew(id, strong, PackedVector2Array(), 0.0, c)
+	var fx := EPotionFx.rift_brew(id, true, PackedVector2Array(), 0.0, c)
 	fx.targets = targets
-	last_splash = {"id": id, "pos": c, "hits": targets.size(), "star": true}
+	fx.stitch_only = stitch
+	if not stitch:
+		last_splash = {"id": id, "pos": c, "hits": targets.size(), "star": true}
 	return targets.size()
 
 
