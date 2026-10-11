@@ -28,6 +28,7 @@ const REST_POT_X := 2540.0 ## 쉼터 가마솥
 const BOSS_POT_X := 3460.0 ## 거상 앞 가마솥 (사냥개에게 쓴 병이 다시 차는 걸 보여 줌)
 const BOSS_X := 3820.0
 const BOSS_TRIGGER_X := 3530.0
+const INTRO_FOCUS_K := 0.6 ## 등장 연출 카메라: 에스카(0) ~ 거상(1) 사이 이 자리
 const LANTERN_XS: Array[float] = [START_X, 930.0, 1720.0, 2340.0, 2800.0, 3400.0]
 
 ## 단공 "가르는 틈" 배우기
@@ -601,7 +602,8 @@ func _tick_finale() -> bool:
 				gates["runner"].close()
 				_cutscene(true)
 				Music.play("boss", 1.2)
-				cam.set("focus_p", Vector2(BOSS_X, FLOOR - 70.0))
+				# 에스카와 거상이 한 화면에 들어오게 둘 사이(거상 쪽으로 치우침)를 화면 가운데로 — 터치 치우침(CamBias)은 연출 중 약해짐
+				cam.set("focus_p", Vector2(lerpf(eska.global_position.x, BOSS_X, INTRO_FOCUS_K), FLOOR - 70.0))
 				var tw := create_tween()
 				tw.tween_property(cam, "focus_w", 1.0, 0.7).set_trans(Tween.TRANS_SINE)
 		1:

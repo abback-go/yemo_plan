@@ -286,7 +286,12 @@ func _draw_prompt() -> void:
 			var lw := _font.get_string_size(k, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 4.0 # 글자 양옆 여백
 			parts.append([1, k, lw])
 			w += lw + 3.0
-	if not parts.is_empty():
+	# 키 칸 글과 설명이 같으면(터치: [점프] 점프) 설명은 빼고 키 칸 하나만
+	for p: Array in parts:
+		if int(p[0]) == 0 and String(p[1]) == ptext:
+			ptext = ""
+			break
+	if not parts.is_empty() and ptext != "":
 		w += 6.0
 	var tw := _font.get_string_size(ptext, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	w += tw
@@ -317,7 +322,7 @@ func _draw_prompt() -> void:
 		else:
 			_text(Vector2(cx + 2.0, y + 1), String(p[1]), 12, Color(VIOLET, a))
 		cx += float(p[2]) + 3.0
-	if not parts.is_empty():
+	if not parts.is_empty() and ptext != "":
 		cx += 6.0
 	_text(Vector2(cx, y + 1), ptext, fs, Color(PALE.lerp(Color.WHITE, 0.3), a))
 	if _p_done >= 0.0:
