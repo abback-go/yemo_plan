@@ -48,5 +48,11 @@
 [1001, "eval", "cam.set('limit_right', 1120 + 300)"],
 [1002, "eval", "_cine(Vector2(1120 + 60, 220), 1.0, 0.0, 3.0, 9.0)"],
 [1060, "shot", "m08_right_margin"],
-[1070, "quit"]
+[1080, "eval", "boss.set('global_position', Vector2(800, 300))"],
+[1081, "eval", "eska.set('global_position', Vector2(700, 300))"],
+[1082, "eval", "move('iai')"],
+[1083, "eval", "boss.get('_iai_reach')"],
+[1090, "eval", "eska.set('global_position', Vector2(470, 300))"],
+[1140, "eval", "boss_info()"],
+[1160, "quit"]
 ]}

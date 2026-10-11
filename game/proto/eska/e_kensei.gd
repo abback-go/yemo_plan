@@ -50,7 +50,7 @@ const COMBO_IDLE := 0.14
 
 # ─── 발도 일섬 ───────────────────────────────────────────
 const IAI_WIND := [0.62, 0.5]
-const IAI_GLINT := 0.2 ## 베기 이만큼 전에 칼코등이가 번뜩임 (피할 신호)
+const IAI_GLINT := 0.3 ## 베기 이만큼 전에 칼코등이가 번뜩임 (피할 신호 — loop4: 0.2는 사람 반응보다 짧았음)
 const IAI_MIN := 160.0
 const IAI_MAX := 340.0
 const IAI_PAST := 70.0 ## 에스카를 지나 이만큼 더 가서 멈춤
@@ -62,6 +62,7 @@ const IAI_REST := [0.75, 0.55]
 const IAI_BAND := Vector2(-27.0, -2.0) ## 베는 높이 (발 기준 위·아래) — 점프로 넘을 수 있게 낮게
 const IAI_DMG := 2
 const IAI_RETURN := 0.35 ## 2막: 되돌아 한 번 더 베는 확률
+const IAI_RETURN_WIND := 0.55 ## 2막 되돌아 베기의 웅크림 (loop4: 0.42는 번뜩임 뒤 실제 창이 0.07초뿐이었음)
 const IAI_DIM_LEAD := 0.45 ## 베기 이만큼 전부터 화면이 살짝 어두워지기 시작 (번뜩임 때 가장 어두움)
 const DIM_IN := 5.0 ## 어두워지는 빠르기 (초당)
 const DIM_OUT := 3.0 ## 밝아지는 빠르기
@@ -170,6 +171,7 @@ var _k := 0 ## 삼연참 몇 번째
 var _dash_from := 0.0
 var _dash_to := 0.0
 var _dash_dir := 1
+var _iai_reach := IAI_MIN ## 이번 일섬 길이 — 웅크림을 시작한 순간의 거리로 정함 (물러서면 짧게 끝나 피할 수 있게)
 var _iai_cut := false ## 일섬에 이미 베였나 (참격선이 터질 때 피해)
 var _iai_hp := 0
 var _iai_return := false
@@ -338,7 +340,8 @@ func _think(delta: float) -> void:
 					_iai_return = true
 					_go(S.IAI_WIND)
 					facing = toward_eska()
-					st_t = _wind(IAI_WIND) - 0.42 # 되돌아 베기: 예고는 짧지만 번뜩임은 그대로
+					st_t = _wind(IAI_WIND) - IAI_RETURN_WIND # 되돌아 베기: 웅크림이 조금 짧지만 번뜩임은 그대로
+					_iai_lock()
 					Sfx.play_pitch(&"kb_step", 1.1, -8.0)
 				else:
 					_iai_return = false
@@ -537,6 +540,7 @@ func start_move(id: String) -> void:
 	match id:
 		"iai":
 			_go(S.IAI_WIND)
+			_iai_lock()
 			Sfx.play_pitch(&"kb_step", 0.8, -10.0)
 			EVfx.land_dust(global_position + Vector2(-facing * 6.0, 0))
 		"tri":
@@ -584,11 +588,15 @@ func _click() -> void:
 
 # ─── 발도 일섬 ───────────────────────────────────────────
 
+## 일섬 길이를 지금(웅크림 시작) 거리로 정함 — 그 뒤 에스카가 물러서도 따라가지 않는다
+func _iai_lock() -> void:
+	_iai_reach = clampf(_dx() + IAI_PAST, IAI_MIN, IAI_MAX)
+
+
 func _iai_go() -> void:
 	_dash_dir = facing
 	_dash_from = global_position.x
-	var dx := _dx()
-	var dist := clampf(dx + IAI_PAST, IAI_MIN, IAI_MAX)
+	var dist := _iai_reach
 	_dash_to = clampf(global_position.x + float(facing) * dist, x_min + 6.0, x_max - 6.0)
 	_iai_cut = false
 	_go(S.IAI_DASH)
@@ -1680,7 +1688,7 @@ func _paint_shine(q: PDraw) -> void:
 		var k := smoothstep(0.35, 1.0, st_t / _wind(IAI_WIND))
 		if k > 0.0:
 			var y := (IAI_BAND.x + IAI_BAND.y) * 0.5 - 2.0
-			var reach := clampf(_dx() + IAI_PAST, IAI_MIN, IAI_MAX)
+			var reach := _iai_reach
 			q.line2(Vector2(10, y), Vector2(10.0 + reach * k, y), Color(EKenseiFx.WHITE, 0.4 * k * a), Color(EKenseiFx.RED, 0.0), 1.0, 0.5)
 	# 번뜩임 (예고)
 	if _glint > 0.0:
