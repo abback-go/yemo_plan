@@ -1,0 +1,21 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(470, 300))"],
+[20, "eval", "get_node('MagicCast').orb(620, 190, -150, 0)"],
+[21, "eval", "get_node('MagicCast').orb(820, 150, 0, 0)"],
+[22, "eval", "get_node('MagicCast').orbs()"],
+[40, "press", "es_up"], [41, "tap", "es_skill"], [46, "release", "es_up"],
+[44, "shot", "dg01_cast"], [48, "shot", "dg02"], [52, "shot", "dg03"], [58, "shot", "dg04"], [66, "shot", "dg05"],
+[70, "eval", "get_node('MagicCast').orbs()"],
+[72, "eval", "dummy.hp"],
+[90, "eval", "get_node('MagicCast').rift_at(480, 190, 40)"],
+[100, "shot", "dg06_open"],
+[150, "eval", "dummy.set('hp', dummy.max_hp)"],
+[160, "eval", "get_node('MagicCast').orb(380, 150, 0, 0)"],
+[162, "eval", "get_node('MagicCast').orb(355, 150, 0, 0)"],
+[170, "press", "es_up"], [171, "tap", "es_skill"], [176, "release", "es_up"],
+[200, "eval", "get_node('MagicCast').orbs()"],
+[230, "eval", "dummy.hp"],
+[240, "quit"]
+]}
