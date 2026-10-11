@@ -2,7 +2,7 @@ class_name EStage
 extends Node2D
 ## 에스카 장면 공통 바탕 (훈련장 EArena · 튜토리얼 ETutorial).
 ## 하는 일: 화면 꽉 채우기(높이 360 기준, 넓은 화면은 옆이 더 보임, 배율은 소수 허용 — 나가면 원래 설정으로),
-##          터치 중엔 카메라가 오른쪽 끝을 cam_margin_touch만큼 넘어 봄,
+##          터치 중엔 카메라가 오른쪽 끝을 cam_margin_touch만큼 넘어 봄 + 가장 가까운 적이 버튼 자리(화면 오른쪽 40%)에 오지 않게 살짝 치우침(CamBias),
 ##          이펙트 층, 에스카·카메라·터치 조작·화면 표시, 쓰러지면 잠시 뒤 부활, Esc로 나가기, 시험용 성능 수치.
 ## 하위 장면은 _build()에서 땅·배경·표적을 놓고 stage_w·floor_y·respawn_at을 정한다. 다 만든 뒤 _start()가 불린다.
 
@@ -24,6 +24,7 @@ var eska: EEska
 var touch: ETouch
 var hud: EHud
 var cam: Camera2D
+var cam_bias: CamBias
 var _prev_aspect := Window.CONTENT_SCALE_ASPECT_KEEP
 var _prev_stretch := Window.CONTENT_SCALE_STRETCH_INTEGER
 var _prev_size := Vector2i(640, 360)
@@ -58,6 +59,9 @@ func _ready() -> void:
 	cam.limit_bottom = int(floor_y + 60.0)
 	add_child(cam)
 	cam.global_position = eska.global_position
+	cam_bias = CamBias.new()
+	cam_bias.stage = self
+	add_child(cam_bias)
 	_fit_view()
 	get_viewport().size_changed.connect(_fit_view)
 	touch = ETouch.new()
@@ -187,3 +191,44 @@ func bench(n: int) -> String:
 				var nm: String = node.get_script().get_global_name()
 				out += "%s=%.1f " % [nm if nm != "" else str(node.get_class()) + ":" + node.name, us]
 	return out
+
+
+## 터치 중 카메라 치우침: 가장 가까운 적(살아 있는 EEnemy)이 화면 왼쪽에서 KEEP_X 몫보다 오른쪽(= 오른쪽 아래 버튼 자리)에 오면
+## 그만큼(최대 MAX px) 카메라를 오른쪽으로 부드럽게 민다. 카메라(PCamera)가 이번 프레임 자리를 정한 뒤에 더하도록 처리 순서를 늦춘다.
+## 연출(focus_w)이 카메라를 잡고 있으면 그만큼 약하게 (보스장 등장·튜토리얼 연출과 다투지 않게). loop5 4장
+class CamBias extends Node:
+	const KEEP_X := 0.6
+	const MAX := 140.0
+	const SPEED := 2.5 ## 따라가는 빠르기 (실제 시간 초당)
+	var stage: EStage
+	var bias := 0.0 ## 지금 더하는 양 (시험용으로 읽음)
+
+	func _ready() -> void:
+		process_priority = 100 # PCamera(0)보다 나중에
+
+	func _process(delta: float) -> void:
+		var cam := stage.cam
+		if not is_instance_valid(cam) or not is_instance_valid(stage.eska):
+			return
+		var real := minf(delta / maxf(Engine.time_scale, 0.0001), 0.1)
+		var want := 0.0
+		if stage.touch and stage.touch.active:
+			var view_w := cam.get_viewport_rect().size.x / maxf(cam.zoom.x, 0.01)
+			var base := cam.global_position
+			var ex := stage.eska.global_position.x
+			var best := INF
+			var bx := 0.0
+			for n: Node in stage.get_tree().get_nodes_in_group(PDummy.GROUP):
+				var e := n as EEnemy
+				if e == null or e.is_dead():
+					continue
+				var dx := absf(e.global_position.x - ex)
+				if dx < best and dx < view_w:
+					best = dx
+					bx = e.global_position.x
+			if best < INF:
+				var sx := bx - base.x + view_w * 0.5
+				want = clampf(sx - view_w * KEEP_X, 0.0, MAX) * (1.0 - clampf(float(cam.get("focus_w")), 0.0, 1.0))
+		bias = lerpf(bias, want, 1.0 - exp(-real * SPEED))
+		if absf(bias) > 0.05:
+			cam.global_position.x += bias
