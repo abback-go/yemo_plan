@@ -14,6 +14,24 @@ const KEYS := {
 }
 
 
+## 지금 터치로 하고 있나 (ETouch가 켜고 끈다) — 안내 글이 입력 방식에 맞춰 바뀐다
+static var touch_mode := false
+
+## 키보드 이름 / 터치 버튼 이름
+const LABELS := {
+	"es_jump": ["Z", "점프"], "es_attack": ["X", "공격"], "es_blink": ["C", "순간"],
+	"es_skill": ["A", "스킬"], "es_bind": ["S", "대마법"], "es_ult_next": ["D", "고르기"], "es_potion": ["F", "물약"],
+	"es_up": ["↑", "↑"], "es_down": ["↓", "↓"], "es_left": ["←", "←"], "es_right": ["→", "→"],
+}
+
+
+## 동작 이름 → 지금 입력 방식에 맞는 이름 (loop4_plan 2장)
+static func label(action: String) -> String:
+	if not LABELS.has(action):
+		return action
+	return String(LABELS[action][1 if touch_mode else 0])
+
+
 static func register() -> void:
 	for a: String in KEYS:
 		if not InputMap.has_action(a):

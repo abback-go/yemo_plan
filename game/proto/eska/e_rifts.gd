@@ -22,13 +22,18 @@ static func now_ms() -> int:
 	return int(_now)
 
 
+## 틈이 열린 뒤 지난 초 (게임 시계). "갓 찢긴 틈"(0.5초 안) 판단에 쓴다 — loop4_plan 4장
+static func age(rift: Dictionary) -> float:
+	return maxf(float(now_ms() - int(rift.get("born", now_ms()))) / 1000.0, 0.0)
+
+
 ## 열린 틈 하나 등록 (life초 동안 열려 있음). 번호를 돌려준다
 static func open(pts: PackedVector2Array, width: float, life: float) -> int:
 	_ensure_layer()
 	_prune()
 	var id := _next_id
 	_next_id += 1
-	_list.append({"id": id, "pts": pts, "w": width, "until": now_ms() + int(life * 1000.0)})
+	_list.append({"id": id, "pts": pts, "w": width, "born": now_ms(), "until": now_ms() + int(life * 1000.0)})
 	return id
 
 
