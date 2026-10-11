@@ -233,6 +233,57 @@ class SlashLine extends KenseiHazard:
 			pd.line2(la - n, lb - n, Color(RED, 0.5 * fade), Color(RED, 0.0), 1.0)
 
 
+## 그림자 일섬의 일섬선: 분신이 그은 머리카락 같은 선이 delay 뒤 늦게 터지며 band(전역 사각형) 안의 에스카에게 피해 1.
+## 튕겨낼 수 있는 발사체(EEnemy.PROJECTILE_GROUP): 터지기 전 단공으로 가르면 사라진다. 분신을 베어 없애면 cancel().
+## 끝나면(터짐·갈림·취소) on_done을 부른다 — 분신이 스스로 사라짐
+class ShadowCut extends SlashLine:
+	var band := Rect2()
+	var dmg := 1
+	var on_done := Callable()
+	var _ended := false
+
+	func _ready() -> void:
+		super._ready()
+		add_to_group(EEnemy.PROJECTILE_GROUP)
+		loud = true
+		on_burst = _hit
+
+	func _hit() -> void:
+		remove_from_group(EEnemy.PROJECTILE_GROUP)
+		hurt_eska(band, dmg, band.get_center() - Vector2(0, 10))
+		_end()
+
+	func _end() -> void:
+		if _ended:
+			return
+		_ended = true
+		if on_done.is_valid():
+			on_done.call()
+
+	## 튕겨낼 수 있는 발사체 약속: 판정 구역 (전역)
+	func deflect_rect() -> Rect2:
+		return band
+
+	## 단공이 가름: 아직 터지지 않았으면 선이 끊겨 사라짐
+	func deflect(_by: Node2D) -> bool:
+		if _burst or _ended:
+			return false
+		EKenseiFx.shatter(band.get_center(), Vector2.UP, 1.1)
+		cancel()
+		return true
+
+	## 분신이 베여 사라짐 등: 터지지 않고 먹물처럼 흩어짐
+	func cancel() -> void:
+		if _burst or _ended:
+			return
+		remove_from_group(EEnemy.PROJECTILE_GROUP)
+		queue_free()
+		var dv := b - a
+		for i in 6:
+			EKenseiFx.sparks(a + dv * randf(), 1, Vector2.UP, 60.0, 80.0)
+		_end()
+
+
 ## 초승달 칼자국: 가운데 c(전역) 기준, 오른쪽을 보는 각도 a0 → a1 (dir이 -1이면 뒤집힘), 반지름 r, 굵기 w
 class Arc extends PVfx.Base:
 	var r := 30.0

@@ -7,6 +7,8 @@ extends EEnemy
 ##   · 삼연참(다가오며 세 번, 매번 번뜩임) · 비검(땅을 타는 참격파, 점프) · 반격 자세(눈을 감고 서 있을 때 때리면 사라져 뒤에서 벰 — 비명 물약으로 깸)
 ## 막 전환(55%): 잠깐 멈춤 → 칼을 다 뽑고 칼집을 내던짐 → 이름 자막·음악 바뀜·기운
 ## 2막: 빨라짐 + 낙화(뛰어올라 내리꽂기, 착지 충격) + 천검(하늘에서 칼빛 여러 줄 — 땅에 예고) + 연계 · 공간 고정을 일부 버팀(still_resist 0.25)
+##   + 그림자 일섬(loop5 1장): 칼을 거두면 먹빛 잔상 분신 셋이 에스카 자리에 한 줄로 서서 1.6초 자세 → 분신마다 늦게 터지는 일섬선(피해 1).
+##     분신(EKensei.Shadow)은 표적(체력 1600, 버팀·넉백 없음) — 베어 없애면 그 일섬은 사라지고 검성 버팀 −500. 일섬선은 단공으로 가를 수 있음(es_projectile).
 ## 버팀(포이즈) 1600: 무너지면 2초 무릎 꿇음 + 받는 피해 +25% (대마법을 넣을 기회) — EEnemy 버팀 갈고리 사용.
 ## 공정함: 모든 공격은 자세 + 번뜩임 + 소리로 미리 알리고, 끝나면 반격할 틈(숨 고르기)이 있다.
 ## 그림: 길게 묶은 흰 머리 · 바람에 날리는 검은 겉옷 자락 · 서양식 철 견갑 한쪽 · 붉은 끈의 긴 칼 (먹·뼈흰·붉은 끈, 파랑 없음).
@@ -19,7 +21,8 @@ enum S { INTRO, IDLE, WALK, IAI_WIND, IAI_DASH, IAI_FOLLOW, IAI_SHEATHE, IAI_RES
 	TRI_WIND, TRI_CUT, TRI_REST, WAVE_WIND, WAVE_CUT, WAVE_REST,
 	CTR_STANCE, CTR_VANISH, CTR_WIND, CTR_CUT, CTR_RELAX,
 	PHASE, LEAP_WIND, LEAP_UP, LEAP_HANG, LEAP_FALL, LEAP_REST,
-	RAIN_WIND, RAIN_HOLD, RAIN_REST, VICTOR }
+	RAIN_WIND, RAIN_HOLD, RAIN_REST, VICTOR,
+	SHADOW_WIND, SHADOW_HOLD, SHADOW_REST }
 
 # ─── 몸·체력 ─────────────────────────────────────────────
 ## 봇으로 맞춤 (tools/test/eska_boss_bot.gd — 마법·물약·대마법·틈 달이기·단공 딱 맞춤 모두 사용, FRAME_CLOCK=1):
@@ -50,7 +53,7 @@ const COMBO_IDLE := 0.14
 
 # ─── 발도 일섬 ───────────────────────────────────────────
 const IAI_WIND := [0.62, 0.5]
-const IAI_GLINT := 0.3 ## 베기 이만큼 전에 칼코등이가 번뜩임 (피할 신호 — loop4: 0.2는 사람 반응보다 짧았음)
+const IAI_GLINT := 0.4 ## 베기 이만큼 전에 칼코등이가 번뜩임 (피할 신호 — loop4 0.2 → 0.3, loop5 0.4: 번뜩임을 보고 점프해도 됨)
 const IAI_MIN := 160.0
 const IAI_MAX := 340.0
 const IAI_PAST := 70.0 ## 에스카를 지나 이만큼 더 가서 멈춤
@@ -63,7 +66,7 @@ const IAI_BAND := Vector2(-27.0, -2.0) ## 베는 높이 (발 기준 위·아래)
 const IAI_DMG := 2
 const IAI_RETURN := 0.35 ## 2막: 되돌아 한 번 더 베는 확률
 const IAI_RETURN_WIND := 0.55 ## 2막 되돌아 베기의 웅크림 (loop4: 0.42는 번뜩임 뒤 실제 창이 0.07초뿐이었음)
-const IAI_DIM_LEAD := 0.45 ## 베기 이만큼 전부터 화면이 살짝 어두워지기 시작 (번뜩임 때 가장 어두움)
+const IAI_DIM_LEAD := 0.55 ## 베기 이만큼 전부터 화면이 살짝 어두워지기 시작 (번뜩임 때 가장 어두움)
 const DIM_IN := 5.0 ## 어두워지는 빠르기 (초당)
 const DIM_OUT := 3.0 ## 밝아지는 빠르기
 
@@ -84,7 +87,8 @@ const CUT_ARC_SQUASH := 0.7
 # ─── 비검 ───────────────────────────────────────────────
 const WAVE_WIND := [0.55, 0.45]
 const WAVE_SPEED := [230.0, 270.0]
-const WAVE_SECOND := 0.4 ## 2막: 두 번째 파도까지
+const WAVE_SECOND := 0.55 ## 2막: 두 번째 파도까지 (loop5: 0.4 → 0.55, 둘째 파도에도 번뜩임·소리)
+const WAVE_SECOND_TELL := 0.18 ## 둘째 파도 이만큼 전에 번뜩임
 const WAVE_REST := [0.7, 0.5]
 
 # ─── 반격 자세 ───────────────────────────────────────────
@@ -129,6 +133,18 @@ const RAIN_REST := 0.6
 const RAIN_COOL := 8.0
 const RAIN_TWICE_BELOW := 0.3 ## 체력이 이 몫 아래면 두 번째 줄(반 칸 어긋남)
 
+# ─── 그림자 일섬 (2막, loop5 1장) ───────────────────────────
+const SHADOW_WIND := 0.4 ## 칼을 거두며 웅크림 → 분신이 나타남
+const SHADOW_N := 3
+const SHADOW_GAP := 70.0 ## 분신 사이 (한 줄)
+const SHADOW_STAGGER := 0.12 ## 분신마다 이만큼 늦게 나타나고 늦게 벤다
+const SHADOW_HOLD := 2.5 ## 분신이 나온 뒤 검성이 지켜보는 시간 (분신 자세 1.6 + 터짐 0.45 + 여유)
+const SHADOW_REST := 0.6
+const SHADOW_W := 1.6 ## 고르는 무게 (판당 2~3번 — 쿨다운과 함께)
+const SHADOW_COOL := 20.0
+const SHADOW_FIRST := 4.0 ## 2막이 시작되고 이만큼 뒤부터
+const SHADOW_POISE := 500.0 ## 분신을 베어 없애면 검성 버팀이 이만큼 깎임
+
 # ─── 쓰러짐 ─────────────────────────────────────────────
 const DEFEAT_T := 4.6
 
@@ -166,6 +182,7 @@ var _idle_for := 1.0
 var _last := ""
 var _ctr_cd := 0.0
 var _rain_cd := 2.0
+var _shadow_cd := SHADOW_FIRST
 var _pressed := 0.0 ## 에스카가 최근에 때렸나 (반격 자세를 더 자주)
 var _k := 0 ## 삼연참 몇 번째
 var _dash_from := 0.0
@@ -217,6 +234,7 @@ var _last_tip := Vector2.ZERO
 var _last_a := Vector2.ZERO
 var _snap_v := PackedVector2Array() ## 마지막 그림 (잔상용)
 var _snap_i := PackedInt32Array()
+var _snap_c := PackedColorArray() ## 마지막 그림의 색 (분신이 먹빛으로 바꿔 씀)
 var _shine: Shine
 var _ring := 0.0 ## 반격 자세 바닥 고리
 var _gust := 0.0
@@ -293,6 +311,8 @@ func _think(delta: float) -> void:
 	st_t += delta
 	_ctr_cd = maxf(_ctr_cd - delta, 0.0)
 	_rain_cd = maxf(_rain_cd - delta, 0.0)
+	if phase == 2:
+		_shadow_cd = maxf(_shadow_cd - delta, 0.0)
 	_pressed = maxf(_pressed - delta, 0.0)
 	if not awake:
 		velocity.x = 0.0
@@ -387,6 +407,9 @@ func _think(delta: float) -> void:
 				_go(S.WAVE_CUT)
 				_wave_fire()
 		S.WAVE_CUT:
+			if phase == 2 and _wave_n == 1 and st_t >= WAVE_SECOND - WAVE_SECOND_TELL and _glint <= 0.0:
+				_tell(Vector2(4, -17), 0.9, GLINT_TSUBA) # 둘째 파도도 번뜩임·소리
+				Sfx.play_pitch(&"kb_step", 1.1, -8.0)
 			if phase == 2 and _wave_n == 1 and st_t >= WAVE_SECOND:
 				_wave_fire()
 			var hold := WAVE_SECOND + 0.2 if phase == 2 else 0.25
@@ -476,6 +499,20 @@ func _think(delta: float) -> void:
 		S.RAIN_REST:
 			if st_t >= RAIN_REST:
 				_rest_done()
+		S.SHADOW_WIND:
+			velocity.x = 0.0
+			if st_t >= SHADOW_WIND - 0.2 and _glint <= 0.0:
+				_tell(Vector2(5, -17), 0.8, GLINT_TSUBA)
+			if st_t >= SHADOW_WIND:
+				_shadow_spawn()
+				_go(S.SHADOW_HOLD)
+		S.SHADOW_HOLD:
+			velocity.x = 0.0
+			if st_t >= SHADOW_HOLD:
+				_go(S.SHADOW_REST)
+		S.SHADOW_REST:
+			if st_t >= SHADOW_REST:
+				_rest_done()
 		S.VICTOR:
 			velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
 
@@ -517,6 +554,7 @@ func _decide(after_walk := false) -> void:
 	if phase == 2:
 		w["leap"] = 2.0
 		w["rain"] = 1.8 if _rain_cd <= 0.0 else 0.0
+		w["shadow"] = SHADOW_W if _shadow_cd <= 0.0 else 0.0
 	if w.has(_last):
 		w[_last] = float(w[_last]) * 0.25
 	var total := 0.0
@@ -532,7 +570,7 @@ func _decide(after_walk := false) -> void:
 	start_move(pick)
 
 
-## 기술 시작 (시험 실행기 eval에서도 부른다: "iai" · "tri" · "wave" · "ctr" · "leap" · "rain")
+## 기술 시작 (시험 실행기 eval에서도 부른다: "iai" · "tri" · "wave" · "ctr" · "leap" · "rain" · "shadow")
 func start_move(id: String) -> void:
 	_last = id
 	if eska_ok():
@@ -560,6 +598,11 @@ func start_move(id: String) -> void:
 			_go(S.RAIN_WIND)
 			_rain_cd = RAIN_COOL
 			Sfx.play_pitch(&"kb_ring", 1.3, -10.0)
+		"shadow":
+			_go(S.SHADOW_WIND)
+			_shadow_cd = SHADOW_COOL
+			Sfx.play_pitch(&"kb_ring", 0.75, -8.0)
+			EVfx.land_dust(global_position)
 
 
 ## 숨 고르기가 끝남 → 쉬었다가 다음 (2막은 가끔 바로 이어서)
@@ -788,7 +831,7 @@ func _ctr_appear() -> void:
 
 
 func _interrupted() -> void:
-	if st in [S.IAI_WIND, S.TRI_WIND, S.WAVE_WIND, S.CTR_STANCE, S.CTR_WIND, S.LEAP_WIND, S.RAIN_WIND]:
+	if st in [S.IAI_WIND, S.TRI_WIND, S.WAVE_WIND, S.CTR_STANCE, S.CTR_WIND, S.LEAP_WIND, S.RAIN_WIND, S.SHADOW_WIND]:
 		_go(S.IDLE)
 		_idle_for = 0.5
 	elif _airborne():
@@ -859,6 +902,7 @@ func _phase_tick() -> void:
 		EKenseiFx.sparks(global_position + Vector2(float(facing) * 8.0, -60.0), 20, Vector2.UP, 220.0, 180.0)
 		Fx.ring(center(), 10.0, 150.0, Color(1.0, 0.96, 0.92, 0.9), 0.45, 3.0)
 		Fx.ring(center(), 6.0, 90.0, Color(EKenseiFx.RED_HOT, 0.8), 0.35, 2.0)
+		_shadow_cd = SHADOW_FIRST
 		phase_changed.emit(2)
 	if st_t >= PHASE_T:
 		_go(S.IDLE)
@@ -932,6 +976,46 @@ func _rain_fire() -> void:
 			PVfx.add(rb, Vector2(x, global_position.y), false)
 	Sfx.play_pitch(&"kb_ring", 1.6, -4.0)
 	Fx.flash(Color(1, 0.95, 0.9, 0.15), 0.1)
+
+
+# ─── 그림자 일섬 ─────────────────────────────────────────
+
+## 분신 셋을 에스카 자리에 한 줄로 세운다 (지금 그림 = 웅크린 발도 자세를 먹빛으로)
+func _shadow_spawn() -> void:
+	var cx := eska.global_position.x if eska_ok() else global_position.x + float(facing) * 120.0
+	var dir := toward_eska()
+	for i in SHADOW_N:
+		var x := clampf(cx + (float(i) - float(SHADOW_N - 1) * 0.5) * SHADOW_GAP, x_min + 10.0, x_max - 10.0)
+		var sh := Shadow.new()
+		sh.boss = self
+		sh.src_v = _snap_v
+		sh.src_i = _snap_i
+		sh.src_c = _snap_c
+		sh.src_facing = facing
+		sh.facing = dir
+		sh.order = i
+		sh.position = Vector2(x, global_position.y)
+		sh.x_min = x_min
+		sh.x_max = x_max
+		get_parent().add_child(sh)
+		sh.died.connect(_on_shadow_died)
+	Sfx.play_pitch(&"kb_step", 0.8, -4.0)
+	Sfx.play_pitch(&"kb_gust", 1.3, -8.0)
+	_afterimage(Vector2.ZERO, 0.3)
+
+
+## 분신이 사라짐: 베어 없앤 것이면(시간이 다 돼 스스로 사라진 게 아니면) 검성 버팀이 깎임
+func _on_shadow_died(e: EEnemy) -> void:
+	var sh := e as Shadow
+	if sh == null or sh.expired or is_dead():
+		return
+	poise_damage(SHADOW_POISE)
+	EKenseiFx.sparks(center(), 6, Vector2.UP, 120.0, 90.0)
+
+
+## 지금 나와 있는 분신들 (봇·시험용)
+func shadows() -> Array:
+	return get_tree().get_nodes_in_group(Shadow.GROUP)
 
 
 # ─── 쓰러짐 ─────────────────────────────────────────────
@@ -1129,6 +1213,13 @@ func _pose() -> Dictionary:
 				pose["lh"] = Vector2(4, -46)
 		S.LEAP_REST:
 			pose.merge({"crouch": 1.0, "kneel": 0.6, "lean": 0.3, "rh": Vector2(10, -18), "ang": PI * 0.5 - 0.08, "lh": Vector2(10, -20), "spread": 16.0, "rate": 30.0}, true)
+		S.SHADOW_WIND:
+			# 발도 자세로 웅크려 칼을 몸 뒤로 감춤 — 이 그림이 그대로 분신이 된다
+			var k := smoothstep(0.0, 0.5, st_t / SHADOW_WIND)
+			pose.merge({"crouch": 1.0 * k, "lean": 0.38 * k, "spread": 11.0 + 9.0 * k, "rh": Vector2(-1, -22), "ang": PI - 0.35, "lh": Vector2(3, -27), "rate": 18.0}, true)
+		S.SHADOW_HOLD:
+			# 칼끝을 뒤로 낮게 늘어뜨린 채 분신들을 지켜봄
+			pose.merge({"crouch": 0.2, "lean": -0.04, "rh": Vector2(6, -21), "ang": PI * 0.62, "lh": Vector2(-2, -21), "spread": 12.0, "rate": 6.0}, true)
 		S.RAIN_WIND, S.RAIN_HOLD:
 			var k := smoothstep(0.0, 0.5, st_t / RAIN_WIND) if st == S.RAIN_WIND else 1.0
 			pose.merge({"crouch": 0.1, "lean": -0.08 * k, "rh": Vector2(4, -29).lerp(Vector2(3, -55), k), "ang": lerpf(0.6, -PI * 0.5, k),
@@ -1509,6 +1600,7 @@ func _paint_body(a0: float) -> void:
 	# 잔상용 그림 (늘 최신)
 	_snap_v = pd.v.duplicate()
 	_snap_i = pd.idx.duplicate()
+	_snap_c = pd.c.duplicate()
 
 
 ## 줄을 띠로: 위 w0 → 끝 w1 굵기, 몸 색 + (투명하지 않으면) 위쪽 테두리 한 줄
@@ -1759,3 +1851,144 @@ class Shine extends PDraw.Canvas:
 	func _paint() -> void:
 		if is_instance_valid(k):
 			k._paint_shine(pd)
+
+
+## 그림자 일섬의 분신: 검성의 웅크린 발도 자세를 먹빛 잔상으로 (붉은 끈만 또렷). 표적(ETarget)이라 베기·마법·물약·틈 달이기·흑성 끌림을 다 받는다.
+## 체력 1600, 버팀 없음, 넉백 없음. 나타난 뒤 POSE_T(+순서마다 조금씩)초 자세 → 일섬선(EKenseiFx.ShadowCut)을 긋고, CUT_DELAY 뒤 늦게 터지며 피해 1.
+## 묶이거나 굳으면(속박·비명·봉공) 자세 시간도 멈춘다. 베어 없애면 아직 터지지 않은 일섬선도 사라진다(검성이 버팀 −500을 받음 — EKensei._on_shadow_died).
+class Shadow extends EEnemy:
+	const GROUP := &"kensei_shadow"
+	const HP := 1600
+	const POSE_T := 1.6 ## 나타난 뒤 일섬까지 (예고)
+	const CUT_DELAY := 0.45 ## 일섬선을 긋고 터지기까지
+	const CUT_HALF := 45.0 ## 일섬선 반 길이 (분신 사이 70 → 이웃과 살짝 겹쳐 한 줄)
+	const APPEAR := 0.3 ## 먹물이 모여 나타나는 시간
+	const FADE := 0.4 ## 사라지는 시간
+	const INK_A := 0.82 ## 먹빛 몸 진하기
+	const GLINT_LAST := 0.4 ## 일섬 이만큼 전부터 칼코등이 번뜩임
+	var boss: EKensei
+	var src_v := PackedVector2Array()
+	var src_i := PackedInt32Array()
+	var src_c := PackedColorArray()
+	var src_facing := 1
+	var order := 0
+	var expired := false ## 일섬을 마치고 스스로 사라짐 (버팀 피해 없음)
+	var _left := POSE_T
+	var _age := 0.0
+	var _cut: Node
+	var _ink := PackedColorArray() ## 먹빛으로 바꾼 색 (붉은 끈만 그대로)
+	var _wisp := 0.0
+
+	func _init() -> void:
+		max_hp = HP
+		size = EKensei.BODY
+		knock_resist = 1.0
+		contact_dmg = 0
+		spawn_fx = false
+		spawn_t = 0.0
+		death_time = FADE
+		death_squash = false
+		show_bar = true
+
+	func _ready() -> void:
+		super._ready()
+		add_to_group(GROUP)
+		add_to_group(EKenseiFx.GROUP) # 장면이 처음부터 할 때·검성이 쓰러질 때 같이 거둠
+		_left = POSE_T + EKensei.SHADOW_STAGGER * float(order)
+		_ink.resize(src_c.size())
+		for i in src_c.size():
+			var c := src_c[i]
+			if c.r > 0.4 and c.r > c.g * 1.8 and c.r > c.b * 1.8:
+				_ink[i] = c # 붉은 끈은 또렷하게
+			else:
+				var l := c.get_luminance()
+				_ink[i] = Color(0.05 + l * 0.22, 0.04 + l * 0.18, 0.06 + l * 0.22, INK_A * c.a)
+		EKenseiFx.petals(center(), 8, Vector2(8, 18), 60.0)
+		Sfx.play_pitch(&"kb_glint", 0.7 + 0.08 * float(order), -12.0)
+
+	## 흑성: 강자가 아니라 그대로 끌려감 (넉백 버팀과 상관없이)
+	func pull(point: Vector2, strength: float, delta: float) -> void:
+		var to := point - center()
+		global_position.x += clampf(to.x, -strength * delta, strength * delta)
+
+	func _think(delta: float) -> void:
+		velocity.x = 0.0
+		if _cut != null:
+			return
+		_left -= delta
+		if _left <= 0.0:
+			_fire()
+
+	func _physics_process(delta: float) -> void:
+		_age += delta
+		super._physics_process(delta)
+		if not is_dead():
+			_wisp -= delta
+			if _wisp <= 0.0:
+				_wisp = 0.12
+				PParticles.get_layer(false).spawn(global_position + Vector2(randf_range(-8, 8), -randf_range(4, 44)), Vector2(randf_range(-6, 6), -randf_range(14, 30)), Vector2.ZERO,
+					randf_range(0.4, 0.7), randf_range(2.0, 3.5), Color(0.06, 0.05, 0.07, 0.5), Color(0.06, 0.05, 0.07, 0.0), 2, 1.0)
+
+	## 일섬선을 긋는다 (늦게 터짐)
+	func _fire() -> void:
+		var y := global_position.y + (EKensei.IAI_BAND.x + EKensei.IAI_BAND.y) * 0.5
+		var cut := EKenseiFx.ShadowCut.new()
+		cut.boss = boss
+		cut.a = Vector2(global_position.x - CUT_HALF, y)
+		cut.b = Vector2(global_position.x + CUT_HALF, y)
+		cut.band = Rect2(global_position.x - CUT_HALF, global_position.y + EKensei.IAI_BAND.x, CUT_HALF * 2.0, EKensei.IAI_BAND.y - EKensei.IAI_BAND.x)
+		cut.delay = CUT_DELAY
+		cut.w = 7.0
+		cut.on_done = _expire
+		PVfx.add(cut, cut.a, false)
+		_cut = cut
+		Sfx.play_pitch(&"kb_draw", randf_range(1.0, 1.1), -6.0)
+		Fx.shake(0.15, 0.06)
+
+	## 일섬이 끝났거나(터짐·단공에 갈림) — 스스로 사라짐 (버팀 피해 없음)
+	func _expire() -> void:
+		if is_dead():
+			return
+		expired = true
+		banish()
+
+	func _death_fx(_dir: float) -> void:
+		if is_instance_valid(_cut) and _cut.has_method("cancel"):
+			_cut.call("cancel") # 베어 없앰: 아직 터지지 않은 일섬선도 사라짐
+		EKenseiFx.petals(center(), 16, Vector2(8, 20), 90.0)
+		var pp := PParticles.get_layer(false)
+		for i in 10:
+			pp.spawn(center() + Vector2(randf_range(-6, 6), randf_range(-16, 16)), Vector2.from_angle(randf() * TAU) * randf_range(20, 70), Vector2(0, -20),
+				randf_range(0.4, 0.8), randf_range(2.5, 4.5), Color(0.05, 0.04, 0.06, 0.8), Color(0.05, 0.04, 0.06, 0.0), 2, 2.0)
+		if not expired:
+			Sfx.play_pitch(&"kb_shatter", 0.7, -4.0)
+
+	func _paint_body(a0: float) -> void:
+		var a := a0 * smoothstep(0.0, APPEAR, _age)
+		if is_dead():
+			a *= 1.0 - clampf(dead_t / FADE, 0.0, 1.0)
+		if a <= 0.01 or src_v.is_empty():
+			return
+		# 검성 그림(그 쪽 좌표·뒤집힘 포함)을 이 분신 쪽으로: 원래 뒤집힘을 되돌리고 _base(이 분신 뒤집힘)를 얹음
+		var m := _base * Transform2D(0.0, Vector2(float(src_facing), 1.0), 0.0, Vector2(0, (1.0 - a) * 6.0 if not is_dead() else -dead_t * 20.0))
+		var off := pd.v.size()
+		for i in src_v.size():
+			pd.v.append(m * src_v[i])
+			var c := _ink[i] if i < _ink.size() else Color(0, 0, 0, INK_A)
+			if flash > 0.0:
+				c = c.lerp(Color.WHITE, flash * 0.6)
+			pd.c.append(Color(c, c.a * a))
+		for k in src_i:
+			pd.idx.append(off + k)
+		# 예고: 일섬선 자리에 머리카락 같은 선 (때가 가까울수록 짙음) + 마지막에 칼코등이 번뜩임
+		if _cut == null and not is_dead():
+			var f := 1.0 - clampf(_left / POSE_T, 0.0, 1.0)
+			pd.draw_set_transform(Vector2.ZERO)
+			var y := (EKensei.IAI_BAND.x + EKensei.IAI_BAND.y) * 0.5
+			pd.line2(Vector2(-CUT_HALF, y), Vector2(CUT_HALF, y), Color(EKenseiFx.BONE, 0.08 * a), Color(EKenseiFx.BONE, (0.12 + 0.4 * f) * a), 0.8)
+			if _left < GLINT_LAST:
+				var g := 1.0 - _left / GLINT_LAST
+				var p := Vector2(5.0 * float(facing), -17.0)
+				var r := 3.0 + 5.0 * g
+				pd.draw_line(p - Vector2(r, 0), p + Vector2(r, 0), Color(EKenseiFx.WHITE, a), 1.0)
+				pd.draw_line(p - Vector2(0, r * 0.7), p + Vector2(0, r * 0.7), Color(EKenseiFx.WHITE, a), 1.0)
