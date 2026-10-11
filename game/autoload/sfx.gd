@@ -654,7 +654,72 @@ func _build_eska_potion() -> void:
 
 # ─── 에스카: 검성 보스 (e_kensei.gd 담당) ─────────────────
 func _build_eska_boss() -> void:
-	pass
+	# 검성: 말 없는 정통 검객 — 소리도 짧고 날카롭게, 울림은 쇳빛. (kb_ = 검성 보스)
+	_add_fast(&"kb_sheath", [ # 칼집에 칼이 들어가는 '딸깍': 마른 나무+쇠 부딪힘 + 짧은 쇳울림
+		{wave = "noise", dur = 0.03, vol = 0.6, bp = 3600.0, q = 0.35, decay = 3.0},
+		{wave = "sine", f0 = 2650.0, fm = 1.47, fm_i = 1.1, fm_i1 = 0.2, dur = 0.12, vol = 0.12, tau = 0.03},
+		{wave = "sine", f0 = 420.0, f1 = 300.0, dur = 0.05, vol = 0.2, tau = 0.015},
+		{wave = "noise", dur = 0.02, vol = 0.35, bp = 5200.0, q = 0.4, decay = 3.0, delay = 0.035},
+	])
+	_add_fast(&"kb_draw", [ # 발도: 칼집을 빠져나오며 공기를 가르는 날카로운 '쉭' + 쇳울림
+		{wave = "noise", dur = 0.14, vol = 0.6, bp = 2800.0, bp1 = 7400.0, q = 0.25, attack = 0.004, decay = 2.2},
+		{wave = "sine", f0 = 3100.0, f1 = 2900.0, fm = 2.76, fm_i = 0.9, fm_i1 = 0.1, dur = 0.32, vol = 0.07, tau = 0.09, delay = 0.01},
+		{wave = "noise", dur = 0.08, vol = 0.25, lp = 0.08, decay = 2.0},
+	])
+	_add_fast(&"kb_burst", [ # 한 박자 늦게 터지는 참격선: 찢기는 섬광 + 깊은 울림
+		{wave = "noise", dur = 0.05, vol = 0.7, bp = 4200.0, q = 0.3, decay = 2.5},
+		{wave = "noise", dur = 0.38, vol = 0.55, bp = 900.0, bp1 = 3800.0, q = 0.3, attack = 0.006, decay = 1.6, delay = 0.01},
+		{wave = "sine", f0 = 130.0, f1 = 42.0, dur = 0.4, vol = 0.5, tau = 0.13},
+		{wave = "sine", f0 = 1760.0, fm = 2.01, fm_i = 1.4, fm_i1 = 0.0, dur = 0.35, vol = 0.06, tau = 0.1, delay = 0.02},
+	], 11025)
+	_add_fast(&"kb_step", [ # 디딤 돌진: 발 구름 + 짧은 바람
+		{wave = "sine", f0 = 150.0, f1 = 70.0, dur = 0.07, vol = 0.35, tau = 0.025},
+		{wave = "noise", dur = 0.12, vol = 0.4, bp = 600.0, bp1 = 1800.0, q = 0.4, attack = 0.01, decay = 1.8},
+	])
+	_add_fast(&"kb_glint", [ # 번뜩임 (공격 예고): 맑고 높은 '칭'
+		{wave = "sine", f0 = 3520.0, fm = 1.5, fm_i = 0.6, fm_i1 = 0.0, dur = 0.28, vol = 0.12, tau = 0.07},
+		{wave = "sine", f0 = 5280.0, dur = 0.12, vol = 0.05, tau = 0.03},
+		{wave = "noise", dur = 0.015, vol = 0.2, bp = 6000.0, q = 0.4, decay = 3.0},
+	])
+	_add_fast(&"kb_chime", [ # 반격 자세: 맑은 종 한 번 (길게 남음)
+		{wave = "sine", f0 = 1320.0, fm = 1.41, fm_i = 0.7, fm_i1 = 0.05, dur = 1.1, vol = 0.14, tau = 0.4},
+		{wave = "sine", f0 = 1980.0, dur = 0.8, vol = 0.06, tau = 0.25},
+		{wave = "sine", f0 = 660.0, dur = 0.9, vol = 0.05, tau = 0.35, attack = 0.01},
+	], 11025)
+	_add_fast(&"kb_ring", [ # 2막 발검: 길게 울리는 쇳소리 + 쓸려 올라가는 바람
+		{wave = "sine", f0 = 880.0, f1 = 1320.0, fm = 2.76, fm_i = 1.2, fm_i1 = 0.2, dur = 1.6, vol = 0.12, attack = 0.05, tau = 0.6},
+		{wave = "sine", f0 = 1760.0, f1 = 2640.0, dur = 1.2, vol = 0.05, attack = 0.08, tau = 0.4},
+		{wave = "noise", dur = 0.9, vol = 0.35, bp = 400.0, bp1 = 2400.0, q = 0.35, attack = 0.3, decay = 1.4},
+	], 11025)
+	_add_fast(&"kb_rain", [ # 천검 한 줄: 위에서 꽂히는 휘파람 + 땅 찍힘
+		{wave = "sine", f0 = 2400.0, f1 = 900.0, curve = "exp", dur = 0.14, vol = 0.08, tau = 0.08},
+		{wave = "noise", dur = 0.16, vol = 0.45, bp = 2000.0, bp1 = 700.0, q = 0.35, decay = 2.0, delay = 0.06},
+		{wave = "sine", f0 = 110.0, f1 = 50.0, dur = 0.18, vol = 0.3, tau = 0.06, delay = 0.06},
+	])
+	_add_fast(&"kb_land", [ # 낙화 착지: 무거운 쿵 + 흙 튐 + 쇳울림
+		{wave = "sine", f0 = 90.0, f1 = 30.0, dur = 0.5, vol = 0.7, tau = 0.16},
+		{wave = "noise", dur = 0.35, vol = 0.5, lp = 0.05, decay = 1.5},
+		{wave = "noise", dur = 0.08, vol = 0.4, bp = 2600.0, q = 0.4, decay = 2.5},
+		{wave = "sine", f0 = 1250.0, fm = 2.4, fm_i = 1.0, fm_i1 = 0.0, dur = 0.4, vol = 0.05, tau = 0.12, delay = 0.01},
+	], 11025)
+	_add_fast(&"kb_wave", [ # 비검: 땅을 쓸며 나가는 참격파
+		{wave = "noise", dur = 0.32, vol = 0.55, bp = 1500.0, bp1 = 500.0, q = 0.35, attack = 0.01, decay = 1.4},
+		{wave = "sine", f0 = 2900.0, fm = 2.2, fm_i = 0.8, fm_i1 = 0.0, dur = 0.2, vol = 0.06, tau = 0.06},
+	])
+	_add_fast(&"kb_break", [ # 버팀이 무너짐: 쇠가 금 가는 소리 + 낮은 쿵
+		{wave = "noise", dur = 0.1, vol = 0.6, bp = 3000.0, q = 0.5, am = 60.0, am_depth = 0.6, decay = 2.0},
+		{wave = "sine", f0 = 700.0, f1 = 260.0, curve = "exp", dur = 0.3, vol = 0.14, tau = 0.12},
+		{wave = "sine", f0 = 80.0, f1 = 40.0, dur = 0.35, vol = 0.5, tau = 0.12},
+	])
+	_add_fast(&"kb_defeat", [ # 쓰러짐: 먼 징 + 바람이 잦아듦
+		{wave = "sine", f0 = 98.0, fm = 1.41, fm_i = 0.8, fm_i1 = 0.1, dur = 2.4, vol = 0.35, attack = 0.01, tau = 0.9},
+		{wave = "sine", f0 = 196.0, dur = 1.8, vol = 0.12, tau = 0.6},
+		{wave = "noise", dur = 2.0, vol = 0.3, bp = 500.0, bp1 = 200.0, q = 0.4, attack = 0.2, decay = 1.2},
+	], 11025)
+	_add_fast(&"kb_wind", [ # 바람 한 줄기 (배경)
+		{wave = "noise", dur = 1.6, vol = 0.4, bp = 300.0, bp1 = 900.0, q = 0.3, attack = 0.6, decay = 1.3},
+		{wave = "noise", dur = 1.2, vol = 0.12, bp = 2400.0, q = 0.5, attack = 0.4, decay = 1.5, delay = 0.3},
+	], 11025)
 
 
 func _add(sound: StringName, layers: Array) -> void:

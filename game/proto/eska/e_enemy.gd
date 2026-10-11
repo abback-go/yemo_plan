@@ -4,10 +4,14 @@ extends CharacterBody2D
 ## 하위 종류(ERunner 돌진 · ECaster 원거리 · EColossus 거구)는 _think(생각·움직임)와 _paint_body(그림)만 채운다.
 ## 공통: 틈에서 나타남 · 피격 번쩍임·피해 숫자·넉백(knock_resist만큼 버팀)·경직 · 봉공(공간 고정)에 굳으면 멈춤(하던 동작은 풀린 뒤 이어서)
 ##       · 몸통 닿으면 피해(_contact_now가 참일 때) · 쓰러지면 흩어져 사라짐.
+## 강자(보스)용: 버팀(포이즈) — max_poise > 0이면 맞을 때 opts["poise"]만큼 깎이고, 0이 되면 무너져(break_t초) 받는 피해가 늘어난다.
+##   맞지 않고 poise_delay초가 지나면 다시 찬다. 무너짐 동안은 _think 대신 _broken_think가 불린다.
+##   그 밖의 갈고리: _intercept_hit(받아넘기기·무적 연출) · _death_fx(쓰러짐 연출) · death_time · show_bar.
 ## 색: 검정·뼈흰색·핏빛 빨강 (에스카의 보라와 섞이지 않게, 파랑 없음).
 ## 그림 좌표: 원점 = 발밑 가운데, 오른쪽을 보는 모습으로 그린다(facing이 -1이면 뒤집힘).
 
 signal died(e: EEnemy)
+signal poise_broken(e: EEnemy) ## 버팀이 무너진 순간 (장면 연출용)
 
 const GRAVITY := 980.0
 const FALL_MAX := 520.0
@@ -37,6 +41,20 @@ var facing := -1
 var x_min := 24.0 ## 움직일 수 있는 가로 범위 (장면이 정함)
 var x_max := 1256.0
 var eska: EEska
+var death_time := DEATH_TIME ## 쓰러진 뒤 사라지기까지 (강자는 길게 — 쓰러짐 연출)
+var show_bar := true ## 맞으면 머리 위 작은 체력바 (보스는 화면 위 큰 바를 쓰므로 끔)
+var spawn_fx := true ## 나타날 때 붉은 틈 (강자는 처음부터 서 있으므로 끔 — spawn_t도 0으로)
+var death_squash := true ## 쓰러질 때 기본 눌리며 사라지기 (강자는 끄고 _paint_body에서 직접 그림)
+
+# 버팀(포이즈): 강자만 (max_poise 0 = 없음)
+var max_poise := 0.0
+var poise := 0.0
+var poise_delay := 2.5 ## 마지막으로 맞은 뒤 이만큼 지나면 다시 차기 시작
+var poise_regen := 1.0 ## 다시 찰 때 초당 max_poise의 이 몫
+var break_time := 2.0 ## 무너져 있는 시간
+var break_mult := 1.25 ## 무너진 동안 받는 피해 배수
+var break_t := 0.0 ## 무너짐 남은 시간 (0 = 버티는 중)
+var _poise_idle := 0.0 ## 마지막으로 맞은 뒤 시간
 
 var pd := PDraw.new()
 var t := 0.0 ## 나타난 뒤 시간 (그림 흔들림 등)
@@ -64,11 +82,13 @@ func _ready() -> void:
 	add_child(cs)
 	hp = max_hp
 	_hp_trail = max_hp
+	poise = max_poise
 	t = randf() * 2.0
 	z_index = 2
 	eska = EEska.find(get_tree())
-	EFoeFx.rift(center(), size.y * 0.75)
-	Sfx.play_pitch(&"spawn", randf_range(0.8, 1.0), -10.0)
+	if spawn_fx:
+		EFoeFx.rift(center(), size.y * 0.75)
+		Sfx.play_pitch(&"spawn", randf_range(0.8, 1.0), -10.0)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -90,7 +110,11 @@ func is_dead() -> bool:
 func take_hit(dmg: int, from: Vector2, opts := {}) -> void:
 	if is_dead():
 		return
+	if _intercept_hit(dmg, from, opts):
+		return
 	var d := dmg
+	if break_t > 0.0:
+		d = int(round(float(d) * break_mult))
 	if _bound > 0.0 and _bind_awake:
 		d = int(round(float(d) * 1.3))
 	if vuln_t > 0.0:
@@ -98,6 +122,8 @@ func take_hit(dmg: int, from: Vector2, opts := {}) -> void:
 	hp -= d
 	flash = 1.0
 	_bar = 2.5
+	if max_poise > 0.0 and hp > 0:
+		poise_damage(float(opts.get("poise", dmg)))
 	var heavy := bool(opts.get("heavy", false))
 	var dir := signf(global_position.x - from.x)
 	if dir == 0.0:
@@ -117,6 +143,23 @@ func take_hit(dmg: int, from: Vector2, opts := {}) -> void:
 		PVfx.number(self, center() + Vector2(0, -size.y * 0.45), d, heavy)
 	if hp <= 0:
 		_die(dir)
+
+
+## 버팀 깎기 (물약 비명 등이 직접 불러도 됨). 0이 되면 무너진다. 무너져 있는 동안은 깎이지 않는다
+func poise_damage(amount: float) -> void:
+	if max_poise <= 0.0 or is_dead():
+		return
+	_poise_idle = 0.0
+	if break_t > 0.0:
+		return
+	poise = maxf(poise - amount, 0.0)
+	if poise <= 0.0:
+		break_t = break_time
+		stagger = 0.0
+		velocity.x = 0.0
+		_interrupted()
+		_on_poise_break()
+		poise_broken.emit(self)
 
 
 func bind(sec: float, awake: bool, _fox := true, _style := "") -> void:
@@ -182,6 +225,32 @@ func _interrupted() -> void:
 	pass
 
 
+## 맞기 직전: true를 돌려주면 이 타격을 받지 않는다 (반격 자세·막 전환 중 무적 등). 기본은 다 받음
+func _intercept_hit(_dmg: int, _from: Vector2, _opts: Dictionary) -> bool:
+	return false
+
+
+## 버팀이 무너진 순간 / 무너짐에서 일어선 순간
+func _on_poise_break() -> void:
+	pass
+
+
+func _on_poise_recover() -> void:
+	pass
+
+
+## 무너져 있는 동안의 한 프레임 (기본: 제자리에 멈춤)
+func _broken_think(delta: float) -> void:
+	velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
+
+
+## 쓰러질 때 연출 (기본: 뼈 조각·검은 연기·흔들림)
+func _death_fx(dir: float) -> void:
+	EFoeFx.death(center(), size, dir)
+	Sfx.play_pitch(&"enemy_die", randf_range(0.9, 1.1), -4.0)
+	Fx.shake(0.35 + size.y * 0.004, 0.18)
+
+
 ## 지금 넉백·경직을 무시하나 (돌진 중 등)
 func _armored() -> bool:
 	return false
@@ -209,7 +278,7 @@ func _physics_process(delta: float) -> void:
 		_hp_trail = maxf(float(hp), _hp_trail - float(max_hp) * delta * 0.8)
 	if is_dead():
 		dead_t += delta
-		if dead_t >= DEATH_TIME:
+		if dead_t >= death_time:
 			queue_free()
 		queue_redraw()
 		return
@@ -219,11 +288,19 @@ func _physics_process(delta: float) -> void:
 	vuln_t = maxf(vuln_t - delta, 0.0)
 	var slow := _bound > 0.0 and still_resist > 0.0 # 강자: 굳은 공간을 버티며 느리게 움직임
 	var d := delta * still_resist if slow else delta
+	_tick_poise(d)
 	if spawn_t > 0.0:
 		spawn_t -= d
 		velocity.x = 0.0
 	elif _bound > 0.0 and not slow:
 		velocity = Vector2.ZERO
+	elif break_t > 0.0:
+		break_t -= d
+		_broken_think(d)
+		if break_t <= 0.0:
+			break_t = 0.0
+			poise = max_poise
+			_on_poise_recover()
 	elif stagger > 0.0:
 		stagger -= d
 		velocity.x = move_toward(velocity.x, 0.0, 520.0 * d)
@@ -244,6 +321,15 @@ func _physics_process(delta: float) -> void:
 		if eska.hurt_rect().intersects(hit_rect()):
 			eska.hurt(contact_dmg, center())
 	queue_redraw()
+
+
+## 버팀: 마지막으로 맞은 뒤 poise_delay초가 지나면 다시 참
+func _tick_poise(delta: float) -> void:
+	if max_poise <= 0.0 or break_t > 0.0:
+		return
+	_poise_idle += delta
+	if _poise_idle >= poise_delay and poise < max_poise:
+		poise = minf(poise + max_poise * poise_regen * delta, max_poise)
 
 
 ## 장면이 거두어 감 (튜토리얼 끝 등 — 피해 숫자 없이 바로 쓰러짐)
@@ -270,9 +356,8 @@ func _die(dir: float) -> void:
 	remove_from_group(PDummy.GROUP)
 	collision_layer = 0
 	velocity = Vector2(dir * 60.0, -40.0 if not flying else 0.0)
-	EFoeFx.death(center(), size, dir)
-	Sfx.play_pitch(&"enemy_die", randf_range(0.9, 1.1), -4.0)
-	Fx.shake(0.35 + size.y * 0.004, 0.18)
+	break_t = 0.0
+	_death_fx(dir)
 	died.emit(self)
 
 
@@ -287,8 +372,8 @@ func _draw() -> void:
 		var f := 1.0 - spawn_t / SPAWN_TIME
 		a = smoothstep(0.15, 0.9, f)
 		sc = Vector2(0.4 + 0.6 * f, 1.25 - 0.25 * f)
-	elif is_dead():
-		var f := dead_t / DEATH_TIME
+	elif is_dead() and death_squash:
+		var f := dead_t / death_time
 		a = 1.0 - f
 		sc = Vector2(1.0 + 0.35 * f, 1.0 - 0.4 * f)
 	if _bound <= 0.0 and stagger > 0.0:
@@ -301,7 +386,7 @@ func _draw() -> void:
 	xf()
 	_paint_body(a)
 	pd.draw_set_transform(Vector2.ZERO)
-	if _bar > 0.0 and not is_dead():
+	if show_bar and _bar > 0.0 and not is_dead():
 		_paint_bar(minf(_bar / 0.4, 1.0))
 	pd.flush(self)
 
