@@ -96,6 +96,12 @@ static func dark_band(pd: PDraw, r: float, a0: float, a1: float, w: float, a: fl
 	band(pd, r + 0.5, a0 + span * 0.2, a1, w * 0.3, Color(EDGE, a * tail_a), Color(EDGE, a), maxi(sg - 4, 6))
 
 
+## 마녀 문장(紋章): 시전하는 손끝에 작은 문장이 번쩍인다 (design.md 3-4). size 1 = 손끝 크기
+## (틀: 담당 작업자(마법 연출)가 채운다)
+static func sigil(_pos: Vector2, _size := 1.0) -> void:
+	pass
+
+
 ## 보랏빛 조각 + 연기 (보통 섞기 — 부서진 참격이 흩어지는 것)
 static func dark_bits(pos: Vector2, n: int, speed: float, dir := Vector2.ZERO, spread := 180.0, life := 0.35, smoke := 0) -> void:
 	var pp := PParticles.get_layer(false)
