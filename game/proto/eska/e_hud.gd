@@ -28,7 +28,8 @@ const POP_T := 0.35 ## 대마법을 바꿨을 때 이름이 튀어 오르는 시
 const BELT_X := 18.0 ## 허리띠 첫 칸 병 가운데
 const BELT_Y := 72.0 - ROW_UP
 const BELT_GAP := 24.0
-const BELT_MARKS := ["•", "↑", "↓"] ## 칸마다 누르는 방향 (F와 같이)
+const BELT_MARKS := ["", "↑", "↓"] ## 칸마다 누르는 방향 (F와 같이). 0칸(그냥)은 글자 대신 그린 점 — 웹 글꼴에 "•"가 없어 상자로 깨짐 (belt_mark)
+const MARK_DOT := 1.6 ## 0칸 표시 점 반지름
 const POTION_DEFAULT := Color("#c06bff") ## EPotions가 색을 알려 주지 않을 때 병 색
 const DENY_SHAKE := 2.5 ## 게이지가 모자라 막혔을 때 달이 흔들리는 폭(px)
 const COMBO_Y := 104.0 ## 연타 숫자 글자 바닥선 (숫자 윗끝 약 y 86 — 오른쪽 위 시험 버튼(아래 끝 56)과 겹치지 않게)
@@ -38,6 +39,10 @@ const SHADE_A := 0.42 ## 어둠 바탕 진하기
 const SHADE_SEG := 12
 const HINT_LINE := 16.0 ## 아래 안내 줄 간격
 const BUILD_FS := 8 ## 빌드 번호 글자 크기
+const CTX_TOUCH_FIRST := 15.0 ## 터치: 장면 안내(context_hints)를 처음 이만큼 보스바 아래 가운데에 보여 줌
+const CTX_TOUCH_RESPAWN := 8.0 ## 터치: 부활 직후 다시 이만큼
+const CTX_FADE := 1.0 ## 사라지기 전 옅어지는 시간
+const CTX_GAP := 34.0 ## 보스바 이름 줄 아래로 이만큼 (버팀 막대 아래)
 
 var eska: EEska
 var touch: ETouch
@@ -48,6 +53,8 @@ var _boss_a := 0.0
 var show_keys := true ## 아래쪽 기본 키 안내 (튜토리얼은 자기 안내 칸을 쓰므로 끔)
 var context_hints: Array[String] = [] ## 장면 안내 (비어 있지 않으면 기본 키 안내 대신 이 줄들 — 위에서 아래 순서, 보스장 등)
 var cinematic := false ## 연출 중: 아래 안내를 모두 숨김 (훈련장 시험 버튼도 이 값을 보고 숨는다)
+var combo_right_pad := 0.0 ## 연타 수를 오른쪽 끝에서 이만큼 더 왼쪽에 (훈련장 연습 과제 칸과 겹치지 않게)
+var _ctx_t := CTX_TOUCH_FIRST ## 터치일 때 장면 안내를 보여 줄 남은 시간 (처음 · 부활 직후)
 var _sig := ""
 var _last_hits := 0
 var _pop := 0.0
@@ -71,6 +78,8 @@ var _shade_i := PackedInt32Array()
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_instance_valid(eska):
+		eska.respawned.connect(func() -> void: _ctx_t = CTX_TOUCH_RESPAWN)
 
 
 func _process(delta: float) -> void:
@@ -96,7 +105,10 @@ func _process(delta: float) -> void:
 	_ult_pop = maxf(_ult_pop - delta, 0.0)
 	if _ban_t < _ban_dur:
 		_ban_t += delta
-	var sig := "%d|%d|%.1f|%s|%s|%s" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false), str(cinematic), str(context_hints)]
+	_ctx_t = maxf(_ctx_t - delta, 0.0)
+	var sig := "%d|%d|%.1f|%s|%s|%s|%s" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false), str(cinematic), str(context_hints), str(EKeys.touch_mode)]
+	if _ctx_t > 0.0 and touch and touch.active and not context_hints.is_empty():
+		sig += "|c%.2f" % minf(_ctx_t, CTX_FADE)
 	for id: String in EEska.CD:
 		sig += "|%d" % ceili(eska.cd_left(id) * 10.0)
 	if _pop > 0.0:
@@ -137,7 +149,10 @@ func _draw() -> void:
 	_draw_banner(font)
 	if size.y > size.x and _t < 6.0:
 		_draw_rotate_hint(font)
-	if (touch and touch.active) or cinematic:
+	if cinematic:
+		return
+	if touch and touch.active:
+		_draw_context_touch(font)
 		return
 	if not context_hints.is_empty():
 		_draw_context_hints(font)
@@ -145,10 +160,13 @@ func _draw() -> void:
 	if not show_keys:
 		return
 	var y := size.y - 20.0
-	_text(font, Vector2(10, y), "←→ 이동  Z 점프  X 베기  C 순간이동  ↓ 빨리 떨어지기  F·↑F·↓F 물약  W 적 물결  G 게이지  Esc 나가기", 11, Color(1, 1, 1, 0.6))
+	var keys := "%s%s 이동  %s 점프  %s 베기  %s 순간이동  %s 빨리 떨어지기  %s·%s·%s 물약  W 적 물결  G 게이지  Esc 나가기" % [
+		EKeys.label("es_left"), EKeys.label("es_right"), EKeys.label("es_jump"), EKeys.label("es_attack"), EKeys.label("es_blink"), EKeys.label("es_down"),
+		EKeys.label("es_potion"), EKeys.with_dir("es_up", "es_potion"), EKeys.with_dir("es_down", "es_potion")]
+	_text(font, Vector2(10, y), keys, 11, Color(1, 1, 1, 0.6))
 	var x := 10.0
 	y = size.y - 36.0
-	for spec: Array in [["A", "cheonyeol"], ["↑A", "dangong"], ["↓A", "nakseong"]]:
+	for spec: Array in [[EKeys.label("es_skill"), "cheonyeol"], [EKeys.with_dir("es_up", "es_skill"), "dangong"], [EKeys.with_dir("es_down", "es_skill"), "nakseong"]]:
 		var id: String = spec[1]
 		var left := eska.cd_left(id)
 		var name: String = EEska.NAMES[id]
@@ -159,16 +177,35 @@ func _draw() -> void:
 		_text(font, Vector2(x, y), label, 11, col)
 		x += font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0
 	var full := eska.gauge_ratio() >= 1.0
-	var ult := "S 대마법 %s %s  D 고르기" % [EEska.ULT_NAMES[eska.selected_ult()], "가득" if full else "%d%%" % int(eska.gauge_ratio() * 100.0)]
+	var ult := "%s 대마법 %s %s  %s 고르기" % [EKeys.label("es_bind"), EEska.ULT_NAMES[eska.selected_ult()], "가득" if full else "%d%%" % int(eska.gauge_ratio() * 100.0), EKeys.label("es_ult_next")]
 	_text(font, Vector2(x, y), ult, 11, Color(1, 1, 1, 0.9) if full else Color(1, 1, 1, 0.5))
 
 
-## 장면 안내 줄들 (기본 키 안내 자리 — 마지막 줄이 맨 아래)
+## 장면 안내 줄들 (기본 키 안내 자리 — 마지막 줄이 맨 아래). {es_동작}은 지금 입력 방식의 이름으로 (EKeys.fmt)
 func _draw_context_hints(font: Font) -> void:
 	var n := context_hints.size()
 	for i in n:
 		var y := size.y - 20.0 - HINT_LINE * float(n - 1 - i)
-		_text(font, Vector2(10, y), context_hints[i], 11, Color(1, 1, 1, 0.7))
+		_text(font, Vector2(10, y), EKeys.fmt(context_hints[i]), 11, Color(1, 1, 1, 0.7))
+
+
+## 터치: 장면 안내를 보스바 아래 가운데에 — 처음 CTX_TOUCH_FIRST초와 부활 직후 CTX_TOUCH_RESPAWN초만 (버튼에 가리지 않게)
+func _draw_context_touch(font: Font) -> void:
+	if _ctx_t <= 0.0 or context_hints.is_empty():
+		return
+	var a := minf(_ctx_t / CTX_FADE, 1.0)
+	var y := (13.0 if size.x >= 520.0 else BELT_Y + 20.0) + CTX_GAP
+	var n := context_hints.size()
+	var w := 0.0
+	var lines: Array[String] = []
+	for h in context_hints:
+		var s := EKeys.fmt(h)
+		lines.append(s)
+		w = maxf(w, font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x)
+	draw_rect(Rect2(size.x * 0.5 - w * 0.5 - 8.0, y - 12.0, w + 16.0, HINT_LINE * float(n) + 6.0), Color(INK, 0.6 * a))
+	for i in n:
+		var lw := font.get_string_size(lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		_text(font, Vector2(size.x * 0.5 - lw * 0.5, y + HINT_LINE * float(i)), lines[i], 11, Color(1, 1, 1, 0.85 * a))
 
 
 ## 왼쪽 위 옅은 어둠 바탕: 모서리에서 타원으로 옅어진다 (안쪽은 고른 진하기, 바깥 띠에서 0으로) — 삼각형 묶음 하나로 한 번에 그림
@@ -207,7 +244,7 @@ func _draw_combo(font: Font) -> void:
 	if eska.hit_count <= 1:
 		return
 	var a := clampf(eska.combo_left / 0.4, 0.25, 1.0)
-	var right := size.x - 12.0 if not (touch and touch.active) else size.x - 44.0
+	var right := (size.x - 12.0 if not (touch and touch.active) else size.x - 44.0) - combo_right_pad
 	var num := "%d" % eska.hit_count
 	var fs := 22
 	var sc := 1.0 + _pop * 0.35
@@ -383,10 +420,22 @@ func _draw_belt(font: Font) -> void:
 		if i == pick and (touch == null or not touch.active):
 			draw_rect(Rect2(c + Vector2(-9, -13), Vector2(20, 26)), Color(VIOLET, 0.16)) # F가 지금 고를 칸
 		bottle(self, c, 1.0, look.color if has else Color(VIOLET, 0.0), a, has and left > 0)
-		_text(font, c + Vector2(6.0, -6.0), BELT_MARKS[i], 9, Color(PALE, 0.75))
+		belt_mark(self, font, c + Vector2(6.0, -6.0), i, 9, Color(PALE, 0.75))
 		for d in mx:
 			var dp := c + Vector2((float(d) - float(mx - 1) * 0.5) * 3.5, 9.0)
 			draw_rect(Rect2(dp - Vector2(1, 1), Vector2(2, 2)), Color(PALE, 0.9) if d < left else Color(PALE, 0.2))
+
+
+## 허리띠 칸 방향 표시 (HUD·터치 버튼이 같이 씀): 0칸 = 그린 점, 1·2칸 = ↑·↓ 글자. p = 글자 바닥선 왼쪽
+static func belt_mark(ci: CanvasItem, font: Font, p: Vector2, i: int, fs: int, col: Color) -> void:
+	if i == 0:
+		var c := p + Vector2(fs * 0.3, -fs * 0.35)
+		ci.draw_circle(c, MARK_DOT + 1.0, Color(0, 0, 0, 0.6 * col.a))
+		ci.draw_circle(c, MARK_DOT, col)
+		return
+	var m: String = BELT_MARKS[i]
+	ci.draw_string_outline(font, p, m, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.7 * col.a))
+	ci.draw_string(font, p, m, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 
 ## 물약 병 그림 (HUD·터치 버튼이 같이 씀): c = 몸통 가운데, s = 배율, liquid = 물약 색, filled = 차 있음

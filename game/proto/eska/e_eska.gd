@@ -16,6 +16,7 @@ enum St { NORMAL, BLINK, CAST, HURT, DEAD, ULT, ITEM }
 
 signal hurt_taken(hp: int) ## 맞았을 때 (남은 체력)
 signal died ## 쓰러졌을 때 — 장면이 부활시킨다 (respawn)
+signal respawned ## 부활했을 때 (화면 표시가 터치 장면 안내를 다시 보여 줌)
 
 const GROUP := &"e_eska"
 const SIZE := Vector2(10, 30)
@@ -129,6 +130,7 @@ var _buf_ult := 0.0
 var _phys_seen := -1 ## 지난 _process 때의 물리 틱 번호 (멈춤 중 누름 놓치지 않기)
 
 var cast_kind := ""
+var last_upsweep: Node2D ## 마지막 단공 이펙트 (ESkillFx.Upsweep — 지운 발사체 수 deflected·딱 맞춤 perfects를 읽는다, 메아리 제외)
 var _cast_dur := 0.0
 var _cast_fired := false
 var still_evolved := false ## 봉공 진화 (1장 무구를 거두면 켜짐 — 훈련장은 버튼/T 키로 시험)
@@ -386,6 +388,13 @@ func _run(delta: float, dir_x: float, speed_mult := 1.0) -> void:
 
 func _normal(delta: float, dir_x: float) -> void:
 	_run(delta, dir_x, float(mods.speed))
+	_try_jump(dir_x)
+	_gravity(delta)
+	_try_actions(dir_x)
+
+
+## 점프·이단점프 (기억해 둔 점프 입력이 있으면). 뛰었으면 true
+func _try_jump(dir_x: float) -> bool:
 	if _jump_buf > 0.0 and _coyote > 0.0:
 		_jump_buf = 0.0
 		_coyote = 0.0
@@ -394,10 +403,11 @@ func _normal(delta: float, dir_x: float) -> void:
 		if is_on_floor():
 			PVfx.dust(global_position, 4, 1.0, 14.0)
 		Sfx.play(&"jump", -6.0)
-	elif _jump_buf > 0.0 and _air_jump and not is_on_floor():
+		return true
+	if _jump_buf > 0.0 and _air_jump and not is_on_floor():
 		_double_jump(dir_x)
-	_gravity(delta)
-	_try_actions(dir_x)
+		return true
+	return false
 
 
 ## 이단점프: 발밑 공중에 다크 회오리 고리가 생겨 그것을 밟고 도약, 몸이 아주 빠르게 한 바퀴(치맛자락이 우산처럼 퍼짐). 누른 방향으로 바로 꺾는다
@@ -763,6 +773,11 @@ func _start_cast(kind: String) -> void:
 	EVfx.sigil(art.fingertip(), SIGIL)
 
 
+## 지금 시전 중인 단공이 발사체를 하나라도 지웠나
+func _upsweep_deflected() -> bool:
+	return cast_kind == "dangong" and is_instance_valid(last_upsweep) and int(last_upsweep.get("deflected")) > 0
+
+
 func _cast(delta: float) -> void:
 	if is_on_floor():
 		velocity.x = move_toward(velocity.x, 0.0, 1400.0 * delta)
@@ -789,6 +804,12 @@ func _cast(delta: float) -> void:
 		_buf_blink = 0.0
 		_start_blink(Input.get_axis("es_left", "es_right"))
 		return
+	if _upsweep_deflected(): # 단공으로 발사체를 지운 순간부터는 점프로도 끊을 수 있다 (2막 이중 비검 둘째 파도 — loop4 5장)
+		var dx := Input.get_axis("es_left", "es_right")
+		if _try_jump(dx):
+			st = St.NORMAL
+			st_t = 0.0
+			return
 	if st_t >= _cast_dur:
 		_resume()
 
@@ -812,6 +833,8 @@ func _spawn_skill(kind: String, dir: int, at: Vector2, power: float) -> void:
 			var sz := UPSWEEP_AREA.size * k
 			up.area = Rect2(at + Vector2(-sz.x * 0.5, UPSWEEP_AREA.end.y - sz.y), sz) # 머리 위 (양옆으로 넓게, 확장 물약이면 발 위 기준으로 커짐)
 			n = up
+			if power <= 0.0:
+				last_upsweep = up
 		"nakseong":
 			var nk := EMagicFx.Nakseong.new()
 			nk.eska = self
@@ -984,6 +1007,7 @@ func respawn(pos: Vector2) -> void:
 	EMoveFx.blink_in(center(), facing)
 	art.squash(Vector2(0.7, 1.35))
 	hurt_taken.emit(hp)
+	respawned.emit()
 
 
 ## 순간이동 경로 찢기 그림: 출발점 → 도착점 곧은 틈이 순식간에 벌어졌다가 출발점 쪽부터 꿰매어 닫힌다 (EVfx.rift — 다른 마법의 틈과 같은 말투)
