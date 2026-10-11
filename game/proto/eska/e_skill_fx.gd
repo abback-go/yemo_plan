@@ -47,6 +47,8 @@ class Slash extends PVfx.Base:
 	var void_a := 1.0 ## 틈 안 검은 무의 진하기 (1보다 작으면 EVfx.rift 테만 모드 — 지금은 쓰지 않음)
 	var open_for := 0.0 ## > 0 이면 고급 마법의 틈: 등록부(ERifts)에 올리고 이만큼(초) 열어 둔 뒤 꿰맴. 0 = 기본 베기(등록 안 함)
 	var rift_id := 0
+	var cast_id := 0 ## 시전 번호 (같은 연속 참격의 틈들은 나이를 같이 셈 — ERifts.open)
+	var born_in := 0.0 ## 나온 뒤 이만큼 지나 "열린" 것으로 셈 (연속 참격 = 판정 시각)
 	var _zip_at := SWEEP + HOLD ## 꿰매기 시작하는 시각
 	var _ct := CLOSE ## 꿰매는 데 걸리는 시간
 	var _tail := 0.16 ## 다 꿰맨 뒤 자국이 사라지는 시간
@@ -85,7 +87,7 @@ class Slash extends PVfx.Base:
 			var an := lerpf(a0, a1, f)
 			var thick := w * sin(pow(f, 0.72) * PI)
 			gp.append(position + _xf * (Vector2(cos(an), sin(an)) * (r - thick * 0.5)))
-		rift_id = ERifts.open(gp, w * 0.6, open_for)
+		rift_id = ERifts.open(gp, w * 0.6, open_for, cast_id, born_in)
 		life = open_for + _ct + _tail
 
 	## 판정이 끝난 틈: DIM_T 동안 밝기 DIM_A·벌어짐 DIM_OPEN으로 줄어 얇은 선만 남음
@@ -203,6 +205,7 @@ class SlashSeries extends Node2D:
 	const ECHO_GHOST := 0.999 ## power가 이보다 작으면 메아리 복사본 — 옅고 비치는 틈
 	const OPEN_FOR := 1.0 ## 찢긴 틈이 열려 있는 시간 (틈 달이기: 이 동안 던진 물약이 스며든다 — loop2_plan 2장)
 	const MAX_OPEN := 3 ## 동시에 보이는 틈 수 (넘으면 가장 오래된 것부터 빨리 꿰맴 — 표적·숫자가 가려지지 않게)
+	const JUDGE_AT := 0.03 ## 참격이 나온 뒤 판정까지 — 틈이 "열린" 순간(나이의 시작)도 이때
 	const THICK_T := 0.1 ## 처음 이만큼은 두껍게 열린 밤하늘 몸통(검은 무 + 별빛) — 판정(0.03초)을 지나 보이게 (루프3의 얇은 "철사 틀"을 되돌림, loop4_plan 6장)
 	const HITSTOP_FIRST := 0.03 ## 처음 맞힌 타격만 짧게 멈춤 (나머지 작은 타격은 흔들림만 — 떨림 방지)
 	const HITSTOP_FINAL := 0.08 ## 마지막 큰 타격
@@ -219,6 +222,7 @@ class SlashSeries extends Node2D:
 	var _pending: Array = [] ## [판정 시각, Slash 설정, 피해, 큼, 참격 중심(전역)]
 	var _open: Array = [] ## 아직 열려 있는 이 연속 참격의 틈 (Slash, 나온 순서)
 	var _hits := 0 ## 맞힌 판정 수 (히트스톱: 첫 타·마지막만)
+	var _cast := 0 ## 이 연속 참격의 시전 번호 (메아리 복사본은 따로 — 0.35초 뒤 새로 찢으므로)
 
 	func _process(delta: float) -> void:
 		t += delta
@@ -255,6 +259,10 @@ class SlashSeries extends Node2D:
 		if echo:
 			sl.ghost = 1.0
 		sl.open_for = OPEN_FOR
+		if _cast == 0:
+			_cast = ERifts.new_cast()
+		sl.cast_id = _cast
+		sl.born_in = JUDGE_AT
 		if dim_all or heavy:
 			sl.dim_after = THICK_T
 		sl.seg_k = SEG_K
@@ -269,7 +277,7 @@ class SlashSeries extends Node2D:
 		EVfx.add(sl, cen, false)
 		Sfx.play_pitch(&"es_slash_big" if heavy else &"es_slash", (0.9 if heavy else randf_range(1.0, 1.2)) * (1.12 if echo else 1.0),
 			(-1.0 if heavy else -6.0) - (6.0 if echo else 0.0))
-		_pending.append([t + 0.03, a, int(round(float(dmg) * power)), heavy, cen])
+		_pending.append([t + JUDGE_AT, a, int(round(float(dmg) * power)), heavy, cen])
 
 	func _judge(_a: Dictionary, _dmg: int, _heavy: bool, _cen: Vector2) -> void:
 		pass

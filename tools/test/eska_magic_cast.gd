@@ -5,6 +5,8 @@ extends Node
 ## 루프2: 시험용 발사체(TestOrb — 그룹 es_projectile, deflect(by) -> bool) · 틈 등록부(ERifts) 조회·스며들기 · 흑성 물약 빨아들이기.
 
 var absorbed_hits := 0 ## absorb_test의 apply가 불린 수 (흑성은 빨아들일 때 + 붕괴 직전 두 번 부름)
+var absorbed_applied := 0 ## 그 apply가 돌려준 걸린 적 수의 합 (이 도우미가 직접 셈 — 흑성이 사라져도, 다른 흑성이 있어도 섞이지 않게)
+var _absorbed_star: Node2D ## 빨아들인 흑성
 
 
 func _ready() -> void:
@@ -131,16 +133,18 @@ func absorb_test() -> String:
 		return "no blackstar"
 	var ok: bool = bs.call("absorb", "rot", Color("#7fd66b"), func() -> int:
 		absorbed_hits += 1
-		return EMagicFx.targets_in(get_tree(), bs.call("pull_center"), bs.call("pull_radius")).size())
+		var n: int = EMagicFx.targets_in(get_tree(), bs.call("pull_center"), bs.call("pull_radius")).size()
+		absorbed_applied += n
+		return n)
+	if ok:
+		_absorbed_star = bs
 	return "absorb=%s center=%s r=%.0f" % [ok, bs.call("pull_center"), bs.call("pull_radius")]
 
 
 ## 흑성 apply가 돌려준 걸린 적 수 합
 func absorb_count() -> String:
-	for n: Node in Fx.effect_parent().get_children():
-		if n is EMagicFx.BlackStar:
-			return "calls=%d applied=%d" % [absorbed_hits, int(n.get("applied_count"))]
-	return "calls=%d" % absorbed_hits
+	var star := "alive" if is_instance_valid(_absorbed_star) else "gone"
+	return "calls=%d applied=%d star=%s" % [absorbed_hits, absorbed_applied, star]
 
 
 ## 낙성이 노린 자리 (마지막으로 만든 낙성)
@@ -217,11 +221,13 @@ func fx_nodes() -> String:
 	return "n=%d %s" % [kids.size(), names]
 
 
-## 그림 노드별 삼각형 수 (PDraw를 쓰는 노드만, 큰 순) — 과부하 도형 수 원인 찾기
+## 그림 노드별 삼각형 수 (PDraw를 쓰는 노드만, 큰 순) — 과부하 도형 수 원인 찾기.
+## 구운 배경(EBossStage._place_static: 한 번만 그리는 SubViewport 안)은 매 프레임 그리지 않으므로 세지 않는다
 func prims(top := 12) -> String:
 	var rows := []
+	var root_vp := get_tree().root
 	for node: Node in get_tree().current_scene.find_children("*", "", true, false):
-		if node.has_method("_paint") and node.get("pd") is PDraw and (node as CanvasItem).is_visible_in_tree():
+		if node.has_method("_paint") and node.get("pd") is PDraw and (node as CanvasItem).is_visible_in_tree() and node.get_viewport() == root_vp:
 			var pd: PDraw = node.get("pd")
 			pd.clear()
 			node.call("_paint")
@@ -265,3 +271,32 @@ func nums(show: bool) -> String:
 		return "none"
 	n.visible = show
 	return "items=%d" % (n.get("items") as Array).size()
+
+
+## (x, y) 둘레 열린 틈의 나이 (시전 단위 born 기준)와 갓 찢김 여부
+func rift_age(x: float, y: float, r: float) -> String:
+	var rf := ERifts.at(Vector2(x, y), r)
+	if rf.is_empty():
+		return "none"
+	return "id=%d cast=%d age=%.2f fresh=%s" % [int(rf.id), int(rf.get("cast", 0)), ERifts.age(rf), ERifts.age(rf) < EPotions.RIFT_FRESH]
+
+
+## 마지막 낙성이 노린 자리의 틈(떨어지는 길) 나이 — 첫 별이 닿기 전엔 none
+func nak_path_age() -> String:
+	var at := Vector2.INF
+	for n: Node in Fx.effect_parent().get_children():
+		if n is EMagicFx.Nakseong:
+			at = (n as EMagicFx.Nakseong).aim + (n as Node2D).position
+	if at == Vector2.INF:
+		return "no nakseong"
+	return "aim=%s %s" % [at, rift_age(at.x, at.y, 6.0)]
+
+
+## 마지막 낙성의 하늘 틈 가운데에 물약을 스며들게 함 (갓 찢긴 틈 신호 보기)
+func infuse_nak() -> String:
+	for n: Node in Fx.effect_parent().get_children():
+		if n is EMagicFx.Nakseong:
+			var sh: EMagicFx.RiftShape = n.get("_rift")
+			var c := sh.at(0.5) + (n as Node2D).position
+			return infuse_test(c.x, c.y, 12.0) + " " + rift_age(c.x, c.y, 12.0)
+	return "no nakseong"

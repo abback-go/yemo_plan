@@ -10,11 +10,18 @@ extends RefCounted
 const INFUSE_SEEP := 0.35 ## 물약 색이 틈 한쪽 끝에서 다른 끝까지 번지는 시간
 const INFUSE_FLASH := 0.16 ## 병이 빨려 들어가는 섬광 시간
 const INFUSE_FADE := 0.25 ## 틈이 닫힌 뒤 색이 사라지는 시간
+const FRESH_FLASH := 0.3 ## 갓 찢긴 틈에 스몄을 때: 흰 꿰맴 선이 틈 가장자리를 한 번 훑고 흰 별빛이 튀는 시간 (loop5_plan 2장 — 색이 아니라 모양으로)
+const FRESH_STARS := 6 ## 그때 튀는 흰 별빛 수
+const STITCH_GAP := 7.0 ## 꿰맴 선의 땀 간격(px)
+const QUIET_EDGE := "rot" ## 이 물약은 테 물듦 선을 아주 옅게 (부식은 물약 쪽 독안개가 퍼지므로 가는 초록 선이 남아 보이지 않게)
+const QUIET_A := 0.12 ## 그때 테 선 진하기
 
 static var _list: Array[Dictionary] = []
 static var _next_id := 1
 static var _now := 0.0 ## 등록부 시계 (ms, 게임 시간)
 static var _layer: Layer
+static var _cast_born := {} ## 시전 번호 → 그 시전의 첫 틈이 열린 시각 (한 시전의 틈들은 나이를 같이 셈)
+static var _next_cast := 1
 
 
 ## 등록부 시계 (ms) — "until"과 같은 눈금
@@ -22,18 +29,37 @@ static func now_ms() -> int:
 	return int(_now)
 
 
-## 틈이 열린 뒤 지난 초 (게임 시계). "갓 찢긴 틈"(0.5초 안) 판단에 쓴다 — loop4_plan 4장
+## 틈이 열린 뒤 지난 초 (게임 시계). "갓 찢긴 틈"(0.5초 안) 판단에 쓴다 — loop4_plan 4장.
+## 같은 시전(cast_id)의 틈들은 그 시전의 첫 틈이 열린 시각을 born으로 같이 쓴다 (천열 10장이 창을 늘리지 않게 — loop5_plan 2장)
 static func age(rift: Dictionary) -> float:
 	return maxf(float(now_ms() - int(rift.get("born", now_ms()))) / 1000.0, 0.0)
 
 
-## 열린 틈 하나 등록 (life초 동안 열려 있음). 번호를 돌려준다
-static func open(pts: PackedVector2Array, width: float, life: float) -> int:
+## 새 시전 번호 (open의 cast_id로 — 한 시전의 틈들이 나이를 같이 셈)
+static func new_cast() -> int:
+	var c := _next_cast
+	_next_cast += 1
+	if _cast_born.size() > 64: # 오래된 시전은 잊음 (틈이 다 닫혔을 만큼 지난 것)
+		var now := now_ms()
+		for k: int in _cast_born.keys():
+			if now - int(_cast_born[k]) > 10000:
+				_cast_born.erase(k)
+	return c
+
+
+## 열린 틈 하나 등록 (life초 동안 열려 있음). 번호를 돌려준다.
+## cast_id가 0이 아니면 같은 번호의 틈들은 그 시전의 첫 틈이 열린 시각을 born으로 공유한다 (new_cast로 받음).
+## born_in = 등록보다 이만큼 뒤를 "열린 순간"으로 (천열·단공: 참격이 나오는 순간 등록하지만 열린 순간은 첫 판정 시각)
+static func open(pts: PackedVector2Array, width: float, life: float, cast_id := 0, born_in := 0.0) -> int:
 	_ensure_layer()
 	_prune()
 	var id := _next_id
 	_next_id += 1
-	_list.append({"id": id, "pts": pts, "w": width, "born": now_ms(), "until": now_ms() + int(life * 1000.0)})
+	var born := now_ms() + int(born_in * 1000.0)
+	if cast_id != 0:
+		born = int(_cast_born.get(cast_id, born))
+		_cast_born[cast_id] = born
+	_list.append({"id": id, "pts": pts, "w": width, "born": born, "cast": cast_id, "until": now_ms() + int(life * 1000.0)})
 	return id
 
 
@@ -87,13 +113,14 @@ static func close(id: int) -> void:
 
 
 ## 물약이 틈에 스며드는 연출 (틈 쪽만): 병이 빨려 드는 섬광 + 틈의 테가 물약 색으로 물듦 (가운데에서 양 끝으로, 틈이 닫히면 같이 사라짐).
-## 효과가 퍼지는 그림(거미줄·독안개 등)과 효과 자체는 물약 쪽이 맡는다
+## 갓 찢긴 틈(age < EPotions.RIFT_FRESH)이면 물약 색과 상관없이 흰 꿰맴 선이 가장자리를 한 번 훑고 흰 별빛이 튄다 (모양으로 구별).
+## 효과가 퍼지는 그림(거미줄·독안개 등, 금빛 섬광)과 효과 자체는 물약 쪽이 맡는다
 static func infuse(rift: Dictionary, potion_id: String, color: Color) -> void:
 	if rift.is_empty() or not _ensure_layer():
 		return
 	rift["potion"] = potion_id
 	rift["color"] = color
-	_layer.add_infusion(rift, color)
+	_layer.add_infusion(rift, color, age(rift) < EPotions.RIFT_FRESH, potion_id.begins_with(QUIET_EDGE))
 
 
 ## 틈을 sec초 더 열어 둠 (흐린 물)
@@ -122,13 +149,13 @@ static func _ensure_layer() -> bool:
 
 ## 등록부 시계 + 물약이 스며든 틈 그림 (장면에 한 노드)
 class Layer extends PDraw.Canvas:
-	var items: Array = [] ## [틈, 색, 나이, 닫힌 뒤 나이]
+	var items: Array = [] ## [틈, 색, 나이, 닫힌 뒤 나이, 갓 찢긴 틈인가, 테 선을 옅게]
 
 	func _ready() -> void:
 		z_index = 7 # 틈(6) 위에
 
-	func add_infusion(rift: Dictionary, color: Color) -> void:
-		items.append([rift, color, 0.0, 0.0])
+	func add_infusion(rift: Dictionary, color: Color, fresh := false, quiet := false) -> void:
+		items.append([rift, color, 0.0, 0.0, fresh, quiet])
 		Sfx.play_pitch(&"es_infuse", randf_range(0.95, 1.05), -6.0)
 
 	func _process(delta: float) -> void:
@@ -166,7 +193,7 @@ class Layer extends PDraw.Canvas:
 				var f := absf(float(k) + 0.5 - mid) / span
 				if f > seep:
 					continue
-				var a := fade * (1.0 - 0.5 * f) * (0.75 + 0.25 * sin(age * 9.0 + float(k)))
+				var a := fade * (1.0 - 0.5 * f) * (0.75 + 0.25 * sin(age * 9.0 + float(k))) * (ERifts.QUIET_A if bool(it[5]) else 1.0)
 				var d := (pts[k + 1] - pts[k])
 				var o := d.orthogonal().normalized() * (w * 0.5 + 1.5)
 				pd.draw_line(pts[k] + o, pts[k + 1] + o, Color(col, 0.9 * a), 2.0)
@@ -177,3 +204,35 @@ class Layer extends PDraw.Canvas:
 				var e := age / ERifts.INFUSE_FLASH
 				pd.glow(c, 18.0 * (1.0 - e) + 4.0, Color(col.lerp(Color.WHITE, 0.5), 0.9 * (1.0 - e)), 0.0)
 				pd.draw_arc(c, 4.0 + 16.0 * (1.0 - e), 0.0, TAU, 16, Color(col, 1.0 - e), 1.5)
+			if bool(it[4]) and age < ERifts.FRESH_FLASH:
+				_paint_fresh(r, age / ERifts.FRESH_FLASH, mid, span)
+
+	## 갓 찢긴 틈의 신호: 닿은 자리에서 양 끝으로 흰 꿰맴 선(가장자리를 가로지르는 짧은 땀)이 한 번 훑고 지나가며 번쩍 + 흰 별빛이 튐
+	func _paint_fresh(r: Dictionary, e: float, mid: float, span: float) -> void:
+		var pts: PackedVector2Array = r.pts
+		var n := pts.size()
+		var w := float(r.w)
+		var head := e * 1.2 # 훑는 머리 (닿은 자리 0 → 양 끝 1)
+		var a := 1.0 - e * e
+		for k in n - 1:
+			var p0 := pts[k]
+			var d := pts[k + 1] - p0
+			var ln := d.length()
+			if ln < 0.5:
+				continue
+			var u := d / ln
+			var o := u.orthogonal() * (w * 0.5 + 3.0)
+			var m := int(ln / ERifts.STITCH_GAP) + 1
+			for q in m:
+				var fq := (float(k) + (float(q) + 0.5) / float(m) - mid) / span
+				var behind := head - absf(fq) # 머리가 지나간 지 얼마나
+				if behind < 0.0 or behind > 0.45:
+					continue
+				var sa := a * (1.0 - behind / 0.45)
+				var c := p0 + u * (ln * (float(q) + 0.5) / float(m))
+				pd.draw_line(c + o + u * 1.5, c - o - u * 1.5, Color(Color.WHITE, sa), 1.0) # 비스듬한 흰 땀
+		var c0: Vector2 = r.get("near", pts[clampi(int(mid), 0, n - 1)])
+		var e2 := 1.0 - pow(1.0 - e, 2.0)
+		for i in ERifts.FRESH_STARS:
+			var dir := Vector2.from_angle(float(i) * TAU / float(ERifts.FRESH_STARS) + 0.4)
+			EVfx.star4(pd, c0 + dir * (6.0 + 26.0 * e2), 5.0 * (1.0 - e) + 1.5, e * 3.0, Color(Color.WHITE, a), Color(EVfx.PALE, 0.35 * a))

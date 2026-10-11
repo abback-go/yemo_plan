@@ -62,6 +62,7 @@ class Spell extends PDraw.Canvas:
 	var _seed := 0
 	var _booms: Array = [] ## 충격 자국: [위치(로컬), 나이, 반지름, 땅 위인가]
 	var _rid := 0 ## 틈 등록부(ERifts) 번호 (0 = 등록 안 함)
+	var _cast := 0 ## 시전 번호 (이 마법이 연 틈들은 나이를 같이 셈 — ERifts.open의 cast_id)
 	var _rid_extra: Array[int] = [] ## 같이 열리고 닫히는 덧붙인 모양 (낙성: 별 조각이 떨어지는 길)
 	var zip_at := INF ## 틈이 꿰매기 시작하는 시각 — 등록부가 열려 있다고 하는 동안 계속 밀린다 (흐린 물로 늘면 그만큼 늦게)
 	var _zip_tail := 0.5 ## 꿰매기 시작부터 다 사라질 때까지
@@ -109,17 +110,20 @@ class Spell extends PDraw.Canvas:
 		var gp := PackedVector2Array()
 		for p in shape.pts:
 			gp.append(g(p))
-		_rid = ERifts.open(gp, width, open_for)
+		if _cast == 0:
+			_cast = ERifts.new_cast()
+		_rid = ERifts.open(gp, width, open_for, _cast)
 		zip_at = t + open_for
 		_zip_tail = tail
 		life = maxf(life, zip_at + tail)
 
-	## 같이 열리고 닫히는 모양 하나 더 등록 (pts = 로컬). 본 틈과 같은 시각에 닫힌다
-	func _register_extra(pts: PackedVector2Array, width: float) -> void:
+	## 같이 열리고 닫히는 모양 하나 더 등록 (pts = 로컬). 본 틈과 같은 시각에 닫힌다.
+	## own_age = true면 시전과 따로 지금을 born으로 (낙성의 떨어지는 길: 첫 별이 닿는 순간 열림)
+	func _register_extra(pts: PackedVector2Array, width: float, own_age := false) -> void:
 		var gp := PackedVector2Array()
 		for p in pts:
 			gp.append(g(p))
-		_rid_extra.append(ERifts.open(gp, width, maxf(zip_at - t, 0.0)))
+		_rid_extra.append(ERifts.open(gp, width, maxf(zip_at - t, 0.0), 0 if own_age else _cast))
 
 	func _track_tear() -> void:
 		if _zipping:
@@ -299,6 +303,7 @@ class Nakseong extends Spell:
 	const CLOSE_T := 0.2 ## 꿰매는 시간
 	const FADE_T := 0.25 ## 꿰맨 자국이 사라지는 시간
 	var aim := Vector2.ZERO ## 노린 자리 (로컬) — 시험에서 읽음
+	var _path := PackedVector2Array() ## 별 조각이 떨어지는 길 (로컬) — 첫 별이 닿는 순간 등록
 	var _rift: RiftShape
 	var _bits: Array = [] ## [나올 시각, 시작(로컬), 떨어질 자리(로컬), 끝났나, 땅인가, 번호]
 	var _closed := false
@@ -318,12 +323,13 @@ class Nakseong extends Spell:
 			var lp: Vector2 = (land as Vector2) - position if ground else s + dv * (s.distance_to(to) + 40.0)
 			_bits.append([FIRST + GAP * float(i), s, lp, false, ground, i])
 		_register_tear(_rift, 9.0 * sz, OPEN_FOR, CLOSE_T + FADE_T)
-		# 별 조각이 떨어지는 길(틈 가운데 → 노린 자리 → 땅)도 등록 — 땅에서 던진 병·땅의 적에게도 닿게
+		# 별 조각이 떨어지는 길(틈 가운데 → 노린 자리 → 땅) — 땅에서 던진 병·땅의 적에게도 닿게. 첫 별이 땅(또는 표적)에 닿는 순간
+		# 열린 것으로 등록한다 (그때가 born — 그림 논리와 맞고, 앞으로 던져도 갓 찢긴 길에 닿음: loop5_plan 2장)
 		var mid := Vector2.ZERO
 		for b: Array in _bits:
 			mid += b[2] as Vector2
 		mid /= float(_bits.size())
-		_register_extra(PackedVector2Array([c, aim, mid]), PATH_W * sz)
+		_path = PackedVector2Array([c, aim, mid])
 		EVfx.sigil(g(c), 2.0)
 		Sfx.play(&"es_nakseong", -2.0)
 		Sfx.play_pitch(&"es_tear", 0.8, -6.0)
@@ -375,6 +381,9 @@ class Nakseong extends Spell:
 			Sfx.play_pitch(&"es_tear_close", 1.1, -8.0)
 
 	func _land(p: Vector2, ground: bool, last: bool) -> void:
+		if not _path.is_empty() and not _zipping:
+			_register_extra(_path, PATH_W * sz, true)
+			_path = PackedVector2Array()
 		var gp := g(p)
 		var n := _hurt(gp, HIT_R * sz, DMG, false, false)
 		_boom(p, 16.0 * sz, ground)
