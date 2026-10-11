@@ -1,6 +1,6 @@
 extends RefCounted
 ## 1장 대본 — 프롤로그 신계 (P0~P7: 여우고개 → 해태).
-## 대본: 프롤로그 신계 (docs/chapter1.md 2절 P0~P7, 12.1절).
+## 대본: 프롤로그 신계 (docs/archive/sera/chapter1.md 2절 P0~P7, 12.1절).
 ## 메서드 이름 = 실행 ID. enter_<방ID>는 방에 들어올 때 자동 실행. teach_로 시작하면 세라를 멈춰 세우지 않는다.
 
 
@@ -322,7 +322,7 @@ func p_haetae(c: Cut) -> void:
 		h.set_meta("fox_mark", FOX_MARK) # 보스 체력바의 푸른 "빙의" 눈금
 	h.engaged = true
 	c.release()
-	# 첫 빙의: 붉은 불 몇 대(체력 85%까지) 또는 10초가 지나면 (docs/chapter1.md 13.2절)
+	# 첫 빙의: 붉은 불 몇 대(체력 85%까지) 또는 10초가 지나면 (docs/archive/sera/chapter1.md 13.2절)
 	if not GameState.has_ability("fox_mode"):
 		await c.wait_enemy(h, FOX_MARK, 10.0)
 	if not c.ok():

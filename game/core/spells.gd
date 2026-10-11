@@ -1,6 +1,6 @@
 class_name Spells
 extends RefCounted
-## 마법 7종 (docs/magic.md): 등급·레벨·장착·마도석. 상태는 전부 GameState 플래그에 들어가 저장된다.
+## 마법 7종 (docs/archive/sera/magic.md): 등급·레벨·장착·마도석. 상태는 전부 GameState 플래그에 들어가 저장된다.
 ##   배움 ab_<능력>, 레벨 lv_<마법>(1~3), 장착 eq_a·eq_s·eq_f, 마도석 mana_stones(가진 수)·mana_total(모은 수)
 
 const ORDER := ["pillar", "storm", "levitate", "wings", "ward", "meteor", "phoenix"]
@@ -57,7 +57,7 @@ const ABILITY_TEXT := {
 }
 
 const GRADE_NAMES := ["초급", "중급", "고급"]
-## [Lv2 비용, Lv3 비용] — 등급별 (docs/magic.md 2절)
+## [Lv2 비용, Lv3 비용] — 등급별 (docs/archive/sera/magic.md 2절)
 const COSTS := [[3, 5], [3, 5], [5, 8]]
 ## 레벨별 피해 배율·재사용 배율
 const DMG_MULT := [1.0, 1.25, 1.5]

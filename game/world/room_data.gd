@@ -1,6 +1,6 @@
 class_name RoomData
 extends RefCounted
-## 방 하나의 데이터 (docs/chapter1.md 4.1절). 방마다 world/rooms/<id>.gd 가 이 클래스를 상속해 _init()에서 값을 채운다.
+## 방 하나의 데이터 (docs/archive/sera/chapter1.md 4.1절). 방마다 world/rooms/<id>.gd 가 이 클래스를 상속해 _init()에서 값을 채운다.
 ##
 ## map: ASCII 지도. 1글자 = 1타일(16px). 화면 1칸 = 40×23타일.
 ##   #  벽·바닥 (지역 스타일로 그림)        =  통과 발판 (아래에서 뛰어오를 수 있음)

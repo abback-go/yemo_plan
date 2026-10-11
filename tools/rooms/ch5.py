@@ -1,4 +1,4 @@
-"""5장 방 (docs/chapter5.md). roomgen.py가 불러온다.
+"""5장 방 (docs/archive/sera/chapter5.md). roomgen.py가 불러온다.
 from roomgen import Room, room, overlay — 1장 roomgen.py와 같은 문법.
 
 1단계(에셋·설계): 시험장 dev_st_* 만 있다 (ROOMS 목록에 넣지 않음, 지도 영역 "dev").
@@ -184,7 +184,7 @@ def dev_st_fest():
 
 
 # ═══════════════════════════════════════════════════════════
-# 2단계: 실제 방 (docs/chapter5.md 3절 · 8절)
+# 2단계: 실제 방 (docs/archive/sera/chapter5.md 3절 · 8절)
 # ═══════════════════════════════════════════════════════════
 # 플래그 흐름: st_fest(축제) → st_fest_ready(교장의 사진) → st_lyra_came(리라 방문) → st_key_k·e·tp·s(별의 열쇠)
 #   → st_tower_open → st_lyra_beaten → st_truth → st_invaded(침공) → st_escort(학생 데려가기) → st_fallen(쓰러짐)

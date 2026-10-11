@@ -1,5 +1,5 @@
 extends RefCounted
-## 1장 데이터 — 신계(프롤로그)·마녀학교 (docs/chapter1.md). ChapterRegistry가 다른 장과 똑같이 합친다.
+## 1장 데이터 — 신계(프롤로그)·마녀학교 (docs/archive/sera/chapter1.md). ChapterRegistry가 다른 장과 똑같이 합친다.
 ## 형식 (모든 data_<장>.gd 공통 — 자세히: docs/dev/story.md "데이터 형식"):
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
@@ -40,7 +40,7 @@ const SCRIPTS := [
 	"res://story/ch1/npc.gd",
 ]
 
-## 등장인물: 이름, 이름 색, 목소리(대화 삑삑음 높이), 작은 몸 그림 값, 초상화 값 (docs/chapter1.md 6절).
+## 등장인물: 이름, 이름 색, 목소리(대화 삑삑음 높이), 작은 몸 그림 값, 초상화 값 (docs/archive/sera/chapter1.md 6절).
 ## 몸 그림 값 (CharacterVisual): robe 옷색, robe2 옷 강조색, skin, hair, hair_style(long·bun·twin·short·tied·bob·none),
 ## hat(witch·witch_small·nurse·none·hood·veil), hat_col, eye, height(몸 높이 px), extra(glasses·goggles·ribbon·owl·apron·feather·gloves·stars·ladle)
 ## 전용 그림: "draw"·"portrait" (스크립트 경로). 뒤 장에 같은 ID가 있으면 키 단위로 덮어씀 (Characters.info).

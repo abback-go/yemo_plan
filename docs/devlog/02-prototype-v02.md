@@ -1,6 +1,6 @@
 # 프로토타입 v0.2 — 한 번의 명령으로 만든 조작·전투 프로토타입
 
-> 기획: [`prototype.md`](../prototype.md) (13절 구현 보완 명세) · 실행: [`game/README.md`](../../game/README.md)
+> 기획: [`prototype.md`](../archive/sera/prototype.md) (13절 구현 보완 명세) · 실행: [`game/README.md`](../../game/README.md)
 > 목표: "출시 가능한 게임의 60% 수준, 아트는 코드로 그릴 수 있는 한도까지" (2026-10-03 요청)
 
 ![타이틀](img/02-title.png)

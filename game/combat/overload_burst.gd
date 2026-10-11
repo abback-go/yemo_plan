@@ -1,6 +1,6 @@
 class_name OverloadBurst
 extends Node2D
-## 폭주 게이지가 가득 찼을 때의 강제 화염 폭발 (docs/prototype.md 5.6절, v0.3 대형화).
+## 폭주 게이지가 가득 찼을 때의 강제 화염 폭발 (docs/archive/sera/prototype.md 5.6절, v0.3 대형화).
 ## 반경 6.5T 안의 적에게 큰 피해 + 띄우기. 세라의 자기 피해는 Player 쪽에서 처리한다.
 
 var tuning: Tuning
@@ -27,7 +27,7 @@ func _ready() -> void:
 			hit.ignores_knock_resist = true
 			hit.launch_t = 2.0
 			e.take_hit(hit)
-	# 금 간 벽도 무너뜨림 (docs/chapter1.md 12.6절)
+	# 금 간 벽도 무너뜨림 (docs/archive/sera/chapter1.md 12.6절)
 	for w in get_tree().get_nodes_in_group(&"cracked_wall"):
 		var wc: Vector2 = w.global_position + w.size_px * 0.5
 		if wc.distance_to(global_position) <= r + 24.0:

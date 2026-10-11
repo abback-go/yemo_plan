@@ -1,6 +1,6 @@
 class_name HintMural
 extends Node2D
-## 여우창문으로만 보이는 벽화 (docs/chapter1.md 12.2절): 봉화 순서 단서 등. 한 번 드러나면 계속 보인다.
+## 여우창문으로만 보이는 벽화 (docs/archive/sera/chapter1.md 12.2절): 봉화 순서 단서 등. 한 번 드러나면 계속 보인다.
 ## symbols: 그릴 순서 ["moon", "fox", "flame", "star"], text: 아래에 새긴 글
 
 var key := ""

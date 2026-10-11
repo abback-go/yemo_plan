@@ -1,6 +1,6 @@
 class_name ClassBoard
 extends Interactable
-## 수업 게시판 (docs/magic.md 4절): ↑로 "마법 배우기" 창을 연다. 새로 신청할 수 있는 수업이 있으면 위에 "!".
+## 수업 게시판 (docs/archive/sera/magic.md 4절): ↑로 "마법 배우기" 창을 연다. 새로 신청할 수 있는 수업이 있으면 위에 "!".
 
 var _t := 0.0
 var _font: Font

@@ -1,5 +1,5 @@
 extends Control
-## 타이틀 (docs/chapter1.md 10절). 브라우저는 첫 입력 전 소리를 막으므로 "아무 키나"로 한 번 받은 뒤 메뉴를 연다.
+## 타이틀 (docs/archive/sera/chapter1.md 10절). 브라우저는 첫 입력 전 소리를 막으므로 "아무 키나"로 한 번 받은 뒤 메뉴를 연다.
 ## 메뉴: 이어하기(기록이 있으면) · 새로 시작 · 설정 · 전투 시제품(새 조작 훈련장, proto/) · 전투 연습장(v0.3 프로토타입)
 ## 홈 화면 웹앱(오프라인 캐시)에 새 버전이 받아져 있으면 맨 위에 "새 버전으로 업데이트"가 생긴다.
 ## 웹 주소 뒤에 ?eska_tut 를 붙이면 에스카 튜토리얼, ?eska 를 붙이면 에스카 시제품, ?proto 를 붙이면 처음 한 번은 타이틀을 건너뛰고 전투 시제품으로 바로 들어간다 (Esc로 나오면 타이틀).
@@ -12,6 +12,7 @@ var _font: Font
 var _phase := 0 ## 0 아무 키 대기, 1 메뉴, 2 설정, 3 새로 시작 확인, 4 시작함
 var _text: Control
 var _menu: MenuList
+static var _legacy := false ## 구버전(세라 데모) 메뉴를 보는 중 — 세라 데모에서 타이틀로 돌아오면 그 메뉴 그대로
 var _confirm: MenuList
 var _options: OptionsPanel
 var _items: Array[String] = []
@@ -102,19 +103,24 @@ func _on_pwa_update() -> void:
 		_build_menu()
 
 
+## 첫 메뉴 = 현행(종언의 마녀 · 에스카). 세라 데모는 "구버전 (세라 데모)" 안으로 (docs/archive/sera/README.md)
 func _build_menu() -> void:
 	_items.clear()
 	if OS.has_feature("web") and JavaScriptBridge.pwa_needs_update():
 		_items.append("새 버전으로 업데이트")
-	if GameState.has_save():
-		_items.append("이어하기")
-	_items.append("새로 시작")
-	_items.append("저장 코드로 이어하기")
-	_items.append("설정")
-	_items.append("에스카 튜토리얼 (종언의 문턱)")
-	_items.append("에스카 시제품 (종언의 마녀)")
-	_items.append("전투 시제품 (새 조작)")
-	_items.append("전투 연습장")
+	if _legacy:
+		if GameState.has_save():
+			_items.append("이어하기")
+		_items.append("새로 시작")
+		_items.append("저장 코드로 이어하기")
+		_items.append("세라 전투 시제품")
+		_items.append("전투 연습장")
+		_items.append("← 돌아가기")
+	else:
+		_items.append("에스카 튜토리얼 (종언의 문턱)")
+		_items.append("에스카 시제품 (종언의 마녀)")
+		_items.append("구버전 (세라 데모)")
+		_items.append("설정")
 	_menu.items = _items.duplicate()
 	_menu.selected = 0
 
@@ -131,8 +137,12 @@ func draw_text_on(c: CanvasItem) -> void:
 	c.draw_rect(Rect2(258, 40, 300, 268), Color(0.03, 0.02, 0.06, 0.62))
 	c.draw_rect(Rect2(258, 40, 2, 268), Color(Palette.FIRE_OUT, 0.6))
 	c.draw_string(_font, Vector2(270, 92), "YEMO", HORIZONTAL_ALIGNMENT_LEFT, -1, 48, Palette.FIRE_HOT)
-	c.draw_string(_font, Vector2(272, 116), "마녀학교와 여우신 · 전체판 v1.0 (1~5장)", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
-	c.draw_string(_font, Vector2(272, 140), "폐급 마녀 세라와 여우신 너울의 이야기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+	if _legacy:
+		c.draw_string(_font, Vector2(272, 116), "구버전 · 마녀학교와 여우신 (1~5장 데모)", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
+		c.draw_string(_font, Vector2(272, 140), "폐급 마녀 세라와 여우신 너울의 이야기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+	else:
+		c.draw_string(_font, Vector2(272, 116), "종언의 마녀 · 시제품", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
+		c.draw_string(_font, Vector2(272, 140), "세계를 끝내러 온 마녀 에스카의 이야기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 	c.draw_string(_font, Vector2(420, 350), "빌드 " + BuildInfo.COMMIT, HORIZONTAL_ALIGNMENT_RIGHT, 210, 12, Color(Palette.UI_DIM, 0.6))
 	match _phase:
 		0:
@@ -223,7 +233,10 @@ func _on_menu(index: int) -> void:
 		"에스카 시제품 (종언의 마녀)":
 			_phase = 4
 			get_tree().change_scene_to_file("res://proto/eska/eska_arena.tscn")
-		"전투 시제품 (새 조작)":
+		"구버전 (세라 데모)", "← 돌아가기":
+			_legacy = not _legacy
+			_build_menu()
+		"세라 전투 시제품":
 			_phase = 4
 			get_tree().change_scene_to_file("res://proto/proto_arena.tscn")
 		"전투 연습장":

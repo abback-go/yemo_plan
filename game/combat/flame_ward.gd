@@ -1,6 +1,6 @@
 class_name FlameWard
 extends Node2D
-## 불꽃 방벽 (docs/magic.md): 세라 주위에 잠깐 불의 원. 그동안 세라는 다치지 않고,
+## 불꽃 방벽 (docs/archive/sera/magic.md): 세라 주위에 잠깐 불의 원. 그동안 세라는 다치지 않고,
 ## 날아온 적 탄은 되쏘고(reflect), 닿은 적은 불에 덴다(Hit.kind = ward). Lv3: 무언가를 막으면 주위 불꽃 폭발.
 ## 세라의 자식으로 붙어 따라다닌다. 퍼즐 장치(빛줄기 등)는 player.is_warding()·ward_center()로 읽는다.
 

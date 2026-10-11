@@ -1,5 +1,5 @@
 extends RefCounted
-## 2장 지역 테마 색 (RoomTheme와 같은 키) — docs/bible/art.md 2절
+## 2장 지역 테마 색 (RoomTheme와 같은 키) — docs/archive/sera/bible/art.md 2절
 ##   kingdom        황도 아르덴 거리·지붕 (해 질 녘): 차가운 회청 석재 + 붉은 지붕, 등불 호박색
 ##   kingdom_roof   지붕 방: 같은 하늘, 붉은 기와 지형
 ##   kingdom_night  같은 거리의 밤 (황궁 광장 결투·밤 지붕): 더 깊은 남색, 달, 불 켜진 창

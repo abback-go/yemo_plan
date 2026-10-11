@@ -1,5 +1,5 @@
 extends RefCounted
-## 3장 방 개체 종류 → 스크립트 (WorldEntities가 합침). 스크립트는 setup(room, e, eid) — docs/chapter3.md 7.3절
+## 3장 방 개체 종류 → 스크립트 (WorldEntities가 합침). 스크립트는 setup(room, e, eid) — docs/archive/sera/chapter3.md 7.3절
 
 const KINDS := {
 	"sniper_cover_arrows": "res://world/entities/ch3/sniper_cover_arrows.gd", ## 저격 구간: 예고선이 세라를 따라옴, 지형 뒤에 숨어 전진

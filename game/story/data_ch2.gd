@@ -1,5 +1,5 @@
 extends RefCounted
-## 2장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절).
+## 2장 데이터 — ChapterRegistry가 합친다 (docs/archive/sera/systems2.md 1절).
 ## 형식 (모든 data_<장>.gd 공통 — 자세히: docs/dev/story.md "데이터 형식"):
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
@@ -37,7 +37,7 @@ const SCRIPTS := [
 ]
 
 ## 인물: data_ch1.gd CHARACTERS와 같은 키 (+ 전용 그림 "draw"·"portrait")
-## 강자·주요 인물은 전용 그림, 시민은 CharacterVisual 기본 값. 이름 표기는 docs/bible/characters.md.
+## 강자·주요 인물은 전용 그림, 시민은 CharacterVisual 기본 값. 이름 표기는 docs/archive/sera/bible/characters.md.
 const CHARACTERS := {
 	# 2장 강자 — 은사자 기사단장 (전용 몸·초상화, 키 40)
 	"leonie": {
@@ -147,8 +147,8 @@ const CHARACTERS := {
 	},
 }
 
-## 이 장의 방 ID (지도·검사용) — tools/rooms/ch2.py (docs/chapter2.md 7.1절)
-## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] (docs/chapter2.md 7.3절)
+## 이 장의 방 ID (지도·검사용) — tools/rooms/ch2.py (docs/archive/sera/chapter2.md 7.1절)
+## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] (docs/archive/sera/chapter2.md 7.3절)
 const OBJECTIVES := [
 	["k_breakfast", "식당에서 아침을 먹자 (동관 복도 → 아래층)", "ch1_done"],
 	["ab_wings", "중앙 홀 수업 게시판에서 '불꽃 날개' 수업을 듣자", "k_breakfast"],
@@ -168,7 +168,7 @@ const OBJECTIVES := [
 	["k_beast_down", "레오니와 함께 옛 성곽 지구 — 별이 떨어진 자리로", "k_duel_done"],
 ]
 
-## 퀘스트 (docs/systems2.md 4절 · docs/chapter2.md 6절·7.4절). 진행은 각 인물의 npc_ 대본이 직접 처리한다.
+## 퀘스트 (docs/archive/sera/systems2.md 4절 · docs/archive/sera/chapter2.md 6절·7.4절). 진행은 각 인물의 npc_ 대본이 직접 처리한다.
 const QUESTS := {
 	"k_mia_bread": {
 		"title": "미아의 빵 배달", "giver": "mia", "kind": "side", "chapter": 2, "need": "k_met_leonie",

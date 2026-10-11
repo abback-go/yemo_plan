@@ -1,6 +1,6 @@
 class_name FloatLantern
 extends Area2D
-## 부양 실습 등불 (docs/chapter1.md 12.3절): 공중에 떠 있는 작은 등불. 닿으면 모인다.
+## 부양 실습 등불 (docs/archive/sera/chapter1.md 12.3절): 공중에 떠 있는 작은 등불. 닿으면 모인다.
 ## 같은 group의 등불을 모두 모으면 flag를 세운다.
 
 var group := "lanterns"

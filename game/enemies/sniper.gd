@@ -1,6 +1,6 @@
 class_name Sniper
 extends EnemyBase
-## 저격형 (docs/prototype.md 6.2절): 높은 곳에 고정. 12T 안에서 시야가 트이면 조준 시작.
+## 저격형 (docs/archive/sera/prototype.md 6.2절): 높은 곳에 고정. 12T 안에서 시야가 트이면 조준 시작.
 ## 0.8초 동안 세라를 따라가는 조준선 → 마지막 0.2초는 고정(피할 틈) → 직선 탄 1발 → 2.5초 재장전.
 
 enum S { IDLE, AIM, LOCK, RELOAD }

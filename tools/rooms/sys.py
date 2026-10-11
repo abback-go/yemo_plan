@@ -1,4 +1,4 @@
-"""공통 시스템 — 학교의 마법 수업 방과 1장 학교 방에 덧붙이는 개체 (docs/magic.md 4절, docs/systems2.md).
+"""공통 시스템 — 학교의 마법 수업 방과 1장 학교 방에 덧붙이는 개체 (docs/archive/sera/magic.md 4절, docs/archive/sera/systems2.md).
 roomgen.py가 불러온다. 학교 지도 칸: 1장이 x 0~7, y 0~5 일부를 씀 → 빈 칸에 둔다.
   s_windtower (0,3) 1x3 · s_ashstacks (1,4) 2x2 · s_phoenix (3,4) 1x1 · s_duel (3,5) 2x1 · s_observatory (6,-1) 1x1
 """

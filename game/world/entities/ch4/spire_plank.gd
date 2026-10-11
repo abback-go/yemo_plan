@@ -1,5 +1,5 @@
 extends StaticBody2D
-## 첨탑 비계 발판 (docs/chapter4.md 7.6절): 통과 발판처럼 위에서만 밟히는 나무·금 비계. 아우렐리아의 **신성 돌진**이 지나가면 부서져 떨어진다.
+## 첨탑 비계 발판 (docs/archive/sera/chapter4.md 7.6절): 통과 발판처럼 위에서만 밟히는 나무·금 비계. 아우렐리아의 **신성 돌진**이 지나가면 부서져 떨어진다.
 ## 방 데이터: {t:"spire_plank", x, y(발판 행), w(칸), id}. 방을 다시 들어오면 다시 생긴다(추격을 다시 할 때).
 
 const H := preload("res://enemies/ch4/holy.gd")

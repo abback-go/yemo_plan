@@ -1,5 +1,5 @@
 extends RefCounted
-## 4장 방 개체 종류 → 스크립트 (WorldEntities가 합침). 스크립트는 setup(room, e, eid) — docs/chapter4.md 7.5절
+## 4장 방 개체 종류 → 스크립트 (WorldEntities가 합침). 스크립트는 setup(room, e, eid) — docs/archive/sera/chapter4.md 7.5절
 
 const KINDS := {
 	"temple_bell": "res://world/entities/ch4/temple_bell.gd", ## 진짜 종: 불기둥으로 울림 → 종지기 망령 멈춤, 종 퍼즐

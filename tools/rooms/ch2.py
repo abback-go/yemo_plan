@@ -1,4 +1,4 @@
-"""2장 방 — 제국의 검 (docs/chapter2.md 3절·7절). roomgen.py가 불러온다.
+"""2장 방 — 제국의 검 (docs/archive/sera/chapter2.md 3절·7절). roomgen.py가 불러온다.
 from roomgen import Room, room, overlay — 1장 roomgen.py와 같은 문법.
 
     python3 tools/roomgen.py                 # 모든 방 다시 만들기

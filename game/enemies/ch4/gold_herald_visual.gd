@@ -1,6 +1,6 @@
 extends Node2D
 ## 백금 사도 그림: 흰 팔면체 핵(세로로 갈라진 틈에서 흰빛), 금 테 두른 기하 고리 두 겹(서로 반대로 돎), 둘레를 도는 거울판 3장.
-## 바깥 신들 계열이라 예고는 흰색 — 대신 굵고 깜빡이게(docs/systems2.md 3절). 빛줄기·격자는 가산 합성 자식(_fx)이 그린다.
+## 바깥 신들 계열이라 예고는 흰색 — 대신 굵고 깜빡이게(docs/archive/sera/systems2.md 3절). 빛줄기·격자는 가산 합성 자식(_fx)이 그린다.
 
 const H := preload("res://enemies/ch4/holy.gd")
 const WHITE := Color(0.96, 0.96, 1.0)

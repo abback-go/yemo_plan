@@ -95,7 +95,7 @@ func run(id: String, soft := false) -> void:
 		var hook := Quests.talk_hook(id.substr(4))
 		if hook != "" and has_script(hook):
 			id = hook
-	# 인물 대화는 지금 장의 덮어쓰기(npc_<who>_ch<N>)가 있으면 그것을 쓴다 (docs/bible/progression.md 5절)
+	# 인물 대화는 지금 장의 덮어쓰기(npc_<who>_ch<N>)가 있으면 그것을 쓴다 (docs/archive/sera/bible/progression.md 5절)
 	if id.begins_with("npc_"):
 		for n in range(int(GameState.flag("chapter", 1)), 1, -1):
 			var alt := "%s_ch%d" % [id, n]

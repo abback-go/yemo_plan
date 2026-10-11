@@ -1,5 +1,5 @@
 extends RefCounted
-## 바깥 신들의 목소리 초상화 (docs/bible/art.md 4절 — 흰색·무채색·기하학): 금 간 하늘에 열린 세로 눈, 겹친 고리, 지직거리는 흰 선.
+## 바깥 신들의 목소리 초상화 (docs/archive/sera/bible/art.md 4절 — 흰색·무채색·기하학): 금 간 하늘에 열린 세로 눈, 겹친 고리, 지직거리는 흰 선.
 ## 4장 내전(폭주의 순간)에서 "겹친 메아리"가 말할 때 쓴다 (CHARACTERS["tp_voice"]).
 
 static func draw_portrait(p: Portrait, _info: Dictionary, _expr: String, t: float, talking: bool, _blinking: bool) -> void:

@@ -1,6 +1,6 @@
 class_name PData
 extends RefCounted
-## 전투 시제품(훈련장) 수치·마법 표 — docs/design/controls_skills.md 의 결정을 그대로 옮긴 것.
+## 전투 시제품(훈련장) 수치·마법 표 — docs/archive/sera/design/controls_skills.md 의 결정을 그대로 옮긴 것.
 ## 조작감 수치는 여기 한 곳에서 고친다(px 단위, 1타일 = 16px). 시험 패널(Tab)로 바꾸는 값은 PState에 있다.
 
 const T := 16.0

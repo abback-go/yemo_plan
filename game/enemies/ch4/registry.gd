@@ -1,5 +1,5 @@
 extends RefCounted
-## 4장 적 종류 → 스크립트 (EnemyRegistry가 합침) — docs/chapter4.md 4절·7.4절 (체력은 보통 난이도 값)
+## 4장 적 종류 → 스크립트 (EnemyRegistry가 합침) — docs/archive/sera/chapter4.md 4절·7.4절 (체력은 보통 난이도 값)
 
 const KINDS := {
 	"holy_monk": "res://enemies/ch4/holy_monk.gd", ## 성갑 수도사 900 — 빛의 방패가 화염탄을 되돌려 보냄 (방벽으로 되쏘면 방패가 깨짐)

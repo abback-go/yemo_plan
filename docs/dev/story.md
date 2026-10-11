@@ -173,7 +173,7 @@ const QUESTS := {"k_mia_bread": {"title": "미아의 빵 배달", "giver": "mia"
 - **쓰러진 뒤에도 도는 대본**: Cut 메서드는 스스로 `ok()`를 보지 않는다. 오래 기다리는 대본(`wait_until`·전투 루프)은 `if not c.ok(): return`을 넣을 것.
 - **common.gd의 var**: 장면 파일마다 객체가 따로라 `var`는 파일끼리 공유되지 않는다. 상태는 플래그나 한 파일 안에 둔다.
 - **`ChapterFlow.TITLES`**는 옛 이름 호환용 getter(ui/cinema.gd). 새 코드는 `ChapterFlow.title(n)`.
-- 옛 문서(docs/chapterN.md·magic.md)의 `scripts_chN.gd`·`ch4/talk.gd`·`ch4/base.gd`는 지금 `story/chN/*.gd`(장면 파일)·`story/ch4/people.gd`·`story/ch4/common.gd`+`story/dev/ch4.gd`다.
+- 옛 문서(docs/archive/sera/chapterN.md·magic.md)의 `scripts_chN.gd`·`ch4/talk.gd`·`ch4/base.gd`는 지금 `story/chN/*.gd`(장면 파일)·`story/ch4/people.gd`·`story/ch4/common.gd`+`story/dev/ch4.gd`다.
 
 ## 9. 성능 규칙
 

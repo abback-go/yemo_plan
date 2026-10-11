@@ -1,6 +1,6 @@
 # 1단계 — 프로젝트 뼈대 + 이동·점프·대시
 
-> 기획: [`prototype.md`](../prototype.md) 5.1·5.2절 · 실행 방법: [`game/README.md`](../../game/README.md)
+> 기획: [`prototype.md`](../archive/sera/prototype.md) 5.1·5.2절 · 실행 방법: [`game/README.md`](../../game/README.md)
 > 검증: Godot 4.7.2 헤드리스로 프로젝트 가져오기·실행 오류 없음, 자동 입력 테스트 통과 (아래 4절)
 
 ---

@@ -1,6 +1,6 @@
 class_name ClassBoardUI
 extends CanvasLayer
-## 마법 배우기 창 (docs/magic.md 4절): 수업 게시판에서 연다. 왼쪽 수업 목록(7종 — 1장 셋은 습득 표시),
+## 마법 배우기 창 (docs/archive/sera/magic.md 4절): 수업 게시판에서 연다. 왼쪽 수업 목록(7종 — 1장 셋은 습득 표시),
 ## 오른쪽 설명·수업 과정·조건. "수업 신청" → 수업 퀘스트(kind = class) 시작 → 대본 cls_<마법>_begin.
 ## 수업 정의는 story/data_sys.gd 의 QUESTS (spell, unlock, unlock_text, teacher, steps).
 

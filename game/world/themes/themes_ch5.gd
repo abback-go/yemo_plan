@@ -1,5 +1,5 @@
 extends RefCounted
-## 5장 지역 테마 색 (RoomTheme와 같은 키) — docs/bible/art.md 2절
+## 5장 지역 테마 색 (RoomTheme와 같은 키) — docs/archive/sera/bible/art.md 2절
 ##   star         별의 탑: 깊은 남색 + 별빛 #fff3c0 (금테 윗면, 빛나는 별 발판)
 ##   void         절망 뒤 어둠: 검정 + 푸른 여우불
 ##   sky          하늘의 문: 흰 빛이 새는 균열(눈)로 갈라진 검은 하늘, 구름 바다 위 떠다니는 부서진 땅

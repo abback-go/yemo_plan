@@ -1,6 +1,6 @@
 class_name Charger
 extends EnemyBase
-## 돌진형 (docs/prototype.md 6.1절): 순찰 → 감지 → 예고(웅크리며 붉게 빛남) → 돌진 → 후딜레이.
+## 돌진형 (docs/archive/sera/prototype.md 6.1절): 순찰 → 감지 → 예고(웅크리며 붉게 빛남) → 돌진 → 후딜레이.
 ## 거리를 벌리고 쏘기만 하는 플레이를 깨뜨린다. 화염 폭풍을 맞으면 돌진이 끊긴다.
 
 enum S { PATROL, WINDUP, CHARGE, RECOVER, STAGGER }

@@ -1,5 +1,5 @@
 extends Node2D
-## 아홉 꼬리 각성 (방 개체 "st_awaken", docs/chapter5.md 8.9절 어둠): 너울의 본모습(약 130px)과 꼬리, 푸른 여우불, 금빛·푸른 기운.
+## 아홉 꼬리 각성 (방 개체 "st_awaken", docs/archive/sera/chapter5.md 8.9절 어둠): 너울의 본모습(약 130px)과 꼬리, 푸른 여우불, 금빛·푸른 기운.
 ## 1장 컷신의 본모습(story/actor.gd neoul_god)과 같은 사람: 얼굴을 가린 너울(천), 은백 머리, 여우귀, 흰 옷의 붉은 깃·남색 띠.
 ## 대본: var g = c.actor("neoul_god")  (방 데이터 who로 이름을 바꿀 수 있음)
 ##   g.appear(t) · g.vanish(t) · g.face(dir) · g.set_talking(on) · g.pulse(세기) · g.set_power(0~1, t)

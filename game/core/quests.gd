@@ -1,6 +1,6 @@
 class_name Quests
 extends RefCounted
-## 퀘스트 (docs/systems2.md 4절): 장별 data 파일의 QUESTS를 모아 상태를 GameState 플래그로 관리한다.
+## 퀘스트 (docs/archive/sera/systems2.md 4절): 장별 data 파일의 QUESTS를 모아 상태를 GameState 플래그로 관리한다.
 ##   q_<id> = 0 없음 · 1 진행 · 2 완료, q_<id>_step = 지금 단계(0부터)
 ## kind: side(서브) · class(마법 수업) · main(메인 곁가지)
 

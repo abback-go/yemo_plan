@@ -61,7 +61,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `eska_tutorial.json` | 에스카 튜토리얼 "종언의 문턱"을 처음부터 끝 화면까지 (순간이동 eval로 구간을 건너뛰며 각 단계 `step_name()` 확인, 적은 eval 피해로 처치). 끝에 `end sub=1` 이면 통과 · 기획 `docs/eska/tutorial.md` |
 | `eska_tutorial_bot.json` | 튜토리얼을 **실제 입력만으로** 끝까지 (자동 플레이 봇 `tools/test/eska_tut_bot.gd`를 `attach`로 붙임 — 턱·장막·틈·허수아비·적 셋을 직접 넘고 벰). 3000프레임에 `end sub=1` 이면 통과 |
 | `eska_perf.json` | 에스카 시제품 성능: 대기·연격·스킬 겹침·연격 중 `perf()` (그리기 호출·도형·노드·처리 시간·입자). 그림 코드별 비용은 eval `bench(400)` (µs) |
-| `title_touch.json` | 터치: 타이틀 탭 → 설정 → 돌아가기 → 새로 시작 → 확인 (저장 기록이 있을 때 기준 좌표) |
+| `title_touch.json` | 터치: 타이틀 탭 → 설정 → 돌아가기 → 구버전 (세라 데모) → 새로 시작 → 확인 (저장 기록이 있을 때 기준 좌표). 끝에 `STATUS title_end ... room=t_pass` 이면 통과 |
 
 ## 웹 빌드 연기 시험
 ```bash

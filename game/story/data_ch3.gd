@@ -1,5 +1,5 @@
 extends RefCounted
-## 3장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절, docs/chapter3.md).
+## 3장 데이터 — ChapterRegistry가 합친다 (docs/archive/sera/systems2.md 1절, docs/archive/sera/chapter3.md).
 ## 형식 (모든 data_<장>.gd 공통 — 자세히: docs/dev/story.md "데이터 형식"):
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
@@ -117,8 +117,8 @@ const CHARACTERS := {
 	},
 }
 
-## 이 장의 방 ID (지도·검사용) — docs/chapter3.md 8절 지도
-## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] — docs/chapter3.md 10절
+## 이 장의 방 ID (지도·검사용) — docs/archive/sera/chapter3.md 8절 지도
+## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] — docs/archive/sera/chapter3.md 10절
 const OBJECTIVES := [
 	["e_letter", "교장실로 가자 (중앙 홀 2층 오른쪽 → 시계탑 꼭대기)", "e_start"],
 	["e_arrived", "앞마당 전이진으로 엘프의 숲에 가자", "e_letter"],
@@ -134,7 +134,7 @@ const OBJECTIVES := [
 	["ch3_done", "학교로 돌아가 쉬자", "e_herald_done"],
 ]
 
-## 퀘스트 (docs/systems2.md 4절) — docs/chapter3.md 11절. 모으는 물건은 퀘스트를 받기 전에 주워도 센다.
+## 퀘스트 (docs/archive/sera/systems2.md 4절) — docs/archive/sera/chapter3.md 11절. 모으는 물건은 퀘스트를 받기 전에 주워도 센다.
 const QUESTS := {
 	"e_fio_seeds": {
 		"title": "피오의 반짝이 씨앗", "giver": "fio", "kind": "side", "chapter": 3, "need": "e_met_ortia",

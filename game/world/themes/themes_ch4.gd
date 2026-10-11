@@ -1,5 +1,5 @@
 extends RefCounted
-## 4장 지역 테마 색 (RoomTheme와 같은 키) — docs/bible/art.md 2절, docs/chapter4.md 7.1절
+## 4장 지역 테마 색 (RoomTheme와 같은 키) — docs/archive/sera/bible/art.md 2절, docs/archive/sera/chapter4.md 7.1절
 ##
 ## 테마 ID
 ##   holymount   성산 순례길 (눈 덮인 산길, 기도 깃발, 순례자의 돌무지) — 입자: 눈(blight를 눈처럼 씀)

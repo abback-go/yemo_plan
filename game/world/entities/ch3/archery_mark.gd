@@ -1,6 +1,6 @@
 class_name ArcheryMark
 extends Node2D
-## 활터 과녁 (엘라리엔의 부탁 e_archery — docs/chapter3.md 11절). 짚 과녁이 레일을 따라 움직이고(dx·dy·period),
+## 활터 과녁 (엘라리엔의 부탁 e_archery — docs/archive/sera/chapter3.md 11절). 짚 과녁이 레일을 따라 움직이고(dx·dy·period),
 ## 불(화염탄 등)에 맞으면 금빛으로 "맞음" 표시가 켜진다(한 판 동안 유지). 대본이 group의 과녁을 세며 제한 시간을 잰다.
 ## active_if 플래그가 서 있을 때만 맞힐 수 있다(시험 중). 대본이 reset_group(group)으로 다시 세운다.
 ## 방 데이터: {t = "archery_mark", x, y, group = "archery", dx = 0, dy = 0, period = 2.4, phase = 0, active_if = "", hang = false}

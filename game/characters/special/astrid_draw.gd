@@ -1,5 +1,5 @@
 extends "res://characters/special/astrid_palette.gd"
-## 아스트리드 녹턴 교장 몸 그림 (docs/bible/characters.md 2절, chapter1.md 6절 "긴 은회색 머리, 별 장식 망토"). 키 38px.
+## 아스트리드 녹턴 교장 몸 그림 (docs/archive/sera/bible/characters.md 2절, chapter1.md 6절 "긴 은회색 머리, 별 장식 망토"). 키 38px.
 ## 1장부터 보이므로 1장 DB 색(로브 #20203a, 연보라 장식 #c8c0ff, 모자 #181830, 눈 #a0a0e8)을 그대로 쓴다.
 ## 늙었지만 꼿꼿하다: 가는 지팡이(은빛 초승달과 별)를 짚고, 허리까지 오는 곧은 은회색 머리, 별을 수놓은 긴 망토.
 ## 자세: idle · run(지팡이를 짚으며 걷기) · cast · attack · windup · shield/guard(별빛 결계) · hurt · kneel · down

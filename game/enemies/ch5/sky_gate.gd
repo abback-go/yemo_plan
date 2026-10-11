@@ -1,5 +1,5 @@
 extends EnemyBase
-## 하늘의 문 — 5장 최종 보스 14000 (docs/chapter5.md 4절, 8.11절). 바깥 신들에게 붙잡혀 "문"이 된 리라가
+## 하늘의 문 — 5장 최종 보스 14000 (docs/archive/sera/chapter5.md 4절, 8.11절). 바깥 신들에게 붙잡혀 "문"이 된 리라가
 ## 하늘 한가운데 거대한 흰 고리(문)의 중심에 매달려 있다. 고리에는 눈 여섯, 양옆에서 촉수 넷.
 ## 세라는 아홉 꼬리 구미호 완전 빙의(여우 모드 상시) — 플레이어 코드 담당. 모든 동료가 아래 지원 API로 돕는다.
 ##
@@ -13,7 +13,7 @@ extends EnemyBase
 ##   봉인(10% 이하) phase_changed(4): 문이 멎고 리라가 드러남(피해 2배). 대본이 푸른 불로 문을 잠재우는 장면을 넣는다.
 ##     0이 되면 seal 연출(문이 닫히며 흰빛이 푸른 불에 덮임) → defeated.
 ##
-## 동료 지원 API (docs/chapter5.md 8.11절) — 대본·동료 AI가 부른다. from = 동료 위치(연출선의 시작), 없으면 화면 밖에서
+## 동료 지원 API (docs/archive/sera/chapter5.md 8.11절) — 대본·동료 AI가 부른다. from = 동료 위치(연출선의 시작), 없으면 화면 밖에서
 ##   signal support_needed(kind, pos)  kind: "tendril"(촉수가 내리치려 함) · "eye"(눈이 빛줄기를 모음) · "veil"(장막이 오래 유지됨)
 ##                                     · "shield"(화면 전체 공격이 옴) · "hand"(거신의 손) — pos = 그 대상 위치
 ##   cut_tendril(i = -1, from)  레오니: 촉수 하나를 벤다(가장 위험한 것). 성공하면 true

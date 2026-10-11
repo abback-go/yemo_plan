@@ -1,5 +1,5 @@
 extends RefCounted
-## 2장 대본 — 제국의 검 (docs/chapter2.md 2절 줄거리 · 7.5절 대본 목록). 메서드 이름 = 실행 ID, func id(c: Cut) -> void.
+## 2장 대본 — 제국의 검 (docs/archive/sera/chapter2.md 2절 줄거리 · 7.5절 대본 목록). 메서드 이름 = 실행 ID, func id(c: Cut) -> void.
 ## 흐름: ch2_start(기숙사) → 아침 → 날개 수업(공통) → 교장실 사자 → 출발 → 시장 습격(레오니) → 대련 → 성벽 대화 →
 ##       지붕 → 시계 구역(톱니 시계) → 시계탑 → 지하 묘지(별 수정 장벽 → 방벽 수업) → 하수도 → 녹시스 → 밤의 결투 →
 ##       레오니와 함께 운석수 → 공관 작별 → 기숙사의 밤 → ChapterFlow.finish(c, 2)

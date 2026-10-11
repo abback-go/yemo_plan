@@ -1,6 +1,6 @@
 class_name MapScreen
 extends CanvasLayer
-## 지도 (docs/chapter1.md 4.3절): 방문한 방을 칸 격자로 그린다. 현재 방은 깜빡이고 세라 위치 점, 기록 지점은 촛불 표시.
+## 지도 (docs/archive/sera/chapter1.md 4.3절): 방문한 방을 칸 격자로 그린다. 현재 방은 깜빡이고 세라 위치 점, 기록 지점은 촛불 표시.
 
 var _root: Control
 var _draw: MapDraw

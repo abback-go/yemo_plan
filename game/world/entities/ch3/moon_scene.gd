@@ -1,6 +1,6 @@
 class_name Ch3MoonScene
 extends CanvasLayer
-## 3장 끝 장면 (docs/chapter3.md 2절 9번·12절): 학교 위 높은 초승달 — 달의 굽이에 걸터앉은 그림자가 학교를 내려다본다.
+## 3장 끝 장면 (docs/archive/sera/chapter3.md 2절 9번·12절): 학교 위 높은 초승달 — 달의 굽이에 걸터앉은 그림자가 학교를 내려다본다.
 ## 커다란 초승달 모자, 바람에 길게 날리는 머리, 둘레를 천천히 도는 작은 별 일곱(별의 마녀의 표지).
 ## 마지막에 그림자의 눈이 보랏빛으로 한 번 반짝인다. 대사는 없다(4장 끝에서 정체가 드러남).
 ##   await Ch3MoonScene.play(world, 6.5)

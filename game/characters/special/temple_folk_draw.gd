@@ -1,5 +1,5 @@
 extends RefCounted
-## 루멘 대신전 사람들 몸 그림 (CharacterVisual이 static draw_body(v)를 부름) — docs/chapter4.md 7.3절.
+## 루멘 대신전 사람들 몸 그림 (CharacterVisual이 static draw_body(v)를 부름) — docs/archive/sera/chapter4.md 7.3절.
 ## 인물 정보의 "look"으로 모양을 고른다: benedicta(늙은 대사제: 높은 관·너울·해 지팡이) · luca(견습 소년: 손종)
 ## · gregor(종지기 노인: 대머리·흰 수염·굽은 등·밧줄 뭉치·귀에 손) · monk(두건 수도사) · priest(사제: 금 영대·작은 모자·경전)
 ## · pilgrim(순례자: 두건 망토·목도리·등불 지팡이·봇짐) · choir(성가대: 흰 옷·악보, 가끔 노래)

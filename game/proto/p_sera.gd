@@ -1,6 +1,6 @@
 class_name PSera
 extends CharacterBody2D
-## 훈련장 세라 (새 조작 시제품). 결정 기록: docs/design/controls_skills.md
+## 훈련장 세라 (새 조작 시제품). 결정 기록: docs/archive/sera/design/controls_skills.md
 ## 상태 하나(st)로 나눈다: 보통(달리기·점프·벽·활공·기본공격 던지기), 대시, 의태 돌진, 시전 잠김, 압축(열선),
 ## 마시기, 피격, 쓰러짐. 기본공격은 둘레를 도는 불덩이 셋(orbs)을 하나씩 던진다(PShot). 체력은 반 칸 단위(hp2)라 쉬움 난이도의 "받는 피해 절반"을 그대로 표현한다.
 

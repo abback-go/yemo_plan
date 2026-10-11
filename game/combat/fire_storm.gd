@@ -1,6 +1,6 @@
 class_name FireStorm
 extends Node2D
-## 스킬 2 화염 폭풍 (docs/prototype.md 5.5절, v0.3 대형화).
+## 스킬 2 화염 폭풍 (docs/archive/sera/prototype.md 5.5절, v0.3 대형화).
 ## 전방 5.5T 부채꼴로 0.45초 동안 몰아치는 화염(작은 피해 여러 번) → 마지막에 큰 폭발로 날려 보낸다.
 ## 세라의 자식으로 붙어 따라다니며, 방향은 시전 순간의 방향으로 고정. 돌진 중인 적의 돌진을 끊는다.
 

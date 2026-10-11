@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""방 데이터 생성기 (docs/chapter1.md 5절).
+"""방 데이터 생성기 (docs/archive/sera/chapter1.md 5절).
 
 방 지형을 사각형 명령으로 그려 ASCII 지도를 만들고, 개체 목록과 함께
 game/world/rooms/<id>.gd (RoomData 상속) 파일로 써 낸다. 방 메타 색인 game/world/rooms/_index.gd(RoomIndex가 읽음)도 함께.
@@ -463,7 +463,7 @@ def t_gate():
 
 
 # ═══════════════════════════════════════════════════════════
-# 마녀학교 (docs/chapter1.md 5.2절, 12.2절)
+# 마녀학교 (docs/archive/sera/chapter1.md 5.2절, 12.2절)
 #   층: y0 상층 · y1 2층 · y2 1층 · y3 앞마당(언덕 아래)·비속성반 · y4 지하 · y5 봉인의 방
 #   1칸 방의 바닥 윗면 = 19행, 좌우 출구 = 14~18행
 # ═══════════════════════════════════════════════════════════

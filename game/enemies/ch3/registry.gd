@@ -1,5 +1,5 @@
 extends RefCounted
-## 3장 적 종류 → 스크립트 (EnemyRegistry가 합침) — docs/chapter3.md 4절·7.4절
+## 3장 적 종류 → 스크립트 (EnemyRegistry가 합침) — docs/archive/sera/chapter3.md 4절·7.4절
 
 const KINDS := {
 	"moss_stag": "res://enemies/ch3/moss_stag.gd", ## 이끼 사슴 700 (순함/역병: blighted = true) — 쓰러지면 정화되어 떠남

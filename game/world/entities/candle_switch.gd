@@ -1,6 +1,6 @@
 class_name CandleSwitch
 extends Node2D
-## 촛대 스위치 (docs/chapter1.md 12.6절 시간 문): 불로 켜면 flag를 time초 동안 세운다 → FlagGate가 열렸다 닫힌다.
+## 촛대 스위치 (docs/archive/sera/chapter1.md 12.6절 시간 문): 불로 켜면 flag를 time초 동안 세운다 → FlagGate가 열렸다 닫힌다.
 ## time이 0이면 한 번 켜면 계속.
 
 var flag_key := ""

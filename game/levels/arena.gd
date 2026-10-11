@@ -1,7 +1,7 @@
 @tool
 class_name Arena
 extends Node2D
-## 구간 4 혼합 아레나 (docs/prototype.md 7절).
+## 구간 4 혼합 아레나 (docs/archive/sera/prototype.md 7절).
 ## 입구 영역(EntranceTrigger)에 들어오면 양쪽 문이 잠기고 Wave1, Wave2 순서로 적이 소환된다.
 ## 모든 웨이브를 처치하면 문이 열린다.
 

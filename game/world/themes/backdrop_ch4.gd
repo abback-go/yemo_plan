@@ -1,5 +1,5 @@
 extends RefCounted
-## 4장 지역 배경 (RoomBackdrop가 부름) — docs/chapter4.md 7.1절.
+## 4장 지역 배경 (RoomBackdrop가 부름) — docs/archive/sera/chapter4.md 7.1절.
 ## INARI풍: 어두운 저채도 실루엣 + 금빛 강조 하나, 화면을 압도하는 거대 구조물(루멘 석상·황금 돔·거대한 종·첨탑).
 ##   holymount   새벽의 설산: 먼 성산 꼭대기의 희미한 신전 빛(깜빡임 = 루멘의 침묵), 기도 깃발, 순례자 등불, 내리는 눈
 ##   temple_out  구름바다 위 황혼: 거대한 해(빛살이 천천히 돎), 황금 돔·종탑·첨탑, 얼굴 없는 루멘 석상, 흔들리는 큰 종

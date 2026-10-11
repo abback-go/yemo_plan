@@ -38,7 +38,7 @@ var air_dashes_left := 0
 var air_jumps_left := 0
 var controls_enabled := true
 var fox_time := 0.0 ## 여우 모드(빙의) 남은 시간
-var fox_energy := 1.0 ## 너울의 기운 0~1. 가득 차 있어야 폭주가 여우 모드로 바뀜 (docs/chapter1.md 12.4절)
+var fox_energy := 1.0 ## 너울의 기운 0~1. 가득 차 있어야 폭주가 여우 모드로 바뀜 (docs/archive/sera/chapter1.md 12.4절)
 var no_overload := false ## 봉인 결계 안: 폭주 게이지가 오르지 않음
 var last_jump_height_t := 0.0 ## 직전 점프의 실제 높이 (T). 디버그 표시용
 

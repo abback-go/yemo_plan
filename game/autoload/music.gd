@@ -1,5 +1,5 @@
 extends Node
-## 배경음악 (docs/chapter1.md 9절). 음악 파일은 tools/gen_music.py가 코드로 합성한 것.
+## 배경음악 (docs/archive/sera/chapter1.md 9절). 음악 파일은 tools/gen_music.py가 코드로 합성한 것.
 ## Music.play("school")처럼 부르면 지금 곡과 다를 때만 0.8초 교차 재생한다.
 ## Music.jingle("jingle_ability")는 배경음악을 잠깐 줄이고 짧은 곡을 한 번 재생한다.
 

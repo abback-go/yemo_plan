@@ -1,6 +1,6 @@
 class_name Difficulty
 extends RefCounted
-## 난이도 도우미 (docs/bible/balance.md 3절). 적 코드는 공격 예고 시간을 Difficulty.telegraph(초)로 감싼다.
+## 난이도 도우미 (docs/archive/sera/bible/balance.md 3절). 적 코드는 공격 예고 시간을 Difficulty.telegraph(초)로 감싼다.
 
 
 ## 공격 예고 시간: 쉬움이면 1.2배 (피하기 쉽게)

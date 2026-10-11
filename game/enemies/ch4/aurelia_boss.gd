@@ -1,6 +1,6 @@
 class_name AureliaBoss
 extends EnemyBase
-## 아우렐리아 — 4장 강자 보스 (docs/chapter4.md 4절·7.4절, docs/bible/characters.md 3절). 지금까지 가장 강한 적. 체력 9000(보통), 3페이즈.
+## 아우렐리아 — 4장 강자 보스 (docs/archive/sera/chapter4.md 4절·7.4절, docs/archive/sera/bible/characters.md 3절). 지금까지 가장 강한 적. 체력 9000(보통), 3페이즈.
 ## 대본이 engaged = true로 켤 때까지 창을 짚고 서 있다. 그림은 전용 CharacterVisual("aurelia")에 잔상·예고·빛 효과를 덧그림(aurelia_boss_visual.gd).
 ##
 ## 1페이즈 (100~66%) "규율의 창": 찌르기(0.55초 예고 — 창을 뒤로 당기고 창끝이 붉게) · 세 번 찌르기 · 빛의 창 비(세라 둘레 바닥에 붉은 예고 → 금빛 창이 꽂힘)

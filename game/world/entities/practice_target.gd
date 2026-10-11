@@ -1,6 +1,6 @@
 class_name PracticeTarget
 extends Node2D
-## 실습장 과녁 (docs/chapter1.md 12.3절): 위아래·좌우로 움직이고, 불에 맞으면 hold초 동안 켜진다.
+## 실습장 과녁 (docs/archive/sera/chapter1.md 12.3절): 위아래·좌우로 움직이고, 불에 맞으면 hold초 동안 켜진다.
 ## 퍼즐 처리기(TargetPuzzle, entity "puzzle" mode=targets)가 "모두 켜짐 + 폭주 70 미만"을 확인한다.
 
 var group := ""

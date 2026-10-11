@@ -1,6 +1,6 @@
 class_name RoomTheme
 extends RefCounted
-## 지역별 색과 타일 무늬 (docs/chapter1.md 8절). INARI 스크린샷 분석:
+## 지역별 색과 타일 무늬 (docs/archive/sera/chapter1.md 8절). INARI 스크린샷 분석:
 ## 어두운 저채도 + 지역마다 강한 강조색 하나, 굵은 덩어리 픽셀, 깊은 안쪽은 거의 검게.
 ##
 ## 키

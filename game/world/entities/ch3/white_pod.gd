@@ -1,6 +1,6 @@
 class_name WhitePod
 extends Node2D
-## 흰 꼬투리 (사도의 둥지, docs/chapter3.md 9.10절): 백색 사도가 피오를 가둔 하얀 육각 고치. 천장에서 흰 실로 매달려
+## 흰 꼬투리 (사도의 둥지, docs/archive/sera/chapter3.md 9.10절): 백색 사도가 피오를 가둔 하얀 육각 고치. 천장에서 흰 실로 매달려
 ## 천천히 흔들린다. 안에 피오가 웅크린 그림자가 비친다(가끔 꿈틀). 직선·60도 마디만 있는 바깥 신들의 모양.
 ## 대본: c.actor("pod") → struggle()(꿈틀) · await crack()(금이 가며 깨지고 실이 끊김 → 사라짐, 피오는 대본이 따로 세움)
 ## 방 데이터: {t = "white_pod", x, y(꼬투리 아래 끝 행), who = "fio"}

@@ -1,5 +1,5 @@
 extends RefCounted
-## 3장 대본 — 세계수의 눈 (docs/chapter3.md 2절 줄거리, 12절 대본 목록). 메서드 이름 = 실행 ID, func id(c: Cut) -> void.
+## 3장 대본 — 세계수의 눈 (docs/archive/sera/chapter3.md 2절 줄거리, 12절 대본 목록). 메서드 이름 = 실행 ID, func id(c: Cut) -> void.
 ## 흐름: ch3_start(온실) → e_headmaster(편지) → 전이진 → 경계의 숲(경고 사격·저격) → 뿌리 문 → 장로 → 뿌리 동굴 → 줄기 시장·티엘
 ##       → 바람길 → 가지 마을 → 달샘(잠재우는 불) → 흰 역병의 숲 → 심장 정화 → 수관 → 사냥 시험 → 꼭대기 → 백색 사도
 ##       → 장로의 집 → 기숙사의 밤 → 꼬리 셋 → 달 위의 그림자 → ChapterFlow.finish(c, 3)

@@ -1,5 +1,5 @@
 extends "res://characters/special/aurelia_palette.gd"
-## 아우렐리아 (루멘 대신전의 수호자) 전용 몸 그림 — docs/bible/characters.md 3절, art.md 3절, docs/chapter4.md 7.3절.
+## 아우렐리아 (루멘 대신전의 수호자) 전용 몸 그림 — docs/archive/sera/bible/characters.md 3절, art.md 3절, docs/archive/sera/chapter4.md 7.3절.
 ## CharacterVisual이 static draw_body(v)를 부른다 (원점 발밑, +x가 바라보는 쪽, 부모가 좌우를 뒤집음).
 ## 키 42px. 허리까지 오는 금발(정수리에 땋아 올린 왕관 머리), 하얀 금 갑옷, 머리 뒤에 떠 있는 금빛 광륜(천천히 돎),
 ## 날개 모양 날의 긴 창, 하얀 천 치마 갑옷. 3단 명암(바탕·그늘·빛), 머리카락 가닥이 따로 흔들리고(바람·달리기에 따라 뒤로 흩날림),

@@ -1,7 +1,7 @@
 class_name StColossusArt
 extends RefCounted
 ## 거신(巨神) — 바깥 신들의 하얀 얼굴 없는 거인 그림. 배경(행진)·적(colossus)·반격 발판(colossus_ride)이 같이 쓴다.
-## 매끈한 흰 몸 + 기하학 금(이음선), 얼굴 자리에 세로로 갈라진 틈, 머리 뒤의 가는 기하학 고리(docs/bible/art.md 4절).
+## 매끈한 흰 몸 + 기하학 금(이음선), 얼굴 자리에 세로로 갈라진 틈, 머리 뒤의 가는 기하학 고리(docs/archive/sera/bible/art.md 4절).
 ## 진격의 거인 "땅울림"처럼: 긴 다리, 앞으로 굽은 상체, 무릎까지 늘어진 긴 팔, 느리고 무거운 걸음.
 ##
 ## draw_giant(c, foot, h, ph, dir, pal): foot = 두 발 사이 바닥 점, h = 키(px), ph = 걸음 위상(0~1이 두 걸음),

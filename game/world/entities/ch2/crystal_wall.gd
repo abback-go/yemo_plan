@@ -1,5 +1,5 @@
 extends StaticBody2D
-## 별 수정 장벽 (docs/chapter2.md 5절 · bible/progression.md 4절 "별 수정 장벽 — 불꽃 방벽"). 길을 막는 보랏빛 수정 덩어리.
+## 별 수정 장벽 (docs/archive/sera/chapter2.md 5절 · bible/progression.md 4절 "별 수정 장벽 — 불꽃 방벽"). 길을 막는 보랏빛 수정 덩어리.
 ## 장벽 한가운데의 별 수정 심장이 가까이 온 세라에게 별 조각을 쏜다 → **불꽃 방벽으로 되쏘아(Hit.kind = reflect) 맞히면 산산조각.**
 ## 다른 불은 튕겨 낸다. 깨진 기록은 영구(GameState collected "cw_<방>_<id>") + done_flag.
 ## {t = "k_crystal_wall", x, y, w = 2, h = 5, done_flag = "", period = 2.2, range = 12}  (x·y = 왼쪽 위 칸)

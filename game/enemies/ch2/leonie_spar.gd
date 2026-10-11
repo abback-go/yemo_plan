@@ -1,5 +1,5 @@
 extends "res://enemies/ch2/leonie_base.gd"
-## 레오니 — 은사자 기사단 연무장 목검 대련 (docs/chapter2.md 2절 5, 4절). 체력 싸움이 아니다.
+## 레오니 — 은사자 기사단 연무장 목검 대련 (docs/archive/sera/chapter2.md 2절 5, 4절). 체력 싸움이 아니다.
 ## 끝나는 조건: 세라가 **세 번 맞히기**(result = "hits") 또는 **60초 버티기**(result = "time").
 ##   세라 체력이 1이 되면 레오니가 먼저 멈춘다(result = "yield", "그만. 오늘은 여기까지다.") — 대련이라 쓰러뜨리지 않는다.
 ## 끝나면 defeated 신호(대본이 이어받음). hits_taken = 맞은 횟수, time_left = 남은 초.

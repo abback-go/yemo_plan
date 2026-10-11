@@ -1,6 +1,6 @@
 class_name PlayerVisual
 extends Node2D
-## 세라를 도형으로 그린다 (docs/prototype.md 13.1절).
+## 세라를 도형으로 그린다 (docs/archive/sera/prototype.md 13.1절).
 ## 원점은 발밑, +x가 바라보는 쪽(좌우 반전은 부모 Flip 노드가 처리), 위쪽이 -y.
 ## 몸 높이 약 32px + 마녀 모자. 자세 값은 Player가 매 프레임 update_pose()로 넘긴다.
 

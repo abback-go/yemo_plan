@@ -1,6 +1,6 @@
 class_name EnemyBase
 extends CharacterBody2D
-## 적 공통 기반 (docs/prototype.md 10절): 체력, 피격(흰색 깜빡임·넉백·띄우기·피해 숫자), 중력, 사망 연출.
+## 적 공통 기반 (docs/archive/sera/prototype.md 10절): 체력, 피격(흰색 깜빡임·넉백·띄우기·피해 숫자), 중력, 사망 연출.
 ## 원점은 발밑. 자식 클래스가 _build()에서 몸 크기를 정하고 _ai(delta)에서 행동을 결정한다.
 
 signal defeated(enemy: EnemyBase)

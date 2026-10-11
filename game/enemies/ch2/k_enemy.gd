@@ -11,7 +11,7 @@ const DANGER := Color("#ff3b3b")
 const OUT := Color("#07060c")
 
 
-## 효과음: docs/systems2.md 9절의 새 이름이 있으면 그것, 없으면 비슷한 1장 소리
+## 효과음: docs/archive/sera/systems2.md 9절의 새 이름이 있으면 그것, 없으면 비슷한 1장 소리
 static func snd(name: StringName, fallback: StringName = &"", vol := 0.0, pv := 0.06) -> void:
 	EnemyBase.play_sfx(name, fallback, vol, pv)
 

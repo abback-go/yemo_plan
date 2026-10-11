@@ -1,6 +1,6 @@
 class_name GlowMushroom
 extends Brazier
-## 빛버섯 (뿌리 동굴 퍼즐, docs/chapter3.md 7.3절). 봉화(Brazier)와 같은 규칙: 불에 맞으면 켜지고, 1장 퍼즐 처리기
+## 빛버섯 (뿌리 동굴 퍼즐, docs/archive/sera/chapter3.md 7.3절). 봉화(Brazier)와 같은 규칙: 불에 맞으면 켜지고, 1장 퍼즐 처리기
 ## (entity "puzzle", mode = all/order)가 같은 group을 본다 — order면 정해진 순서(크기 순)로 밝혀야 한다.
 ## 켜지면 청록 빛이 어두운 동굴을 넓게 밝힌다(가산 빛, 방 dark 값을 이긴다).
 ## 방 데이터: {t = "glow_mushroom", x, y, group, order, size = 1.0(크기), done_flag}

@@ -1,5 +1,5 @@
 extends "res://characters/special/lyra_palette.gd"
-## 리라 — 별의 마녀 몸 그림 (docs/bible/characters.md 3절 5장, art.md 3절). 키 40px, 늘 떠 있다(발밑에서 약 5px).
+## 리라 — 별의 마녀 몸 그림 (docs/archive/sera/bible/characters.md 3절 5장, art.md 3절). 키 40px, 늘 떠 있다(발밑에서 약 5px).
 ## 바닥까지 끌리는 은백색 머리(별가루가 반짝), 보랏빛 눈(눈동자에 작은 별), 별자리 금실 자수의 깊은 남색 드레스 로브,
 ## 끝이 초승달처럼 말려 별이 매달린 거대한 모자, 몸 둘레를 도는 작은 별 7개. 3단 명암, 머리카락 물리(움직이면 뒤로 흩날림).
 ##

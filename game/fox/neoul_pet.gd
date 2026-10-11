@@ -1,6 +1,6 @@
 class_name NeoulPet
 extends Node2D
-## 작은 여우 너울 (docs/chapter1.md 4.7절): 몸 약 14px, 흰 털에 푸른 여우불 끝, 꼬리 1개.
+## 작은 여우 너울 (docs/archive/sera/chapter1.md 4.7절): 몸 약 14px, 흰 털에 푸른 여우불 끝, 꼬리 1개.
 ## 세라 뒤를 따라다니고(공중에서는 떠서), 멈추면 앉아 하품·꼬리 흔들기. 머리 위 말풍선으로 혼잣말.
 ## 여우 모드 동안에는 세라에게 깃들어 사라진다. "ab_neoul" 플래그가 서야 보인다.
 

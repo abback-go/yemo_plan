@@ -1,6 +1,6 @@
 extends RefCounted
-## 5장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절).
-## 인물 그림 · 방 목록 · 메인 목표 줄 · 퀘스트 (설계와 실제: docs/chapter5.md 7절 이후).
+## 5장 데이터 — ChapterRegistry가 합친다 (docs/archive/sera/systems2.md 1절).
+## 인물 그림 · 방 목록 · 메인 목표 줄 · 퀘스트 (설계와 실제: docs/archive/sera/chapter5.md 7절 이후).
 ## 형식 (모든 data_<장>.gd 공통 — 자세히: docs/dev/story.md "데이터 형식"):
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
@@ -76,7 +76,7 @@ const OBJECTIVES := [
 	["ch5_after", "모든 이야기가 끝났다 — 학교를 다시 세우는 일을 돕자 (엠버린 교수)", "ch5_done"],
 ]
 
-## 퀘스트 (docs/systems2.md 4절, docs/chapter5.md 6절). need = 받을 수 있는 때(인물 머리 위 "!")
+## 퀘스트 (docs/archive/sera/systems2.md 4절, docs/archive/sera/chapter5.md 6절). need = 받을 수 있는 때(인물 머리 위 "!")
 const QUESTS := {
 	"st_pippa_stall": {
 		"title": "피피의 축제 물약 가게", "giver": "pippa", "kind": "side", "chapter": 5, "need": "st_fest,!st_lyra_came",

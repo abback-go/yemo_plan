@@ -1,6 +1,6 @@
 class_name EndScreen
 extends CanvasLayer
-## 1장 끝 화면 (docs/chapter1.md 10절): 제목 + 기록(플레이 시간·쓰러짐·발견한 비밀·빙의 횟수) + "계속 탐험하기 / 타이틀로".
+## 1장 끝 화면 (docs/archive/sera/chapter1.md 10절): 제목 + 기록(플레이 시간·쓰러짐·발견한 비밀·빙의 횟수) + "계속 탐험하기 / 타이틀로".
 
 signal done(keep: bool)
 

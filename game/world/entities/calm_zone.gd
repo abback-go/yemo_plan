@@ -1,6 +1,6 @@
 class_name CalmZone
 extends Area2D
-## 봉인 결계 구역 (docs/chapter1.md 12.2절): 안에 있는 동안 세라의 폭주 게이지가 오르지 않는다(퍼즐 보호).
+## 봉인 결계 구역 (docs/archive/sera/chapter1.md 12.2절): 안에 있는 동안 세라의 폭주 게이지가 오르지 않는다(퍼즐 보호).
 
 var _inside := false
 

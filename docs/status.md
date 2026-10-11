@@ -1,6 +1,8 @@
-# 작업 현황·인수인계 (2026-10-04, 전체판 v1.0 — 1~5장, 구조 정리·최적화 뒤)
+# 작업 현황·인수인계 (2026-10-11 — 현행: 종언의 마녀 · 에스카)
 
-> 대화를 압축하거나 새 세션에서 이어 갈 때 **이 문서부터** 읽는다. 설정 정본은 [`bible/`](bible/README.md), 공통 시스템 규칙은 [`systems2.md`](systems2.md), 마법은 [`magic.md`](magic.md), 장별 실제 구현은 `chapterN.md`의 7절 이후, 이번 개발 기록은 [`devlog/06-full-version.md`](devlog/06-full-version.md).
+> 대화를 압축하거나 새 세션에서 이어 갈 때 **이 문서부터** 읽는다.
+> **현행 = 종언의 마녀(주인공 에스카).** 기획 정본은 Claude 문서 [종언의 마녀 기획](https://claude.ai/artifact/AHZ9aecgCVmHkXmc1ZtG1w)의 "새 컨셉"·"게임 구조 기획" 탭, 전투·튜토리얼 사양은 [`eska/`](eska/combat_spec.md).
+> **구버전 = 세라·너울 이야기와 그 게임 데모(1~5장).** 기획 문서는 [`archive/sera/`](archive/sera/README.md)로 옮겼고, 게임 코드는 그대로 두고 타이틀의 "구버전" 메뉴로 들어간다. 필요할 때 참고해서 꺼내 쓴다. 아래 3~5절은 구버전 데모 기준이다.
 
 ## 1. 어디에 무엇이
 | 항목 | 위치 |
@@ -9,12 +11,12 @@
 | 웹 플레이 | https://abback-go.github.io/yemo_plan/ — 푸시하면 Actions(`web-build.yml`)가 `gh-pages`로 배포. 올라간 커밋은 `version.txt`(타이틀 오른쪽 아래 "빌드 ○○○○○○○") |
 | 모바일 | 같은 주소를 안드로이드 Chrome에서 홈 화면 웹앱으로 설치 → 인터넷 없이 실행 (`game/README.md`) |
 | 게임 프로젝트 | `game/` (Godot 4.7.2, GDScript, 640×360) |
-| 기획 | `docs/bible/`(정본) · `concept.md` · `chapter1.md`~`chapter5.md` · `magic.md` · `systems2.md` |
+| 기획 | 현행: Claude 문서(위) + `docs/eska/` · 구버전(세라): `docs/archive/sera/` |
 | 방 생성기 | `tools/roomgen.py`(1장) + `tools/rooms/<sys·ch2~ch5>.py` → `game/world/rooms/*.gd` (**방 파일 직접 수정 금지**, 생성기 수정 후 `python3 tools/roomgen.py`, 검사 `python3 tools/roomgen.py check all <접두사>`) |
 | 음악·효과음 | `tools/gen_music.py` → `game/assets/music/*.ogg`, 효과음은 `game/autoload/sfx.gd`에서 실행 시 합성 |
 | 시험 도구 | `tools/test/` — 사용법 [`tools/test/README.md`](../tools/test/README.md), 시나리오 `tools/test/scenarios/` (`sys_*`, `chN_full` 등) |
 
-## 1.1 에스카 시제품 (2026-10-10 밤샘 작업)
+## 1.1 에스카 시제품 (현행)
 | 항목 | 위치 |
 |---|---|
 | 들어가기 | 웹 `?eska`(훈련장 — 허수아비 + 적 물결) · `?eska_tut`(튜토리얼 "종언의 문턱") · 타이틀 메뉴 "에스카 튜토리얼"/"에스카 시제품" |
@@ -29,7 +31,7 @@
 - 모바일: 안드로이드 태블릿(가끔 휴대폰)에서 인터넷 없이(홈 화면 웹앱).
 - 전체판(2~5장)은 사용자가 "이 프롬프트에 한해 결정권 위임, 중간에 묻지 말 것"으로 맡김 → 이름·세부 설계는 bible에 기록된 대로 정함.
 
-## 3. 현재 상태 (v1.0)
+## 3. 구버전 세라 데모 상태 (v1.0, 보관)
 - 1장(신계 7방 + 학교 23방) + 수업 방 5 + 2장 33방 + 3장 32방 + 4장 31방 + 5장 34방. 장마다 강자 보스·동료·서브 퀘스트 6~7종.
 - 마법 7종(일반마법 3·고급마법 2·대마법 2), 수업 게시판 → 수업 퀘스트 4종, 마도석으로 레벨 1~3, A·S·F 장착.
 - 퀘스트창(메인·서브·수업)·마법서·미니맵·전이진·장 카드·크레디트, 난이도(기본 쉬움).

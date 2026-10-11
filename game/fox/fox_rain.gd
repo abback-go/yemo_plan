@@ -1,6 +1,6 @@
 class_name FoxRain
 extends Node2D
-## 여우 모드 A — 여우비 (docs/chapter1.md 4.8절): 앞쪽 14타일 폭에 1.2초 동안 푸른 불비가 쏟아지고,
+## 여우 모드 A — 여우비 (docs/archive/sera/chapter1.md 4.8절): 앞쪽 14타일 폭에 1.2초 동안 푸른 불비가 쏟아지고,
 ## 마지막에 가장 가까운 적(없으면 가운데) 발밑에서 거대한 푸른 여우불 기둥.
 
 const WIDTH_T := 14.0

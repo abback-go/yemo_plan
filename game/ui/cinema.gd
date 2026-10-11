@@ -1,6 +1,6 @@
 class_name Cinema
 extends CanvasLayer
-## 연출 화면층 (docs/systems2.md 8절): 레터박스, 화면 색 덮기, 큰 제목 카드, 장 카드, 엔딩 크레디트.
+## 연출 화면층 (docs/archive/sera/systems2.md 8절): 레터박스, 화면 색 덮기, 큰 제목 카드, 장 카드, 엔딩 크레디트.
 ## 대본은 Cut의 c.letterbox / c.tint / c.title_card / c.chapter_card / c.credits로 쓴다.
 
 signal card_done

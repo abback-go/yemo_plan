@@ -1,6 +1,6 @@
 class_name Updraft
 extends Node2D
-## 상승 기류 (docs/systems2.md 6절): 굴뚝 열기·대장간·엘프 바람길·별빛 기둥.
+## 상승 기류 (docs/archive/sera/systems2.md 6절): 굴뚝 열기·대장간·엘프 바람길·별빛 기둥.
 ## 불꽃 날개로 **활공 중**인 세라가 이 안에 들어오면 위로 솟아오른다(꼭대기 근처에선 그 높이에 머묾).
 ## 방 데이터: {t = "updraft", x, y, w, h, style = "heat"|"wind"|"star", power = 1.0, on_if = "플래그,!플래그"}
 ## on_if 조건이 거짓이면 꺼짐(바람 밸브 퍼즐 등). x·y는 왼쪽 위 칸, w·h는 칸 수.

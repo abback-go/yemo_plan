@@ -1,6 +1,6 @@
 class_name WindValve
 extends Node2D
-## 바람 밸브 (docs/chapter3.md 7.3절 — 바람길 퍼즐). 엘프 바람길의 놋쇠·나무 밸브. 불(아무 불 공격)에 맞으면 데워져
+## 바람 밸브 (docs/archive/sera/chapter3.md 7.3절 — 바람길 퍼즐). 엘프 바람길의 놋쇠·나무 밸브. 불(아무 불 공격)에 맞으면 데워져
 ## 한 칸 돌아가며 플래그(flag)를 켜고 끈다. 바람길 개체가 그 플래그를 읽는다:
 ##   상승 기류(공용 updraft)  on_if = "valve_a"   → 밸브가 "위"일 때 켜짐
 ##   옆바람(crosswind)        on_if = "!valve_a"  → 밸브가 "옆"일 때 켜짐

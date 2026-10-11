@@ -1,6 +1,6 @@
 class_name World
 extends Node2D
-## 게임 화면 (docs/chapter1.md 4.1절). 방을 바꿔 끼우고, 세라·너울·HUD·대화창 등은 유지한다.
+## 게임 화면 (docs/archive/sera/chapter1.md 4.1절). 방을 바꿔 끼우고, 세라·너울·HUD·대화창 등은 유지한다.
 ## 방 전환(페이드), 상호작용(↑), 쓰러짐과 부활, 지도·일시정지 열기를 맡는다.
 
 const PLAYER_SCENE := preload("res://player/player.tscn")
@@ -170,7 +170,7 @@ func _enter_room(fade_time: float) -> void:
 		Story.run("sys_chapter1_resume")
 
 
-# ─── 동료 (docs/systems2.md 5절) ─────────────────────────
+# ─── 동료 (docs/archive/sera/systems2.md 5절) ─────────────────────────
 
 func ally_join(kind: String, x_t := INF, y_t := INF) -> Ally:
 	var a := ally(kind)

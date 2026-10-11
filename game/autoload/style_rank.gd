@@ -1,5 +1,5 @@
 extends Node
-## 콤보와 스타일 랭크 (v0.3, docs/prototype.md 14절). Devil May Cry의 스타일 미터처럼
+## 콤보와 스타일 랭크 (v0.3, docs/archive/sera/prototype.md 14절). Devil May Cry의 스타일 미터처럼
 ## 다양한 공격을 섞어 끊김 없이 맞힐수록 점수가 오르고, 같은 공격만 반복하면 덜 오른다.
 ## 피격당하면 크게 깎이고, 아무것도 못 맞히면 콤보가 끊기며 점수가 서서히 줄어든다.
 

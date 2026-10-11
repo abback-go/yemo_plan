@@ -1,5 +1,5 @@
 extends RefCounted
-## 5장 대본 — 별의 마녀 (docs/chapter5.md 7절 이후). 메서드 이름 = 실행 ID, func id(c: Cut) -> void.
+## 5장 대본 — 별의 마녀 (docs/archive/sera/chapter5.md 7절 이후). 메서드 이름 = 실행 ID, func id(c: Cut) -> void.
 ## enter_<방ID>는 방에 들어올 때 잠그지 않고 시작한다 — 컷신이면 c.lock()부터. 1장 학교 방은 1장 대본이 enter_를 이미 쓰므로
 ## 축제 장면은 방에 덧붙인 trigger(tools/rooms/ch5.py)로 부른다. 인물 대화는 npc_<who>_ch5 (Story가 장 번호로 고름).
 ##
@@ -128,7 +128,7 @@ func _key_get(c: Cut, id: String) -> void:
 
 
 # ═══════════════════════════════════════════════════════════
-# 축제의 부탁 (서브 퀘스트) — docs/chapter5.md 6절
+# 축제의 부탁 (서브 퀘스트) — docs/archive/sera/chapter5.md 6절
 # ═══════════════════════════════════════════════════════════
 
 ## 호두의 초대장: 받는 사람이면 먼저 전한다 (전했으면 true)

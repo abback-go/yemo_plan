@@ -1,5 +1,5 @@
 extends Interactable
-## 빛의 거울 (docs/chapter4.md 5절·7.5절): 빛줄기(빛의 감시안·광원)를 꺾는다. 금 고리에 끼운 거울판.
+## 빛의 거울 (docs/archive/sera/chapter4.md 5절·7.5절): 빛줄기(빛의 감시안·광원)를 꺾는다. 금 고리에 끼운 거울판.
 ## 방 데이터: {t:"light_mirror", x, y(바닥 행), angle(도, 기본 45 — '/'), angles([45,135] — 돌릴 때 차례로), fixed(true면 못 돌림), id}
 ## 돌리기: ↑(조사) 또는 불기둥을 맞히면 다음 각도로 (돌린 각도는 방을 나가도 기억: 플래그 "mir_<방>_<id>").
 ## 빛줄기 추적(holy.gd trace)이 segment()·reflect_dir()를 부른다.

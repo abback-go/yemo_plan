@@ -1,6 +1,6 @@
 class_name DialogueBox
 extends CanvasLayer
-## 대화창 (docs/chapter1.md 4.4절): 아래쪽 판, 왼쪽 초상화, 이름, 타자 효과(초당 40자), 화자별 목소리 삑삑음.
+## 대화창 (docs/archive/sera/chapter1.md 4.4절): 아래쪽 판, 왼쪽 초상화, 이름, 타자 효과(초당 40자), 화자별 목소리 삑삑음.
 ## 확인(Z·X·Enter·Space·패드 A)을 누르면 전부 표시 → 다시 누르면 다음. 너울의 말은 푸른 테두리.
 ## 일시정지·히트스톱과 무관하게 실제 시간으로 움직인다.
 

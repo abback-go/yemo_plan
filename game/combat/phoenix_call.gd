@@ -1,6 +1,6 @@
 class_name PhoenixCall
 extends Node2D
-## 불사조 (고급·금서, docs/magic.md): 세라의 몸에서 거대한 불사조(날개폭 약 90px)가 솟아 화면을 세 번 가른다.
+## 불사조 (고급·금서, docs/archive/sera/magic.md): 세라의 몸에서 거대한 불사조(날개폭 약 90px)가 솟아 화면을 세 번 가른다.
 ## 지날 때마다 그 길의 적에게 큰 피해(관통, Hit.kind = phoenix), 불씨 비. 시작할 때 세라 체력 회복(Lv1 1, Lv2+ 2).
 ## Lv3의 "부활의 불꽃"은 Player가 처리하고, 연출만 이 노드로 한다(revive = true).
 

@@ -1,5 +1,5 @@
 extends Node
-## 효과음을 녹음 파일 없이 코드로 합성한다 (docs/prototype.md 13.2절).
+## 효과음을 녹음 파일 없이 코드로 합성한다 (docs/archive/sera/prototype.md 13.2절).
 ## 게임 시작 시 한 번 파형을 계산해 AudioStreamWAV로 만들어 두고, Sfx.play("shoot")처럼 재생한다.
 ## 각 소리는 여러 '층'(layer)을 더해 만든다. 층 하나 = 파형 + 주파수 변화 + 노이즈 + 필터 + 감쇠.
 

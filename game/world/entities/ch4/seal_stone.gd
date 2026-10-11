@@ -1,5 +1,5 @@
 extends StaticBody2D
-## 금빛 봉인석 (docs/bible/progression.md 4절·docs/chapter4.md 7.5절): 길을 막는 둥근 돌에 금빛 봉인 문양. **유성 낙화(Hit.kind = meteor)**로만 부서진다.
+## 금빛 봉인석 (docs/archive/sera/bible/progression.md 4절·docs/archive/sera/chapter4.md 7.5절): 길을 막는 둥근 돌에 금빛 봉인 문양. **유성 낙화(Hit.kind = meteor)**로만 부서진다.
 ## 다른 공격은 "팅" — 처음 한 번 안내 문구("하늘에서 떨어지는 큰 힘이라면…"). 부수면 flag(기본 "seal_<방>_<id>")가 서고 다시 나오지 않는다.
 ## 방 데이터: {t:"seal_stone", x, y(바닥 행), h(막는 높이 칸, 기본 2 — 2칸마다 돌 하나), flag, id}
 

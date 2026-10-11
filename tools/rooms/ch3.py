@@ -1,4 +1,4 @@
-"""3장 방 (docs/chapter3.md 8~9절). roomgen.py가 불러온다.
+"""3장 방 (docs/archive/sera/chapter3.md 8~9절). roomgen.py가 불러온다.
 from roomgen import Room, room, overlay — 1장 roomgen.py와 같은 문법.
 
 본편: e_gate ~ e_crown_nest 32방 (아래 "3장 본편" 절) + 학교 덧붙임(overlay).
@@ -211,7 +211,7 @@ def dev_e_border():
 
 
 # ═══════════════════════════════════════════════════════════
-# 3장 본편 — 엘프의 숲 · 세계수 에일라흐 (docs/chapter3.md 8절 지도·9절 방별 설계)
+# 3장 본편 — 엘프의 숲 · 세계수 에일라흐 (docs/archive/sera/chapter3.md 8절 지도·9절 방별 설계)
 #   지도 영역 "elf". 아래(경계의 숲·뿌리 마을·동굴) → 줄기·바람길 → 가지·흰 역병 → 수관 → 꼭대기.
 #   1칸 방 바닥 윗면 19행·좌우 출구 14~18행, 2칸 높이 방 바닥 42행, 3칸 높이 65행.
 #   장의 게이트는 지형이 아니라 개체로: 문 잠금(lock) · 뿌리 문(root_gate) · 역병 덩굴(blight_vine) · 바람(updraft on_if)

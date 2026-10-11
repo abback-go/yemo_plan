@@ -1,8 +1,8 @@
 extends RefCounted
-## 4장 대본 — 황금창의 수호자 (docs/chapter4.md 2절·6절·7.7~7.8절). 메서드 이름 = 실행 ID, func id(c: Cut) -> void.
+## 4장 대본 — 황금창의 수호자 (docs/archive/sera/chapter4.md 2절·6절·7.7~7.8절). 메서드 이름 = 실행 ID, func id(c: Cut) -> void.
 ## 흐름: ch4_start(학교 앞마당) → 순례길 → 정문(tp_gate_scene) → 시련 셋 → 본당(tp_aurelia_talk) → 내전(tp_sanctum_scene)
 ##       → 첨탑 추격(tp_spire_*) → 꼭대기 결전(tp_boss) → 정화·리라(_boss_end) → 기숙사의 밤 → ChapterFlow.finish(c, 4)
-## 말투(docs/bible/characters.md): 베네딕타 온화한 존댓말 · 루카 수줍은 존댓말 · 그레고르 귀가 어두워 크게("!") ·
+## 말투(docs/archive/sera/bible/characters.md): 베네딕타 온화한 존댓말 · 루카 수줍은 존댓말 · 그레고르 귀가 어두워 크게("!") ·
 ## 엘사(성가대) 조용한 존댓말 · 안셀름 느긋한 하오체 · 순례자들 하오체/해요체 · 레오니 짧고 단정한 반말 · 아우렐리아 차가운 존댓말.
 ## 이 파일: 4장 대본 파일들이 함께 쓰는 상수·도우미 (장면 파일이 모두 extends). 대본(공개 메서드)은 두지 말 것 —
 ## 파일마다 같은 ID가 생겨 Story가 오류를 낸다. 대본 목록은 story/data_ch4.gd SCRIPTS.

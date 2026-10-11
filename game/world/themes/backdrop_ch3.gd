@@ -1,5 +1,5 @@
 extends RefCounted
-## 3장 지역 배경 (RoomBackdrop가 부름) — docs/bible/art.md 2절, docs/chapter3.md 7절.
+## 3장 지역 배경 (RoomBackdrop가 부름) — docs/archive/sera/bible/art.md 2절, docs/archive/sera/chapter3.md 7절.
 ##   elf       세계수 에일라흐: 절벽 같은 줄기·길 같은 가지·빛나는 수액 줄기, 가지 위 엘프 집(둥근 창·등불), 흔들다리,
 ##             바람길(흐르는 띠), 반딧불. 가장 먼 층 꼭대기에 에일라흐의 수관(樹冠)이 하늘을 덮는다.
 ##   elf_deep  뿌리 동굴: 아치처럼 휘어진 거대한 뿌리, 청록 버섯 빛, 빛 구슬이 맺힌 실(반딧불 애벌레), 포자.

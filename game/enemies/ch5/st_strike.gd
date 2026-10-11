@@ -2,7 +2,7 @@ class_name StStrike
 extends EnemyAttackArea
 ## 5장 공용 "예고 → 타격" 영역. 예고(피해 없음, 붉은 테두리가 차오름) → 짧은 타격(피해) → 사라짐.
 ## 리라의 일섬·신성 돌진 길·별기둥·별의 비, 거신의 발·손, 사도의 감옥 등 큰 공격이 모두 이것을 쓴다.
-## 예고 색 규칙(docs/systems2.md 3절): 기본은 붉은색(위험). 바깥 신들(style "white")만 흰색 — 대신 굵고 깜빡인다.
+## 예고 색 규칙(docs/archive/sera/systems2.md 3절): 기본은 붉은색(위험). 바깥 신들(style "white")만 흰색 — 대신 굵고 깜빡인다.
 ##
 ## 모양(shape)
 ##   band    가운데 기준 가로 띠 (size = 폭×높이)          — 일섬, 돌진 길

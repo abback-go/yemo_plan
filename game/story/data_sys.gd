@@ -1,5 +1,5 @@
 extends RefCounted
-## 공통 시스템 데이터 — 마법 수업 4종 (docs/magic.md 4절). ChapterRegistry가 합친다.
+## 공통 시스템 데이터 — 마법 수업 4종 (docs/archive/sera/magic.md 4절). ChapterRegistry가 합친다.
 ## 수업 퀘스트(kind = "class")는 수업 게시판(class_board)의 "마법 배우기" 창에 나온다:
 ##   spell(배울 마법) · unlock(잠김 해제 조건: 플래그 식 + "mana>=N") · unlock_text(잠김일 때 보이는 문구)
 ## 단계마다 그 인물에게 말을 걸면 talk의 대본이 먼저 실행된다(Quests.talk_hook).

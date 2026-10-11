@@ -1,8 +1,8 @@
 class_name MoonDrop
 extends Node2D
-## 달샘의 달빛 방울 (docs/chapter3.md 7.3절 — 달샘 퍼즐). 천장의 틈(이 개체 자리)에서 period초마다 달빛 방울이 천천히 떨어진다.
+## 달샘의 달빛 방울 (docs/archive/sera/chapter3.md 7.3절 — 달샘 퍼즐). 천장의 틈(이 개체 자리)에서 period초마다 달빛 방울이 천천히 떨어진다.
 ## 해롭지 않다. 불꽃 방벽(ward)에 닿으면 되쏘아져 곧장 위로 날아올라, 위에 걸린 달빛 수정(moon_crystal)을 밝힌다.
-## (flame_ward가 enemy_projectile 그룹의 reflect()를 부른다 — docs/systems2.md 3절)
+## (flame_ward가 enemy_projectile 그룹의 reflect()를 부른다 — docs/archive/sera/systems2.md 3절)
 ## 방 데이터: {t = "moon_drop", x, y, period = 2.4, phase = 0.0, on_if = ""}
 
 var period := 2.4

@@ -1,5 +1,5 @@
 extends Node2D
-## 톱니 시계 퍼즐의 시계판 (시계 구역 태엽 공방, docs/chapter2.md 5절).
+## 톱니 시계 퍼즐의 시계판 (시계 구역 태엽 공방, docs/archive/sera/chapter2.md 5절).
 ## 불(화염탄·불기둥 등)을 맞히면 시침이 한 칸(한 시간) 돈다. 같은 group의 시계판이 모두 answer 시각을 가리키면 done_flag.
 ## 지금 시각은 플래그 "k_dial_<방>_<id>"에 저장된다(방을 나갔다 와도 그대로). 맞춘 뒤엔 금빛으로 굳는다.
 ## {t = "k_clock_dial", x, y, group = "gear", answer = 3, start = 9, label = "새벽", done_flag = "k_gears_done"}  (x·y = 중심 칸)

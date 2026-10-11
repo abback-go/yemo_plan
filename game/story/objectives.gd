@@ -1,6 +1,6 @@
 class_name Objectives
 extends RefCounted
-## 현재 목표 (docs/chapter1.md 4.5절): 위에서부터 "필요 조건은 참이고 완료 플래그는 아직인" 첫 항목.
+## 현재 목표 (docs/archive/sera/chapter1.md 4.5절): 위에서부터 "필요 조건은 참이고 완료 플래그는 아직인" 첫 항목.
 ## 데이터는 장마다 story/data_<장>.gd 의 OBJECTIVES: [완료 플래그, 표시 문구, 필요 조건(Cond 식, 비우면 항상)]
 
 

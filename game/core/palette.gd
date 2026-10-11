@@ -1,5 +1,5 @@
 class_name Palette
-## 코드 그래픽에 쓰는 색 모음 (docs/prototype.md 13.1절).
+## 코드 그래픽에 쓰는 색 모음 (docs/archive/sera/prototype.md 13.1절).
 ## 세라와 불은 붉은·주황 계열, 적은 차가운 청록 계열, 위험 예고는 붉은색으로 통일.
 
 # 배경

@@ -1,6 +1,6 @@
 class_name MeteorFall
 extends Node2D
-## 유성 낙화 (고급 마법, docs/magic.md): 세라가 떠올라 하늘에 마법진을 열고(0.8초, 무적) 모든 마력을 바친다 →
+## 유성 낙화 (고급 마법, docs/archive/sera/magic.md): 세라가 떠올라 하늘에 마법진을 열고(0.8초, 무적) 모든 마력을 바친다 →
 ## 하늘이 붉게 물들고 2.5초 동안 넓은 범위(가로 24T)에 유성이 쏟아진 뒤 마지막 큰 유성.
 ## Lv2 유성 10개, Lv3 15개 + 떨어진 자리에 불바다. 여우 모드면 푸른 유성(피해 1.2배).
 ## 맞는 대상: 적(GROUP_ENEMY) + 금빛 봉인석 등 그룹 "meteor_target" (Hit.kind = meteor).

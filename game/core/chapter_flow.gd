@@ -1,6 +1,6 @@
 class_name ChapterFlow
 extends RefCounted
-## 장 흐름 (docs/systems2.md 7절). 장마다 다른 게임처럼 끊기지 않게: 장 끝 대본 → 꼬리 연출 → 저장 → 다음 장 카드 → chN_start.
+## 장 흐름 (docs/archive/sera/systems2.md 7절). 장마다 다른 게임처럼 끊기지 않게: 장 끝 대본 → 꼬리 연출 → 저장 → 다음 장 카드 → chN_start.
 ## 장 제목·꼬리 수·마지막 장은 각 story/data_<장>.gd 의 CHAPTER (ChapterRegistry) — 여기는 읽기만 한다.
 
 

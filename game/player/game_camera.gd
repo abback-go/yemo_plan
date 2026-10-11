@@ -1,6 +1,6 @@
 class_name GameCamera
 extends Camera2D
-## 세라를 따라가는 카메라 (docs/prototype.md 5.9절, v0.3 조정).
+## 세라를 따라가는 카메라 (docs/archive/sera/prototype.md 5.9절, v0.3 조정).
 ## 바라보는 방향 + 달리는 속도만큼 앞을 더 보여 주고(시선 앞당김), 흔들림은 offset, 큰 타격은 순간 확대(punch).
 
 var base_zoom := 1.0 ## 대본 확대(c.zoom). 순간 확대(punch)는 여기에 더해짐

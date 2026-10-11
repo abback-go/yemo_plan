@@ -3,7 +3,7 @@ extends EnemyAttackArea
 ## 적의 탄 공용 (저격탄을 일반화). 직선·포물선(gravity)·약한 유도(homing) 지원.
 ## style: fireball(붉은 불덩이) · foxwisp(도깨비불의 초록 불) · page(책장) · rock(돌탄) · dark(검은 불덩이) · seed(씨앗) · beam(광선탄)
 ## 위치 타임 중엔 느려지고, 대시 무적으로 스치면 퍼펙트 회피가 된다.
-## 불꽃 방벽에 닿으면 reflect()로 세라의 공격이 되어 되날아간다(Hit.kind = reflect) — docs/systems2.md 3절.
+## 불꽃 방벽에 닿으면 reflect()로 세라의 공격이 되어 되날아간다(Hit.kind = reflect) — docs/archive/sera/systems2.md 3절.
 
 var dir := Vector2.LEFT
 var speed := 200.0

@@ -1,6 +1,6 @@
 class_name TeachPrompt
 extends CanvasLayer
-## 멈춤 조작 안내 (docs/chapter1.md 4.4절): 게임을 멈추고 키 그림 + 설명을 보여 준다.
+## 멈춤 조작 안내 (docs/archive/sera/chapter1.md 4.4절): 게임을 멈추고 키 그림 + 설명을 보여 준다.
 ## 안내한 키를 누르면 풀리고, 그 동작이 바로 이어서 실행된다(세라 쪽 입력 버퍼).
 
 signal answered(action: String)

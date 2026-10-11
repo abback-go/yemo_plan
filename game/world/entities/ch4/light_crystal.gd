@@ -1,5 +1,5 @@
 extends Node2D
-## 빛의 수정 (docs/chapter4.md 5절·7.5절): 빛줄기가 hold초 동안 닿으면 깨어나 flag를 세운다(문·철창이 열림 — gate open_if).
+## 빛의 수정 (docs/archive/sera/chapter4.md 5절·7.5절): 빛줄기가 hold초 동안 닿으면 깨어나 flag를 세운다(문·철창이 열림 — gate open_if).
 ## 방 데이터: {t:"light_crystal", x, y(바닥 행 — 받침 위에 놓임; hang=true면 천장 행에 매달림), flag, hold(기본 0.6), id}
 ## 한 번 밝히면 계속 빛난다(플래그 저장).
 

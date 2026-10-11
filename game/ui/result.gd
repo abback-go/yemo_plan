@@ -1,5 +1,5 @@
 extends Control
-## 결과 화면 (docs/prototype.md 13.3절). 테스트 기록과 검증 질문 체크리스트를 보여 준다.
+## 결과 화면 (docs/archive/sera/prototype.md 13.3절). 테스트 기록과 검증 질문 체크리스트를 보여 준다.
 
 const BG := preload("res://levels/background.gd")
 
@@ -83,7 +83,7 @@ class ResultDraw extends Control:
 		_row(y, "최고 스타일 랭크", StyleRank.RANKS[int(s.get("best_rank", 0))], Palette.GOLD); y += 16
 		_row(y, "위치 타임 (퍼펙트 회피)", str(s.get("perfect_dodges", 0)), Color("#c9b8ff")); y += 16
 
-		# 검증 질문 (docs/prototype.md 1.1절) — 녹화와 함께 '예/아니오/애매'로 기록
+		# 검증 질문 (docs/archive/sera/prototype.md 1.1절) — 녹화와 함께 '예/아니오/애매'로 기록
 		var qx := 330.0
 		draw_string(_font, Vector2(qx, 80), "검증 체크 (예 / 아니오 / 애매)", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.GOLD)
 		var qs := [
@@ -95,5 +95,5 @@ class ResultDraw extends Control:
 		]
 		for i in qs.size():
 			draw_string(_font, Vector2(qx, 100 + i * 18), qs[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_TEXT)
-		draw_string(_font, Vector2(qx, 204), "→ docs/prototype.md 1.2절 1인 테스트 보정법", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
+		draw_string(_font, Vector2(qx, 204), "→ docs/archive/sera/prototype.md 1.2절 1인 테스트 보정법", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)
 		draw_string(_font, Vector2(60, 330), "R 다시 하기", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Palette.UI_DIM)

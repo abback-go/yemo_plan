@@ -1,5 +1,5 @@
 extends Node
-## 4장 동료 유지 (docs/chapter4.md 7.5절): 동료는 저장되지 않는다(docs/bible/progression.md 5절) — 기록에서 이어하거나 쓰러져 다시 서도
+## 4장 동료 유지 (docs/archive/sera/chapter4.md 7.5절): 동료는 저장되지 않는다(docs/archive/sera/bible/progression.md 5절) — 기록에서 이어하거나 쓰러져 다시 서도
 ## 레오니가 곁에 있도록, 4장 방마다 하나씩 둔다(tools/rooms/ch4.py가 자동으로 넣음).
 ## 방 데이터: {t:"tp_ally", kind(기본 "leonie"), flag(기본 "tp_leonie_on")} — 플래그가 서 있는데 동료가 없으면 합류, 내려가 있는데 있으면 떠남.
 

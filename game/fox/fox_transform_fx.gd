@@ -1,6 +1,6 @@
 class_name FoxTransformFx
 extends Node2D
-## 빙의 순간 연출 (docs/chapter1.md 4.8절): 시간이 멈추고 세라 뒤로 거대한 구미호 환영 → 푸른 번쩍임·고리 →
+## 빙의 순간 연출 (docs/archive/sera/chapter1.md 4.8절): 시간이 멈추고 세라 뒤로 거대한 구미호 환영 → 푸른 번쩍임·고리 →
 ## "빙의 — 여우 모드". 주변 적은 푸른 불길에 밀려난다(의태하며 깃드는 힘).
 
 var player: Player

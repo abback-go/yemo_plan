@@ -1,5 +1,5 @@
 extends RefCounted
-## 4장 적·장치 공용 도우미 (docs/chapter4.md 7.4절). `const H := preload("res://enemies/ch4/holy.gd")`
+## 4장 적·장치 공용 도우미 (docs/archive/sera/chapter4.md 7.4절). `const H := preload("res://enemies/ch4/holy.gd")`
 ##   소리: H.snd(이름, 대체) — 오디오 담당이 만들 소리(holy_charge, bell 등)가 아직 없으면 1장 소리로 대신 낸다
 ##   빛: H.gold_grad(), H.white_grad(), H.sparkle()
 ##   탄: H.HolyShot (EnemyProjectile 상속 → 불꽃 방벽에 자동으로 되쏘아짐) 모양 orb·lance·reflect·shard

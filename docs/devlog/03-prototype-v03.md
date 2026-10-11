@@ -1,6 +1,6 @@
 # 프로토타입 v0.3 — 빠른 이동과 스타일리시 전투
 
-> 기획: [`prototype.md`](../prototype.md) 14절 · 실행: [`game/README.md`](../../game/README.md)
+> 기획: [`prototype.md`](../archive/sera/prototype.md) 14절 · 실행: [`game/README.md`](../../game/README.md)
 > 요청 (2026-10-03): "이동 속도·조작감·스킬의 거대함과 화려함이 부족하다. 이동이 훨씬 빠르고 전투가 스타일리시했으면 좋겠다."
 
 ![타이틀](img/03-title.png)

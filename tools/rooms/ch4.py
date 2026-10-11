@@ -1,4 +1,4 @@
-"""4장 방 — 황금창의 수호자 (docs/chapter4.md 3절·7.2절). roomgen.py가 불러온다.
+"""4장 방 — 황금창의 수호자 (docs/archive/sera/chapter4.md 3절·7.2절). roomgen.py가 불러온다.
 from roomgen import Room, room, overlay — 1장 roomgen.py와 같은 문법.
 
 지도 영역 "temple" (칸 좌표 x, y — 1칸 = 40×23타일):
@@ -819,7 +819,7 @@ def tp_sanctum():
 
 
 # ═══════════════════════════════════════════════════════════
-# 첨탑 추격 (tp_spire_1~5, 각 세로 3칸) — 폭주한 아우렐리아에게서 위로 도망 (docs/chapter4.md 7.6절)
+# 첨탑 추격 (tp_spire_1~5, 각 세로 3칸) — 폭주한 아우렐리아에게서 위로 도망 (docs/archive/sera/chapter4.md 7.6절)
 #   아래에서 금빛이 차오르고(holy_chaser), 몇 초마다 신성 돌진이 세라가 선 높이를 가로지른다(비계 발판은 부서짐).
 #   발판은 한 번 점프(4칸)로 오를 수 있게 3~4칸 간격. 쓰러지면 그 방 아래(start)에서 바로 다시.
 #   칸이 지그재그로 이어진다: S1(x11) → S2(x12) → S3(x11) → S4(x12) → S5(x11) → 꼭대기(x12~13)

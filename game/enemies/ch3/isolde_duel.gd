@@ -1,6 +1,6 @@
 class_name IsoldeDuel
 extends EnemyBase
-## 이졸데 폰 크레스트 — 학교 결투 대회 결승 (3장 서브 s_duel_cup, docs/chapter3.md 11절). 고급반 엘리트의 서리 마법.
+## 이졸데 폰 크레스트 — 학교 결투 대회 결승 (3장 서브 s_duel_cup, docs/archive/sera/chapter3.md 11절). 고급반 엘리트의 서리 마법.
 ## 거리를 두는 결투가: 세라가 4칸 안으로 들어오면 서리 안개를 남기고 뒤로 미끄러져 물러나고, 9칸보다 멀면 걸어서 다가온다.
 ## 패턴 (예고는 모두 붉은색, Difficulty.telegraph):
 ##   서리 조각: 손끝에 냉기를 모았다가(0.55초) 세 갈래 얼음 조각 — 불꽃 방벽으로 되쏠 수 있다.

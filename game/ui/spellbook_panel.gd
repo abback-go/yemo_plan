@@ -1,6 +1,6 @@
 class_name SpellbookPanel
 extends Control
-## 마법서 (일시정지 → 마법서, docs/magic.md): 7종의 등급·레벨·장착. 마도석으로 레벨을 올린다.
+## 마법서 (일시정지 → 마법서, docs/archive/sera/magic.md): 7종의 등급·레벨·장착. 마도석으로 레벨을 올린다.
 ## ↑↓ 마법 고르기, ←→ 할 일 고르기(레벨 올리기·A·S·F에 끼우기), Z 실행, Esc 돌아가기. 터치: 줄·단추를 누름.
 
 signal closed

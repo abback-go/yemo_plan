@@ -1,6 +1,6 @@
 class_name AlchemySlime
 extends EnemyBase
-## 연금 슬라임 (docs/chapter1.md 7절, 12.4절, 12.5절): 연금술실에서 버려진 "실패한 과제물"이 봉인의 마력을 먹고 움직인다.
+## 연금 슬라임 (docs/archive/sera/chapter1.md 7절, 12.4절, 12.5절): 연금술실에서 버려진 "실패한 과제물"이 봉인의 마력을 먹고 움직인다.
 ## - 통통 뛰기: 0.35초 웅크림 + 착지할 자리에 그림자 예고 → 짧은 뜀.
 ## - 크게 뛰어 내려찍기: 0.8초 깊게 웅크림(붉은 테두리, 붉은 그림자 예고) → 높이 뛰어 세라 자리에 쿵. 착지 뒤 1초 납작(빈틈).
 ## - 공략 포인트: 불에 맞을수록 달아오름(청록 → 노랑 → 주황). 세 번째 단계에서 부풀어 1.2초 뒤 자폭(반경 3.5T).
@@ -302,7 +302,7 @@ func _explode() -> void:
 			h.hitstop = 0.05
 			h.shake_t = 0.2
 			e.take_hit(h)
-	# 금 간 벽 (비밀 깃털 — docs/chapter1.md 12.5절, 12.6절)
+	# 금 간 벽 (비밀 깃털 — docs/archive/sera/chapter1.md 12.5절, 12.6절)
 	for n in get_tree().get_nodes_in_group(&"cracked_wall"):
 		var w := n as Node2D
 		if w and w.has_method("crack_break") and w.global_position.distance_to(c) <= r + WALL_SLACK_T * T:

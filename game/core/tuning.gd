@@ -1,9 +1,9 @@
 class_name Tuning
 extends Resource
-## 조작감·전투 수치 전부 (docs/prototype.md 3절: "모든 조정 수치는 한 곳에").
+## 조작감·전투 수치 전부 (docs/archive/sera/prototype.md 3절: "모든 조정 수치는 한 곳에").
 ## 에디터에서 core/tuning.tres를 클릭하면 인스펙터에서 바로 바꿀 수 있다.
 ## 거리는 타일(T), 시간은 초(s).
-## v0.3: 빠르고 스타일리시한 전투로 전면 조정 (docs/prototype.md 14절). 이동 수치의 기준은
+## v0.3: 빠르고 스타일리시한 전투로 전면 조정 (docs/archive/sera/prototype.md 14절). 이동 수치의 기준은
 ## Celeste 공개 소스(화면 폭 40타일 기준 달리기 11.25타일/s, 대시 0.15s에 4.5타일).
 
 @export_group("Move")
@@ -68,7 +68,7 @@ extends Resource
 @export var pillar_warn_time := 0.22 ## v0.2: 0.35
 @export var pillar_width_t := 2.0 ## v0.2: 1
 @export var pillar_height_t := 7.0 ## v0.2: 4
-@export var pillar_damage := 120 ## 전체판: 마법 7종 기준(docs/bible/balance.md)
+@export var pillar_damage := 120 ## 전체판: 마법 7종 기준(docs/archive/sera/bible/balance.md)
 @export var pillar_side_damage := 60 ## 연쇄로 양옆에 솟는 기둥
 @export var pillar_side_count := 2 ## 한쪽당 연쇄 기둥 수
 @export var pillar_side_gap_t := 2.2
@@ -167,7 +167,7 @@ extends Resource
 @export var phoenix_damage := 400
 
 @export_group("Fox Mode (여우 모드)")
-## 여우 모드 시간: 꼬리 1개 기준 + 꼬리마다 더함, 아홉 꼬리면 고정 (docs/bible/progression.md 3절)
+## 여우 모드 시간: 꼬리 1개 기준 + 꼬리마다 더함, 아홉 꼬리면 고정 (docs/archive/sera/bible/progression.md 3절)
 @export var fox_duration := 12.0
 @export var fox_duration_per_tail := 2.0
 @export var fox_duration_nine_tails := 30.0

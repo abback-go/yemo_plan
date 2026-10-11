@@ -452,7 +452,7 @@ func give_potions(n: int) -> void:
 	GameState.potions = n
 
 
-# ─── 전체판 도구 (docs/systems2.md 8절) ─────────────────
+# ─── 전체판 도구 (docs/archive/sera/systems2.md 8절) ─────────────────
 
 ## 화면 가운데 큰 글씨 카드 (레터박스)
 func title_card(title: String, sub := "", sec := 2.5) -> void:

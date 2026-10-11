@@ -1,5 +1,5 @@
 extends RefCounted
-## 2장 적 종류 → 스크립트 (EnemyRegistry가 합침). 설계: docs/chapter2.md 4절·7.2절. 체력은 bible/balance.md 2장 보통 값.
+## 2장 적 종류 → 스크립트 (EnemyRegistry가 합침). 설계: docs/archive/sera/chapter2.md 4절·7.2절. 체력은 bible/balance.md 2장 보통 값.
 
 const KINDS := {
 	"star_lizard": "res://enemies/ch2/star_lizard.gd", ## 별똥 도마뱀 450

@@ -2,7 +2,7 @@ class_name PlayerMotor
 extends RefCounted
 ## 세라 이동 — 달리기·점프·중력·활공(불꽃 날개)·발판 내려가기·천장 모서리 보정·대시·2단 점프·착지.
 ## Player._physics_process가 정해진 순서로 부른다. 바깥이 읽는 값(air_dashes_left 등)은 Player에 그대로 있다.
-## v0.3: 빠른 이동, 대시 점프, 최고점 체공, 빠른 낙하, 발판 내려가기, 천장 모서리 보정 (docs/prototype.md 14절).
+## v0.3: 빠른 이동, 대시 점프, 최고점 체공, 빠른 낙하, 발판 내려가기, 천장 모서리 보정 (docs/archive/sera/prototype.md 14절).
 
 var p: Player
 

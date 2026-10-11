@@ -1,6 +1,6 @@
 class_name MossStag
 extends EnemyBase
-## 이끼 사슴 (docs/chapter3.md 4절) — 숲의 순한 짐승. 등에 이끼와 작은 빛꽃이 자라고, 뿔엔 잎이 돋는다.
+## 이끼 사슴 (docs/archive/sera/chapter3.md 4절) — 숲의 순한 짐승. 등에 이끼와 작은 빛꽃이 자라고, 뿔엔 잎이 돋는다.
 ## - 순한 개체(blighted = false): 먼저 공격하지 않는다. 풀을 뜯고, 귀를 털고, 세라가 다가오면 고개를 든다.
 ##   맞으면 놀라 "콧김" → 그때부터 맞서 싸운다(다만 쉬는 시간이 길다).
 ## - 역병 개체(blighted = true): 몸 곳곳이 흰 수정으로 굳고 눈이 하얗게 빛난다. 처음부터 사납다.

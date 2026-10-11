@@ -1,6 +1,6 @@
 class_name FirePillar
 extends Node2D
-## 스킬 1 발밑 불기둥 (docs/prototype.md 5.4절, v0.3 대형화).
+## 스킬 1 발밑 불기둥 (docs/archive/sera/prototype.md 5.4절, v0.3 대형화).
 ## 예고(바닥 균열) 동안 대상의 발밑을 따라가다가 거대한 불기둥이 솟아 적을 높이 띄운다.
 ## 이어서 양옆으로 작은 불기둥이 연쇄로 솟는다(side > 0이면 연쇄 기둥 자신).
 

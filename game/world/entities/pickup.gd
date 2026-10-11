@@ -5,7 +5,7 @@ extends Area2D
 ##   moonherb   월광초 (피피의 부탁)
 ##   key        열쇠·이야기 물건 (flag 키로 플래그를 세움, name으로 이름 표시)
 ##   page       기록 조각 (text를 읽음)
-##   stone      마도석 (마법 레벨을 올리는 재료, docs/magic.md 2절)
+##   stone      마도석 (마법 레벨을 올리는 재료, docs/archive/sera/magic.md 2절)
 ##   note       쪽지 (page와 같음)
 
 var pick_id := ""

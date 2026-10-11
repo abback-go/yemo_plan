@@ -1,6 +1,6 @@
 class_name CollapseChaser
 extends Node2D
-## 무너지는 회랑 (docs/chapter1.md 12.1절): start_flag가 서면 왼쪽에서부터 천장이 무너지며 9.3 T/s로 쫓아온다.
+## 무너지는 회랑 (docs/archive/sera/chapter1.md 12.1절): start_flag가 서면 왼쪽에서부터 천장이 무너지며 9.3 T/s로 쫓아온다.
 ## 잡히면 1 피해 + 회랑 입구에서 다시. 위치 타임은 이것을 늦추지 않는다.
 
 const SPEED_T := 9.3

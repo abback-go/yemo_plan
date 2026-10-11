@@ -1,6 +1,6 @@
 class_name FoxWindow
 extends Node2D
-## 여우창문 (docs/chapter1.md 4.9절): 세라 주위 반경 6타일 원 안이 6초 동안 "참모습"으로 보인다.
+## 여우창문 (docs/archive/sera/chapter1.md 4.9절): 세라 주위 반경 6타일 원 안이 6초 동안 "참모습"으로 보인다.
 ## 원 안의 환영 벽은 사라지고 숨은 발판은 생긴다(영구). 원 밖은 어둡게. 그림자 늑대는 원 안에서 잠행하지 못한다.
 
 const RADIUS_T := 6.0

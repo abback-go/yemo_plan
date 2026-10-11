@@ -1,5 +1,5 @@
 extends Node
-## 진행 상태와 저장 (docs/chapter1.md 4.1~4.2절).
+## 진행 상태와 저장 (docs/archive/sera/chapter1.md 4.1~4.2절).
 ## 이야기 플래그, 해금 능력, 체력·물약, 현재 방, 마지막 기록 지점, 방문한 방, 처치한 적, 수집품, 통계, 설정.
 ## 오토로드라 씬을 바꿔도(타이틀 ↔ 월드) 값이 유지된다.
 
@@ -37,7 +37,7 @@ var stats := {}
 var settings := {
 	"master": 0.9, "music": 0.75, "sfx": 0.85,
 	"fullscreen": false, "shake": true, "damage_numbers": true, "touch_scale": 1,
-	"difficulty": 0, ## 0 쉬움(초보자, 기본) · 1 보통 (docs/bible/balance.md 3절)
+	"difficulty": 0, ## 0 쉬움(초보자, 기본) · 1 보통 (docs/archive/sera/bible/balance.md 3절)
 }
 
 

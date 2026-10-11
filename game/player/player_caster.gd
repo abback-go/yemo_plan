@@ -1,6 +1,6 @@
 class_name PlayerCaster
 extends RefCounted
-## 세라 시전 — 화염탄(묵직한 한 발), 마법 7종(docs/magic.md)의 장착 칸 시전, 물약, 여우창문, 재사용 대기.
+## 세라 시전 — 화염탄(묵직한 한 발), 마법 7종(docs/archive/sera/magic.md)의 장착 칸 시전, 물약, 여우창문, 재사용 대기.
 ## 여우 모드면 화염탄 → 여우불, 불기둥 → 여우비, 화염 폭풍 → 구미호 폭풍.
 ## 새 마법을 더하는 절차는 docs/dev/player.md "새 마법/능력 추가".
 
@@ -118,7 +118,7 @@ func _pose(time: float, kind: int) -> void:
 	cast_kind = kind
 
 
-# ─── 장착 칸 시전 (마법 7종 — docs/magic.md) ────────────
+# ─── 장착 칸 시전 (마법 7종 — docs/archive/sera/magic.md) ────────────
 
 ## 장착 칸(a·s·f)의 마법을 쓴다. 여우 모드면 불기둥 → 여우비, 화염 폭풍 → 구미호 폭풍
 func cast_slot(slot: String) -> void:

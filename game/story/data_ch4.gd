@@ -1,5 +1,5 @@
 extends RefCounted
-## 4장 데이터 — ChapterRegistry가 합친다 (docs/systems2.md 1절, docs/chapter4.md 7절).
+## 4장 데이터 — ChapterRegistry가 합친다 (docs/archive/sera/systems2.md 1절, docs/archive/sera/chapter4.md 7절).
 ## 형식 (모든 data_<장>.gd 공통 — 자세히: docs/dev/story.md "데이터 형식"):
 ##   CHAPTER    장 정보 {n, title, tails_at_end, last, areas, warps, credits} (ChapterRegistry 머리 주석)
 ##   SCRIPTS    대본 파일 경로 — Story가 이 순서로 읽는다
@@ -120,8 +120,8 @@ const CHARACTERS := {
 	},
 }
 
-## 이 장의 방 ID (지도·검사용) — tools/rooms/ch4.py, docs/chapter4.md 7.2절
-## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] — 3장 끝(ch3_done)에서 이어짐 (docs/chapter4.md 7.9절)
+## 이 장의 방 ID (지도·검사용) — tools/rooms/ch4.py, docs/archive/sera/chapter4.md 7.2절
+## 메인 목표 줄: [완료 플래그, 표시 문구, 필요 조건] — 3장 끝(ch3_done)에서 이어짐 (docs/archive/sera/chapter4.md 7.9절)
 const OBJECTIVES := [
 	["tp_arrived", "앞마당에서 교장 선생님의 이야기를 듣자", "ch3_done"],
 	["tp_gate_scene", "레오니와 함께 순례길을 올라 성산 대신전으로", "tp_arrived"],
@@ -132,7 +132,7 @@ const OBJECTIVES := [
 	["tp_aurelia_defeated", "첨탑 꼭대기 — 아우렐리아를 멈춰라", "tp_spire_top_reached"],
 ]
 
-## 퀘스트 (docs/systems2.md 4절, docs/chapter4.md 6절·7.7절)
+## 퀘스트 (docs/archive/sera/systems2.md 4절, docs/archive/sera/chapter4.md 6절·7.7절)
 ## 받는 법: 인물에게 말을 걸면 대본이 quest_start. 단계마다 talk의 [단계, 인물, 대본]이 그 인물과의 대화를 대신한다.
 const QUESTS := {
 	"tp_luca_clapper": {

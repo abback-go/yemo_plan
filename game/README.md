@@ -1,7 +1,7 @@
 # Yemo 전체판 v1.0 — 1~5장 (Godot 4.7.2)
 
 마녀학교와 여우신. 신계 프롤로그 → 1장 마녀학교 → 2장 아르덴 제국 → 3장 세계수 → 4장 루멘 대신전 → 5장 별의 마녀까지 이어지는 메인 스토리 전체 (추정 약 8~9시간, 아래 "분량" 참고). 그래픽은 모두 코드로 그린 임시 그림이다(아트는 나중에).
-설정 정본: [`docs/bible/`](../docs/bible/README.md) · 장별 기획: [`docs/chapter1.md`](../docs/chapter1.md)~[`chapter5.md`](../docs/chapter5.md) · 마법: [`docs/magic.md`](../docs/magic.md) · 개발 기록: [`docs/devlog/`](../docs/devlog/)
+설정 정본: [`docs/archive/sera/bible/`](../docs/bible/README.md) · 장별 기획: [`docs/archive/sera/chapter1.md`](../docs/chapter1.md)~[`chapter5.md`](../docs/chapter5.md) · 마법: [`docs/archive/sera/magic.md`](../docs/magic.md) · 개발 기록: [`docs/devlog/`](../docs/devlog/)
 
 ## 브라우저에서 바로 플레이
 
@@ -86,7 +86,7 @@
 - **스타일 랭크** (우상단 D → C → B → A → S → SS): 화염탄·불기둥·화염 폭풍을 섞어 끊김 없이 맞히면 오른다. 같은 공격만 반복하면 덜 오르고, 맞으면 크게 깎인다.
 - **띄워 맞히기**: 불기둥으로 띄운 적을 공중에서 화염탄으로 계속 맞히면 떨어지지 않는다. 공중에서 쏘면 세라도 잠깐 떠 있다.
 - **과열**: 폭주 게이지 70% 이상이면 화염탄이 강해진다(가득 차면 폭발하니 주의).
-- 자세한 수치: [`docs/prototype.md`](../docs/prototype.md) 14절 · 개발 기록: [`docs/devlog/03-prototype-v03.md`](../docs/devlog/03-prototype-v03.md)
+- 자세한 수치: [`docs/archive/sera/prototype.md`](../docs/prototype.md) 14절 · 개발 기록: [`docs/devlog/03-prototype-v03.md`](../docs/devlog/03-prototype-v03.md)
 
 ## 수치 바꾸기
 

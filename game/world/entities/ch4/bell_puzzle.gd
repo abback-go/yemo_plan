@@ -1,5 +1,5 @@
 extends Node
-## 종 퍼즐 처리기 (docs/chapter4.md 5절·7.5절): 같은 group의 진짜 종(temple_bell)을 정해진 순서로, 박자를 지켜 울리면 done_flag.
+## 종 퍼즐 처리기 (docs/archive/sera/chapter4.md 5절·7.5절): 같은 group의 진짜 종(temple_bell)을 정해진 순서로, 박자를 지켜 울리면 done_flag.
 ## 방 데이터: {t:"bell_puzzle", group, seq([종의 order 값 차례] — 비우면 order 오름차순), beat(다음 종까지 허용 초, 기본 4.5),
 ##            done_flag, hint(처음 틀렸을 때 한 번 띄우는 말), need(이 조건식이 설 때만 셈 — 퀘스트를 받은 뒤 등), id}
 ## - 맞힌 종은 금빛으로 남는다(set_mark). 틀린 종을 치거나 박자를 놓치면 불협화음과 함께 처음부터.

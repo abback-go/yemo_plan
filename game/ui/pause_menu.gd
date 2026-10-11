@@ -1,5 +1,5 @@
 extends CanvasLayer
-## 일시정지 (Esc / 패드 Start): 계속하기 · 지도 · 퀘스트 · 마법서 · 설정 · 타이틀로 (docs/systems2.md).
+## 일시정지 (Esc / 패드 Start): 계속하기 · 지도 · 퀘스트 · 마법서 · 설정 · 타이틀로 (docs/archive/sera/systems2.md).
 ## 프로토타입 스테이지(연습장)에서는 예전 메뉴(체크포인트에서 다시·처음부터)를 쓴다.
 
 var _root: Control

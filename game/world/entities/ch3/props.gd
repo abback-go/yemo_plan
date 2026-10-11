@@ -1,5 +1,5 @@
 extends RefCounted
-## 3장 소품 그림 (Prop이 아래 PROPS 표로 kind를 찾아 draw(p, kind)를 부름) — docs/chapter3.md 7.7절 소품 목록.
+## 3장 소품 그림 (Prop이 아래 PROPS 표로 kind를 찾아 draw(p, kind)를 부름) — docs/archive/sera/chapter3.md 7.7절 소품 목록.
 ## 원점: 바닥에 서는 것은 발밑, 매달린 것(등불·덩굴·현수막·풍경)은 천장(위 끝), 벽에 붙는 둥근 창은 창 가운데.
 ## 공통 키: w, h(타일), flip, front, len(매달린 길이, 타일), glow(빛 세기).
 ##

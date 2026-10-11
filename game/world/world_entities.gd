@@ -13,7 +13,7 @@ const KINDS := {
 	"calm": "res://world/entities/calm_zone.gd", ## 봉인 결계: 안에서는 폭주 게이지가 오르지 않음
 	"event": "res://world/entities/flag_event.gd", ## 플래그가 서면 대본 실행
 	"cracked": "res://world/entities/cracked_wall.gd", ## 금 간 벽: 폭발(슬라임 자폭·폭주 폭발)로만 부서짐
-	"updraft": "res://world/entities/updraft.gd", ## 상승 기류: 불꽃 날개 활공 중 위로 (docs/systems2.md 6절)
+	"updraft": "res://world/entities/updraft.gd", ## 상승 기류: 불꽃 날개 활공 중 위로 (docs/archive/sera/systems2.md 6절)
 	"warp": "res://world/entities/warp_circle.gd", ## 전이진: 해금된 지역으로 이동
 	"class_board": "res://world/entities/class_board.gd", ## 수업 게시판: 마법 배우기 창
 }

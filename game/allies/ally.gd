@@ -1,6 +1,6 @@
 class_name Ally
 extends CharacterBody2D
-## 동료 (docs/systems2.md 5절): 강자·친구가 세라 곁에서 함께 싸운다. 체력이 없고(쓰러지지 않음), 피해는 보조 수준.
+## 동료 (docs/archive/sera/systems2.md 5절): 강자·친구가 세라 곁에서 함께 싸운다. 체력이 없고(쓰러지지 않음), 피해는 보조 수준.
 ## 역할은 강자 보스전에서 틈을 만드는 것 — 대본이 special()로 큰 지원기를 부른다.
 ## mode: follow(따라다니며 싸움) · hold(지금 자리에서 원거리 지원, 엘라리엔 저격 등) · script(AI 끔, 대본이 움직임)
 

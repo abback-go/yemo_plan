@@ -1,5 +1,5 @@
 extends CanvasLayer
-## 화면 정보 (docs/prototype.md 8절): 좌상단 체력 5칸 + 폭주 게이지, 우하단 스킬 2개와 재사용 대기,
+## 화면 정보 (docs/archive/sera/prototype.md 8절): 좌상단 체력 5칸 + 폭주 게이지, 우하단 스킬 2개와 재사용 대기,
 ## 우상단 구간·시간 + 콤보·스타일 랭크(v0.3, 14절), 가운데 알림 문구(banner).
 
 var _draw_node: HudDraw
@@ -266,7 +266,7 @@ class HudDraw extends Control:
 			draw_string(_font, Vector2(right - 160, 96), sr.last_event, HORIZONTAL_ALIGNMENT_RIGHT, 160, 12, Color(Palette.GOLD, ea))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-	# ─── 1장 데모용 HUD (docs/chapter1.md 10절) ─────────────
+	# ─── 1장 데모용 HUD (docs/archive/sera/chapter1.md 10절) ─────────────
 
 	func _draw_potions(p: Player) -> void:
 		if GameState.potions_max <= 0:
@@ -306,7 +306,7 @@ class HudDraw extends Control:
 			if nt > 1:
 				draw_string(_font, c + Vector2(11, 5), "×%d" % nt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.6, 0.88, 1.0, 0.9))
 
-	## 오른쪽 아래 마법 칸: A·S(장착 마법) · F(고급 마법, 배웠을 때) · D(여우창문) — docs/magic.md 3절
+	## 오른쪽 아래 마법 칸: A·S(장착 마법) · F(고급 마법, 배웠을 때) · D(여우창문) — docs/archive/sera/magic.md 3절
 	func _draw_skills3(p: Player) -> void:
 		var fox := p.is_fox()
 		var slots := []
@@ -466,7 +466,7 @@ class HudDraw extends Control:
 			draw_rect(r.grow(1), Color(0.03, 0.02, 0.05, 0.8))
 			draw_rect(Rect2(r.position, Vector2(r.size.x * clampf(float(e.hp) / e.max_hp, 0.0, 1.0), r.size.y)), Color(0.9, 0.3, 0.3))
 
-	## 오른쪽 위 미니맵: 지금 지역의 다녀간 방들 (칸 하나 = 화면 1칸). 터치하면 지도가 열림 (docs/systems2.md)
+	## 오른쪽 위 미니맵: 지금 지역의 다녀간 방들 (칸 하나 = 화면 1칸). 터치하면 지도가 열림 (docs/archive/sera/systems2.md)
 	func _draw_minimap(w: World) -> void:
 		if w.room == null or w.room.data == null:
 			return

@@ -1,5 +1,5 @@
 extends Node2D
-## 프로토타입 스테이지 (docs/prototype.md 7절). 4개 구간 + 체크포인트 + 아레나 + 출구.
+## 프로토타입 스테이지 (docs/archive/sera/prototype.md 7절). 4개 구간 + 체크포인트 + 아레나 + 출구.
 ## 사망 후 다시 불러오면 마지막 체크포인트에서 시작하고, 지난 구간의 적은 만들지 않는다.
 
 @export var level_size := Vector2(3840, 360)

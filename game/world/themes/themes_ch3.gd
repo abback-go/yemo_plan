@@ -1,5 +1,5 @@
 extends RefCounted
-## 3장 지역 테마 색 (RoomTheme와 같은 키) — docs/bible/art.md 2절
+## 3장 지역 테마 색 (RoomTheme와 같은 키) — docs/archive/sera/bible/art.md 2절
 ##   elf       세계수 마을: 이끼 초록 + 따뜻한 나무, 강조 반딧불 연두 #c8ff7a, 입자 반딧불
 ##   elf_deep  숲 바닥·뿌리 동굴: 짙은 남록, 강조 버섯 청록 #5affd0, 입자 포자
 ##   blight    흰 역병: 회백·무채색, 강조 흰빛 #f0f0ff, 입자 흰 가루 (바깥 신들의 색 — 다른 색과 섞지 않는다)

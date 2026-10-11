@@ -1,7 +1,7 @@
 class_name Ch3Sfx
 extends RefCounted
 ## 3장 효과음. 공용 Sfx에 없는 소리를 처음 쓸 때 같은 합성 방식(Sfx._add)으로 한 번 만들어 둔다.
-## 오디오 담당이 같은 이름(arrow_shot·arrow_hit·bow_draw·wind — docs/systems2.md 9절)을 만들면 그쪽이 우선한다
+## 오디오 담당이 같은 이름(arrow_shot·arrow_hit·bow_draw·wind — docs/archive/sera/systems2.md 9절)을 만들면 그쪽이 우선한다
 ## (이미 있으면 만들지 않음). ch3_* 는 이 장 전용 소리.
 
 static var _done := false

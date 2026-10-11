@@ -1,7 +1,7 @@
 # 전투 시제품 (새 조작 훈련장) — `game/proto/`
 
-타이틀 → **전투 시제품 (새 조작)**, 또는 웹 주소 https://abback-go.github.io/yemo_plan/?proto 로 바로. 본편과 따로 도는 훈련장(허수아비만, 능력 전부 해금, Tab 시험 패널)이다.
-조작·마법 결정 기록은 [../design/controls_skills.md](../design/controls_skills.md). 본편 코드(`player/`·`world/`)는 건드리지 않는다.
+타이틀 → **구버전 (세라 데모) → 세라 전투 시제품**, 또는 웹 주소 https://abback-go.github.io/yemo_plan/?proto 로 바로. 본편과 따로 도는 훈련장(허수아비만, 능력 전부 해금, Tab 시험 패널)이다.
+조작·마법 결정 기록은 [../design/controls_skills.md](../archive/sera/design/controls_skills.md). 본편 코드(`player/`·`world/`)는 건드리지 않는다.
 
 | 파일 | 하는 일 |
 |---|---|

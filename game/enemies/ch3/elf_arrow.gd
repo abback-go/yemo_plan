@@ -2,7 +2,7 @@ class_name ElfArrow
 extends EnemyAttackArea
 ## 엘프 화살 (엘라리엔·저격 구간·파수꾼 공용). 빠르게 곧게 날아가 지형에 박힌다(잠깐 꽂혀 있다가 사라짐).
 ## style: arrow(흰 깃 화살) · wind(바람 화살: 연둣빛, 맞으면 크게 밀려남) · rain(하늘에서 떨어지는 화살)
-## 불꽃 방벽으로 되쏠 수 있다(docs/systems2.md 3절): enemy_projectile 그룹 + reflect(dir, damage) → 불붙은 화살이 되어
+## 불꽃 방벽으로 되쏠 수 있다(docs/archive/sera/systems2.md 3절): enemy_projectile 그룹 + reflect(dir, damage) → 불붙은 화살이 되어
 ## 적을 맞히면 Hit.kind = &"reflect".
 
 const SHAFT := Color("#d8c098")

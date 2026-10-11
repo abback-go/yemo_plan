@@ -1,6 +1,6 @@
 class_name NineTailStorm
 extends Node2D
-## 여우 모드 S — 구미호 폭풍 (docs/chapter1.md 4.8절): 세라 주위 반경 8타일,
+## 여우 모드 S — 구미호 폭풍 (docs/archive/sera/chapter1.md 4.8절): 세라 주위 반경 8타일,
 ## 아홉 갈래 푸른 꼬리 환영이 몰아치며 여러 번 타격하고 마지막에 바깥으로 날려 보낸다.
 
 const RADIUS_T := 8.0

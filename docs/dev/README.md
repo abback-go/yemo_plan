@@ -1,7 +1,8 @@
 # 개발 안내 — 구조 한눈에 보기 (여기부터 읽는다)
 
 > 게임 코드를 고치기 전에 이 문서를 먼저 읽는다. 영역마다 자세한 안내가 따로 있다.
-> 설정(세계관·인물·줄거리)의 정본은 [`../bible/`](../bible/README.md), 작업 현황·인수인계는 [`../status.md`](../status.md).
+> **이 안내는 구버전 세라 데모의 코드 구조다** (코드는 `game/`에 그대로 있음, 기획은 [`../archive/sera/`](../archive/sera/README.md)). 현행 에스카 시제품은 `game/proto/eska/` — 구조는 [`../eska/combat_spec.md`](../eska/combat_spec.md) 8절.
+> 작업 현황·인수인계는 [`../status.md`](../status.md).
 > 이 구조는 2026-10-04 리팩터 결과다(개발 기록 [`../devlog/07-refactor.md`](../devlog/07-refactor.md)).
 
 ## 1. 문서 지도
@@ -61,7 +62,7 @@ world/world.tscn ── World ─┬─ Room (방 하나: 배경 RoomBackdrop ·
 | 배경·테마 추가 | `world/themes/themes_<ext>.gd`, `backdrop_<ext>.gd`(정적/`l.anim` 동적) | backdrop.md 3절 |
 | 적·보스 추가 | `enemies/<ext>/` + `registry.gd` KINDS | enemies.md 3·4절 |
 | 조작감·마법 수치 | `core/tuning.tres`(세라), `core/spells.gd`(마법 레벨·문구), 적은 각 파일 머리 상수 | player.md 2절 |
-| 난이도 | `core/difficulty.gd`, `docs/bible/balance.md` | — |
+| 난이도 | `core/difficulty.gd`, `docs/archive/sera/bible/balance.md` | — |
 
 ## 5. 검증 (고친 뒤 반드시)
 저장소 루트에서. `G`는 Godot 4.7.2 실행 파일 (내려받기: tools/test/README.md).

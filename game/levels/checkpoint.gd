@@ -1,7 +1,7 @@
 @tool
 class_name Checkpoint
 extends Area2D
-## 체크포인트 등불 (docs/prototype.md 5.7절). 닿으면 불이 켜지고 체력을 모두 회복한다.
+## 체크포인트 등불 (docs/archive/sera/prototype.md 5.7절). 닿으면 불이 켜지고 체력을 모두 회복한다.
 ## 사망하면 마지막으로 켠 체크포인트에서 다시 시작한다. 원점은 땅 위.
 
 @export var index := 0 ## 0 = 시작 지점, 구간 번호와 같게 둔다

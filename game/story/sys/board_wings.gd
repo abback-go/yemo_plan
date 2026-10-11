@@ -1,7 +1,7 @@
 extends RefCounted
 ## 공통 시스템 대본 — 1장 끝 이어하기 · 수업 게시판 · 불꽃 날개 수업(오필리아·바람의 탑).
 ## 공통 시스템 대본 — 수업 게시판 안내, 마법 수업 4종(불꽃 날개·불꽃 방벽·유성 낙화·불사조), 1장 끝 기록 이어하기.
-## 수업 정의는 story/data_sys.gd (QUESTS), 방은 tools/rooms/sys.py. 흐름은 docs/magic.md 4절.
+## 수업 정의는 story/data_sys.gd (QUESTS), 방은 tools/rooms/sys.py. 흐름은 docs/archive/sera/magic.md 4절.
 ## 인물 말투: 오필리아 "~란다~" 몽롱 · 엠버린 따뜻하고 엄격 · 베로니카 냉철하고 짧게 · 그레타 과묵 · 아스트리드 존댓말(가끔 장난).
 
 

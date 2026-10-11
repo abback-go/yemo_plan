@@ -1,5 +1,5 @@
 extends "res://characters/special/leonie_palette.gd"
-## 레오니 발렌하르트 전용 몸 그림 (docs/bible/characters.md 3절, art.md 3절). CharacterVisual이 draw_body(v)를 부른다.
+## 레오니 발렌하르트 전용 몸 그림 (docs/archive/sera/bible/characters.md 3절, art.md 3절). CharacterVisual이 draw_body(v)를 부른다.
 ## 키 40px. 짙은 남색 단발 + 귀 뒤로 가는 땋은 머리, 금빛 눈, 콧등을 가로지르는 흉터, 은빛 흉갑·어깨갑,
 ## 진홍 망토(은사자 문장), 가늘고 긴 장검(손잡이에 붉은 끈). 서 있을 땐 검을 땅에 짚는다.
 ##

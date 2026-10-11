@@ -1,6 +1,6 @@
 extends RefCounted
 ## 1장 대본 — 마녀학교 S1~S3 — 의무실·동관·중앙 홀·마법반·실습장(골렘).
-## 대본: 마녀학교 본편 (docs/chapter1.md 2절 S1~S10, 12절).
+## 대본: 마녀학교 본편 (docs/archive/sera/chapter1.md 2절 S1~S10, 12절).
 ## enter_<방ID>는 방에 들어올 때 잠그지 않고 시작한다 — 컷신이면 c.lock()부터.
 
 

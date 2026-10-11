@@ -1,5 +1,5 @@
 extends Node2D
-## 따라오는 학생들 (docs/chapter5.md 8.6절 절망): 무너지는 학교에서 세라 뒤를 줄지어 따라온다. 싸우지 않고 맞지도 않는다.
+## 따라오는 학생들 (docs/archive/sera/chapter5.md 8.6절 절망): 무너지는 학교에서 세라 뒤를 줄지어 따라온다. 싸우지 않고 맞지도 않는다.
 ## 방 데이터: {t = "st_follow", id, who = ["pippa", "student_a"], cond = "..."}
 ## 방에 들어오면 세라 뒤에 나타나고, 세라가 서 있는 바닥 높이를 따라 걷거나 뛰어오른다(막히면 순간이동).
 ## 대본: actor_id() = "followers" — c.actor("followers").scatter() 겁먹어 웅크림 · gather() 다시 따라옴 · say(i, 글, 초)

@@ -1,5 +1,5 @@
 extends "res://characters/special/elarien_palette.gd"
-## 엘라리엔 전용 몸 그림 (docs/bible/characters.md 3절 · art.md 3절) — 키 36px, 일반 인물보다 세부 2배.
+## 엘라리엔 전용 몸 그림 (docs/archive/sera/bible/characters.md 3절 · art.md 3절) — 키 36px, 일반 인물보다 세부 2배.
 ## 낮게 묶은 긴 연금빛-초록 머리(가닥 셋이 따로 흔들림), 긴 귀, 초록 눈, 주근깨, 잎새 무늬 두건 망토(잎 모양 밑단이 물결),
 ## 붕대 감은 손가락, 키만 한 흰 장궁(금 잎 장식, 빛 반사 점이 지나감), 흰 깃 화살통.
 ## 3단 명암(바탕·그림자·빛), 숨쉬기 1px, 눈 깜빡임, 대기 동작 2종(활을 고쳐 잡기 / 머리카락을 귀 뒤로 넘기기).

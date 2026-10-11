@@ -1,6 +1,6 @@
 class_name EnemyRegistry
 extends RefCounted
-## 적 종류 이름 → 만드는 방법. 방 데이터의 enemy 개체가 kind로 고른다 (docs/chapter1.md 7절, 12.5절).
+## 적 종류 이름 → 만드는 방법. 방 데이터의 enemy 개체가 kind로 고른다 (docs/archive/sera/chapter1.md 7절, 12.5절).
 
 const KINDS := {
 	"charger": "res://enemies/charger.tscn", ## 프로토타입 돌진형

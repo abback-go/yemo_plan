@@ -1,7 +1,7 @@
 class_name StArt
 extends RefCounted
 ## 5장 공용 그림·소리 도우미 (별빛·바깥 신들·푸른 여우불). 배경·인물·적·장치가 같이 쓴다.
-## 색 규칙 (docs/bible/world.md 5절, art.md): 별의 마녀 = 깊은 남색 + 따뜻한 별빛(연한 금·흰),
+## 색 규칙 (docs/archive/sera/bible/world.md 5절, art.md): 별의 마녀 = 깊은 남색 + 따뜻한 별빛(연한 금·흰),
 ## 바깥 신들 = 흰색·무채색·기하학 (차가운 흰빛), 너울 = 푸른 여우불, 세라 = 붉은 불.
 
 # 별빛 (리라·별의 탑)

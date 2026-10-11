@@ -1,6 +1,6 @@
 class_name CrackedWall
 extends StaticBody2D
-## 금 간 벽 (docs/chapter1.md 12.6절): 연금 슬라임의 자폭이나 폭주 폭발로만 무너진다(영구).
+## 금 간 벽 (docs/archive/sera/chapter1.md 12.6절): 연금 슬라임의 자폭이나 폭주 폭발로만 무너진다(영구).
 
 var key := ""
 var size_px := Vector2(32, 48)

@@ -240,5 +240,5 @@ func enter_s_dorm(c: Cut) -> void:
 	await c.fade_out(2.0)
 	c.flag("chapter_end")
 	c.save_here("bed")
-	# 1장 끝 → 너울·저장 → "2장" 카드 → ch2_start (ChapterFlow, docs/systems2.md 7절)
+	# 1장 끝 → 너울·저장 → "2장" 카드 → ch2_start (ChapterFlow, docs/archive/sera/systems2.md 7절)
 	await ChapterFlow.finish(c, 1)

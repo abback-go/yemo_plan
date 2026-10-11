@@ -1,5 +1,5 @@
 extends Interactable
-## 수문 밸브 (하수도 수위 퍼즐, docs/chapter2.md 5절). ↑로 돌리면 flag를 뒤집는다(켜짐 ↔ 꺼짐).
+## 수문 밸브 (하수도 수위 퍼즐, docs/archive/sera/chapter2.md 5절). ↑로 돌리면 flag를 뒤집는다(켜짐 ↔ 꺼짐).
 ## 같은 flag를 가진 밸브가 여럿이면 어느 쪽에서 돌려도 같은 수문이 열리고 닫힌다.
 ## {t = "k_valve", x, y, flag = "k_sw3_low", label = "배수 밸브", on_text = "물이 빠진다", off_text = "물이 찬다"}
 

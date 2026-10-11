@@ -10,17 +10,17 @@
 |---|---|
 | `tools/rooms/<ext>.py` | 방 생성기 모듈. `from roomgen import Room, room, overlay` → `@room def k_market(): ...` (1장 `tools/roomgen.py`와 같은 문법). 학교 등 **다른 장의 방에 개체를 덧붙일 때** `overlay("s_hall", "npc", who="...", x=..., y=..., cond="...")` |
 | `game/world/rooms/<방ID>.gd` | 생성 결과 (`python3 tools/roomgen.py` 또는 `python3 tools/roomgen.py <방ID>`) — 직접 고치지 말 것 |
-| `game/story/data_<ext>.gd` | 장 데이터: `CHAPTER`(장 정보)·`SCRIPTS`(대본 파일 목록)·`CHARACTERS`·`OBJECTIVES`·`QUESTS` — 형식은 [`dev/story.md`](dev/story.md) 5절 (2026-10-04 리팩터로 바뀜; 방 목록은 생성된 `world/rooms/_index.gd`가 대신함) |
+| `game/story/data_<ext>.gd` | 장 데이터: `CHAPTER`(장 정보)·`SCRIPTS`(대본 파일 목록)·`CHARACTERS`·`OBJECTIVES`·`QUESTS` — 형식은 [`dev/story.md`](../../dev/story.md) 5절 (2026-10-04 리팩터로 바뀜; 방 목록은 생성된 `world/rooms/_index.gd`가 대신함) |
 | `game/story/<ext>/*.gd` | 대본(장면·지역마다 한 파일, `extends RefCounted`, 메서드 이름 = 실행 ID, `func id(c: Cut) -> void`). `data_<ext>.gd`의 `SCRIPTS`에 적어야 읽힌다. 장 공용 도우미 `<ext>/common.gd`, 시험용 `story/dev/` |
 | `game/enemies/<ext>/registry.gd` + `game/enemies/<ext>/*.gd` | `const KINDS := {"star_lizard": "res://enemies/ch2/star_lizard.gd"}` + 적 스크립트 |
 | `game/world/entities/<ext>/entities.gd` + 장치 스크립트 | `const KINDS := {"gear_clock": "res://world/entities/ch2/gear_clock.gd"}` — 방 데이터의 `t`로 생성, 스크립트는 `setup(room: Room, e: Dictionary, eid: String)` |
-| `game/world/entities/<ext>/props.gd` | 소품: `const PROPS`(kind → `{anim, glow, split}`) + `static func draw(p: Prop, kind: String)` — [`dev/world.md`](dev/world.md) |
+| `game/world/entities/<ext>/props.gd` | 소품: `const PROPS`(kind → `{anim, glow, split}`) + `static func draw(p: Prop, kind: String)` — [`dev/world.md`](../../dev/world.md) |
 | `game/world/themes/themes_<ext>.gd` | `const THEMES := {"kingdom": {...}}` (`room_theme.gd`와 같은 키 전부. `particles`: embers·foxfire·drips·petals·dust·motes·fireflies·stars·light·spores·ash·blight·leaves) |
-| `game/world/themes/backdrop_<ext>.gd` | 배경: `has_theme`·`has_sky`·`draw_layer`(정적, 움직이는 요소는 `l.anim`에 기록)·`draw_sky` — [`dev/backdrop.md`](dev/backdrop.md) |
+| `game/world/themes/backdrop_<ext>.gd` | 배경: `has_theme`·`has_sky`·`draw_layer`(정적, 움직이는 요소는 `l.anim`에 기록)·`draw_sky` — [`dev/backdrop.md`](../../dev/backdrop.md) |
 | `game/characters/special/<who>_draw.gd` · `<who>_portrait.gd` | 강자 전용 그림(2절) |
 | `game/allies/<ext>_allies.gd` | (필요하면) 새 동료 종류 `const KINDS := {}` — 기본 동료는 공통 시스템이 제공(5절) |
 | `tools/test/scenarios/<ext>_*.json` | 시험 시나리오 |
-| `docs/chapterN.md` 7절 이후 | 세부 설계·구현 메모 |
+| `docs/archive/sera/chapterN.md` 7절 이후 | 세부 설계·구현 메모 |
 
 - 방 크기·좌표 규칙은 1장과 같다(화면 1칸 40×23타일, 개체 y = 발이 닿는 바닥 행). 지도 칸(`cell`)은 **자기 영역(area) 안에서만** 겹치지 않으면 된다.
 - 방 도달 검사: `python3 tools/roomgen.py check all <접두사>` — 모든 능력(2단 점프+여우창문+불꽃 날개·상승 기류)으로 출구·문·기록·줍는 것 사이가 닿아야 한다. 장의 게이트는 지형이 아니라 **대본·개체**(문 잠금, `gate`, 역병 덩굴 장치 등)로 막는다. 상승 기류는 `updraft` 개체(6절).

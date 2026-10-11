@@ -1,6 +1,6 @@
 class_name WarpCircle
 extends Interactable
-## 전이진 (docs/systems2.md 6절): ↑로 목적지 창을 연다. 바닥에 도는 보라 마법진.
+## 전이진 (docs/archive/sera/systems2.md 6절): ↑로 목적지 창을 연다. 바닥에 도는 보라 마법진.
 ## 방 데이터: {t = "warp", x, y, area = "kingdom", cond = "..."} — area는 이 전이진이 있는 지역(목록에서 "여기" 표시)
 
 var area := "school"
