@@ -36,6 +36,8 @@ const BUTTONS := [
 ## 대마법 버튼에 쓰는 짧은 이름 (원 안에 들어가게)
 const ULT_SHORT := {"blackstar": "흑성", "meteor": "유성우", "doom": "운석", "bonggong": "봉공"}
 const ULT_PULSE := 12.0 ## 게이지가 가득일 때 맥박 그림을 초당 이만큼만 다시 그림
+const COVER_ALPHA := 0.6 ## 살아 있는 적·표적이 버튼 밑에 오면 그 버튼을 40% 투명하게 (누를 수는 그대로 — loop5 4장)
+const COVER_SPEED := 6.0 ## 옅어지고 돌아오는 빠르기 (초당)
 const CD_ARC_W := 3.0 ## 쿨다운 호 굵기
 const CD_DIM := 0.4 ## 쿨다운 중 이름 진하기
 ## 나가기: 오른쪽 위 모서리 기준
@@ -90,7 +92,49 @@ func _process(delta: float) -> void:
 			sig += "|%d" % int(_t * ULT_PULSE)
 	if sig != _sig:
 		_sig = sig
-		_draw.queue_redraw()
+		_draw.redraw_all()
+	_update_cover(delta)
+
+
+## 적이 가린 버튼 옅게: 살아 있는 표적(구슬 같은 발사체는 빼고)의 판정 사각형을 화면 좌표로 옮겨 버튼 원과 겹치는지 본다
+func _update_cover(delta: float) -> void:
+	var rects: Array[Rect2] = []
+	var xf := get_viewport().get_canvas_transform()
+	for d: Node2D in ETarget.alive(get_tree()):
+		if d.is_in_group(EEnemy.PROJECTILE_GROUP):
+			continue
+		rects.append(xf * (d.hit_rect() as Rect2))
+	for id: String in _draw.views:
+		var c: Vector2
+		var r: float
+		if id == "pad":
+			c = pad_center()
+			r = PAD_STEP + PAD_KEY + 4.0
+		else:
+			var b := _button_spec(id)
+			c = button_center(b)
+			r = float(b[4])
+		var covered := false
+		for rc in rects:
+			if Vector2(clampf(c.x, rc.position.x, rc.end.x), clampf(c.y, rc.position.y, rc.end.y)).distance_to(c) < r:
+				covered = true
+				break
+		var v: Control = _draw.views[id]
+		v.modulate.a = move_toward(v.modulate.a, COVER_ALPHA if covered else 1.0, delta * COVER_SPEED)
+
+
+func _button_spec(id: String) -> Array:
+	if id == EXIT[0]:
+		return EXIT
+	for b: Array in BUTTONS:
+		if b[0] == id:
+			return b
+	return []
+
+
+## 시험 실행기 eval용: 버튼 id의 지금 진하기
+func cover_alpha(id: String) -> float:
+	return (_draw.views[id] as Control).modulate.a
 
 
 func _input(event: InputEvent) -> void:
@@ -266,33 +310,59 @@ class Pad extends Control:
 	const RING := Color("#a98bff")
 	var owner_ctl: ETouch
 
-	func _draw() -> void:
-		var tc := owner_ctl
-		var font := get_theme_default_font()
-		_draw_pad(tc)
+	var views := {} ## 버튼 id(방향키는 "pad") → 그 버튼만 그리는 View (적에 가리면 그것만 옅게)
+
+	func _ready() -> void:
+		for id: String in ["pad"] + all_ids():
+			var v := View.new()
+			v.pad = self
+			v.id = id
+			v.set_anchors_preset(Control.PRESET_FULL_RECT)
+			v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			add_child(v)
+			views[id] = v
+
+	static func all_ids() -> Array[String]:
+		var out: Array[String] = []
 		for b: Array in BUTTONS + [EXIT]:
-			_draw_button(tc, font, b)
+			out.append(String(b[0]))
+		return out
+
+	func redraw_all() -> void:
+		for v: Control in views.values():
+			v.queue_redraw()
+
+	## View 하나를 그린다 (ci = 그 View)
+	func paint(ci: CanvasItem, id: String) -> void:
+		var tc := owner_ctl
+		if id == "pad":
+			_draw_pad(ci, tc)
+			return
+		for b: Array in BUTTONS + [EXIT]:
+			if b[0] == id:
+				_draw_button(ci, tc, get_theme_default_font(), b)
+				return
 
 	## 고정 방향키: 가운데 받침 + 바깥을 향해 뾰족한 육각 화살표 칸 4개
-	func _draw_pad(tc: ETouch) -> void:
+	func _draw_pad(ci: CanvasItem, tc: ETouch) -> void:
 		var c := tc.pad_center()
 		var on_any := tc._pad_index >= 0
-		draw_circle(c, PAD_STEP + PAD_KEY + 4.0, Color(0.05, 0.03, 0.09, 0.28))
-		draw_arc(c, PAD_STEP + PAD_KEY + 4.0, 0.0, TAU, 48, Color(1, 1, 1, 0.16 if not on_any else 0.26), 1.0)
+		ci.draw_circle(c, PAD_STEP + PAD_KEY + 4.0, Color(0.05, 0.03, 0.09, 0.28))
+		ci.draw_arc(c, PAD_STEP + PAD_KEY + 4.0, 0.0, TAU, 48, Color(1, 1, 1, 0.16 if not on_any else 0.26), 1.0)
 		for spec: Array in ARROWS:
 			var dv: Vector2 = spec[1]
 			var on: bool = tc._dirs[spec[0]]
 			var kc := c + dv * PAD_STEP
 			var hex := _hex(kc, dv, PAD_KEY)
-			draw_colored_polygon(hex, Color(RING, 0.5) if on else Color(0.04, 0.03, 0.08, 0.5))
+			ci.draw_colored_polygon(hex, Color(RING, 0.5) if on else Color(0.04, 0.03, 0.08, 0.5))
 			var rim := hex.duplicate()
 			rim.append(hex[0])
-			draw_polyline(rim, Color(RING, 0.95) if on else Color(RING, 0.55), 2.0 if on else 1.5, true)
+			ci.draw_polyline(rim, Color(RING, 0.95) if on else Color(RING, 0.55), 2.0 if on else 1.5, true)
 			# 화살표
 			var tip := kc + dv * 7.0
 			var side := dv.orthogonal() * 6.0
-			draw_colored_polygon(PackedVector2Array([tip, kc - dv * 3.0 + side, kc - dv * 3.0 - side]), Color(1, 1, 1, 0.95) if on else Color(1, 1, 1, 0.55))
-		draw_circle(c, 5.0, Color(1, 1, 1, 0.12))
+			ci.draw_colored_polygon(PackedVector2Array([tip, kc - dv * 3.0 + side, kc - dv * 3.0 - side]), Color(1, 1, 1, 0.95) if on else Color(1, 1, 1, 0.55))
+		ci.draw_circle(c, 5.0, Color(1, 1, 1, 0.12))
 
 	## 바깥쪽(dv)으로 뾰족하고 안쪽은 납작한 육각형
 	func _hex(kc: Vector2, dv: Vector2, r: float) -> PackedVector2Array:
@@ -306,22 +376,22 @@ class Pad extends Control:
 			kc + dv * (r * 0.45) - o * r * 0.82,
 		])
 
-	func _draw_button(tc: ETouch, font: Font, b: Array) -> void:
+	func _draw_button(ci: CanvasItem, tc: ETouch, font: Font, b: Array) -> void:
 		var id: String = b[0]
 		var c := tc.button_center(b)
 		var r: float = b[4]
 		var held := tc.is_held(String(b[1]))
-		draw_circle(c, r, Color(RING, 0.45) if held else Color(0.04, 0.03, 0.08, 0.45))
+		ci.draw_circle(c, r, Color(RING, 0.45) if held else Color(0.04, 0.03, 0.08, 0.45))
 		if is_instance_valid(tc.eska):
 			match id:
 				"ult":
-					_draw_ult(tc, font, c, r, held)
+					_draw_ult(ci, tc, font, c, r, held)
 					return
 				"ult_next":
-					_draw_cycle(c, r, held)
+					_draw_cycle(ci, c, r, held)
 					return
 				"potion":
-					_draw_potion(tc, font, c, r, held)
+					_draw_potion(ci, tc, font, c, r, held)
 					return
 		var cd: Array = tc.cooldown_of(String(b[5]))
 		var ratio: float = cd[0]
@@ -331,62 +401,62 @@ class Pad extends Control:
 		var fs := 11 if label.length() >= 3 else 12
 		if ratio > 0.0:
 			# 쿨다운: 바탕을 어둡게, 둘레는 찬 몫(1 - 남은 몫)만 밝은 호로 — 위에서 시계 방향으로 다시 차오름
-			draw_circle(c, r, Color(0, 0, 0, 0.35))
-			draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.25), 2.0)
+			ci.draw_circle(c, r, Color(0, 0, 0, 0.35))
+			ci.draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.25), 2.0)
 			var done := 1.0 - ratio
 			if done > 0.0:
-				draw_arc(c, r - 1.0, -PI / 2.0, -PI / 2.0 + TAU * done, maxi(int(40.0 * done), 3), Color(RING, 0.95), CD_ARC_W)
+				ci.draw_arc(c, r - 1.0, -PI / 2.0, -PI / 2.0 + TAU * done, maxi(int(40.0 * done), 3), Color(RING, 0.95), CD_ARC_W)
 		else:
-			draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else 0.6), 2.0)
+			ci.draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else 0.6), 2.0)
 		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var tp := c + Vector2(-tw * 0.5, 4 if ratio <= 0.0 else 1)
 		var la := (0.95 if held else 0.85) if ratio <= 0.0 else CD_DIM
-		draw_string_outline(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.7))
-		draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, la))
+		ci.draw_string_outline(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.7))
+		ci.draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, la))
 		if ratio > 0.0:
 			var sec := "%d" % ceili(float(cd[1]))
 			var sw := font.get_string_size(sec, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
 			var sp := c + Vector2(-sw * 0.5, 12)
-			draw_string_outline(font, sp, sec, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, 3, Color(0, 0, 0, 0.7))
-			draw_string(font, sp, sec, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(EVfx.PALE, 0.9))
+			ci.draw_string_outline(font, sp, sec, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, 3, Color(0, 0, 0, 0.7))
+			ci.draw_string(font, sp, sec, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(EVfx.PALE, 0.9))
 
 	## 대마법(S): 둘레 고리 = 종언 게이지(위에서 시계 방향으로 참), 가운데 위 달이 차오름, 아래 고른 대마법 이름.
 	## 가득이면 고리·달이 밝게 맥박. 모자라면 전체가 흐림
-	func _draw_ult(tc: ETouch, font: Font, c: Vector2, r: float, held: bool) -> void:
+	func _draw_ult(ci: CanvasItem, tc: ETouch, font: Font, c: Vector2, r: float, held: bool) -> void:
 		var e := tc.eska
 		var f := e.gauge_ratio()
 		var full := f >= 1.0
 		var beat := 0.5 + 0.5 * sin(tc._t * 6.0) if full else 0.0
 		if full:
-			draw_circle(c, r + 3.0 + 2.0 * beat, Color(EVfx.MAGENTA, 0.18 + 0.14 * beat))
-			draw_circle(c, r, Color(EVfx.PLUM, 0.55 + 0.2 * beat))
-		draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.35), 2.0)
+			ci.draw_circle(c, r + 3.0 + 2.0 * beat, Color(EVfx.MAGENTA, 0.18 + 0.14 * beat))
+			ci.draw_circle(c, r, Color(EVfx.PLUM, 0.55 + 0.2 * beat))
+		ci.draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.35), 2.0)
 		if f > 0.0:
-			draw_arc(c, r, -PI / 2.0, -PI / 2.0 + TAU * f, maxi(int(40.0 * f), 3), EVfx.EDGE if full else Color(RING, 0.95), 3.0 if full else 2.5)
+			ci.draw_arc(c, r, -PI / 2.0, -PI / 2.0 + TAU * f, maxi(int(40.0 * f), 3), EVfx.EDGE if full else Color(RING, 0.95), 3.0 if full else 2.5)
 		var mc := c + Vector2(0, -7.0)
 		var mr := 6.5
-		draw_circle(mc, mr + 1.0, Color(EVfx.INK, 0.9))
+		ci.draw_circle(mc, mr + 1.0, Color(EVfx.INK, 0.9))
 		if f >= EHud.MOON_MIN:
-			draw_colored_polygon(EHud.moon_shape(mc, mr, f), EVfx.PALE.lerp(Color.WHITE, 0.5 * beat) if full else Color(EVfx.PALE, 0.75))
-		draw_arc(mc, mr + 1.0, 0.0, TAU, 20, Color(RING, 0.7), 1.0)
+			ci.draw_colored_polygon(EHud.moon_shape(mc, mr, f), EVfx.PALE.lerp(Color.WHITE, 0.5 * beat) if full else Color(EVfx.PALE, 0.75))
+		ci.draw_arc(mc, mr + 1.0, 0.0, TAU, 20, Color(RING, 0.7), 1.0)
 		var label: String = ULT_SHORT.get(e.selected_ult(), "")
 		var fs := 11
 		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var tp := c + Vector2(-tw * 0.5, 13.0)
-		draw_string_outline(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.75))
-		draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.95) if full or held else Color(1, 1, 1, 0.55))
+		ci.draw_string_outline(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.75))
+		ci.draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.95) if full or held else Color(1, 1, 1, 0.55))
 
 	## 대마법 고르기(D): 작은 원 안에 도는 화살표
-	func _draw_cycle(c: Vector2, r: float, held: bool) -> void:
+	func _draw_cycle(ci: CanvasItem, c: Vector2, r: float, held: bool) -> void:
 		var col := Color(1, 1, 1, 0.95 if held else 0.7)
-		draw_arc(c, r, 0.0, TAU, 24, Color(RING, 0.95 if held else 0.6), 1.5)
+		ci.draw_arc(c, r, 0.0, TAU, 24, Color(RING, 0.95 if held else 0.6), 1.5)
 		var ar := r * 0.5
-		draw_arc(c, ar, -PI * 0.15, PI * 1.35, 14, col, 1.5)
+		ci.draw_arc(c, ar, -PI * 0.15, PI * 1.35, 14, col, 1.5)
 		var tip := c + Vector2(cos(-PI * 0.15), sin(-PI * 0.15)) * ar
-		draw_colored_polygon(PackedVector2Array([tip + Vector2(3.5, 0.5), tip + Vector2(-2.5, -2.5), tip + Vector2(-0.5, 3.5)]), col)
+		ci.draw_colored_polygon(PackedVector2Array([tip + Vector2(3.5, 0.5), tip + Vector2(-2.5, -2.5), tip + Vector2(-0.5, 3.5)]), col)
 
 	## 물약(F): 방향키 방향(그냥·↑·↓)에 맞는 허리띠 칸의 병 + 남은 병 수 + 칸 표시. 빈 칸·다 쓴 칸은 흐림
-	func _draw_potion(tc: ETouch, font: Font, c: Vector2, r: float, held: bool) -> void:
+	func _draw_potion(ci: CanvasItem, tc: ETouch, font: Font, c: Vector2, r: float, held: bool) -> void:
 		var e := tc.eska
 		var i := e.potion_slot_for_dir()
 		var sl: Dictionary = e.belt.slots[i] if i < e.belt.slots.size() else {}
@@ -394,9 +464,18 @@ class Pad extends Control:
 		var left := int(sl.get("left", 0))
 		var ok := has and left > 0
 		var look := EHud.potion_look(sl)
-		draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else (0.6 if ok else 0.3)), 2.0)
-		EHud.bottle(self, c + Vector2(-3.0, 1.0), 1.5, look.color, 1.0 if ok else 0.4, ok)
-		EHud.belt_mark(self, font, c + Vector2(5.0, -6.0), i, 10, Color(EVfx.PALE, 0.9))
+		ci.draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else (0.6 if ok else 0.3)), 2.0)
+		EHud.bottle(ci, c + Vector2(-3.0, 1.0), 1.5, look.color, 1.0 if ok else 0.4, ok)
+		EHud.belt_mark(ci, font, c + Vector2(5.0, -6.0), i, 10, Color(EVfx.PALE, 0.9))
 		var num := "%d" % left if has else "-"
-		draw_string_outline(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.75))
-		draw_string(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.95 if ok else 0.45))
+		ci.draw_string_outline(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.75))
+		ci.draw_string(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.95 if ok else 0.45))
+
+
+## 버튼 하나(또는 방향키)만 그리는 칸 — 적이 밑에 오면 이것만 modulate로 옅어진다 (누르는 판정은 그대로)
+class View extends Control:
+	var pad: Pad
+	var id := ""
+
+	func _draw() -> void:
+		pad.paint(self, id)

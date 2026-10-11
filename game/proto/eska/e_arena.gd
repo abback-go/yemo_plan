@@ -2,6 +2,7 @@ extends EStage
 ## 에스카 훈련장: 마녀 분위기의 일자형 마당 + 허수아비 하나 + 공중 표적(매달린 모래주머니) + 구슬을 천천히 쏘는 망령 표적 + 적 물결(EWaves).
 ## 적 물결은 오른쪽 위 버튼이나 W 키로 켜고 끈다 (기본 꺼짐 — loop4 3장).
 ## 오른쪽 위 "마녀의 연습 과제" 5줄: 낙성으로 공중 표적 · 단공 딱 맞춤 · 새 물약 달이기 · 틈 달이기 · 대마법 — 해내면 체크.
+## 평소엔 접힌 한 줄("연습 과제 1/5 ▸"), 체크될 때 잠깐 · 누르면(터치·클릭) 펼침. 안내판은 에스카가 가까이 가야 진해진다 (loop5 4장).
 ## 오른쪽 끝은 공간 고정 시험 구역: 떨어지는 돌을 봉공으로 굳혀 밟고 높은 턱(점프로는 안 닿음)에 오른다.
 ## 봉공 진화(굳은 동안 준 피해의 50%가 깨질 때 터짐)는 오른쪽 위 두 번째 버튼이나 T 키로 켜고 끈다.
 ## 종언 게이지는 오른쪽 위 세 번째 버튼 "게이지 가득"이나 G 키로 바로 채운다 (대마법 시험). 왼쪽 끝에 마녀의 가마솥.
@@ -17,6 +18,10 @@ const RIFT_SIGN := Vector2(CAULDRON_X, FLOOR - 160.0) ## 틈 달이기 안내판
 const AIR_TARGET := Vector2(700, FLOOR - 140.0) ## 공중 표적(매달린 모래주머니) — 낙성 연습
 const WISP_HOME := Vector2(880, FLOOR - 74.0) ## 연습용 망령이 떠 있는 자리 — 단공 딱 맞춤 연습
 const WISP_BACK := 4.0 ## 연습용 망령이 쓰러지면 이만큼 뒤 다시 나타남
+const SIGN_FAR_A := 0.3 ## 안내판: 멀리 있을 때 진하기
+const SIGN_NEAR := 170.0 ## 안내판: 에스카가 이 가로 거리 안이면 다 진함
+const SIGN_FADE := 150.0 ## 그 바깥 이만큼에 걸쳐 옅어짐
+const SIGN_SPEED := 3.0 ## 진하기가 바뀌는 빠르기 (초당)
 const BTN_TOP := [8.0, 34.0] ## 오른쪽 위 시험 버튼들의 위 끝 (적 물결 · 봉공 진화). 그 아래는 연타 수 자리
 const BTN_W := 104.0 ## 시험 버튼 너비
 const BTN_RIGHT := -42.0 ## 첫 줄 버튼 오른쪽 끝 (나가기 ✕ 왼쪽)
@@ -33,6 +38,7 @@ var _on_shelf := false
 var air_target: PDummy
 var wisp: PracticeWisp
 var practice: PracticeList
+var signs: Array[Node2D] = [] ## 가까이 가야 진해지는 안내판들 (sign_x로 가운데 가로 위치를 알림)
 var _wisp_wait := 0.0
 var practice_on := false ## 연습 표적(공중 모래주머니·망령)이 있나 — 시험 실행기에서는 다른 시나리오 수치를 흔들지 않게 기본 끔 (eval set_practice(true))
 var _air_hp := 0
@@ -55,6 +61,7 @@ func _build() -> void:
 	solid(SHELF)
 	var mark := ShelfMark.new()
 	mark.shelf = SHELF
+	signs.append(mark)
 	add_child(mark)
 	var fall := EStill.RockFall.new()
 	fall.xs = ROCK_XS
@@ -64,6 +71,7 @@ func _build() -> void:
 	cauldron = ECauldron.place(self, Vector2(CAULDRON_X, FLOOR))
 	var sign := RiftSign.new()
 	sign.at = RIFT_SIGN
+	signs.append(sign)
 	add_child(sign)
 
 
@@ -81,7 +89,6 @@ func _start() -> void:
 	practice = PracticeList.new()
 	practice.hud = hud
 	hud.get_parent().add_child(practice)
-	hud.combo_right_pad = PracticeList.W + 8.0
 	_book0 = EPotions.notebook.size()
 	_rift0 = EPotions.rift_brews
 	_star0 = EPotions.star_brews
@@ -102,6 +109,11 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("es_gauge_fill"):
 		_fill_gauge()
 	_track_practice()
+	hud.combo_right_pad = PracticeList.W + 8.0 if practice.is_open() else 0.0 # 펼쳤을 땐 연타 수를 칸 왼쪽으로, 접혔을 땐 그 아래(원래 자리)
+	for sg in signs:
+		var d := absf(eska.global_position.x - float(sg.call("sign_x")))
+		var want := lerpf(1.0, SIGN_FAR_A, clampf((d - SIGN_NEAR) / SIGN_FADE, 0.0, 1.0))
+		sg.modulate.a = move_toward(sg.modulate.a, want, delta * SIGN_SPEED)
 	if practice_on and (not is_instance_valid(wisp) or wisp.is_dead()):
 		_wisp_wait += delta
 		if _wisp_wait >= WISP_BACK:
@@ -238,7 +250,8 @@ func foes() -> String:
 
 ## 시험 구역 표시: 높은 턱(돌 난간) + 안내 글씨 (떨어지는 돌 기둥보다 왼쪽에서 끝나게 — 글이 돌에 가려 잘리지 않게, 입력 방식에 맞춰 다시 그림)
 class ShelfMark extends Node2D:
-	const TEXT_X := -380.0 ## 턱 왼쪽 끝 기준 글 시작 (돌 기둥 1040보다 왼쪽에서 끝남)
+	const TEXT_X := -245.0 ## 턱 왼쪽 끝 기준 글 시작 (905 — 터치 카메라 여유로 오른쪽 끝에 붙어도 화면 안, 돌 기둥 1040보다 왼쪽에서 끝남)
+	const TEXT_W := 125.0 ## 글이 들어갈 너비 (넘으면 글자를 줄임)
 	var shelf: Rect2
 	var pd := PDraw.new()
 	var _mode := false
@@ -258,12 +271,21 @@ class ShelfMark extends Node2D:
 		pd.flush(self)
 		var f := ThemeDB.fallback_font
 		var at := Vector2(shelf.position.x + TEXT_X, shelf.position.y + 50.0) # 돌 기둥 왼쪽
-		var gauge := "오른쪽 위 '게이지 가득'" if EKeys.touch_mode else "G 게이지 채우기"
-		draw_string(f, at, "대마법 봉공으로 떨어지는 돌을", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(EVfx.PALE, 0.75))
-		draw_string(f, at + Vector2(0, 14), "굳혀 밟고 오르기 →", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(EVfx.PALE, 0.75))
-		var how := "(대마법 옆 순환 버튼으로 봉공 · 가득이면 대마법)" if EKeys.touch_mode else "(%s 봉공 고르기 · 가득이면 %s)" % [EKeys.label("es_ult_next"), EKeys.label("es_bind")]
-		draw_string(f, at + Vector2(0, 28), how, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(EVfx.PALE, 0.55))
-		draw_string(f, at + Vector2(0, 41), "(%s)" % gauge, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(EVfx.PALE, 0.55))
+		var ls: Array[String] = ["떨어지는 돌을 봉공으로", "굳혀 밟고 턱에 오르기 →"]
+		if EKeys.touch_mode:
+			ls.append_array(["순환 버튼으로 봉공 고르기", "위 '게이지 가득' 누르기"])
+		else:
+			ls.append_array(["%s 봉공 고르기 · %s 쓰기" % [EKeys.label("es_ult_next"), EKeys.label("es_bind")], "G 게이지 채우기"])
+		for i in ls.size():
+			var fs := 11 if i < 2 else 10
+			while fs > 8 and f.get_string_size(ls[i], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > TEXT_W:
+				fs -= 1
+			draw_string(f, at + Vector2(0, 14.0 * float(i)), ls[i], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(EVfx.PALE, 0.8 if i < 2 else 0.6))
+
+	## 안내판 가운데 가로 위치 (가까이 가면 진해짐)
+	func sign_x() -> float:
+		return shelf.position.x + TEXT_X + TEXT_W * 0.5
+
 
 ## 틈 달이기 안내판 (가마솥 위): 작은 틈 그림 + 가운데 맞춘 안내 글씨. 입력 방식이 바뀌면 다시 그림
 class RiftSign extends Node2D:
@@ -279,6 +301,9 @@ class RiftSign extends Node2D:
 		if _mode != EKeys.touch_mode:
 			_mode = EKeys.touch_mode
 			queue_redraw()
+
+	func sign_x() -> float:
+		return at.x
 
 	func lines() -> Array[String]:
 		return ["틈 달이기", "천열(%s)로 찢은 틈이 열려 있을 때" % EKeys.label("es_skill"),
@@ -358,7 +383,13 @@ class PracticeList extends Control:
 	const RIGHT := 12.0
 	const FS := 10 ## 글자 크기 (줄 간격은 글꼴 높이)
 	const TICK_T := 0.25 ## 체크가 그어지는 시간
+	const OPEN_T := 3.0 ## 체크되면 이만큼 펼쳐 보임
+	const HEAD_W := 112.0 ## 접힌 한 줄의 너비
+	const TAP_GAP := 0.3 ## 누름 한 번이 터치와 흉내 마우스로 두 번 들어와도 한 번만 열고 닫게
 	var hud: EHud
+	var pinned := false ## 눌러서 펼쳐 둠
+	var _open_t := 0.0 ## 체크 뒤 펼쳐 둘 남은 시간
+	var _tap_t := 9.0
 	var done: Array[bool] = [false, false, false, false, false]
 	var _since: Array[float] = [9.0, 9.0, 9.0, 9.0, 9.0]
 	var _sig := ""
@@ -372,12 +403,39 @@ class PracticeList extends Control:
 			return
 		done[i] = true
 		_since[i] = 0.0
+		_open_t = OPEN_T
 		Sfx.play(&"checkpoint", -6.0)
 		if not done.has(false) and is_instance_valid(hud):
 			hud.banner("연습 과제 완료", "마녀의 손이 풀렸다", 1.8)
 
 	func count() -> int:
 		return done.count(true)
+
+	func is_open() -> bool:
+		return pinned or _open_t > 0.0
+
+	## 접힌 줄(머리) 자리 — 누르면 펼침/접음
+	func head_rect() -> Rect2:
+		return Rect2(size.x - RIGHT - HEAD_W, TOP, HEAD_W, 16.0)
+
+	func toggle() -> void:
+		pinned = not is_open()
+		_open_t = 0.0
+		Sfx.play(&"ui_move", -8.0)
+
+	func _input(event: InputEvent) -> void:
+		if not visible:
+			return
+		var pos := Vector2(-1, -1)
+		if event is InputEventScreenTouch and event.pressed:
+			pos = event.position
+		elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			pos = event.position
+		if pos.x < 0.0 or not head_rect().grow(4.0).has_point(pos) or _tap_t < TAP_GAP:
+			return
+		_tap_t = 0.0
+		toggle()
+		get_viewport().set_input_as_handled()
 
 	func texts() -> Array[String]:
 		return ["%s 낙성으로 공중 표적" % EKeys.with_dir("es_down", "es_skill"), "%s 단공 딱 맞춤" % EKeys.with_dir("es_up", "es_skill"),
@@ -386,7 +444,9 @@ class PracticeList extends Control:
 	func _process(delta: float) -> void:
 		size = get_viewport_rect().size
 		visible = not (is_instance_valid(hud) and hud.cinematic)
-		var sig := "%s|%s|%s" % [str(done), str(EKeys.touch_mode), str(size)]
+		_tap_t += delta
+		_open_t = maxf(_open_t - delta, 0.0)
+		var sig := "%s|%s|%s|%s" % [str(done), str(EKeys.touch_mode), str(size), str(is_open())]
 		for i in _since.size():
 			if _since[i] < TICK_T + 0.5:
 				_since[i] += delta
@@ -398,6 +458,9 @@ class PracticeList extends Control:
 	## 그리기 호출을 줄이려고 같은 색 글은 여러 줄 글 하나로, 네모·체크는 선 묶음 하나로 그린다
 	func _draw() -> void:
 		var f := get_theme_default_font()
+		if not is_open():
+			_draw_head(f)
+			return
 		var x := size.x - RIGHT - W
 		var ts := texts()
 		var lh := f.get_height(FS)
@@ -406,6 +469,8 @@ class PracticeList extends Control:
 		draw_rect(Rect2(x, TOP, W, h), Color(EVfx.VIOLET, 0.35), false, 1.0)
 		var base := Vector2(x + 6.0, TOP + 3.0 + f.get_ascent(FS))
 		draw_string(f, base, "마녀의 연습 과제 %d/%d" % [count(), ts.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, FS, Color(EVfx.EDGE, 0.9))
+		var tc := Vector2(x + W - 9.0, TOP + 9.0) # 그린 ▾ (누르면 접힘)
+		draw_colored_polygon(PackedVector2Array([tc + Vector2(-4.0, -2.5), tc + Vector2(4.0, -2.5), tc + Vector2(0.0, 3.0)]), Color(EVfx.PALE, 0.85))
 		var todo := PackedStringArray([""])
 		var got := PackedStringArray([""])
 		var boxes := PackedVector2Array()
@@ -431,3 +496,12 @@ class PracticeList extends Control:
 			draw_multiline_string(f, tp, "\n".join(got), HORIZONTAL_ALIGNMENT_LEFT, -1, FS, -1, Color(EVfx.PALE, 0.45))
 		if not ticks.is_empty():
 			draw_multiline(ticks, Color(EVfx.MAGENTA.lerp(EVfx.EDGE, 0.5), 1.0), 2.0)
+
+	## 접힌 한 줄: "연습 과제 n/5" + 그린 ▸ (웹 글꼴에 없을 수 있어 글자로 쓰지 않음)
+	func _draw_head(f: Font) -> void:
+		var r := head_rect()
+		draw_rect(r, Color(EVfx.INK, 0.72))
+		draw_rect(r, Color(EVfx.VIOLET, 0.35), false, 1.0)
+		draw_string(f, r.position + Vector2(6.0, 3.0 + f.get_ascent(FS)), "연습 과제 %d/%d" % [count(), done.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, FS, Color(EVfx.EDGE, 0.9))
+		var c := Vector2(r.end.x - 9.0, r.get_center().y)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-2.5, -4.0), c + Vector2(3.0, 0.0), c + Vector2(-2.5, 4.0)]), Color(EVfx.PALE, 0.85))
