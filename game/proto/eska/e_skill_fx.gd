@@ -326,7 +326,11 @@ class Upsweep extends SlashSeries:
 		var zone := area.grow(PROJ_PAD)
 		for n: Node in get_tree().get_nodes_in_group(PROJ_GROUP):
 			var p := n as Node2D
-			if p == null or not p.has_method("deflect") or not zone.has_point(p.global_position):
+			if p == null or not p.has_method("deflect"):
+				continue
+			# 땅을 타는 비검·천검은 위치가 바닥 높이라, 판정 사각형(deflect_rect)이 있으면 그것으로 고른다
+			var inside := zone.intersects(p.call("deflect_rect")) if p.has_method("deflect_rect") else zone.has_point(p.global_position)
+			if not inside:
 				continue
 			var at := p.global_position
 			if not p.call("deflect", eska):
