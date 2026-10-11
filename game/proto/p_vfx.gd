@@ -386,7 +386,8 @@ class FocusPulse extends Base:
 
 # ═══════════════════════════════════════════════════════════
 # 피해 숫자 — 한 노드가 모두 그린다(숫자마다 Label 노드를 만들지 않음).
-# 같은 대상이 0.3초 안에 또 맞으면 숫자를 더해 키운다(불비·바인드처럼 잦은 타격이 숫자 더미가 되지 않게).
+# 같은 대상이 MERGE초 안에 또 맞으면 숫자를 더해 키운다(불비·바인드·천열처럼 잦은 타격이 숫자 더미가 되지 않게).
+# 대상마다 자리를 조금씩 엇갈려(인스턴스 번호로 정한 고정 어긋남) 붙어 선 적들의 숫자가 겹치지 않게 한다.
 # ═══════════════════════════════════════════════════════════
 
 static func number(key: Object, pos: Vector2, value: int, heavy := false, fox := false) -> void:
@@ -400,10 +401,16 @@ static func number(key: Object, pos: Vector2, value: int, heavy := false, fox :=
 
 class Numbers extends Node2D:
 	static var inst: Numbers
-	var items: Array = [] ## [대상, 위치, 값, 나이, 큼, 여우불, 합친 횟수]
+	var items: Array = [] ## [대상, 위치, 값, 나이, 큼, 여우불, 합친 횟수, 마지막 타격 뒤 시간]
 	var _font: Font
 	const LIFE := 0.75
-	const MERGE := 0.3
+	const MERGE := 0.25
+	const MAX_ITEMS := 32
+	const SPREAD_X := 14 ## 대상마다 가로 어긋남 (±px)
+	const STAGGER_Y := 7.0 ## 대상마다 세로 어긋남 단계 (0·1·2단)
+	const GROW_MAX := 8 ## 합칠수록 커지는 글자 크기 상한 (px)
+	const HOLD_AGE := 0.2 ## 합칠 때 나이를 여기까지만 되돌림 (숫자가 다시 바닥으로 튀지 않고 떠 있는 채 커짐)
+	const BUMP_Y := 11.0 ## 같은 대상의 새 숫자가 뜨면 아직 떠 있는 예전 숫자를 이만큼 위로 밀어 겹치지 않게
 
 	func _ready() -> void:
 		z_index = 20
@@ -411,21 +418,33 @@ class Numbers extends Node2D:
 
 	func add(key: Object, pos: Vector2, value: int, heavy: bool, fox: bool) -> void:
 		for it: Array in items:
-			if it[0] == key and float(it[3]) < MERGE:
+			if it[0] == key and float(it[7]) < MERGE:
 				it[2] = int(it[2]) + value
-				it[3] = 0.0
+				it[3] = minf(float(it[3]), HOLD_AGE)
 				it[4] = bool(it[4]) or heavy
 				it[6] = int(it[6]) + 1
+				it[7] = 0.0
 				return
-		items.append([key, pos + Vector2(randf_range(-4, 4), 0), value, 0.0, heavy, fox, 0])
-		if items.size() > 40:
+		for it: Array in items:
+			if it[0] == key:
+				it[1] = (it[1] as Vector2) + Vector2(0, -BUMP_Y)
+		items.append([key, pos + _offset(key), value, 0.0, heavy, fox, 0, 0.0])
+		if items.size() > MAX_ITEMS:
 			items.pop_front()
+
+	## 대상마다 늘 같은 어긋남 (숫자가 프레임마다 흔들리지 않게)
+	func _offset(key: Object) -> Vector2:
+		if key == null:
+			return Vector2(randf_range(-4, 4), 0)
+		var h := hash(key.get_instance_id())
+		return Vector2(float(h % (SPREAD_X * 2 + 1) - SPREAD_X), -STAGGER_Y * float((h / 97) % 3))
 
 	func _process(delta: float) -> void:
 		if items.is_empty():
 			return
 		for it: Array in items:
 			it[3] = float(it[3]) + delta
+			it[7] = float(it[7]) + delta
 		items = items.filter(func(it: Array) -> bool: return float(it[3]) < LIFE)
 		queue_redraw()
 
@@ -435,8 +454,8 @@ class Numbers extends Node2D:
 			var heavy: bool = it[4]
 			var merged: int = it[6]
 			var big := heavy or merged >= 3
-			var pop := 1.0 - clampf(age / 0.12, 0.0, 1.0)
-			var sz := (13 if big else 10) + int(round(5.0 * pop)) + mini(merged, 6) / 2
+			var pop := 1.0 - clampf(float(it[7]) / 0.12, 0.0, 1.0) # 맞을 때마다 툭 커짐
+			var sz := (13 if big else 10) + int(round(5.0 * pop)) + mini(merged, GROW_MAX)
 			var rise := (16.0 if big else 11.0) * (1.0 - pow(1.0 - minf(age / 0.45, 1.0), 2.0))
 			var a := 1.0 - clampf((age - 0.45) / (LIFE - 0.45), 0.0, 1.0)
 			var col: Color

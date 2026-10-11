@@ -107,6 +107,37 @@ static func sigil(pos: Vector2, size := 1.0) -> void:
 	Sfx.play_pitch(&"es_sigil", randf_range(0.95, 1.08) * (1.0 if size < 1.8 else 0.8), -14.0 if size < 1.8 else -7.0)
 
 
+## 큰 화면 섬광: 하얗게 번쩍이면 화면이 지워져 보여서, 보랏빛(기본)이나 뼈흰빛으로 물들이고 2프레임만 (loop2_plan 6장)
+const FLASH_VIOLET := Color("#8a5ce0")
+const FLASH_BONE := Color("#e9dfcc")
+const FLASH_T := 2.0 / 60.0
+
+
+static func big_flash(strength := 0.35, bone := false) -> void:
+	Fx.flash(Color(FLASH_BONE if bone else FLASH_VIOLET, strength), FLASH_T)
+
+
+## 튕겨냄(단공이 발사체를 지움): 짧게 번쩍이는 네 갈래 별 + 작은 고리 + 유리 파편 — 한 노드
+static func deflect_spark(pos: Vector2) -> void:
+	add(DeflectSpark.new(), pos, true)
+	shards(pos, 4, 160.0, Vector2(2, 2), 60.0)
+	pixels(pos, 6, 200.0, Vector2.ZERO, 180.0, 0.22)
+
+
+class DeflectSpark extends PVfx.Base:
+	func _ready() -> void:
+		life = 0.2
+		z_index = 8
+
+	func _paint() -> void:
+		var x := k()
+		var f := 1.0 - x
+		var grow := 1.0 - pow(1.0 - minf(x * 3.0, 1.0), 2.0)
+		pd.glow(Vector2.ZERO, 12.0 * f + 4.0, Color(EDGE, 0.8 * f), 0.0)
+		EVfx.star4(pd, Vector2.ZERO, 14.0 * (0.5 + 0.5 * grow) * f + 2.0, 0.785, Color(WHITE, f), Color(MAGENTA, 0.3 * f))
+		pd.draw_arc(Vector2.ZERO, 4.0 + 14.0 * grow, 0.0, TAU, 18, Color(MAGENTA, 0.9 * f), 1.5)
+
+
 # ═══════════════════════════════════════════════════════════
 # 찢긴 틈 (모든 마법이 같이 쓰는 "공간이 찢어지는" 그림)
 # ═══════════════════════════════════════════════════════════
@@ -118,6 +149,7 @@ const RIFT_STAR_MAX := 34
 const RIFT_LAYERS := [[5.5, 0.6, Color(MAGENTA, 0.17), false], [2.6, 0.15, Color(BODY, 0.55), false],
 	[1.7, 0.0, Color(MAGENTA, 0.95), false], [0.8, 0.0, EDGE, false], [0.0, 0.0, VOID, true]]
 const RIFT_RIBBONS := 7 ## 겹 다섯 + 안쪽으로 새어 드는 빛 두 줄
+const RIFT_RING_EXTRA := 4 ## 테만 그리는 모드(void_a < 1)에서 늘어나는 띠 (테 겹 넷이 위·아래 둘로)
 
 static var _jag_cache := {} ## (jseed, 점 수) → [위 들쭉날쭉, 아래 들쭉날쭉, 테 들쭉날쭉×끝 뾰족함, 끝 뾰족함]
 static var _idx_cache := {} ## (시작 번호, 점 수) → 띠 일곱 줄의 삼각형 번호 (같은 노드는 프레임마다 같은 자리에 그려서 거의 늘 재사용)
@@ -162,9 +194,11 @@ static func _jag_of(jseed: int, n: int) -> Array:
 ## 겹(뒤→앞): 마젠타 번짐 → 보랏빛 가장자리 → 분홍빛 흰 테 → 검은 무(밤하늘) → 가장자리에서 새어 드는 보랏빛 → 별빛.
 ## 반폭이 0인 곳(꿰매어 닫힌 곳)은 테만 남아 가는 빛 줄(꿰맨 자국)이 된다. 가장자리는 찢긴 종이처럼 들쭉날쭉(jseed).
 ## nrm은 단위 벡터가 아니어도 된다(납작하게 누른 호는 누른 만큼 짧은 벡터). ghost 0~1 = 메아리(무가 비치고 옅음)
+## void_a = 검은 무의 진하기 (천열처럼 큰 틈이 겹쳐도 뒤의 표적이 비쳐 보이게 낮춤). 1보다 작으면 테 겹들을 틈 안까지 채우지 않고
+## 위·아래 테로만 그린다 (안을 채우면 흰 테가 비쳐 틈이 허옇게 보임 — 띠가 넷 늘어남)
 ## 성능: 겹 일곱 줄을 꼭짓점 묶음 하나로 한 번에 넣는다 (삼각형 번호는 기억해 두고 다시 씀)
 static func rift(pd: PDraw, pts: PackedVector2Array, nrm: PackedVector2Array, hw: PackedFloat32Array, al: PackedFloat32Array,
-		jseed := 0, t := 0.0, ghost := 0.0, star_k := 1.0) -> void:
+		jseed := 0, t := 0.0, ghost := 0.0, star_k := 1.0, void_a := 1.0) -> void:
 	var n := pts.size()
 	if n < 2:
 		return
@@ -174,10 +208,12 @@ static func rift(pd: PDraw, pts: PackedVector2Array, nrm: PackedVector2Array, hw
 	var rt: PackedFloat32Array = jg[2]
 	var tip: PackedFloat32Array = jg[3]
 	var n2 := n * 2
+	var ring := void_a < 0.99
+	var strips := RIFT_RIBBONS + (RIFT_RING_EXTRA if ring else 0)
 	var vs := PackedVector2Array()
 	var cs := PackedColorArray()
-	vs.resize(n2 * RIFT_RIBBONS)
-	cs.resize(n2 * RIFT_RIBBONS)
+	vs.resize(n2 * strips)
+	cs.resize(n2 * strips)
 	var ga := 1.0 - 0.6 * ghost
 	var o := 0
 	for ly: Array in RIFT_LAYERS:
@@ -186,11 +222,27 @@ static func rift(pd: PDraw, pts: PackedVector2Array, nrm: PackedVector2Array, hw
 		var col: Color = ly[2]
 		var open_only: bool = ly[3]
 		if open_only:
-			col.a = 1.0 - 0.3 * ghost
+			col.a = (1.0 - 0.3 * ghost) * void_a
 		elif ex < 1.0:
 			col = Color(col.lerp(PALE, ghost), ga)
 		else:
 			col.a *= ga
+		if ring and not open_only:
+			# 테만: 위 (바깥 → 틈 가장자리) · 아래 (틈 가장자리 → 바깥)
+			for side in 2:
+				var sg := 1.0 if side == 0 else -1.0
+				var jj := ju if side == 0 else jl
+				for i in n:
+					var h := hw[i]
+					var nm := nrm[i] * sg
+					var e := ex * rt[i] + h * exh * tip[i]
+					vs[o] = pts[i] + nm * (h * jj[i] + e)
+					vs[o + 1] = pts[i] + nm * (h * jj[i])
+					var cc := Color(col.r, col.g, col.b, col.a * al[i])
+					cs[o] = cc
+					cs[o + 1] = cc
+					o += 2
+			continue
 		for i in n:
 			var h := hw[i]
 			var nm := nrm[i]
@@ -221,21 +273,21 @@ static func rift(pd: PDraw, pts: PackedVector2Array, nrm: PackedVector2Array, hw
 	var base := pd.v.size()
 	pd.v.append_array(vs if pd._id else pd.xf * vs)
 	pd.c.append_array(cs)
-	pd.idx.append_array(_ribbon_idx(base, n))
+	pd.idx.append_array(_ribbon_idx(base, n, strips))
 	if star_k > 0.0:
 		_rift_stars(pd, pts, nrm, hw, al, jseed, t, star_k * ga)
 
 
 ## 띠 일곱 줄(줄마다 점 n개, 꼭짓점 2n개)의 삼각형 번호 — 시작 번호 base부터
-static func _ribbon_idx(base: int, n: int) -> PackedInt32Array:
-	var key := base * 256 + n
+static func _ribbon_idx(base: int, n: int, strips := RIFT_RIBBONS) -> PackedInt32Array:
+	var key := (base * 256 + n) * 16 + strips
 	var got: Variant = _idx_cache.get(key)
 	if got != null:
 		return got
 	var idx := PackedInt32Array()
-	idx.resize(RIFT_RIBBONS * (n - 1) * 6)
+	idx.resize(strips * (n - 1) * 6)
 	var k := 0
-	for r in RIFT_RIBBONS:
+	for r in strips:
 		var b0 := base + r * n * 2
 		for i in n - 1:
 			var q := b0 + i * 2
@@ -365,12 +417,15 @@ static func feathers(pos: Vector2, n: int, speed: float, area := Vector2.ZERO, d
 		var p := pos + Vector2(randf_range(-area.x, area.x), randf_range(-area.y, area.y))
 		var d := dir if dir != Vector2.ZERO else Vector2.from_angle(randf() * TAU)
 		d = d.rotated(randf_range(-0.7, 0.7))
-		f.spawn(p, d * randf_range(speed * 0.4, speed) + Vector2(0, -randf_range(20.0, 60.0)), randf_range(1.7, 2.6))
+		f.spawn(p, d * randf_range(speed * 0.4, speed) + Vector2(0, -randf_range(20.0, 60.0)), randf_range(Feathers.LEN_MIN, Feathers.LEN_MAX))
 
 
 ## 흩날리는 검은 깃털 — 장면에 한 노드 (보통 섞기: 검은색이 보이게, 보랏빛 테로 어둠 속에서도 읽힘)
 class Feathers extends PDraw.Canvas:
 	const MAX := 90
+	const LEN_MIN := 5.0 ## 깃털 길이(px) — 너무 작으면 점으로 보여 마녀 신호가 안 읽힘 (loop2_plan 6장)
+	const LEN_MAX := 7.0
+	const RIM := 1.0 ## 옅은 보랏빛 테 두께(px): 어두운 배경에서도 깃털 모양이 보이게
 	static var _inst: Feathers
 	var pos := PackedVector2Array()
 	var vel := PackedVector2Array()
@@ -425,18 +480,18 @@ class Feathers extends PDraw.Canvas:
 			var sw := sin(age[i] * 5.0 + ph[i])
 			var p := pos[i] + Vector2(sw * 4.0 * minf(age[i] * 2.0, 1.0), 0.0) # 이리저리 흔들리며
 			var rot := ph[i] + sw * 0.7 + age[i] * 0.5
-			var L := sz[i] * 3.0
+			var L := sz[i]
 			var d := Vector2.from_angle(rot)
 			var o := d.orthogonal()
-			var w := L * 0.2
+			var w := L * 0.26
 			var shape := PackedVector2Array([p + d * L * 0.5, p + d * L * 0.12 + o * w, p - d * L * 0.36 + o * w * 0.7, p - d * L * 0.5,
 				p - d * L * 0.36 - o * w * 0.55, p + d * L * 0.12 - o * w * 0.85])
 			var rim := PackedVector2Array()
 			for q in shape:
-				rim.append(p + (q - p) * 1.28)
-			pd.convex(rim, Color(BODY, 0.55 * a))
+				rim.append(q + (q - p).normalized() * RIM)
+			pd.convex(rim, Color(VIOLET, 0.5 * a))
 			pd.convex(shape, Color(INK, 0.95 * a))
-			pd.draw_line(p - d * L * 0.62, p + d * L * 0.4, Color(PLUM.lerp(VIOLET, 0.35), 0.85 * a), 0.8)
+			pd.draw_line(p - d * L * 0.62, p + d * L * 0.4, Color(PLUM.lerp(VIOLET, 0.45), 0.9 * a), 1.0)
 
 
 ## 마녀 문장: 원 두 겹 + 일곱 갈래 별 {7/2} + 원 사이 작은 룬 일곱. 툭 커지며 번쩍 → 돌며 옅어짐 (가산)
@@ -452,47 +507,54 @@ class Sigil extends PVfx.Base:
 		[Vector2(-0.7, -0.8), Vector2(0.7, -0.8), Vector2(0, -0.8), Vector2(0, 1)],
 		[Vector2(-0.6, 0.9), Vector2(0.6, -0.9), Vector2(-0.2, -0.3), Vector2(0.5, 0.4)],
 	]
+	const FINGER_MIN := 1.4 ## 손끝 문장 최소 크기 — 이보다 작으면 일곱 갈래 별이 뭉개져 안 읽힘 (loop2_plan 6장)
+	const POP := 0.05 ## 툭 커지는 시간
+	const HOLD := 2.0 / 60.0 ## 다 커진 뒤 돌지 않고 멈춰 보이는 시간 (2프레임 — 별 모양이 읽히게)
 	var size := 1.0
 	var _spin := 0.0
 
 	func _ready() -> void:
-		life = lerpf(0.25, 0.42, clampf((size - 1.0) / 1.5, 0.0, 1.0))
+		size = maxf(size, FINGER_MIN)
+		life = lerpf(0.25, 0.42, clampf((size - 1.0) / 1.5, 0.0, 1.0)) + HOLD
 		z_index = 7
 		_spin = randf() * TAU
 
 	func _paint() -> void:
 		var x := k()
-		var pop := 1.0 - pow(1.0 - clampf(t / 0.06, 0.0, 1.0), 3.0)
-		var R := RADIUS * size * (0.55 + 0.45 * pop) * (1.0 + 0.12 * x)
-		var a := 1.0 if x < 0.35 else pow(1.0 - (x - 0.35) / 0.65, 1.4)
+		var pop := 1.0 - pow(1.0 - clampf(t / POP, 0.0, 1.0), 3.0)
+		var moving := maxf(t - POP - HOLD, 0.0) # 멈춤이 끝난 뒤부터 돌고 커지며 옅어짐
+		var mx := clampf(moving / maxf(life - POP - HOLD, 0.01), 0.0, 1.0)
+		var R := RADIUS * size * (0.55 + 0.45 * pop) * (1.0 + 0.12 * mx)
+		var a := 1.0 if mx < 0.3 else pow(1.0 - (mx - 0.3) / 0.7, 1.4)
+		var small := size < 1.8
 		var lw := maxf(1.0, 0.55 * size)
-		var sp := _spin + t * 4.0
+		var sp := _spin + moving * 4.0
 		if t < 0.07:
-			pd.glow(Vector2.ZERO, R * 1.3, Color(EDGE, 0.7 * (1.0 - t / 0.07)), 0.0)
-		pd.glow(Vector2.ZERO, R * 1.5, Color(MAGENTA, 0.22 * a), 0.0)
+			pd.glow(Vector2.ZERO, R * 1.3, Color(EDGE, 0.6 * (1.0 - t / 0.07)), 0.0)
+		pd.glow(Vector2.ZERO, R * 1.5, Color(MAGENTA, (0.12 if small else 0.22) * a), 0.0)
 		var segs := 18 + int(size * 8.0)
 		pd.draw_arc(Vector2.ZERO, R, 0.0, TAU, segs, Color(EDGE, 0.95 * a), lw)
-		pd.draw_arc(Vector2.ZERO, R * 0.8, 0.0, TAU, segs, Color(MAGENTA, 0.8 * a), maxf(lw * 0.7, 1.0))
-		# 일곱 갈래 별 {7/2}: 꼭짓점 k → k+2
+		if not small: # 작은 문장은 안쪽 원을 빼서 별 끝과 겹쳐 뭉개지지 않게
+			pd.draw_arc(Vector2.ZERO, R * 0.8, 0.0, TAU, segs, Color(MAGENTA, 0.8 * a), maxf(lw * 0.7, 1.0))
+		# 일곱 갈래 별 {7/2}: 꼭짓점 k → k+2 (작은 문장은 별을 원에 닿게 크게)
 		var st := PackedVector2Array()
+		var sr := R * (0.9 if small else 0.78)
 		for i in 7:
-			st.append(Vector2.from_angle(sp + float(i) * TAU / 7.0) * R * 0.78)
+			st.append(Vector2.from_angle(sp + float(i) * TAU / 7.0) * sr)
 		for i in 7:
-			pd.draw_line(st[i], st[(i + 2) % 7], Color(STREAK.lerp(EDGE, 0.4), 0.9 * a), lw)
-		# 원 사이 룬 (작으면 점으로) — 별과 반대로 돈다
-		var rr := R * 0.9
-		for i in 7:
-			var an := -sp * 0.6 + float(i) * TAU / 7.0 + TAU / 14.0
-			var c := Vector2.from_angle(an) * rr
-			if size < 1.6:
-				pd.draw_rect(Rect2(c.x - 0.5, c.y - 0.5, 1.0, 1.0), Color(EDGE, a))
-				continue
-			var rn: Array = RUNES[i]
-			var s := R * 0.07
-			var rt := an + PI * 0.5
-			for q in range(0, rn.size(), 2):
-				pd.draw_line(c + (rn[q] as Vector2).rotated(rt) * s, c + (rn[q + 1] as Vector2).rotated(rt) * s, Color(EDGE, 0.9 * a), 1.0)
-		pd.glow(Vector2.ZERO, R * 0.3, Color(WHITE, 0.8 * a), 0.0)
+			pd.draw_line(st[i], st[(i + 2) % 7], Color(STREAK.lerp(EDGE, 0.6 if small else 0.4), a), lw)
+		# 원 사이 룬 (작으면 생략) — 별과 반대로 돈다
+		if not small:
+			var rr := R * 0.9
+			for i in 7:
+				var an := -sp * 0.6 + float(i) * TAU / 7.0 + TAU / 14.0
+				var c := Vector2.from_angle(an) * rr
+				var rn: Array = RUNES[i]
+				var s := R * 0.07
+				var rt := an + PI * 0.5
+				for q in range(0, rn.size(), 2):
+					pd.draw_line(c + (rn[q] as Vector2).rotated(rt) * s, c + (rn[q + 1] as Vector2).rotated(rt) * s, Color(EDGE, 0.9 * a), 1.0)
+		pd.glow(Vector2.ZERO, R * (0.16 if small else 0.3), Color(WHITE, 0.7 * a), 0.0)
 
 
 ## 보랏빛 조각 + 연기 (보통 섞기 — 부서진 참격이 흩어지는 것)
@@ -510,11 +572,13 @@ static func dark_bits(pos: Vector2, n: int, speed: float, dir := Vector2.ZERO, s
 			Color(PLUM, 0.55), Color(INK, 0.0), 2, 3.0)
 
 
-## 어둠 폭발 (큰 타격·마무리): 무늬 있는 검보라 구체가 순간 부풀었다 연기로 흩어진다
+## 어둠 폭발 (큰 타격·마무리) → 「찢김 렌즈」: 작은 틈이 눈 모양으로 툭 벌어져 안에 밤하늘(검은 무 + 별빛)이 보이고,
+## 한쪽 끝부터 꿰매듯 닫히며 깃털 몇 개가 흩날린다 (2026-10-11 루프2: 검은 원판 + 가시는 싸구려 표창처럼 보여 바꿈).
+## 크기는 예전의 절반쯤 (rad = 예전 원판 반지름 — 부르는 쪽은 그대로). 장면의 Lenses 한 노드가 모두 그린다
 static func dark_burst(pos: Vector2, rad: float) -> void:
-	var b := DarkBurst.new()
-	b.rad = rad
-	add(b, pos, false)
+	Lenses.get_layer().spawn(pos, rad)
+	dark_bits(pos, int(3 + rad * 0.1), rad * 3.0, Vector2.ZERO, 180.0, 0.32, 1)
+	feathers(pos, 3 if rad >= 40.0 else 2, 40.0 + rad * 1.5, Vector2(rad * 0.3, rad * 0.15))
 
 
 ## 네모 픽셀 불티 (흰색 → 보라로 사라짐)
@@ -663,44 +727,68 @@ class Shards extends PDraw.Canvas:
 			pd.draw_colored_polygon(PackedVector2Array([pos[i] + d, pos[i] + n - d * 0.6, pos[i] - n - d * 0.3]), Color(PALE.lerp(WHITE, flick), f * flick))
 
 
-## 어둠 폭발: 공간에 둥근 구멍이 순간 뚫려(안은 검은 무 + 별빛, 테는 마젠타·분홍빛 흰색, 둘레엔 찢긴 가시) 부풀었다가
-## 다시 오므라들며 닫히고, 테두리가 흩어지며 연기로 사라진다 — 보통 섞기 (찢긴 틈 그림과 같은 말투)
-class DarkBurst extends PVfx.Base:
-	const SPIKES := 7
-	var rad := 40.0
-	var _spin := 0.0
+## 찢김 렌즈 (dark_burst) — 장면에 한 노드, 여러 렌즈를 함께 그린다 (보통 섞기, 찢긴 틈과 같은 그림 EVfx.rift)
+class Lenses extends PDraw.Canvas:
+	const MAX := 24
+	const OPEN := 0.05 ## 툭 벌어지는 시간
+	const HOLD := 0.06
+	const ZIP := 0.14 ## 꿰매어 닫히는 시간
+	const SEAM := 0.1 ## 꿰맨 자국이 사라지는 시간
+	const LEN_K := 0.75 ## 렌즈 반 길이 = rad × 이 값
+	const WIDE_K := 0.3 ## 렌즈 반 폭 = rad × 이 값
+	const SEG := 8
+	static var _inst: Lenses
+	var items: Array = [] ## [나이, 가운데 선, 바깥 방향, 반폭, 번호, 위치, rad]
 
-	func _ready() -> void:
-		life = 0.42 + rad * 0.003
-		z_index = 6
-		_spin = randf() * TAU
-		EVfx.dark_bits(position, int(6 + rad * 0.25), rad * 4.5, Vector2.ZERO, 180.0, 0.4, int(2 + rad * 0.06))
+	static func get_layer() -> Lenses:
+		if is_instance_valid(_inst) and _inst.is_inside_tree():
+			return _inst
+		_inst = Lenses.new()
+		_inst.z_index = 6
+		Fx.effect_parent().add_child(_inst)
+		return _inst
+
+	func spawn(pos: Vector2, rad: float) -> void:
+		if items.size() >= MAX:
+			items.pop_front()
+		var sd := randi() % 997
+		var an := randf_range(0.25, 0.8) * (-1.0 if randf() < 0.5 else 1.0)
+		var d := Vector2.from_angle(an) * rad * LEN_K
+		var r: Array = EVfx.rift_line(pos - d, pos + d, rad * WIDE_K, SEG, sd, rad * 0.04)
+		items.append([0.0, r[0], r[1], r[2], sd, pos, rad])
+
+	func _process(delta: float) -> void:
+		if items.is_empty():
+			return
+		queue_redraw() # 마지막 렌즈가 사라지는 프레임에도 한 번 더 그려 지운다
+		var i := 0
+		while i < items.size():
+			items[i][0] = float(items[i][0]) + delta
+			if float(items[i][0]) >= OPEN + HOLD + ZIP + SEAM:
+				items.remove_at(i)
+				continue
+			i += 1
 
 	func _paint() -> void:
-		var grow := 1.0 - pow(1.0 - clampf(t / 0.06, 0.0, 1.0), 3.0)
-		var k := clampf((t - 0.08) / (life - 0.08), 0.0, 1.0)
-		if k >= 1.0:
-			return
-		var R := rad * (0.4 + 0.6 * grow)
-		var hole := R * pow(1.0 - k, 1.4) # 구멍이 오므라들며 닫힌다
-		var a := 1.0 - k * k
-		pd.glow(Vector2.ZERO, R * 1.8, Color(MAGENTA, 0.28 * a), 0.0)
-		# 둘레의 찢긴 가시 (천천히 돈다)
-		for i in SPIKES:
-			var d := Vector2.from_angle(_spin + t * 1.5 + float(i) * TAU / float(SPIKES))
-			var L := hole + R * (0.35 + 0.4 * EVfx.hash01(i + int(_spin * 100.0))) * (1.0 - 0.6 * k)
-			pd.convex(PackedVector2Array([d.rotated(0.28) * hole, d * L, d.rotated(-0.28) * hole]), Color(MAGENTA, 0.85 * a))
-		pd.draw_circle(Vector2.ZERO, hole + 2.6, Color(BODY, a))
-		pd.draw_circle(Vector2.ZERO, hole + 1.3, Color(EDGE, a))
-		pd.draw_circle(Vector2.ZERO, hole, VOID)
-		if hole > 6.0:
-			for i in 3:
-				var p := Vector2.from_angle(_spin * 3.0 + float(i) * 2.1) * hole * (0.3 + 0.2 * float(i))
-				pd.draw_rect(Rect2(p.x - 0.5, p.y - 0.5, 1.0, 1.0), Color(PALE, a))
-		# 뚫리는 순간의 분홍빛 흰 심
-		if t < 0.1:
-			var cf := 1.0 - t / 0.1
-			pd.glow(Vector2.ZERO, R * 0.6, Color(EDGE, 0.9 * cf), 0.0)
+		for it: Array in items:
+			var t: float = it[0]
+			var o := clampf(t / OPEN, 0.0, 1.0)
+			var open := o * o * (3.0 - 2.0 * o) * (1.0 + 0.25 * sin(clampf(t / (OPEN + HOLD), 0.0, 1.0) * PI))
+			var z := clampf((t - OPEN - HOLD) / ZIP, 0.0, 1.0)
+			var zip := z * z * (3.0 - 2.0 * z) * 1.02
+			var fade := 1.0 - clampf((t - OPEN - HOLD - ZIP) / SEAM, 0.0, 1.0)
+			var pos: Vector2 = it[5]
+			var rad: float = it[6]
+			if t < OPEN + HOLD:
+				pd.glow(pos, rad * 0.9, Color(MAGENTA, 0.3 * (1.0 - z)), 0.0)
+			var oz: Array = EVfx.rift_open(it[3], open, zip, 0.9, fade)
+			EVfx.rift(pd, it[1], it[2], oz[0], oz[1], int(it[4]), t, 0.0, 1.6)
+			if t < OPEN:
+				pd.glow(pos, rad * 0.45, Color(EDGE, 0.85 * (1.0 - t / OPEN)), 0.0) # 뚫리는 순간의 분홍빛 흰 심
+			elif zip > 0.0 and zip < 1.0:
+				var pts: PackedVector2Array = it[1]
+				var zi := clampi(int(zip * float(SEG)), 0, SEG)
+				EVfx.star4(pd, pts[zi], 2.5 + rad * 0.04, t * 9.0, Color(EDGE, 0.9 * fade), Color(MAGENTA, 0.4 * fade)) # 꿰매는 바늘 끝
 
 
 ## 맞은 자리: 가늘고 긴 빨강·흰 바늘이 X자로 교차 + 작은 섬광 + 마젠타 고리 — 장면에 한 노드, 여러 타격을 함께 그린다 (가산)

@@ -2,6 +2,9 @@ extends Node
 ## 시험용: 낙성·대마법·메아리 천열·마녀 문장을 실행기 eval로 바로 띄운다 (에스카 입력 연결과 상관없이 연출·피해를 본다).
 ## 시나리오에서 [2, "attach", "../tools/test/eska_magic_cast.gd"] 로 붙이고
 ## [f, "eval", "get_node('MagicCast').cast('blackstar', 1.0, 1.0)"] 처럼 부른다 (종류: nakseong · blackstar · meteor · doom · flurry · sigil).
+## 루프2: 시험용 발사체(TestOrb — 그룹 es_projectile, deflect(by) -> bool) · 틈 등록부(ERifts) 조회·스며들기 · 흑성 물약 빨아들이기.
+
+var absorbed_hits := 0 ## absorb_test의 apply가 불린 수 (흑성은 빨아들일 때 + 붕괴 직전 두 번 부름)
 
 
 func _ready() -> void:
@@ -84,3 +87,131 @@ func lost() -> String:
 	for d: Node in ETarget.all(get_tree()):
 		out += "%s:%d " % [d.name, 99999 - int(d.get("hp"))]
 	return out
+
+
+## 시험용 발사체 하나: (x, y)에서 (vx, vy)로 날아감. 단공이 지우면 사라지고 deflected가 는다
+func orb(x: float, y: float, vx: float, vy: float) -> String:
+	var o := TestOrb.new()
+	o.vel = Vector2(vx, vy)
+	get_parent().add_child(o)
+	o.global_position = Vector2(x, y)
+	return "orb at %d,%d" % [int(x), int(y)]
+
+
+## 발사체 상태: 남은 수 · 지워진 수 · 단공 쿨다운 · 종언 게이지
+func orbs() -> String:
+	var alive := get_tree().get_nodes_in_group("es_projectile").size()
+	var eska: EEska = get_parent().get("eska")
+	return "alive=%d deflected=%d dangong_cd=%.2f gauge=%.0f" % [alive, TestOrb.deflected, float(eska.cooldowns["dangong"]), eska.gauge]
+
+
+## 틈 등록부: (x, y) 둘레 r 안에 열린 틈 (번호·남은 시간)
+func rift_at(x: float, y: float, r: float) -> String:
+	var rf := ERifts.at(Vector2(x, y), r)
+	if rf.is_empty():
+		return "none"
+	return "id=%d left=%.2f pts=%d" % [int(rf.id), ERifts.left(int(rf.id)), (rf.pts as PackedVector2Array).size()]
+
+
+## (x, y) 둘레 열린 틈에 물약을 스며들게 하고 1초 더 열어 둠 (흐린 물 흉내)
+func infuse_test(x: float, y: float, r: float, extend := 0.0) -> String:
+	var rf := ERifts.at(Vector2(x, y), r)
+	if rf.is_empty():
+		return "none"
+	ERifts.infuse(rf, "bind", Color("#e8a33a"))
+	if extend > 0.0:
+		ERifts.extend(rf, extend)
+	return "infused id=%d left=%.2f" % [int(rf.id), ERifts.left(int(rf.id))]
+
+
+## 지금 흑성에 물약 빨아들이기 (apply가 불린 수는 absorbed_hits)
+func absorb_test() -> String:
+	var bs := EMagicFx.active_blackstar()
+	if bs == null:
+		return "no blackstar"
+	var ok: bool = bs.call("absorb", "rot", Color("#7fd66b"), func() -> int:
+		absorbed_hits += 1
+		return EMagicFx.targets_in(get_tree(), bs.call("pull_center"), bs.call("pull_radius")).size())
+	return "absorb=%s center=%s r=%.0f" % [ok, bs.call("pull_center"), bs.call("pull_radius")]
+
+
+## 흑성 apply가 돌려준 걸린 적 수 합
+func absorb_count() -> String:
+	for n: Node in Fx.effect_parent().get_children():
+		if n is EMagicFx.BlackStar:
+			return "calls=%d applied=%d" % [absorbed_hits, int(n.get("applied_count"))]
+	return "calls=%d" % absorbed_hits
+
+
+## 낙성이 노린 자리 (마지막으로 만든 낙성)
+func nak_aim() -> String:
+	var out := "none"
+	for n: Node in Fx.effect_parent().get_children():
+		if n is EMagicFx.Nakseong:
+			out = "aim=%s" % ((n as EMagicFx.Nakseong).aim + (n as Node2D).position)
+	return out
+
+
+## 시험용 발사체: 붉보라 구슬. 그룹 es_projectile에 들고 deflect(by)를 가진다 (검성·술사 발사체가 지킬 약속과 같은 모양)
+class TestOrb extends Node2D:
+	static var deflected := 0
+	var vel := Vector2.ZERO
+	var t := 0.0
+
+	func _ready() -> void:
+		add_to_group("es_projectile")
+		z_index = 5
+
+	func deflect(_by: Node2D) -> bool:
+		deflected += 1
+		queue_free()
+		return true
+
+	func _process(delta: float) -> void:
+		t += delta
+		position += vel * delta
+		if t > 4.0:
+			queue_free()
+		queue_redraw()
+
+	func _draw() -> void:
+		draw_circle(Vector2.ZERO, 7.0, Color(0.9, 0.2, 0.45, 0.35))
+		draw_circle(Vector2.ZERO, 4.5, Color(1.0, 0.45, 0.6))
+		draw_circle(Vector2.ZERO, 2.0, Color(1, 1, 1))
+
+
+## 봉공(공간 고정)을 바로 건다 (흑성 렌즈가 꺼지는지 보기)
+func still(sec := 3.0) -> String:
+	EStill.cast(get_parent().get("eska"), sec, 0.0)
+	return "still %.1f" % sec
+
+
+## 흑성 렌즈가 지금 보이는지
+func lens() -> String:
+	for n: Node in Fx.effect_parent().get_children():
+		if n is EMagicFx.BlackStar:
+			var l: Node2D = n.get("_lens")
+			return "lens_visible=%s still=%s" % [l.visible, EStill.active()]
+	return "none"
+
+
+## 찢김 렌즈(EVfx.dark_burst) 하나를 (x, y)에
+func lens_test(x: float, y: float, rad: float) -> String:
+	EVfx.dark_burst(Vector2(x, y), rad)
+	return "lens"
+
+
+## 이펙트 층의 노드들 (성능: 무엇이 노드·그리기 호출을 늘리는지)
+func fx_nodes() -> String:
+	var names := {}
+	var kids := Fx.effect_parent().get_children()
+	for n: Node in kids:
+		var sc: Script = n.get_script()
+		var nm := String(n.get_class())
+		if sc != null:
+			nm = sc.get_global_name() if sc.get_global_name() != "" else sc.resource_path.get_file() + ":" + str(n.get_class())
+			var p := n as Node2D
+			if p != null and p.get_script() != null and nm.ends_with(":Node2D"):
+				nm = str(p.get("life")) + "/" + nm if p.get("life") != null else nm
+		names[nm] = int(names.get(nm, 0)) + 1
+	return "n=%d %s" % [kids.size(), names]

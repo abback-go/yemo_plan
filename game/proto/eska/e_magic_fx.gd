@@ -32,6 +32,11 @@ static func targets_in(tree: SceneTree, c: Vector2, rad: float) -> Array:
 	return out
 
 
+## 지금 끌어당기는 흑성 (물약을 빨아들일 수 있을 때만, 아니면 null) — 물약 담당이 던진 병을 빨려 들게 할 때 쓴다 (BlackStar 설명 참고)
+static func active_blackstar() -> Node2D:
+	return BlackStar.current()
+
+
 # ═══════════════════════════════════════════════════════════
 # 공통 바탕: 시간·범위·피해·충격 자국
 # ═══════════════════════════════════════════════════════════
@@ -46,6 +51,12 @@ class Spell extends PDraw.Canvas:
 	var sz := 1.0 ## eska.mods.size (시작할 때 한 번 읽음)
 	var _seed := 0
 	var _booms: Array = [] ## 충격 자국: [위치(로컬), 나이, 반지름, 땅 위인가]
+	var _rid := 0 ## 틈 등록부(ERifts) 번호 (0 = 등록 안 함)
+	var _rid_extra: Array[int] = [] ## 같이 열리고 닫히는 덧붙인 모양 (낙성: 별 조각이 떨어지는 길)
+	var zip_at := INF ## 틈이 꿰매기 시작하는 시각 — 등록부가 열려 있다고 하는 동안 계속 밀린다 (흐린 물로 늘면 그만큼 늦게)
+	var _zip_tail := 0.5 ## 꿰매기 시작부터 다 사라질 때까지
+	var _zipping := false
+	var _hits := 0 ## 맞힌 타격 수 (히트스톱: 첫 타·마지막만)
 
 	func _ready() -> void:
 		z_index = 6
@@ -59,6 +70,8 @@ class Spell extends PDraw.Canvas:
 
 	func _process(delta: float) -> void:
 		t += delta
+		if _rid > 0:
+			_track_tear()
 		var i := 0
 		while i < _booms.size():
 			_booms[i][1] += delta
@@ -74,6 +87,47 @@ class Spell extends PDraw.Canvas:
 
 	func _step(_delta: float) -> void:
 		pass
+
+	## 찢은 틈을 등록부에 올림: open_for초 뒤 꿰매기 시작, tail = 꿰매기 시작부터 그림이 다 사라질 때까지
+	func _register_tear(shape: RiftShape, width: float, open_for: float, tail: float) -> void:
+		var gp := PackedVector2Array()
+		for p in shape.pts:
+			gp.append(g(p))
+		_rid = ERifts.open(gp, width, open_for)
+		zip_at = t + open_for
+		_zip_tail = tail
+		life = maxf(life, zip_at + tail)
+
+	## 같이 열리고 닫히는 모양 하나 더 등록 (pts = 로컬). 본 틈과 같은 시각에 닫힌다
+	func _register_extra(pts: PackedVector2Array, width: float) -> void:
+		var gp := PackedVector2Array()
+		for p in pts:
+			gp.append(g(p))
+		_rid_extra.append(ERifts.open(gp, width, maxf(zip_at - t, 0.0)))
+
+	func _track_tear() -> void:
+		if _zipping:
+			return
+		var left := ERifts.left(_rid)
+		for id in _rid_extra: # 덧붙인 모양이 늘어나면(흐린 물) 본 틈도 그만큼 열려 있음
+			left = maxf(left, ERifts.left(id))
+		if left <= 0.0:
+			_zipping = true
+			zip_at = t
+			ERifts.close(_rid)
+			for id in _rid_extra:
+				ERifts.close(id)
+		else:
+			zip_at = t + left
+		life = maxf(life, zip_at + _zip_tail)
+
+	## 여러 번 맞히는 마법의 멈춤: 첫 타 짧게, 마지막(final) 길게, 그 사이는 흔들림만 (떨림 방지 — loop2_plan 3장)
+	func _hit_stop(final: bool) -> void:
+		_hits += 1
+		if final:
+			Fx.hitstop(ESkillFx.SlashSeries.HITSTOP_FINAL)
+		elif _hits == 1:
+			Fx.hitstop(ESkillFx.SlashSeries.HITSTOP_FIRST)
 
 	func _paint() -> void:
 		_draw_fx()
@@ -206,39 +260,77 @@ static func smooth01(x: float) -> float:
 # 낙성 (↓ + 고급 마법)
 # ═══════════════════════════════════════════════════════════
 
-## 낙성: 앞쪽 하늘(약 110px 앞, 위 200px)에 마녀 문장이 번쩍 → 하늘이 비스듬히 찢어져 밤하늘이 보이고
-## 별 조각 6개가 0.06초 간격으로 비스듬히 쏟아져 내린다 (조각마다 60, 작은 충격). 공중에서 써도 똑같다(내려찍기 없음).
-## 조각은 지나가는 길에 몸에 닿으면 그 자리에서, 아니면 땅(없으면 정해진 거리)에서 터진다. 다 떨어지면 틈은 꿰매듯 닫힌다.
+## 낙성: 앞 30~240px 안 가장 가까운 표적(높이 상관없음, 없으면 앞 120px 땅) 위 하늘에 마녀 문장이 번쩍 → 하늘이 비스듬히 찢어져
+## 밤하늘이 보이고 별 조각 6개가 0.06초 간격으로 그 표적 둘레로 모여 쏟아진다 (조각마다 75, 작은 충격). 공중에서 써도 똑같다(내려찍기 없음).
+## 가까운 적도 맞는다: 틈이 표적 바로 위(살짝 뒤)에 열리므로 에스카 코앞이어도 조각이 표적을 지난다 (loop2_plan 3장).
+## 조각은 지나가는 길에 몸에 닿으면 그 자리에서, 아니면 땅(없으면 정해진 거리)에서 터진다. 틈은 약 1초 열려 있다가 꿰매듯 닫힌다.
 class Nakseong extends Spell:
-	const SKY := Vector2(110, -200) ## 틈 가운데 (발 기준, 앞으로)
+	const REACH_MIN := 30.0 ## 노리는 표적: 앞으로 이만큼 ~ REACH_MAX 안 (가로 거리)
+	const REACH_MAX := 240.0
+	const NO_TARGET := 120.0 ## 표적이 없으면 앞으로 이만큼 땅
+	const SKY_H := 190.0 ## 틈 높이: 노린 자리에서 위로
 	const TEAR := 50.0 ## 틈 반 길이
 	const COUNT := 6
 	const FIRST := 0.11 ## 첫 조각이 나오는 시각
 	const GAP := 0.06
 	const FALL_T := 0.28 ## 떨어지는 데 걸리는 시간 (소리와 맞춤)
 	const SLOPE := 0.26 ## 비스듬함 (앞으로 / 아래로)
-	const DMG := 60
+	const AIM_JIT := 12.0 ## 조각이 모이는 자리의 흩어짐 (노린 자리 둘레)
+	const PATH_W := 40.0 ## 등록부에 올리는 떨어지는 길의 굵기
+	const DMG := 75
 	const HIT_R := 26.0
-	const CLOSE_AT := 0.52
+	const OPEN_FOR := 1.0 ## 틈이 열려 있는 시간 (틈 달이기)
+	const CLOSE_T := 0.2 ## 꿰매는 시간
+	const FADE_T := 0.25 ## 꿰맨 자국이 사라지는 시간
+	var aim := Vector2.ZERO ## 노린 자리 (로컬) — 시험에서 읽음
 	var _rift: RiftShape
-	var _bits: Array = [] ## [나올 시각, 시작(로컬), 떨어질 자리(로컬), 끝났나, 땅인가]
+	var _bits: Array = [] ## [나올 시각, 시작(로컬), 떨어질 자리(로컬), 끝났나, 땅인가, 번호]
 	var _closed := false
 
 	func _begin() -> void:
-		life = 1.15
-		var c := Vector2(SKY.x * dir * sz, SKY.y)
+		life = 1.0
+		aim = _pick_aim()
+		var c := aim + Vector2(-dir * SLOPE * SKY_H, -SKY_H)
 		_rift = RiftShape.new(c + Vector2(-TEAR * dir * sz, 9.0), c + Vector2(TEAR * dir * sz, -9.0), 9.0 * sz, 14, _seed, 2.0)
-		var dv := Vector2(dir * SLOPE, 1.0).normalized()
 		for i in COUNT:
 			var f := (float(i) + 0.5 + randf_range(-0.25, 0.25)) / float(COUNT) # 뒤에서 앞으로 쏟아짐
 			var s := _rift.at(lerpf(0.12, 0.88, f))
+			var to := aim + Vector2(randf_range(-AIM_JIT, AIM_JIT) * sz, randf_range(-AIM_JIT, AIM_JIT) * 0.5)
+			var dv := (to - s).normalized()
 			var land: Variant = _ray(g(s), g(s + dv * 520.0))
 			var ground := land != null
-			var lp: Vector2 = (land as Vector2) - position if ground else s + dv * 240.0
-			_bits.append([FIRST + GAP * float(i), s, lp, false, ground])
+			var lp: Vector2 = (land as Vector2) - position if ground else s + dv * (s.distance_to(to) + 40.0)
+			_bits.append([FIRST + GAP * float(i), s, lp, false, ground, i])
+		_register_tear(_rift, 9.0 * sz, OPEN_FOR, CLOSE_T + FADE_T)
+		# 별 조각이 떨어지는 길(틈 가운데 → 노린 자리 → 땅)도 등록 — 땅에서 던진 병·땅의 적에게도 닿게
+		var mid := Vector2.ZERO
+		for b: Array in _bits:
+			mid += b[2] as Vector2
+		mid /= float(_bits.size())
+		_register_extra(PackedVector2Array([c, aim, mid]), PATH_W * sz)
 		EVfx.sigil(g(c), 2.0)
 		Sfx.play(&"es_nakseong", -2.0)
 		Sfx.play_pitch(&"es_tear", 0.8, -6.0)
+
+	## 노릴 자리 (로컬): 앞 REACH_MIN~REACH_MAX 안 가장 가까운 살아 있는 표적의 가운데, 없으면 앞 NO_TARGET 땅
+	func _pick_aim() -> Vector2:
+		var from := eska.center() if is_instance_valid(eska) else g(Vector2(0, -20))
+		var best: Node2D = null
+		var bd := INF
+		for d: Node2D in ETarget.alive(get_tree()):
+			var dc: Vector2 = d.center()
+			var dx := (dc.x - from.x) * float(dir)
+			if dx < REACH_MIN or dx > REACH_MAX * sz:
+				continue
+			var dd := dc.distance_squared_to(from)
+			if dd < bd:
+				bd = dd
+				best = d
+		if best != null:
+			return (best.center() as Vector2) - position
+		var at := g(Vector2(NO_TARGET * dir * sz, -20.0))
+		var hit: Variant = _ray(at, at + Vector2(0, 400))
+		return ((hit as Vector2) if hit != null else at + Vector2(0, 20)) - position
 
 	func _step(_delta: float) -> void:
 		for b: Array in _bits:
@@ -261,12 +353,12 @@ class Nakseong extends Spell:
 						break
 			if u >= 1.0 or hit_body:
 				b[3] = true
-				_land(p, bool(b[4]) and not hit_body)
-		if not _closed and t >= CLOSE_AT:
+				_land(p, bool(b[4]) and not hit_body, int(b[5]) == COUNT - 1)
+		if not _closed and t >= zip_at:
 			_closed = true
 			Sfx.play_pitch(&"es_tear_close", 1.1, -8.0)
 
-	func _land(p: Vector2, ground: bool) -> void:
+	func _land(p: Vector2, ground: bool, last: bool) -> void:
 		var gp := g(p)
 		var n := _hurt(gp, HIT_R * sz, DMG, false, false)
 		_boom(p, 16.0 * sz, ground)
@@ -275,15 +367,15 @@ class Nakseong extends Spell:
 		EVfx.shards(gp, 3, 120.0, Vector2(4, 2), 70.0)
 		if randf() < 0.4:
 			EVfx.feathers(gp, 1, 60.0, Vector2(4, 2), Vector2.UP)
-		Fx.shake(0.14, 0.1)
+		Fx.shake(0.14 if not last else 0.3, 0.1)
 		if n > 0:
-			Fx.hitstop(0.02)
+			_hit_stop(last)
 
 	func _draw_fx() -> void:
 		var rip := EMagicFx.smooth01(t / 0.09)
 		var open := EMagicFx.smooth01((t - 0.03) / 0.08) * (1.0 + 0.12 * sin(clampf((t - 0.03) / 0.2, 0.0, 1.0) * PI))
-		var zip := EMagicFx.smooth01((t - CLOSE_AT) / 0.2) * 1.02 if t > CLOSE_AT else 0.0
-		var fade := 1.0 - clampf((t - CLOSE_AT - 0.2) / 0.25, 0.0, 1.0)
+		var zip := EMagicFx.smooth01((t - zip_at) / CLOSE_T) * 1.02 if t > zip_at else 0.0
+		var fade := 1.0 - clampf((t - zip_at - CLOSE_T) / FADE_T, 0.0, 1.0)
 		_rift.draw(pd, t, rip, open, zip, fade)
 		if t < 0.11:
 			_rift.crack(pd, rip, 1.0 - t / 0.11)
@@ -307,6 +399,10 @@ class Nakseong extends Spell:
 ## 흑성: 앞 150px에 세로로 틈이 열리고, 그 속에서 검은 별(블랙홀)이 나온다 — 납작하게 기운 강착 고리가 돌고(뒤쪽 반은 별 뒤, 앞쪽 반은 별 앞),
 ## 위로 휘어 보이는 빛 고리 · 둘레 공간이 휘는 렌즈(화면 셰이더) · 빨려 들며 소용돌이치는 불티. 2초 동안 끌어당기며 갈고(0.1초마다 30 × 20번),
 ## 한순간 쪼그라들었다가 붕괴 폭발(1500). 틈은 폭발 뒤 꿰매듯 닫힌다.
+## 틈 달이기(loop2_plan 2장): 끌어당기는 동안 던진 물약을 빨아들일 수 있다 — 물약 담당은 EMagicFx.active_blackstar()로 찾고, 병을 pull_center()로 날려
+## absorb(물약 id, 색, apply)를 부른다. 검은 별은 그 색으로 물드는 연출만 맡고, apply()(인자 없음, 걸린 적 수를 돌려줌 — 물약 쪽이
+## pull_center() 둘레 pull_radius() 안 적에게 건다)를 두 번 부른다: 빨아들인 순간 + 붕괴 직전(그때까지 끌려 모인 적에게).
+## 봉공(EStill) 중에는 렌즈(화면 셰이더)를 끈다 — 화면 셰이더 두 개가 겹치지 않게 (성능).
 class BlackStar extends Spell:
 	const CENTER := Vector2(150, -40) ## 발 기준 (앞으로 150 — 확장 물약은 앞 거리도 늘림)
 	const HOLE_R := 26.0
@@ -322,6 +418,9 @@ class BlackStar extends Spell:
 	const BURST_DMG := 1500
 	const BURST_R := 120.0
 	const SPARKS := 46
+	const ABSORB_R := 90.0 ## 병이 이 반지름 안에 들어오면 빨려 든다 (물약 담당이 쓰는 값, 확장 물약이면 커짐)
+	const ABSORB_FLASH := 0.3 ## 병이 빨려 드는 섬광·물듦 시간
+	const TINT := 0.6 ## 물약 색으로 물드는 정도
 	const LENS_SHADER := """
 shader_type canvas_item;
 uniform sampler2D screen_tex : hint_screen_texture, filter_nearest;
@@ -344,7 +443,14 @@ void fragment() {
 }
 """
 	static var _lens_shader: Shader
+	static var _active: BlackStar ## 지금 끌어당기는 흑성 (없으면 null)
 	var c := Vector2.ZERO
+	var potion_id := "" ## 빨아들인 물약 ("" = 없음)
+	var _tint := Color(0, 0, 0, 0)
+	var _absorb_t := -1.0 ## 빨아들인 시각
+	var _apply := Callable()
+	var _applied_end := false ## 붕괴 직전 apply를 불렀나
+	var applied_count := 0 ## apply가 돌려준 걸린 적 수의 합 (시험용)
 	var _rift: RiftShape
 	var _ticks := 0
 	var _burst := false
@@ -374,10 +480,60 @@ void fragment() {
 		_lens_mat.set_shader_parameter("rad", 110.0 * sz)
 		_lens_mat.set_shader_parameter("hole", HOLE_R * sz)
 		_lens_mat.set_shader_parameter("strength", 0.0)
+		_register_tear(_rift, 15.0 * sz, PULL_AT + PULL_T + COLLAPSE_T + 0.08, 0.65)
+		_active = self
 		EVfx.sigil(g(c), 2.6)
 		Sfx.play(&"es_blackstar", 0.0)
 		Sfx.play_pitch(&"es_tear", 0.6, -2.0)
 		Fx.zoom_punch(0.04)
+
+	## 지금 물약을 빨아들일 수 있는 흑성 (끌어당기는 중, 아직 안 빨아들임). 없으면 null — EMagicFx.active_blackstar()가 부른다
+	static func current() -> BlackStar:
+		if is_instance_valid(_active) and _active.is_inside_tree() and _active.can_absorb():
+			return _active
+		return null
+
+	func can_absorb() -> bool:
+		return potion_id == "" and t >= EMERGE and t < PULL_AT + PULL_T
+
+	## 검은 별 가운데 (전역) — 던진 병이 날아갈 자리, 물약 효과를 거는 중심
+	func pull_center() -> Vector2:
+		return g(c)
+
+	## 끌어당기는 반지름 (확장 물약이면 커짐) — 물약 효과를 거는 범위
+	func pull_radius() -> float:
+		return PULL_R * sz
+
+	## 병이 이 반지름 안에 들어오면 빨려 든다고 보면 됨 (물약 쪽 판단용)
+	func absorb_radius() -> float:
+		return ABSORB_R * sz
+
+	## 물약을 빨아들임: 검은 별이 color로 물든다. apply()는 지금 한 번 + 붕괴 직전 한 번 부른다. 받아들였으면 true
+	func absorb(id: String, color: Color, apply: Callable) -> bool:
+		if not can_absorb():
+			return false
+		potion_id = id
+		_tint = color
+		_apply = apply
+		_absorb_t = t
+		EVfx.pixels(g(c), 12, 160.0, Vector2.ZERO, 180.0, 0.3)
+		Fx.shake(0.3, 0.2)
+		Sfx.play_pitch(&"es_infuse", 0.7, -2.0)
+		_call_apply()
+		return true
+
+	func _call_apply() -> void:
+		if _apply.is_valid():
+			var n: Variant = _apply.call()
+			if n is int:
+				applied_count += int(n)
+
+	## 물약 색으로 물든 색 (안 빨아들였으면 그대로)
+	func _tc(col: Color) -> Color:
+		if potion_id == "":
+			return col
+		var k := clampf((t - _absorb_t) / ABSORB_FLASH, 0.0, 1.0) * TINT
+		return Color(col.lerp(_tint, k), col.a)
 
 	## 검은 별 반지름 (나옴 → 유지(살짝 맥박) → 쪼그라듦 → 0)
 	func _hole_r() -> float:
@@ -423,13 +579,18 @@ void fragment() {
 		# 렌즈 세기
 		var lens := EMagicFx.smooth01((t - EMERGE) / 0.4) * (1.0 - EMagicFx.smooth01((t - end) / COLLAPSE_T))
 		_lens_mat.set_shader_parameter("strength", 420.0 * sz * sz * lens)
-		_lens.visible = lens > 0.01
+		_lens.visible = lens > 0.01 and not EStill.active()
 		if not _burst and t >= end + COLLAPSE_T:
 			_burst = true
 			_explode()
-		if not _closed and t >= end + COLLAPSE_T + 0.12:
+		if not _closed and t >= zip_at + 0.04:
 			_closed = true
 			Sfx.play_pitch(&"es_tear_close", 0.8, -4.0)
+		if _active == self and t >= end:
+			_active = null
+		if not _applied_end and potion_id != "" and t >= end: # 붕괴 직전: 끌려 모인 적 모두에게 물약 한 번 더
+			_applied_end = true
+			_call_apply()
 
 	func _explode() -> void:
 		var gc := g(c)
@@ -439,7 +600,7 @@ void fragment() {
 		EVfx.shards(gc, 26, 300.0, Vector2(10, 10), 80.0)
 		EVfx.pixels(gc, 30, 340.0, Vector2.ZERO, 180.0, 0.5)
 		EVfx.feathers(gc, 7, 160.0, Vector2(12, 12))
-		Fx.flash(Color(EDGE, 0.5), 0.3)
+		EVfx.big_flash(0.35)
 		Fx.shake(1.3, 0.5)
 		Fx.zoom_punch(0.09)
 		Fx.hitstop(0.12 if n > 0 else 0.06)
@@ -452,7 +613,7 @@ void fragment() {
 		var a0 := 0.0 if front else PI
 		for k in 4:
 			var rr := R * (1.35 + 0.32 * float(k))
-			var col := [EDGE, STREAK, MAGENTA, BODY][k] as Color
+			var col := _tc([EDGE, STREAK, MAGENTA, BODY][k] as Color)
 			var w := maxf(R * (0.22 - 0.035 * float(k)), 1.0) / 0.3 * 0.42
 			pd.draw_arc(Vector2.ZERO, rr, a0, a0 + PI, 22, Color(col, (0.85 - 0.15 * float(k)) * a), w)
 			# 고리 위를 도는 밝은 줄무늬
@@ -469,9 +630,8 @@ void fragment() {
 		# 틈: 열리고 → 검은 별 뒤에서 버팀 → 폭발 뒤 꿰매어 닫힘
 		var rip := EMagicFx.smooth01(t / 0.12)
 		var open := EMagicFx.smooth01((t - 0.04) / 0.12) * (1.0 + 0.35 * clampf((t - PULL_AT) / PULL_T, 0.0, 1.0))
-		var close_at := end + COLLAPSE_T + 0.08
-		var zip := EMagicFx.smooth01((t - close_at) / 0.3) * 1.02 if t > close_at else 0.0
-		var fade := 1.0 - clampf((t - close_at - 0.3) / 0.35, 0.0, 1.0)
+		var zip := EMagicFx.smooth01((t - zip_at) / 0.3) * 1.02 if t > zip_at else 0.0
+		var fade := 1.0 - clampf((t - zip_at - 0.3) / 0.35, 0.0, 1.0)
 		_rift.draw(pd, t, rip, open, zip, fade, 0.0, 1.4)
 		if t < 0.13:
 			_rift.crack(pd, rip, 1.0 - t / 0.13)
@@ -481,13 +641,13 @@ void fragment() {
 			var ph := fposmod(t * 2.2, 1.0)
 			var rr := lerpf(R * 5.0, R * 1.2, ph * ph)
 			pd.draw_arc(c, rr, 0.0, TAU, 40, Color(BODY, 0.5 * ph), 1.5)
-			pd.glow(c, R * 2.4, Color(MAGENTA, 0.28), 0.0)
+			pd.glow(c, R * 2.4, Color(_tc(MAGENTA), 0.28), 0.0)
 			_disk(R, false, a, t * 3.0)
 			# 위로 휘어 보이는 고리의 뒷면 (렌즈) + 빛 고리 (사건의 지평선 둘레)
-			pd.draw_arc(c, R * 1.28, PI * 1.08, PI * 1.92, 20, Color(STREAK, 0.85), maxf(R * 0.14, 1.5))
+			pd.draw_arc(c, R * 1.28, PI * 1.08, PI * 1.92, 20, Color(_tc(STREAK), 0.85), maxf(R * 0.14, 1.5))
 			pd.draw_arc(c, R * 1.28, PI * 1.15, PI * 1.85, 16, Color(EDGE, 0.9), 1.0)
 			pd.draw_circle(c, R * 1.1, Color(EDGE, 0.95))
-			pd.draw_circle(c, R * 1.03, Color(MAGENTA, 1.0))
+			pd.draw_circle(c, R * 1.03, Color(_tc(MAGENTA), 1.0))
 			pd.draw_circle(c, R, VOID)
 			_disk(R, true, a, t * 3.0)
 			# 빨려 드는 불티 (소용돌이)
@@ -499,7 +659,12 @@ void fragment() {
 				var tang := Vector2(-sin(s.x), cos(s.x) * flat) * float(dir)
 				var vv := tang * (6.0 + 300.0 / maxf(s.y, 8.0)) - (p - c).normalized() * 3.0
 				var near := clampf(1.0 - s.y / (HOLE_R * 6.0 * sz), 0.0, 1.0)
-				pd.line2(p - vv, p, Color(MAGENTA, 0.0), Color(EDGE.lerp(STREAK, s.z), 0.4 + 0.6 * near), 1.0, 1.0 + near)
+				pd.line2(p - vv, p, Color(MAGENTA, 0.0), Color(_tc(EDGE.lerp(STREAK, s.z)), 0.4 + 0.6 * near), 1.0, 1.0 + near)
+			# 병이 빨려 드는 섬광: 물약 색 고리가 별 속으로 조여 들고 한 번 번쩍
+			if potion_id != "" and t - _absorb_t < ABSORB_FLASH:
+				var e := (t - _absorb_t) / ABSORB_FLASH
+				pd.glow(c, R * (3.0 - 1.6 * e), Color(_tint, 0.5 * (1.0 - e)), 0.0)
+				pd.draw_arc(c, lerpf(R * 4.0, R * 1.1, e * e), 0.0, TAU, 36, Color(_tint.lerp(Color.WHITE, 0.3), 1.0 - e), 2.0)
 		# 붕괴: 한 점으로 쪼그라드는 빛
 		if t > end and t < end + COLLAPSE_T + 0.05:
 			var k := clampf((t - end) / COLLAPSE_T, 0.0, 1.0)
@@ -535,8 +700,10 @@ class LensQuad extends Node2D:
 # 유성우 (대마법)
 # ═══════════════════════════════════════════════════════════
 
-## 유성우: 화면 위쪽 하늘이 뒤에서 앞으로 길게 찢어져(꺾인 금) 밤하늘이 드러나고, 보랏빛 유성 12개가 1.6초 동안
-## 앞쪽 400px 안으로 비스듬히 떨어진다 (하나 180, 반경 40). 떨어질수록 화면이 점점 크게 흔들린다. 끝나면 틈이 꿰매어 닫힌다.
+## 유성우: 화면 위쪽 하늘이 뒤에서 앞으로 길게 찢어져(꺾인 금) 밤하늘이 드러나고, 보랏빛 유성 12개가 1.6초 동안 비스듬히 떨어진다
+## (하나 180, 반경 56). 셋 중 둘(AIM_OFS 8개)은 떨어지기 시작하는 순간 가장 가까운 표적 ±70px로 모이고(단일 대상 약 1700~1800),
+## 나머지 넷은 앞쪽 400px 안에 넓게 흩어진다(무리 상대). 기획(loop2_plan 3장)은 "절반"이지만 절반이면 단일 대상 1260~1440이라 목표 1800에 못 미쳐 늘림. 떨어질수록 화면이 점점 크게 흔들린다. 끝나면 틈이 꿰매어 닫힌다.
+## 성능: 틈·유성·충격 자국·흙먼지를 이 노드 하나가 그린다 (불티·파편·깃털은 장면 공용 층 하나씩) — 예전엔 유성마다 노드가 생겼음.
 class MeteorShower extends Spell:
 	const SKY_Y := -236.0 ## 틈 높이 (발 기준)
 	const FROM_X := -100.0
@@ -548,53 +715,93 @@ class MeteorShower extends Spell:
 	const SLOPE := 0.45
 	const LAND_MIN := 30.0
 	const LAND_MAX := 410.0
+	const AIM_SPREAD := 70.0 ## 모이는 유성이 떨어지는 폭 (표적 가운데 ±)
+	const AIM_REACH := 480.0 ## 이 거리 안의 가장 가까운 표적에 모인다
 	const DMG := 180
-	const HIT_R := 40.0
+	const HIT_R := 56.0
 	const RIP_T := 0.24
 	const ORDER := [3, 9, 1, 6, 11, 4, 0, 8, 2, 10, 5, 7] ## 떨어지는 순서 (앞뒤로 흩어지게)
+	const AIM_OFS := [-0.85, 0.5, -0.2, 0.95, -0.55, 0.15, 0.7, -0.4] ## 모이는 유성들의 자리 (±AIM_SPREAD 비율, 고르게)
+	const DUST_T := 0.45 ## 땅에 떨어진 자리의 흙먼지가 피었다 사라지는 시간
+	const SPREAD := -9.0 ## 흩어지는 유성 표시 (모이는 유성의 자리 대신)
 	var _rift: RiftShape
-	var _rocks: Array = [] ## [나올 시각, 시작(로컬), 떨어질 자리(로컬), 끝났나, 땅인가, 번호]
+	var _rocks: Array = [] ## [나올 시각, 시작(로컬), 떨어질 자리(로컬), 끝났나, 땅인가, 번호, 소리 났나, 모이는 유성의 자리(SPREAD = 흩어짐)]
+	var _dust: Array = [] ## 흙먼지: [위치(로컬), 나이]
 	var _closed := false
-	var _close_at := 0.0
+	var _a := Vector2.ZERO ## 틈 시작·끝 (로컬)
+	var _b := Vector2.ZERO
+	var _dv := Vector2.ZERO
 
 	func _begin() -> void:
 		life = 2.75
-		var a := Vector2(FROM_X * dir, SKY_Y - 8.0)
-		var b := Vector2(TO_X * dir * sz, SKY_Y + 14.0)
-		_rift = RiftShape.new(a, b, 17.0, 36, _seed, 6.0)
-		var dv := Vector2(dir * SLOPE, 1.0).normalized()
+		_a = Vector2(FROM_X * dir, SKY_Y - 8.0)
+		_b = Vector2(TO_X * dir * sz, SKY_Y + 14.0)
+		_rift = RiftShape.new(_a, _b, 17.0, 36, _seed, 6.0)
+		_dv = Vector2(dir * SLOPE, 1.0).normalized()
+		var aimed := 0
 		for i in COUNT:
 			var k: int = ORDER[i]
 			var lx := lerpf(LAND_MIN, LAND_MAX, (float(k) + randf_range(0.15, 0.85)) / float(COUNT)) * sz
-			# 떨어질 자리에서 거꾸로 올라가 틈 위의 시작점을 찾는다
-			var sx := lx * dir - dv.x / dv.y * (0.0 - SKY_Y)
-			var f := clampf((sx - a.x) / (b.x - a.x), 0.02, 0.98)
-			var s := _rift.at(f)
-			var land: Variant = _ray(g(s), g(s + dv * 700.0))
-			var ground := land != null
-			var lp: Vector2 = (land as Vector2) - position if ground else s + dv * (absf(SKY_Y) / dv.y)
-			_rocks.append([FIRST + SPAN * float(i) / float(COUNT - 1) * 0.92 + randf_range(-0.03, 0.03), s, lp, false, ground, i, false])
-		_close_at = FIRST + SPAN + FALL_T * 0.4
+			var slot := SPREAD
+			if i % 3 != 0 and aimed < AIM_OFS.size(): # 셋 중 둘은 모이는 유성 (마지막 유성도 모임 — 큰 흔들림이 표적에)
+				slot = float(AIM_OFS[aimed])
+				aimed += 1
+			var m := [FIRST + SPAN * float(i) / float(COUNT - 1) * 0.92 + randf_range(-0.03, 0.03), Vector2.ZERO, Vector2.ZERO, false, false, i, false, slot]
+			_plan(m, lx * dir)
+			_rocks.append(m)
+		_register_tear(_rift, 17.0, FIRST + SPAN + FALL_T * 0.4, 0.7)
 		Sfx.play_pitch(&"es_tear", 0.5, 0.0)
 		Sfx.play_pitch(&"es_nakseong", 0.7, -6.0)
 		Fx.shake(0.2, 0.3)
 
-	func _step(_delta: float) -> void:
+	## 유성 하나의 길: 떨어질 가로 자리 x(로컬)에서 거꾸로 올라가 틈 위의 시작점을 찾고, 땅을 찾는다
+	func _plan(m: Array, x: float) -> void:
+		var sx := x - _dv.x / _dv.y * (0.0 - SKY_Y)
+		var f := clampf((sx - _a.x) / (_b.x - _a.x), 0.02, 0.98)
+		var st := _rift.at(f)
+		var land: Variant = _ray(g(st), g(st + _dv * 700.0))
+		m[1] = st
+		m[4] = land != null
+		m[2] = (land as Vector2) - position if land != null else st + _dv * (absf(SKY_Y) / _dv.y)
+
+	## 가장 가까운 살아 있는 표적의 가운데 x (로컬). 없으면 null
+	func _aim_x() -> Variant:
+		if not is_instance_valid(eska):
+			return null
+		var best: Variant = null
+		var bd := AIM_REACH * sz
+		for d: Node2D in ETarget.alive(get_tree()):
+			var dc: Vector2 = d.center()
+			var dd := dc.distance_to(eska.center())
+			if dd < bd and (dc.x - eska.center().x) * float(dir) > -40.0:
+				bd = dd
+				best = dc.x - position.x
+		return best
+
+	func _step(delta: float) -> void:
 		for m: Array in _rocks:
 			if m[3] or t < float(m[0]):
 				continue
 			var u := (t - float(m[0])) / FALL_T
 			if not m[6]:
 				m[6] = true
+				if float(m[7]) != SPREAD: # 모이는 유성: 나오는 순간 표적 자리를 다시 본다 (움직이는 보스도 따라감)
+					var ax: Variant = _aim_x()
+					if ax != null:
+						_plan(m, float(ax) + float(m[7]) * AIM_SPREAD * sz)
 				Sfx.play_pitch(&"es_meteor", randf_range(0.92, 1.08), -5.0)
 				EVfx.pixels(g(m[1]), 5, 110.0, Vector2.DOWN, 70.0, 0.22)
-			var p := (m[1] as Vector2).lerp(m[2], pow(minf(u, 1.0), 1.5))
-			if u < 1.0 and randf() < 0.7:
-				EVfx.pixels(g(p), 1, 50.0, Vector2.UP, 100.0, 0.3)
 			if u >= 1.0:
 				m[3] = true
 				_land(m[2], bool(m[4]), int(m[5]))
-		if not _closed and t >= _close_at:
+		var i := 0
+		while i < _dust.size():
+			_dust[i][1] = float(_dust[i][1]) + delta
+			if float(_dust[i][1]) >= DUST_T:
+				_dust.remove_at(i)
+				continue
+			i += 1
+		if not _closed and t >= zip_at:
 			_closed = true
 			Sfx.play_pitch(&"es_tear_close", 0.7, -3.0)
 
@@ -602,26 +809,40 @@ class MeteorShower extends Spell:
 		var gp := g(p)
 		var n := _hurt(gp, HIT_R * sz, DMG, true, true)
 		_boom(p, 26.0 * sz, ground)
-		EVfx.pixels(gp, 10, 220.0, Vector2.UP, 70.0, 0.4, Vector2(0, 420))
-		EVfx.dark_bits(gp, 6, 160.0, Vector2.UP, 75.0, 0.4, 2)
-		EVfx.shards(gp, 4, 170.0, Vector2(6, 2), 110.0)
+		EVfx.pixels(gp, 6, 220.0, Vector2.UP, 70.0, 0.4, Vector2(0, 420))
+		EVfx.dark_bits(gp, 4, 160.0, Vector2.UP, 75.0, 0.4, 1)
+		EVfx.shards(gp, 3, 170.0, Vector2(6, 2), 110.0)
 		if i % 3 == 0:
 			EVfx.feathers(gp, 1, 80.0, Vector2(6, 2), Vector2.UP)
 		if ground:
-			PVfx.dust(gp, 4, 1.4, 16.0)
+			_dust.append([p, 0.0])
 		var last := i == COUNT - 1
 		Fx.shake(0.18 + 0.05 * float(i) + (0.4 if last else 0.0), 0.24 if not last else 0.45)
 		if n > 0:
-			Fx.hitstop(0.03 if not last else 0.08)
+			_hit_stop(last)
 		if last:
 			Fx.zoom_punch(0.06)
-			Fx.flash(Color(EDGE, 0.25), 0.2)
+			EVfx.big_flash(0.2)
+
+	## 떨어진 자리의 흙먼지: 낮게 퍼지는 납작한 회색 뭉게 셋 (예전 PVfx.dust 대신 이 노드가 그림)
+	func _paint_dust() -> void:
+		for d: Array in _dust:
+			var p: Vector2 = d[0]
+			var k := float(d[1]) / DUST_T
+			var e := 1.0 - pow(1.0 - k, 2.0)
+			var a := 0.4 * (1.0 - k)
+			for q in 3:
+				var ox := (float(q) - 1.0) * 16.0 * sz * (0.4 + e)
+				pd.draw_set_transform(p + Vector2(ox, -3.0 - 6.0 * e), 0.0, Vector2(1.0, 0.55))
+				pd.draw_circle(Vector2.ZERO, (5.0 + 7.0 * e) * sz * (1.0 if q == 1 else 0.8), Color(0.62, 0.58, 0.68, a))
+			pd.draw_set_transform(Vector2.ZERO)
 
 	func _draw_fx() -> void:
 		var rip := EMagicFx.smooth01(t / RIP_T)
 		var open := EMagicFx.smooth01((t - 0.05) / 0.2) * (1.0 + 0.1 * sin(t * 4.0))
-		var zip := EMagicFx.smooth01((t - _close_at) / 0.4) * 1.02 if t > _close_at else 0.0
-		var fade := 1.0 - clampf((t - _close_at - 0.4) / 0.3, 0.0, 1.0)
+		var zip := EMagicFx.smooth01((t - zip_at) / 0.4) * 1.02 if t > zip_at else 0.0
+		var fade := 1.0 - clampf((t - zip_at - 0.4) / 0.3, 0.0, 1.0)
+		_paint_dust()
 		_rift.draw(pd, t, rip, open, zip, fade, 0.0, 1.6)
 		if t < RIP_T + 0.08:
 			_rift.crack(pd, rip, 1.0 - clampf((t - RIP_T) / 0.08, 0.0, 1.0))
@@ -688,6 +909,7 @@ class DoomMeteor extends Spell:
 			var p1 := p0 + Vector2.from_angle(float(i) * 1.3 + 0.9) * 0.6
 			var p2 := p1 + Vector2.from_angle(float(i) * 1.3 + 0.2) * 0.25
 			_cracks.append([p0, p1, p2])
+		_register_tear(_rift, 30.0, OUT_T + FALL_T * 0.72, 0.8)
 		EVfx.sigil(g(land + Vector2(0, -6)), 2.4)
 		EVfx.sigil(g(_sky), 3.0)
 		Sfx.play(&"es_doom", 0.0)
@@ -716,7 +938,7 @@ class DoomMeteor extends Spell:
 		# 구덩이에서 피어오르는 불씨
 		if _hit and t < life - 0.4 and randf() < 0.5:
 			EVfx.pixels(g(land + Vector2(randf_range(-0.7, 0.7) * RAD * sz, -2.0)), 1, 50.0, Vector2.UP, 25.0, 0.6, Vector2(0, -30))
-		if not _closed and t >= OUT_T + FALL_T * 0.72:
+		if not _closed and t >= zip_at:
 			_closed = true
 			Sfx.play_pitch(&"es_tear_close", 0.6, -2.0)
 
@@ -730,7 +952,7 @@ class DoomMeteor extends Spell:
 		EVfx.dark_bits(gl, 22, 300.0, Vector2.UP, 85.0, 0.6, 8)
 		EVfx.feathers(gl + Vector2(0, -20), 9, 190.0, Vector2(30, 8), Vector2.UP)
 		PVfx.dust(gl, 10, 2.2, 60.0)
-		Fx.flash(Color(EDGE, 0.5), 0.3)
+		EVfx.big_flash(0.4, true)
 		Fx.hitstop(0.16 if n > 0 else 0.08)
 		Fx.shake(1.8, 0.8)
 		Fx.zoom_punch(0.12)
@@ -758,7 +980,7 @@ class DoomMeteor extends Spell:
 		# 하늘의 큰 틈 (안에 그믐달)
 		var rip := EMagicFx.smooth01(t / 0.22)
 		var open := EMagicFx.smooth01((t - 0.06) / 0.24)
-		var close_at := OUT_T + FALL_T * 0.72
+		var close_at := zip_at
 		var zip := EMagicFx.smooth01((t - close_at) / 0.45) * 1.02 if t > close_at else 0.0
 		var fade := 1.0 - clampf((t - close_at - 0.45) / 0.35, 0.0, 1.0)
 		_rift.draw(pd, t, rip, open, zip, fade, 0.0, 2.0)

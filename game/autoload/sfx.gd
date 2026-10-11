@@ -587,6 +587,17 @@ func _build_eska_magic() -> void:
 		{wave = "sine", f0 = 500.0, f1 = 900.0, dur = 0.18, vol = 0.05, attack = 0.05, decay = 1.0},
 		{wave = "sine", f0 = 1500.0, f1 = 1200.0, dur = 0.05, vol = 0.12, tau = 0.012, delay = 0.2},
 	])
+	_add_fast(&"es_deflect", [ # 단공이 발사체를 지움: 맑고 짧은 유리 '칭' + 마른 딱 + 위로 튀는 작은 음
+		{wave = "noise", dur = 0.03, vol = 0.5, bp = 3600.0, q = 0.5, decay = 3.0},
+		{wave = "sine", f0 = 2600.0, fm = 2.76, fm_i = 1.6, fm_i1 = 0.0, dur = 0.22, vol = 0.14, tau = 0.05},
+		{wave = "sine", f0 = 900.0, f1 = 1700.0, curve = "exp", dur = 0.07, vol = 0.12, tau = 0.03, delay = 0.01},
+		{wave = "sine", f0 = 180.0, f1 = 120.0, dur = 0.06, vol = 0.16, tau = 0.02},
+	])
+	_add_fast(&"es_infuse", [ # 물약이 틈에 빨려 듦: 꿀꺽 빨려 드는 낮은 소리 + 틈을 타고 번지는 반짝임
+		{wave = "sine", f0 = 420.0, f1 = 140.0, curve = "exp", dur = 0.16, vol = 0.22, tau = 0.06},
+		{wave = "noise", dur = 0.2, vol = 0.3, bp = 600.0, bp1 = 2400.0, q = 0.45, am = 30.0, am_depth = 0.6, attack = 0.02, decay = 1.4},
+		{wave = "sine", f0 = 2200.0, fm = 1.5, fm_i = 1.4, fm_i1 = 0.0, dur = 0.3, vol = 0.06, tau = 0.1, delay = 0.08},
+	])
 
 
 # (구분용 빈 줄 — 담당 영역끼리 붙지 않게)
