@@ -539,7 +539,54 @@ func _build_eska() -> void:
 
 # ─── 에스카: 낙성·대마법 (e_magic_fx.gd 담당) ─────────────
 func _build_eska_magic() -> void:
-	pass
+	# 시각은 연출과 맞춘다: 낙성 첫 조각 0.11초 + 0.06초 간격, 떨어지는 데 0.28초 · 유성 0.36초 · 흑성 붕괴 2.45초 · 운석 충돌 1.4초
+	var nak := [ # 낙성: 하늘이 찢기는 지지직 + 별 조각마다 맑게 떨어지는 방울 소리 + 닿을 때 작은 '퉁'
+		{wave = "noise", dur = 0.26, vol = 0.45, bp = 700.0, bp1 = 3200.0, q = 0.4, am = 60.0, am_depth = 0.6, attack = 0.01, decay = 1.4},
+		{wave = "sine", f0 = 520.0, f1 = 180.0, curve = "exp", dur = 0.2, vol = 0.1, decay = 1.6},
+	]
+	for i in 6:
+		var at := 0.11 + 0.06 * i
+		nak.append({wave = "sine", f0 = 2100.0 - 140.0 * i, f1 = 1500.0 - 120.0 * i, fm = 3.5, fm_i = 1.4, fm_i1 = 0.1, dur = 0.3, vol = 0.09, tau = 0.08, delay = at})
+		nak.append({wave = "sine", f0 = 170.0, f1 = 60.0, dur = 0.14, vol = 0.22, tau = 0.04, delay = at + 0.28})
+		nak.append({wave = "noise", dur = 0.06, vol = 0.18, bp = 2600.0, q = 0.5, decay = 2.5, delay = at + 0.28})
+	_add_fast(&"es_nakseong", nak)
+	_add_fast(&"es_blackstar", [ # 흑성: 깊게 일렁이는 웅웅거림이 점점 조여들다 → 빨려 드는 바람 → 붕괴 '쿠웅'
+		{wave = "sine", f0 = 46.0, f1 = 34.0, dur = 2.35, vol = 0.5, attack = 0.25, decay = 0.4, vib = 5.0, vib_depth = 0.08},
+		{wave = "saw", f0 = 92.0, f1 = 70.0, dur = 2.3, vol = 0.22, lp = 0.04, attack = 0.3, decay = 0.5, am = 7.0, am_depth = 0.5},
+		{wave = "noise", dur = 2.3, vol = 0.32, bp = 260.0, bp1 = 1100.0, q = 0.35, am = 3.0, am_depth = 0.6, attack = 0.4, decay = 0.6},
+		{wave = "sine", f0 = 90.0, f1 = 420.0, curve = "exp", dur = 2.3, vol = 0.05, attack = 1.2, decay = 0.3},
+		{wave = "noise", dur = 0.2, vol = 0.4, bp = 3000.0, bp1 = 250.0, q = 0.45, attack = 0.15, decay = 0.3, delay = 2.25},
+		{wave = "sine", f0 = 75.0, f1 = 26.0, dur = 0.8, vol = 0.8, tau = 0.25, delay = 2.45},
+		{wave = "noise", dur = 0.6, vol = 0.55, lp = 0.08, decay = 1.6, delay = 2.45},
+		{wave = "noise", dur = 0.25, vol = 0.25, bp = 1800.0, q = 0.5, decay = 2.0, delay = 2.46},
+	], 11025)
+	_add_fast(&"es_meteor", [ # 유성 하나: 다가오는 휘익 → 0.36초에 땅을 때리는 '쾅'
+		{wave = "noise", dur = 0.36, vol = 0.4, bp = 1800.0, bp1 = 500.0, q = 0.4, attack = 0.25, decay = 0.3},
+		{wave = "sine", f0 = 1100.0, f1 = 300.0, curve = "exp", dur = 0.36, vol = 0.05, attack = 0.2, decay = 0.4},
+		{wave = "sine", f0 = 120.0, f1 = 40.0, dur = 0.42, vol = 0.6, tau = 0.12, delay = 0.36},
+		{wave = "noise", dur = 0.32, vol = 0.45, lp = 0.15, decay = 2.0, delay = 0.36},
+		{wave = "noise", dur = 0.14, vol = 0.2, bp = 2400.0, q = 0.5, decay = 2.2, delay = 0.36},
+	], 11025)
+	_add_fast(&"es_doom", [ # 종말의 운석: 땅이 우는 낮은 울림이 차오르고 휘파람이 떨어지다 → 1.4초에 거대한 충돌 + 흩어지는 잔해
+		{wave = "noise", dur = 1.42, vol = 0.55, lp = 0.02, lp1 = 0.12, attack = 1.2, decay = 0.2},
+		{wave = "sine", f0 = 38.0, f1 = 58.0, dur = 1.42, vol = 0.4, attack = 1.0, decay = 0.2, vib = 9.0, vib_depth = 0.06},
+		{wave = "sine", f0 = 1300.0, f1 = 180.0, curve = "exp", dur = 1.4, vol = 0.06, attack = 0.9, decay = 0.2},
+		{wave = "sine", f0 = 62.0, f1 = 24.0, dur = 1.3, vol = 0.95, tau = 0.4, delay = 1.4},
+		{wave = "noise", dur = 1.1, vol = 0.75, lp = 0.1, decay = 1.5, delay = 1.4},
+		{wave = "noise", dur = 0.3, vol = 0.4, bp = 1800.0, q = 0.5, decay = 2.0, delay = 1.4},
+		{wave = "noise", dur = 0.8, vol = 0.16, bp = 900.0, q = 0.5, am = 25.0, am_depth = 0.8, decay = 1.2, delay = 1.55},
+	], 11025)
+	_add_fast(&"es_sigil", [ # 마녀 문장: 유리처럼 맑게 반짝이는 소리
+		{wave = "sine", f0 = 2400.0, fm = 1.5, fm_i = 2.0, fm_i1 = 0.0, dur = 0.3, vol = 0.1, tau = 0.1},
+		{wave = "sine", f0 = 3200.0, fm = 2.01, fm_i = 1.0, fm_i1 = 0.0, dur = 0.28, vol = 0.07, tau = 0.09, delay = 0.03},
+		{wave = "sine", f0 = 4100.0, dur = 0.24, vol = 0.05, tau = 0.07, delay = 0.06},
+		{wave = "noise", dur = 0.18, vol = 0.12, bp = 4000.0, q = 0.3, attack = 0.02, decay = 1.8},
+	])
+	_add_fast(&"es_tear_close", [ # 틈이 꿰매어 닫힘: 부드럽게 올라가는 '지익' + 끝에 작은 '톡'
+		{wave = "noise", dur = 0.22, vol = 0.3, bp = 1200.0, bp1 = 3500.0, q = 0.45, am = 90.0, am_depth = 0.8, attack = 0.03, decay = 1.2},
+		{wave = "sine", f0 = 500.0, f1 = 900.0, dur = 0.18, vol = 0.05, attack = 0.05, decay = 1.0},
+		{wave = "sine", f0 = 1500.0, f1 = 1200.0, dur = 0.05, vol = 0.12, tau = 0.012, delay = 0.2},
+	])
 
 
 # (구분용 빈 줄 — 담당 영역끼리 붙지 않게)
