@@ -14,7 +14,7 @@ const MIST := Color("#5a4290")
 const STONE := Color("#141019")
 const STONE_TOP := Color("#2c2438")
 const CRACK := Color("#8a74c4")
-const MARGIN := 240.0 ## 무대 오른쪽 끝 너머로 더 그리는 폭 (터치 중 카메라 여유 EStage.cam_margin_touch 180 + 흔들림)
+const MARGIN := 300.0 ## 무대 오른쪽 끝 너머로 더 그리는 폭 (터치 중 카메라 여유 EStage.cam_margin_touch 240 + 흔들림)
 const END_PILLAR_W := 34.0 ## 무대 오른쪽 끝(벽)을 알리는 큰 기둥 너비
 const END_PILLAR_H := 230.0
 
