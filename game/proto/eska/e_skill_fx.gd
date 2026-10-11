@@ -29,6 +29,12 @@ class Slash extends PVfx.Base:
 	const CLOSE := 0.18
 	const FAST_CLOSE := 0.1 ## 새 틈에 밀려 일찍 닫힐 때 (천열: 동시에 보이는 틈 수 제한)
 	const RIFT_PTS := 12 ## 틈 등록부(ERifts)에 올리는 가운데 선 마디 수
+	const DIM_T := 0.08 ## 흐려지는 데 걸리는 시간
+	const DIM_A := 0.4 ## 흐려진 밝기
+	const DIM_OPEN := 0.12 ## 흐려진 벌어짐 (얇은 선)
+	const SEG_MAX := 24 ## 틈 마디 수 상한 (루프3: 36 → 24, 도형 수 — 판정과 상관없음)
+	const SEG_LEN := 13.0 ## 호 길이 이만큼(px)마다 한 마디
+	const BUSY_SEG_K := 0.7
 	var r := 60.0
 	var w := 15.0
 	var a0 := 0.0
@@ -45,6 +51,8 @@ class Slash extends PVfx.Base:
 	var _ct := CLOSE ## 꿰매는 데 걸리는 시간
 	var _tail := 0.16 ## 다 꿰맨 뒤 자국이 사라지는 시간
 	var _zipping := false
+	var seg_k := 1.0 ## 마디 수 배수 (천열·단공 큰 틈은 낮춰 도형 수를 줄임)
+	var _dim_at := -1.0 ## 흐려지기 시작한 시각 (단공: 판정이 끝나면 밝기 40%·얇은 선만 — 다음 예고를 가리지 않게)
 	var _seed := 0
 	var _burst := false
 	var _closed := false
@@ -78,6 +86,11 @@ class Slash extends PVfx.Base:
 			gp.append(position + _xf * (Vector2(cos(an), sin(an)) * (r - thick * 0.5)))
 		rift_id = ERifts.open(gp, w * 0.6, open_for)
 		life = open_for + _ct + _tail
+
+	## 판정이 끝난 틈: DIM_T 동안 밝기 DIM_A·벌어짐 DIM_OPEN으로 줄어 얇은 선만 남음
+	func dim() -> void:
+		if _dim_at < 0.0:
+			_dim_at = t
 
 	## 새 틈에 밀려 일찍 닫힘 (더 빨리 꿰맴)
 	func close_fast() -> void:
@@ -139,7 +152,8 @@ class Slash extends PVfx.Base:
 		if absf(span) < 0.03:
 			return
 		# 틈 모양: 바깥 반지름 r, 가장 굵은 곳 w (꼬리 쪽이 굵은 초승달) — 납작하게 누르고 기울인 그대로
-		var seg := clampi(int(absf(span) * r / 10.0), 10, 36)
+		var sk := seg_k * (BUSY_SEG_K if EMagicFx.busy() else 1.0) # 큰 마법이 겹친 때는 더 거칠게 (도형 수)
+		var seg := clampi(int(absf(span) * r / SEG_LEN * sk), 8, int(SEG_MAX * sk))
 		var pts := PackedVector2Array()
 		var nrm := PackedVector2Array()
 		var hw := PackedFloat32Array()
@@ -161,6 +175,10 @@ class Slash extends PVfx.Base:
 		var zip := z * z * (3.0 - 2.0 * z) * 1.02
 		var after := clampf((t - _zip_at - _ct) / maxf(_tail, 0.01), 0.0, 1.0)
 		var fade := 1.0 - after # 메아리는 rift의 ghost가 옅게 (진하기를 낮추면 무 밑의 번짐이 비쳐 납작한 보라 띠가 됨)
+		if _dim_at >= 0.0:
+			var dk := clampf((t - _dim_at) / DIM_T, 0.0, 1.0)
+			fade *= lerpf(1.0, DIM_A, dk)
+			open *= lerpf(1.0, DIM_OPEN, dk)
 		var oz: Array = EVfx.rift_open(hw, open, zip, 0.9, fade)
 		EVfx.rift(pd, pts, nrm, oz[0], oz[1], _seed, t, ghost, 0.5 if ghost > 0.5 else 1.0, void_a)
 		if p < 1.0:
@@ -185,6 +203,10 @@ class SlashSeries extends Node2D:
 	const VOID_A := 0.55 ## 틈 안 검은 무의 진하기 (큰 틈이 겹쳐도 뒤의 표적이 비치게)
 	const HITSTOP_FIRST := 0.03 ## 처음 맞힌 타격만 짧게 멈춤 (나머지 작은 타격은 흔들림만 — 떨림 방지)
 	const HITSTOP_FINAL := 0.08 ## 마지막 큰 타격
+	const MAX_OPEN_ALL := 3 ## 모든 연속 참격(메아리 복사본 포함)을 합쳐 동시에 보이는 틈 수 — 도형 수 상한 (loop3_plan 5장)
+	const SEG_K := 0.55 ## 큰 틈의 마디 수 배수
+	static var _all_open: Array = [] ## 모든 연속 참격의 열린 틈 (나온 순서)
+	var final_void_a := VOID_A ## 마지막 큰 참격의 무 진하기 (천열은 더 낮춤)
 	var eska: EEska
 	var dir := 1
 	var power := 1.0 ## 피해 배수 (메아리 물약: 0.35초 뒤 50% 세기로 한 번 더 = 0.5)
@@ -230,11 +252,16 @@ class SlashSeries extends Node2D:
 		if echo:
 			sl.ghost = 1.0
 		sl.open_for = OPEN_FOR
-		sl.void_a = VOID_A
+		sl.void_a = final_void_a if heavy else VOID_A
+		sl.seg_k = SEG_K
 		_open = _open.filter(func(o: Variant) -> bool: return is_instance_valid(o))
 		while _open.size() >= MAX_OPEN:
 			(_open.pop_front() as Slash).close_fast()
 		_open.append(sl)
+		SlashSeries._all_open = SlashSeries._all_open.filter(func(o: Variant) -> bool: return is_instance_valid(o) and not (o as Slash)._zipping)
+		while SlashSeries._all_open.size() >= MAX_OPEN_ALL:
+			(SlashSeries._all_open.pop_front() as Slash).close_fast()
+		SlashSeries._all_open.append(sl)
 		EVfx.add(sl, cen, false)
 		Sfx.play_pitch(&"es_slash_big" if heavy else &"es_slash", (0.9 if heavy else randf_range(1.0, 1.2)) * (1.12 if echo else 1.0),
 			(-1.0 if heavy else -6.0) - (6.0 if echo else 0.0))
@@ -255,9 +282,11 @@ class SlashSeries extends Node2D:
 ## 천열: 앞쪽 한 점을 중심으로 거대한 납작한 회오리 참격 열 번이 0.5초 동안 감싼다 (중심은 앞으로 150px, 반지름 130~190 — 앞으로 약 300~340px까지). 80×9 + 176 = 896
 class Flurry extends SlashSeries:
 	const CENTER := Vector2(150, -34) ## 참격들이 둘러싸는 중심 (발 기준, 앞으로)
+	const FINAL_VOID_A := 0.3 ## 마지막 큰 고리 안쪽 무 진하기 (가장 커서 표적을 가장 많이 가림 — loop3_plan 4장)
 
 	func _ready() -> void:
 		z_index = 6
+		final_void_a = FINAL_VOID_A
 		# 앞쪽 한 점(CENTER)을 중심으로 납작한 회오리 참격 아홉 번이 기울기·방향을 번갈아 가며 감싸고(조금씩만 어긋나게),
 		# 마지막에 같은 중심으로 가장 큰 회오리 — 참격들이 한 점을 둘러싼 꽃처럼 모인다
 		var pat := [[-24.0, 0.34, 132.0], [20.0, 0.42, 150.0], [-8.0, 0.3, 168.0], [32.0, 0.38, 140.0], [-34.0, 0.46, 158.0],
@@ -288,17 +317,21 @@ class Flurry extends SlashSeries:
 ## 단공 「가르는 틈」: 머리 위 한 점을 중심으로 세로로 세운 회오리 참격이 모두 같은 방향으로 아래에서 위로 베어 올린다
 ## (기울기 -42 · -118 · -80 · -58 · -96도로 들쭉날쭉, 납작한 정도도 제각각 — 좌우 대칭이면 하트처럼 보여서 피함). 납작한 호를 세운다.
 ## 마지막에 가장 큰 회오리 + 찢김 렌즈. 22×4 + 36 = 124
-## 찢는 동안(ACTIVE) 구역 안의 발사체(그룹 PROJ_GROUP, deflect(by) -> bool)를 지운다 — 지우면 단공 쿨다운 초기화 + 종언 게이지 +4% (loop2_plan 3장)
+## 찢는 동안(ACTIVE) 구역 안의 발사체(그룹 PROJ_GROUP, deflect(by) -> bool)를 지운다. 발사체가 몸 PERFECT_R 안까지 왔을 때 지우면 "딱 맞춤" —
+## 단공 쿨다운 초기화 + 종언 게이지 +4% + 강한 불꽃(시전에 한 번). 그보다 이르면 지우기만 (loop3_plan 2장)
+## 판정이 끝나면 남은 틈은 밝기 40%·얇은 선으로 (다음 예고를 가리지 않게)
 ## 판정 구역은 그림에 맞춰 발 기준 좌우 HALF_W (예전 ±140은 그림 ±60~90보다 훨씬 넓었음), 바라보는 쪽으로 AREA_FWD 치우침
 class Upsweep extends SlashSeries:
-	const HALF_W := 90.0
+	const HALF_W := 64.0 ## 판정 반 너비 (loop3_plan 2장: ±90 → ±64)
 	const AREA_FWD := 12.0
-	const ACTIVE := 0.36 ## 발사체를 지우는 시간 (첫 참격 ~ 마지막 판정)
+	const ACTIVE := 0.22 ## 발사체를 지우는 시간 (loop3_plan 2장: 0.36 → 0.22 — 점프 회피를 대신하는 무위험 정답이 되지 않게)
+	const PERFECT_R := 70.0 ## "딱 맞춤": 발사체가 에스카 몸 가운데에서 이 안일 때 지우면 쿨다운 초기화 + 게이지 + 강한 불꽃
 	const PROJ_GROUP := "es_projectile"
 	const PROJ_PAD := 6.0 ## 발사체 몸 크기만큼 구역을 넓혀 봄
 	const DEFLECT_GAUGE := 0.04 ## 지웠을 때 종언 게이지 (가득의 비율, 한 번 시전에 한 번)
 	var area := Rect2() ## 판정 구역 (전역 좌표) — 만드는 쪽(EEska)이 넣고, _ready에서 그림에 맞게 좁힘
 	var deflected := 0 ## 이번 시전에 지운 발사체 수
+	var perfects := 0 ## 그중 "딱 맞춤" (보상은 시전에 한 번)
 
 	func _ready() -> void:
 		z_index = 6
@@ -333,13 +366,18 @@ class Upsweep extends SlashSeries:
 			if not inside:
 				continue
 			var at := p.global_position
+			var r: Rect2 = p.call("deflect_rect") if p.has_method("deflect_rect") else Rect2(at, Vector2.ZERO)
+			var ec := eska.center()
+			var near := Vector2(clampf(ec.x, r.position.x, r.end.x), clampf(ec.y, r.position.y, r.end.y))
+			var perfect := near.distance_to(ec) <= PERFECT_R
 			if not p.call("deflect", eska):
 				continue
 			deflected += 1
-			EVfx.deflect_spark(at)
-			Sfx.play(&"es_deflect", -2.0)
-			Fx.shake(0.12, 0.08)
-			if deflected == 1:
+			EVfx.deflect_spark(at, perfect)
+			Sfx.play_pitch(&"es_deflect", 1.0 if perfect else 1.25, -1.0 if perfect else -7.0)
+			Fx.shake(0.22 if perfect else 0.08, 0.08)
+			if perfect and perfects == 0:
+				perfects += 1
 				eska.cooldowns["dangong"] = 0.0
 				eska.add_gauge(DEFLECT_GAUGE * EEska.GAUGE_MAX)
 				Fx.hitstop(HITSTOP_FIRST)
@@ -351,6 +389,9 @@ class Upsweep extends SlashSeries:
 				eska.deal(d, dmg, heavy, Vector2(d.center().x - float(dir), area.end.y))
 				any = true
 		if heavy:
+			for sl: Variant in _open: # 판정 끝: 남은 틈은 흐린 얇은 선으로
+				if is_instance_valid(sl):
+					(sl as Slash).dim()
 			EVfx.dark_burst(Vector2(area.get_center().x, area.position.y + area.size.y * 0.45), 52.0)
 			EVfx.shards(area.get_center(), 10, 180.0, area.size * 0.3, 60.0)
 			if power >= ECHO_GHOST:

@@ -1,0 +1,14 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(330, 300))"],
+[10, "eval", "dummy.set('position', Vector2(480, 300))"],
+[12, "eval", "spawn_foe('runner', 488, 300)"],
+[13, "eval", "spawn_foe('runner', 474, 300)"],
+[40, "eval", "get_node('MagicCast').big_hp()"],
+[41, "eval", "foes()"],
+[42, "tap", "es_skill"],
+[60, "shot", "nb01"], [80, "shot", "nb02"],
+[90, "eval", "get_node('MagicCast').nums(true)"],
+[100, "quit"]
+]}
