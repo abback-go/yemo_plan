@@ -32,6 +32,14 @@ static func targets_in(tree: SceneTree, c: Vector2, rad: float) -> Array:
 	return out
 
 
+## 큰 마법이 BUSY_N개 이상 겹치면 "바쁨": 틈 별빛을 줄이고 유성·충격의 빛무리를 뺀다 (도형 수 — loop3_plan 5장, 과부하 18000 이하)
+const BUSY_N := 3
+
+
+static func busy() -> bool:
+	return Spell.live >= BUSY_N
+
+
 ## 지금 끌어당기는 흑성 (물약을 빨아들일 수 있을 때만, 아니면 null) — 물약 담당이 던진 병을 빨려 들게 할 때 쓴다 (BlackStar 설명 참고)
 static func active_blackstar() -> Node2D:
 	return BlackStar.current()
@@ -43,6 +51,8 @@ static func active_blackstar() -> Node2D:
 
 ## 마법 노드 공통: t초 흐름 · life가 되면 사라짐 · 충격 자국(빛·고리)을 같이 그림 · 범위 배수 sz · 피해 배수 power
 class Spell extends PDraw.Canvas:
+	const BOOM_SEG := 16 ## 충격 고리 마디 수
+	static var live := 0 ## 살아 있는 마법 노드 수 (EMagicFx.busy)
 	var eska: EEska
 	var dir := 1
 	var power := 1.0 ## 피해 배수 (메아리 물약 = 0.5)
@@ -57,6 +67,12 @@ class Spell extends PDraw.Canvas:
 	var _zip_tail := 0.5 ## 꿰매기 시작부터 다 사라질 때까지
 	var _zipping := false
 	var _hits := 0 ## 맞힌 타격 수 (히트스톱: 첫 타·마지막만)
+
+	func _enter_tree() -> void:
+		Spell.live += 1
+
+	func _exit_tree() -> void:
+		Spell.live -= 1
 
 	func _ready() -> void:
 		z_index = 6
@@ -167,14 +183,14 @@ class Spell extends PDraw.Canvas:
 			var rad: float = b[2]
 			var f := 1.0 - k
 			var e := 1.0 - pow(1.0 - minf(k * 2.2, 1.0), 3.0)
-			if k < 0.25:
-				pd.glow(p, rad * (0.7 + 0.5 * e), Color(EDGE, 0.85 * (1.0 - k / 0.25)), 0.0)
-			pd.glow(p, rad * 1.3, Color(MAGENTA, 0.3 * f * f), 0.0)
-			pd.draw_arc(p, rad * (0.3 + 0.9 * e), 0.0, TAU, 24, Color(MAGENTA, 0.9 * f), maxf(3.0 * f, 1.0))
-			pd.draw_arc(p, rad * (0.3 + 0.9 * e) + 1.5, 0.0, TAU, 24, Color(EDGE, 0.6 * f), 1.0)
+			# 빛무리는 처음 한순간만(가장 비싼 부채꼴), 고리는 BOOM_SEG 마디 하나 (도형 수 — loop3_plan 5장)
+			if k < 0.25 and not EMagicFx.busy():
+				pd.glow(p, rad * (0.9 + 0.6 * e), Color(EDGE.lerp(MAGENTA, k * 4.0), 0.85 * (1.0 - k / 0.25)), 0.0)
+			var sg := clampi(int(rad * 0.6), 8, BOOM_SEG) # 작은 충격은 마디도 적게
+			pd.draw_arc(p, rad * (0.3 + 0.9 * e), 0.0, TAU, sg, Color(MAGENTA.lerp(EDGE, 0.25 * f), 0.9 * f), maxf(3.0 * f, 1.0))
 			if b[3]:
 				pd.draw_set_transform(p, 0.0, Vector2(1.0, 0.24))
-				pd.draw_arc(Vector2.ZERO, rad * (0.5 + 1.6 * e), 0.0, TAU, 28, Color(STREAK, 0.8 * f), maxf(4.0 * f, 1.0))
+				pd.draw_arc(Vector2.ZERO, rad * (0.5 + 1.6 * e), 0.0, TAU, sg, Color(STREAK, 0.8 * f), maxf(4.0 * f, 1.0))
 				pd.draw_set_transform(Vector2.ZERO)
 			EVfx.star4(pd, p, rad * 0.9 * (1.0 - k) + 2.0, 0.3 + k * 2.0, Color(WHITE, f), Color(0, 0, 0, 0))
 
@@ -187,11 +203,11 @@ class Spell extends PDraw.Canvas:
 		pd.convex_colors(PackedVector2Array([p + o * r * 0.8, p - o * r * 0.8, p - v * tail * 0.7]),
 			PackedColorArray([Color(STREAK, 0.95 * a), Color(STREAK, 0.95 * a), Color(MAGENTA, 0.0)]))
 		pd.line2(p - v * tail * 0.45, p, Color(EDGE, 0.0), Color(EDGE, a), 1.0, r * 0.7)
-		pd.glow(p, r * 2.6, Color(MAGENTA, 0.3 * a), 0.0)
+		if not EMagicFx.busy():
+			pd.glow(p, r * 2.0, Color(MAGENTA, 0.3 * a), 0.0)
 		if rock:
 			# 달아오른 앞쪽 테 + 검보라 돌 + 금
-			pd.draw_circle(p, r * 1.15, Color(MAGENTA, 0.8 * a))
-			pd.draw_circle(p + v * r * 0.3, r * 1.02, Color(EDGE, a))
+			pd.draw_circle(p + v * r * 0.3, r * 1.12, Color(EDGE, a)) # 달아오른 앞쪽 테 (예전 마젠타 테 한 겹은 뺌 — 도형 수)
 			pd.draw_circle(p - v * r * 0.06, r, Color(INK, a))
 			pd.draw_line(p - v.orthogonal() * r * 0.5, p + v * r * 0.4, Color(MAGENTA, a), 1.0)
 			pd.glow(p + v * r * 0.5, r * 0.8, Color(STREAK, 0.7 * a), 0.0)
@@ -235,7 +251,7 @@ class RiftShape extends RefCounted:
 			al[i] = fade * (1.0 if f <= rip else 0.0) * seam
 			any = any or al[i] > 0.01
 		if any:
-			EVfx.rift(pd, pts, nrm, h2, al, jseed, t, ghost, star_k)
+			EVfx.rift(pd, pts, nrm, h2, al, jseed, t, ghost, star_k * (0.35 if EMagicFx.busy() else 1.0))
 
 	## 찢어 나가는 머리 앞의 흰 금 (rip까지 + 조금 앞)
 	func crack(pd: PDraw, rip: float, a: float) -> void:
@@ -417,7 +433,7 @@ class BlackStar extends Spell:
 	const PULL_SPEED := 170.0 ## 끌려가는 빠르기 (px/s)
 	const BURST_DMG := 1500
 	const BURST_R := 120.0
-	const SPARKS := 46
+	const SPARKS := 32
 	const ABSORB_R := 90.0 ## 병이 이 반지름 안에 들어오면 빨려 든다 (물약 담당이 쓰는 값, 확장 물약이면 커짐)
 	const ABSORB_FLASH := 0.3 ## 병이 빨려 드는 섬광·물듦 시간
 	const TINT := 0.6 ## 물약 색으로 물드는 정도
@@ -598,7 +614,7 @@ void fragment() {
 		_boom(c, 46.0 * sz, false)
 		EVfx.dark_burst(gc, 54.0 * sz)
 		EVfx.shards(gc, 26, 300.0, Vector2(10, 10), 80.0)
-		EVfx.pixels(gc, 30, 340.0, Vector2.ZERO, 180.0, 0.5)
+		EVfx.pixels(gc, 18, 340.0, Vector2.ZERO, 180.0, 0.5)
 		EVfx.feathers(gc, 7, 160.0, Vector2(12, 12))
 		EVfx.big_flash(0.35)
 		Fx.shake(1.3, 0.5)
@@ -615,7 +631,7 @@ void fragment() {
 			var rr := R * (1.35 + 0.32 * float(k))
 			var col := _tc([EDGE, STREAK, MAGENTA, BODY][k] as Color)
 			var w := maxf(R * (0.22 - 0.035 * float(k)), 1.0) / 0.3 * 0.42
-			pd.draw_arc(Vector2.ZERO, rr, a0, a0 + PI, 22, Color(col, (0.85 - 0.15 * float(k)) * a), w)
+			pd.draw_arc(Vector2.ZERO, rr, a0, a0 + PI, 14, Color(col, (0.85 - 0.15 * float(k)) * a), w)
 			# 고리 위를 도는 밝은 줄무늬
 			for q in 3:
 				var s0 := fposmod(spin * (1.6 - 0.25 * float(k)) + float(q) * TAU / 3.0 + float(k), TAU)
@@ -640,7 +656,7 @@ void fragment() {
 			pd.glow(c, R * 5.0, Color(INK, 0.5), 0.0)
 			var ph := fposmod(t * 2.2, 1.0)
 			var rr := lerpf(R * 5.0, R * 1.2, ph * ph)
-			pd.draw_arc(c, rr, 0.0, TAU, 40, Color(BODY, 0.5 * ph), 1.5)
+			pd.draw_arc(c, rr, 0.0, TAU, 28, Color(BODY, 0.5 * ph), 1.5)
 			pd.glow(c, R * 2.4, Color(_tc(MAGENTA), 0.28), 0.0)
 			_disk(R, false, a, t * 3.0)
 			# 위로 휘어 보이는 고리의 뒷면 (렌즈) + 빛 고리 (사건의 지평선 둘레)
@@ -683,9 +699,9 @@ void fragment() {
 					var L := BURST_R * sz * (0.5 + 0.9 * e) * (0.7 + 0.5 * EVfx.hash01(i + _seed))
 					pd.convex_colors(PackedVector2Array([c + d.orthogonal() * 4.0 * f, c + d * L, c - d.orthogonal() * 4.0 * f]),
 						PackedColorArray([Color(EDGE, f), Color(MAGENTA, 0.0), Color(EDGE, f)]))
-				pd.draw_arc(c, BURST_R * sz * 1.3 * e, 0.0, TAU, 48, Color(MAGENTA, f), 6.0 * f + 1.0)
-				pd.draw_arc(c, BURST_R * sz * 1.3 * e - 3.0, 0.0, TAU, 48, Color(EDGE, f), 2.0 * f + 1.0)
-				pd.draw_arc(c, BURST_R * sz * 0.8 * e, 0.0, TAU, 40, Color(BODY, 0.7 * f), 3.0 * f + 1.0)
+				pd.draw_arc(c, BURST_R * sz * 1.3 * e, 0.0, TAU, 36, Color(MAGENTA, f), 6.0 * f + 1.0)
+				pd.draw_arc(c, BURST_R * sz * 1.3 * e - 3.0, 0.0, TAU, 36, Color(EDGE, f), 2.0 * f + 1.0)
+				pd.draw_arc(c, BURST_R * sz * 0.8 * e, 0.0, TAU, 30, Color(BODY, 0.7 * f), 3.0 * f + 1.0)
 
 
 ## 흑성 렌즈: 둘레 화면을 안쪽으로 휘게 보이는 사각형 하나 (셰이더가 화면을 다시 읽어 그린다 — 흑성 노드 뒤에)
@@ -736,7 +752,7 @@ class MeteorShower extends Spell:
 		life = 2.75
 		_a = Vector2(FROM_X * dir, SKY_Y - 8.0)
 		_b = Vector2(TO_X * dir * sz, SKY_Y + 14.0)
-		_rift = RiftShape.new(_a, _b, 17.0, 36, _seed, 6.0)
+		_rift = RiftShape.new(_a, _b, 17.0, 20, _seed, 6.0)
 		_dv = Vector2(dir * SLOPE, 1.0).normalized()
 		var aimed := 0
 		for i in COUNT:
@@ -900,7 +916,7 @@ class DoomMeteor extends Spell:
 		var hitp: Variant = _ray(at, at + Vector2(0, 600))
 		land = ((hitp as Vector2) if hitp != null else at + Vector2(0, 10)) - position
 		_sky = land + Vector2(SKY.x * dir, SKY.y)
-		_rift = RiftShape.new(_sky + Vector2(-TEAR_W * dir, 10.0), _sky + Vector2(TEAR_W * dir, -10.0), 30.0, 26, _seed, 4.0, 0.02)
+		_rift = RiftShape.new(_sky + Vector2(-TEAR_W * dir, 10.0), _sky + Vector2(TEAR_W * dir, -10.0), 30.0, 20, _seed, 4.0, 0.02)
 		for i in 13:
 			var an := float(i) / 13.0 * TAU
 			_rock.append(Vector2.from_angle(an) * (0.82 + 0.3 * EVfx.hash01(i * 3 + _seed)))
@@ -947,10 +963,10 @@ class DoomMeteor extends Spell:
 		var n := _hurt(gl + Vector2(0, -6), RAD * sz, DMG, true, true)
 		_boom(land + Vector2(0, -4), 60.0 * sz, true)
 		EVfx.dark_burst(gl + Vector2(0, -16), 64.0 * sz)
-		EVfx.shards(gl + Vector2(0, -8), 36, 360.0, Vector2(30, 6), 220.0)
-		EVfx.pixels(gl, 36, 420.0, Vector2.UP, 80.0, 0.6, Vector2(0, 420))
-		EVfx.dark_bits(gl, 22, 300.0, Vector2.UP, 85.0, 0.6, 8)
-		EVfx.feathers(gl + Vector2(0, -20), 9, 190.0, Vector2(30, 8), Vector2.UP)
+		EVfx.shards(gl + Vector2(0, -8), 24, 360.0, Vector2(30, 6), 220.0)
+		EVfx.pixels(gl, 20, 420.0, Vector2.UP, 80.0, 0.6, Vector2(0, 420))
+		EVfx.dark_bits(gl, 12, 300.0, Vector2.UP, 85.0, 0.6, 5)
+		EVfx.feathers(gl + Vector2(0, -20), 6, 190.0, Vector2(30, 8), Vector2.UP)
 		PVfx.dust(gl, 10, 2.2, 60.0)
 		EVfx.big_flash(0.4, true)
 		Fx.hitstop(0.16 if n > 0 else 0.08)
@@ -967,10 +983,9 @@ class DoomMeteor extends Spell:
 			var wa := EMagicFx.smooth01(t / 0.15) * (1.0 - clampf((t - impact_t) / 0.1, 0.0, 1.0))
 			var pulse := 0.75 + 0.25 * sin(t * (10.0 + 14.0 * u))
 			pd.draw_set_transform(land, 0.0, Vector2(1.0, 0.26))
-			pd.glow(Vector2.ZERO, R, Color(MAGENTA, 0.16 * wa), 0.1)
 			pd.draw_circle(Vector2.ZERO, R * EMagicFx.smooth01(t / impact_t), Color(PLUM, 0.32 * wa))
-			pd.draw_arc(Vector2.ZERO, R, 0.0, TAU, 48, Color(MAGENTA, 0.95 * wa * pulse), 3.0)
-			pd.draw_arc(Vector2.ZERO, R * 0.86, 0.0, TAU, 44, Color(STREAK, 0.6 * wa), 2.0)
+			pd.draw_arc(Vector2.ZERO, R, 0.0, TAU, 28, Color(MAGENTA, 0.95 * wa * pulse), 3.0)
+			pd.draw_arc(Vector2.ZERO, R * 0.86, 0.0, TAU, 24, Color(STREAK, 0.6 * wa), 2.0)
 			var sp := t * 0.9
 			for i in 7:
 				var p0 := Vector2.from_angle(sp + float(i) * TAU / 7.0) * R * 0.84
@@ -1000,7 +1015,8 @@ class DoomMeteor extends Spell:
 			var rr := ROCK_R * sz * (0.55 + 0.45 * EMagicFx.smooth01(u * 3.0))
 			var tail := (50.0 + 260.0 * u * u) * sz
 			var o := v.orthogonal()
-			pd.glow(p, rr * 3.2, Color(MAGENTA, 0.3), 0.0)
+			if not EMagicFx.busy():
+				pd.glow(p, rr * 3.2, Color(MAGENTA, 0.3), 0.0)
 			pd.convex_colors(PackedVector2Array([p + o * rr * 1.25, p - o * rr * 1.25, p - v * tail]),
 				PackedColorArray([Color(BODY, 0.75), Color(BODY, 0.75), Color(PLUM, 0.0)]))
 			pd.convex_colors(PackedVector2Array([p + o * rr * 0.85, p - o * rr * 0.85, p - v * tail * 0.75]),
@@ -1037,11 +1053,11 @@ class DoomMeteor extends Spell:
 				pd.convex_colors(PackedVector2Array([land + Vector2(-bw, 0), land + Vector2(bw, 0), land + Vector2(bw * 0.2, -300.0), land + Vector2(-bw * 0.2, -300.0)]),
 					PackedColorArray([Color(EDGE, f), Color(EDGE, f), Color(MAGENTA, 0.0), Color(MAGENTA, 0.0)]))
 				pd.glow(land + Vector2(0, -20), R * (0.6 + e), Color(MAGENTA, 0.45 * f), 0.0)
-				pd.draw_arc(land + Vector2(0, -30), R * 1.5 * e, PI, TAU, 40, Color(MAGENTA, f), 5.0 * f + 1.0)
-				pd.draw_arc(land + Vector2(0, -30), R * 1.5 * e - 3.0, PI, TAU, 40, Color(EDGE, f), 2.0 * f + 1.0)
+				pd.draw_arc(land + Vector2(0, -30), R * 1.5 * e, PI, TAU, 28, Color(MAGENTA, f), 5.0 * f + 1.0)
+				pd.draw_arc(land + Vector2(0, -30), R * 1.5 * e - 3.0, PI, TAU, 28, Color(EDGE, f), 2.0 * f + 1.0)
 				pd.draw_set_transform(land, 0.0, Vector2(1.0, 0.22))
-				pd.draw_arc(Vector2.ZERO, R * 2.2 * e, 0.0, TAU, 48, Color(STREAK, f), 9.0 * f + 1.0)
-				pd.draw_arc(Vector2.ZERO, R * 1.4 * e, 0.0, TAU, 44, Color(EDGE, 0.8 * f), 4.0 * f + 1.0)
+				pd.draw_arc(Vector2.ZERO, R * 2.2 * e, 0.0, TAU, 36, Color(STREAK, f), 9.0 * f + 1.0)
+				pd.draw_arc(Vector2.ZERO, R * 1.4 * e, 0.0, TAU, 32, Color(EDGE, 0.8 * f), 4.0 * f + 1.0)
 				pd.draw_set_transform(Vector2.ZERO)
 				# 땅에 방사로 갈라지는 금
 				for i in 9:

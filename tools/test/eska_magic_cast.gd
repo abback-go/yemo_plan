@@ -215,3 +215,53 @@ func fx_nodes() -> String:
 				nm = str(p.get("life")) + "/" + nm if p.get("life") != null else nm
 		names[nm] = int(names.get(nm, 0)) + 1
 	return "n=%d %s" % [kids.size(), names]
+
+
+## 그림 노드별 삼각형 수 (PDraw를 쓰는 노드만, 큰 순) — 과부하 도형 수 원인 찾기
+func prims(top := 12) -> String:
+	var rows := []
+	for node: Node in get_tree().current_scene.find_children("*", "", true, false):
+		if node.has_method("_paint") and node.get("pd") is PDraw and (node as CanvasItem).is_visible_in_tree():
+			var pd: PDraw = node.get("pd")
+			pd.clear()
+			node.call("_paint")
+			var nm := _class_name(node)
+			rows.append([pd.idx.size() / 3, nm])
+			pd.clear()
+	rows.sort_custom(func(a: Array, b: Array) -> bool: return int(a[0]) > int(b[0]))
+	var out := ""
+	var total := 0
+	for r: Array in rows:
+		total += int(r[0])
+	for i in mini(top, rows.size()):
+		out += "%s=%d " % [rows[i][1], rows[i][0]]
+	return "total=%d %s" % [total, out]
+
+
+
+## 노드의 스크립트 이름 (안쪽 클래스면 "바깥.안쪽")
+func _class_name(node: Node) -> String:
+	var sc: Script = node.get_script()
+	if sc == null:
+		return node.get_class()
+	if sc.get_global_name() != "":
+		return sc.get_global_name()
+	for outer: Script in [ESkillFx, EMagicFx, EVfx, EMoveFx, ERifts, EKenseiFx, EBossStage, EPotionFx, EScenery, EKensei, EFoeFx, PVfx]:
+		var m: Dictionary = outer.get_script_constant_map()
+		for k: String in m:
+			if m[k] is Script and _inherits(sc, m[k]) and sc == m[k]:
+				return "%s.%s" % [outer.get_global_name(), k]
+	return "?" + node.name
+
+
+func _inherits(a: Script, b: Script) -> bool:
+	return a == b
+
+
+## 피해 숫자 층 보이기/숨기기 (성능: 숫자 글자가 도형을 얼마나 쓰는지)
+func nums(show: bool) -> String:
+	var n: Node2D = PVfx.Numbers.inst
+	if not is_instance_valid(n):
+		return "none"
+	n.visible = show
+	return "items=%d" % (n.get("items") as Array).size()
