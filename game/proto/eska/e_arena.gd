@@ -2,7 +2,7 @@ extends EStage
 ## 에스카 훈련장: 마녀 분위기의 일자형 마당 + 허수아비 하나 + 끝없는 적 물결(EWaves).
 ## 적 물결은 오른쪽 위 버튼이나 W 키로 켜고 끈다 (기본 켜짐).
 ## 오른쪽 끝은 공간 고정 시험 구역: 떨어지는 돌을 봉공으로 굳혀 밟고 높은 턱(점프로는 안 닿음)에 오른다.
-## 봉공 시간(1.5초 기본 ↔ 3초 진화)은 오른쪽 위 두 번째 버튼이나 T 키로 바꾼다.
+## 봉공 진화(굳은 동안 준 피해의 50%가 깨질 때 터짐)는 오른쪽 위 두 번째 버튼이나 T 키로 켜고 끈다.
 ## 들어오는 길: 타이틀 메뉴 "에스카 시제품" 또는 웹 주소 뒤 ?eska
 
 const W := 1280.0
@@ -69,14 +69,14 @@ func _toggle_waves() -> void:
 	_wave_btn.text = "적 물결: 켜짐" if waves.enabled else "적 물결: 꺼짐"
 
 
-## 봉공 시간 1.5초(기본) ↔ 3초(진화)
+## 봉공 진화 켜기/끄기 (1장 무구를 거둔 상태 시험)
 func _toggle_still() -> void:
-	eska.still_time = EEska.STILL_EVOLVED if eska.still_time < EEska.STILL_EVOLVED else EEska.STILL_BASE
+	eska.still_evolved = not eska.still_evolved
 	_still_btn.text = _still_label()
 
 
 func _still_label() -> String:
-	return "봉공: %.1f초" % eska.still_time
+	return "봉공 진화: 켜짐" if eska.still_evolved else "봉공 진화: 꺼짐"
 
 
 ## 오른쪽 위(나가기 ✕ 왼쪽) 작은 버튼 — 터치·마우스 모두. 키보드 포커스는 받지 않음 (Z·X가 눌러 버리지 않게)

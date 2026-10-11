@@ -42,10 +42,10 @@ const HURT_INVULN := 1.1 ## 맞은 뒤 무적(깜빡임)
 const RESPAWN_INVULN := 1.6 ## 부활 뒤 무적
 
 ## 스킬 쿨다운 (짧게 — 손맛 시험용)
-const CD := {"cheonyeol": 5.0, "dangong": 2.0, "bonggong": 9.0} ## 천열은 896 피해라 5초 (2초면 연격을 쓸 이유가 없어짐) · 봉공은 화면 전체를 굳혀 9초 — docs/eska/combat_spec.md 밸런스
+const CD := {"cheonyeol": 5.0, "dangong": 2.0, "bonggong": 30.0} ## 천열은 896 피해라 5초 (2초면 연격을 쓸 이유가 없어짐) · 봉공은 화면 전체를 5초 굳혀 30초 — docs/eska/combat_spec.md 밸런스
 const NAMES := {"cheonyeol": "천열", "dangong": "단공", "bonggong": "봉공"}
-const STILL_BASE := 1.5 ## 봉공(공간 고정) 기본 시간
-const STILL_EVOLVED := 3.0 ## 진화한 봉공 (1장 무구)
+const STILL_TIME := 5.0 ## 봉공(공간 고정)이 공간을 굳히는 시간 (고정)
+const STILL_BURST := 0.5 ## 진화한 봉공(1장 무구): 굳은 동안 준 피해의 이만큼이 깨질 때 한꺼번에 터짐
 
 ## 4타 연격. 각도는 도(0 = 앞, + = 아래). 호는 a0 → a1로 휘두른다. 납작한 회오리(sq)를 rot만큼 기울인다 —
 ## 1~3타는 앞쪽 한 곳(발 기준 앞 약 30px)을 중심으로 모아 친다. 1타 앞이 들린 대각 · 2타 앞이 내려간 가파른 대각(반대로 감음) · 3타 비스듬히 세워 아래에서 위로 올려 벰 · 4타 가장 큰 가로 회오리 (타마다 다른 각도)
@@ -86,7 +86,7 @@ var _blink_to := Vector2.ZERO
 var cast_kind := ""
 var _cast_dur := 0.0
 var _cast_fired := false
-var still_time := STILL_BASE ## 봉공이 공간을 굳히는 시간 (진화하면 STILL_EVOLVED)
+var still_evolved := false ## 봉공 진화 (1장 무구를 거두면 켜짐 — 훈련장은 버튼/T 키로 시험)
 
 var invuln := 0.0
 var hp := MAX_HP
@@ -427,6 +427,8 @@ func deal(d: Node2D, dmg: int, heavy: bool, from: Vector2) -> void:
 	if not is_instance_valid(d):
 		return
 	d.take_hit(dmg, from, {"heavy": heavy, "launch": 1.5 if heavy else 0.0})
+	if EStill.active():
+		EStill.current.store(d, dmg) # 진화한 봉공: 굳은 동안 준 피해를 쌓아 둠
 	hit_count += 1
 	hit_damage += dmg
 	combo_left = COMBO_WINDOW
@@ -528,7 +530,7 @@ func _cast(delta: float) -> void:
 				art.snap_flash()
 				Sfx.play(&"storm", -6.0)
 			"bonggong":
-				EStill.cast(self, still_time)
+				EStill.cast(self, STILL_TIME, STILL_BURST if still_evolved else 0.0)
 				art.snap_flash()
 	if _cast_fired and Input.is_action_just_pressed("es_blink") and _blink_cd <= 0.0 and (is_on_floor() or _air_blink):
 		_start_blink(Input.get_axis("es_left", "es_right"))

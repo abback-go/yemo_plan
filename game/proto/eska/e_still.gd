@@ -4,7 +4,7 @@ extends Node2D
 ## 맵 공간 전체를 굳힌다: 적·구슬·허수아비·떨어지는 돌(GROUP)이 멈추고 에스카만 움직인다. 굳은 동안 피해는 보통(보너스 없음).
 ## 강자는 완전히 멈추지 않고 EEnemy.still_resist 만큼의 빠르기로 움직인다 (지금 시제품엔 강자가 없어 모두 멈춤).
 ## 연출: 캐릭터 뒤 세상이 색을 잃고(화면 셰이더, z -1) 공간에 격자와 금이 간다 → 끝나기 직전 깜빡임 → 유리처럼 깨지며 풀림.
-## 굳히는 시간은 에스카의 still_time (기본 1.5초, 진화하면 3초 — 훈련장 버튼/T 키로 바꿔 시험).
+## 시간은 5초 고정(EEska.STILL_TIME), 재사용 30초. 진화하면(EEska.still_evolved) 굳은 동안 준 피해의 50%가 깨질 때 한꺼번에 터진다.
 
 const GROUP := "es_still" ## 공간 고정에 멈추는 사물: still(sec)를 가진다 (sec 0 = 풀림)
 const GRID := 48.0
@@ -24,8 +24,11 @@ void fragment() {
 static var current: EStill ## 지금 굳어 있으면 그 노드 (없으면 null)
 static var _shader: Shader
 
-var dur := 1.5
-var left := 1.5
+var dur := 5.0
+var left := 5.0
+var burst := 0.0 ## 깨질 때 터뜨릴 몫 (0 = 진화 전)
+var eska: EEska
+var _stored := {} ## 진화: 표적 instance_id → [표적, 굳은 동안 받은 피해 합]
 var t := 0.0
 var origin := Vector2.ZERO
 var pd := PDraw.new()
@@ -34,15 +37,28 @@ var _mat: ShaderMaterial
 var _cracks: Array[PackedVector2Array] = []
 
 
-## eska 자리에서 sec초 동안 공간을 굳힌다
-static func cast(eska: EEska, sec: float) -> void:
+## by(에스카) 자리에서 sec초 동안 공간을 굳힌다. burst_ratio > 0 이면 굳은 동안 준 피해의 그 몫이 깨질 때 터짐
+static func cast(by: EEska, sec: float, burst_ratio := 0.0) -> void:
 	if is_instance_valid(current):
 		current.queue_free()
 	var s := EStill.new()
 	s.dur = sec
 	s.left = sec
-	s.origin = eska.center()
-	eska.get_parent().add_child(s)
+	s.burst = burst_ratio
+	s.eska = by
+	s.origin = by.center()
+	by.get_parent().add_child(s)
+
+
+## 진화: 굳은 동안 표적이 받은 피해를 쌓는다 (EEska.deal이 부름)
+func store(target: Node2D, dmg: int) -> void:
+	if burst <= 0.0:
+		return
+	var id := target.get_instance_id()
+	if _stored.has(id):
+		_stored[id][1] += dmg
+	else:
+		_stored[id] = [target, dmg]
 
 
 static func active() -> bool:
@@ -113,6 +129,7 @@ func _release() -> void:
 		n.unbind()
 	for n: Node in get_tree().get_nodes_in_group(GROUP):
 		n.still(0.0)
+	_burst_all()
 	var r := _view_rect()
 	for i in 7:
 		var p := r.position + Vector2(randf() * r.size.x, randf() * r.size.y)
@@ -122,6 +139,32 @@ func _release() -> void:
 	Sfx.play(&"crumble", -8.0)
 	Fx.shake(0.3, 0.12)
 	queue_free()
+
+
+## 진화: 쌓인 피해의 burst 몫을 표적마다 한꺼번에 터뜨린다
+func _burst_all() -> void:
+	var ratio := burst
+	burst = 0.0 # 터뜨리는 피해는 다시 쌓지 않음
+	var any := false
+	for id: int in _stored:
+		var tg: Node2D = _stored[id][0]
+		if not is_instance_valid(tg) or (tg.has_method("is_dead") and tg.is_dead()):
+			continue
+		var amt := int(round(float(_stored[id][1]) * ratio))
+		if amt <= 0:
+			continue
+		any = true
+		if is_instance_valid(eska):
+			eska.deal(tg, amt, true, tg.center() + Vector2(0, -10))
+		else:
+			tg.take_hit(amt, tg.center(), {"heavy": true})
+		EVfx.dark_burst(tg.center(), 34.0)
+		EVfx.shards(tg.center(), 14, 220.0, Vector2(14, 18), 70.0)
+	_stored.clear()
+	if any:
+		Fx.hitstop(0.08)
+		Fx.flash(Color(0.85, 0.75, 1.0, 0.2), 0.12)
+		Sfx.play(&"es_slash_big", -2.0)
 
 
 ## 지금 화면에 보이는 월드 사각형
