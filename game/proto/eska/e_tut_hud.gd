@@ -2,6 +2,7 @@ class_name ETutHud
 extends Control
 ## 튜토리얼 화면 연출 (가장 위 층):
 ## - 검은 화면 밝아짐/어두워짐(fade_to) · 위아래 영화 띠(bars_to) · 장 이름(chapter)
+## - 섬광(burst): 한 점 둘레만 밝은 빛 + 가장자리 어둠, 짧게 (마무리 운석 — 화면 전체를 씻지 않게)
 ## - 집중(focus_to): 시간이 느려진 동안 화면 가장자리가 먹빛으로 어두워지고 안쪽에 마젠타 테 (틈 달이기 순간)
 ## - 혼잣말 자막(say): 화면 위 가운데, 한 글자씩
 ## - 안내 칸(prompt): 화면 아래 가운데, 키 모양 그림 + 짧은 설명. done()이면 체크가 그려지며 접힘, nudge()면 흔들리며 다시 눈길을 끎
@@ -31,6 +32,13 @@ var _focus := 0.0
 var _focus_to := 0.0
 const FOCUS_EDGE := 56.0 ## 집중: 가장자리에서 안쪽으로 어두워지는 폭
 const FOCUS_V := 3.0 ## 집중이 켜지고 꺼지는 빠르기 (초당)
+const BURST_R := 150.0 ## 섬광 빛 반지름 (화면 px)
+const BURST_RINGS := 10 ## 섬광 빛을 이루는 겹 원 수 (바깥일수록 옅게)
+const BURST_COL := Color("#f3e6ff") ## 섬광 빛 (옅은 라벤더 흰빛)
+const BURST_A := 0.07 ## 겹 원 하나의 진하기 (겹칠수록 가운데가 밝음 — 띠가 덜 보이게 옅게 많이)
+var _burst_at := Vector2.ZERO
+var _burst_t := 99.0
+var _burst_len := 0.2
 var _chap := ""
 var _chap_sub := ""
 var _chap_t := 99.0
@@ -73,6 +81,14 @@ func fade_to(a: float, sec: float) -> void:
 
 func bars_to(a: float) -> void:
 	_bars_to = a
+
+
+## 섬광: 화면 좌표 at 둘레만 sec초 동안 밝게 + 가장자리 어둠
+func burst(at: Vector2, sec: float) -> void:
+	_burst_at = at
+	_burst_len = maxf(sec, 0.01)
+	_burst_t = 0.0
+	queue_redraw()
 
 
 ## 집중 연출 켜기/끄기 (1 = 켬)
@@ -155,6 +171,7 @@ func _process(delta: float) -> void:
 	_black = move_toward(_black, _black_to, _black_v * real)
 	_bars = move_toward(_bars, _bars_to, real * 2.0)
 	_focus = move_toward(_focus, _focus_to, real * FOCUS_V)
+	_burst_t += real
 	_chap_t += real
 	_say_t += real
 	_nudge = maxf(_nudge - real * 1.6, 0.0)
@@ -172,10 +189,11 @@ func _process(delta: float) -> void:
 
 ## 그릴 것이 있나 (없으면 다시 그리지 않음)
 func _busy() -> bool:
-	return _black > 0.0 or _bars > 0.0 or _focus > 0.0 or _chap_t < CHAP_LIFE or is_saying() or _ptext != ""
+	return _black > 0.0 or _bars > 0.0 or _focus > 0.0 or _burst_t < _burst_len + 0.05 or _chap_t < CHAP_LIFE or is_saying() or _ptext != ""
 
 
 func _draw() -> void:
+	_draw_burst()
 	_draw_focus()
 	_draw_bars()
 	_draw_prompt()
@@ -194,23 +212,38 @@ func _draw_bars() -> void:
 	draw_rect(Rect2(0, size.y - h, size.x, h), Color.BLACK)
 
 
-func _draw_focus() -> void:
-	if _focus <= 0.0:
+func _draw_burst() -> void:
+	if _burst_t >= _burst_len:
 		return
-	var e := _focus * _focus * (3.0 - 2.0 * _focus)
-	var dark := Color(INK, 0.6 * e)
-	var clear := Color(INK, 0.0)
+	var e := 1.0 - _burst_t / _burst_len
+	e = e * e
+	# 가장자리 어둠 (집중과 같은 사다리꼴, 더 넓고 진하게)
+	_edges(Color(INK, 0.7 * e), FOCUS_EDGE * 2.0)
+	# 한 점 둘레 빛: 바깥 겹일수록 옅은 원을 겹쳐 부드럽게
+	for i in BURST_RINGS:
+		var f := float(i + 1) / float(BURST_RINGS)
+		draw_circle(_burst_at, BURST_R * (1.0 - 0.8 * f) * (0.8 + 0.2 * e), Color(BURST_COL, BURST_A * e))
+
+
+## 네 가장자리: 바깥은 col, 안쪽 d px로 갈수록 투명
+func _edges(col: Color, d: float) -> void:
+	var clear := Color(col, 0.0)
 	var w := size.x
 	var h := size.y
-	var d := FOCUS_EDGE
-	# 네 가장자리: 바깥은 먹빛, 안쪽으로 투명 (사다리꼴 넷)
 	for q: Array in [[Vector2(0, 0), Vector2(w, 0), Vector2(w - d, d), Vector2(d, d)],
 			[Vector2(0, h), Vector2(d, h - d), Vector2(w - d, h - d), Vector2(w, h)],
 			[Vector2(0, 0), Vector2(d, d), Vector2(d, h - d), Vector2(0, h)],
 			[Vector2(w, 0), Vector2(w, h), Vector2(w - d, h - d), Vector2(w - d, d)]]:
-		draw_polygon(PackedVector2Array(q), _edge_cols(q, dark, clear))
+		draw_polygon(PackedVector2Array(q), _edge_cols(q, col, clear))
+
+
+func _draw_focus() -> void:
+	if _focus <= 0.0:
+		return
+	var e := _focus * _focus * (3.0 - 2.0 * _focus)
+	_edges(Color(INK, 0.6 * e), FOCUS_EDGE) # 네 가장자리: 바깥은 먹빛, 안쪽으로 투명
 	var beat := 0.5 + 0.5 * sin(_t * 5.0)
-	draw_rect(Rect2(6, 6, w - 12, h - 12), Color(MAGENTA, (0.25 + 0.2 * beat) * e), false, 1.0)
+	draw_rect(Rect2(6, 6, size.x - 12, size.y - 12), Color(MAGENTA, (0.25 + 0.2 * beat) * e), false, 1.0)
 
 
 ## 사다리꼴 네 점 중 화면 가장자리에 있는 점은 먹빛, 안쪽 점은 투명

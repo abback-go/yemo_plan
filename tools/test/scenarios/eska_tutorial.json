@@ -73,7 +73,7 @@
 [1240, "eval", "step_name()"],
 [1242, "eval", "eska.set('global_position', Vector2(2430, 300))"],
 [1300, "shot", "t15_rest_say"],
-[1302, "eval", "eska.set('global_position', Vector2(2528, 300))"],
+[1302, "eval", "eska.set('global_position', Vector2(2516, 300))"],
 [1320, "eval", "step_name()"],
 [1322, "shot", "t15b_cauldron_prompt"],
 [1323, "eval", "test_touch(true)"],
