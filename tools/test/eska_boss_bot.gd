@@ -35,6 +35,8 @@ const PERFECT_MIN := 22.0 ## 이보다 가까우면 이미 늦음 (파도에 맞
 const DEFLECT_RAIN_LEAD := 0.18 ## 천검 칼빛이 떨어지기 이만큼 전에 단공 (판정 0.22초 안에 떨어지기 전)
 const RIFT_THROW_MIN := 0.3 ## 천열 뒤 이만큼~ 지나 틈에 던짐 (병이 손 근처 틈을 무시하는 0.12초·40px를 지나 천열 틈에 닿게)
 const RIFT_THROW_MAX := 0.5
+const ROW_OUT := 52.0 ## 분신 줄 끝에서 이만큼 바깥에 서서 천열 (일섬선 ±45 밖, 천열이 줄 전체에 닿는 거리)
+const ROW_TOL := 10.0
 const RIFT_THROW_WAIT := 0.3 ## 던질 때가 됐는데 다른 동작 중이면 이만큼 더 기다렸다가 포기
 const DEFLECT_CHECK := 0.25 ## 단공 뒤 이만큼 지나 발사체가 남아 있으면 "튕겨내기 없음"으로 봄
 const DEFLECT_GIVE_UP := 2 ## 이만큼 실패하면 튕겨내기를 그만 씀
@@ -80,7 +82,10 @@ var _brews0 := 0 ## 시작 때 EPotions.rift_brews (틈에 스민 병 수 셈)
 var _rift_to: Node2D ## 틈 달이기로 노리는 표적 (없으면 검성)
 var n_shadow := 0 ## 본 분신 수
 var n_shadow_kill := 0 ## 베어 없앤 분신 수
+var n_shadow_hurt := 0 ## 그림자 일섬선에 맞은 수
 var _shadow_seen := {} ## 분신 instance_id → true
+var _shadow_on := false ## 분신이 나와 있는 중
+var _shadow_skip := false ## 이번 분신 무리는 상대하지 않음 (ESKA_BOT_SKIP 확률)
 var n_break := 0 ## 검성 버팀이 무너진 횟수
 var n_hurt := 0 ## 맞은 횟수 (봇이 직접 셈 — 치유와 상관없이)
 var _break_hooked: Node = null
@@ -199,8 +204,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _kit_summary() -> String:
-	return "shadows=%d killed=%d hurts=%d breaks=%d cheonyeol=%d nakseong=%d dangong=%d deflect=%d(perfect=%d ok=%s) ult=%d heal=%d echo=%d throw=%d(ctr=%d rift=%d brewed=%d)" % [
-		n_shadow, n_shadow_kill, n_hurt, n_break, n_cheonyeol, n_nakseong, n_dangong, n_deflect, n_perfect, str(_deflect_ok), n_ult, n_heal, n_echo, n_throw, n_throw_ctr, n_rift_throw,
+	return "shadows=%d killed=%d shadow_hurt=%d hurts=%d breaks=%d cheonyeol=%d nakseong=%d dangong=%d deflect=%d(perfect=%d ok=%s) ult=%d heal=%d echo=%d throw=%d(ctr=%d rift=%d brewed=%d)" % [
+		n_shadow, n_shadow_kill, n_shadow_hurt, n_hurt, n_break, n_cheonyeol, n_nakseong, n_dangong, n_deflect, n_perfect, str(_deflect_ok), n_ult, n_heal, n_echo, n_throw, n_throw_ctr, n_rift_throw,
 		EPotions.rift_brews - _brews0]
 
 
@@ -382,34 +387,56 @@ func _alive_shadows(b: EKensei) -> Array:
 				n_shadow += 1
 				sh.died.connect(func(x: EEnemy) -> void:
 					if not bool(x.get("expired")):
-						n_shadow_kill += 1)
+						n_shadow_kill += 1
+					print("BOT SHADOW %s fight=%.1fs" % ["killed" if not bool(x.get("expired")) else "expired", float(_fight_frames) / 60.0]))
 	return out
 
 
-## 그림자 일섬 분신 대응: 가장 가까운 분신 쪽으로 붙어 천열(+틈 달이기) · 낙성 · 베기 (쓰면 true)
+## 그림자 일섬 분신 대응: 줄 끝 바깥(가까운 쪽)으로 나가 줄을 바라보고 천열 한 번으로 줄 전체를 벰(+틈 달이기) · 낙성 · 베기 (쓰면 true)
 func _shadows(e: EEska, b: EKensei) -> bool:
 	var list := _alive_shadows(b)
 	if list.is_empty():
+		_shadow_on = false
 		return false
+	if not _shadow_on:
+		_shadow_on = true
+		_shadow_skip = randf() < skip_rate # 서툰 사람: 이번 분신은 그냥 둠 (피하기만)
+		print("BOT SHADOW set fight=%.1fs cheonyeol_cd=%.1f nakseong_cd=%.1f gauge=%d%% skip=%s" % [float(_fight_frames) / 60.0, e.cd_left("cheonyeol"), e.cd_left("nakseong"), int(e.gauge_ratio() * 100.0), str(_shadow_skip)])
+	if _shadow_skip:
+		return false
+	var lo := INF
+	var hi := -INF
+	for sh: EEnemy in list:
+		lo = minf(lo, sh.global_position.x)
+		hi = maxf(hi, sh.global_position.x)
+	var ex := e.global_position.x
+	# 줄 끝에서 ROW_OUT만큼 바깥 (벽에 막히면 반대쪽)
+	var left_spot := lo - ROW_OUT
+	var right_spot := hi + ROW_OUT
+	var spot := left_spot if absf(ex - left_spot) <= absf(ex - right_spot) else right_spot
+	if spot < 330.0:
+		spot = right_spot
+	elif spot > 1090.0:
+		spot = left_spot
+	var to := 1 if spot < lo else -1 # 줄을 바라보는 쪽
 	var near: EEnemy = list[0]
 	for sh: EEnemy in list:
-		if absf(sh.global_position.x - e.global_position.x) < absf(near.global_position.x - e.global_position.x):
+		if absf(sh.global_position.x - ex) < absf(near.global_position.x - ex):
 			near = sh
-	var dx := near.global_position.x - e.global_position.x
-	var d := absf(dx)
-	var to := 1 if dx > 0.0 else -1
-	if d > NEAR + 14.0:
-		_walk(to)
-	elif d < 30.0:
-		_walk(-to)
+	var d := absf(near.global_position.x - ex)
+	if OS.has_environment("ESKA_BOT_DEBUG") and Engine.get_physics_frames() % 10 == 0:
+		print("BOT SHDBG ex=%d spot=%d lo=%d hi=%d face=%d to=%d st=%d seq=%d cd=%.2f" % [int(ex), int(spot), int(lo), int(hi), e.facing, to, e.st, _seq.size(), e.cd_left("cheonyeol")])
+	if absf(ex - spot) > ROW_TOL * 2.0:
+		_walk(1 if spot > ex else -1)
 	else:
 		_walk(0)
 	if not _seq.is_empty() or e.st != EEska.St.NORMAL:
 		return true
-	if d < 150.0 and e.facing != to:
+	var placed := absf(ex - spot) <= ROW_TOL * 2.0
+	if placed and e.facing != to:
 		_tap("es_right" if to > 0 else "es_left")
 		return true
-	if d < 140.0 and e.cd_left("cheonyeol") <= 0.0 and e.is_on_floor():
+	if placed and e.facing == to and e.cd_left("cheonyeol") <= 0.0 and e.is_on_floor():
 		n_cheonyeol += 1
 		_tap("es_skill")
 		if _slot_is_throw(e, SLOT_THROW):
@@ -420,7 +447,7 @@ func _shadows(e: EEska, b: EKensei) -> bool:
 		n_nakseong += 1
 		_combo([[0.0, "es_down", true], [0.0, "es_skill", true], [0.05, "es_skill", false], [0.08, "es_down", false]])
 		return true
-	if d < 130.0 and float(e.get("_atk_cd")) <= 0.0:
+	if d < 130.0 and e.facing == to and float(e.get("_atk_cd")) <= 0.0:
 		_tap("es_attack")
 	return true
 
@@ -591,6 +618,10 @@ func _on_hurt(hp: int) -> void:
 		return # 부활·포식으로 오른 것
 	_last_hp = hp
 	n_hurt += 1
+	for n: Node in get_tree().get_nodes_in_group(EKenseiFx.GROUP):
+		if n is EKenseiFx.ShadowCut and bool(n.get("_burst")) and float(n.get("t")) - float(n.get("delay")) < 0.12:
+			n_shadow_hurt += 1
+			break
 	var b: Variant = stage.get("boss")
 	var what: String = EKensei.S.keys()[(b as EKensei).st] if is_instance_valid(b) else "?"
 	print("BOT HURT hp=%d boss_st=%s fight=%.1fs" % [hp, what, float(_fight_frames) / 60.0])
