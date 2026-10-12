@@ -1,0 +1,18 @@
+{"scene": "res://proto/eska/eska_boss.tscn", "steps": [
+[2, "eval", "skip_intro(640)"],
+[3, "eval", "boss.set('ai', false)"],
+[4, "eval", "eska.set('invuln', 9999.0)"],
+[5, "eval", "set('_teach', true)"],
+[30, "eval", "move('ctr')"],
+[40, "eval", "Engine.time_scale"],
+[48, "shot", "l01_lesson_counter"],
+[200, "eval", "move('wave')"],
+[215, "shot", "l02_lesson_wave"],
+[300, "eval", "move('ctr')"],
+[310, "eval", "Engine.time_scale"],
+[400, "eval", "boss_hpf(0.54)"],
+[650, "eval", "move('shadow')"],
+[668, "shot", "l03_lesson_shadow"],
+[669, "eval", "Engine.time_scale"],
+[760, "quit"]
+]}

@@ -19,6 +19,7 @@ const RED_HOT := Color("#ff6a5c")
 const RED_DEEP := Color("#6e0a16")
 const GROUP := &"kensei_hazard"
 const STAR_R := 9.0 ## 예고 번뜩임 십자 별의 팔 길이 (세기 1일 때, px)
+const PETAL_BIG := 2.0 ## 큰 먹물 꽃잎 배수 (분신이 사라질 때 — loop6 가독성)
 const STAR_HOLD := 0.75 ## 번뜩임 세기가 이 위면 별이 다 핀 크기로 머묾 (첫 두어 프레임 또렷하게)
 
 static var wind := Vector2(46.0, 0.0) ## 지금 바람 (왼쪽 → 오른쪽: 입구에서 검성 쪽으로) (장면이 정함 — 꽃잎·머리칼·옷자락이 같이 쓴다)
@@ -109,13 +110,76 @@ static func sparks(pos: Vector2, n: int, dir: Vector2, speed := 160.0, spread :=
 
 
 ## 꽃잎·잎을 한 번에 흩뿌림 (사라지기·쓰러짐·바람)
-static func petals(pos: Vector2, n: int, area: Vector2, speed := 60.0) -> void:
+static func petals(pos: Vector2, n: int, area: Vector2, speed := 60.0, scale := 1.0) -> void:
 	var d := Drift.get_layer()
 	if d == null:
 		return
 	for i in n:
 		var p := pos + Vector2(randf_range(-area.x, area.x), randf_range(-area.y, area.y))
-		d.spawn(p, Vector2.from_angle(randf() * TAU) * randf_range(speed * 0.3, speed) + Vector2(0, -20), randf_range(0.9, 1.8))
+		d.spawn(p, Vector2.from_angle(randf() * TAU) * randf_range(speed * 0.3, speed) + Vector2(0, -20), randf_range(0.9, 1.8), 0 if scale > 1.0 else -1, scale)
+
+
+## 짧은 글자 하나가 떠올랐다 사라짐 (뼈흰 + 먹 테두리) — 먹물 속 검성을 때렸을 때 "무효" 등
+static func word(pos: Vector2, text: String) -> void:
+	var w := Word.new()
+	w.text = text
+	PVfx.add(w, pos, false)
+
+
+## 살아 돌아간 분신: 먹 줄기가 분신 자리에서 검성 몸으로 휘어 들어가 스며듦
+static func ink_return(from: Vector2, boss: Node2D) -> void:
+	var r := InkReturn.new()
+	r.boss = boss
+	r.from = from
+	PVfx.add(r, from, false)
+	Sfx.play_pitch(&"kb_gust", 0.7, -10.0)
+
+
+## 떠오르는 짧은 글자 (뼈흰 + 먹 테두리)
+class Word extends PVfx.Base:
+	const RISE := 12.0
+	var text := ""
+	var _font: Font
+
+	func _ready() -> void:
+		life = 0.6
+		z_index = 20
+		_font = ThemeDB.fallback_font
+
+	func _draw() -> void:
+		var x := k()
+		var a := 1.0 - smoothstep(0.5, 1.0, x)
+		var fs := 11
+		var tw := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var p := Vector2(-tw * 0.5, -RISE * (1.0 - pow(1.0 - x, 2.0)))
+		draw_string_outline(_font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(INK, 0.9 * a))
+		draw_string(_font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(BONE, a))
+
+
+## 살아 돌아간 분신의 먹: 분신 자리에서 검성 가슴으로 휘어 드는 먹 덩이 줄 (검성 버팀이 차오름)
+class InkReturn extends PVfx.Base:
+	const BLOBS := 9
+	var boss: Node2D
+	var from := Vector2.ZERO
+
+	func _ready() -> void:
+		life = 0.55
+		z_index = 3
+
+	func _paint() -> void:
+		if not is_instance_valid(boss):
+			return
+		var to := boss.global_position + Vector2(0, -26) - global_position
+		var ctl := to * 0.5 + Vector2(0, -50)
+		var x := k()
+		for i in BLOBS:
+			var f := clampf(x * 1.6 - float(i) * 0.07, 0.0, 1.0)
+			if f <= 0.0 or f >= 1.0:
+				continue
+			var q := Vector2.ZERO.lerp(ctl, f).lerp(ctl.lerp(to, f), f)
+			var r := 5.0 * (1.0 - f) + 2.0
+			pd.glow(q, r * 1.6, Color(0.04, 0.03, 0.05, 0.7), 0.6)
+			pd.draw_circle(q + Vector2(-1, -1), 1.0, Color(RED, 0.6 * (1.0 - f)))
 
 
 ## 지워진 발사체 자리: 흰 십자 불꽃(크게 → 작게) + 넓어지는 고리 + 바깥으로 튀는 파편 줄 (가산)
@@ -237,7 +301,10 @@ class SlashLine extends KenseiHazard:
 ## 튕겨낼 수 있는 발사체(EEnemy.PROJECTILE_GROUP): 터지기 전 단공으로 가르면 사라진다. 분신을 베어 없애면 cancel().
 ## 끝나면(터짐·갈림·취소) on_done을 부른다 — 분신이 스스로 사라짐
 class ShadowCut extends SlashLine:
+	const DEFLECT_CENTER := 34.0 ## 단공을 쓴 에스카와 선 가운데의 가로 거리가 이 안이어야 가름 (분신 사이 70 → 한 번에 하나)
+	const TIP_GLINT := 0.3 ## 터지기 이만큼 전에 칼끝 번뜩임
 	var band := Rect2()
+	var tip_dir := 1 ## 칼끝 쪽 (분신이 바라보는 쪽)
 	var dmg := 1
 	var on_done := Callable()
 	var _ended := false
@@ -247,6 +314,14 @@ class ShadowCut extends SlashLine:
 		add_to_group(EEnemy.PROJECTILE_GROUP)
 		loud = true
 		on_burst = _hit
+
+	func _paint() -> void:
+		super._paint()
+		var left := delay - t
+		if left > 0.0 and left < TIP_GLINT:
+			var g := 1.0 - left / TIP_GLINT
+			var tip := (b if tip_dir > 0 else a) - position
+			EKenseiFx.star(pd, tip, minf(g * 1.5, 1.0), 1.0, 0.9)
 
 	func _hit() -> void:
 		remove_from_group(EEnemy.PROJECTILE_GROUP)
@@ -264,9 +339,11 @@ class ShadowCut extends SlashLine:
 	func deflect_rect() -> Rect2:
 		return band
 
-	## 단공이 가름: 아직 터지지 않았으면 선이 끊겨 사라짐
-	func deflect(_by: Node2D) -> bool:
+	## 단공이 가름: 아직 터지지 않았으면 선이 끊겨 사라짐. loop6: 한 번에 가운데 판정 안에 선 가운데가 든 선만 (줄 전체를 한 번에 지우지 않게)
+	func deflect(by: Node2D) -> bool:
 		if _burst or _ended:
+			return false
+		if is_instance_valid(by) and absf(band.get_center().x - by.global_position.x) > DEFLECT_CENTER:
 			return false
 		EKenseiFx.shatter(band.get_center(), Vector2.UP, 1.1)
 		cancel()
@@ -321,12 +398,18 @@ class CutMark extends PVfx.Base:
 		if is_instance_valid(target):
 			global_position = (target as EEska).center() if target is EEska else target.global_position
 
+	## loop6 3장: "이미 베였다"가 피한 뒤에도 또렷하게 — 크게(길이 22~30) + 색 반전(먹빛 심 + 흰 테두리 + 붉은 맥박)
 	func _paint() -> void:
 		var x := k()
-		var al := 0.6 + 0.4 * sin(t * 50.0)
-		var len := 12.0 + 4.0 * x
+		var pulse := 0.6 + 0.4 * sin(t * 40.0)
+		var len := 22.0 + 8.0 * x
 		var d := Vector2.from_angle(ang) * len
-		EKenseiFx.blade_light(pd, -d, d, 1.6 + 1.5 * x, al)
+		var n := d.normalized().orthogonal()
+		var w := 2.6 + 1.6 * x
+		pd.glow(Vector2.ZERO, len * 0.8, Color(RED, 0.25 * pulse), 0.0)
+		pd.draw_colored_polygon(PackedVector2Array([-d, n * (w + 1.6), d, -n * (w + 1.6)]), Color(WHITE, 0.95))
+		pd.draw_colored_polygon(PackedVector2Array([-d * 0.92, n * w, d * 0.92, -n * w]), Color(INK, 1.0))
+		pd.draw_line(-d * 0.6, d * 0.6, Color(RED_HOT, 0.8 * pulse), 1.0)
 
 
 ## 비검: 땅을 타고 미끄러지는 초승달 참격파 (높이 HEIGHT — 점프로 넘는다), 벽에 닿으면 흩어짐
@@ -586,6 +669,7 @@ class Drift extends PDraw.Canvas:
 	var life := PackedFloat32Array()
 	var spin := PackedFloat32Array()
 	var kind := PackedInt32Array()
+	var size := PackedFloat32Array() ## 꽃잎 크기 배수
 	const MAX := 240
 
 	## 지금 장면의 꽃잎 층 (장면이 만들어 둔 것만 — 없으면 null)
@@ -599,7 +683,7 @@ class Drift extends PDraw.Canvas:
 		if _inst == self:
 			_inst = null
 
-	func spawn(p: Vector2, v: Vector2, l: float, k := -1) -> void:
+	func spawn(p: Vector2, v: Vector2, l: float, k := -1, sc := 1.0) -> void:
 		if pos.size() >= MAX:
 			return
 		pos.append(p)
@@ -608,6 +692,7 @@ class Drift extends PDraw.Canvas:
 		life.append(l)
 		spin.append(randf() * TAU)
 		kind.append(k if k >= 0 else (0 if randf() < 0.5 else (1 if randf() < 0.6 else 2)))
+		size.append(sc)
 
 	func _process(delta: float) -> void:
 		var w := EKenseiFx.wind
@@ -625,6 +710,7 @@ class Drift extends PDraw.Canvas:
 			life[keep] = life[i]
 			spin[keep] = spin[i] + delta * (4.0 + float(i % 5))
 			kind[keep] = kind[i]
+			size[keep] = size[i]
 			keep += 1
 		pos.resize(keep)
 		vel.resize(keep)
@@ -632,6 +718,7 @@ class Drift extends PDraw.Canvas:
 		life.resize(keep)
 		spin.resize(keep)
 		kind.resize(keep)
+		size.resize(keep)
 		queue_redraw()
 
 	func _paint() -> void:
@@ -644,7 +731,7 @@ class Drift extends PDraw.Canvas:
 				1: c = Color(RED, 0.85 * al)
 				_: c = Color(BONE, 0.7 * al)
 			var s := sin(spin[i])
-			var d := Vector2(cos(spin[i] * 0.7), 0.0) * 2.2
-			var up := Vector2(0, 1.0 + absf(s) * 0.6)
+			var d := Vector2(cos(spin[i] * 0.7), 0.0) * 2.2 * size[i]
+			var up := Vector2(0, 1.0 + absf(s) * 0.6) * size[i]
 			var p := pos[i]
 			pd.draw_colored_polygon(PackedVector2Array([p - d, p - up, p + d, p + up * 0.6]), c)
