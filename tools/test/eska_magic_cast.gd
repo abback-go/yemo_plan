@@ -300,3 +300,23 @@ func infuse_nak() -> String:
 			var c := sh.at(0.5) + (n as Node2D).position
 			return infuse_test(c.x, c.y, 12.0) + " " + rift_age(c.x, c.y, 12.0)
 	return "no nakseong"
+
+
+## 그림 노드들의 꼭짓점에 NaN·무한·엄청 큰 값(|x| > 1e5)이 있는지 (웹 swiftshader는 이런 삼각형을 화면 한쪽을 덮는 판으로 그림)
+func nan_scan() -> String:
+	var out := ""
+	for node: Node in get_tree().current_scene.find_children("*", "", true, false):
+		if node.has_method("_paint") and node.get("pd") is PDraw and (node as CanvasItem).is_visible_in_tree():
+			var pd: PDraw = node.get("pd")
+			pd.clear()
+			node.call("_paint")
+			var bad := 0
+			var ex := Vector2.ZERO
+			for v in pd.v:
+				if not v.is_finite() or absf(v.x) > 1e5 or absf(v.y) > 1e5:
+					bad += 1
+					ex = v
+			pd.clear()
+			if bad > 0:
+				out += "%s bad=%d ex=%s " % [_class_name(node), bad, ex]
+	return out if out != "" else "clean"
