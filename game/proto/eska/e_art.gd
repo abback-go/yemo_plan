@@ -99,6 +99,7 @@ var _bottle_col := EHud.POTION_DEFAULT ## 지금 든 물약 병 색
 var _head_tilt := 0.0
 var _was_item := false
 var _tint := 0.0 ## 마시는 동안 물약 색 물듦 (0~1)
+var stand := false ## 물리 없이 그릴 때(타이틀) 땅 위에 서 있는 것으로 쳐 줌
 var _rim_ci := RID() ## 테두리 빛을 그리는 몸 뒤 그림 자리 (RenderingServer 직접)
 static var _rim_mat: ShaderMaterial
 
@@ -199,6 +200,11 @@ func _ensure() -> void:
 	_sleeve_b.setup(_to_g(_sleeve_rest(Vector2(-1.5, -22))), 2.6)
 
 
+## 땅 위인가 (stand면 물리와 상관없이 서 있음)
+func _floor() -> bool:
+	return stand or body.is_on_floor()
+
+
 ## 순간이동처럼 몸이 순간 옮겨질 때 줄이 길게 끌리지 않게
 func reset_chains() -> void:
 	if not _ready_done:
@@ -252,7 +258,7 @@ func tick(delta: float) -> void:
 	if delta <= 0.0:
 		return
 	_t += delta
-	var on_floor := body.is_on_floor()
+	var on_floor := _floor()
 	var vx := body.velocity.x
 	var vy := body.velocity.y
 	# 착지 누르기 (떨어진 속도만큼)
@@ -372,9 +378,9 @@ func tick(delta: float) -> void:
 func _bob() -> float:
 	if _glide > 0.3:
 		return 0.0 # 떠서 미끄러지는 중엔 걸음 출렁임 없음 (높이 출렁임은 _lift가)
-	if body.is_on_floor() and absf(body.velocity.x) > 20.0:
+	if _floor() and absf(body.velocity.x) > 20.0:
 		return -absf(sin(_step)) * 1.2
-	if body.is_on_floor() and body.st == EEska.St.NORMAL:
+	if _floor() and body.st == EEska.St.NORMAL:
 		return -0.5 * (0.5 + 0.5 * sin(_t * 2.4))
 	return 0.0
 
@@ -406,7 +412,7 @@ func _hand_target() -> Vector2:
 			if p < THROW_WIND:
 				return Vector2(3.0, -20.0).lerp(THROW_BACK, smoothstep(0.0, THROW_WIND * 0.8, p))
 			return THROW_BACK.lerp(THROW_OUT, smoothstep(THROW_WIND, THROW_WIND + 0.25, p))
-	if not body.is_on_floor():
+	if not _floor():
 		return Vector2(5.5, -18.5) if body.velocity.y < 0.0 else Vector2(6.5, -21)
 	if _glide > 0.3:
 		# 떠서 미끄러질 땐 팔을 흔들지 않고 몸 옆 조금 뒤로 가볍게 늘어뜨린다
@@ -499,8 +505,8 @@ func _paint() -> void:
 		return
 	var bob := _bob()
 	var o := Vector2(0, bob)
-	var air := not body.is_on_floor()
-	var run := body.is_on_floor() and absf(body.velocity.x) > 20.0
+	var air := not _floor()
+	var run := _floor() and absf(body.velocity.x) > 20.0
 	var shimmer := 0.78 + 0.22 * sin(_t * 7.0)
 
 	# 바닥 그림자 (떠오르면 작아짐)

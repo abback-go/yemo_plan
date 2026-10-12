@@ -38,6 +38,7 @@ const ULT_SHORT := {"blackstar": "흑성", "meteor": "유성우", "doom": "운�
 const ULT_PULSE := 12.0 ## 게이지가 가득일 때 맥박 그림을 초당 이만큼만 다시 그림
 const COVER_ALPHA := 0.6 ## 살아 있는 적·표적이 버튼 밑에 오면 그 버튼을 40% 투명하게 (누를 수는 그대로 — loop5 4장)
 const COVER_SPEED := 6.0 ## 옅어지고 돌아오는 빠르기 (초당)
+const COVER_OUTLINE := ["potion", "blink"] ## 이 버튼들은 적을 가리면 옅게 대신 채운 원을 빼고 바깥 고리만 (라벨은 그대로 — loop6 3장)
 const CD_ARC_W := 3.0 ## 쿨다운 호 굵기
 const CD_DIM := 0.4 ## 쿨다운 중 이름 진하기
 ## 나가기: 오른쪽 위 모서리 기준
@@ -119,7 +120,12 @@ func _update_cover(delta: float) -> void:
 			if Vector2(clampf(c.x, rc.position.x, rc.end.x), clampf(c.y, rc.position.y, rc.end.y)).distance_to(c) < r:
 				covered = true
 				break
-		var v: Control = _draw.views[id]
+		var v: View = _draw.views[id]
+		if COVER_OUTLINE.has(id):
+			if v.outline != covered:
+				v.outline = covered
+				v.queue_redraw()
+			continue
 		v.modulate.a = move_toward(v.modulate.a, COVER_ALPHA if covered else 1.0, delta * COVER_SPEED)
 
 
@@ -135,6 +141,11 @@ func _button_spec(id: String) -> Array:
 ## 시험 실행기 eval용: 버튼 id의 지금 진하기
 func cover_alpha(id: String) -> float:
 	return (_draw.views[id] as Control).modulate.a
+
+
+## 시험 실행기 eval용: 버튼 id가 외곽선 모드인가
+func cover_outline(id: String) -> bool:
+	return (_draw.views[id] as View).outline
 
 
 func _input(event: InputEvent) -> void:
@@ -381,7 +392,11 @@ class Pad extends Control:
 		var c := tc.button_center(b)
 		var r: float = b[4]
 		var held := tc.is_held(String(b[1]))
-		ci.draw_circle(c, r, Color(RING, 0.45) if held else Color(0.04, 0.03, 0.08, 0.45))
+		var outline := ci is View and (ci as View).outline
+		if outline:
+			ci.draw_arc(c, r + 1.5, 0.0, TAU, 40, Color(RING, 0.9), 1.5) # 외곽선 모드: 밑의 적이 보이게 채우지 않고 고리만 또렷하게
+		else:
+			ci.draw_circle(c, r, Color(RING, 0.45) if held else Color(0.04, 0.03, 0.08, 0.45))
 		if is_instance_valid(tc.eska):
 			match id:
 				"ult":
@@ -476,6 +491,6 @@ class Pad extends Control:
 class View extends Control:
 	var pad: Pad
 	var id := ""
-
+	var outline := false ## 적이 밑에 있어 채운 원을 빼고 바깥 고리만 그림
 	func _draw() -> void:
 		pad.paint(self, id)

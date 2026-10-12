@@ -88,6 +88,9 @@ func _start() -> void:
 	hud.get_parent().add_child(_gauge_btn)
 	practice = PracticeList.new()
 	practice.hud = hud
+	for i in EStage.PRACTICE_IDS.size(): # 튜토리얼 등에서 이미 해낸 과제는 체크된 채로
+		if EStage.practice_done.get(i, false) or EStage.practice_done.get(EStage.PRACTICE_IDS[i], false):
+			practice.done[i] = true
 	hud.get_parent().add_child(practice)
 	_book0 = EPotions.notebook.size()
 	_rift0 = EPotions.rift_brews
@@ -373,7 +376,7 @@ class PracticeWisp extends ECaster:
 
 ## "마녀의 연습 과제" 5줄 (오른쪽 위, 시험 버튼 아래 — 터치에서도 보임). 해내면 체크가 그어지고(튜토리얼 안내 칸과 같은 체크) 글이 옅어짐
 class PracticeList extends Control:
-	const T_NAKSEONG := 0
+	const T_NAKSEONG := 0 ## 번호 순서 = EStage.PRACTICE_IDS 순서
 	const T_PERFECT := 1
 	const T_BREW := 2
 	const T_RIFT := 3
@@ -402,6 +405,7 @@ class PracticeList extends Control:
 		if done[i]:
 			return
 		done[i] = true
+		EStage.practice_done[i] = true
 		_since[i] = 0.0
 		_open_t = OPEN_T
 		Sfx.play(&"checkpoint", -6.0)
