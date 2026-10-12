@@ -11,7 +11,8 @@ const W := 1120.0
 const FLOOR := 300.0
 const GATE_X := 300.0 ## 무너진 문 (싸움 중엔 여기에 장막)
 const TRIGGER_X := 380.0 ## 이 줄을 넘으면 싸움 시작
-const BOSS_X := 860.0
+const TEST_BOSS_X := 860.0 ## 시험(skip_intro)에서 검성 자리 — 예전 시나리오 좌표 그대로
+const BOSS_X := 640.0 ## 검성이 서 있는 자리 (loop8: 싸움이 열릴 때 카메라 치우침으로 검성이 화면 가로 55% 안에 오고 에스카도 화면에 남게 — 예전 860)
 const CAULDRON_X := 252.0 ## 가마솥 (loop4: 터치 방향키 밖 — 예전 84는 엄지 밑)
 const RESPAWN := Vector2(300, FLOOR) ## 부활 자리 (문 아래, 가마솥 곁 — 방향키 밖)
 const WIND := 46.0 ## 바람 세기 (꽃잎·머리칼·자락)
@@ -43,19 +44,42 @@ const LESSONS := {
 	"tri": ["삼연참", "다가오는 세 번 · 물러나거나 위로"],
 	"ctr": ["반격 자세", "눈 감은 고리 · 비명·속박으로 깨기"],
 	"wave": ["비검", "땅 타는 파도 · 점프나 {es_up}+{es_skill}"],
-	"shadow": ["그림자 일섬", "분신 셋 다 베면 · 검성이 무너진다"],
+	"shadow": ["그림자 일섬", "메아리+천열 · 흑성 · 유성우"],
 }
+## 배움이 끝난 뒤 장면 안내 칸에 이어 줄 한 줄 (hud.hold_hints — 코어가 있으면)
+const LESSON_NEXT := {
+	"iai": "번뜩이면 {es_jump} 또는 {es_blink}",
+	"tri": "{es_left}로 물러나거나 {es_jump} 두 번",
+	"ctr": "비명·속박을 던져 깨라",
+	"wave": "파도는 {es_jump} · {es_up}+{es_skill}로 가르기",
+	"shadow": "분신 셋 다 베면 검성이 무너진다",
+}
+## 배움 동안 맥박 고리를 두를 터치 버튼 (ETouch.spot)
+const LESSON_SPOTS := {
+	"iai": ["es_jump", "es_blink"],
+	"wave": ["es_jump", "es_skill"],
+	"ctr": ["es_potion"],
+	"tri": ["es_left"],
+	"shadow": ["es_skill", "es_bind"],
+}
+const LESSON_GAP := 5.0 ## 배움 사이 최소 간격 (실제 초) — 그 안의 첫 기술은 배움 없이 지나가고 다음 기회에 (loop8 1장)
+## 첫 도전 개막 순서 (배움을 아직 못 본 기술만, 사이 OPEN_REST초 쉼) — 다 보면 평소 AI
+const OPENING: Array[String] = ["iai", "wave", "tri", "ctr"]
+const OPEN_REST := 3.0
+const OPEN_FIRST := 0.9 ## 싸움이 열리고 첫 기술까지
+const OPEN_MIN_X := 360.0 ## 싸움이 열릴 때 에스카는 이보다 오른쪽 (왼쪽 벽에 붙어 카메라가 치우칠 수 없던 문제)
 ## 쓰러졌을 때 "무엇에 맞았나" 한 줄 (마지막으로 맞은 기술 + 대응)
+## 문구는 행동 + 버튼 이름 (EKeys.fmt — 키보드 "Z" / 터치 "점프") — loop8 3장
 const DEATH_TIPS := {
-	"iai": "발도 일섬 — 웅크리면 점프·순간이동",
-	"tri": "삼연참 — 물러나거나 위로",
-	"wave": "비검 — 파도는 점프나 단공",
-	"ctr": "반격 자세 — 눈 감으면 베지 말 것",
-	"leap": "낙화 — 표식 밖으로",
+	"iai": "발도 — 번뜩이면 {es_blink}",
+	"tri": "삼연참 — {es_left}로 물러나거나 {es_jump} 두 번",
+	"wave": "비검 — 파도 앞에서 {es_jump}",
+	"ctr": "반격 자세 — 눈 감으면 베지 말고 {es_potion}",
+	"leap": "낙화 — 표식 밖으로 {es_blink}",
 	"rain": "천검 — 붉은 기둥 사이로",
-	"shadow": "그림자 일섬 — 분신을 베거나 뛰어넘기",
+	"shadow": "그림자 일섬 — 분신을 베거나 {es_jump}",
 }
-const DEATH_TIP_T := 2.6
+const DEATH_VIGNETTE := 0.7 ## 쓰러지는 순간 붉은 가장자리 (부활까지 옅어짐)
 const OPEN_BIAS := 1.5 ## 싸움이 열릴 때 카메라 치우침 강제 (검성이 버튼 밑에 서지 않게)
 static var session_tried := false ## 이 세션에서 검성과 한 번이라도 싸웠나 (다시 하기·장면 다시 불러오기에도 남음)
 static var taught := {} ## 이 세션에서 이미 본 배움 (기술 id → true)
@@ -93,6 +117,11 @@ var _dim: Dim
 var _teach := true ## 배움 연출을 하나 (시험 skip_intro는 끔)
 var _lesson_t := -1.0 ## 배움 느려짐 경과 (실제 초, -1 = 없음)
 var _last_hit := "" ## 마지막으로 에스카를 맞힌 검성 기술 id
+var _lesson_gap := LESSON_GAP ## 마지막 배움 뒤 실제 시간
+var _opening: Array[String] = [] ## 남은 개막 순서
+var _open_wait := 0.0 ## 다음 개막 기술까지 (검성이 쉬는 동안 흐름)
+var _p2_checkpoint := false ## 2막에 들어갔나 (쓰러지면 2막부터 — loop8 1장)
+var _vignette := 0.0
 var _cine_hold := false ## 연출 중 (막 전환 등) — 끝나면 안내를 다시 보임
 
 
@@ -173,6 +202,12 @@ func _process(delta: float) -> void:
 				_cine_hold = false
 				_cinematic(false)
 	_title.advance(real)
+	_lesson_gap += real
+	if fight == F.FIGHT:
+		_tick_opening(real)
+	if _vignette > 0.0:
+		_vignette = maxf(_vignette - real * DEATH_VIGNETTE / (RESPAWN_DELAY + 0.4), 0.0)
+		Fx.set_vignette(_vignette)
 	_tick_lesson(real)
 	_tick_cine(real)
 	if eska.hp > _hp_seen: # 물약으로 차오른 체력 (신호 없이 오름) — 맞은 횟수를 셀 기준을 맞춤
@@ -282,6 +317,8 @@ func _gust() -> void:
 ## 싸움을 엶: 조작이 풀리고 검성이 움직이기 시작
 func _begin_fight() -> void:
 	session_tried = true
+	if eska.global_position.x < OPEN_MIN_X:
+		eska.global_position.x = OPEN_MIN_X
 	force_bias(OPEN_BIAS)
 	fight = F.FIGHT
 	_first = false
@@ -289,6 +326,34 @@ func _begin_fight() -> void:
 	eska.controls_locked = false
 	touch.visible = true
 	boss.begin()
+	# 첫 도전 개막: 못 본 배움이 남아 있으면 발도 → 비검 → 삼연참 → 반격 순서로 (검성 스스로 고르지 않음)
+	_opening.clear()
+	if _teach and boss.phase == 1:
+		for id in OPENING:
+			if not taught.has(id):
+				_opening.append(id)
+	if not _opening.is_empty():
+		boss.ai = false
+		_open_wait = OPEN_FIRST
+
+
+## 개막 순서 진행: 검성이 쉬고(IDLE) OPEN_REST초가 지나면 다음 기술 — 다 하면 평소 AI
+func _tick_opening(real: float) -> void:
+	if _opening.is_empty() or not is_instance_valid(boss) or boss.is_dead():
+		return
+	if boss.phase != 1:
+		_opening.clear()
+		boss.ai = true
+		return
+	if boss.st != EKensei.S.IDLE or boss.break_t > 0.0:
+		return
+	_open_wait -= real
+	if _open_wait > 0.0:
+		return
+	boss.start_move(_opening.pop_front())
+	_open_wait = OPEN_REST
+	if _opening.is_empty():
+		boss.ai = true
 
 
 func _show_boss(sub: String, dur: float) -> void:
@@ -306,6 +371,7 @@ func _on_phase_start() -> void:
 
 
 func _on_phase(_p: int) -> void:
+	_p2_checkpoint = true
 	Music.play("boss", 0.4)
 	_title.show_title("검성 · 발검", "칼집을 버렸다", PHASE_TITLE_T)
 	_wind_k = 1.5
@@ -315,10 +381,21 @@ func _on_phase(_p: int) -> void:
 func _on_move_started(id: String) -> void:
 	if not _teach or not LESSONS.has(id) or taught.has(id) or fight != F.FIGHT:
 		return
+	if _lesson_gap < LESSON_GAP:
+		return # 직전 배움과 너무 가까움 — 다음에 이 기술이 나올 때 알려 줌
 	taught[id] = true
+	_lesson_gap = 0.0
 	var spec: Array = LESSONS[id]
 	_lesson_t = 0.0
-	_title.show_title(String(spec[0]), ETutHud.fmt(String(spec[1])), LESSON_T, true)
+	_title.show_title(String(spec[0]), EKeys.fmt(String(spec[1])), LESSON_T, true)
+	_title.spots(LESSON_SPOTS.get(id, []), touch, LESSON_T)
+	_hold_hints(LESSON_T, EKeys.fmt(String(LESSON_NEXT.get(id, ""))))
+
+
+## 장면 안내 한 줄을 sec초 숨겼다가 next로 이어 줌 (코어 EHud.hold_hints — 없으면 아무 일 없음)
+func _hold_hints(sec: float, next := "") -> void:
+	if hud.has_method("hold_hints"):
+		hud.call("hold_hints", sec, next)
 
 
 ## 배움 느려짐: 1 → LESSON_SLOW (LESSON_IN초) → 머묾 → 1 (LESSON_OUT초). Fx 멈춤·느려짐이 걸려 있으면 그쪽에 맡김
@@ -410,15 +487,28 @@ func _view_rect() -> Rect2:
 
 func _on_eska_died() -> void:
 	deaths += 1
-	hud.banner("쓰러졌다", "입구에서 다시 일어선다", RESPAWN_DELAY + 0.4)
-	if DEATH_TIPS.has(_last_hit):
-		_title.show_tip(String(DEATH_TIPS[_last_hit]), DEATH_TIP_T) # 무엇에 맞았나 (쓰러짐 알림 아래)
+	var wait := RESPAWN_DELAY + 0.4
+	_title.show_title("", "", 0.0) # 배움 자막이 떠 있으면 거둠 (쓰러짐 글자와 겹치지 않게)
+	_title.spots([], touch, 0.0)
+	if _lesson_t >= 0.0:
+		_lesson_t = -1.0
+		if int(Fx.get("_hitstop_until")) == 0 and int(Fx.get("_slowmo_until")) == 0:
+			Engine.time_scale = 1.0
+	# "쓰러졌다" 바로 아래 붉은 ■ + 무엇에 맞았나, 그 아래 작게 "입구에서…" (부활 대기 내내)
+	hud.banner("쓰러졌다", "", wait)
+	var sub := "2막에서 다시 마주 선다" if _p2_checkpoint else "입구에서 다시 일어선다"
+	_title.show_tip(EKeys.fmt(String(DEATH_TIPS.get(_last_hit, ""))), wait, sub)
+	_hold_hints(wait + 1.0)
+	_vignette = DEATH_VIGNETTE
+	Fx.set_vignette(_vignette)
 	await get_tree().create_timer(RESPAWN_DELAY, true, false, true).timeout
 	if not is_instance_valid(eska):
 		return
 	_reset_fight()
 	eska.respawn(respawn_at)
 	eska.belt.refill()
+	if _p2_checkpoint:
+		eska.gauge = 0.0 # 2막 확인점: 종언 게이지는 비운 채
 
 
 ## 처음부터: 남은 칼빛을 거두고 검성을 새로 세움 (체력 가득·1막), 장막을 걷음
@@ -432,6 +522,11 @@ func _reset_fight() -> void:
 		boss.queue_free()
 	hud.boss = null
 	_spawn_boss()
+	if _p2_checkpoint:
+		boss.start_phase2() # 2막 확인점: 검성 체력 55%·칼을 뽑은 채 (1막 쓰러짐은 처음부터)
+	_opening.clear()
+	_vignette = 0.0
+	Fx.set_vignette(0.0)
 	_curtain_on(false)
 	_cinematic(false)
 	_cine_hold = false
@@ -480,6 +575,7 @@ func _on_victory_chosen(what: String) -> void:
 ## 만남 연출을 건너뛰고 바로 싸움 (에스카를 x에 둠)
 func skip_intro(x := 520.0) -> String:
 	_first = false
+	boss.global_position.x = TEST_BOSS_X # 시험 시나리오들이 쓰던 자리 그대로
 	eska.global_position = Vector2(x, FLOOR)
 	eska.velocity = Vector2.ZERO
 	_open_fight()
@@ -997,7 +1093,10 @@ class BossTitle extends Control:
 	const IN_T := 0.35
 	const OUT_T := 0.4
 	const LINE_STEPS := 12 ## 붉은 선이 끝으로 옅어지는 단계
-	const TIP_DY := 40.0 ## 쓰러짐 알림 아래 "무엇에 맞았나" 줄 높이
+	const TIP_DY := 22.0 ## "쓰러졌다" 바로 아래 "무엇에 맞았나" 줄 (HUD 알림 제목 기준선에서)
+	const TIP_FS := 13 ## 혼잣말 크기
+	const TIP_SUB_DY := 17.0
+	const TIP_SUB_FS := 10
 	var _name := ""
 	var _sub := ""
 	var _t := 0.0
@@ -1005,8 +1104,13 @@ class BossTitle extends Control:
 	var _small := false
 	var _font: Font
 	var _tip := ""
+	var _tip_sub := ""
 	var _tip_t := 0.0
 	var _tip_dur := 0.0
+	var _spots: Array = []
+	var _touch: ETouch
+	var _spot_t := 0.0
+	var _spot_dur := 0.0
 
 	func _ready() -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1022,12 +1126,20 @@ class BossTitle extends Control:
 		_small = small
 		queue_redraw()
 
-	## 쓰러짐 알림 아래 한 줄 (무엇에 맞았나)
-	func show_tip(text: String, dur: float) -> void:
+	## 쓰러짐 알림 바로 아래 한 줄 (무엇에 맞았나 — 붉은 ■) + 그 아래 작게 sub
+	func show_tip(text: String, dur: float, sub := "") -> void:
 		_tip = text
+		_tip_sub = sub
 		_tip_t = 0.0
 		_tip_dur = dur
 		queue_redraw()
+
+	## 배움 동안 터치 버튼 둘레 맥박 고리 (ETouch.spot — 튜토리얼과 같은 문법, 색은 뼈흰·붉은빛)
+	func spots(actions: Array, touch: ETouch, dur: float) -> void:
+		_spots = actions
+		_touch = touch
+		_spot_t = 0.0
+		_spot_dur = dur
 
 	## 아직 자막이 떠 있나
 	func busy() -> bool:
@@ -1043,9 +1155,13 @@ class BossTitle extends Control:
 		if _tip_t < _tip_dur:
 			_tip_t += real
 			queue_redraw()
+		if _spot_t < _spot_dur:
+			_spot_t += real
+			queue_redraw()
 
 	func _draw() -> void:
 		_draw_tip()
+		_draw_spots()
 		if _name == "" or _t >= _dur:
 			return
 		var inn := clampf(_t / IN_T, 0.0, 1.0)
@@ -1083,18 +1199,39 @@ class BossTitle extends Control:
 			draw_string_outline(_font, sp, _sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs, 3, Color(0, 0, 0, 0.7 * k))
 			draw_string(_font, sp, _sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs, Color(BONE if _small else BONE_DIM, k)) # 작은 자막(배움·무너짐)은 안내가 주인공이라 밝게
 
-	## 무엇에 맞았나: HUD 쓰러짐 알림(화면 30% 높이) 아래 한 줄, 붉은 점 + 뼈흰 글
+	## 무엇에 맞았나: HUD "쓰러졌다"(화면 30% 높이) 바로 아래 붉은 ■ + 혼잣말 크기 글, 그 아래 작게 sub (부활 대기 내내)
 	func _draw_tip() -> void:
-		if _tip == "" or _tip_t >= _tip_dur:
+		if _tip_t >= _tip_dur or (_tip == "" and _tip_sub == ""):
 			return
 		var a := minf(clampf(_tip_t / IN_T, 0.0, 1.0), clampf((_tip_dur - _tip_t) / OUT_T, 0.0, 1.0))
-		var fs := 12
-		var tw := _font.get_string_size(_tip, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var p := Vector2(size.x * 0.5 - tw * 0.5, size.y * 0.3 + TIP_DY)
-		_hband(Rect2(p.x - 40.0, p.y - 14.0, tw + 80.0, 20.0), 0.55 * a)
-		draw_rect(Rect2(p.x - 9.0, p.y - 6.0, 4.0, 4.0), Color(LINE_HOT, a))
-		draw_string_outline(_font, p, _tip, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.7 * a))
-		draw_string(_font, p, _tip, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(BONE, a))
+		var y := size.y * 0.3 + TIP_DY
+		if _tip != "":
+			var tw := _font.get_string_size(_tip, HORIZONTAL_ALIGNMENT_LEFT, -1, TIP_FS).x
+			var p := Vector2(size.x * 0.5 - tw * 0.5 + 6.0, y)
+			_hband(Rect2(p.x - 50.0, p.y - 15.0, tw + 100.0, 22.0), 0.6 * a)
+			draw_rect(Rect2(p.x - 13.0, p.y - 9.0, 7.0, 7.0), Color(LINE_HOT, a))
+			draw_string_outline(_font, p, _tip, HORIZONTAL_ALIGNMENT_LEFT, -1, TIP_FS, 3, Color(0, 0, 0, 0.75 * a))
+			draw_string(_font, p, _tip, HORIZONTAL_ALIGNMENT_LEFT, -1, TIP_FS, Color(BONE, a))
+			y += TIP_SUB_DY
+		if _tip_sub != "":
+			var sw := _font.get_string_size(_tip_sub, HORIZONTAL_ALIGNMENT_LEFT, -1, TIP_SUB_FS).x
+			var q := Vector2(size.x * 0.5 - sw * 0.5, y)
+			draw_string_outline(_font, q, _tip_sub, HORIZONTAL_ALIGNMENT_LEFT, -1, TIP_SUB_FS, 3, Color(0, 0, 0, 0.6 * a))
+			draw_string(_font, q, _tip_sub, HORIZONTAL_ALIGNMENT_LEFT, -1, TIP_SUB_FS, Color(BONE_DIM, a))
+
+	func _draw_spots() -> void:
+		if _spot_t >= _spot_dur or _spots.is_empty() or _touch == null or not _touch.active:
+			return
+		var a := clampf((_spot_dur - _spot_t) / OUT_T, 0.0, 1.0)
+		var beat := 0.5 + 0.5 * sin(_spot_t * 6.0)
+		for k: String in _spots:
+			var sp := _touch.spot(k)
+			if sp.is_empty():
+				continue
+			var c: Vector2 = sp[0]
+			var r: float = sp[1]
+			draw_arc(c, r + 4.0 + 3.0 * beat, 0.0, TAU, 32, Color(LINE_HOT, (0.5 + 0.4 * beat) * a), 2.0)
+			draw_arc(c, r + 9.0 + 6.0 * beat, 0.0, TAU, 32, Color(BONE, 0.25 * (1.0 - beat) * a), 1.0)
 
 	## 가운데가 짙고 양옆으로 옅어지는 가로 띠
 	func _hband(r: Rect2, al: float) -> void:
