@@ -1465,7 +1465,7 @@ class RiftBrew extends PDraw.Canvas:
 			var ca := clampf(age / 0.2, 0.0, 1.0) * clampf((hold + 0.6 - age) / 0.6, 0.0, 1.0)
 			var p := _s[i].round()
 			var fy: float = dr[3]
-			_paint_pool(p.x, fy, _pool_w(i, front), age, hold, float(dr[1]), body, hi) # 안개가 끝난 뒤에도 줄어들며 남음
+			_paint_pool(p.x, fy, _pool_w(i, front), age, hold, float(dr[1]), col.darkened(0.72), hi) # 안개가 끝난 뒤에도 줄어들며 남음
 			if ca <= 0.0:
 				continue
 			var cyc := fmod(age * float(dr[2]) + float(dr[1]), 1.0)
