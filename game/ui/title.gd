@@ -46,6 +46,8 @@ func _ready() -> void:
 	school.kind = BG.LayerDraw.Kind.SCHOOL
 	school.position = Vector2(-200, 0)
 	add_child(school)
+	var moon := HeroMoon.new() # 에스카 뒤 큰 보름달 — 학교 그림자 앞, 숲 뒤 (하늘의 작은 달은 가림 — 달 하나)
+	add_child(moon)
 	var forest := BG.LayerDraw.new()
 	forest.kind = BG.LayerDraw.Kind.FOREST_NEAR
 	forest.position = Vector2(0, 10)
@@ -127,11 +129,29 @@ func _build_menu() -> void:
 
 
 ## 타이틀의 에스카: 물리·입력 없이 서 있는 에스카(EEska + EArt)를 작은 SubViewport에 그리고, 그 그림을 3배로 키워 놓는다
-## (줄 흔들림·테두리 빛이 1배 크기 기준이라 노드를 키우지 않고 그림을 키움). 발밑 = 화면 (150, 318)
+## (줄 흔들림이 1배 크기 기준이라 노드를 키우지 않고 그림을 키움). 발밑 = 화면 (150, 318).
+## 주인공 구도: 큰 보름달(HeroMoon) 앞 실루엣 + 등 뒤에서 천천히 도는 마녀 문장 고리(HeroSigil).
+## 게임 속 1px 테두리 빛은 3배면 3px 회색 띠가 되므로 끄고(art.rim_on), 키운 그림 둘레에 화면 1px 외곽선을 셰이더로 따로 그린다(OUTLINE_SHADER).
+## 모자 챙 반짝 점은 양 끝 둘만, 챙 그늘은 빼서 얼굴이 읽히게(art.calm)
 const ESKA_VIEW := Vector2i(56, 64) ## 그림 칸 크기 (모자·머리칼·치맛자락이 다 들어가게)
 const ESKA_FEET := Vector2(28, 58) ## 그림 칸 안 발밑
 const ESKA_SCALE := 3.0
 const ESKA_AT := Vector2(150, 318)
+const ESKA_LINE := Color(0.84, 0.78, 1.0, 0.85) ## 키운 그림 둘레 1px 외곽선 (게임 속 테두리 빛과 같은 옅은 보랏빛 흰색)
+const OUTLINE_SHADER := """
+shader_type canvas_item;
+uniform vec4 line_col : source_color;
+uniform vec2 step_uv; // 화면 1px = 그림 칸의 1/배율 텍셀
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	if (c.a < 0.5) {
+		float a = max(max(texture(TEXTURE, UV + vec2(step_uv.x, 0.0)).a, texture(TEXTURE, UV - vec2(step_uv.x, 0.0)).a),
+			max(texture(TEXTURE, UV + vec2(0.0, step_uv.y)).a, texture(TEXTURE, UV - vec2(0.0, step_uv.y)).a));
+		c = a > 0.5 ? line_col : vec4(0.0);
+	}
+	COLOR = c;
+}
+"""
 
 
 func _add_eska() -> void:
@@ -147,12 +167,24 @@ func _add_eska() -> void:
 	_eska.set_physics_process(false) # 물리·입력 없이 그림만
 	_eska.set_process(false)
 	_eska.art.stand = true
+	_eska.art.rim_on = false
+	_eska.art.calm = true
+	var sig := HeroSigil.new() # 등 뒤 문장 고리 (에스카 그림 바로 뒤)
+	sig.position = ESKA_AT + Vector2(0, -24.0 * ESKA_SCALE)
+	add_child(sig)
 	var sp := Sprite2D.new()
 	sp.texture = vp.get_texture()
 	sp.centered = false
 	sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sp.scale = Vector2(ESKA_SCALE, ESKA_SCALE)
 	sp.position = ESKA_AT - ESKA_FEET * ESKA_SCALE
+	var sh := Shader.new()
+	sh.code = OUTLINE_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	mat.set_shader_parameter("line_col", ESKA_LINE)
+	mat.set_shader_parameter("step_uv", Vector2(1.0 / (float(ESKA_VIEW.x) * ESKA_SCALE), 1.0 / (float(ESKA_VIEW.y) * ESKA_SCALE)))
+	sp.material = mat
 	add_child(sp)
 
 
@@ -300,3 +332,55 @@ class TitleText extends Control:
 
 	func _draw() -> void:
 		title.draw_text_on(self)
+
+
+## 타이틀 주인공 구도: 에스카 뒤 큰 보름달 (옅은 보랏빛 흰색, 파랑 없음). 하늘 그림(BG.SkyDraw)의 작은 달 자리는 하늘색 띠로 덮어 달을 하나로
+class HeroMoon extends Node2D:
+	const C := Vector2(150, 206) ## 달 가운데 (에스카 가슴·모자 뒤)
+	const R := 60.0
+	const FACE := Color("#ece4f6")
+	const SHADE := Color("#cfc3e4")
+	const OLD_MOON := Vector2(500, 70) ## BG.SkyDraw의 달 자리
+	const OLD_R := 36.0
+
+	func _draw() -> void:
+		var top := Palette.SKY_TOP.lerp(Palette.SKY_BOTTOM, (OLD_MOON.y - OLD_R) / 360.0)
+		var bot := Palette.SKY_TOP.lerp(Palette.SKY_BOTTOM, (OLD_MOON.y + OLD_R) / 360.0)
+		var r0 := Rect2(OLD_MOON - Vector2(OLD_R, OLD_R), Vector2(OLD_R, OLD_R) * 2.0)
+		draw_polygon(PackedVector2Array([r0.position, Vector2(r0.end.x, r0.position.y), r0.end, Vector2(r0.position.x, r0.end.y)]), PackedColorArray([top, top, bot, bot]))
+		for i in 70: # 덮은 자리의 별은 다시 (BG.SkyDraw와 같은 자리)
+			var p := Vector2(fmod(i * 97.13, 640.0), fmod(i * 53.71 + i * i * 0.37, 230.0))
+			if r0.has_point(p):
+				draw_rect(Rect2(p, Vector2.ONE), Color(1, 0.95, 0.9, 0.25 + fmod(i * 0.618, 0.6)))
+		draw_circle(C, R + 34.0, Color(FACE, 0.04))
+		draw_circle(C, R + 16.0, Color(FACE, 0.07))
+		draw_circle(C, R, FACE)
+		for spec: Array in [[Vector2(-22, -18), 11.0], [Vector2(18, 10), 8.0], [Vector2(-8, 26), 6.0], [Vector2(28, -24), 5.0]]:
+			draw_circle(C + (spec[0] as Vector2), float(spec[1]), SHADE)
+
+
+## 등 뒤 마녀 문장 고리: 두 겹 원 + 일곱 갈래 별 {7/2} + 원 사이 작은 점, 아주 천천히 돎 (EVfx.Sigil과 같은 모양 말투)
+class HeroSigil extends Node2D:
+	const R := 46.0
+	const SPIN := 0.18 ## 초당 회전 (라디안)
+	const LINE := Color(0.66, 0.42, 0.95, 0.75)
+	const EDGE := Color(0.96, 0.82, 1.0, 0.85)
+	var _t := 0.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var sp := _t * SPIN
+		draw_arc(Vector2.ZERO, R, 0.0, TAU, 64, EDGE, 1.0)
+		draw_arc(Vector2.ZERO, R * 0.82, 0.0, TAU, 56, LINE, 1.0)
+		var st := PackedVector2Array()
+		for i in 7:
+			st.append(Vector2.from_angle(sp + float(i) * TAU / 7.0) * R * 0.8)
+		for i in 7:
+			draw_line(st[i], st[(i + 2) % 7], LINE, 1.0)
+		for i in 14:
+			var a := -sp * 0.6 + float(i) * TAU / 14.0
+			draw_rect(Rect2(Vector2.from_angle(a) * R * 0.91 - Vector2(1, 1), Vector2(2, 2)), EDGE)
+

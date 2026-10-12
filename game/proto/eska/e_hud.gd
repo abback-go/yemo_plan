@@ -39,9 +39,12 @@ const SHADE_A := 0.42 ## 어둠 바탕 진하기
 const SHADE_SEG := 12
 const HINT_LINE := 16.0 ## 아래 안내 줄 간격
 const BUILD_FS := 8 ## 빌드 번호 글자 크기
-const CTX_TOUCH_FIRST := 15.0 ## 터치: 장면 안내(context_hints)를 처음 이만큼 보스바 아래 가운데에 보여 줌
-const CTX_TOUCH_RESPAWN := 8.0 ## 터치: 부활 직후 다시 이만큼
-const CTX_FADE := 1.0 ## 사라지기 전 옅어지는 시간
+const CTX_TOUCH_FIRST := 15.0 ## 장면 안내(context_hints)를 처음 이만큼 진하게 (그 뒤 옅게 — 키보드·터치 같음, loop7 3장)
+const CTX_TOUCH_RESPAWN := 8.0 ## 부활 직후 다시 이만큼 진하게
+const CTX_FADE := 1.0 ## 진함 → 옅음으로 바뀌는 시간
+const CTX_FAINT := 0.4 ## 옅을 때 진하기 (바닥·캐릭터·일섬선을 가리지 않게)
+const CTX_ROTATE := 3.5 ## 장면 안내는 한 줄씩 이 간격으로 돌아가며
+const CTX_SWAP := 0.3 ## 줄이 바뀔 때 옅어졌다 나타나는 시간
 const CTX_GAP := 34.0 ## 보스바 이름 줄 아래로 이만큼 (버팀 막대 아래)
 
 var eska: EEska
@@ -54,7 +57,8 @@ var show_keys := true ## 아래쪽 기본 키 안내 (튜토리얼은 자기 안
 var context_hints: Array[String] = [] ## 장면 안내 (비어 있지 않으면 기본 키 안내 대신 이 줄들 — 위에서 아래 순서, 보스장 등)
 var cinematic := false ## 연출 중: 아래 안내를 모두 숨김 (훈련장 시험 버튼도 이 값을 보고 숨는다)
 var combo_right_pad := 0.0 ## 연타 수를 오른쪽 끝에서 이만큼 더 왼쪽에 (훈련장 연습 과제 칸과 겹치지 않게)
-var _ctx_t := CTX_TOUCH_FIRST ## 터치일 때 장면 안내를 보여 줄 남은 시간 (처음 · 부활 직후)
+var _ctx_t := CTX_TOUCH_FIRST ## 장면 안내를 진하게 보여 줄 남은 시간 (처음 · 부활 직후)
+var _ctx_clock := 0.0 ## 장면 안내 줄 돌리기 시계
 var _sig := ""
 var _last_hits := 0
 var _pop := 0.0
@@ -106,9 +110,10 @@ func _process(delta: float) -> void:
 	if _ban_t < _ban_dur:
 		_ban_t += delta
 	_ctx_t = maxf(_ctx_t - delta, 0.0)
+	_ctx_clock += delta
 	var sig := "%d|%d|%.1f|%s|%s|%s|%s" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false), str(cinematic), str(context_hints), str(EKeys.touch_mode)]
-	if _ctx_t > 0.0 and touch and touch.active and not context_hints.is_empty():
-		sig += "|c%.2f" % minf(_ctx_t, CTX_FADE)
+	if not context_hints.is_empty() and not cinematic:
+		sig += "|c%.2f|%d|%.2f" % [minf(_ctx_t, CTX_FADE), _ctx_line(), _ctx_swap_a()]
 	for id: String in EEska.CD:
 		sig += "|%d" % ceili(eska.cd_left(id) * 10.0)
 	if _pop > 0.0:
@@ -151,11 +156,10 @@ func _draw() -> void:
 		_draw_rotate_hint(font)
 	if cinematic:
 		return
-	if touch and touch.active:
-		_draw_context_touch(font)
-		return
 	if not context_hints.is_empty():
-		_draw_context_hints(font)
+		_draw_context_line(font) # 키보드·터치 모두 보스바 아래 가운데 한 줄 (왼쪽 아래 기본 키 안내 대신)
+		return
+	if touch and touch.active:
 		return
 	if not show_keys:
 		return
@@ -181,31 +185,31 @@ func _draw() -> void:
 	_text(font, Vector2(x, y), ult, 11, Color(1, 1, 1, 0.9) if full else Color(1, 1, 1, 0.5))
 
 
-## 장면 안내 줄들 (기본 키 안내 자리 — 마지막 줄이 맨 아래). {es_동작}은 지금 입력 방식의 이름으로 (EKeys.fmt)
-func _draw_context_hints(font: Font) -> void:
-	var n := context_hints.size()
-	for i in n:
-		var y := size.y - 20.0 - HINT_LINE * float(n - 1 - i)
-		_text(font, Vector2(10, y), EKeys.fmt(context_hints[i]), 11, Color(1, 1, 1, 0.7))
+## 지금 보여 줄 장면 안내 줄 번호 (CTX_ROTATE마다 다음 줄)
+func _ctx_line() -> int:
+	return int(_ctx_clock / CTX_ROTATE) % maxi(context_hints.size(), 1)
 
 
-## 터치: 장면 안내를 보스바 아래 가운데에 — 처음 CTX_TOUCH_FIRST초와 부활 직후 CTX_TOUCH_RESPAWN초만 (버튼에 가리지 않게)
-func _draw_context_touch(font: Font) -> void:
-	if _ctx_t <= 0.0 or context_hints.is_empty():
+## 줄이 바뀌는 순간 옅어졌다 나타남 (0~1)
+func _ctx_swap_a() -> float:
+	if context_hints.size() <= 1:
+		return 1.0
+	var ph := fmod(_ctx_clock, CTX_ROTATE)
+	return clampf(minf(ph, CTX_ROTATE - ph) / CTX_SWAP, 0.0, 1.0)
+
+
+## 장면 안내: 보스바(+버팀 막대) 아래 가운데에 한 줄씩 돌아가며 (키보드·터치 모두 — 왼쪽 아래 여러 줄이 바닥·캐릭터·일섬선을 가려서, loop7 3장).
+## 처음 CTX_TOUCH_FIRST초와 부활 직후 CTX_TOUCH_RESPAWN초는 진하게, 그 뒤엔 CTX_FAINT로 옅게. {es_동작}은 지금 입력 방식 이름으로 (EKeys.fmt)
+func _draw_context_line(font: Font) -> void:
+	var strong := minf(_ctx_t / CTX_FADE, 1.0)
+	var a := lerpf(CTX_FAINT, 1.0, strong) * _ctx_swap_a()
+	if a <= 0.01:
 		return
-	var a := minf(_ctx_t / CTX_FADE, 1.0)
 	var y := (13.0 if size.x >= 520.0 else BELT_Y + 20.0) + CTX_GAP
-	var n := context_hints.size()
-	var w := 0.0
-	var lines: Array[String] = []
-	for h in context_hints:
-		var s := EKeys.fmt(h)
-		lines.append(s)
-		w = maxf(w, font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x)
-	draw_rect(Rect2(size.x * 0.5 - w * 0.5 - 8.0, y - 12.0, w + 16.0, HINT_LINE * float(n) + 6.0), Color(INK, 0.6 * a))
-	for i in n:
-		var lw := font.get_string_size(lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-		_text(font, Vector2(size.x * 0.5 - lw * 0.5, y + HINT_LINE * float(i)), lines[i], 11, Color(1, 1, 1, 0.85 * a))
+	var s := EKeys.fmt(context_hints[_ctx_line()])
+	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+	draw_rect(Rect2(size.x * 0.5 - w * 0.5 - 8.0, y - 12.0, w + 16.0, HINT_LINE + 2.0), Color(INK, 0.55 * a))
+	_text(font, Vector2(size.x * 0.5 - w * 0.5, y), s, 11, Color(1, 1, 1, 0.9 * a))
 
 
 ## 왼쪽 위 옅은 어둠 바탕: 모서리에서 타원으로 옅어진다 (안쪽은 고른 진하기, 바깥 띠에서 0으로) — 삼각형 묶음 하나로 한 번에 그림
