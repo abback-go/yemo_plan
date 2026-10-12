@@ -12,6 +12,7 @@
 [301, "eval", "_cine(boss.shadows()[1].global_position + Vector2(0, -30), 1.0, 1.4, 1.5, 9.0)"],
 [325, "shot", "s02b_shadows_close"],
 [330, "eval", "boss.shadows().size()"],
+[330, "eval", "perf()"],
 [331, "eval", "boss.get('poise')"],
 [332, "eval", "boss.shadows()[1].take_hit(2000, eska.global_position, {})"],
 [333, "eval", "boss.get('poise')"],
