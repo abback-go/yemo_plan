@@ -10,9 +10,16 @@ extends RefCounted
 const INFUSE_SEEP := 0.35 ## 물약 색이 틈 한쪽 끝에서 다른 끝까지 번지는 시간
 const INFUSE_FLASH := 0.16 ## 병이 빨려 들어가는 섬광 시간
 const INFUSE_FADE := 0.25 ## 틈이 닫힌 뒤 색이 사라지는 시간
-const FRESH_FLASH := 0.3 ## 갓 찢긴 틈에 스몄을 때: 흰 꿰맴 선이 틈 가장자리를 한 번 훑고 흰 별빛이 튀는 시간 (loop5_plan 2장 — 색이 아니라 모양으로)
+const FRESH_FLASH := 0.5 ## 갓 찢긴 틈에 스몄을 때의 신호 전체 시간 (loop5_plan 2장 — 색이 아니라 모양으로)
 const FRESH_STARS := 6 ## 그때 튀는 흰 별빛 수
-const STITCH_GAP := 7.0 ## 꿰맴 선의 땀 간격(px)
+## "마녀가 틈을 꿰맨다"(loop6_plan 4장): 흰 바느질 땀 STITCHES개가 STITCH_SEW초 동안 닿은 자리에서 양쪽으로 차례로 박히고,
+## STITCH_HOLD까지 머물렀다 사라진다. 땀은 틈을 비스듬히 가로지르는 STITCH_LEN px 흰 선(검은 테) — 흡수 고리(반지름 약 20) 바깥부터
+const STITCHES := 10
+const STITCH_SEW := 0.2
+const STITCH_HOLD := 0.38
+const STITCH_LEN := 8.0
+const STITCH_FROM := 24.0 ## 닿은 자리에서 첫 땀까지 (흡수 고리 바깥)
+const STITCH_GAP := 9.0 ## 땀 사이 간격 (틈 길이 따라)
 const QUIET_EDGE := "rot" ## 이 물약은 테 물듦 선을 아주 옅게 (부식은 물약 쪽 독안개가 퍼지므로 가는 초록 선이 남아 보이지 않게)
 const QUIET_A := 0.12 ## 그때 테 선 진하기
 
@@ -149,13 +156,13 @@ static func _ensure_layer() -> bool:
 
 ## 등록부 시계 + 물약이 스며든 틈 그림 (장면에 한 노드)
 class Layer extends PDraw.Canvas:
-	var items: Array = [] ## [틈, 색, 나이, 닫힌 뒤 나이, 갓 찢긴 틈인가, 테 선을 옅게]
+	var items: Array = [] ## [틈, 색, 나이, 닫힌 뒤 나이, 갓 찢긴 틈인가, 테 선을 옅게, 바느질 땀들 [가운데, 가로지르는 방향(길이 포함)]]
 
 	func _ready() -> void:
 		z_index = 7 # 틈(6) 위에
 
 	func add_infusion(rift: Dictionary, color: Color, fresh := false, quiet := false) -> void:
-		items.append([rift, color, 0.0, 0.0, fresh, quiet])
+		items.append([rift, color, 0.0, 0.0, fresh, quiet, _stitches(rift) if fresh else []])
 		Sfx.play_pitch(&"es_infuse", randf_range(0.95, 1.05), -6.0)
 
 	func _process(delta: float) -> void:
@@ -205,34 +212,57 @@ class Layer extends PDraw.Canvas:
 				pd.glow(c, 18.0 * (1.0 - e) + 4.0, Color(col.lerp(Color.WHITE, 0.5), 0.9 * (1.0 - e)), 0.0)
 				pd.draw_arc(c, 4.0 + 16.0 * (1.0 - e), 0.0, TAU, 16, Color(col, 1.0 - e), 1.5)
 			if bool(it[4]) and age < ERifts.FRESH_FLASH:
-				_paint_fresh(r, age / ERifts.FRESH_FLASH, mid, span)
+				_paint_fresh(r, it[6], age, mid)
 
-	## 갓 찢긴 틈의 신호: 닿은 자리에서 양 끝으로 흰 꿰맴 선(가장자리를 가로지르는 짧은 땀)이 한 번 훑고 지나가며 번쩍 + 흰 별빛이 튐
-	func _paint_fresh(r: Dictionary, e: float, mid: float, span: float) -> void:
+	## 바느질 땀 자리: 닿은 자리에서 틈 길이를 따라 양쪽으로 번갈아 (STITCH_FROM부터 STITCH_GAP마다), 박히는 순서대로
+	func _stitches(r: Dictionary) -> Array:
 		var pts: PackedVector2Array = r.pts
 		var n := pts.size()
-		var w := float(r.w)
-		var head := e * 1.2 # 훑는 머리 (닿은 자리 0 → 양 끝 1)
-		var a := 1.0 - e * e
+		if n < 2:
+			return []
+		var cum := PackedFloat32Array([0.0]) # 점마다 틈 길이
 		for k in n - 1:
-			var p0 := pts[k]
-			var d := pts[k + 1] - p0
-			var ln := d.length()
-			if ln < 0.5:
+			cum.append(cum[k] + pts[k].distance_to(pts[k + 1]))
+		var near: Vector2 = r.get("near", pts[n / 2])
+		var ni := clampi(int(r.get("near_i", n / 2)), 0, n - 2)
+		var s0 := cum[ni] + pts[ni].distance_to(near)
+		var across := clampf(float(r.w) + 4.0, ERifts.STITCH_LEN, 16.0)
+		var out := []
+		var step := 0
+		while out.size() < ERifts.STITCHES and step < ERifts.STITCHES * 3:
+			var side := 1.0 if step % 2 == 0 else -1.0
+			var sd := s0 + side * (ERifts.STITCH_FROM + ERifts.STITCH_GAP * float(step / 2))
+			step += 1
+			if sd < 0.0 or sd > cum[n - 1]:
 				continue
-			var u := d / ln
-			var o := u.orthogonal() * (w * 0.5 + 3.0)
-			var m := int(ln / ERifts.STITCH_GAP) + 1
-			for q in m:
-				var fq := (float(k) + (float(q) + 0.5) / float(m) - mid) / span
-				var behind := head - absf(fq) # 머리가 지나간 지 얼마나
-				if behind < 0.0 or behind > 0.45:
-					continue
-				var sa := a * (1.0 - behind / 0.45)
-				var c := p0 + u * (ln * (float(q) + 0.5) / float(m))
-				pd.draw_line(c + o + u * 1.5, c - o - u * 1.5, Color(Color.WHITE, sa), 1.0) # 비스듬한 흰 땀
-		var c0: Vector2 = r.get("near", pts[clampi(int(mid), 0, n - 1)])
+			var k := 0
+			while k < n - 2 and cum[k + 1] < sd:
+				k += 1
+			var seg := maxf(cum[k + 1] - cum[k], 0.001)
+			var c := pts[k].lerp(pts[k + 1], (sd - cum[k]) / seg)
+			var t := (pts[k + 1] - pts[k]) / seg
+			out.append([c, (t.orthogonal() + t * 0.45).normalized() * across])
+		return out
+
+	## 갓 찢긴 틈의 신호: 흰 바느질 땀이 차례로 박힘(툭 커졌다 자리 잡음) + 닿은 자리에서 흰 별빛이 튐 — 물약 색과 상관없이 읽히게 검은 테
+	func _paint_fresh(r: Dictionary, st: Array, age: float, mid: float) -> void:
+		var pts: PackedVector2Array = r.pts
+		var fade := 1.0 - clampf((age - ERifts.STITCH_HOLD) / (ERifts.FRESH_FLASH - ERifts.STITCH_HOLD), 0.0, 1.0)
+		for i in st.size():
+			var at := ERifts.STITCH_SEW * float(i) / float(maxi(st.size() - 1, 1))
+			if age < at:
+				break
+			var k := clampf((age - at) / 0.05, 0.0, 1.0)
+			var c: Vector2 = st[i][0]
+			var d: Vector2 = st[i][1] * (0.5 * (1.0 + 0.35 * (1.0 - k))) # 박힐 때 살짝 길었다 자리 잡음
+			pd.draw_line(c - d, c + d, Color(EVfx.INK, 0.85 * fade), 3.0)
+			pd.draw_line(c - d, c + d, Color(Color.WHITE, fade), 1.5)
+			if k < 1.0:
+				pd.draw_rect(Rect2(c - Vector2(1.5, 1.5), Vector2(3, 3)), Color(Color.WHITE, (1.0 - k) * fade)) # 바늘이 꽂히는 반짝임
+		var e := clampf(age / ERifts.FRESH_FLASH, 0.0, 1.0)
+		var a := 1.0 - e * e
+		var c0: Vector2 = r.get("near", pts[clampi(int(mid), 0, pts.size() - 1)])
 		var e2 := 1.0 - pow(1.0 - e, 2.0)
 		for i in ERifts.FRESH_STARS:
 			var dir := Vector2.from_angle(float(i) * TAU / float(ERifts.FRESH_STARS) + 0.4)
-			EVfx.star4(pd, c0 + dir * (6.0 + 26.0 * e2), 5.0 * (1.0 - e) + 1.5, e * 3.0, Color(Color.WHITE, a), Color(EVfx.PALE, 0.35 * a))
+			EVfx.star4(pd, c0 + dir * (22.0 + 20.0 * e2), 4.0 * (1.0 - e) + 1.5, e * 3.0, Color(Color.WHITE, a), Color(EVfx.PALE, 0.35 * a))
