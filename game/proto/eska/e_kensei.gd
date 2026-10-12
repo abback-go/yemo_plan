@@ -1988,7 +1988,7 @@ class Shadow extends EEnemy:
 	const GLINT_LAST := 0.4 ## 일섬 이만큼 전부터 칼코등이 번뜩임
 	const POOL_R := 16.0 ## 발밑 먹물 웅덩이 반지름
 	const Z_BEHIND := -1 ## 에스카(0) 뒤
-	const STILL_VULN := 1.3 ## 봉공으로 굳은 분신이 받는 피해 배수 (loop8 2장)
+	const STILL_VULN := 1.4 ## 봉공으로 굳은 분신이 받는 피해 배수 (loop8 2장)
 	const PULL_HOLD := 0.1 ## 흑성이 끄는 동안(매 프레임 다시 걸림) + 이만큼 자세 시간 멈춤
 	var boss: EKensei
 	var src_v := PackedVector2Array()
