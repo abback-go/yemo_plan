@@ -7,7 +7,7 @@ extends Control
 const BG := preload("res://levels/background.gd")
 
 var _t := 0.0
-var _sera: PlayerVisual
+var _eska: EEska ## 타이틀의 마녀 = 게임 속 에스카 그림(EArt) 그대로 (작은 화면에 그려 3배로 키움)
 var _font: Font
 var _phase := 0 ## 0 아무 키 대기, 1 메뉴, 2 설정, 3 새로 시작 확인, 4 시작함
 var _text: Control
@@ -64,10 +64,7 @@ func _ready() -> void:
 	ground_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(ground_top)
 
-	_sera = PlayerVisual.new()
-	_sera.position = Vector2(150, 318)
-	_sera.scale = Vector2(3, 3)
-	add_child(_sera)
+	_add_eska()
 
 	_text = TitleText.new()
 	_text.title = self
@@ -129,11 +126,41 @@ func _build_menu() -> void:
 	_menu.selected = 0
 
 
+## 타이틀의 에스카: 물리·입력 없이 서 있는 에스카(EEska + EArt)를 작은 SubViewport에 그리고, 그 그림을 3배로 키워 놓는다
+## (줄 흔들림·테두리 빛이 1배 크기 기준이라 노드를 키우지 않고 그림을 키움). 발밑 = 화면 (150, 318)
+const ESKA_VIEW := Vector2i(56, 64) ## 그림 칸 크기 (모자·머리칼·치맛자락이 다 들어가게)
+const ESKA_FEET := Vector2(28, 58) ## 그림 칸 안 발밑
+const ESKA_SCALE := 3.0
+const ESKA_AT := Vector2(150, 318)
+
+
+func _add_eska() -> void:
+	var vp := SubViewport.new()
+	vp.size = ESKA_VIEW
+	vp.transparent_bg = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	add_child(vp)
+	_eska = EEska.new()
+	_eska.position = ESKA_FEET
+	vp.add_child(_eska)
+	_eska.set_physics_process(false) # 물리·입력 없이 그림만
+	_eska.set_process(false)
+	_eska.art.stand = true
+	var sp := Sprite2D.new()
+	sp.texture = vp.get_texture()
+	sp.centered = false
+	sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sp.scale = Vector2(ESKA_SCALE, ESKA_SCALE)
+	sp.position = ESKA_AT - ESKA_FEET * ESKA_SCALE
+	add_child(sp)
+
+
 func _process(delta: float) -> void:
 	_t += delta
 	_code_msg_t = maxf(_code_msg_t - delta, 0.0)
-	_sera.overload_ratio = 0.3 + 0.3 * sin(_t * 0.8)
-	_sera.update_pose(delta)
+	if is_instance_valid(_eska):
+		_eska.art.tick(delta)
 	_text.queue_redraw()
 
 

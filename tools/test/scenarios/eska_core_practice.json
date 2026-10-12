@@ -56,5 +56,19 @@
 [650, "eval", "spawn_foe('colossus', 700, 300)"],
 [720, "eval", "cam_bias.bias"],
 [721, "shot", "p07_cam_bias"],
-[730, "quit"]
+[730, "eval", "dummy.set('global_position', get_viewport().get_canvas_transform().affine_inverse() * Vector2(436, 280))"],
+[760, "eval", "touch.cover_outline('potion')"],
+[760, "eval", "touch.cover_alpha('potion')"],
+[761, "shot", "p08_outline_potion"],
+[770, "eval", "practice.done"],
+[772, "eval", "get_tree().reload_current_scene()"],
+[810, "eval", "practice.done"],
+[811, "eval", "eska.set('global_position', Vector2(400, 300))"],
+[811, "eval", "eska.set('invuln', 999.0)"],
+[812, "eval", "spawn_foe('colossus', 760, 300)"],
+[860, "eval", "cam_bias.bias"],
+[861, "eval", "force_bias(2.0)"],
+[900, "eval", "cam_bias.bias"],
+[901, "shot", "p09_force_bias"],
+[910, "quit"]
 ]}
