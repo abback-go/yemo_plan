@@ -20,6 +20,7 @@ const STITCH_HOLD := 0.38
 const STITCH_LEN := 8.0
 const STITCH_FROM := 24.0 ## 닿은 자리에서 첫 땀까지 (흡수 고리 바깥)
 const STITCH_GAP := 9.0 ## 땀 사이 간격 (틈 길이 따라)
+const STITCH_SLANT := 0.7 ## X 땀의 기울기 (틈 방향 성분 / 가로지르는 성분)
 const QUIET_EDGE := "rot" ## 이 물약은 테 물듦 선을 아주 옅게 (부식은 물약 쪽 독안개가 퍼지므로 가는 초록 선이 남아 보이지 않게)
 const QUIET_A := 0.0 ## 그때 테 선 진하기 (루프6: 아예 끔 — 부식은 물약 쪽 안개·방울이 신호)
 const EDGE_HOLD := 0.5 ## 물약 색 테 선이 그대로 있는 시간 — 물약 쪽 실(1초)과 맞춰 1초 안에 사라짐 (loop6)
@@ -247,7 +248,7 @@ class Layer extends PDraw.Canvas:
 			var seg := maxf(cum[k + 1] - cum[k], 0.001)
 			var c := pts[k].lerp(pts[k + 1], (sd - cum[k]) / seg)
 			var t := (pts[k + 1] - pts[k]) / seg
-			out.append([c, (t.orthogonal() + t * 0.45).normalized() * across])
+			out.append([c, t, across * 0.5])
 		return out
 
 	## 갓 찢긴 틈의 신호: 흰 바느질 땀이 차례로 박힘(툭 커졌다 자리 잡음) + 닿은 자리에서 흰 별빛이 튐 — 물약 색과 상관없이 읽히게 검은 테
@@ -260,9 +261,15 @@ class Layer extends PDraw.Canvas:
 				break
 			var k := clampf((age - at) / 0.05, 0.0, 1.0)
 			var c: Vector2 = st[i][0]
-			var d: Vector2 = st[i][1] * (0.5 * (1.0 + 0.35 * (1.0 - k))) # 박힐 때 살짝 길었다 자리 잡음
-			pd.draw_line(c - d, c + d, Color(EVfx.INK, 0.85 * fade), 3.0)
-			pd.draw_line(c - d, c + d, Color(Color.WHITE, fade), 1.5)
+			var tg: Vector2 = st[i][1]
+			# 엇갈린 X 땀 (틈을 비스듬히 두 번 가로지름 — 한 줄 막대면 세로 틈에서 사다리 가로대처럼 보임). 박힐 때 살짝 길었다 자리 잡고,
+			# 사라질 땐 회색으로 옅어지지 않게 흰색 그대로 짧아진다
+			var h := float(st[i][2]) * (1.0 + 0.35 * (1.0 - k)) * fade
+			var nm := tg.orthogonal()
+			for sg in [1.0, -1.0]:
+				var d: Vector2 = nm * h + tg * (h * ERifts.STITCH_SLANT * sg)
+				pd.draw_line(c - d, c + d, Color(EVfx.INK, 0.6), 2.5)
+				pd.draw_line(c - d, c + d, Color.WHITE, 1.2)
 			if k < 1.0:
 				pd.draw_rect(Rect2(c - Vector2(1.5, 1.5), Vector2(3, 3)), Color(Color.WHITE, (1.0 - k) * fade)) # 바늘이 꽂히는 반짝임
 		var e := clampf(age / ERifts.FRESH_FLASH, 0.0, 1.0)

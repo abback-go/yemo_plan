@@ -411,7 +411,9 @@ class Numbers extends Node2D:
 	const GROW_MAX := 8 ## 합칠수록 커지는 글자 크기 상한 (px)
 	const HOLD_AGE := 0.2 ## 합칠 때 나이를 여기까지만 되돌림 (숫자가 다시 바닥으로 튀지 않고 떠 있는 채 커짐)
 	const BUMP_Y := 11.0 ## 같은 대상의 새 숫자가 뜨면 아직 떠 있는 예전 숫자를 이만큼 위로 밀어 겹치지 않게
-	const STACK_R := 16.0 ## 서로 이 거리 안에 붙은 표적들의 숫자는 어긋남 대신 위아래로 쌓는다 (loop3_plan 4장)
+	const STACK_GAP := 4.0 ## 숫자끼리 가로로 이만큼도 안 떨어지면(숫자 폭 + 4px) 위아래로 쌓는다 (loop7_plan 3장: 50px 간격 이웃이 "640 64640"처럼 붙던 것)
+	const WIDTH_SIZE := 20 ## 폭을 잴 때 글자 크기 (합쳐져 커진 숫자 기준)
+	const WIDTH_MIN := "0000" ## 폭은 적어도 이만큼으로 잼 — 처음엔 80처럼 짧아도 합쳐지며 896·1440으로 길어지므로
 	const STACK_MAX := 3 ## 쌓는 칸 최대 (loop4_plan 6장) — 넘치면 같은 숫자를 "값×N"으로 묶음
 	const STACK_H := 25.0 ## 쌓는 칸 높이 (합쳐져 커진 글자도 겹치지 않게)
 
@@ -440,7 +442,7 @@ class Numbers extends Node2D:
 		for it: Array in items:
 			if it[0] == key:
 				it[1] = (it[1] as Vector2) + Vector2(0, -BUMP_Y)
-			elif (it[8] as Vector2).distance_to(pos) <= STACK_R:
+			elif _touching(at, value, it):
 				if not anchor_found or int(it[9]) == 0:
 					at = it[1] # 붙어 선 표적들은 같은 세로줄에서
 					anchor_found = true
@@ -457,6 +459,18 @@ class Numbers extends Node2D:
 		items.append([key, at, value, 0.0, heavy, fox, 0, 0.0, pos, slot, []])
 		if items.size() > MAX_ITEMS:
 			items.pop_front()
+
+	## 새 숫자(자리 at, 값 value)가 떠 있는 숫자 it과 겹치는가: 가로는 두 숫자 폭의 반씩 + STACK_GAP, 세로는 한 칸 안
+	func _touching(at: Vector2, value: int, it: Array) -> bool:
+		var half := (_width(value) + _width(int(it[2]))) * 0.5 + STACK_GAP
+		var p: Vector2 = it[1]
+		return absf(at.x - p.x) < half and absf(at.y - p.y) < STACK_H
+
+	func _width(v: int) -> float:
+		var t := str(v)
+		if t.length() < WIDTH_MIN.length():
+			t = WIDTH_MIN
+		return _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, WIDTH_SIZE).x
 
 	## 대상마다 늘 같은 어긋남 (숫자가 프레임마다 흔들리지 않게)
 	func _offset(key: Object) -> Vector2:
