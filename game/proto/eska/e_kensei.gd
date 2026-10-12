@@ -32,7 +32,8 @@ enum S { INTRO, IDLE, WALK, IAI_WIND, IAI_DASH, IAI_FOLLOW, IAI_SHEATHE, IAI_RES
 ## 루프3: 48000·3600 → 52000·5400. 루프5(그림자 일섬 + 분신 900 + 합친 마법·물약)에서 52000은 서툰 판이 길어져(쓰러짐 1~4번)
 ## 50000으로: 잘함 116~140초·무너짐 4~5번·분신 약 40% 벰, 서툼 124~155초(씨앗 2는 어느 체력에서나 쓰러짐 2번·약 330초)
 ## 루프6(분신 1200·먹물 무적·버팀 +800/셋 다 베면 무너짐·첫 만남 배움): 그대로 50000 — 잘함 129~151초·무너짐 5~6번·분신 4~6/6 벰, 서툼 149초(쓰러지면 305초)
-const HP := 50000
+## 루프7(배움 다섯 기술·무시 비용 게이지 −5%·흑성 처방): 50000이면 잘함 150~162초로 길어져 45000 — 잘함 122~149초·무너짐 5번·분신 절반 벰, 서툼 144~166초(쓰러지면 268초)
+const HP := 45000
 const POISE := 5400.0
 const HOLD_CAP := 2.5 ## 한 번에 묶이거나 기절하는 최대 시간 (틈에 스민 진한 속박 4.5초 → 2.5초 — EEnemy.hold_cap)
 const PHASE2_AT := 0.55 ## 체력이 이 몫 아래로 내려가면 2막
@@ -147,6 +148,9 @@ const SHADOW_HOLD := 2.5 ## 분신이 나온 뒤 검성이 지켜보는 시간 (
 const SHADOW_HOLD_MAX := 5.0
 const SHADOW_RETURN_POISE := 800.0 ## 살아 돌아간 분신마다 검성 버팀 회복 (loop6: 무시하면 손해)
 const SHADOW_ALL_GAUGE := 0.15 ## 셋 다 베면 종언 게이지 + 가득의 이 몫 (loop6: 풀면 크게 이득)
+const SHADOW_RETURN_GAUGE := 0.05 ## 살아 돌아간 분신마다 종언 게이지 − 가득의 이 몫 (loop7: 버팀이 가득이어도 무시는 늘 손해)
+const RIM_PAD := 3.0 ## 테두리 빛 텍스처 여백 (px)
+const RIM_COLOR := Color("#e0182f") ## 분신 테두리 빛 (EKenseiFx.RED)
 const INK_GUARD_WORD_GAP := 0.35 ## 먹물 속 검성을 때렸을 때 "무효" 글자 사이 간격
 const SHADOW_REST := 0.6
 const SHADOW_W := 1.6 ## 고르는 무게 (판당 2~3번 — 쿨다운과 함께)
@@ -196,6 +200,7 @@ var _sh_kills := 0 ## 이번 그림자 일섬에서 베어 없앤 분신 수
 var _sh_live := 0 ## 이번 그림자 일섬에서 아직 남은 분신 수
 var _ink := 0.0 ## 먹물 속(무적) 정도 (그림)
 var _ink_word := 0.0 ## "무효" 글자 간격
+var _rim_vp: SubViewport ## 분신 테두리 빛을 구운 곳 (다음 그림자 일섬 때 새로)
 var _pressed := 0.0 ## 에스카가 최근에 때렸나 (반격 자세를 더 자주)
 var _k := 0 ## 삼연참 몇 번째
 var _dash_from := 0.0
@@ -1005,6 +1010,7 @@ func _rain_fire() -> void:
 func _shadow_spawn() -> void:
 	var cx := eska.global_position.x if eska_ok() else global_position.x + float(facing) * 120.0
 	var dir := toward_eska()
+	var rim := _bake_shadow_rim()
 	for i in SHADOW_N:
 		var x := clampf(cx + (float(i) - float(SHADOW_N - 1) * 0.5) * SHADOW_GAP, x_min + 10.0, x_max - 10.0)
 		var sh := Shadow.new()
@@ -1014,6 +1020,8 @@ func _shadow_spawn() -> void:
 		sh.src_c = _snap_c
 		sh.src_facing = facing
 		sh.facing = dir
+		sh.rim_tex = rim[0]
+		sh.rim_rect = rim[1]
 		sh.order = i
 		sh.position = Vector2(x, global_position.y)
 		sh.x_min = x_min
@@ -1026,6 +1034,39 @@ func _shadow_spawn() -> void:
 	Sfx.play_pitch(&"kb_step", 0.8, -4.0)
 	Sfx.play_pitch(&"kb_gust", 1.3, -8.0)
 	_afterimage(Vector2.ZERO, 0.3)
+
+
+## 분신 붉은 테두리 빛을 한 번만 그려 텍스처로 (loop7: 분신마다 상하좌우로 4번 겹쳐 그리던 도형 약 1700 → 사각형 하나)
+## 지금 그림(_snap_*)을 붉게 1px씩 밀어 SubViewport에 한 번 그린다. 돌려줌: [텍스처, 그림 좌표 사각형]
+func _bake_shadow_rim() -> Array:
+	if is_instance_valid(_rim_vp):
+		_rim_vp.queue_free()
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for v in _snap_v:
+		lo = lo.min(v)
+		hi = hi.max(v)
+	if _snap_v.is_empty():
+		return [null, Rect2()]
+	var r := Rect2(lo - Vector2(RIM_PAD, RIM_PAD), hi - lo + Vector2(RIM_PAD, RIM_PAD) * 2.0)
+	var org := r.position.floor()
+	r = Rect2(org, (r.end - org).ceil())
+	var vp := SubViewport.new()
+	vp.size = Vector2i(r.size)
+	vp.transparent_bg = true
+	vp.disable_3d = true
+	vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	var painter := RimPainter.new()
+	painter.v = _snap_v
+	painter.idx = _snap_i
+	painter.c = _snap_c
+	painter.position = -org
+	vp.add_child(painter)
+	vp.add_to_group(EKenseiFx.GROUP) # 처음부터 할 때·쓰러질 때 분신과 같이 거둠
+	get_parent().add_child(vp)
+	_rim_vp = vp
+	return [vp.get_texture(), r]
 
 
 ## 분신이 사라짐: 베어 없앤 것이면(시간이 다 돼 스스로 사라진 게 아니면) 검성 버팀이 깎임
@@ -1058,6 +1099,8 @@ func _on_shadow_returned(sh: Node2D) -> void:
 	EKenseiFx.ink_return(sh.global_position + Vector2(0, -24), self)
 	if break_t <= 0.0:
 		poise = minf(poise + SHADOW_RETURN_POISE, max_poise)
+	if eska_ok():
+		eska.gauge = maxf(eska.gauge - SHADOW_RETURN_GAUGE * EEska.GAUGE_MAX, 0.0)
 
 
 ## 지금 나와 있는 분신들 (봇·시험용)
@@ -1930,13 +1973,16 @@ class Shadow extends EEnemy:
 	const GLINT_LAST := 0.4 ## 일섬 이만큼 전부터 칼코등이 번뜩임
 	const POOL_R := 16.0 ## 발밑 먹물 웅덩이 반지름
 	const RIM_A := 0.6 ## 붉은 테두리 빛 진하기
-	const RIM_OFFS: Array[Vector2] = [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]
+	const PULL_HOLD := 0.1 ## 흑성이 끄는 동안(매 프레임 다시 걸림) + 이만큼 자세 시간 멈춤
 	var boss: EKensei
 	var src_v := PackedVector2Array()
 	var src_i := PackedInt32Array()
 	var src_c := PackedColorArray()
 	var src_facing := 1
 	var order := 0
+	var rim_tex: Texture2D ## 검성이 한 번 구운 붉은 테두리 빛 (그림 좌표 rim_rect)
+	var rim_rect := Rect2()
+	var _pulled := 0.0 ## 흑성에 끌리는 중 남은 시간 — 그동안 자세 시간이 멈춤 (속박과 같은 규칙)
 	signal returned(sh: Node2D) ## 일섬을 마치고 살아 돌아감 (검성 버팀 회복)
 	var expired := false ## 일섬을 마치고 스스로 사라짐 (버팀 피해 없음)
 	var _left := POSE_T
@@ -1976,10 +2022,14 @@ class Shadow extends EEnemy:
 	func pull(point: Vector2, strength: float, delta: float) -> void:
 		var to := point - center()
 		global_position.x += clampf(to.x, -strength * delta, strength * delta)
+		_pulled = PULL_HOLD # 끌려 드는 동안 자세 시간 멈춤 (loop7: 흑성으로 모아서 끝내기)
 
 	func _think(delta: float) -> void:
 		velocity.x = 0.0
 		if _cut != null:
+			return
+		if _pulled > 0.0:
+			_pulled -= delta
 			return
 		_left -= delta
 		if _left <= 0.0:
@@ -2045,15 +2095,11 @@ class Shadow extends EEnemy:
 		pd.glow(Vector2.ZERO, POOL_R + sin(_age * 3.0 + float(order)) * 1.5, Color(0.03, 0.02, 0.04, 0.8 * a), 0.7 * a)
 		pd.draw_arc(Vector2.ZERO, POOL_R * 0.8, 0.0, TAU, 20, Color(EKenseiFx.RED_DEEP, 0.5 * a), 1.0)
 		pd.draw_set_transform(Vector2.ZERO)
-		# 붉은 1px 테두리 빛: 같은 그림을 붉게 상하좌우 1px 밀어 먼저 깔고 그 위에 먹빛 몸
-		for o: Vector2 in RIM_OFFS:
-			var mo := Transform2D(0.0, Vector2.ONE, 0.0, o) * m
-			var off0 := pd.v.size()
-			for i in src_v.size():
-				pd.v.append(mo * src_v[i])
-				pd.c.append(Color(EKenseiFx.RED, RIM_A * a * _ink[i].a / INK_A if i < _ink.size() else 0.0))
-			for k in src_i:
-				pd.idx.append(off0 + k)
+		# 붉은 1px 테두리 빛: 검성이 한 번 구운 텍스처를 먹빛 몸 밑에 깖 (몸은 pd로 나중에 그려 위에 옴)
+		if rim_tex != null:
+			draw_set_transform_matrix(m)
+			draw_texture_rect(rim_tex, rim_rect, false, Color(1, 1, 1, RIM_A * a))
+			draw_set_transform(Vector2.ZERO)
 		var off := pd.v.size()
 		for i in src_v.size():
 			pd.v.append(m * src_v[i])
@@ -2073,3 +2119,23 @@ class Shadow extends EEnemy:
 				# 예고 십자 별 9px (검성 발도 번뜩임과 같은 꼴)
 				var g := 1.0 - _left / GLINT_LAST
 				EKenseiFx.star(pd, Vector2(5.0 * float(facing), -17.0), minf(g * 1.6, 1.0), 1.0, a)
+
+
+## 분신 테두리 빛을 굽는 붓: 검성 그림을 붉게 상하좌우 1px 밀어 네 번 (SubViewport 안에서 한 번만 그림)
+class RimPainter extends Node2D:
+	const OFFS: Array[Vector2] = [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]
+	var v := PackedVector2Array()
+	var idx := PackedInt32Array()
+	var c := PackedColorArray()
+
+	func _draw() -> void:
+		var cols := PackedColorArray()
+		cols.resize(v.size())
+		for i in v.size():
+			cols[i] = Color(EKensei.RIM_COLOR, c[i].a if i < c.size() else 1.0)
+		for o in OFFS:
+			var pts := PackedVector2Array()
+			pts.resize(v.size())
+			for i in v.size():
+				pts[i] = v[i] + o
+			RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, pts, cols)

@@ -30,16 +30,35 @@ const DIM_MAX := 0.3 ## 발도 예고 때 배경 어두움 최대 (먹빛 막의
 const CAM_MARGIN_DEFAULT := 240.0 ## 터치 카메라 여유 (EStage.cam_margin_touch가 없을 때)
 const ART_SHAKE_PAD := 60.0 ## 흔들림·확대 펀치 여유 — 카메라 여유에 더해 오른쪽 배경을 더 그림
 const ART_EXTRA_MIN := 300.0 ## 오른쪽 끝 너머로 그리는 배경 최소 폭
-## 첫 만남 배움 (loop6 2장): 이 세션의 첫 도전에서만, 반격 자세·비검·그림자 일섬이 처음 나올 때 잠깐 0.5배 느려짐 + 한 줄 안내. 다시 하기부터는 없음
+## 첫 만남 배움 (loop6 2장 → loop7 1장): 기술마다 세션 동안 한 번 — 처음 나올 때 잠깐 0.5배 느려짐 + 두 마디 안내.
+## 쓰러져도 이미 본 배움은 다시 안 나오고, 못 본 배움은 다음 도전에 나온다 (taught는 세션 동안 남음).
+## 느려짐은 장면이 Engine.time_scale을 직접 부드럽게 바꾼다 (들어갈 때 0.15초 · 나올 때 0.3초) — Fx 멈춤·느려짐 중에는 건드리지 않음
 const LESSON_SLOW := 0.5
-const LESSON_REAL := 1.4 ## 느려지는 시간 (실제 초)
-const LESSON_T := 2.6 ## 안내 글이 떠 있는 시간
+const LESSON_REAL := 1.4 ## 느려지는 시간 (실제 초, 들고 나는 시간 포함)
+const LESSON_IN := 0.15
+const LESSON_OUT := 0.3
+const LESSON_T := 2.4 ## 안내 글이 떠 있는 시간
 const LESSONS := {
-	"ctr": ["반격 자세", "눈 감고 고리 — 베면(누르고 있어도) 받아친다. 비명·속박을 던져 깨라"],
-	"wave": ["비검", "땅을 타는 참격파 — 뛰어넘거나 {es_up}+{es_skill} 단공으로 가른다"],
-	"shadow": ["그림자 일섬", "분신을 셋 다 베면 검성이 무너진다 — 남기면 버팀이 돌아온다"],
+	"iai": ["발도 일섬", "칼집에 손 · 뛰어넘거나 순간이동"],
+	"tri": ["삼연참", "다가오는 세 번 · 물러나거나 위로"],
+	"ctr": ["반격 자세", "눈 감은 고리 · 비명·속박으로 깨기"],
+	"wave": ["비검", "땅 타는 파도 · 점프나 {es_up}+{es_skill}"],
+	"shadow": ["그림자 일섬", "분신 셋 다 베면 · 검성이 무너진다"],
 }
+## 쓰러졌을 때 "무엇에 맞았나" 한 줄 (마지막으로 맞은 기술 + 대응)
+const DEATH_TIPS := {
+	"iai": "발도 일섬 — 웅크리면 점프·순간이동",
+	"tri": "삼연참 — 물러나거나 위로",
+	"wave": "비검 — 파도는 점프나 단공",
+	"ctr": "반격 자세 — 눈 감으면 베지 말 것",
+	"leap": "낙화 — 표식 밖으로",
+	"rain": "천검 — 붉은 기둥 사이로",
+	"shadow": "그림자 일섬 — 분신을 베거나 뛰어넘기",
+}
+const DEATH_TIP_T := 2.6
+const OPEN_BIAS := 1.5 ## 싸움이 열릴 때 카메라 치우침 강제 (검성이 버튼 밑에 서지 않게)
 static var session_tried := false ## 이 세션에서 검성과 한 번이라도 싸웠나 (다시 하기·장면 다시 불러오기에도 남음)
+static var taught := {} ## 이 세션에서 이미 본 배움 (기술 id → true)
 const HINTS: Array[String] = ["{es_up}+{es_skill} 단공: 비검·천검을 가른다", "물약을 열린 틈에 던지면 스며든다", "눈 감은 반격 자세엔 비명·속박"]
 const FRAME_PULL := 0.85 ## 싸움 중 카메라를 둘 사이 가운데로 당기는 정도 (1 = 정가운데)
 
@@ -71,8 +90,9 @@ var _cine_rate := 2.5 ## 연출 카메라 확대가 따라가는 빠르기
 var _intro_step := I.PAN
 var _title: BossTitle
 var _dim: Dim
-var _teach := false ## 이번 도전이 세션 첫 도전이라 배움 연출을 하나
-var _taught := {} ## 이번 도전에서 이미 알려 준 기술
+var _teach := true ## 배움 연출을 하나 (시험 skip_intro는 끔)
+var _lesson_t := -1.0 ## 배움 느려짐 경과 (실제 초, -1 = 없음)
+var _last_hit := "" ## 마지막으로 에스카를 맞힌 검성 기술 id
 var _cine_hold := false ## 연출 중 (막 전환 등) — 끝나면 안내를 다시 보임
 
 
@@ -153,6 +173,7 @@ func _process(delta: float) -> void:
 				_cine_hold = false
 				_cinematic(false)
 	_title.advance(real)
+	_tick_lesson(real)
 	_tick_cine(real)
 	if eska.hp > _hp_seen: # 물약으로 차오른 체력 (신호 없이 오름) — 맞은 횟수를 셀 기준을 맞춤
 		_hp_seen = eska.hp
@@ -260,8 +281,8 @@ func _gust() -> void:
 
 ## 싸움을 엶: 조작이 풀리고 검성이 움직이기 시작
 func _begin_fight() -> void:
-	_teach = not session_tried
 	session_tried = true
+	force_bias(OPEN_BIAS)
 	fight = F.FIGHT
 	_first = false
 	_cinematic(false)
@@ -290,14 +311,52 @@ func _on_phase(_p: int) -> void:
 	_wind_k = 1.5
 
 
-## 첫 만남 배움: 세션 첫 도전에서 반격 자세·비검·그림자 일섬이 처음 나오면 잠깐 느려지며 한 줄 안내
+## 첫 만남 배움: 기술이 세션에서 처음 나오면 잠깐 느려지며 두 마디 안내
 func _on_move_started(id: String) -> void:
-	if not _teach or not LESSONS.has(id) or _taught.has(id) or fight != F.FIGHT:
+	if not _teach or not LESSONS.has(id) or taught.has(id) or fight != F.FIGHT:
 		return
-	_taught[id] = true
+	taught[id] = true
 	var spec: Array = LESSONS[id]
-	Fx.slowmo(LESSON_SLOW, LESSON_REAL)
+	_lesson_t = 0.0
 	_title.show_title(String(spec[0]), ETutHud.fmt(String(spec[1])), LESSON_T, true)
+
+
+## 배움 느려짐: 1 → LESSON_SLOW (LESSON_IN초) → 머묾 → 1 (LESSON_OUT초). Fx 멈춤·느려짐이 걸려 있으면 그쪽에 맡김
+func _tick_lesson(real: float) -> void:
+	if _lesson_t < 0.0:
+		return
+	_lesson_t += real
+	var k := 1.0
+	if _lesson_t < LESSON_IN:
+		k = lerpf(1.0, LESSON_SLOW, smoothstep(0.0, LESSON_IN, _lesson_t))
+	elif _lesson_t < LESSON_REAL - LESSON_OUT:
+		k = LESSON_SLOW
+	elif _lesson_t < LESSON_REAL:
+		k = lerpf(LESSON_SLOW, 1.0, smoothstep(LESSON_REAL - LESSON_OUT, LESSON_REAL, _lesson_t))
+	else:
+		_lesson_t = -1.0
+	var fx_busy := int(Fx.get("_hitstop_until")) > 0 or int(Fx.get("_slowmo_until")) > 0
+	if not fx_busy:
+		Engine.time_scale = k
+
+
+## 맞은 기술 id: 남아 있는 위험물(파도·천검·일섬선)이 있으면 그것, 아니면 검성 지금 상태로
+func _hit_source() -> String:
+	var ex := eska.global_position.x
+	for n: Node in get_tree().get_nodes_in_group(EKenseiFx.GROUP):
+		if n is EKenseiFx.ShadowCut and bool(n.get("_burst")) and float(n.get("t")) - float(n.get("delay")) < 0.15:
+			return "shadow"
+		if n is EKenseiFx.Wave and absf((n as Node2D).position.x - ex) < 30.0:
+			return "wave"
+		if n is EKenseiFx.RainBlade and bool(n.get("_fell")) and absf((n as Node2D).position.x - ex) < 20.0:
+			return "rain"
+	if not is_instance_valid(boss):
+		return ""
+	var nm: String = EKensei.S.keys()[boss.st]
+	for pre: String in ["IAI", "TRI", "WAVE", "CTR", "LEAP", "RAIN", "SHADOW"]:
+		if nm.begins_with(pre):
+			return {"IAI": "iai", "TRI": "tri", "WAVE": "wave", "CTR": "ctr", "LEAP": "leap", "RAIN": "rain", "SHADOW": "shadow"}[pre]
+	return ""
 
 
 func _on_break(_e: EEnemy) -> void:
@@ -307,6 +366,8 @@ func _on_break(_e: EEnemy) -> void:
 func _on_hurt(hp: int) -> void:
 	if hp < _hp_seen:
 		hits_taken += 1
+		if fight == F.FIGHT:
+			_last_hit = _hit_source()
 	_hp_seen = hp
 
 
@@ -348,9 +409,10 @@ func _view_rect() -> Rect2:
 # ═══════════════════════════════════════════════════════════
 
 func _on_eska_died() -> void:
-	_teach = false # 쓰러지면 배움 연출은 끝 (다시 하기부터는 없음)
 	deaths += 1
 	hud.banner("쓰러졌다", "입구에서 다시 일어선다", RESPAWN_DELAY + 0.4)
+	if DEATH_TIPS.has(_last_hit):
+		_title.show_tip(String(DEATH_TIPS[_last_hit]), DEATH_TIP_T) # 무엇에 맞았나 (쓰러짐 알림 아래)
 	await get_tree().create_timer(RESPAWN_DELAY, true, false, true).timeout
 	if not is_instance_valid(eska):
 		return
@@ -423,7 +485,7 @@ func skip_intro(x := 520.0) -> String:
 	_open_fight()
 	_title.show_title("", "", 0.0)
 	_intro_t = INTRO_T
-	session_tried = true # 시험: 배움 느려짐 없이 (켜려면 set('_teach', true))
+	_teach = false # 시험: 배움 느려짐 없이 (켜려면 set('_teach', true))
 	_begin_fight()
 	return boss.info()
 
@@ -935,12 +997,16 @@ class BossTitle extends Control:
 	const IN_T := 0.35
 	const OUT_T := 0.4
 	const LINE_STEPS := 12 ## 붉은 선이 끝으로 옅어지는 단계
+	const TIP_DY := 40.0 ## 쓰러짐 알림 아래 "무엇에 맞았나" 줄 높이
 	var _name := ""
 	var _sub := ""
 	var _t := 0.0
 	var _dur := 0.0
 	var _small := false
 	var _font: Font
+	var _tip := ""
+	var _tip_t := 0.0
+	var _tip_dur := 0.0
 
 	func _ready() -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -956,6 +1022,13 @@ class BossTitle extends Control:
 		_small = small
 		queue_redraw()
 
+	## 쓰러짐 알림 아래 한 줄 (무엇에 맞았나)
+	func show_tip(text: String, dur: float) -> void:
+		_tip = text
+		_tip_t = 0.0
+		_tip_dur = dur
+		queue_redraw()
+
 	## 아직 자막이 떠 있나
 	func busy() -> bool:
 		return _name != "" and _t < _dur
@@ -967,8 +1040,12 @@ class BossTitle extends Control:
 		if _t < _dur:
 			_t += real
 			queue_redraw()
+		if _tip_t < _tip_dur:
+			_tip_t += real
+			queue_redraw()
 
 	func _draw() -> void:
+		_draw_tip()
 		if _name == "" or _t >= _dur:
 			return
 		var inn := clampf(_t / IN_T, 0.0, 1.0)
@@ -1005,6 +1082,19 @@ class BossTitle extends Control:
 			var sp := Vector2(c.x - sw * 0.5, ly + float(sfs) + 5.0)
 			draw_string_outline(_font, sp, _sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs, 3, Color(0, 0, 0, 0.7 * k))
 			draw_string(_font, sp, _sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs, Color(BONE if _small else BONE_DIM, k)) # 작은 자막(배움·무너짐)은 안내가 주인공이라 밝게
+
+	## 무엇에 맞았나: HUD 쓰러짐 알림(화면 30% 높이) 아래 한 줄, 붉은 점 + 뼈흰 글
+	func _draw_tip() -> void:
+		if _tip == "" or _tip_t >= _tip_dur:
+			return
+		var a := minf(clampf(_tip_t / IN_T, 0.0, 1.0), clampf((_tip_dur - _tip_t) / OUT_T, 0.0, 1.0))
+		var fs := 12
+		var tw := _font.get_string_size(_tip, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var p := Vector2(size.x * 0.5 - tw * 0.5, size.y * 0.3 + TIP_DY)
+		_hband(Rect2(p.x - 40.0, p.y - 14.0, tw + 80.0, 20.0), 0.55 * a)
+		draw_rect(Rect2(p.x - 9.0, p.y - 6.0, 4.0, 4.0), Color(LINE_HOT, a))
+		draw_string_outline(_font, p, _tip, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.7 * a))
+		draw_string(_font, p, _tip, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(BONE, a))
 
 	## 가운데가 짙고 양옆으로 옅어지는 가로 띠
 	func _hband(r: Rect2, al: float) -> void:
