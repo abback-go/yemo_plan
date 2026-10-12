@@ -310,7 +310,7 @@ class RiftSign extends Node2D:
 
 	func lines() -> Array[String]:
 		return ["틈 달이기", "천열(%s)로 찢은 틈이 열려 있을 때" % EKeys.label("es_skill"),
-			("%s 버튼으로 던져 넣으면" if EKeys.touch_mode else "%s로 물약을 던져 넣으면") % EKeys.with_dir("es_down", "es_potion"), "진하게 스며들어 강자에게도 다 걸린다"]
+			EKeys.fmt("{es_potion} 버튼으로 속박을 던져 넣으면" if EKeys.touch_mode else "{es_potion}로 속박을 던져 넣으면"), "진하게 스며들어 강자에게도 다 걸린다"]
 
 	func _draw() -> void:
 		var f := ThemeDB.fallback_font

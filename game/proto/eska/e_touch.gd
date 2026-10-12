@@ -38,6 +38,7 @@ const ULT_SHORT := {"blackstar": "흑성", "meteor": "유성우", "doom": "운�
 const ULT_PULSE := 12.0 ## 게이지가 가득일 때 맥박 그림을 초당 이만큼만 다시 그림
 const COVER_ALPHA := 0.6 ## 살아 있는 적·표적이 버튼 밑에 오면 그 버튼을 40% 투명하게 (누를 수는 그대로 — loop5 4장)
 const COVER_SPEED := 6.0 ## 옅어지고 돌아오는 빠르기 (초당)
+const OUTLINE_INNER := 0.3 ## 외곽선 모드에서 물약 병 그림·숫자 진하기 (loop7 3장)
 const COVER_OUTLINE := ["potion", "blink"] ## 이 버튼들은 적을 가리면 옅게 대신 채운 원을 빼고 바깥 고리만 (라벨은 그대로 — loop6 3장)
 const CD_ARC_W := 3.0 ## 쿨다운 호 굵기
 const CD_DIM := 0.4 ## 쿨다운 중 이름 진하기
@@ -479,12 +480,13 @@ class Pad extends Control:
 		var left := int(sl.get("left", 0))
 		var ok := has and left > 0
 		var look := EHud.potion_look(sl)
+		var k := OUTLINE_INNER if ci is View and (ci as View).outline else 1.0 # 외곽선 모드: 병·숫자도 옅게 (밑의 적이 보이게)
 		ci.draw_arc(c, r, 0.0, TAU, 40, Color(RING, 0.95 if held else (0.6 if ok else 0.3)), 2.0)
-		EHud.bottle(ci, c + Vector2(-3.0, 1.0), 1.5, look.color, 1.0 if ok else 0.4, ok)
-		EHud.belt_mark(ci, font, c + Vector2(5.0, -6.0), i, 10, Color(EVfx.PALE, 0.9))
+		EHud.bottle(ci, c + Vector2(-3.0, 1.0), 1.5, look.color, (1.0 if ok else 0.4) * k, ok)
+		EHud.belt_mark(ci, font, c + Vector2(5.0, -6.0), i, 10, Color(EVfx.PALE, 0.9 * k))
 		var num := "%d" % left if has else "-"
-		ci.draw_string_outline(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.75))
-		ci.draw_string(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.95 if ok else 0.45))
+		ci.draw_string_outline(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.75 * k))
+		ci.draw_string(font, c + Vector2(5.0, 10.0), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, (0.95 if ok else 0.45) * k))
 
 
 ## 버튼 하나(또는 방향키)만 그리는 칸 — 적이 밑에 오면 이것만 modulate로 옅어진다 (누르는 판정은 그대로)

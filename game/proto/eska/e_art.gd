@@ -46,6 +46,8 @@ void fragment() {
 	COLOR = vec4(rim.rgb, rim.a * step(0.001, COLOR.a));
 }
 """
+const BRIM_VOID := [[11.8, 1.0], [7.8, 1.2], [-11.4, 0.9], [-6.0, 0.8]] ## 모자 챙 끝이 갈라져 비치는 흰 공허 [가로 자리, 크기]
+const BRIM_VOID_CALM := [[11.8, 1.0], [-11.4, 0.9]] ## calm: 챙 양 끝 둘만 (크게 보이면 점이 지저분해서)
 const BOTTLE_W := 3.0 ## 마시는 병 몸통 너비 (px)
 const BOTTLE_L := 5.0 ## 마시는 병 몸통 길이 (px)
 const DRINK_TINT := 0.45 ## 마시는 동안 몸 전체가 물약 색으로 물드는 정도 (0~1)
@@ -100,6 +102,8 @@ var _head_tilt := 0.0
 var _was_item := false
 var _tint := 0.0 ## 마시는 동안 물약 색 물듦 (0~1)
 var stand := false ## 물리 없이 그릴 때(타이틀) 땅 위에 서 있는 것으로 쳐 줌
+var rim_on := true ## 1px 테두리 빛 (타이틀처럼 그림을 키워 쓸 때는 끄고 키운 뒤 외곽선을 따로 그린다)
+var calm := false ## 크게 보일 때(타이틀): 모자 챙 반짝 점을 줄이고 챙 그늘을 빼서 얼굴이 읽히게
 var _rim_ci := RID() ## 테두리 빛을 그리는 몸 뒤 그림 자리 (RenderingServer 직접)
 static var _rim_mat: ShaderMaterial
 
@@ -454,6 +458,8 @@ func _paint_rim() -> void:
 	if not _rim_ci.is_valid():
 		return
 	RenderingServer.canvas_item_clear(_rim_ci)
+	if not rim_on:
+		return
 	var idx := pd.idx
 	var n := idx.size()
 	if n == 0:
@@ -600,7 +606,8 @@ func _paint() -> void:
 		pd.draw_set_transform_matrix(head_xf)
 	var hc := o + Vector2(1.3, -29.2)
 	pd.draw_circle(hc, 3.3, SKIN)
-	pd.draw_rect(Rect2(hc + Vector2(-2.6, -3.2), Vector2(5.6, 1.6)), Color(SKIN_SH, 0.9)) # 챙 그늘
+	if not calm:
+		pd.draw_rect(Rect2(hc + Vector2(-2.6, -3.2), Vector2(5.6, 1.6)), Color(SKIN_SH, 0.9)) # 챙 그늘
 	pd.draw_rect(Rect2(hc + Vector2(1.6, 1.5), Vector2(1.2, 0.8)), SKIN_SH) # 턱 그늘
 	pd.draw_rect(Rect2(hc + Vector2(2.1, 0.6), Vector2(1.0, 0.5)), Color("#b98f9a")) # 입술
 	# 정수리 + 앞머리
@@ -643,12 +650,13 @@ func _paint() -> void:
 	pd.outlined(brim, CLOTH_SH, RIM, 0.8)
 	pd.convex(brim_top, CLOTH)
 	pd.draw_line(Vector2(-12.0, -0.9), Vector2(10.5, -1.3), CLOTH_EDGE, 0.8) # 챙 윗면 빛
-	for spec: Array in [[11.8, 1.0], [7.8, 1.2], [-11.4, 0.9], [-6.0, 0.8]]:
+	for spec: Array in (BRIM_VOID_CALM if calm else BRIM_VOID):
 		var x: float = spec[0]
 		var sgn := signf(x)
 		var sz: float = spec[1]
-		pd.glow(Vector2(x + sgn * 1.5, 0.4), 3.0, Color(GLOW_PALE, 0.3 * shimmer), 0.0)
-		pd.draw_colored_polygon(PackedVector2Array([Vector2(x + sgn * 2.8 * sz, -0.6), Vector2(x - sgn * 0.7, 0.1), Vector2(x + sgn * 2.4 * sz, 1.6)]), Color(1, 1, 1, shimmer))
+		if not calm:
+			pd.glow(Vector2(x + sgn * 1.5, 0.4), 3.0, Color(GLOW_PALE, 0.3 * shimmer), 0.0)
+		pd.draw_colored_polygon(PackedVector2Array([Vector2(x + sgn * 2.8 * sz, -0.6), Vector2(x - sgn * 0.7, 0.1), Vector2(x + sgn * 2.4 * sz, 1.6)]), Color(1, 1, 1, shimmer * (0.8 if calm else 1.0)))
 	pd.draw_set_transform_matrix(head_xf)
 	var tip := Vector2(-4.4 - _tip * 2.0, -45.8 + absf(_tip) * 0.6)
 	var crown := PackedVector2Array([o + Vector2(-5.0, -34.3), o + Vector2(5.2, -34.5), o + Vector2(2.6, -39.2),
