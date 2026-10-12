@@ -320,3 +320,12 @@ func nan_scan() -> String:
 			if bad > 0:
 				out += "%s bad=%d ex=%s " % [_class_name(node), bad, ex]
 	return out if out != "" else "clean"
+
+
+## 검성 그림자 분신들의 체력·자리 (유성우가 분신 줄에 얼마나 들어가는지)
+func shadow_hp() -> String:
+	var out := ""
+	for n: Node in get_tree().get_nodes_in_group(&"kensei_shadow"):
+		var d := n as Node2D
+		out += "x=%d hp=%s " % [int(d.global_position.x), str(d.get("hp"))]
+	return out if out != "" else "none"
