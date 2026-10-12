@@ -39,10 +39,10 @@ const SHADE_A := 0.42 ## 어둠 바탕 진하기
 const SHADE_SEG := 12
 const HINT_LINE := 16.0 ## 아래 안내 줄 간격
 const BUILD_FS := 8 ## 빌드 번호 글자 크기
-const CTX_TOUCH_FIRST := 15.0 ## 장면 안내(context_hints)를 처음 이만큼 진하게 (그 뒤 옅게 — 키보드·터치 같음, loop7 3장)
-const CTX_TOUCH_RESPAWN := 8.0 ## 부활 직후 다시 이만큼 진하게
-const CTX_FADE := 1.0 ## 진함 → 옅음으로 바뀌는 시간
-const CTX_FAINT := 0.4 ## 옅을 때 진하기 (바닥·캐릭터·일섬선을 가리지 않게)
+const CTX_TOUCH_FIRST := 30.0 ## 장면 안내(context_hints)를 돌리는 시간: 싸움 처음 이만큼 (연출 중엔 세지 않음 — loop8 3장, 그 뒤엔 숨김)
+const CTX_TOUCH_RESPAWN := 10.0 ## 부활 직후 다시 이만큼
+const CTX_FADE := 1.0 ## 사라지기 전 옅어지는 시간
+const CTX_NEXT_SHOW := 3.5 ## hold_hints가 끝난 뒤 next 문구를 한 번 보여 주는 시간
 const CTX_ROTATE := 3.5 ## 장면 안내는 한 줄씩 이 간격으로 돌아가며
 const CTX_SWAP := 0.3 ## 줄이 바뀔 때 옅어졌다 나타나는 시간
 const CTX_GAP := 34.0 ## 보스바 이름 줄 아래로 이만큼 (버팀 막대 아래)
@@ -59,6 +59,9 @@ var cinematic := false ## 연출 중: 아래 안내를 모두 숨김 (훈련장 
 var combo_right_pad := 0.0 ## 연타 수를 오른쪽 끝에서 이만큼 더 왼쪽에 (훈련장 연습 과제 칸과 겹치지 않게)
 var _ctx_t := CTX_TOUCH_FIRST ## 장면 안내를 진하게 보여 줄 남은 시간 (처음 · 부활 직후)
 var _ctx_clock := 0.0 ## 장면 안내 줄 돌리기 시계
+var _hold_t := 0.0 ## hold_hints: 장면 안내를 숨겨 둘 남은 시간
+var _next_line := "" ## hold_hints가 끝나면 한 번 보여 줄 문구
+var _next_t := 0.0 ## 그 문구를 보여 줄 남은 시간
 var _sig := ""
 var _last_hits := 0
 var _pop := 0.0
@@ -109,11 +112,20 @@ func _process(delta: float) -> void:
 	_ult_pop = maxf(_ult_pop - delta, 0.0)
 	if _ban_t < _ban_dur:
 		_ban_t += delta
-	_ctx_t = maxf(_ctx_t - delta, 0.0)
+	if not cinematic: # 연출 중엔 세지 않음 (보스 등장 연출이 끝나야 "싸움 처음")
+		_ctx_t = maxf(_ctx_t - delta, 0.0)
 	_ctx_clock += delta
+	if _hold_t > 0.0:
+		_hold_t = maxf(_hold_t - delta, 0.0)
+		if _hold_t <= 0.0 and _next_line != "":
+			_next_t = CTX_NEXT_SHOW
+	elif _next_t > 0.0:
+		_next_t = maxf(_next_t - delta, 0.0)
+		if _next_t <= 0.0:
+			_next_line = ""
 	var sig := "%d|%d|%.1f|%s|%s|%s|%s" % [eska.hit_count, eska.hit_damage, eska.combo_left, str(touch.active if touch else false), str(cinematic), str(context_hints), str(EKeys.touch_mode)]
-	if not context_hints.is_empty() and not cinematic:
-		sig += "|c%.2f|%d|%.2f" % [minf(_ctx_t, CTX_FADE), _ctx_line(), _ctx_swap_a()]
+	if (not context_hints.is_empty() or _next_t > 0.0 or _hold_t > 0.0) and not cinematic:
+		sig += "|c%.2f|%d|%.2f|h%.2f|%.2f" % [minf(_ctx_t, CTX_FADE), _ctx_line(), _ctx_swap_a(), minf(_hold_t, 0.01), minf(_next_t, CTX_FADE)]
 	for id: String in EEska.CD:
 		sig += "|%d" % ceili(eska.cd_left(id) * 10.0)
 	if _pop > 0.0:
@@ -156,7 +168,7 @@ func _draw() -> void:
 		_draw_rotate_hint(font)
 	if cinematic:
 		return
-	if not context_hints.is_empty():
+	if not context_hints.is_empty() or _next_t > 0.0:
 		_draw_context_line(font) # 키보드·터치 모두 보스바 아래 가운데 한 줄 (왼쪽 아래 기본 키 안내 대신)
 		return
 	if touch and touch.active:
@@ -198,15 +210,30 @@ func _ctx_swap_a() -> float:
 	return clampf(minf(ph, CTX_ROTATE - ph) / CTX_SWAP, 0.0, 1.0)
 
 
-## 장면 안내: 보스바(+버팀 막대) 아래 가운데에 한 줄씩 돌아가며 (키보드·터치 모두 — 왼쪽 아래 여러 줄이 바닥·캐릭터·일섬선을 가려서, loop7 3장).
-## 처음 CTX_TOUCH_FIRST초와 부활 직후 CTX_TOUCH_RESPAWN초는 진하게, 그 뒤엔 CTX_FAINT로 옅게. {es_동작}은 지금 입력 방식 이름으로 (EKeys.fmt)
+## 장면 안내를 sec초 숨긴다 (보스 작업자가 배움·쓰러짐 때 부름). 끝나면 next가 있으면 그 문구를 CTX_NEXT_SHOW초 한 번 보여 주고 돌리기로 돌아간다
+func hold_hints(sec: float, next: String = "") -> void:
+	_hold_t = maxf(sec, 0.01)
+	_next_line = next
+	_next_t = 0.0
+
+
+## 장면 안내: 보스바(+버팀 막대) 아래 가운데에 한 줄씩 돌아가며 (키보드·터치 모두 — loop7 3장).
+## 돌리기는 싸움 처음 CTX_TOUCH_FIRST초와 부활 직후 CTX_TOUCH_RESPAWN초만, 그 뒤엔 숨김 (loop8 3장). hold_hints 중엔 숨김, 끝나면 next 한 번.
+## {es_동작}은 지금 입력 방식 이름으로 (EKeys.fmt)
 func _draw_context_line(font: Font) -> void:
-	var strong := minf(_ctx_t / CTX_FADE, 1.0)
-	var a := lerpf(CTX_FAINT, 1.0, strong) * _ctx_swap_a()
-	if a <= 0.01:
+	if _hold_t > 0.0:
 		return
+	var s := ""
+	var a := 0.0
+	if _next_t > 0.0:
+		s = EKeys.fmt(_next_line)
+		a = minf(_next_t / CTX_FADE, 1.0)
+	else:
+		a = minf(_ctx_t / CTX_FADE, 1.0) * _ctx_swap_a()
+		if a <= 0.01:
+			return
+		s = EKeys.fmt(context_hints[_ctx_line()])
 	var y := (13.0 if size.x >= 520.0 else BELT_Y + 20.0) + CTX_GAP
-	var s := EKeys.fmt(context_hints[_ctx_line()])
 	var w := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 	draw_rect(Rect2(size.x * 0.5 - w * 0.5 - 8.0, y - 12.0, w + 16.0, HINT_LINE + 2.0), Color(INK, 0.55 * a))
 	_text(font, Vector2(size.x * 0.5 - w * 0.5, y), s, 11, Color(1, 1, 1, 0.9 * a))
