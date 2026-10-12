@@ -1,9 +1,10 @@
 class_name ETutEnd
 extends Control
-## 튜토리얼 끝 화면: 어두운 막 위에 "돌파" 제목 · 익힌 마녀의 기술(마름모 줄) · 기록 두 줄 칸(걸린 시간·쓰러짐·맞음·최고 연타·딱 맞춤·틈 달이기) · 버튼 셋.
+## 튜토리얼 끝 화면: 어두운 막 위에 "돌파" 제목 · 익힌 마녀의 기술(마름모 줄) · 기록 두 줄 칸(걸린 시간·쓰러짐·맞음·최고 연타·딱 맞춤·틈 달이기)
+## · 검성으로 가는 다리 한 줄 · 버튼 넷([검성에게]가 먼저 — loop6 2장).
 ## 기술·기록은 하나씩 차례로 나타난다. 버튼은 키보드(↑↓·Enter/Space/Z)와 터치 모두. 고른 것은 chosen 신호로 알린다.
 
-signal chosen(what: String) ## "retry" · "arena" · "title"
+signal chosen(what: String) ## "kensei" · "retry" · "arena" · "title"
 
 const PALE := EVfx.PALE
 const VIOLET := EVfx.VIOLET
@@ -14,6 +15,8 @@ const EDGE := EVfx.EDGE
 const COL_W := 136.0 ## 기록 한 칸(이름 ~ 값) 너비 — 두 칸이 나란히
 const COL_GAP := 24.0
 const ROW_H := 17.0
+const BRIDGE := "가르는 틈과 틈 달이기로 — 검성의 칼을 갈라라." ## 다음 상대로 가는 한 줄
+const BOX_Y := 0.6 ## 버튼 칸 위 끝 (화면 높이의 몫)
 
 var stats: Array = [] ## [[이름, 값], ...] — 왼쪽 칸부터 위→아래, 반씩 나눠 두 칸
 var learned: Array = [] ## 익힌 기술 이름 (제목 아래 한 줄)
@@ -29,7 +32,7 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	add_child(box)
-	for spec: Array in [["다시 하기", "retry"], ["훈련장으로", "arena"], ["타이틀로", "title"]]:
+	for spec: Array in [["검성에게", "kensei"], ["다시 하기", "retry"], ["훈련장으로", "arena"], ["타이틀로", "title"]]:
 		var b := Button.new()
 		b.text = String(spec[0])
 		b.custom_minimum_size = Vector2(150, 26)
@@ -54,8 +57,8 @@ func _ready() -> void:
 	tw.tween_interval(1.6)
 	tw.tween_property(box, "modulate:a", 1.0, 0.4)
 	tw.tween_callback(func() -> void: _buttons[0].grab_focus())
-	resized.connect(func() -> void: box.position = Vector2(size.x * 0.5 - 75.0, size.y * 0.62))
-	box.position = Vector2(get_viewport_rect().size.x * 0.5 - 75.0, get_viewport_rect().size.y * 0.62)
+	resized.connect(func() -> void: box.position = Vector2(size.x * 0.5 - 75.0, size.y * BOX_Y))
+	box.position = Vector2(get_viewport_rect().size.x * 0.5 - 75.0, get_viewport_rect().size.y * BOX_Y)
 
 
 func _style(bg: Color, border: Color) -> StyleBoxFlat:
@@ -130,6 +133,11 @@ func _draw() -> void:
 		_text(Vector2(x0, y), name, 12, Color(VIOLET, k))
 		_text(Vector2(x0 + COL_W - vw, y), val, 13, Color(PALE.lerp(Color.WHITE, 0.4), k))
 		draw_line(Vector2(x0, y + 4), Vector2(x0 + COL_W, y + 4), Color(VIOLET, 0.15 * k), 1.0)
+	# 검성으로 가는 다리 한 줄 (기록 다음, 버튼 위)
+	var bk := clampf((_t - 1.5) / 0.4, 0.0, 1.0)
+	if bk > 0.0:
+		var bw := _font.get_string_size(BRIDGE, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		_text(Vector2(c.x - bw * 0.5, c.y + 58.0 + ROW_H * float(half) + 14.0 + 4.0 * (1.0 - bk)), BRIDGE, 12, Color(EDGE, bk))
 
 
 func _text(p: Vector2, s: String, fs: int, col: Color) -> void:

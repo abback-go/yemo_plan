@@ -3,8 +3,8 @@ extends Node
 ## 시나리오에서 [2, "attach", "../tools/test/eska_tut_bot.gd"] 로 붙인다 (eska_tutorial_bot.json).
 ## 하는 일: 단계(STEPS)마다 정해진 손놀림 — 오른쪽으로 가며 공허 틈 앞에서 점프→점프→순간이동,
 ## 허수아비 앞에서 베기·천열, 망령 구슬이 몸 가까이 오면 ↑+스킬(딱 맞춤 — 0.5배·0.75배 두 번), 높이 뜬 망령에 ↓+스킬(낙성),
-## 가마솥 옆(12px — 솥에 겹치지 않게)에서 ↑ → 달이기 화면에서 Z(거미줄)·Z(거미줄)·Z(달이기)·Z(넘기기)·Esc(닫기), 사냥개가 웅크리면 ↓+물약(속박),
-## 거상: 다가가 천열 → 곧바로 ↓+물약(틈 달이기: 처음은 느려짐, 두 번째는 실전 박자) → 싸워 게이지를 채우고 D(고르기) → S(대마법).
+## 가마솥 옆(12px — 솥에 겹치지 않게)에서 ↑ → 달이기 화면에서 Z(거미줄)·Z(거미줄)·Z(달이기)·Z(넘기기)·Esc(닫기), 사냥개가 웅크리면 물약(F칸 속박),
+## 거상: 다가가 천열 → 곧바로 물약(틈 달이기: 처음은 느려짐, 두 번째는 실전 박자) → 싸워 게이지를 채우고 D(고르기) → S(대마법).
 ## 적이 있으면 다가가 베고 스킬, 예고 동작이면 점프로 피한다. 달이기 화면이 열려 게임이 멈춘 동안에도 돌아야 해서 PROCESS_MODE_ALWAYS.
 
 const PERFECT_DIST := 52.0 ## 구슬이 몸 가운데에서 이 안으로 들어오면 단공 (딱 맞춤 70 안, 몸에 닿기 전)
@@ -137,7 +137,7 @@ func _cauldron(e: EEska, sub: int) -> void:
 		_combo([[0.1, "es_up"]])
 
 
-## 달이기 화면 (게임 멈춤): 거미줄 → 거미줄 → 달이기 → (결과) 넘기기 → 닫기. 띠(BrewTip)가 초점을 거미줄·↓칸에 맞춰 둔다
+## 달이기 화면 (게임 멈춤): 거미줄 → 거미줄 → 달이기 → (결과) 넘기기 → 닫기. 띠(BrewTip)가 초점을 거미줄·F칸에 맞춰 둔다
 func _brew_ui(delta: float) -> void:
 	_release_moves()
 	var ui: Object = stage.pot_rest.ui if is_instance_valid(stage.pot_rest) else null
@@ -154,7 +154,7 @@ func _brew_ui(delta: float) -> void:
 		return
 	match String(ui.get("phase")):
 		"pick":
-			if String(stage.eska.belt.slot(2).get("id", "")) == "bind":
+			if String(stage.eska.belt.slot(stage.POTION_SLOT).get("id", "")) == "bind":
 				_ui_tap("es_exit")
 			elif _ui_n < 3:
 				_ui_tap("es_jump")
@@ -177,7 +177,7 @@ func _ui_tap(a: String) -> void:
 	print("BOT ui ", a, " t=%.1f" % _t)
 
 
-## 사냥개: 속박을 배우는 동안(sub 4)은 웅크리거나 다가오면 ↓+물약, 그 밖엔 싸움
+## 사냥개: 속박을 배우는 동안(sub 4)은 웅크리거나 다가오면 물약(F), 그 밖엔 싸움
 func _hound(e: EEska, sub: int) -> void:
 	if sub == 4 and _seq.is_empty():
 		for n: Node in stage.get_children():
@@ -188,12 +188,12 @@ func _hound(e: EEska, sub: int) -> void:
 					_hold("es_right", false)
 					_hold("es_left", false)
 					_face(1 if dx > 0.0 else -1)
-					_combo([[0.03, "es_down", true], [0.05, "es_potion"], [0.14, "es_down", false]])
+					_combo([[0.03, "es_potion"]]) # 속박 = 방향 없는 F칸
 					return
 	_fight(e, "hound")
 
 
-## 거상: 천열 → 곧바로 ↓+물약 (sub 4·5 = 첫 시도·느려짐, sub 8 = 두 번째·느림 없음) → 싸움 → D(sub 12) → S(sub 14)
+## 거상: 천열 → 곧바로 물약(F) (sub 4·5 = 첫 시도·느려짐, sub 8 = 두 번째·느림 없음) → 싸움 → D(sub 12) → S(sub 14)
 func _finale(e: EEska, sub: int) -> void:
 	var boss: Node2D = stage.boss
 	if (sub == 4 or sub == 8) and is_instance_valid(boss):
@@ -208,8 +208,8 @@ func _finale(e: EEska, sub: int) -> void:
 		_hold("es_left", false)
 		_face(1 if dx > 0.0 else -1)
 		if e.cd_left("cheonyeol") <= 0.0 and e.st == EEska.St.NORMAL:
-			# 천열 → 시전 중에 ↓+물약을 눌러 둠 (입력 기억으로 시전이 끝나자마자 던짐)
-			_combo([[0.0, "es_skill"], [0.06, "es_down", true], [0.08, "es_potion"], [0.4, "es_down", false]])
+			# 천열 → 시전 중에 물약(F)을 눌러 둠 (입력 기억으로 시전이 끝나자마자 던짐)
+			_combo([[0.0, "es_skill"], [0.08, "es_potion"]])
 		return
 	if sub == 5:
 		return # 첫 시도에서 이미 눌러 둠
