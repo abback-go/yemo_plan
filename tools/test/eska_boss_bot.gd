@@ -28,6 +28,8 @@ const THROW_MIN := 30.0 ## 물약을 던지는 거리 (병이 포물선으로 �
 const THROW_MAX := 135.0
 const HEAL_AT := 3 ## 체력이 이 아래(이하)면 치유
 const ULT_WANT := "doom" ## 고를 대마법 (한 방 3600 — 무너짐·묶임에 맞춰)
+const ULT_SHADOW := "doom" ## 분신 줄에 쓸 대마법 (흑성은 붕괴가 2초 뒤라 분신 자세 1.6초보다 늦음 → 운석 1.1초)
+const SHADOW_RESERVE := 3.0 ## 2막에 그림자 일섬이 이만큼 안에 올 수 있으면 천열을 아껴 둠 (20초 박자를 아는 사람)
 const ULT_IMPATIENT := 6.0 ## 게이지가 가득 찬 뒤 이만큼 지나면 아무 틈에나 쓴다
 const DANGONG_FIRE := 0.06 ## 단공을 누른 뒤 판정이 생기기까지 (EEska.CAST_FIRE)
 const PERFECT_AIM := 58.0 ## 판정이 생기는 순간 파도가 몸에서 이만큼 안이면 "딱 맞춤" (EKenseiFx.Wave 판정 반너비 15 포함, 기준 70)
@@ -40,9 +42,9 @@ const ROW_TOL := 10.0
 const RIFT_THROW_WAIT := 0.3 ## 던질 때가 됐는데 다른 동작 중이면 이만큼 더 기다렸다가 포기
 const DEFLECT_CHECK := 0.25 ## 단공 뒤 이만큼 지나 발사체가 남아 있으면 "튕겨내기 없음"으로 봄
 const DEFLECT_GIVE_UP := 2 ## 이만큼 실패하면 튕겨내기를 그만 씀
-const SLOT_HEAL := 0
-const SLOT_ECHO := 1
-const SLOT_THROW := 2
+const SLOT_UP := 1 ## 허리띠 칸 번호 → 누르는 키: 0 = F · 1 = ↑F · 2 = ↓F (어느 칸에 무엇이 있는지는 _slot_of로 찾음 — 기본 허리띠가 바뀌어도 그대로)
+const SLOT_DOWN := 2
+const THROWS: Array[String] = ["bind", "scream"] ## 반격 자세·틈 달이기에 던지는 물약
 const PROJECTILE_GROUP := &"es_projectile"
 
 var stage: Node
@@ -86,6 +88,7 @@ var n_shadow_hurt := 0 ## 그림자 일섬선에 맞은 수
 var _shadow_seen := {} ## 분신 instance_id → true
 var _shadow_on := false ## 분신이 나와 있는 중
 var _shadow_skip := false ## 이번 분신 무리는 상대하지 않음 (ESKA_BOT_SKIP 확률)
+var _shadow_echo := false ## 이번 분신 무리에 메아리를 먼저 마심
 var n_break := 0 ## 검성 버팀이 무너진 횟수
 var n_hurt := 0 ## 맞은 횟수 (봇이 직접 셈 — 치유와 상관없이)
 var _break_hooked: Node = null
@@ -217,7 +220,7 @@ func _fight(e: EEska, b: EKensei) -> void:
 		return
 	if _dodge(e, b, dist, to):
 		return
-	var punish := b.st in [EKensei.S.SHADOW_HOLD, EKensei.S.SHADOW_REST, EKensei.S.IAI_REST, EKensei.S.TRI_REST, EKensei.S.WAVE_REST, EKensei.S.CTR_RELAX, EKensei.S.LEAP_REST, EKensei.S.RAIN_HOLD, EKensei.S.RAIN_REST, EKensei.S.IDLE, EKensei.S.WALK, EKensei.S.IAI_SHEATHE, EKensei.S.IAI_FOLLOW] or b.break_t > 0.0 or b.is_bound()
+	var punish := b.st in [EKensei.S.SHADOW_REST, EKensei.S.IAI_REST, EKensei.S.TRI_REST, EKensei.S.WAVE_REST, EKensei.S.CTR_RELAX, EKensei.S.LEAP_REST, EKensei.S.RAIN_HOLD, EKensei.S.RAIN_REST, EKensei.S.IDLE, EKensei.S.WALK, EKensei.S.IAI_SHEATHE, EKensei.S.IAI_FOLLOW] or b.break_t > 0.0 or b.is_bound()
 	if b.st == EKensei.S.CTR_STANCE or b.st == EKensei.S.PHASE or (_skip and b.break_t <= 0.0 and not b.is_bound()):
 		punish = false
 	if use_kit and _seq.is_empty() and _act_cd <= 0.0 and _kit(e, b, dist, to, punish):
@@ -237,11 +240,11 @@ func _fight(e: EEska, b: EKensei) -> void:
 		if dist < 150.0 and e.facing != to:
 			_tap("es_right" if to > 0 else "es_left")
 			return
-		if dist < 160.0 and e.cd_left("cheonyeol") <= 0.0 and e.is_on_floor():
+		if dist < 160.0 and e.cd_left("cheonyeol") <= 0.0 and e.is_on_floor() and not _hold_for_shadow(b):
 			n_cheonyeol += 1
 			_tap("es_skill")
 			# 틈 달이기: 천열이 찢은 틈에 0.3~0.5초 뒤 병을 넣음 (검성이 던지는 거리 안이고 아직 묶이지 않았을 때)
-			if use_kit and dist <= THROW_MAX and not b.is_bound() and _slot_is_throw(e, SLOT_THROW):
+			if use_kit and dist <= THROW_MAX and not b.is_bound() and _slot_of(e, THROWS) >= 0:
 				_rift_plan = randf_range(RIFT_THROW_MIN, RIFT_THROW_MAX)
 				_rift_to = null
 		elif use_kit and dist >= NAK_MIN and dist <= NAK_MAX and e.cd_left("nakseong") <= 0.0 and e.facing == to and e.is_on_floor():
@@ -258,19 +261,19 @@ func _kit(e: EEska, b: EKensei, dist: float, to: int, punish: bool) -> bool:
 	var calm := b.st in [EKensei.S.IDLE, EKensei.S.WALK, EKensei.S.IAI_REST, EKensei.S.TRI_REST, EKensei.S.WAVE_REST, EKensei.S.LEAP_REST, EKensei.S.RAIN_REST, EKensei.S.CTR_RELAX] or b.break_t > 0.0 or b.is_bound()
 	var hazard := _hazard_near(e)
 	# 1) 치유: 체력이 낮고 지금 안전하면
-	if e.hp <= HEAL_AT and calm and not hazard and (dist > 90.0 or b.break_t > 0.0 or b.is_bound()) and _slot_ready(e, SLOT_HEAL, "heal"):
+	if e.hp <= HEAL_AT and calm and not hazard and (dist > 90.0 or b.break_t > 0.0 or b.is_bound()) and _slot_of(e, ["heal"]) >= 0:
 		n_heal += 1
-		_use_slot(SLOT_HEAL)
+		_use_slot(_slot_of(e, ["heal"]))
 		return true
 	# 2) 반격 자세(눈 감음): 속박·비명을 던져 깸
-	if b.st == EKensei.S.CTR_STANCE and not _ctr_thrown and _seen_t >= react and dist >= THROW_MIN and dist <= THROW_MAX and _slot_is_throw(e, SLOT_THROW):
+	if b.st == EKensei.S.CTR_STANCE and not _ctr_thrown and _seen_t >= react and dist >= THROW_MIN and dist <= THROW_MAX and _slot_of(e, THROWS) >= 0:
 		if e.facing != to:
 			_tap("es_right" if to > 0 else "es_left")
 			return true
 		_ctr_thrown = true
 		n_throw += 1
 		n_throw_ctr += 1
-		_use_slot(SLOT_THROW)
+		_use_slot(_slot_of(e, THROWS))
 		return true
 	# 3) 틈 달이기: 천열 뒤 정해 둔 때가 되면 던짐 (검성 쪽을 보고)
 	if _rift_plan <= 0.0 and _rift_plan > -RIFT_THROW_WAIT:
@@ -278,7 +281,7 @@ func _kit(e: EEska, b: EKensei, dist: float, to: int, punish: bool) -> bool:
 			var rdx := _rift_to.global_position.x - e.global_position.x
 			dist = absf(rdx)
 			to = 1 if rdx > 0.0 else -1
-		if not _slot_is_throw(e, SLOT_THROW) or dist > THROW_MAX + 20.0:
+		if _slot_of(e, THROWS) < 0 or dist > THROW_MAX + 20.0:
 			_rift_plan = -RIFT_THROW_WAIT
 		elif e.facing != to:
 			_tap("es_right" if to > 0 else "es_left")
@@ -287,15 +290,32 @@ func _kit(e: EEska, b: EKensei, dist: float, to: int, punish: bool) -> bool:
 			_rift_plan = -RIFT_THROW_WAIT
 			n_throw += 1
 			n_rift_throw += 1
-			_use_slot(SLOT_THROW)
+			_use_slot(_slot_of(e, THROWS))
 			return true
 	# 4) 대마법: 게이지 가득 → 고른 것을 맞춘 뒤 무너짐·묶임·긴 틈에 (오래 기다리면 아무 틈에나)
 	if e.gauge_ratio() >= 1.0:
-		if e.selected_ult() != ULT_WANT:
+		var sh := _alive_shadows(b)
+		var want := ULT_SHADOW if sh.size() >= 2 else ULT_WANT # 분신 줄엔 흑성(모아 갊), 검성엔 종말의 운석
+		if e.selected_ult() != want:
 			_tap("es_ult_next")
 			_act_cd = 0.12
 			return true
-		var good := _alive_shadows(b).size() >= 2 or b.break_t > 0.6 or b.is_bound() or b.st in [EKensei.S.LEAP_REST, EKensei.S.CTR_RELAX, EKensei.S.IAI_REST, EKensei.S.TRI_REST]
+		if sh.size() >= 2:
+			# 분신 줄 끝에서 줄을 바라볼 때만 (흑성이 앞 150에 열림)
+			var nx := (sh[0] as Node2D).global_position.x
+			for n: Node2D in sh:
+				if absf(n.global_position.x - e.global_position.x) < absf(nx - e.global_position.x):
+					nx = n.global_position.x
+			var facing_row := (nx - e.global_position.x) * float(e.facing) > 0.0
+			if facing_row and absf(nx - e.global_position.x) < ROW_OUT + 30.0:
+				n_ult += 1
+				_hold("es_left", false)
+				_hold("es_right", false)
+				_tap("es_bind")
+				_act_cd = 0.6
+				return true
+			return false
+		var good := b.break_t > 0.6 or b.is_bound() or b.st in [EKensei.S.LEAP_REST, EKensei.S.CTR_RELAX, EKensei.S.IAI_REST, EKensei.S.TRI_REST]
 		if (good or (_full_t > ULT_IMPATIENT and punish)) and dist < 260.0 and not hazard:
 			n_ult += 1
 			_hold("es_left", false)
@@ -304,9 +324,9 @@ func _kit(e: EEska, b: EKensei, dist: float, to: int, punish: bool) -> bool:
 			_act_cd = 0.6
 			return true
 	# 5) 메아리: 걸려 있지 않고, 검성이 멀거나 쉬는 동안 (천열이 곧 돌아올 때)
-	if not _echo_on(e) and calm and not hazard and dist > 110.0 and e.cd_left("cheonyeol") < 1.0 and _slot_ready(e, SLOT_ECHO, "echo"):
+	if not _echo_on(e) and calm and not hazard and dist > 110.0 and e.cd_left("cheonyeol") < 1.0 and _echo_left(e) >= 2: # 마지막 한 병은 분신용으로 남김
 		n_echo += 1
-		_use_slot(SLOT_ECHO)
+		_use_slot(_slot_of(e, ["echo"]))
 		return true
 	return false
 
@@ -330,7 +350,7 @@ func _deflect(e: EEska, b: EKensei) -> bool:
 		elif n is EKenseiFx.ShadowCut:
 			var c := n as EKenseiFx.ShadowCut
 			var left := c.delay - c.t
-			target = ex > c.band.position.x - 4.0 and ex < c.band.end.x + 4.0 and left > DANGONG_FIRE + 0.02 and left < 0.24
+			target = absf(c.band.get_center().x - ex) < EKenseiFx.ShadowCut.DEFLECT_CENTER - 4.0 and left > DANGONG_FIRE + 0.02 and left < 0.24 # 가운데에 선 선만 가를 수 있음
 		elif n is EKenseiFx.RainBlade:
 			var r := n as EKenseiFx.RainBlade
 			target = r.t < r.warn and r.warn - r.t < DEFLECT_RAIN_LEAD and absf(r.position.x - ex) < EKenseiFx.RainBlade.HALF_W + 10.0
@@ -375,6 +395,13 @@ func _tick_deflect_watch(delta: float) -> void:
 	_deflect_watch = keep
 
 
+## 2막에 그림자 일섬이 곧 올 수 있으면 천열을 아낌 (잘하는 사람은 20초 박자를 익힘 — 흘림 확률이 크면 덜 아낌)
+func _hold_for_shadow(b: EKensei) -> bool:
+	if not use_kit or b.phase != 2 or skip_rate > 0.4:
+		return false
+	return float(b.get("_shadow_cd")) < SHADOW_RESERVE
+
+
 ## 살아 있는 분신들
 func _alive_shadows(b: EKensei) -> Array:
 	var out := []
@@ -401,6 +428,8 @@ func _shadows(e: EEska, b: EKensei) -> bool:
 	if not _shadow_on:
 		_shadow_on = true
 		_shadow_skip = randf() < skip_rate # 서툰 사람: 이번 분신은 그냥 둠 (피하기만)
+		# 분신 1200 > 천열 896: 메아리를 먼저 마셔 천열 한 번 + 메아리로 줄 전체를 벰 (메아리가 없으면 천열 → 틈 속박 → 베기)
+		_shadow_echo = not _shadow_skip and not _echo_on(e) and _echo_left(e) > 0 and e.cd_left("cheonyeol") < 1.2
 		print("BOT SHADOW set fight=%.1fs cheonyeol_cd=%.1f nakseong_cd=%.1f gauge=%d%% skip=%s" % [float(_fight_frames) / 60.0, e.cd_left("cheonyeol"), e.cd_left("nakseong"), int(e.gauge_ratio() * 100.0), str(_shadow_skip)])
 	if _shadow_skip:
 		return false
@@ -432,6 +461,12 @@ func _shadows(e: EEska, b: EKensei) -> bool:
 		_walk(0)
 	if not _seq.is_empty() or e.st != EEska.St.NORMAL:
 		return true
+	if _shadow_echo and e.is_on_floor() and _act_cd <= 0.0:
+		_shadow_echo = false
+		if _slot_of(e, ["echo"]) >= 0:
+			n_echo += 1
+			_use_slot(_slot_of(e, ["echo"]))
+			return true
 	var placed := absf(ex - spot) <= ROW_TOL * 2.0
 	if placed and e.facing != to:
 		_tap("es_right" if to > 0 else "es_left")
@@ -439,28 +474,36 @@ func _shadows(e: EEska, b: EKensei) -> bool:
 	if placed and e.facing == to and e.cd_left("cheonyeol") <= 0.0 and e.is_on_floor():
 		n_cheonyeol += 1
 		_tap("es_skill")
-		if _slot_is_throw(e, SLOT_THROW):
+		if _slot_of(e, THROWS) >= 0:
 			_rift_plan = randf_range(RIFT_THROW_MIN, RIFT_THROW_MAX)
 			_rift_to = near
 		return true
-	if d >= NAK_MIN and d <= NAK_MAX and e.cd_left("nakseong") <= 0.0 and e.is_on_floor():
+	if placed and e.facing == to and e.cd_left("cheonyeol") > 0.8 and d >= NAK_MIN and d <= NAK_MAX and e.cd_left("nakseong") <= 0.0 and e.is_on_floor():
+		# 천열이 늦으면: 낙성 틈에 속박을 넣어 자세를 멈춰 두고 벤다
 		n_nakseong += 1
 		_combo([[0.0, "es_down", true], [0.0, "es_skill", true], [0.05, "es_skill", false], [0.08, "es_down", false]])
+		if _slot_of(e, THROWS) >= 0:
+			_rift_plan = randf_range(RIFT_THROW_MIN, RIFT_THROW_MAX)
+			_rift_to = near
 		return true
 	if d < 130.0 and e.facing == to and float(e.get("_atk_cd")) <= 0.0:
 		_tap("es_attack")
 	return true
 
 
-func _slot_ready(e: EEska, slot: int, want_id: String) -> bool:
-	var s: Dictionary = e.belt.slot(slot)
-	return String(s.get("id", "")) == want_id and int(s.get("left", 0)) > 0
+## ids 중 하나가 남아 있는 허리띠 칸 번호 (없으면 -1)
+func _slot_of(e: EEska, ids: Array) -> int:
+	for i in 3:
+		var sl: Dictionary = e.belt.slot(i)
+		if String(sl.get("id", "")) in ids and int(sl.get("left", 0)) > 0:
+			return i
+	return -1
 
 
-func _slot_is_throw(e: EEska, slot: int) -> bool:
-	var s: Dictionary = e.belt.slot(slot)
-	var id := String(s.get("id", ""))
-	return id in ["bind", "scream"] and int(s.get("left", 0)) > 0
+## 남은 메아리 병 수
+func _echo_left(e: EEska) -> int:
+	var i := _slot_of(e, ["echo"])
+	return int(e.belt.slot(i).get("left", 0)) if i >= 0 else 0
 
 
 func _echo_on(e: EEska) -> bool:
@@ -478,9 +521,9 @@ func _use_slot(slot: int) -> void:
 	_hold("es_right", false)
 	_act_cd = 0.5
 	match slot:
-		SLOT_ECHO:
+		SLOT_UP:
 			_combo([[0.0, "es_up", true], [0.0, "es_potion", true], [0.05, "es_potion", false], [0.08, "es_up", false]])
-		SLOT_THROW:
+		SLOT_DOWN:
 			_combo([[0.0, "es_down", true], [0.0, "es_potion", true], [0.05, "es_potion", false], [0.08, "es_down", false]])
 		_:
 			_tap("es_potion")
@@ -563,7 +606,7 @@ func _dodge(e: EEska, b: EKensei, dist: float, to: int) -> bool:
 						_combo([[0.0, "es_jump", true], [0.3, "es_jump", false]])
 				return true
 		EKensei.S.CTR_STANCE, EKensei.S.PHASE, EKensei.S.RAIN_WIND:
-			if b.st == EKensei.S.CTR_STANCE and use_kit and not _ctr_thrown and _slot_is_throw(e, SLOT_THROW):
+			if b.st == EKensei.S.CTR_STANCE and use_kit and not _ctr_thrown and _slot_of(e, THROWS) >= 0:
 				return false # 던질 자리로 (_kit이 맡음)
 			_walk(0)
 			if dist < 90.0:

@@ -30,6 +30,16 @@ const DIM_MAX := 0.3 ## 발도 예고 때 배경 어두움 최대 (먹빛 막의
 const CAM_MARGIN_DEFAULT := 240.0 ## 터치 카메라 여유 (EStage.cam_margin_touch가 없을 때)
 const ART_SHAKE_PAD := 60.0 ## 흔들림·확대 펀치 여유 — 카메라 여유에 더해 오른쪽 배경을 더 그림
 const ART_EXTRA_MIN := 300.0 ## 오른쪽 끝 너머로 그리는 배경 최소 폭
+## 첫 만남 배움 (loop6 2장): 이 세션의 첫 도전에서만, 반격 자세·비검·그림자 일섬이 처음 나올 때 잠깐 0.5배 느려짐 + 한 줄 안내. 다시 하기부터는 없음
+const LESSON_SLOW := 0.5
+const LESSON_REAL := 1.4 ## 느려지는 시간 (실제 초)
+const LESSON_T := 2.6 ## 안내 글이 떠 있는 시간
+const LESSONS := {
+	"ctr": ["반격 자세", "눈 감고 고리 — 베면(누르고 있어도) 받아친다. 비명·속박을 던져 깨라"],
+	"wave": ["비검", "땅을 타는 참격파 — 뛰어넘거나 {es_up}+{es_skill} 단공으로 가른다"],
+	"shadow": ["그림자 일섬", "분신을 셋 다 베면 검성이 무너진다 — 남기면 버팀이 돌아온다"],
+}
+static var session_tried := false ## 이 세션에서 검성과 한 번이라도 싸웠나 (다시 하기·장면 다시 불러오기에도 남음)
 const HINTS: Array[String] = ["{es_up}+{es_skill} 단공: 비검·천검을 가른다", "물약을 열린 틈에 던지면 스며든다", "눈 감은 반격 자세엔 비명·속박"]
 const FRAME_PULL := 0.85 ## 싸움 중 카메라를 둘 사이 가운데로 당기는 정도 (1 = 정가운데)
 
@@ -61,6 +71,8 @@ var _cine_rate := 2.5 ## 연출 카메라 확대가 따라가는 빠르기
 var _intro_step := I.PAN
 var _title: BossTitle
 var _dim: Dim
+var _teach := false ## 이번 도전이 세션 첫 도전이라 배움 연출을 하나
+var _taught := {} ## 이번 도전에서 이미 알려 준 기술
 var _cine_hold := false ## 연출 중 (막 전환 등) — 끝나면 안내를 다시 보임
 
 
@@ -115,6 +127,7 @@ func _spawn_boss() -> void:
 	boss.phase_changed.connect(_on_phase)
 	boss.phase_starting.connect(_on_phase_start)
 	boss.poise_broken.connect(_on_break)
+	boss.move_started.connect(_on_move_started)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -247,6 +260,8 @@ func _gust() -> void:
 
 ## 싸움을 엶: 조작이 풀리고 검성이 움직이기 시작
 func _begin_fight() -> void:
+	_teach = not session_tried
+	session_tried = true
 	fight = F.FIGHT
 	_first = false
 	_cinematic(false)
@@ -273,6 +288,16 @@ func _on_phase(_p: int) -> void:
 	Music.play("boss", 0.4)
 	_title.show_title("검성 · 발검", "칼집을 버렸다", PHASE_TITLE_T)
 	_wind_k = 1.5
+
+
+## 첫 만남 배움: 세션 첫 도전에서 반격 자세·비검·그림자 일섬이 처음 나오면 잠깐 느려지며 한 줄 안내
+func _on_move_started(id: String) -> void:
+	if not _teach or not LESSONS.has(id) or _taught.has(id) or fight != F.FIGHT:
+		return
+	_taught[id] = true
+	var spec: Array = LESSONS[id]
+	Fx.slowmo(LESSON_SLOW, LESSON_REAL)
+	_title.show_title(String(spec[0]), ETutHud.fmt(String(spec[1])), LESSON_T, true)
 
 
 func _on_break(_e: EEnemy) -> void:
@@ -323,6 +348,7 @@ func _view_rect() -> Rect2:
 # ═══════════════════════════════════════════════════════════
 
 func _on_eska_died() -> void:
+	_teach = false # 쓰러지면 배움 연출은 끝 (다시 하기부터는 없음)
 	deaths += 1
 	hud.banner("쓰러졌다", "입구에서 다시 일어선다", RESPAWN_DELAY + 0.4)
 	await get_tree().create_timer(RESPAWN_DELAY, true, false, true).timeout
@@ -397,6 +423,7 @@ func skip_intro(x := 520.0) -> String:
 	_open_fight()
 	_title.show_title("", "", 0.0)
 	_intro_t = INTRO_T
+	session_tried = true # 시험: 배움 느려짐 없이 (켜려면 set('_teach', true))
 	_begin_fight()
 	return boss.info()
 
@@ -762,7 +789,10 @@ class Front extends PDraw.Canvas:
 
 ## 싸움 중 입구를 막는 장막: 피어오르며 소용돌이치는 먹빛 연기 + 금줄에 매달려 펄럭이는 흰 부적, 연기 속을 맴도는 부적 둘
 ## (붉은 세로선은 쓰지 않는다 — 천검 예고와 겹쳐 보임. 붉은빛은 부적의 작은 인장만)
+## loop6 5장 굽기: 연기 덩이(예전 원 그리기 약 1000 도형)는 한 번 구운 부드러운 원 텍스처(PUFF_TEX)를 사각형 둘로 찍는다 — 움직임은 그대로
 class Curtain extends PDraw.Canvas:
+	const PUFF_PX := 64 ## 구운 연기 덩이 텍스처 크기
+	static var _puff_tex: ImageTexture
 	const H := 112.0 ## 장막 높이
 	const HALF := 26.0 ## 장막 반폭
 	const PUFFS := 16 ## 연기 덩이 수
@@ -792,13 +822,29 @@ class Curtain extends PDraw.Canvas:
 			return
 		queue_redraw()
 
-	func _paint() -> void:
+	## 부드러운 원 한 장을 한 번 굽는다 (가운데 불투명 → 가장자리 투명)
+	static func puff_tex() -> ImageTexture:
+		if _puff_tex == null:
+			var img := Image.create(PUFF_PX, PUFF_PX, false, Image.FORMAT_RGBA8)
+			var c := float(PUFF_PX - 1) * 0.5
+			for y in PUFF_PX:
+				for x in PUFF_PX:
+					var d := Vector2(float(x) - c, float(y) - c).length() / c
+					var al := clampf(1.0 - d, 0.0, 1.0)
+					img.set_pixel(x, y, Color(1, 1, 1, al * al * (3.0 - 2.0 * al)))
+			_puff_tex = ImageTexture.create_from_image(img)
+		return _puff_tex
+
+	func _puff(p: Vector2, r: float, c: Color, sy := 1.0) -> void:
+		if c.a <= 0.003:
+			return
+		draw_texture_rect(puff_tex(), Rect2(p - Vector2(r, r * sy), Vector2(r, r * sy) * 2.0), false, c)
+
+	func _draw() -> void:
 		var a := _a
 		var w := EKenseiFx.wind.x / WIND
 		# 바닥에 고인 먹빛
-		pd.draw_set_transform(Vector2(0, -2), 0.0, Vector2(1.0, 0.3))
-		pd.glow(Vector2.ZERO, 40.0, Color(SMOKE, 0.8 * a), 0.0)
-		pd.draw_set_transform(Vector2.ZERO)
+		_puff(Vector2(0, -2), 40.0, Color(SMOKE, 0.8 * a), 0.3)
 		# 먹빛 연기: 아래에서 피어올라 커지며 옅어지는 덩이 (바람 쪽으로 살짝 쏠림)
 		for i in PUFFS:
 			var f := fmod(_t * 0.32 + float(i) / float(PUFFS), 1.0)
@@ -806,9 +852,14 @@ class Curtain extends PDraw.Canvas:
 			var p := Vector2(x, -4.0 - f * H)
 			var r := 10.0 + 12.0 * f
 			var al := sin(f * PI) * a
-			pd.glow(p + Vector2(-r * 0.25, -r * 0.3), r * 0.9, Color(SMOKE_HI, 0.3 * al), 0.0) # 달빛 받은 연기 윗면
-			pd.glow(p, r, Color(SMOKE_MID, 0.7 * al), 0.3 * al)
-			pd.glow(p + Vector2(r * 0.2, r * 0.2), r * 0.6, Color(SMOKE, 0.8 * al), 0.0) # 아래쪽 짙은 먹
+			_puff(p + Vector2(-r * 0.25, -r * 0.3), r * 0.9, Color(SMOKE_HI, 0.3 * al)) # 달빛 받은 연기 윗면
+			_puff(p, r, Color(SMOKE_MID, 0.7 * al))
+			_puff(p + Vector2(r * 0.2, r * 0.2), r * 0.6, Color(SMOKE, 0.8 * al)) # 아래쪽 짙은 먹
+		super._draw()
+
+	func _paint() -> void:
+		var a := _a
+		var w := EKenseiFx.wind.x / WIND
 		# 연기 결: 위로 말려 올라가는 가는 잿빛 줄 몇 가닥
 		for i in 4:
 			var f := fmod(_t * 0.45 + float(i) * 0.25, 1.0)
@@ -928,7 +979,7 @@ class BossTitle extends Control:
 		var c := Vector2(size.x * 0.5, size.y * (0.3 if _small else 0.34))
 		var tw := _font.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		# 글자 뒤 옅은 먹빛 띠 (어느 배경에서도 읽히게)
-		var band_h := 34.0 if _small else 50.0
+		var band_h := 48.0 if _small else 50.0 # 작은 자막은 아래 안내 글까지 띠로 받침
 		var bw := tw * 0.5 + 120.0
 		_hband(Rect2(c.x - bw, c.y - float(fs) * 0.95, bw * 2.0, band_h), 0.5 * a)
 		# 이름: 살짝 크게 시작해 제자리로 (뼈흰, 먹 테두리)
@@ -953,7 +1004,7 @@ class BossTitle extends Control:
 			var k := clampf((_t - 0.15) / IN_T, 0.0, 1.0) * out
 			var sp := Vector2(c.x - sw * 0.5, ly + float(sfs) + 5.0)
 			draw_string_outline(_font, sp, _sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs, 3, Color(0, 0, 0, 0.7 * k))
-			draw_string(_font, sp, _sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs, Color(BONE_DIM, k))
+			draw_string(_font, sp, _sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs, Color(BONE if _small else BONE_DIM, k)) # 작은 자막(배움·무너짐)은 안내가 주인공이라 밝게
 
 	## 가운데가 짙고 양옆으로 옅어지는 가로 띠
 	func _hband(r: Rect2, al: float) -> void:
