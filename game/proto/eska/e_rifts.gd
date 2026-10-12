@@ -21,7 +21,9 @@ const STITCH_LEN := 8.0
 const STITCH_FROM := 24.0 ## 닿은 자리에서 첫 땀까지 (흡수 고리 바깥)
 const STITCH_GAP := 9.0 ## 땀 사이 간격 (틈 길이 따라)
 const QUIET_EDGE := "rot" ## 이 물약은 테 물듦 선을 아주 옅게 (부식은 물약 쪽 독안개가 퍼지므로 가는 초록 선이 남아 보이지 않게)
-const QUIET_A := 0.12 ## 그때 테 선 진하기
+const QUIET_A := 0.0 ## 그때 테 선 진하기 (루프6: 아예 끔 — 부식은 물약 쪽 안개·방울이 신호)
+const EDGE_HOLD := 0.5 ## 물약 색 테 선이 그대로 있는 시간 — 물약 쪽 실(1초)과 맞춰 1초 안에 사라짐 (loop6)
+const EDGE_FADE := 0.45 ## 그 뒤 흐려지는 시간
 
 static var _list: Array[Dictionary] = []
 static var _next_id := 1
@@ -174,6 +176,9 @@ class Layer extends PDraw.Canvas:
 		while i < items.size():
 			var it: Array = items[i]
 			it[2] = float(it[2]) + delta
+			if float(it[2]) >= ERifts.EDGE_HOLD + ERifts.EDGE_FADE and float(it[2]) >= ERifts.FRESH_FLASH: # 다 사라졌으면 그만 그림
+				items.remove_at(i)
+				continue
 			if ERifts.left(int((it[0] as Dictionary).id)) <= 0.0:
 				it[3] = float(it[3]) + delta
 				if float(it[3]) >= ERifts.INFUSE_FADE:
@@ -192,6 +197,7 @@ class Layer extends PDraw.Canvas:
 			if n < 2:
 				continue
 			var seep := clampf(age / ERifts.INFUSE_SEEP, 0.0, 1.0)
+			var edge_a := fade * (1.0 - clampf((age - ERifts.EDGE_HOLD) / ERifts.EDGE_FADE, 0.0, 1.0)) * (ERifts.QUIET_A if bool(it[5]) else 1.0)
 			var w := float(r.w)
 			# 테가 물약 색으로 물듦: 병이 닿은 마디(없으면 가운데)에서 양 끝으로 (점마다 위아래 두 줄)
 			var mid := float(r.get("near_i", (n - 1) * 0.5))
@@ -200,7 +206,7 @@ class Layer extends PDraw.Canvas:
 				var f := absf(float(k) + 0.5 - mid) / span
 				if f > seep:
 					continue
-				var a := fade * (1.0 - 0.5 * f) * (0.75 + 0.25 * sin(age * 9.0 + float(k))) * (ERifts.QUIET_A if bool(it[5]) else 1.0)
+				var a := edge_a * (1.0 - 0.5 * f) * (0.75 + 0.25 * sin(age * 9.0 + float(k)))
 				var d := (pts[k + 1] - pts[k])
 				var o := d.orthogonal().normalized() * (w * 0.5 + 1.5)
 				pd.draw_line(pts[k] + o, pts[k + 1] + o, Color(col, 0.9 * a), 2.0)
