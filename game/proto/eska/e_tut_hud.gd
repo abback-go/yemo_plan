@@ -359,10 +359,10 @@ func _text(p: Vector2, s: String, fs: int, col: Color) -> void:
 
 
 ## 달이기 화면 아래 띠: 가마솥 화면이 열려 게임이 멈춘 동안 다음 할 일을 한 줄로 알려 준다 (CanvasLayer 46 — 달이기 화면 45 위, 멈춤 중에도 돈다).
-## 화면이 처음 열리면 담을 칸을 ↓칸으로, 초점을 거미줄로 맞춰 둔다 (튜토리얼은 속박 하나만 가르친다 — 다른 칸·재료도 자유롭게 고를 수 있음).
+## 화면이 처음 열리면 담을 칸을 맨 위 F칸으로, 초점을 거미줄로 맞춰 둔다 (튜토리얼은 속박 하나만 가르친다 — 다른 칸·재료도 자유롭게 고를 수 있음).
 class BrewTip extends Control:
 	const WANT_ING := "web"
-	const WANT_SLOT := 2
+	const WANT_SLOT := 0
 	const BAND_H := 18.0
 	const FS := 12
 	var cauldron: ECauldron
@@ -406,8 +406,8 @@ class BrewTip extends Control:
 		if ui.sel.size() < 2:
 			return "할 일 ① 거미줄을 두 번 넣는다"
 		if ui.target != WANT_SLOT:
-			return "할 일 ② 오른쪽 ↓칸을 골라 담는다"
-		return "할 일 ② 달이기 — ↓칸에 담긴다"
+			return "할 일 ② 오른쪽 맨 위 칸(F)을 골라 담는다"
+		return "할 일 ② 달이기 — 맨 위 칸(F)에 담긴다"
 
 	func _draw() -> void:
 		if _line == "":

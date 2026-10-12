@@ -54,7 +54,11 @@ const RIFT_SLOW_REAL := 1.8 ## 느려지는 실제 시간 (게임 0.9초 — 첫
 const RIFT_WAIT := 2.8 ## 첫 시도: 이만큼(실제 초) 안에 병이 스미지 않으면 다시
 const RIFT_GAUGE := 0.3 ## 틈 달이기 성공마다 종언 게이지 + 가득의 이 몫
 const RIFT_TRIES := 3 ## 두 번째(느림 없는) 시도를 이만큼 놓치면 넘어간다
-const POTION_SLOT := 2 ## ↓+물약 칸
+const POTION_SLOT := 0 ## 방향 없는 물약 칸 (F) — 폰에서 스킬 → 물약 박자 (loop6 3장: 속박이 F칸)
+const START_BELT: Array[String] = ["", "echo", "heal"] ## 처음 허리띠: F칸은 비워 두고 쉼터에서 속박을 달여 채움 · ↑ 메아리 · ↓ 치유
+## 연습 과제 id (훈련장 EArena.PracticeList.T_* 와 같은 번호) — 해내면 EStage.practice_done에 적어 훈련장에서 체크된 채 시작
+const PRACTICE := {"nakseong": 0, "perfect": 1, "brew": 2, "rift": 3, "ult": 4}
+const KENSEI_SCENE := "res://proto/eska/eska_boss.tscn"
 const BIND_KEY := "web+web" ## 수첩의 속박 조합 (튜토리얼에서 처음 달여 "새 물약!"을 보게 잠시 지운다)
 
 const STEPS := ["wake", "move", "gap", "combo", "cheonyeol", "dangong", "nakseong", "cauldron", "hound", "finale", "end"]
@@ -162,8 +166,12 @@ func _start() -> void:
 	tip_layer.add_child(brew_tip)
 	hud.show_keys = false
 	eska.hurt_taken.connect(_on_hurt)
-	# ↓칸은 비워 두고 쉼터에서 속박을 달여 채운다. 종언 게이지는 거상 앞에서 처음 깨어난다 (그 전 피해는 게이지에 안 쌓임)
-	eska.belt.slots[POTION_SLOT] = {}
+	# F칸은 비워 두고 쉼터에서 속박을 달여 채운다. 종언 게이지는 거상 앞에서 처음 깨어난다 (그 전 피해는 게이지에 안 쌓임)
+	for i in START_BELT.size():
+		if START_BELT[i] == "":
+			eska.belt.slots[i] = {}
+		else:
+			eska.belt.set_slot(i, START_BELT[i])
 	eska.mods["gauge"] = 0.0
 	_book_hid = EPotions.notebook.has(BIND_KEY)
 	EPotions.notebook.erase(BIND_KEY)
@@ -260,6 +268,7 @@ func _scan_fx() -> void:
 			if up.perfects > 0 and told != 1:
 				_sweeps[id] = 1
 				_perfects += 1
+				_practice("perfect")
 				_on_perfect()
 			elif told == 0 and up.deflected > 0 and up.perfects == 0 and up.t > ESkillFx.Upsweep.ACTIVE:
 				_sweeps[id] = 2
@@ -465,6 +474,7 @@ func _tick_nakseong() -> bool:
 		tut.done()
 		gates["caster"].open()
 		gates["dummies"].open()
+		_practice("nakseong")
 		tut.say("길이 열렸다. 저 앞에 따뜻한 김이 오른다.")
 		return true
 	return false
@@ -485,7 +495,7 @@ func _spawn_high() -> EEnemy:
 	return e
 
 
-## 가마솥 쉼터: 수첩 메모를 보고 거미줄+거미줄 = 속박을 달여 ↓칸에 담는다 (달이기 화면 아래 띠가 할 일 한 줄)
+## 가마솥 쉼터: 수첩 메모를 보고 거미줄+거미줄 = 속박을 달여 F칸에 담는다 (달이기 화면 아래 띠가 할 일 한 줄)
 func _tick_cauldron() -> bool:
 	match _sub:
 		0:
@@ -506,7 +516,8 @@ func _tick_cauldron() -> bool:
 					_sub = 4
 					_st = 0.0
 					gates["rest"].open()
-					tut.say("속박. 던지면 무엇이든 붙든다 — {es_down}+{es_potion}.")
+					_practice("brew")
+					tut.say("속박. 던지면 무엇이든 붙든다 — {es_potion}.")
 				else:
 					_sub = 3
 					_st = 0.0
@@ -514,7 +525,7 @@ func _tick_cauldron() -> bool:
 			if _st > 1.1:
 				_sub = 2
 				tut.say(MEMO)
-				tut.prompt(["가마솥 앞에서", "es_up"], "다시 열고 거미줄 둘을 ↓칸에")
+				tut.prompt(["가마솥 앞에서", "es_up"], "다시 열고 거미줄 둘을 맨 위 칸에")
 		4:
 			return _st > 0.4
 	return false
@@ -524,7 +535,7 @@ func _slot_is(i: int, id: String) -> bool:
 	return String(eska.belt.slot(i).get("id", "")) == id
 
 
-## 사냥개: 첫 웅크림에 피하기 → ↓+물약 속박을 던져 묶기 (묶이면 통과) → 쓰러뜨림
+## 사냥개: 첫 웅크림에 피하기 → 물약(F) 속박을 던져 묶기 (묶이면 통과) → 쓰러뜨림
 func _tick_hound() -> bool:
 	if _sub == 0 and eska.global_position.x > GATE_REST + 80.0:
 		_sub = 1
@@ -544,7 +555,7 @@ func _tick_hound() -> bool:
 	if _sub == 3 and not tut.has_prompt():
 		_sub = 4
 		_splash_seen = EPotions.last_splash
-		tut.prompt(["es_down", "+", "es_potion"], "속박을 던져 묶는다 — 앞으로 약 다섯 걸음")
+		tut.prompt(["es_potion"], "속박을 던져 묶는다 — 앞으로 약 다섯 걸음")
 	if _sub == 4:
 		var sp: Dictionary = EPotions.last_splash
 		if not is_same(sp, _splash_seen) and String(sp.get("id", "")) == "bind" and int(sp.get("hits", 0)) > 0 and _any_bound():
@@ -631,7 +642,7 @@ func _tick_finale() -> bool:
 				tut.say("단단하다. 찢고, 갓 찢긴 틈에 물약을 스미게 한다.")
 				_arm_rift(["es_skill"], "천열 — 거상 앞 공간을 찢는다")
 		4:
-			# 천열이 나가는 순간 거상이 앞에 있으면: 시간이 느려지고 "지금 ↓+물약"
+			# 천열이 나가는 순간 거상이 앞에 있으면: 시간이 느려지고 "지금 물약"
 			var cheon := eska.st == EEska.St.CAST and eska.cast_kind == "cheonyeol"
 			if cheon and not _was_cheon:
 				if _boss_in_reach():
@@ -639,9 +650,11 @@ func _tick_finale() -> bool:
 					_st = 0.0
 					_splash_seen = EPotions.last_splash
 					Fx.slowmo(RIFT_SLOW, RIFT_SLOW_REAL)
+					if has_method("force_bias"): # 코어: 카메라 치우침 강제 (거상이 터치 버튼 밑에 숨지 않게 — loop6 3장)
+						call("force_bias", RIFT_SLOW_REAL)
 					tut.focus_to(1.0)
 					tut.done()
-					tut.prompt(["지금", "es_down", "+", "es_potion"], "갓 찢긴 틈에 병을 스미게")
+					tut.prompt(["지금", "es_potion"], "갓 찢긴 틈에 병을 스미게")
 				else:
 					tut.say("더 가까이서 찢어라.")
 			_keep_cheon_ready()
@@ -673,7 +686,7 @@ func _tick_finale() -> bool:
 				_st = 0.0
 				_misses = 0
 				tut.say("이번엔 시간이 느려지지 않는다. 실전 박자로 한 번 더.")
-				_arm_rift(["es_skill", "→", "곧바로", "es_down", "+", "es_potion"], "느림 없이 틈 달이기")
+				_arm_rift(["es_skill", "→", "곧바로", "es_potion"], "느림 없이 틈 달이기")
 		8:
 			_keep_cheon_ready()
 			var r := _rift_result()
@@ -692,7 +705,7 @@ func _tick_finale() -> bool:
 				else:
 					tut.say("늦었다 — 천열이 나가자마자 던진다.")
 					tut.nudge()
-					_arm_rift(["es_skill", "→", "곧바로", "es_down", "+", "es_potion"], "느림 없이 틈 달이기")
+					_arm_rift(["es_skill", "→", "곧바로", "es_potion"], "느림 없이 틈 달이기")
 		9:
 			if _st > 1.6 and not tut.has_prompt():
 				_sub = 10
@@ -721,6 +734,7 @@ func _tick_finale() -> bool:
 	# 게이지가 찬 뒤엔 고르기를 건너뛰고 바로 써도 된다
 	if _sub >= 11 and _sub <= 14 and eska.st == EEska.St.ULT and not _ult_used:
 		_ult_used = true
+		_practice("ult")
 		_sub = 15
 		tut.done()
 	if _sub >= 2:
@@ -730,7 +744,7 @@ func _tick_finale() -> bool:
 	return false
 
 
-## 틈 달이기 안내 (다시 시도할 때도): 천열 바로 쓸 수 있게, ↓칸에 던질 병이 있게, 새 병을 지켜보기 시작
+## 틈 달이기 안내 (다시 시도할 때도): 천열 바로 쓸 수 있게, F칸에 던질 병이 있게, 새 병을 지켜보기 시작
 func _arm_rift(keys: Array, text: String) -> void:
 	_ready_skill("cheonyeol")
 	var s: Dictionary = eska.belt.slot(POTION_SLOT)
@@ -762,6 +776,7 @@ func _rift_result() -> int:
 
 ## 틈 달이기 성공: 안내 체크 + 종언 게이지 보상 + 거상이 느긋해짐
 func _rift_success() -> void:
+	_practice("rift")
 	tut.done()
 	eska.add_gauge(RIFT_GAUGE * EEska.GAUGE_MAX)
 	_calm = true
@@ -836,10 +851,20 @@ func _on_end_chosen(what: String) -> void:
 	match what:
 		"retry":
 			get_tree().reload_current_scene()
+		"kensei":
+			get_tree().change_scene_to_file(KENSEI_SCENE)
 		"arena":
 			get_tree().change_scene_to_file("res://proto/eska/eska_arena.tscn")
 		_:
 			GameState.go_title()
+
+
+## 연습 과제를 해냄: 코어의 정적 저장소 EStage.practice_done(Dictionary)에 적는다 — 훈련장이 체크된 채 시작.
+## 저장소가 아직 없는 트리에서도 컴파일되게 이름으로 읽는다
+func _practice(id: String) -> void:
+	var store: Variant = (EStage as Script).get("practice_done")
+	if store is Dictionary:
+		(store as Dictionary)[PRACTICE[id]] = true
 
 
 ## 배우라고 안내하는 순간에는 그 기술을 바로 쓸 수 있게 (먼저 써 버려 쿨다운 중이면 헷갈림). 대마법은 실제 게이지로만
