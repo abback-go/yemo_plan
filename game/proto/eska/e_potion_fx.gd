@@ -1016,9 +1016,12 @@ class RiftBrew extends PDraw.Canvas:
 	const BLOB_H1 := 12.0
 	const DROP_W := 5.0 ## 떨어지는 방울 (끊어진 끝)
 	const DROP_H := 7.0
-	const POOL_BUBBLES := 3 ## 웅덩이마다 거품 (2~3개가 번갈아 터짐)
-	const POOL_H := 4.0 ## 웅덩이 높이 (납작한 타원)
-	const POOL_PTS := 10 ## 웅덩이 타원 둘레 점 수
+	const POOL_BUBBLES := 3 ## 웅덩이마다 거품 3개 — POOL_POP초마다 하나씩 차례로 터짐
+	const POOL_POP := 0.3
+	const POOL_H := 6.0 ## 웅덩이 높이 (납작한 타원, 5~6px — 바닥선과 확실히 구분되게)
+	const POOL_SINK := 1.0 ## 웅덩이 타원이 바닥선 아래로 걸치는 깊이 (바닥선을 덮어 띠로 안 보이게)
+	const POOL_PTS := 12 ## 웅덩이 타원 둘레 점 수
+	const POOL_FADE := 2.0 ## 안개가 끝난 뒤 웅덩이가 가장자리부터 디더로 줄어들며 사라지는 시간
 	const FOG_EVERY := 2 ## 틈 둘레 디더 안개: 이 표본마다 칸 몇 개 (흩어진 자리 — 줄무늬 안 되게)
 	const FOG_CELLS := 5
 	const FOG_BAND := 8.0 ## 디더 안개: 틈 굵기와 관계없이 틈 둘레 ± 이만큼 (낙성 길처럼 가는 틈에서도 보이게 — loop7 3장)
@@ -1087,6 +1090,8 @@ class RiftBrew extends PDraw.Canvas:
 			"bitter_t":
 				hold = 1.0
 		life = race + maxf(hold, HOT_T) + 0.5
+		if id == "rot": # 웅덩이가 줄어들며 사라질 시간까지
+			life += POOL_FADE
 		if not _star and id == "bitter_t":
 			for i in range(0, _s.size(), PUFF_EVERY):
 				_puffs.append([i, randf_range(8.0, 13.0), randf() * TAU])
@@ -1458,10 +1463,11 @@ class RiftBrew extends PDraw.Canvas:
 				continue
 			var age := (front - _sd[i]) / RACE_V
 			var ca := clampf(age / 0.2, 0.0, 1.0) * clampf((hold + 0.6 - age) / 0.6, 0.0, 1.0)
-			if ca <= 0.0:
-				continue
 			var p := _s[i].round()
 			var fy: float = dr[3]
+			_paint_pool(p.x, fy, _pool_w(i, front), age, hold, float(dr[1]), body, hi) # 안개가 끝난 뒤에도 줄어들며 남음
+			if ca <= 0.0:
+				continue
 			var cyc := fmod(age * float(dr[2]) + float(dr[1]), 1.0)
 			if cyc < BLOB_SAG: # 맺혀 늘어지는 방울 (위는 틈에 붙고 아래로 처짐)
 				var g := cyc / BLOB_SAG
@@ -1472,26 +1478,46 @@ class RiftBrew extends PDraw.Canvas:
 				if fy - p.y > BLOB_H1:
 					var y := lerpf(p.y + BLOB_H1 - DROP_H, fy - DROP_H, f * f)
 					_drop(Vector2(p.x, y), DROP_W, DROP_H, body, hi, ca)
-			# 바닥 웅덩이: 높이 4px 납작한 어두운 초록 타원 + 윗면 연두 1px + 거품 2~3개가 번갈아 터짐
-			var pw := _pool_w(i, front)
-			if pw >= 2.0:
-				var pc := Vector2(roundf(p.x), fy - POOL_H * 0.5)
-				var ell := PackedVector2Array()
-				for k in POOL_PTS:
-					var an := float(k) / float(POOL_PTS) * TAU
-					ell.append(pc + Vector2(cos(an) * pw, sin(an) * POOL_H * 0.5))
-				pd.convex(ell, Color(body, 0.85 * ca))
-				pd.draw_rect(Rect2(roundf(pc.x - pw * 0.6), fy - POOL_H, maxf(roundf(pw * 1.2), 1.0), 1.0), Color(hi, 0.6 * ca))
-				for q in POOL_BUBBLES:
-					var ph := fmod(t * 0.9 + float(q) / float(POOL_BUBBLES) + float(dr[1]), 1.0)
-					var bx := roundf(p.x + sin(float(q) * 2.3 + float(dr[1]) * 6.0) * (pw - 2.0))
-					if ph < 0.7: # 부풂
-						var r := 1.0 + roundf(ph * 2.0)
-						pd.draw_rect(Rect2(bx - r * 0.5, fy - POOL_H - r, r, r), Color(hi, 0.85 * ca))
-					elif ph < 0.85: # 터짐: 작은 점 둘이 튐
-						var sp := (ph - 0.7) / 0.15 * 3.0
-						pd.draw_rect(Rect2(bx - 1.0 - sp, fy - POOL_H - 2.0 - sp, 1.0, 1.0), Color(hi, 0.7 * ca))
-						pd.draw_rect(Rect2(bx + sp, fy - POOL_H - 2.0 - sp, 1.0, 1.0), Color(hi, 0.7 * ca))
+
+	## 바닥 웅덩이 (x 가운데, fy 바닥): 높이 POOL_H 납작한 타원(어두운 초록 몸 + 위쪽 물빛 + 윗선 연두 1px), 바닥선 아래로 POOL_SINK 걸침.
+	## 거품 3개가 POOL_POP초마다 차례로 부풀어 터짐. 안개가 끝나면(age > hold) POOL_FADE초 동안 가장자리부터 디더로 줄어들며 사라짐
+	func _paint_pool(x: float, fy: float, w0: float, age: float, hold: float, ph0: float, body: Color, hi: Color) -> void:
+		var shrink := 1.0 - clampf((age - hold) / POOL_FADE, 0.0, 1.0)
+		var pw := w0 * shrink
+		if pw < 2.0 or age < 0.0:
+			return
+		var pa := clampf(age / 0.2, 0.0, 1.0)
+		var top := fy + POOL_SINK - POOL_H
+		var pc := Vector2(roundf(x), top + POOL_H * 0.5)
+		var core := maxf(pw - DITHER * 2.0, 1.0) # 가운데는 꽉 찬 타원, 바깥 2칸은 디더 가장자리
+		var ell := PackedVector2Array()
+		for k in POOL_PTS:
+			var an := float(k) / float(POOL_PTS) * TAU
+			ell.append(pc + Vector2(cos(an) * core, sin(an) * POOL_H * 0.5))
+		pd.convex(ell, Color(body, pa))
+		# 위쪽 물빛 (몸보다 밝은 초록 띠 — 액체 표면) + 윗선 연두 1px
+		pd.draw_rect(Rect2(roundf(pc.x - core * 0.8), top + 1.0, maxf(roundf(core * 1.6), 1.0), 1.0), Color(col, 0.45 * pa))
+		pd.draw_rect(Rect2(roundf(pc.x - core * 0.6), top, maxf(roundf(core * 1.2), 1.0), 1.0), Color(hi, 0.9 * pa))
+		# 가장자리 디더 (양쪽 2칸 폭, 체크무늬 — 줄어들 때 이 무늬가 먼저 먹혀 들어감)
+		var flick := int(t * 4.0) % 2
+		for side: float in [-1.0, 1.0]:
+			for cx in 2:
+				for cy in 2:
+					if (cx + cy + flick) % 2 == 0:
+						var ex := pc.x + side * (core + float(cx) * DITHER) - (DITHER if side < 0.0 else 0.0)
+						pd.draw_rect(Rect2(roundf(ex), top + 1.0 + float(cy) * DITHER, DITHER, DITHER), Color(body, 0.85 * pa))
+		# 거품: 3개가 POOL_POP초 간격으로 차례로 부풀어 터짐 (한 바퀴 = POOL_POP × 3)
+		var period := POOL_POP * float(POOL_BUBBLES)
+		for q in POOL_BUBBLES:
+			var ph := fmod(t / period + float(q) / float(POOL_BUBBLES) + ph0, 1.0)
+			var bx := roundf(pc.x + sin(float(q) * 2.3 + ph0 * 6.0) * maxf(core - 2.0, 0.0))
+			if ph < 0.75: # 부풂 (1 → 3px)
+				var r := 1.0 + roundf(ph / 0.75 * 2.0)
+				pd.draw_rect(Rect2(bx - floorf(r * 0.5), top - r + 1.0, r, r), Color(hi, 0.9 * pa))
+			elif ph < 0.95: # 터짐: 작은 점 둘이 튐
+				var sp := (ph - 0.75) / 0.2 * 3.0
+				pd.draw_rect(Rect2(bx - 1.0 - sp, top - 2.0 - sp, 1.0, 1.0), Color(hi, 0.8 * pa))
+				pd.draw_rect(Rect2(bx + sp, top - 2.0 - sp, 1.0, 1.0), Color(hi, 0.8 * pa))
 
 	## 방울 하나: top 위 가운데에서 아래로 매달린 물방울 꼴(폭 bw, 길이 bh) — 어두운 몸 + 왼쪽 위 연두 하이라이트 1px
 	func _drop(top: Vector2, bw: float, bh: float, body: Color, hi: Color, a: float) -> void:

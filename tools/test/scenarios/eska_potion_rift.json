@@ -32,7 +32,7 @@
 [285, "shot", "r05_rot_race"],
 [300, "eval", "eska.belt.potions().last_splash"], [300, "eval", "eska.belt.potions().brew_cost()"],
 [320, "eval", "foes()"], [320, "eval", "get_tree().get_nodes_in_group('p_target')[-1].vuln_t"], [320, "eval", "get_tree().get_nodes_in_group('p_target')[-2].vuln_t"], [320, "eval", "get_tree().get_nodes_in_group('p_target')[-1].vuln_mult"],
-[322, "shot", "r06_rot_mist"], [322, "eval", "eska.belt.potions().brew_cost()"],
+[322, "shot", "r06_rot_mist"], [420, "shot", "r06b_rot_pool"], [700, "shot", "r06c_rot_pool_fade"], [322, "eval", "eska.belt.potions().brew_cost()"],
 [345, "eval", "eska.belt.potions().stitches"], [345, "eval", "get_tree().get_nodes_in_group('p_target')[-1].vuln_t"],
 [360, "eval", "get_tree().get_nodes_in_group('p_target')[-1].banish()"], [360, "eval", "get_tree().get_nodes_in_group('p_target')[-1].banish()"],
 [380, "eval", "eska.set('global_position', Vector2(700, 300))"],
