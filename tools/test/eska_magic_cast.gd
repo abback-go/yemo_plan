@@ -327,5 +327,25 @@ func shadow_hp() -> String:
 	var out := ""
 	for n: Node in get_tree().get_nodes_in_group(&"kensei_shadow"):
 		var d := n as Node2D
-		out += "x=%d hp=%s " % [int(d.global_position.x), str(d.get("hp"))]
+		var st := "expired" if bool(d.get("expired")) else ("dead" if d.has_method("is_dead") and d.call("is_dead") else "alive")
+		out += "x=%d hp=%s %s " % [int(d.global_position.x), str(d.get("hp")), st]
 	return out if out != "" else "none"
+
+
+## 분신 처치 수 세기 시작/읽기 (그룹에서 사라지기 전에 죽은 분신을 기록)
+var _shadow_seen := {}
+func shadow_watch() -> String:
+	for n: Node in get_tree().get_nodes_in_group(&"kensei_shadow"):
+		var d := n as Node2D
+		var id := d.get_instance_id()
+		var st := "expired" if bool(d.get("expired")) else ("dead" if d.has_method("is_dead") and d.call("is_dead") else "alive")
+		if not _shadow_seen.has(id) or _shadow_seen[id] == "alive":
+			_shadow_seen[id] = st
+	var dead := 0
+	var exp := 0
+	for v: String in _shadow_seen.values():
+		if v == "dead":
+			dead += 1
+		elif v == "expired":
+			exp += 1
+	return "seen=%d dead=%d expired=%d" % [_shadow_seen.size(), dead, exp]

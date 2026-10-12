@@ -726,7 +726,8 @@ class LensQuad extends Node2D:
 # ═══════════════════════════════════════════════════════════
 
 ## 유성우: 화면 위쪽 하늘이 뒤에서 앞으로 길게 찢어져(꺾인 금) 밤하늘이 드러나고, 보랏빛 유성 12개가 1.6초 동안 비스듬히 떨어진다
-## 검성 그림자 분신이 살아 있으면 모이는 8발은 가장 가까운 분신 줄의 가로 범위를 끝에서 끝으로 고르게 노린다 — "긴 틈으로 줄 전체" (loop7_plan 2장).
+## 검성 그림자 분신이 살아 있으면(시전 순간) 모이는 유성이 9발이 되어 가장 가까운 분신 줄의 분신마다 돌아가며 3발씩 노리고,
+## 분신에 맞을 때만 한 발 420 — 유성우 단독으로 분신 셋을 끝낸다 (loop7·loop8_plan 2장 "긴 틈으로 줄 전체").
 ## (하나 180, 반경 56). 셋 중 둘(AIM_OFS 8개)은 떨어지기 시작하는 순간 가장 가까운 표적 ±70px로 모이고(단일 대상 약 1700~1800),
 ## 나머지 넷은 앞쪽 400px 안에 넓게 흩어진다(무리 상대). 기획(loop2_plan 3장)은 "절반"이지만 절반이면 단일 대상 1260~1440이라 목표 1800에 못 미쳐 늘림. 떨어질수록 화면이 점점 크게 흔들린다. 끝나면 틈이 꿰매어 닫힌다.
 ## 성능: 틈·유성·충격 자국·흙먼지를 이 노드 하나가 그린다 (불티·파편·깃털은 장면 공용 층 하나씩) — 예전엔 유성마다 노드가 생겼음.
@@ -752,8 +753,9 @@ class MeteorShower extends Spell:
 	const SPREAD := -9.0 ## 흩어지는 유성 표시 (모이는 유성의 자리 대신)
 	const SHADOW_GROUP := &"kensei_shadow" ## 검성 그림자 분신 (EKensei.Shadow.GROUP — 보스 파일은 읽기만)
 	const ROW_LINK := 130.0 ## 이 가로 거리 안에 이어 선 분신들을 한 줄로 본다
-	const ROW_PAD := 16.0 ## 줄 양 끝 바깥으로 이만큼 더 (끝 분신도 반경 안에)
-	const ROW_ORDER := [0, 4, 2, 6, 1, 5, 3, 7] ## 모이는 유성 차례 → 줄 위 자리 (8칸 중) — 앞부터 훑지 않고 줄 전체에 고르게 일찍 닿게
+	const SHADOW_AIMED := 9 ## 분신이 살아 있으면 모이는 유성 수 (분신 셋 × 3발 — loop8_plan 2장)
+	const SHADOW_DMG := 420 ## 분신에 맞을 때만 한 발 피해 (분신당 3발 1260 ≥ 체력 1200 → 유성우 단독으로 셋을 끝냄). 본체·일반 표적은 DMG 그대로
+	const ROW_JIT := [0.0, -12.0, 12.0] ## 같은 분신을 노리는 몇 번째 발인지에 따라 가로 어긋남 (px)
 	var _rift: RiftShape
 	var _rocks: Array = [] ## [나올 시각, 시작(로컬), 떨어질 자리(로컬), 끝났나, 땅인가, 번호, 소리 났나, 모이는 유성의 자리(SPREAD = 흩어짐), 모이는 유성 번호]
 	var _dust: Array = [] ## 흙먼지: [위치(로컬), 나이]
@@ -769,13 +771,15 @@ class MeteorShower extends Spell:
 		_rift = RiftShape.new(_a, _b, 17.0, 20, _seed, 6.0)
 		_dv = Vector2(dir * SLOPE, 1.0).normalized()
 		var aimed := 0
+		var shadows := not _shadow_xs().is_empty()
 		for i in COUNT:
 			var k: int = ORDER[i]
 			var lx := lerpf(LAND_MIN, LAND_MAX, (float(k) + randf_range(0.15, 0.85)) / float(COUNT)) * sz
 			var slot := SPREAD
 			var ai := -1
-			if i % 3 != 0 and aimed < AIM_OFS.size(): # 셋 중 둘은 모이는 유성 (마지막 유성도 모임 — 큰 흔들림이 표적에)
-				slot = float(AIM_OFS[aimed])
+			# 셋 중 둘은 모이는 유성 (마지막 유성도 모임 — 큰 흔들림이 표적에). 분신이 있으면 첫 유성도 모여 9발
+			if (i % 3 != 0 or (shadows and i == 0)) and aimed < (SHADOW_AIMED if shadows else AIM_OFS.size()):
+				slot = float(AIM_OFS[aimed]) if aimed < AIM_OFS.size() else 0.0
 				ai = aimed
 				aimed += 1
 			var m := [FIRST + SPAN * float(i) / float(COUNT - 1) * 0.92 + randf_range(-0.03, 0.03), Vector2.ZERO, Vector2.ZERO, false, false, i, false, slot, ai]
@@ -813,8 +817,8 @@ class MeteorShower extends Spell:
 				best = dc.x - position.x
 		return best
 
-	## 살아 있는 그림자 분신 줄의 가로 범위 (로컬 x: 작은 쪽, 큰 쪽). 에스카에 가장 가까운 분신에서 ROW_LINK 안으로 이어진 것들. 없으면 null
-	func _shadow_row() -> Variant:
+	## 살아 있는 그림자 분신 줄의 분신들 가운데 x (로컬, 작은 순). 에스카에 가장 가까운 분신에서 ROW_LINK 안으로 이어진 것들. 없으면 []
+	func _shadow_xs() -> Array[float]:
 		var xs: Array[float] = []
 		for n: Node in get_tree().get_nodes_in_group(SHADOW_GROUP):
 			var d := n as Node2D
@@ -822,7 +826,7 @@ class MeteorShower extends Spell:
 				continue
 			xs.append((d.call("center") as Vector2).x if d.has_method("center") else d.global_position.x)
 		if xs.is_empty() or not is_instance_valid(eska):
-			return null
+			return []
 		xs.sort()
 		var ex := eska.center().x
 		var near := 0
@@ -835,7 +839,10 @@ class MeteorShower extends Spell:
 			lo -= 1
 		while hi < xs.size() - 1 and xs[hi + 1] - xs[hi] <= ROW_LINK:
 			hi += 1
-		return Vector2(xs[lo] - position.x, xs[hi] - position.x)
+		var out: Array[float] = []
+		for i in range(lo, hi + 1):
+			out.append(xs[i] - position.x)
+		return out
 
 	func _step(delta: float) -> void:
 		for m: Array in _rocks:
@@ -845,11 +852,10 @@ class MeteorShower extends Spell:
 			if not m[6]:
 				m[6] = true
 				if float(m[7]) != SPREAD: # 모이는 유성: 나오는 순간 표적 자리를 다시 본다 (움직이는 보스도 따라감)
-					var row: Variant = _shadow_row()
-					if row != null: # 분신 줄: 끝에서 끝까지 고르게 (차례는 ROW_ORDER로 흩어 — 줄 전체가 일찍 맞기 시작)
-						var rv: Vector2 = row
-						var f := (float(ROW_ORDER[int(m[8]) % ROW_ORDER.size()]) + 0.5) / float(ROW_ORDER.size())
-						_plan(m, lerpf(rv.x - ROW_PAD, rv.y + ROW_PAD, f))
+					var xs := _shadow_xs()
+					if not xs.is_empty(): # 분신 줄: 분신마다 돌아가며 (앞 분신부터 차례로 — 셋 다 일찍 맞기 시작), 같은 분신 둘째·셋째 발은 살짝 어긋나게
+						var ai := int(m[8])
+						_plan(m, xs[ai % xs.size()] + float(ROW_JIT[(ai / xs.size()) % ROW_JIT.size()]) * float(dir))
 					else:
 						var ax: Variant = _aim_x()
 						if ax != null:
@@ -872,7 +878,7 @@ class MeteorShower extends Spell:
 
 	func _land(p: Vector2, ground: bool, i: int) -> void:
 		var gp := g(p)
-		var n := _hurt(gp, HIT_R * sz, DMG, true, true)
+		var n := _hurt_meteor(gp, HIT_R * sz)
 		_boom(p, 26.0 * sz, ground)
 		EVfx.pixels(gp, 6, 220.0, Vector2.UP, 70.0, 0.4, Vector2(0, 420))
 		EVfx.dark_bits(gp, 4, 160.0, Vector2.UP, 75.0, 0.4, 1)
@@ -888,6 +894,17 @@ class MeteorShower extends Spell:
 		if last:
 			Fx.zoom_punch(0.06)
 			EVfx.big_flash(0.2)
+
+	## 유성 하나의 피해: 분신(SHADOW_GROUP)이면 SHADOW_DMG, 그 밖(검성 본체·일반 표적)은 DMG. 대마법 피해(게이지 안 채움). 맞힌 수
+	func _hurt_meteor(c: Vector2, rad: float) -> int:
+		if not is_instance_valid(eska):
+			return 0
+		var n := 0
+		for d: Node2D in EMagicFx.targets_in(get_tree(), c, rad):
+			var dmg := SHADOW_DMG if d.is_in_group(SHADOW_GROUP) else DMG
+			eska.deal(d, int(round(float(dmg) * power)), true, c, EMagicFx.ULT)
+			n += 1
+		return n
 
 	## 떨어진 자리의 흙먼지: 낮게 퍼지는 납작한 회색 뭉게 셋 (예전 PVfx.dust 대신 이 노드가 그림)
 	func _paint_dust() -> void:
