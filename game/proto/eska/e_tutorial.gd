@@ -28,6 +28,8 @@ const REST_POT_X := 2540.0 ## 쉼터 가마솥
 const BOSS_POT_X := 3460.0 ## 거상 앞 가마솥 (사냥개에게 쓴 병이 다시 차는 걸 보여 줌)
 const BOSS_X := 3820.0
 const BOSS_TRIGGER_X := 3530.0
+const END_BURST_T := 0.2 ## 마무리 섬광 시간 (실제 초)
+const END_BURST_UP := 30.0 ## 섬광 가운데: 착지점에서 이만큼 위
 const INTRO_FOCUS_K := 0.6 ## 등장 연출 카메라: 에스카(0) ~ 거상(1) 사이 이 자리
 const LANTERN_XS: Array[float] = [START_X, 930.0, 1720.0, 2340.0, 2800.0, 3400.0]
 
@@ -817,7 +819,9 @@ func _enter_end() -> void:
 	_cutscene(true) # 마무리 연출: HUD·지난 안내 숨김
 	tut.focus_to(0.0)
 	Fx.slowmo(0.2, 1.4)
-	Fx.flash(Color(1.0, 0.85, 1.0, 0.6), 0.5)
+	# 마무리 섬광: 화면 전체를 씻지 않고 쓰러진 자리(운석 착지점) 둘레만 밝게 + 가장자리 어둠 — 에스카 실루엣·땅 문장이 또렷하게 (loop8 4장)
+	var at := boss.global_position if is_instance_valid(boss) else eska.global_position
+	tut.burst(get_viewport().get_canvas_transform() * (at + Vector2(0, -END_BURST_UP)), END_BURST_T)
 	for n: Node in get_children():
 		if n is EEnemy and not (n as EEnemy).is_dead():
 			(n as EEnemy).banish()
