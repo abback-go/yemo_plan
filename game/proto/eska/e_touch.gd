@@ -427,6 +427,8 @@ class Pad extends Control:
 		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var tp := c + Vector2(-tw * 0.5, 4 if ratio <= 0.0 else 1)
 		var la := (0.95 if held else 0.85) if ratio <= 0.0 else CD_DIM
+		if outline:
+			la *= OUTLINE_INNER # 외곽선 모드: 글자도 옅게 (loop8 3장)
 		ci.draw_string_outline(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.7))
 		ci.draw_string(font, tp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, la))
 		if ratio > 0.0:

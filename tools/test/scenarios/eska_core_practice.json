@@ -70,5 +70,9 @@
 [861, "eval", "force_bias(2.0)"],
 [900, "eval", "cam_bias.bias"],
 [901, "shot", "p09_force_bias"],
-[910, "quit"]
+[912, "eval", "hud.hold_hints(1.0, '{es_up}+{es_skill} 다음 줄')"],
+[914, "eval", "hud.get('_hold_t') > 0.0"],
+[980, "eval", "hud.get('_next_t') > 0.0"],
+[981, "eval", "hud.get('_next_line')"],
+[1000, "quit"]
 ]}

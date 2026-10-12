@@ -46,12 +46,15 @@ func _ready() -> void:
 	school.kind = BG.LayerDraw.Kind.SCHOOL
 	school.position = Vector2(-200, 0)
 	add_child(school)
-	var moon := HeroMoon.new() # 에스카 뒤 큰 보름달 — 학교 그림자 앞, 숲 뒤 (하늘의 작은 달은 가림 — 달 하나)
-	add_child(moon)
+	var mask := HeroMoon.new() # 하늘의 작은 달은 하늘색으로 덮음 (달은 하나 — 큰 달은 숲 앞에 따로)
+	mask.mask_only = true
+	add_child(mask)
 	var forest := BG.LayerDraw.new()
 	forest.kind = BG.LayerDraw.Kind.FOREST_NEAR
 	forest.position = Vector2(0, 10)
 	add_child(forest)
+	var moon := HeroMoon.new() # 에스카 뒤 큰 보름달 — 숲 앞 (달 앞 전나무가 실루엣을 끊지 않게, loop8 4장)
+	add_child(moon)
 
 	var ground := ColorRect.new()
 	ground.color = Palette.GROUND
@@ -137,17 +140,21 @@ const ESKA_VIEW := Vector2i(56, 64) ## 그림 칸 크기 (모자·머리칼·치
 const ESKA_FEET := Vector2(28, 58) ## 그림 칸 안 발밑
 const ESKA_SCALE := 3.0
 const ESKA_AT := Vector2(150, 318)
-const ESKA_LINE := Color(0.84, 0.78, 1.0, 0.85) ## 키운 그림 둘레 1px 외곽선 (게임 속 테두리 빛과 같은 옅은 보랏빛 흰색)
+const ESKA_LINE := Color("#b9a2ff") ## 둘레 외곽선: 라벤더, 아트 픽셀 1칸(= 화면 3px — 키운 그림과 같은 밀도, loop8 4장)
+const ESKA_DIM := 0.4 ## 달 앞 실루엣: 몸 명도 −60% (흰 머리칼이 달과 같은 명도라 윤곽이 녹던 문제)
 const OUTLINE_SHADER := """
 shader_type canvas_item;
 uniform vec4 line_col : source_color;
-uniform vec2 step_uv; // 화면 1px = 그림 칸의 1/배율 텍셀
+uniform vec2 step_uv; // 그림 칸 텍셀 1개 (= 키운 화면 3px)
+uniform float dim = 0.4; // 몸 명도 배수 (먹빛 실루엣)
 void fragment() {
 	vec4 c = texture(TEXTURE, UV);
 	if (c.a < 0.5) {
 		float a = max(max(texture(TEXTURE, UV + vec2(step_uv.x, 0.0)).a, texture(TEXTURE, UV - vec2(step_uv.x, 0.0)).a),
 			max(texture(TEXTURE, UV + vec2(0.0, step_uv.y)).a, texture(TEXTURE, UV - vec2(0.0, step_uv.y)).a));
 		c = a > 0.5 ? line_col : vec4(0.0);
+	} else {
+		c.rgb *= dim;
 	}
 	COLOR = c;
 }
@@ -183,7 +190,8 @@ func _add_eska() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = sh
 	mat.set_shader_parameter("line_col", ESKA_LINE)
-	mat.set_shader_parameter("step_uv", Vector2(1.0 / (float(ESKA_VIEW.x) * ESKA_SCALE), 1.0 / (float(ESKA_VIEW.y) * ESKA_SCALE)))
+	mat.set_shader_parameter("step_uv", Vector2(1.0 / float(ESKA_VIEW.x), 1.0 / float(ESKA_VIEW.y)))
+	mat.set_shader_parameter("dim", ESKA_DIM)
 	sp.material = mat
 	add_child(sp)
 
@@ -336,14 +344,18 @@ class TitleText extends Control:
 
 ## 타이틀 주인공 구도: 에스카 뒤 큰 보름달 (옅은 보랏빛 흰색, 파랑 없음). 하늘 그림(BG.SkyDraw)의 작은 달 자리는 하늘색 띠로 덮어 달을 하나로
 class HeroMoon extends Node2D:
-	const C := Vector2(150, 206) ## 달 가운데 (에스카 가슴·모자 뒤)
-	const R := 60.0
+	const C := Vector2(150, 246) ## 달 가운데 = 에스카 몸 가운데 (등 뒤 문장 고리와 같은 중심 — loop8 4장)
+	const R := 62.0
 	const FACE := Color("#ece4f6")
 	const SHADE := Color("#cfc3e4")
 	const OLD_MOON := Vector2(500, 70) ## BG.SkyDraw의 달 자리
 	const OLD_R := 36.0
+	var mask_only := false ## true = 하늘의 작은 달만 덮음 (하늘 바로 위), false = 큰 달만 (숲 앞)
 
 	func _draw() -> void:
+		if not mask_only:
+			_draw_moon()
+			return
 		var top := Palette.SKY_TOP.lerp(Palette.SKY_BOTTOM, (OLD_MOON.y - OLD_R) / 360.0)
 		var bot := Palette.SKY_TOP.lerp(Palette.SKY_BOTTOM, (OLD_MOON.y + OLD_R) / 360.0)
 		var r0 := Rect2(OLD_MOON - Vector2(OLD_R, OLD_R), Vector2(OLD_R, OLD_R) * 2.0)
@@ -352,6 +364,8 @@ class HeroMoon extends Node2D:
 			var p := Vector2(fmod(i * 97.13, 640.0), fmod(i * 53.71 + i * i * 0.37, 230.0))
 			if r0.has_point(p):
 				draw_rect(Rect2(p, Vector2.ONE), Color(1, 0.95, 0.9, 0.25 + fmod(i * 0.618, 0.6)))
+
+	func _draw_moon() -> void:
 		draw_circle(C, R + 34.0, Color(FACE, 0.04))
 		draw_circle(C, R + 16.0, Color(FACE, 0.07))
 		draw_circle(C, R, FACE)
