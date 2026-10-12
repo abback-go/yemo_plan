@@ -33,7 +33,8 @@ enum S { INTRO, IDLE, WALK, IAI_WIND, IAI_DASH, IAI_FOLLOW, IAI_SHEATHE, IAI_RES
 ## 50000으로: 잘함 116~140초·무너짐 4~5번·분신 약 40% 벰, 서툼 124~155초(씨앗 2는 어느 체력에서나 쓰러짐 2번·약 330초)
 ## 루프6(분신 1200·먹물 무적·버팀 +800/셋 다 베면 무너짐·첫 만남 배움): 그대로 50000 — 잘함 129~151초·무너짐 5~6번·분신 4~6/6 벰, 서툼 149초(쓰러지면 305초)
 ## 루프7(배움 다섯 기술·무시 비용 게이지 −5%·흑성 처방): 50000이면 잘함 150~162초로 길어져 45000 — 잘함 122~149초·무너짐 5번·분신 절반 벰, 서툼 144~166초(쓰러지면 268초)
-const HP := 45000
+## 루프8(첫 도전 개막 순서 고정·2막 확인점·봉공 처방): 45000이면 잘함 137~160초 → 42000 — 잘함 131~141초·무너짐 3~5번, 서툼 145~210초·쓰러짐 0~1
+const HP := 42000
 const POISE := 5400.0
 const HOLD_CAP := 2.5 ## 한 번에 묶이거나 기절하는 최대 시간 (틈에 스민 진한 속박 4.5초 → 2.5초 — EEnemy.hold_cap)
 const PHASE2_AT := 0.55 ## 체력이 이 몫 아래로 내려가면 2막
@@ -150,8 +151,10 @@ const SHADOW_RETURN_POISE := 800.0 ## 살아 돌아간 분신마다 검성 버�
 const SHADOW_ALL_GAUGE := 0.15 ## 셋 다 베면 종언 게이지 + 가득의 이 몫 (loop6: 풀면 크게 이득)
 const SHADOW_RETURN_GAUGE := 0.05 ## 살아 돌아간 분신마다 종언 게이지 − 가득의 이 몫 (loop7: 버팀이 가득이어도 무시는 늘 손해)
 const RIM_PAD := 3.0 ## 테두리 빛 텍스처 여백 (px)
-const RIM_COLOR := Color("#e0182f") ## 분신 테두리 빛 (EKenseiFx.RED)
-const INK_GUARD_WORD_GAP := 0.35 ## 먹물 속 검성을 때렸을 때 "무효" 글자 사이 간격
+const INK_GUARD_WORD_GAP := 0.35
+const KILL_FLASH := 2.0 / 60.0 ## 에스카를 쓰러뜨린 한 방의 흰빛 번짐 (2프레임)
+const RIM_IDLE := Color("#7a0d18", 0.8) ## 분신 테두리 평소 (CORD_DEEP — 먹 쪽으로, loop8 4장)
+const RIM_HOT := Color("#ff2b3d", 1.0) ## 예고(9px 십자) 뒤부터 밝은 붉은색 — 위험 신호 ## 먹물 속 검성을 때렸을 때 "무효" 글자 사이 간격
 const SHADOW_REST := 0.6
 const SHADOW_W := 1.6 ## 고르는 무게 (판당 2~3번 — 쿨다운과 함께)
 const SHADOW_COOL := 20.0
@@ -778,7 +781,8 @@ func _hit_eska(r: Rect2, dmg: int, big: bool) -> bool:
 ## 큰 기술에 맞았을 때: 더 긴 멈춤 + 흰 섬광
 func _big_hit_fx(at: Vector2, dir: int) -> void:
 	Fx.hitstop(0.16)
-	Fx.flash(Color(1.0, 0.95, 0.9, 0.35), 0.14)
+	# 쓰러뜨린 한 방이면 흰빛 번짐을 2프레임만 (붉은 가장자리는 장면이 깖 — loop8 3장)
+	Fx.flash(Color(1.0, 0.95, 0.9, 0.35), KILL_FLASH if not eska_ok() else 0.14)
 	Fx.shake(0.9, 0.22)
 	EKenseiFx.sparks(at, 16, Vector2(float(dir), -0.2), 220.0, 70.0)
 
@@ -935,6 +939,17 @@ func _phase_tick() -> void:
 		_idle_for = 0.3
 
 
+## 2막 확인점에서 다시 시작 (loop8 1장): 칼을 뽑은 채, 체력 55%에서 바로 2막
+func start_phase2() -> void:
+	phase = 2
+	still_resist = STILL_RESIST_P2
+	has_sheath = false
+	hp = int(float(max_hp) * PHASE2_AT) - 1
+	_hp_trail = float(hp)
+	_shadow_cd = SHADOW_FIRST
+	pz_out = 1.0
+
+
 func _toss_sheath() -> void:
 	var s := EKenseiFx.Sheath.new()
 	s.position = global_position + Vector2(float(facing) * 2.0, -20.0)
@@ -1086,9 +1101,9 @@ func _on_shadow_died(e: EEnemy) -> void:
 		EKenseiFx.petals(center(), 24, Vector2(14, 24), 120.0, EKenseiFx.PETAL_BIG)
 
 
-## 분신이 서 있는 동안 먹물 속(무적)인가
+## 분신이 서 있는 동안 먹물 속(무적)인가 — 봉공이 걸려 있으면 먹물이 풀림 (loop8: 「분신을 멈춰 두고 스승을 친다」 — 흑성·유성우와 다른 봉공의 답)
 func ink_guard() -> bool:
-	return st == S.SHADOW_HOLD and _sh_live > 0 and not is_dead()
+	return st == S.SHADOW_HOLD and _sh_live > 0 and not is_dead() and not EStill.active()
 
 
 ## 분신이 살아 돌아감 (일섬을 마침): 먹이 검성에게 스며들며 버팀 회복
@@ -1972,7 +1987,8 @@ class Shadow extends EEnemy:
 	const INK_A := 1.0 ## 먹빛 몸 진하기 (불투명 — 밑에 깐 붉은 테두리 빛이 몸 안으로 비치지 않게)
 	const GLINT_LAST := 0.4 ## 일섬 이만큼 전부터 칼코등이 번뜩임
 	const POOL_R := 16.0 ## 발밑 먹물 웅덩이 반지름
-	const RIM_A := 0.6 ## 붉은 테두리 빛 진하기
+	const Z_BEHIND := -1 ## 에스카(0) 뒤
+	const STILL_VULN := 1.3 ## 봉공으로 굳은 분신이 받는 피해 배수 (loop8 2장)
 	const PULL_HOLD := 0.1 ## 흑성이 끄는 동안(매 프레임 다시 걸림) + 이만큼 자세 시간 멈춤
 	var boss: EKensei
 	var src_v := PackedVector2Array()
@@ -1982,6 +1998,7 @@ class Shadow extends EEnemy:
 	var order := 0
 	var rim_tex: Texture2D ## 검성이 한 번 구운 붉은 테두리 빛 (그림 좌표 rim_rect)
 	var rim_rect := Rect2()
+	var _still_t := 0.0 ## 봉공으로 굳은 남은 시간 (그동안 받는 피해 ×STILL_VULN)
 	var _pulled := 0.0 ## 흑성에 끌리는 중 남은 시간 — 그동안 자세 시간이 멈춤 (속박과 같은 규칙)
 	signal returned(sh: Node2D) ## 일섬을 마치고 살아 돌아감 (검성 버팀 회복)
 	var expired := false ## 일섬을 마치고 스스로 사라짐 (버팀 피해 없음)
@@ -2006,6 +2023,7 @@ class Shadow extends EEnemy:
 		super._ready()
 		add_to_group(GROUP)
 		add_to_group(EKenseiFx.GROUP) # 장면이 처음부터 할 때·검성이 쓰러질 때 같이 거둠
+		z_index = Z_BEHIND # 에스카 몸 뒤에 (loop8 4장)
 		_left = POSE_T + EKensei.SHADOW_STAGGER * float(order)
 		_ink.resize(src_c.size())
 		for i in src_c.size():
@@ -2019,6 +2037,20 @@ class Shadow extends EEnemy:
 		Sfx.play_pitch(&"kb_glint", 0.7 + 0.08 * float(order), -12.0)
 
 	## 흑성: 강자가 아니라 그대로 끌려감 (넉백 버팀과 상관없이)
+	## 봉공: 굳는 동안 받는 피해가 늘어남
+	func freeze(sec: float) -> void:
+		super.freeze(sec)
+		_still_t = sec
+
+	func unbind() -> void:
+		super.unbind()
+		_still_t = 0.0
+
+	func take_hit(dmg: int, from: Vector2, opts := {}) -> void:
+		if _still_t > 0.0:
+			dmg = int(round(float(dmg) * STILL_VULN))
+		super.take_hit(dmg, from, opts)
+
 	func pull(point: Vector2, strength: float, delta: float) -> void:
 		var to := point - center()
 		global_position.x += clampf(to.x, -strength * delta, strength * delta)
@@ -2037,6 +2069,7 @@ class Shadow extends EEnemy:
 
 	func _physics_process(delta: float) -> void:
 		_age += delta
+		_still_t = maxf(_still_t - delta, 0.0)
 		super._physics_process(delta)
 		if not is_dead():
 			_wisp -= delta
@@ -2098,7 +2131,9 @@ class Shadow extends EEnemy:
 		# 붉은 1px 테두리 빛: 검성이 한 번 구운 텍스처를 먹빛 몸 밑에 깖 (몸은 pd로 나중에 그려 위에 옴)
 		if rim_tex != null:
 			draw_set_transform_matrix(m)
-			draw_texture_rect(rim_tex, rim_rect, false, Color(1, 1, 1, RIM_A * a))
+			var hot := _cut != null or _left < GLINT_LAST
+			var rc: Color = EKensei.RIM_HOT if hot else EKensei.RIM_IDLE
+			draw_texture_rect(rim_tex, rim_rect, false, Color(rc, rc.a * a))
 			draw_set_transform(Vector2.ZERO)
 		var off := pd.v.size()
 		for i in src_v.size():
@@ -2132,7 +2167,7 @@ class RimPainter extends Node2D:
 		var cols := PackedColorArray()
 		cols.resize(v.size())
 		for i in v.size():
-			cols[i] = Color(EKensei.RIM_COLOR, c[i].a if i < c.size() else 1.0)
+			cols[i] = Color(1, 1, 1, c[i].a if i < c.size() else 1.0) # 흰색으로 구워 분신이 상태마다 색을 입힘
 		for o in OFFS:
 			var pts := PackedVector2Array()
 			pts.resize(v.size())
