@@ -1017,9 +1017,11 @@ class RiftBrew extends PDraw.Canvas:
 	const DROP_W := 5.0 ## 떨어지는 방울 (끊어진 끝)
 	const DROP_H := 7.0
 	const POOL_BUBBLES := 3 ## 웅덩이마다 거품 (2~3개가 번갈아 터짐)
-	const POOL_H := 3.0 ## 웅덩이 두께 (납작)
-	const FOG_EVERY := 2 ## 틈 안 디더 안개: 이 표본마다 칸 몇 개 (흩어진 자리 — 줄무늬 안 되게)
-	const FOG_CELLS := 3
+	const POOL_H := 4.0 ## 웅덩이 높이 (납작한 타원)
+	const POOL_PTS := 10 ## 웅덩이 타원 둘레 점 수
+	const FOG_EVERY := 2 ## 틈 둘레 디더 안개: 이 표본마다 칸 몇 개 (흩어진 자리 — 줄무늬 안 되게)
+	const FOG_CELLS := 5
+	const FOG_BAND := 8.0 ## 디더 안개: 틈 굵기와 관계없이 틈 둘레 ± 이만큼 (낙성 길처럼 가는 틈에서도 보이게 — loop7 3장)
 	const DRIP_FALL := 400.0 ## 부식: 바닥을 찾는 아래 거리 (없으면 DRIP_NO_FLOOR 아래에서 끊김)
 	const DRIP_NO_FLOOR := 40.0
 	const POOL_W := 14.0 ## 부식 웅덩이 반폭 (자라는 끝)
@@ -1435,7 +1437,7 @@ class RiftBrew extends PDraw.Canvas:
 		var body := col.darkened(0.5) # 어두운 초록 몸
 		var hi := acc # 연두 하이라이트
 		var tick := int(t * 6.0)
-		# 틈 안 디더 안개: 표본마다 틈 굵기 안 흩어진 자리에 2px 칸 몇 개 (자리는 표본·시간으로 섞어 줄이 서지 않게)
+		# 틈 둘레 디더 안개: 표본마다 틈 ± FOG_BAND 안 흩어진 자리에 2px 칸 몇 개 (자리는 표본·시간으로 섞어 줄이 서지 않게)
 		for i in range(0, _s.size(), FOG_EVERY):
 			if _sd[i] > front:
 				continue
@@ -1448,8 +1450,8 @@ class RiftBrew extends PDraw.Canvas:
 				var off := float(hsh % 100) / 100.0 - 0.5
 				var along := float((hsh / 100) % 100) / 100.0 - 0.5
 				var tg := _n[i].orthogonal()
-				var cp := ((_s[i] + _n[i] * off * w + tg * along * STEP) / DITHER).round() * DITHER
-				pd.draw_rect(Rect2(cp, Vector2(DITHER, DITHER)), Color(col if q == 0 else body, (0.55 if q == 0 else 0.4) * fa))
+				var cp := ((_s[i] + _n[i] * off * FOG_BAND * 2.0 + tg * along * STEP) / DITHER).round() * DITHER
+				pd.draw_rect(Rect2(cp, Vector2(DITHER, DITHER)), Color(col if q % 2 == 0 else body, (0.75 if q % 2 == 0 else 0.6) * fa))
 		for dr: Array in _drips:
 			var i: int = dr[0]
 			if _sd[i] > front:
@@ -1470,12 +1472,16 @@ class RiftBrew extends PDraw.Canvas:
 				if fy - p.y > BLOB_H1:
 					var y := lerpf(p.y + BLOB_H1 - DROP_H, fy - DROP_H, f * f)
 					_drop(Vector2(p.x, y), DROP_W, DROP_H, body, hi, ca)
-			# 바닥 웅덩이: 납작한 어두운 초록 판 + 위 가장자리 연두 1px + 거품 2~3개가 번갈아 터짐
+			# 바닥 웅덩이: 높이 4px 납작한 어두운 초록 타원 + 윗면 연두 1px + 거품 2~3개가 번갈아 터짐
 			var pw := _pool_w(i, front)
 			if pw >= 2.0:
-				var pr := Rect2(roundf(p.x - pw), fy - POOL_H, roundf(pw * 2.0), POOL_H)
-				pd.draw_rect(pr, Color(body, 0.85 * ca))
-				pd.draw_rect(Rect2(pr.position + Vector2(2, 0), Vector2(maxf(pr.size.x - 4.0, 1.0), 1.0)), Color(hi, 0.6 * ca))
+				var pc := Vector2(roundf(p.x), fy - POOL_H * 0.5)
+				var ell := PackedVector2Array()
+				for k in POOL_PTS:
+					var an := float(k) / float(POOL_PTS) * TAU
+					ell.append(pc + Vector2(cos(an) * pw, sin(an) * POOL_H * 0.5))
+				pd.convex(ell, Color(body, 0.85 * ca))
+				pd.draw_rect(Rect2(roundf(pc.x - pw * 0.6), fy - POOL_H, maxf(roundf(pw * 1.2), 1.0), 1.0), Color(hi, 0.6 * ca))
 				for q in POOL_BUBBLES:
 					var ph := fmod(t * 0.9 + float(q) / float(POOL_BUBBLES) + float(dr[1]), 1.0)
 					var bx := roundf(p.x + sin(float(q) * 2.3 + float(dr[1]) * 6.0) * (pw - 2.0))
