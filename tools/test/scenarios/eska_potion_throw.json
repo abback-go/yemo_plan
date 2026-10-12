@@ -1,5 +1,5 @@
 {"scene": "res://proto/eska/eska_arena.tscn", "steps": [
-[1, "eval", "waves.set('enabled', false)"],
+[1, "eval", "waves.set('enabled', false)"], [2, "eval", "eska.belt.set_slot(2, 'bind', false)"],
 [5, "eval", "eska.set('global_position', Vector2(700, 300))"],
 [10, "eval", "spawn_foe('runner', 850, 300)"],
 [50, "eval", "eska.belt.potions().use(eska, 2)"], [51, "eval", "eska.belt.slot(2)"],

@@ -1,6 +1,6 @@
 {"scene": "res://proto/eska/eska_arena.tscn", "steps": [
 [1, "eval", "waves.set('enabled', false)"],
-[3, "eval", "eska.belt.slots"],
+[3, "eval", "eska.belt.slots"], [4, "eval", "eska.belt.set_slot(0, 'heal', false)"], [4, "eval", "eska.belt.set_slot(2, 'bind', false)"],
 [10, "eval", "eska.set('hp', 3)"],
 [12, "eval", "eska.belt.potions().use(eska, 0)"],
 [13, "eval", "eska.hp"], [13, "eval", "eska.belt.slot(0)"],

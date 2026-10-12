@@ -1010,9 +1010,16 @@ class RiftBrew extends PDraw.Canvas:
 	const DRIP_MIN_N := 4 ## 부식: 틈을 따라 맺히는 덩어리 수 (틈 길이 DRIP_SPAN마다 하나, 4~6개)
 	const DRIP_MAX_N := 6
 	const DRIP_SPAN := 70.0
-	const BLOB_SAG := 0.6 ## 부식 덩어리: 한 번 도는 동안 이만큼은 늘어지고 나머지는 떨어짐
-	const BLOB_ROWS := 5 ## 늘어진 덩어리 최대 길이 (디더 칸)
-	const POOL_BUBBLES := 3 ## 웅덩이마다 거품 점
+	const BLOB_SAG := 0.6 ## 부식 방울: 한 번 도는 동안 이만큼은 맺혀 늘어지고 나머지는 떨어짐
+	const BLOB_W := 8.0 ## 맺힌 방울 폭 (px)
+	const BLOB_H0 := 8.0 ## 맺힌 방울 길이: 처음 → 끊어지기 직전 (8~12px)
+	const BLOB_H1 := 12.0
+	const DROP_W := 5.0 ## 떨어지는 방울 (끊어진 끝)
+	const DROP_H := 7.0
+	const POOL_BUBBLES := 3 ## 웅덩이마다 거품 (2~3개가 번갈아 터짐)
+	const POOL_H := 3.0 ## 웅덩이 두께 (납작)
+	const FOG_EVERY := 2 ## 틈 안 디더 안개: 이 표본마다 칸 몇 개 (흩어진 자리 — 줄무늬 안 되게)
+	const FOG_CELLS := 3
 	const DRIP_FALL := 400.0 ## 부식: 바닥을 찾는 아래 거리 (없으면 DRIP_NO_FLOOR 아래에서 끊김)
 	const DRIP_NO_FLOOR := 40.0
 	const POOL_W := 14.0 ## 부식 웅덩이 반폭 (자라는 끝)
@@ -1021,7 +1028,7 @@ class RiftBrew extends PDraw.Canvas:
 	const FRESH_T := 0.35 ## 갓 찢긴 틈: 흰 별빛이 튀는 시간
 	const FRESH_STARS := 6
 	const FRESH_MARK_T := 0.7 ## 갓 찢긴 틈: 진한 표시(금띠 병)가 떠올랐다 사라지는 시간
-	const STRAND_FADE := 1.0 ## 속박: 틈을 따라 남는 실이 흐려지는 시간 (지나간 자리부터)
+	const STRAND_FADE := 1.0 ## 속박: 틈을 따라 남는 실이 스민 순간부터 이 시간 안에 모두 사라짐 (지나간 자리부터 먼저)
 	const DISC_MIN := 16.0 ## 속박: 표적에 걸리는 거미줄 원반 반지름 (몸 크기에 맞춰 더 크게)
 	const DISC_SPOKES := 8 ## 원반 바큇살 (깨진 자리 그물 12보다 적게 — 표적 여럿이면 그림 비용)
 	const DISC_RINGS := [0.38, 0.7, 1.0]
@@ -1371,7 +1378,9 @@ class RiftBrew extends PDraw.Canvas:
 
 	## 틈을 따라 남는 실의 진하기: 번짐이 지나간 뒤 STRAND_FADE초에 걸쳐 0으로
 	func _strand_a(d: float, front: float) -> float:
-		return clampf(1.0 - (front - d) / RACE_V / STRAND_FADE, 0.0, 1.0)
+		var by_pass := clampf(1.0 - (front - d) / RACE_V / STRAND_FADE, 0.0, 1.0) # 지나간 자리부터
+		var by_t := clampf((STRAND_FADE - t) / 0.25, 0.0, 1.0) # 스민 뒤 STRAND_FADE초면 남은 실 모두 0
+		return minf(by_pass, by_t)
 
 	## 비명: 번진 자리마다 떨리는 틈 + 끊어져 퍼지는 음파 고리
 	func _paint_rings(front: float) -> void:
@@ -1419,11 +1428,28 @@ class RiftBrew extends PDraw.Canvas:
 			return 0.0
 		return minf((front - _sd[i]) / RACE_V * POOL_GROW, POOL_W)
 
-	## 부식: 틈을 따라 맺힌 디더 덩어리가 아래로 늘어지다 떨어지고(4~6개), 바닥엔 거품 점이 있는 납작한 디더 웅덩이 — 테두리선 없음, 사각형만
+	## 부식: 틈 안은 초록 디더 안개(흩어진 칸 — 줄무늬·사다리 없이), 틈을 따라 4~6자리에 8~12px 방울(어두운 초록 몸 + 연두 하이라이트 1px)이
+	## 맺혀 늘어지다 끊어져 떨어지고, 바닥엔 납작한 웅덩이 + 거품 2~3개가 번갈아 터짐. 테두리선 없음
 	func _paint_drip(front: float) -> void:
 		var hold := EPotions.ROT_CLOUD_T * _k
-		var dark := col.darkened(0.45)
-		var flick := int(t * 8.0) % 2 # 디더 무늬가 일렁임
+		var body := col.darkened(0.5) # 어두운 초록 몸
+		var hi := acc # 연두 하이라이트
+		var tick := int(t * 6.0)
+		# 틈 안 디더 안개: 표본마다 틈 굵기 안 흩어진 자리에 2px 칸 몇 개 (자리는 표본·시간으로 섞어 줄이 서지 않게)
+		for i in range(0, _s.size(), FOG_EVERY):
+			if _sd[i] > front:
+				continue
+			var age := (front - _sd[i]) / RACE_V
+			var fa := clampf(age / 0.2, 0.0, 1.0) * clampf((hold + 0.6 - age) / 0.6, 0.0, 1.0)
+			if fa <= 0.0:
+				continue
+			for q in FOG_CELLS:
+				var hsh := absi(hash(Vector3i(i, q, tick))) # 매 1/6초 자리를 바꿔 일렁임
+				var off := float(hsh % 100) / 100.0 - 0.5
+				var along := float((hsh / 100) % 100) / 100.0 - 0.5
+				var tg := _n[i].orthogonal()
+				var cp := ((_s[i] + _n[i] * off * w + tg * along * STEP) / DITHER).round() * DITHER
+				pd.draw_rect(Rect2(cp, Vector2(DITHER, DITHER)), Color(col if q == 0 else body, (0.55 if q == 0 else 0.4) * fa))
 		for dr: Array in _drips:
 			var i: int = dr[0]
 			if _sd[i] > front:
@@ -1432,38 +1458,46 @@ class RiftBrew extends PDraw.Canvas:
 			var ca := clampf(age / 0.2, 0.0, 1.0) * clampf((hold + 0.6 - age) / 0.6, 0.0, 1.0)
 			if ca <= 0.0:
 				continue
-			var p := (_s[i] / DITHER).round() * DITHER
+			var p := _s[i].round()
 			var fy: float = dr[3]
 			var cyc := fmod(age * float(dr[2]) + float(dr[1]), 1.0)
-			var sag := clampf(cyc / BLOB_SAG, 0.0, 1.0)
-			# 맺힌 덩어리: 위는 넓고 아래로 갈수록 좁게, 늘어지는 만큼 길어짐
-			var rows := 2 + int(round(sag * float(BLOB_ROWS - 2))) if cyc < BLOB_SAG else 2
-			for row in rows:
-				var half := maxi(2 - int(float(row) * 0.6), 0)
-				for cx in range(-half, half + 1):
-					if (cx + row + flick) % 2 == 0 or row == rows - 1:
-						pd.draw_rect(Rect2(p + Vector2(cx, row) * DITHER, Vector2(DITHER, DITHER)), Color(col if row < 2 else dark, 0.7 * ca))
-			# 떨어지는 방울 (늘어진 끝이 끊어져 바닥까지)
-			if cyc >= BLOB_SAG and fy - p.y > 6.0:
+			if cyc < BLOB_SAG: # 맺혀 늘어지는 방울 (위는 틈에 붙고 아래로 처짐)
+				var g := cyc / BLOB_SAG
+				_drop(p, BLOB_W * (1.0 - 0.15 * g), lerpf(BLOB_H0, BLOB_H1, g * g), body, hi, ca)
+			else: # 끊어져 떨어지는 방울 + 틈에 다시 맺히기 시작한 작은 방울
 				var f := (cyc - BLOB_SAG) / (1.0 - BLOB_SAG)
-				var y := lerpf(p.y + DITHER * float(BLOB_ROWS), fy - 2.0, f * f)
-				pd.draw_rect(Rect2(p.x, y, DITHER, DITHER * 2.0), Color(col, 0.9 * ca))
-				pd.draw_rect(Rect2(p.x, y + DITHER * 2.0, DITHER, DITHER), Color(dark, 0.8 * ca))
-			# 바닥 웅덩이: 납작한 디더 두 줄(아래 줄이 더 넓음) + 올라와 터지는 거품 점
-			var pw := floorf(_pool_w(i, front) / DITHER) * DITHER
-			var x := -pw
-			while x < pw:
-				for row in 2:
-					var inner := absf(x) < pw - DITHER * 2.0 or row == 0
-					if inner and (int(x / DITHER) + row + flick) % 2 == 0:
-						pd.draw_rect(Rect2(p.x + x, fy - DITHER * float(2 - row), DITHER, DITHER), Color(col if row == 0 else dark, (0.55 + 0.15 * float(row)) * ca))
-				x += DITHER
-			if pw >= DITHER * 3.0:
+				_drop(p, BLOB_W * 0.6, BLOB_H0 * 0.5, body, hi, ca)
+				if fy - p.y > BLOB_H1:
+					var y := lerpf(p.y + BLOB_H1 - DROP_H, fy - DROP_H, f * f)
+					_drop(Vector2(p.x, y), DROP_W, DROP_H, body, hi, ca)
+			# 바닥 웅덩이: 납작한 어두운 초록 판 + 위 가장자리 연두 1px + 거품 2~3개가 번갈아 터짐
+			var pw := _pool_w(i, front)
+			if pw >= 2.0:
+				var pr := Rect2(roundf(p.x - pw), fy - POOL_H, roundf(pw * 2.0), POOL_H)
+				pd.draw_rect(pr, Color(body, 0.85 * ca))
+				pd.draw_rect(Rect2(pr.position + Vector2(2, 0), Vector2(maxf(pr.size.x - 4.0, 1.0), 1.0)), Color(hi, 0.6 * ca))
 				for q in POOL_BUBBLES:
-					var ph := fmod(t * 1.3 + float(q) * 0.37 + float(dr[1]), 1.0)
-					var bx := roundf(sin(float(q) * 2.7 + float(dr[1]) * 6.0) * (pw - DITHER) / DITHER) * DITHER
-					if ph < 0.75:
-						pd.draw_rect(Rect2(p.x + bx, fy - DITHER * 2.0 - roundf(ph * 3.0), 1.0 + roundf(ph * 1.5), 1.0 + roundf(ph * 1.5)), Color(acc, 0.85 * ca))
+					var ph := fmod(t * 0.9 + float(q) / float(POOL_BUBBLES) + float(dr[1]), 1.0)
+					var bx := roundf(p.x + sin(float(q) * 2.3 + float(dr[1]) * 6.0) * (pw - 2.0))
+					if ph < 0.7: # 부풂
+						var r := 1.0 + roundf(ph * 2.0)
+						pd.draw_rect(Rect2(bx - r * 0.5, fy - POOL_H - r, r, r), Color(hi, 0.85 * ca))
+					elif ph < 0.85: # 터짐: 작은 점 둘이 튐
+						var sp := (ph - 0.7) / 0.15 * 3.0
+						pd.draw_rect(Rect2(bx - 1.0 - sp, fy - POOL_H - 2.0 - sp, 1.0, 1.0), Color(hi, 0.7 * ca))
+						pd.draw_rect(Rect2(bx + sp, fy - POOL_H - 2.0 - sp, 1.0, 1.0), Color(hi, 0.7 * ca))
+
+	## 방울 하나: top 위 가운데에서 아래로 매달린 물방울 꼴(폭 bw, 길이 bh) — 어두운 몸 + 왼쪽 위 연두 하이라이트 1px
+	func _drop(top: Vector2, bw: float, bh: float, body: Color, hi: Color, a: float) -> void:
+		var hw := bw * 0.5
+		var r := hw
+		var cy := top.y + bh - r # 아래쪽 둥근 배
+		var pts := PackedVector2Array([top + Vector2(-hw * 0.45, 0), top + Vector2(hw * 0.45, 0)])
+		for k in 7:
+			var an := -0.15 * PI + float(k) / 6.0 * 1.3 * PI
+			pts.append(Vector2(top.x, cy) + Vector2(cos(an), sin(an)) * r)
+		pd.convex(pts, Color(body, 0.95 * a))
+		pd.draw_rect(Rect2(roundf(top.x - hw * 0.5), roundf(cy - r * 0.5), 1.0, maxf(roundf(r * 0.8), 1.0)), Color(hi, 0.95 * a))
 
 	## 흐린 물: 틈을 덮은 잿빛 일렁임 (틈이 1초 더 열려 있는 동안)
 	func _paint_murky(front: float, fade: float) -> void:

@@ -159,8 +159,9 @@ const RECIPES := {
 	"toadstool+feather": "murky_t",
 }
 
-## 처음 허리띠 (훈련장에 들어가자마자 쓸 수 있게): 없음 = 치유 · ↑ = 메아리 · ↓ = 속박
-const DEFAULT_LOADOUT: Array[String] = ["heal", "echo", "bind"]
+## 처음 허리띠 (훈련장에 들어가자마자 쓸 수 있게): 없음(F) = 속박 · ↑ = 메아리 · ↓ = 치유
+## 속박을 방향 없는 칸에 — 폰에서 "스킬 → 물약" 0.3초 박자로 갓 찢긴 틈에 바로 던지게 (loop6_plan 3장)
+const DEFAULT_LOADOUT: Array[String] = ["bind", "echo", "heal"]
 const SLOT_KEYS: Array[String] = ["F", "↑F", "↓F"]
 
 ## 마녀 수첩: 처음 달인 조합을 적어 둔다 (열쇠 → 물약 id). 들고 시작하는 물약 셋은 처음부터 안다
