@@ -1,8 +1,8 @@
 extends SceneTree
-## 턴제 전투 헤드리스 시뮬레이션 — 코어(TBattle)를 자동 조작(TPolicy)으로 돌려 밸런스를 잰다.
+## 턴제 전투 v2 헤드리스 시뮬레이션 — 코어(TBattle)를 자동 조작(TPolicy)으로 돌려 밸런스를 잰다.
 ## 실행: godot --headless --path game --script ../tools/test/turn_sim.gd -- [판수] [빌드이름...]
-## 빌드: eska(에스카 딜러) · sera(세라 딜러) · bare(빗자루·해금 없이 에스카 딜러) · all
-## 출력: 전투마다 승률 · 평균 칸 · 평균 차례 · 최고 한 방(평균/최대) · 남은 체력 · 끊기 횟수 · 딜러 피해 비중
+## 빌드: eska(에스카 딜러) · sera(세라 딜러) · bare(빗자루·해금 없이 에스카 딜러) · bare_sera · all
+## 출력: 전투마다 승률 · 평균 라운드 · 평균 행동 · 최고 한 방(평균/최대) · 남은 체력 · 끊기 · 적 시전 발동 · 아군 KO · 물약 · 딜러 피해 비중 · 대마법 한 타 평균
 
 const BUILDS := {
 	"eska": {"dealer": "eska", "brooms": {"eska": "glass", "sera": "cinder", "ashe": "raven"},
@@ -43,7 +43,7 @@ func _run_build(name: String, n: int) -> void:
 	print("\n=== 빌드 %s (딜러 %s) × %d판 ===" % [name, build.dealer, n])
 	var stats: Array = []
 	for i in TData.BATTLES.size():
-		stats.append({"wins": 0, "plays": 0, "clock": 0.0, "turns": 0, "max_hit": 0.0, "max_max": 0, "hp_left": 0.0, "interrupts": 0, "dealer_share": 0.0,
+		stats.append({"wins": 0, "plays": 0, "rounds": 0, "turns": 0, "max_hit": 0.0, "max_max": 0, "hp_left": 0.0, "interrupts": 0, "dealer_share": 0.0,
 			"potions": 0, "casts_fired": 0, "ko": 0, "max_info": {}, "ult_hits": 0.0, "ult_n": 0})
 	for s in n:
 		var run := TRun.new()
@@ -61,22 +61,21 @@ func _run_build(name: String, n: int) -> void:
 			var casts := 0
 			var ko := 0
 			var guard := 0
-			while not b.over and guard < 600:
+			while not b.over and guard < 200:
 				guard += 1
-				var u := b.advance()
-				if u == null:
-					break
-				if u.ally:
-					var p := pol.potion(b, u)
+				var inner := 0
+				while not b.over and b.actions_left > 0 and inner < 20:
+					inner += 1
+					var p := pol.potion(b)
 					if not p.is_empty():
-						b.use_potion(u, String(p.potion), String(p.get("target", "")))
-					var c := pol.choose(b, u)
-					if c.has("wait"):
-						b.wait_turn(u)
-					elif not b.act(u, String(c.spell), String(c.get("target", ""))):
-						b.wait_turn(u)
-				else:
-					b.auto(u)
+						b.use_potion(b.find(String(p.unit)), String(p.potion), String(p.get("target", "")))
+					var c := pol.choose(b)
+					if c.has("end"):
+						break
+					if not b.act(b.find(String(c.unit)), String(c.spell), String(c.get("target", ""))):
+						break
+				if not b.over:
+					b.end_player_turn()
 				for ev in b.take_events():
 					match String(ev.type):
 						"interrupt":
@@ -94,7 +93,7 @@ func _run_build(name: String, n: int) -> void:
 								st.ult_hits += float(ev.dmg)
 								st.ult_n += 1
 			var sum := b.summary()
-			st.clock += b.clock
+			st.rounds += b.round
 			st.turns += b.turns
 			st.max_hit += float(b.max_hit)
 			st.interrupts += interrupts
@@ -119,7 +118,6 @@ func _run_build(name: String, n: int) -> void:
 				break
 			st.wins += 1
 			run.battle_won(sum)
-			# 수업 점수로 계획대로 배운다
 			var li := 0
 			while li < learn.size():
 				var item: Array = learn[li]
@@ -130,14 +128,13 @@ func _run_build(name: String, n: int) -> void:
 	for bi in TData.BATTLES.size():
 		var st: Dictionary = stats[bi]
 		var p := maxi(int(st.plays), 1)
-		var w := maxi(int(st.wins), 1)
 		var info: Dictionary = st.max_info
 		var mult_s := ""
 		if info.has("mult"):
 			var m: Dictionary = info.mult
 			mult_s = "atk×%.2f elem×%.2f crit×%.2f final×%.2f vuln×%.2f aff×%.2f def×%.2f" % [m.atk, m.elem, m.crit, m.final, m.vuln, m.aff, m.def]
-		print("[%d %s] 승률 %3d%% (%d/%d) · 칸 %.1f · 차례 %.1f · 최고한방 평균 %.0f / 최대 %d (%s %s) · 남은체력 %.0f%% · 끊기 %.2f · 적시전발동 %.2f · 아군KO %.2f · 물약 %.2f · 딜러비중 %.0f%% · 대마법 한타 평균 %.0f"
-			% [bi + 1, TData.BATTLES[bi].name, int(100.0 * float(st.wins) / float(p)), st.wins, p, float(st.clock) / float(p), float(st.turns) / float(p),
+		print("[%d %s] 승률 %3d%% (%d/%d) · 라운드 %.1f · 행동 %.1f · 최고한방 평균 %.0f / 최대 %d (%s %s) · 남은체력 %.0f%% · 끊기 %.2f · 적시전발동 %.2f · 아군KO %.2f · 물약 %.2f · 딜러비중 %.0f%% · 대마법 한타 평균 %.0f"
+			% [bi + 1, TData.BATTLES[bi].name, int(100.0 * float(st.wins) / float(p)), st.wins, p, float(st.rounds) / float(p), float(st.turns) / float(p),
 			float(st.max_hit) / float(p), int(st.max_max), String(info.get("unit", "")), String(info.get("spell", "")),
 			100.0 * float(st.hp_left) / float(p), float(st.interrupts) / float(p), float(st.casts_fired) / float(p), float(st.ko) / float(p),
 			float(st.potions) / float(p), 100.0 * float(st.dealer_share) / float(p), float(st.ult_hits) / float(maxi(int(st.ult_n), 1))])

@@ -50,9 +50,9 @@ func _draw() -> void:
 	else:
 		title = "쓰러졌다 — " + battle_name
 	TUi.text(self, Vector2(20, 40), title, 20, TUi.GOLD if won else TUi.RED)
-	var clock := float(summary.get("clock", 0.0))
+	var rounds := int(summary.get("rounds", 0))
 	var turns := int(summary.get("turns", 0))
-	TUi.text(self, Vector2(20, 64), "흐른 칸 %.1f · 차례 %d · 물약 %d개" % [clock, turns, int(summary.get("potions", 0))], 12, TUi.TEXT)
+	TUi.text(self, Vector2(20, 64), "라운드 %d · 행동 %d · 물약 %d개" % [rounds, turns, int(summary.get("potions", 0))], 12, TUi.TEXT)
 	# 최고 한 방 + 배율 풀이
 	var mh := int(summary.get("max_hit", 0))
 	var info: Dictionary = summary.get("max_hit_info", {})

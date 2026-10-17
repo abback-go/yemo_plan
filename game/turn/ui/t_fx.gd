@@ -790,7 +790,7 @@ class SkyTint extends PVfx.Base:
 	func _paint() -> void:
 		var x := k()
 		var a := peak * sin(x * PI)
-		pd.rect_grad(Rect2(0, 0, 640, 360), Color(col, a), Color(col, a * 0.35))
+		pd.rect_grad(Rect2(-160, -120, 960, 600), Color(col, a), Color(col, a * 0.35))
 
 
 ## 떠오르는 글자·숫자 (글자는 PDraw가 못 그려 노드에 직접)

@@ -34,6 +34,7 @@ func _ready() -> void:
 	add_child(world)
 	effects = Node2D.new()
 	effects.name = "Effects"
+	effects.z_index = 50 ## 배우(z 10~23)보다 늘 앞
 	add_child(effects)
 	ui = CanvasLayer.new()
 	ui.name = "UI"
@@ -141,11 +142,11 @@ func _process(_delta: float) -> void:
 		var where := "scene" if is_instance_valid(scene) else (String(screen.get_class()) if is_instance_valid(screen) else "-")
 		var extra := ""
 		if is_instance_valid(scene) and scene.battle:
-			extra = " phase=%d clock=%.1f turns=%d over=%s" % [scene.phase, scene.battle.clock, scene.battle.turns, str(scene.battle.over)]
+			extra = " phase=%d round=%d actions=%d over=%s" % [scene.phase, scene.battle.round, scene.battle.actions_left, str(scene.battle.over)]
 		printerr("SMOKE f=%d %s%s" % [_smoke_frames, where, extra])
 	if is_instance_valid(screen) and screen is TResult and _smoke_frames % 30 == 0:
 		var r := screen as TResult
-		print("RESULT ", r.battle_name, " won=", r.won, " max_hit=", int(r.summary.get("max_hit", 0)), " clock=%.1f" % float(r.summary.get("clock", 0.0)))
+		print("RESULT ", r.battle_name, " won=", r.won, " max_hit=", int(r.summary.get("max_hit", 0)), " rounds=", int(r.summary.get("rounds", 0)))
 		if r.finale or not r.won:
 			print("SMOKE OK frames=", _smoke_frames)
 			get_tree().quit()
@@ -170,7 +171,7 @@ func _shot() -> void:
 	img.save_png("user://smoke_%02d.png" % _shot_n)
 
 
-## 탭 흉내: 고른 마법이 있으면 대상 배우를 누르고, 없으면 쓸 수 있는 마법·물약·대기를 무작위로 누른다
+## 탭 흉내 v2: 대상 고르는 중이면 대상 배우를, 마법창이 없으면 마녀 카드를, 있으면 쓸 수 있는 마법(가끔 물약)을 누른다. 아무도 못 쓰면 턴 종료
 func _smoke_tap() -> void:
 	var sc := scene
 	if sc.phase == TBattleScene.Phase.OVER:
@@ -186,20 +187,34 @@ func _smoke_tap() -> void:
 		if a:
 			sc.on_tap(a.hit_rect().get_center())
 		return
-	var u := sc.active
+	var b := sc.battle
+	if sc.sel_unit == null:
+		var al := b.allies()
+		if al.is_empty():
+			return
+		sc.on_tap(sc.hud.card_rect(al[_rng.randi() % al.size()].slot).get_center())
+		return
 	if sc.potion_menu:
-		if sc.battle.bag.is_empty():
+		if b.bag.is_empty():
 			sc.on_tap(sc.hud.potion_close_rect().get_center())
 		else:
-			sc.on_tap(sc.hud.potion_rect(_rng.randi() % mini(sc.battle.bag.size(), 3)).get_center())
+			sc.on_tap(sc.hud.potion_rect(_rng.randi() % mini(b.bag.size(), 3)).get_center())
 		return
-	if _rng.randf() < 0.12 and not sc.battle.bag.is_empty():
-		sc.on_tap(sc.hud.side_rect(0).get_center())
+	if _rng.randf() < 0.1 and not b.bag.is_empty():
+		sc.on_tap(sc.hud.potion_btn_rect().get_center())
 		return
-	var spells: Array = TData.witch(u.base).get("spells", [])
+	var spells: Array = TData.witch(sc.sel_unit.base).get("spells", [])
 	for _try in 8:
 		var i := _rng.randi() % spells.size()
-		if sc.battle.can_use(u, String(spells[i])):
-			sc.on_tap(sc.hud.spell_rect(i).get_center())
+		if b.can_use(sc.sel_unit, String(spells[i])):
+			sc.on_tap(sc.hud.menu_rect(i).get_center())
 			return
-	sc.on_tap(sc.hud.side_rect(1).get_center())
+	# 이 마녀는 쓸 게 없다 → 다른 마녀가 쓸 수 있으면 카드 전환, 아니면 턴 종료
+	for u in b.allies():
+		if u.id == sc.sel_unit.id:
+			continue
+		for s0 in TData.witch(u.base).get("spells", []):
+			if b.can_use(u, String(s0)):
+				sc.on_tap(sc.hud.card_rect(u.slot).get_center())
+				return
+	sc.on_tap(sc.hud.end_rect().get_center())

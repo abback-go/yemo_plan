@@ -105,7 +105,7 @@ func _draw() -> void:
 		_rects["witch:" + w] = rect
 		TUi.text(self, Vector2(14, y + 16), String(d.name), 13, Color(String(d.color)).lightened(0.2))
 		TUi.text(self, Vector2(14 + TUi.text_w(String(d.name), 13) + 6, y + 16), String(d.title) + " · Lv" + str(st.level), 10, TUi.DIM)
-		TUi.text(self, Vector2(14, y + 31), "체력 %d · 공격 %d · 차례 %.1f칸 · %s" % [int(st.hp), int(round(float(st.atk))), float(st.wait), TData.elem_name(String(d.elem))], 10, TUi.TEXT)
+		TUi.text(self, Vector2(14, y + 31), "체력 %d · 공격 %d · %s%s" % [int(st.hp), int(round(float(st.atk))), TData.elem_name(String(d.elem)), (" · 쿨 −1" if int(st.cd_cut) > 0 else "")], 10, TUi.TEXT)
 		var broom: String = run.brooms.get(w, "")
 		var bd: Dictionary = TData.BROOMS.get(broom, {})
 		var brect := Rect2(14, y + 38, 150, 18)
@@ -149,7 +149,7 @@ func _draw() -> void:
 		sy += 40.0
 	# ── 물약 가방
 	var py := 306.0
-	TUi.text(self, Vector2(10, py + 12), "물약 가방 %d/%d (차례를 쓰지 않음)" % [run.bag.size(), TData.BAG_SIZE], 10, TUi.GREEN)
+	TUi.text(self, Vector2(10, py + 12), "물약 가방 %d/%d (행동을 쓰지 않음)" % [run.bag.size(), TData.BAG_SIZE], 10, TUi.GREEN)
 	var px := 10.0
 	for pid in TData.POTIONS.keys():
 		var have := int(run.pouch.get(pid, 0))
@@ -189,20 +189,20 @@ static func _summary(sp: Dictionary) -> String:
 			s += " " + str(int(amt))
 		else:
 			s += (" +" if amt >= 0.0 else " ") + TUi.pct(amt)
-		s += " " + str(int(b.dur)) + "칸"
+		s += " " + str(int(b.dur)) + "턴"
 		if int(b.get("stack", 1)) > 1:
 			s += " " + str(int(b.stack)) + "겹"
 		parts.append(s)
 	if float(sp.get("heal", 0.0)) > 0.0:
 		parts.append("회복 " + TUi.pct(float(sp.heal)))
-	if float(sp.get("push", 0.0)) > 0.0:
-		parts.append("미룸 " + str(sp.push) + "칸")
-	if float(sp.get("pull", 0.0)) > 0.0:
-		parts.append("당김 " + str(sp.pull) + "칸")
+	if bool(sp.get("skip", false)):
+		parts.append("다음 행동 봉쇄")
+	if int(sp.get("actions", 0)) > 0:
+		parts.append("행동 +" + str(int(sp.actions)))
 	if bool(sp.get("interrupt", false)):
 		parts.append("끊기" + ("(굳센)" if bool(sp.get("heavy", false)) else ""))
-	if float(sp.get("cast", 0.0)) > 0.0:
-		parts.append("시전 " + str(int(sp.cast)) + "칸")
-	if float(sp.get("cd", 0.0)) > 0.0:
-		parts.append("재사용 " + str(int(sp.cd)) + "칸")
+	if String(sp.get("kind", "")) == "ult":
+		parts.append("게이지 100")
+	if int(sp.get("cd", 0)) > 0:
+		parts.append("쿨 " + str(int(sp.cd)) + "턴")
 	return " · ".join(parts)

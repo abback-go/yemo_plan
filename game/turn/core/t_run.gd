@@ -56,7 +56,7 @@ func stats(w: String) -> Dictionary:
 	var atk := float(base.atk) * (1.0 + float(g.get("atk", 0.0)) * float(lv - 1))
 	var b: Dictionary = TData.BROOMS.get(brooms.get(w, ""), {})
 	return {
-		"hp": hp, "atk": atk, "wait": maxf(float(base.wait) + float(b.get("wait", 0.0)), 1.0),
+		"hp": hp, "atk": atk, "cd_cut": int(b.get("cd_cut", 0)),
 		"crit_rate": float(b.get("crit_rate", 0.0)), "crit_dmg": float(b.get("crit_dmg", 0.0)),
 		"elem": float(b.get("elem", 0.0)), "gauge_mult": float(b.get("gauge_mult", 1.0)),
 		"level": lv,

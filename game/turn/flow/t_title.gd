@@ -91,7 +91,7 @@ func _draw() -> void:
 	TUi.text(self, Vector2(356, 86), "에스카", 40, TUi.PALE)
 	TUi.text(self, Vector2(358, 110), "종언의 마녀 · 턴제 전투 시험판", 12, TUi.TEXT)
 	TUi.text(self, Vector2(358, 132), "마녀 셋이 버프를 겹쳐 대마법 한 방을 키운다.", 11, TUi.DIM)
-	TUi.text(self, Vector2(358, 148), "행동 게이지(칸) · 시전 끊기 · 빌드(해금·빗자루·물약)", 11, TUi.DIM)
+	TUi.text(self, Vector2(358, 148), "내 턴 행동 4개 · 턴 쿨타임 · 빌드(해금·빗자루·물약)", 11, TUi.DIM)
 	TUi.text(self, Vector2(358, 170), "전투 3판: 들개 → 잿가루 길 → 재의 기사왕", 11, TUi.GOLD)
 	if run and run.best_hit > 0:
 		var info: Dictionary = run.best_hit_info
