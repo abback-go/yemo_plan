@@ -342,7 +342,7 @@ func _play(events: Array[Dictionary]) -> bool:
 						s += " ×" + str(int(ev.stacks))
 					var bad := (kind == "vuln") or (kind == "def" and amt < 0.0)
 					var col: Color = TUi.BUFF_COLORS.get(kind, TUi.TEXT)
-					TFx.label(a.head() + Vector2(0, -4), s, col if not bad else TUi.RED.lerp(col, 0.4), 11, 1.0)
+					TFx.label(a.head() + Vector2(0, -26), s, col if not bad else TUi.RED.lerp(col, 0.4), 11, 1.0)
 				ok = await _wait(0.22)
 			"interrupt":
 				var a := actor_of(String(ev.unit))
