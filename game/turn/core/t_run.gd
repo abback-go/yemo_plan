@@ -1,6 +1,6 @@
 class_name TRun
 extends RefCounted
-## 한 판(런)의 상태: 파티·레벨·해금한 마법·빗자루·물약 가방·수업 점수·최고 한 방. 저장하지 않는다(세션 메모리).
+## 한 판(런)의 상태: 파티·레벨·마법·빗자루·물약 가방·최고 한 방. 저장하지 않는다(세션 메모리). v0.3 최종진화판: 전원 최대 레벨·전부 해금.
 ## 전투 코어(TBattle)는 여기서 stats()로 마녀의 시작 능력치를 받는다.
 
 static var current: TRun
@@ -29,11 +29,12 @@ func reset() -> void:
 	levels = {}
 	unlocked = {}
 	brooms = {}
+	# 최종진화판 [사용자 2026-10-17]: 전원 레벨 최대, 마법 전부 열림. 교실은 빗자루·물약·딜러만 고른다
 	for w in party:
-		levels[w] = 1
-		var starts: Array = TData.witch(w).get("start", [])
+		levels[w] = TData.LEVEL_MAX
+		var all: Array = TData.witch(w).get("spells", [])
 		var arr: Array[String] = []
-		for s in starts:
+		for s in all:
 			arr.append(String(s))
 		unlocked[w] = arr
 	brooms = {"eska": "glass", "sera": "cinder", "ashe": "raven"}
@@ -68,7 +69,7 @@ func is_unlocked(w: String, spell_id: String) -> bool:
 
 
 func spell_cost(spell_id: String) -> int:
-	return int(TData.spell(spell_id).get("cost", 1))
+	return int(TData.spell(spell_id).get("cost", 0))
 
 
 func can_learn(w: String, spell_id: String) -> bool:

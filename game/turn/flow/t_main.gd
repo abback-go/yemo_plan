@@ -142,7 +142,7 @@ func _process(_delta: float) -> void:
 		var where := "scene" if is_instance_valid(scene) else (String(screen.get_class()) if is_instance_valid(screen) else "-")
 		var extra := ""
 		if is_instance_valid(scene) and scene.battle:
-			extra = " phase=%d round=%d actions=%d over=%s" % [scene.phase, scene.battle.round, scene.battle.actions_left, str(scene.battle.over)]
+			extra = " phase=%d round=%d mana=%d over=%s" % [scene.phase, scene.battle.round, scene.battle.mana_left, str(scene.battle.over)]
 		printerr("SMOKE f=%d %s%s" % [_smoke_frames, where, extra])
 	if is_instance_valid(screen) and screen is TResult and _smoke_frames % 30 == 0:
 		var r := screen as TResult

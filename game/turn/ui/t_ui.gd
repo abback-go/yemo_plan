@@ -46,8 +46,10 @@ const ENEMY_C := Color("#ff6a6a")
 
 const KIND_COLORS := {"attack": ATTACK_C, "support": SUPPORT_C, "ult": ULT_C}
 const BUFF_COLORS := {"atk": Color("#ff8a5a"), "elem": Color("#ffb347"), "crit_rate": Color("#ffe9a8"), "crit_dmg": Color("#fff2c0"), "final": Color("#c77dff"),
-	"vuln": Color("#ff5a8a"), "def": Color("#9fb0c0"), "haste": Color("#8fe0c0"), "shield": Color("#ffb347"), "burn": Color("#ff5a2a")}
-const BUFF_SHORT := {"atk": "공", "elem": "속", "crit_rate": "치", "crit_dmg": "치피", "final": "최", "vuln": "취", "def": "방", "haste": "속도", "shield": "벽", "burn": "화"}
+	"vuln": Color("#ff5a8a"), "def": Color("#9fb0c0"), "haste": Color("#8fe0c0"), "shield": Color("#ffb347"), "burn": Color("#ff5a2a"),
+	"crack": Color("#d9a8ff"), "oil": Color("#e0b060"), "sure": Color("#fff6d0")}
+const BUFF_SHORT := {"atk": "공", "elem": "속", "crit_rate": "치", "crit_dmg": "치피", "final": "최", "vuln": "취", "def": "방", "haste": "마력", "shield": "벽", "burn": "화",
+	"crack": "금", "oil": "기름", "sure": "별"}
 
 
 static func font() -> Font:

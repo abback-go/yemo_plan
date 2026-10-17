@@ -185,6 +185,15 @@ func _draw_enemy_head(top: float) -> void:
 					n += 1
 			var col: Color = TUi.BUFF_COLORS.get(key, TUi.TEXT)
 			var bad := (key == "vuln") or (key == "def" and float(b.amt) < 0.0)
+			if key in TData.MARK_KINDS:
+				# 소모형 상태(금·기름)는 크게 — 조합의 재료가 눈에 띄어야 한다
+				var mw := 30.0
+				var pulse := 0.75 + 0.25 * sin(_t * 5.0 + float(n))
+				draw_rect(Rect2(bx, top, mw, 12), Color(col, 0.35 * pulse))
+				draw_rect(Rect2(bx, top, mw, 12), Color(col, 0.95), false, 1.0)
+				TUi.text(self, Vector2(bx, top + 10), TData.kind_name(key) + "×" + str(n), 9, col.lightened(0.35), HORIZONTAL_ALIGNMENT_CENTER, mw, 2)
+				bx += mw + 2.0
+				continue
 			draw_rect(Rect2(bx, top + 1, 16, 10), Color(col, 0.35 if bad else 0.3))
 			draw_rect(Rect2(bx, top + 1, 16, 10), Color(col, 0.9), false, 1.0)
 			TUi.text(self, Vector2(bx, top + 10), String(TUi.BUFF_SHORT.get(key, key)) + (str(n) if n > 1 else ""), 9, col.lightened(0.3), HORIZONTAL_ALIGNMENT_CENTER, 16, 2)

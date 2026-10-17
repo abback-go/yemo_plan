@@ -1,6 +1,6 @@
 class_name THud
 extends Control
-## 전투 판 v2 (라운드제): 왼쪽 위 파티 카드(누르면 그 마녀의 마법창) · 위 가운데 라운드·남은 행동·[턴 종료] · 오른쪽 위 [자동][×2]
+## 전투 판 v0.3 (마력제): 왼쪽 위 파티 카드(누르면 그 마녀의 마법창) · 위 가운데 라운드·남은 마력·[턴 종료] · 그 아래 이번 턴 연계 줄 · 오른쪽 위 [자동][×2]
 ## · 행동하는 마녀 **옆에 펼쳐지는** 세로 마법창(6칸 + 물약) · 알림 띠. 전부 _draw로 그리고 탭을 직접 받는다. 상태는 장면이 들고 있다.
 
 const CARD_W := 170.0
@@ -60,7 +60,7 @@ func card_rect(i: int) -> Rect2:
 
 
 func end_rect() -> Rect2:
-	return Rect2(404.0, 6.0, 78.0, 24.0)
+	return Rect2(434.0, 6.0, 50.0, 24.0)
 
 
 func auto_rect() -> Rect2:
@@ -124,6 +124,7 @@ func _draw() -> void:
 		return
 	_draw_party()
 	_draw_top()
+	_draw_combo()
 	if scene.waiting() and scene.sel_unit != null:
 		_draw_menu()
 	_draw_target_hint()
@@ -176,22 +177,29 @@ func _draw_party() -> void:
 func _draw_top() -> void:
 	var b := scene.battle
 	var my := b.player_phase and scene.phase != TBattleScene.Phase.OVER
-	draw_rect(Rect2(186, 6, 212, 24), Color(0.02, 0.01, 0.04, 0.6))
-	draw_rect(Rect2(186, 6, 212, 24), Color(TUi.GOLD if my else TUi.ENEMY_C, 0.5), false, 1.0)
+	draw_rect(Rect2(186, 6, 244, 24), Color(0.02, 0.01, 0.04, 0.6))
+	draw_rect(Rect2(186, 6, 244, 24), Color(TUi.GOLD if my else TUi.ENEMY_C, 0.5), false, 1.0)
 	TUi.text(self, Vector2(194, 23), "라운드 " + str(b.round), 12, TUi.PALE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	if my:
-		TUi.text(self, Vector2(262, 23), "내 턴 · 행동", 11, TUi.GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		var n := maxi(b.actions_left, 0)
-		var total := maxi(b.actions_max, n)
+		TUi.text(self, Vector2(258, 23), "내 턴 · 마력", 11, TUi.GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var n := maxi(b.mana_left, 0)
+		var total := maxi(b.mana_max, n)
+		# 고른 마법의 비용만큼은 붉게 (쓰면 사라질 마력)
+		var spend := 0
+		if scene.sel_spell != "":
+			spend = mini(b.cost_of(scene.sel_spell), n)
 		for i in total:
 			var on := i < n
-			var cx := 334.0 + float(i) * 13.0
-			draw_circle(Vector2(cx, 18), 5.0, Color(TUi.GOLD, 0.95) if on else Color(TUi.GOLD, 0.15))
-			draw_arc(Vector2(cx, 18), 5.0, 0.0, TAU, 12, Color(TUi.GOLD, 0.8), 1.0)
+			var cx := 334.0 + float(i) * 10.0
+			var cc := Color(TUi.GOLD, 0.95) if on else Color(TUi.GOLD, 0.15)
+			if on and i >= n - spend:
+				cc = Color(TUi.FIRE_HOT, 0.75 + 0.25 * sin(_t * 9.0))
+			draw_circle(Vector2(cx, 18), 4.2, cc)
+			draw_arc(Vector2(cx, 18), 4.2, 0.0, TAU, 12, Color(TUi.GOLD, 0.8), 1.0)
 	else:
-		TUi.text(self, Vector2(262, 23), "적 턴", 11, TUi.ENEMY_C, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		TUi.text(self, Vector2(258, 23), "적 턴", 11, TUi.ENEMY_C, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	if scene.waiting():
-		TUi.button(self, end_rect(), "턴 종료", TUi.PALE, 11, b.actions_left == 0)
+		TUi.button(self, end_rect(), "턴 종료", TUi.PALE, 10, not b.any_usable())
 	TUi.button(self, auto_rect(), "자동", TUi.GOLD if scene.auto else TUi.DIM, 10, scene.auto)
 	TUi.button(self, speed_rect(), "×2" if scene.fast else "×1", TUi.GOLD if scene.fast else TUi.DIM, 10, scene.fast)
 	if turn_t > 0.0 and turn_text != "":
@@ -201,6 +209,25 @@ func _draw_top() -> void:
 		draw_rect(Rect2(0, 150, 640 * k, 1), Color(turn_col, a))
 		draw_rect(Rect2(640 - 640 * k, 189, 640 * k, 1), Color(turn_col, a))
 		TUi.text(self, Vector2(0, 178), turn_text, 20, Color(turn_col, a), HORIZONTAL_ALIGNMENT_CENTER, 640, 4)
+
+
+## 이번 턴의 연계 줄: 쓴 마법 이름들과 마지막 공격의 총 배율
+func _draw_combo() -> void:
+	var b := scene.battle
+	if not b.player_phase or b.combo.is_empty() or scene.phase == TBattleScene.Phase.OVER:
+		return
+	var names := " → ".join(b.combo)
+	var mult := b.combo_mult
+	var ms := ("  ×%.1f" % mult) if mult > 1.05 else ""
+	var txt := TUi.fit("연계  " + names, 10, 300.0 - TUi.text_w(ms, 11))
+	var w := TUi.text_w(txt, 10) + TUi.text_w(ms, 11) + 16.0
+	var x := maxf(330.0 - w * 0.5, 186.0) ## 파티 카드(~176)와 겹치지 않게
+	draw_rect(Rect2(x, 34, w, 16), Color(0.02, 0.01, 0.04, 0.7))
+	draw_rect(Rect2(x, 34, w, 16), Color(TUi.GOLD, 0.25 if mult < 4.0 else 0.7), false, 1.0)
+	TUi.text(self, Vector2(x + 8, 46), txt, 10, TUi.PALE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	if ms != "":
+		var mcol := TUi.GOLD if mult >= 4.0 else TUi.TEXT
+		TUi.text(self, Vector2(x + 8 + TUi.text_w(txt, 10), 46), ms, 11, mcol, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _draw_menu() -> void:
@@ -225,7 +252,7 @@ func _draw_menu() -> void:
 				TUi.text(self, Vector2(r.position.x + 5, r.position.y + 21), TUi.fit(String(sp.desc), 8, r.size.x - 8.0), 8, TUi.TEXT if hot else TUi.DIM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			else:
 				TUi.button(self, r, "—", TUi.DIM, 10, false, true)
-		TUi.button(self, potion_close_rect(), "닫기 · 물약은 행동을 안 씀", TUi.DIM, 9)
+		TUi.button(self, potion_close_rect(), "닫기 · 물약은 마력을 안 씀", TUi.DIM, 9)
 		return
 	var spells: Array = TData.witch(u.base).get("spells", [])
 	for i in spells.size():
@@ -247,6 +274,8 @@ func _draw_menu() -> void:
 			tag = "대마법 · 게이지 " + str(int(u.gauge)) + "%"
 		elif u.cd_left(sid) > 0:
 			tag = "재사용까지 %d턴" % u.cd_left(sid)
+		elif b.cost_of(sid) > b.mana_left:
+			tag = "마력 %d 필요" % b.cost_of(sid)
 		else:
 			var tg := String(sp.get("target", ""))
 			var tgn: String = {"enemy": "적 하나", "all": "적 모두", "ally": "아군 하나", "allies": "아군 모두", "self": "자신"}.get(tg, "")
@@ -257,10 +286,14 @@ func _draw_menu() -> void:
 				tag += " · 쿨 " + str(int(sp.cd)) + "턴"
 		TUi.text(self, Vector2(r.position.x + 5, r.position.y + 21), TUi.fit(tag, 8, r.size.x - 28.0), 8, TUi.TEXT if hot else (TUi.DIM if usable else Color(TUi.DIM, 0.5)), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		TUi.text(self, Vector2(r.position.x + r.size.x - 12, r.position.y + 11), str(i + 1), 8, Color(TUi.DIM, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		# 마력 비용 배지
+		var cost := b.cost_of(sid)
+		var ccol := TUi.GOLD if (usable or unlocked and cost <= b.mana_left) else Color(TUi.DIM, 0.6)
+		TUi.text(self, Vector2(r.position.x + r.size.x - 34, r.position.y + 11), ("◆" + str(cost)) if cost > 0 else "◆0", 9, ccol, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		if bool(sp.get("interrupt", false)):
 			TUi.text(self, Vector2(r.position.x + r.size.x - 24, r.position.y + 21), "끊기", 8, TUi.PALE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var pr := potion_btn_rect()
-	TUi.button(self, pr, "물약 " + str(b.bag.size()) + "개 (행동 안 씀)", TUi.GREEN if not b.bag.is_empty() else TUi.DIM, 9, false, b.bag.is_empty())
+	TUi.button(self, pr, "물약 " + str(b.bag.size()) + "개 (마력 안 씀)", TUi.GREEN if not b.bag.is_empty() else TUi.DIM, 9, false, b.bag.is_empty())
 
 
 func _draw_target_hint() -> void:

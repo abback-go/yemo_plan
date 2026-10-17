@@ -1,6 +1,6 @@
 class_name TResult
 extends Control
-## 결과 화면: 승리/패배 · 소요 칸 · 최고 한 방과 배율 풀이 · 마녀별 피해 비중 · 얻은 점수·레벨. [다음] / [다시]
+## 결과 화면: 승리/패배 · 라운드·마법 수 · 최고 연계 · 최고 한 방과 배율 풀이 · 마녀별 피해 비중 · 얻은 점수·레벨. [다음] / [다시]
 
 signal next
 
@@ -52,7 +52,15 @@ func _draw() -> void:
 	TUi.text(self, Vector2(20, 40), title, 20, TUi.GOLD if won else TUi.RED)
 	var rounds := int(summary.get("rounds", 0))
 	var turns := int(summary.get("turns", 0))
-	TUi.text(self, Vector2(20, 64), "라운드 %d · 행동 %d · 물약 %d개" % [rounds, turns, int(summary.get("potions", 0))], 12, TUi.TEXT)
+	TUi.text(self, Vector2(20, 64), "라운드 %d · 마법 %d회 · 물약 %d개" % [rounds, turns, int(summary.get("potions", 0))], 12, TUi.TEXT)
+	var bc := float(summary.get("best_combo", 1.0))
+	if bc > 1.5:
+		var bci: Dictionary = summary.get("best_combo_info", {})
+		var chain: Array = bci.get("names", [])
+		var chain_s := " → ".join(chain) if not chain.is_empty() else ""
+		TUi.text(self, Vector2(260, 64), "최고 연계 ×%.1f" % bc, 12, TUi.GOLD)
+		if chain_s != "":
+			TUi.text(self, Vector2(260, 78), TUi.fit(chain_s, 9, 360.0), 9, TUi.DIM)
 	# 최고 한 방 + 배율 풀이
 	var mh := int(summary.get("max_hit", 0))
 	var info: Dictionary = summary.get("max_hit_info", {})
@@ -64,9 +72,9 @@ func _draw() -> void:
 		TUi.text(self, Vector2(20, y + 28), TUi.fmt(mh), 30, TUi.EDGE)
 		TUi.text(self, Vector2(20 + TUi.text_w(TUi.fmt(mh), 30) + 10, y + 28), who + " · " + sp + (" · 치명" if bool(info.get("crit", false)) else "") + (" · 약점" if bool(info.get("weak", false)) else ""), 12, TUi.TEXT)
 		var m: Dictionary = info.get("mult", {})
-		var names := {"atk": "공격", "elem": "속성", "crit": "치명", "final": "최종(틈)", "vuln": "취약", "aff": "상성", "def": "방어"}
+		var names := {"consume": "소모(금·기름)", "atk": "공격", "elem": "속성", "crit": "치명", "final": "최종(틈)", "vuln": "취약", "aff": "상성", "def": "방어", "detonate": "기폭"}
 		var parts: Array[String] = []
-		for key in ["atk", "elem", "crit", "final", "vuln", "aff", "def"]:
+		for key in ["consume", "atk", "elem", "crit", "final", "vuln", "aff", "def", "detonate"]:
 			var v := float(m.get(key, 1.0))
 			if absf(v - 1.0) > 0.005:
 				parts.append(String(names[key]) + " ×%.2f" % v)
@@ -92,7 +100,7 @@ func _draw() -> void:
 	# 보상
 	var ry := 262.0
 	if won and not finale:
-		TUi.text(self, Vector2(20, ry), "수업 점수 +%d → %d점 · 교실에서 새 마법을 배우세요" % [points_gained, run.points], 11, TUi.GOLD)
+		TUi.text(self, Vector2(20, ry), "다음 전투로. 교실에서 빗자루·물약·딜러를 바꿀 수 있어요", 11, TUi.GOLD)
 		var ups: Array[String] = []
 		for w in run.party:
 			if int(run.levels.get(w, 1)) > int(levels_before.get(w, 1)):
@@ -103,6 +111,6 @@ func _draw() -> void:
 		TUi.text(self, Vector2(20, ry), "다른 딜러·빗자루·해금으로 다시 해 보세요 — 최고 한 방을 갱신해 봅시다.", 11, TUi.GOLD, HORIZONTAL_ALIGNMENT_LEFT, 420)
 	else:
 		TUi.text(self, Vector2(20, ry), "물약은 돌려받았어요. 교실에서 빌드를 바꿔 다시 도전.", 11, TUi.TEXT, HORIZONTAL_ALIGNMENT_LEFT, 420)
-		TUi.text(self, Vector2(20, ry + 16), "힌트: 시전은 봉공·물약으로 끊고, 취약(기름)을 깐 뒤 대마법.", 10, TUi.DIM, HORIZONTAL_ALIGNMENT_LEFT, 420)
+		TUi.text(self, Vector2(20, ry + 16), "힌트: 금×3·기름×2를 깔고 별빛 눈 뒤에 천열·불기둥. 대마법은 상태를 전부 먹는다.", 10, TUi.DIM, HORIZONTAL_ALIGNMENT_LEFT, 420)
 	var label := "처음으로" if finale else ("다음 ▶" if won else "다시 도전")
 	TUi.button(self, _btn, label, TUi.GOLD, 14, fmod(_t, 1.2) < 0.7)

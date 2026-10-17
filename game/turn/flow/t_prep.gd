@@ -1,6 +1,6 @@
 class_name TPrep
 extends Control
-## 준비 화면(마법학교 교실): 수업 점수로 마법을 배우고, 빗자루를 바꾸고, 물약 가방(3개)을 꾸린 뒤 출발.
+## 준비 화면(마법학교 교실) v0.3 최종진화판: 마법은 전부 열려 있다. 빗자루를 바꾸고, 물약 가방(3개)을 꾸리고, 딜러를 정한 뒤 출발.
 ## 왼쪽 마녀 카드 셋(누르면 오른쪽에 그 마녀의 마법 여섯) · 아래 물약 · 오른쪽 아래 [출발]
 
 signal go
@@ -71,15 +71,6 @@ func _tap(id: String) -> void:
 				nxt = ""
 			run.set_broom(w, nxt)
 			Sfx.play(&"ui_move", -6.0, 0.0)
-		"learn":
-			var w := parts[1]
-			var s := parts[2]
-			if run.learn(w, s):
-				Sfx.play(&"magic_learn", -4.0, 0.0)
-				_say(String(TData.spell(s).name) + " 배움!")
-			else:
-				Sfx.play(&"block", -6.0, 0.0)
-				_say("수업 점수가 모자라요 (" + str(run.spell_cost(s)) + "점 필요)")
 		"potion":
 			run.toggle_bag(parts[1])
 			Sfx.play(&"ui_move", -6.0, 0.0)
@@ -91,7 +82,7 @@ func _draw() -> void:
 	var b := run.current_battle()
 	TUi.text(self, Vector2(10, 20), "교실 · 다음 전투: " + str(run.battle_i + 1) + ". " + String(b.get("name", "")), 13, TUi.PALE)
 	TUi.text(self, Vector2(10, 36), TUi.fit(String(b.get("intro", "")), 10, 430.0), 10, TUi.DIM)
-	TUi.text(self, Vector2(640 - 12, 20), "수업 점수 " + str(run.points) + "점", 13, TUi.GOLD, HORIZONTAL_ALIGNMENT_RIGHT, 200)
+	TUi.text(self, Vector2(640 - 12, 20), "최종진화판 · 전원 Lv%d · 마법 전부" % TData.LEVEL_MAX, 11, TUi.GOLD, HORIZONTAL_ALIGNMENT_RIGHT, 260)
 	if run.best_hit > 0:
 		TUi.text(self, Vector2(640 - 12, 36), "최고 한 방 " + TUi.fmt(run.best_hit), 10, TUi.EDGE, HORIZONTAL_ALIGNMENT_RIGHT, 200)
 	# ── 마녀 카드
@@ -138,18 +129,18 @@ func _draw() -> void:
 		var nx := sx + 6 + TUi.text_w(String(sp.name), 12) + 6
 		TUi.text(self, Vector2(nx, sy + 14), TUi.fit(kn + " · " + _summary(sp), 9, sx + 298 - nx), 9, TUi.DIM if unlocked else Color(TUi.DIM, 0.6))
 		TUi.text(self, Vector2(sx + 6, sy + 30), TUi.fit(String(sp.get("desc", "")), 9, 290.0), 9, TUi.TEXT if unlocked else Color(TUi.DIM, 0.7))
-		if not unlocked:
-			var cost := run.spell_cost(sid)
-			var lrect := Rect2(sx + 304, sy + 6, 78, 26)
-			var can := run.points >= cost
-			TUi.button(self, lrect, "배우기 " + str(cost) + "점", TUi.GOLD if can else TUi.DIM, 10, false, not can)
-			_rects["learn:" + sel + ":" + sid] = lrect
-		else:
-			TUi.text(self, Vector2(sx + 304, sy + 22), "배움", 10, Color(TUi.GREEN, 0.7), HORIZONTAL_ALIGNMENT_CENTER, 78)
+		var cost := int(sp.get("mana", 0))
+		var cd := int(sp.get("cd", 0))
+		var right := ("마력 " + str(cost)) if kind != "ult" else "게이지 100"
+		if cd > 0:
+			right += " · 쿨 " + str(cd)
+		TUi.text(self, Vector2(sx + 300, sy + 14), right, 9, TUi.GOLD if kind != "ult" else TUi.ULT_C, HORIZONTAL_ALIGNMENT_CENTER, 84)
+		if cost == 0 and kind != "ult":
+			TUi.text(self, Vector2(sx + 300, sy + 28), "공짜", 9, Color(TUi.GREEN, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 84)
 		sy += 40.0
 	# ── 물약 가방
 	var py := 306.0
-	TUi.text(self, Vector2(10, py + 12), "물약 가방 %d/%d (행동을 쓰지 않음)" % [run.bag.size(), TData.BAG_SIZE], 10, TUi.GREEN)
+	TUi.text(self, Vector2(10, py + 12), "물약 가방 %d/%d (마력을 쓰지 않음)" % [run.bag.size(), TData.BAG_SIZE], 10, TUi.GREEN)
 	var px := 10.0
 	for pid in TData.POTIONS.keys():
 		var have := int(run.pouch.get(pid, 0))
@@ -179,6 +170,16 @@ static func _summary(sp: Dictionary) -> String:
 	var parts: Array[String] = []
 	var tg := String(sp.get("target", ""))
 	parts.append(String({"enemy": "적 하나", "all": "적 모두", "ally": "아군 하나", "allies": "아군 모두", "self": "자신"}.get(tg, "")))
+	if sp.has("mark"):
+		var m: Dictionary = sp.mark
+		parts.append(TData.kind_name(String(m.kind)) + " 1겹(최대 " + str(int(m.get("max", 1))) + ")")
+	var cons: Dictionary = sp.get("consume", {})
+	for k in cons.keys():
+		parts.append(TData.kind_name(String(k)) + " 전부 소모, 겹당 +" + TUi.pct(float(cons[k])))
+	if String(sp.get("elem", "")) == TData.ELEM_FIRE and float(sp.get("power", 0.0)) > 0.0:
+		parts.append("기름을 태움")
+	if bool(sp.get("detonate", false)):
+		parts.append("화상 기폭 ×2")
 	if float(sp.get("power", 0.0)) > 0.0:
 		parts.append("위력 " + str(int(sp.power)) + (" ×" + str(int(sp.get("hits", 1))) if int(sp.get("hits", 1)) > 1 else ""))
 	for b in sp.get("buffs", []):
@@ -197,8 +198,8 @@ static func _summary(sp: Dictionary) -> String:
 		parts.append("회복 " + TUi.pct(float(sp.heal)))
 	if bool(sp.get("skip", false)):
 		parts.append("다음 행동 봉쇄")
-	if int(sp.get("actions", 0)) > 0:
-		parts.append("행동 +" + str(int(sp.actions)))
+	if int(sp.get("mana_gain", 0)) > 0:
+		parts.append("마력 +" + str(int(sp.mana_gain)))
 	if bool(sp.get("interrupt", false)):
 		parts.append("끊기" + ("(굳센)" if bool(sp.get("heavy", false)) else ""))
 	if String(sp.get("kind", "")) == "ult":

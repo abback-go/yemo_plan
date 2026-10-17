@@ -202,7 +202,7 @@ func _loop() -> void:
 
 
 func _player_turn() -> bool:
-	while battle.player_phase and battle.actions_left > 0 and not battle.over:
+	while battle.player_phase and battle.mana_left > 0 and not battle.over:
 		phase = Phase.WAITING
 		_decision = {}
 		if auto:
@@ -225,7 +225,7 @@ func _player_turn() -> bool:
 func _auto_turn() -> bool:
 	phase = Phase.PLAYING
 	var guard := 0
-	while battle.player_phase and battle.actions_left > 0 and not battle.over and guard < 12:
+	while battle.player_phase and battle.mana_left > 0 and not battle.over and guard < 30:
 		guard += 1
 		if not await _wait(0.3):
 			return false
@@ -294,10 +294,49 @@ func _play(events: Array[Dictionary]) -> bool:
 				var a := actor_of(String(ev.unit))
 				if a:
 					TFx.label(a.head() + Vector2(0, -44), "다음 행동 봉쇄", TUi.PALE, 11, 1.0)
-			"actions":
+			"mana":
 				var a := actor_of(String(ev.unit))
 				if a:
-					TFx.label(a.head() + Vector2(0, -14), "행동 +" + str(int(ev.amount)), TUi.FIRE_HOT, 13, 1.1)
+					TFx.label(a.head() + Vector2(0, -14), "마력 +" + str(int(ev.amount)), TUi.FIRE_HOT, 13, 1.1)
+			"mark":
+				var a := actor_of(String(ev.unit))
+				if a:
+					var mc: Color = TUi.BUFF_COLORS.get(String(ev.kind), TUi.TEXT)
+					TFx.label(a.head() + Vector2(0, -26), String(ev.name) + " " + str(int(ev.stacks)) + "겹", mc, 11, 1.0)
+				ok = await _wait(0.15)
+			"consume":
+				var a := actor_of(String(ev.target))
+				if a:
+					var kind := String(ev.kind)
+					var cc: Color = TUi.BUFF_COLORS.get(kind, TUi.GOLD)
+					var txt := ("금 %d겹을 찢다" if kind == "crack" else "기름 %d겹이 타오르다") % int(ev.stacks)
+					TFx.label(a.center() + Vector2(0, -30), txt + "  ×%.1f" % float(ev.mult), cc, 13, 1.4)
+					if kind == "crack":
+						Fx.flash(Color(TUi.ULT_C, 0.22), 0.1)
+						shake(3.0)
+					else:
+						PVfx.embers(a.center(), 14, false, 120.0, Vector2(10, 14))
+					Sfx.play(&"star_burst", -6.0)
+				ok = await _wait(0.35)
+			"sure":
+				var a := actor_of(String(ev.unit))
+				if a:
+					TFx.label(a.head() + Vector2(0, -30), "별빛 — 확정 치명!", Color("#fff2c0"), 12, 1.2)
+			"detonate":
+				var a := actor_of(String(ev.target))
+				if a and int(ev.dmg) > 0:
+					var dtags: Array[String] = ["기폭 ×2"]
+					TFx.number(a.center() + Vector2(0, -20), int(ev.dmg), TUi.FIRE_HOT, dtags, 1.15)
+					PVfx.embers(a.center(), 18, false, 140.0, Vector2(10, 16))
+					shake(5.0)
+					Fx.flash(Color(TUi.FIRE_HOT, 0.3), 0.12)
+				ok = await _wait(0.5)
+			"combo":
+				var m := float(ev.mult)
+				if m >= 4.0:
+					TFx.label(Vector2(320, 96), "연계 ×%.1f" % m, TUi.GOLD, 18 if m < 15.0 else 24, 1.6)
+					if m >= 15.0:
+						Sfx.play(&"star_burst", -3.0)
 					Sfx.play(&"levelup", -8.0, 0.0)
 			"cast_start":
 				var a := actor_of(String(ev.unit))
@@ -467,7 +506,7 @@ func _play_hit(ev: Dictionary) -> bool:
 	var spec := battle.spec_of(src.unit, String(ev.spell)) if src else {}
 	var elem := String(spec.get("elem", ""))
 	var crit := bool(ev.crit)
-	var heavy := dmg >= 400 or crit
+	var heavy := dmg >= 2000 or crit
 	TFx.impact(elem, tgt.center(), heavy, tgt.unit.ally)
 	tgt.pose("hurt", 0.35)
 	var tags: Array[String] = []
@@ -484,22 +523,22 @@ func _play_hit(ev: Dictionary) -> bool:
 		col = TUi.PALE if elem == TData.ELEM_SPACE else TUi.FIRE_HOT
 		if crit:
 			col = Color("#fff7c8")
-	if dmg >= 1500 and not tgt.unit.ally:
+	if dmg >= 8000 and not tgt.unit.ally:
 		var m: Dictionary = ev.mult
 		var parts: Array[String] = []
-		for key in ["atk", "elem", "crit", "final", "vuln"]:
+		for key in ["consume", "atk", "elem", "crit", "final", "vuln"]:
 			var v := float(m.get(key, 1.0))
 			if v > 1.05:
-				parts.append({"atk": "공격", "elem": "속성", "crit": "치명", "final": "최종", "vuln": "취약"}[key] + " ×%.2f" % v)
+				parts.append({"consume": "소모", "atk": "공격", "elem": "속성", "crit": "치명", "final": "최종", "vuln": "취약"}[key] + " ×%.2f" % v)
 		if not parts.is_empty():
 			tags.append(" · ".join(parts))
 	TFx.number(tgt.center() + Vector2(0, -14), dmg, col, tags, 1.0 if not tgt.unit.boss else 1.1)
-	if dmg >= 2500:
-		shake(6.0 if dmg < 6000 else 10.0)
-		Fx.flash(Color(col, 0.22 if dmg < 6000 else 0.4), 0.12)
+	if dmg >= 12000:
+		shake(6.0 if dmg < 30000 else 10.0)
+		Fx.flash(Color(col, 0.22 if dmg < 30000 else 0.4), 0.12)
 	elif heavy:
 		shake(2.5)
-	if run and dmg >= run.best_hit and dmg >= 1500 and not tgt.unit.ally:
+	if run and dmg >= run.best_hit and dmg >= 8000 and not tgt.unit.ally:
 		TFx.label(tgt.head() + Vector2(0, -52), "최고 기록!", TUi.GOLD, 13, 1.4)
 	# 여러 타 합계
 	var key := String(ev.unit) + ":" + String(ev.spell)
@@ -510,9 +549,9 @@ func _play_hit(ev: Dictionary) -> bool:
 	elif int(ev.hits) > 1:
 		var total := int(_multi.get(key, 0))
 		if total > dmg:
-			TFx.label(tgt.head() + Vector2(0, -34), "합계 " + TUi.fmt(total), col, 15 if total < 5000 else 19, 1.5)
+			TFx.label(tgt.head() + Vector2(0, -34), "합계 " + TUi.fmt(total), col, 15 if total < 25000 else 19, 1.5)
 		gap = 0.4
-	if dmg >= 6000:
+	if dmg >= 30000:
 		gap += 0.3
 	return await _wait(gap)
 

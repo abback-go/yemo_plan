@@ -12,7 +12,7 @@
 
 **지켜 줄 것**
 - 문서의 상태 표기를 그대로 따라 줘. **[대기]** 항목(기본 공격)은 내가 직접 말할 거라 먼저 꺼내지 마. **[폐기]** 항목은 다시 제안하지 마.
-- 전투 프로토타입 데모 v0.2(`game/turn/`, 라운드제·2.5D, 규칙·수치 `docs/eska-turn/battle_proto.md`)가 있어. 거기서 Claude가 판단한 것([판단] 표시)은 내가 바꾸면 그대로 따라 줘.
+- 전투 프로토타입 데모 v0.3(`game/turn/`, 마력제·소모형 조합·최종진화판·2.5D, 규칙·수치 `docs/eska-turn/battle_proto.md`)이 있어. 거기서 Claude가 판단한 것([판단] 표시)은 내가 바꾸면 그대로 따라 줘.
 - 폐기된 실시간 액션판 문서(`docs/eska/design.md`, `combat_spec.md`, `loop*_plan.md`, `gdd_v2.md`, `tutorial.md`)와 `game/proto/eska/` 코드는 기준으로 삼지 마. 물약 수치가 필요할 때만 `docs/eska/potions.md`를 자료로 봐.
 - 이전 프로젝트의 다른 주인공·동료(`docs/archive/` 아래)는 이 게임과 상관없어.
 - 내가 질문하면 답만 해. 만들거나 구현하는 건 내가 요청할 때만.

@@ -1,12 +1,13 @@
 class_name TBattle
 extends RefCounted
-## 턴제 전투 코어 v2 — 노드 없음. 화면(TBattleScene)과 헤드리스 시뮬레이션(tools/test/turn_sim.gd)이 같은 코드를 쓴다.
+## 턴제 전투 코어 v0.3 — 노드 없음. 화면(TBattleScene)과 헤드리스 시뮬레이션(tools/test/turn_sim.gd)이 같은 코드를 쓴다.
 ##
-## 라운드: [내 턴] 행동 ACTIONS개(가속으로 +) — 어느 마녀의 마법이든 순서대로 act() → 다 쓰거나 end_player_turn() →
-##         [적 턴] 적마다 1행동(시전은 이번엔 예고만, 다음 적 턴에 발동 — 내 턴에 끊을 수 있다) → 다음 라운드(쿨·버프 1 감소).
-## 물약은 행동을 쓰지 않는다. 대마법은 게이지 100을 쓰고 즉시 발동한다.
-## 피해 = 위력 × 공격력/100 × (1+공격) × (1+속성) × 치명 × (1+최종) × (1+취약) × 상성 × 방어 × 난수(0.95~1.05)
+## 라운드: [내 턴] 마력 MANA(+가속) — 어느 마녀의 마법이든 비용만큼 마력을 쓰며 순서대로 act() → 다 쓰거나 end_player_turn() →
+##         [적 턴] 적마다 1행동(시전은 이번엔 예고만, 다음 적 턴에 발동 — 내 턴에 끊을 수 있다) → 다음 라운드(쿨·버프 1 감소, 마력 다시 7).
+## 물약은 마력을 쓰지 않는다. 대마법은 게이지 100을 쓰고 마력 0으로 즉시 발동한다.
+## 피해 = 위력 × 공격력/100 × (1+공격) × (1+속성) × 치명 × (1+최종) × (1+취약) × 상성 × 방어 × 소모(금·기름) × 난수(0.95~1.05) × DMG_SCALE
 ## — 같은 범주는 더하고(상한 TData.CAPS) 범주끼리는 곱한다. 같은 마법의 버프는 stack겹까지.
+## 소모형 상태(금·기름·별빛)는 buffs에 kind로 들어 있다가 먹는 마법이 오면 사라진다. 화상은 burn_dmg/burn_left.
 
 class Unit extends RefCounted:
 	var id := ""
@@ -80,6 +81,14 @@ class Unit extends RefCounted:
 				n += 1
 		return n
 
+	## 소모형 상태(금·기름·별빛 등)의 겹 수
+	func marks(kind: String) -> int:
+		var n := 0
+		for b in buffs:
+			if b.kind == kind:
+				n += 1
+		return n
+
 	func shield_left() -> float:
 		var s := 0.0
 		for b in buffs:
@@ -96,16 +105,20 @@ var events: Array[Dictionary] = []
 var over := false
 var won := false
 var round := 1
-var actions_max := TData.ACTIONS
-var actions_left := TData.ACTIONS
+var mana_max := TData.MANA
+var mana_left := TData.MANA
 var player_phase := true
 var max_hit := 0
 var max_hit_info := {}
+var best_combo := 1.0 ## 이 전투에서 가장 컸던 한 마법의 총 배율
+var best_combo_info := {}
+var combo: Array[String] = [] ## 이번 내 턴에 쓴 마법 이름들 (화면의 연계 줄)
+var combo_mult := 1.0 ## 이번 내 턴에 나온 가장 큰 공격 마법 총 배율
 var bag: Array[String] = []
 var rng := RandomNumberGenerator.new()
 var battle := {}
 var run: TRun
-var turns := 0 ## 아군이 쓴 행동 수
+var turns := 0 ## 아군이 쓴 마법 수
 var potions_used := 0
 
 
@@ -120,6 +133,10 @@ func setup(p_run: TRun, p_battle: Dictionary, seed_v := 0) -> void:
 	round = 1
 	max_hit = 0
 	max_hit_info = {}
+	best_combo = 1.0
+	best_combo_info = {}
+	combo = []
+	combo_mult = 1.0
 	turns = 0
 	potions_used = 0
 	bag = run.bag.duplicate()
@@ -183,8 +200,8 @@ func setup(p_run: TRun, p_battle: Dictionary, seed_v := 0) -> void:
 		units.append(u)
 		k += 1
 	player_phase = true
-	actions_left = actions_max
-	events.append({"type": "round_start", "round": round, "actions": actions_left})
+	mana_left = mana_max
+	events.append({"type": "round_start", "round": round, "mana": mana_left})
 
 
 func take_events() -> Array[Dictionary]:
@@ -223,8 +240,12 @@ func spec_of(u: Unit, id: String) -> Dictionary:
 	return (TData.enemy(u.base).get("actions", {}) as Dictionary).get(id, {})
 
 
+func cost_of(spell_id: String) -> int:
+	return int(TData.spell(spell_id).get("mana", 1))
+
+
 func can_use(u: Unit, spell_id: String) -> bool:
-	if not player_phase or actions_left <= 0 or over:
+	if not player_phase or over:
 		return false
 	if u == null or not u.alive or not u.ally or not (spell_id in u.spells):
 		return false
@@ -232,6 +253,8 @@ func can_use(u: Unit, spell_id: String) -> bool:
 		return false
 	var sp := TData.spell(spell_id)
 	if String(sp.get("kind", "")) == "ult" and u.gauge < TData.GAUGE_MAX - 0.001:
+		return false
+	if cost_of(spell_id) > mana_left:
 		return false
 	return true
 
@@ -245,9 +268,18 @@ func why_not(u: Unit, spell_id: String) -> String:
 	var sp := TData.spell(spell_id)
 	if String(sp.get("kind", "")) == "ult" and u.gauge < TData.GAUGE_MAX - 0.001:
 		return "게이지 %d%% — 100이 되면" % int(u.gauge)
-	if actions_left <= 0:
-		return "행동을 다 썼다"
+	if cost_of(spell_id) > mana_left:
+		return "마력이 모자라다 (%d 필요, %d 남음)" % [cost_of(spell_id), mana_left]
 	return ""
+
+
+## 아직 쓸 수 있는 마법이 하나라도 있나 (마력·쿨 기준)
+func any_usable() -> bool:
+	for a in allies():
+		for s in a.spells:
+			if can_use(a, s):
+				return true
+	return false
 
 
 ## 마법의 대상 후보
@@ -282,12 +314,14 @@ func _start_player_turn() -> void:
 		if u.ally:
 			for key in u.cooldowns.keys():
 				u.cooldowns[key] = maxi(int(u.cooldowns[key]) - 1, 0)
-	_tick_buffs()
 	var bonus := 0
 	for a in allies():
 		bonus += int(round(a.sum("haste")))
-	actions_left = actions_max + mini(bonus, TData.ACTIONS_BONUS_MAX)
-	events.append({"type": "round_start", "round": round, "actions": actions_left})
+	_tick_buffs()
+	mana_left = mana_max + mini(bonus, TData.MANA_BONUS_MAX)
+	combo = []
+	combo_mult = 1.0
+	events.append({"type": "round_start", "round": round, "mana": mana_left})
 
 
 func _tick_buffs() -> void:
@@ -338,18 +372,20 @@ func end_player_turn() -> void:
 # 행동
 # ═══════════════════════════════════════════════════════════
 
-## 아군 행동 하나 (행동 1 소모). 즉시 발동
+## 아군 마법 하나 (마력 소모). 즉시 발동
 func act(u: Unit, spell_id: String, target_id := "") -> bool:
 	if not can_use(u, spell_id):
 		return false
 	var sp := TData.spell(spell_id)
-	actions_left -= 1
+	var cost := cost_of(spell_id)
+	mana_left -= cost
 	turns += 1
 	u.acted += 1
 	var ult := String(sp.get("kind", "")) == "ult"
 	if ult:
 		u.gauge = 0.0
-	events.append({"type": "action", "unit": u.id, "spell": spell_id, "left": actions_left})
+	combo.append(String(sp.name))
+	events.append({"type": "action", "unit": u.id, "spell": spell_id, "cost": cost, "left": mana_left})
 	_execute(u, sp, spell_id, target_id, false)
 	var cd := int(sp.get("cd", 0))
 	if cd > 0:
@@ -357,12 +393,12 @@ func act(u: Unit, spell_id: String, target_id := "") -> bool:
 			cd = maxi(cd - u.cd_cut, 1)
 		u.cooldowns[spell_id] = cd
 	if not ult:
-		_gain_gauge(u, float(sp.get("gauge", 0.0)))
+		_gain_gauge(u, float(sp.get("gauge", TData.CAST_GAUGE)))
 	_check_end()
 	return true
 
 
-## 물약 — 행동을 쓰지 않는다. 가방에 있어야 한다
+## 물약 — 마력을 쓰지 않는다. 가방에 있어야 한다
 func use_potion(u: Unit, potion_id: String, target_id := "") -> bool:
 	if not player_phase or over or not (potion_id in bag) or u == null or not u.alive:
 		return false
@@ -464,15 +500,27 @@ func _execute(u: Unit, spec: Dictionary, id: String, target_id: String, from_cas
 	var tids: Array[String] = []
 	for t in targets:
 		tids.append(t.id)
+	var elem := String(spec.get("elem", ""))
 	events.append({"type": "act", "unit": u.id, "spell": id, "name": String(spec.get("name", id)), "kind": String(spec.get("kind", "")),
-		"targets": tids, "from_cast": from_cast, "elem": String(spec.get("elem", ""))})
-	if int(spec.get("actions", 0)) > 0 and player_phase:
-		actions_left += int(spec.actions)
-		events.append({"type": "actions", "unit": u.id, "amount": int(spec.actions), "left": actions_left})
+		"targets": tids, "from_cast": from_cast, "elem": elem})
+	if int(spec.get("mana_gain", 0)) > 0 and player_phase:
+		mana_left += int(spec.mana_gain)
+		events.append({"type": "mana", "unit": u.id, "amount": int(spec.mana_gain), "left": mana_left})
 	var power := float(spec.get("power", 0.0))
 	var hits := int(spec.get("hits", 1))
 	var interrupt := bool(spec.get("interrupt", false))
 	var heavy := bool(spec.get("heavy", false))
+	# 별빛(확정 치명): 아군의 공격 마법 하나에 쓰이고 사라진다
+	var sure := false
+	var sure_amt := 0.0
+	if u.ally and power > 0.0 and u.marks("sure") > 0:
+		sure = true
+		for b in u.buffs:
+			if b.kind == "sure":
+				sure_amt += float(b.amt)
+		_remove_kind(u, "sure")
+		events.append({"type": "sure", "unit": u.id, "spell": id})
+	var spell_total := 1.0
 	for t in targets:
 		if interrupt and t.is_casting():
 			if heavy or not is_heavy_cast(t):
@@ -480,22 +528,58 @@ func _execute(u: Unit, spec: Dictionary, id: String, target_id: String, from_cas
 			else:
 				events.append({"type": "resist_interrupt", "unit": t.id, "by": u.id})
 		if power > 0.0:
+			# 소모형 상태 먹기: consume 표 + 화염 마법은 기름을 늘 태운다
+			var consume_k := 1.0
+			var cons: Dictionary = (spec.get("consume", {}) as Dictionary).duplicate()
+			if elem == TData.ELEM_FIRE and t.marks("oil") > 0:
+				cons["oil"] = maxf(float(cons.get("oil", 0.0)), 1.0)
+			var oiled := 0
+			for kind in cons.keys():
+				var n := t.marks(String(kind))
+				if n <= 0:
+					continue
+				var k := 1.0 + float(cons[kind]) * float(n)
+				consume_k *= k
+				if String(kind) == "oil":
+					oiled = n
+				_remove_kind(t, String(kind))
+				events.append({"type": "consume", "unit": u.id, "target": t.id, "kind": String(kind), "stacks": n, "mult": k, "name": TData.kind_name(String(kind))})
+			var dealt_total := 0
 			for h in hits:
 				if not t.alive:
 					break
-				var r := _calc(u, spec, t, power / float(hits))
+				var r := _calc(u, spec, t, power / float(hits), consume_k, sure, sure_amt)
 				var dealt := _apply_damage(t, int(r.dmg), u)
+				dealt_total += dealt
 				events.append({"type": "hit", "unit": u.id, "target": t.id, "spell": id, "dmg": dealt, "raw": int(r.dmg), "crit": r.crit, "weak": r.weak,
-					"resist": r.resist, "space": r.space, "mult": r.mult, "hit_i": h, "hits": hits, "killed": not t.alive})
+					"resist": r.resist, "space": r.space, "mult": r.mult, "hit_i": h, "hits": hits, "killed": not t.alive, "sure": sure})
+				spell_total = maxf(spell_total, float(r.mult.total))
 				if u.ally and dealt > max_hit:
 					max_hit = dealt
 					max_hit_info = {"unit": u.id, "spell": id, "target": t.id, "mult": r.mult, "crit": r.crit, "weak": r.weak, "dmg": dealt}
 					if run:
 						run.record_hit(dealt, max_hit_info)
-				if t.alive and float(spec.get("burn", 0.0)) > 0.0 and h == hits - 1:
-					t.burn_dmg = maxi(int(round(float(dealt) * float(spec.burn))), 1)
-					t.burn_left = 3
-					events.append({"type": "burn_set", "unit": t.id, "dmg": t.burn_dmg})
+			# 화상: 불기둥 고유 · 기름을 태우면
+			if t.alive:
+				var burn_rate := maxf(float(spec.get("burn", 0.0)), TData.OIL_BURN if oiled > 0 else 0.0)
+				if burn_rate > 0.0 and dealt_total > 0:
+					var bd := maxi(int(round(float(dealt_total) * burn_rate)), 1)
+					if bd >= t.burn_dmg or t.burn_left <= 0:
+						t.burn_dmg = bd
+						t.burn_left = 3
+						events.append({"type": "burn_set", "unit": t.id, "dmg": t.burn_dmg})
+			# 기폭: 남은 화상을 한꺼번에
+			if t.alive and bool(spec.get("detonate", false)) and t.burn_left > 0:
+				var boom := int(round(float(t.burn_dmg * t.burn_left) * TData.DETONATE_MULT))
+				t.burn_dmg = 0
+				t.burn_left = 0
+				var d2 := _apply_damage(t, boom, u)
+				events.append({"type": "detonate", "unit": u.id, "target": t.id, "dmg": d2, "killed": not t.alive})
+				if u.ally and d2 > max_hit:
+					max_hit = d2
+					max_hit_info = {"unit": u.id, "spell": id, "target": t.id, "mult": {"detonate": TData.DETONATE_MULT, "total": TData.DETONATE_MULT}, "crit": false, "weak": false, "dmg": d2}
+					if run:
+						run.record_hit(d2, max_hit_info)
 		if not t.alive:
 			continue
 		if bool(spec.get("skip", false)) and not t.ally:
@@ -508,8 +592,26 @@ func _execute(u: Unit, spec: Dictionary, id: String, target_id: String, from_cas
 			events.append({"type": "heal", "unit": t.id, "amount": t.hp - before})
 		for b in spec.get("buffs", []):
 			_apply_buff(t, b, u.id, id)
+		if spec.has("mark"):
+			var m: Dictionary = spec.mark
+			_apply_buff(t, {"kind": String(m.kind), "amt": 1.0, "dur": 99, "stack": int(m.get("max", 1))}, u.id, "mark_" + String(m.kind))
+			events.append({"type": "mark", "unit": t.id, "kind": String(m.kind), "stacks": t.marks(String(m.kind)), "by": u.id, "name": TData.kind_name(String(m.kind))})
 		if float(spec.get("gauge_give", 0.0)) > 0.0:
 			_gain_gauge(t, float(spec.gauge_give))
+	if u.ally and power > 0.0 and player_phase:
+		combo_mult = maxf(combo_mult, spell_total)
+		if spell_total > best_combo:
+			best_combo = spell_total
+			best_combo_info = {"unit": u.id, "spell": id, "names": combo.duplicate()}
+		events.append({"type": "combo", "unit": u.id, "spell": id, "names": combo.duplicate(), "mult": spell_total})
+
+
+func _remove_kind(t: Unit, kind: String) -> void:
+	var i := t.buffs.size() - 1
+	while i >= 0:
+		if t.buffs[i].kind == kind:
+			t.buffs.remove_at(i)
+		i -= 1
 
 
 ## 굳센 시전(heavy): 봉공·물약처럼 굳센 끊기만 멈춘다
@@ -546,6 +648,8 @@ func _apply_buff(t: Unit, spec: Dictionary, src_id: String, spell_id: String) ->
 			oldest.amt = float(spec.amt)
 	else:
 		t.buffs.append({"key": key, "kind": kind, "amt": float(spec.amt), "left": int(spec.dur), "elem": String(spec.get("elem", "")), "src": src_id, "spell": spell_id})
+	if kind in TData.MARK_KINDS:
+		return
 	events.append({"type": "buff", "unit": t.id, "kind": kind, "amt": float(spec.amt), "stacks": t.stacks(key), "spell": spell_id, "src": src_id, "dur": int(spec.dur)})
 
 
@@ -565,8 +669,8 @@ func affinity(elem: String, t: Unit) -> float:
 	return 1.0
 
 
-## 한 타의 피해와 배율 풀이
-func _calc(u: Unit, sp: Dictionary, t: Unit, power: float) -> Dictionary:
+## 한 타의 피해와 배율 풀이. consume_k = 금·기름을 먹은 배율, sure = 확정 치명(별빛)
+func _calc(u: Unit, sp: Dictionary, t: Unit, power: float, consume_k := 1.0, sure := false, sure_amt := 0.0) -> Dictionary:
 	var elem := String(sp.get("elem", ""))
 	var atk_k := 1.0 + _cap("atk", u.sum("atk"))
 	var elem_raw := u.sum("elem", elem)
@@ -574,19 +678,20 @@ func _calc(u: Unit, sp: Dictionary, t: Unit, power: float) -> Dictionary:
 		elem_raw += float(u.bonus.get("elem", 0.0))
 	var elem_k := 1.0 + _cap("elem", elem_raw)
 	var crit_rate := minf(TData.BASE_CRIT + u.sum("crit_rate") + float(u.bonus.get("crit_rate", 0.0)), float(TData.CAPS.crit_rate))
-	var crit := rng.randf() < crit_rate
+	var crit := sure or rng.randf() < crit_rate
 	var crit_k := 1.0
 	if crit:
-		crit_k = TData.BASE_CRIT_DMG + _cap("crit_dmg", u.sum("crit_dmg") + float(u.bonus.get("crit_dmg", 0.0)))
+		crit_k = TData.BASE_CRIT_DMG + _cap("crit_dmg", u.sum("crit_dmg") + float(u.bonus.get("crit_dmg", 0.0)) + sure_amt)
 	var final_k := 1.0 + _cap("final", u.sum("final"))
 	var vuln_k := 1.0 + _cap("vuln", t.sum("vuln"))
 	var aff := affinity(elem, t)
 	var def_val := t.def_ * (1.0 + _cap("def", t.sum("def")))
 	var def_k := 100.0 / (100.0 + maxf(def_val, 0.0))
 	var r := rng.randf_range(0.95, 1.05)
-	var dmg := power * (u.atk / 100.0) * atk_k * elem_k * crit_k * final_k * vuln_k * aff * def_k * r
+	var total := atk_k * elem_k * crit_k * final_k * vuln_k * aff * consume_k
+	var dmg := power * (u.atk / 100.0) * total * def_k * r * TData.DMG_SCALE
 	return {"dmg": maxi(int(round(dmg)), 1), "crit": crit, "weak": aff > 1.01 and elem != TData.ELEM_SPACE, "space": elem == TData.ELEM_SPACE,
-		"resist": aff < 0.99, "mult": {"atk": atk_k, "elem": elem_k, "crit": crit_k, "final": final_k, "vuln": vuln_k, "aff": aff, "def": def_k}}
+		"resist": aff < 0.99, "mult": {"atk": atk_k, "elem": elem_k, "crit": crit_k, "final": final_k, "vuln": vuln_k, "aff": aff, "def": def_k, "consume": consume_k, "total": total}}
 
 
 ## 피해 적용 (방벽 흡수 → 체력). 돌려주는 값 = 실제로 깎인 체력
@@ -638,6 +743,7 @@ func _enter_bar(t: Unit, i: int, broke: bool) -> void:
 		t.buffs.clear()
 		t.casting = {}
 		t.burn_left = 0
+		t.burn_dmg = 0
 		t.skip_next = true
 		events.append({"type": "break", "unit": t.id, "bar": i, "label": String(bar.get("label", "")), "weak": t.weak, "resist": t.resist})
 	for b in bar.get("enter_buffs", []):
@@ -680,4 +786,4 @@ func summary() -> Dictionary:
 	for u in allies(false):
 		dealt[u.id] = u.dealt
 	return {"won": won, "rounds": round, "turns": turns, "max_hit": max_hit, "max_hit_info": max_hit_info, "dealt": dealt, "potions": potions_used,
-		"battle": String(battle.get("name", ""))}
+		"best_combo": best_combo, "best_combo_info": best_combo_info, "battle": String(battle.get("name", ""))}
