@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://enemies/sniper.gd" id="1_sx3bj"]
+
+[node name="Sniper" type="CharacterBody2D" unique_id=1137720427]
+script = ExtResource("1_sx3bj")

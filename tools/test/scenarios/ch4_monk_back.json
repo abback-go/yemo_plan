@@ -1,0 +1,25 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_tp_temple",
+  "spawn": "monk",
+  "flags": ["p_intro_done", "t_escaped", "s_woke", "ab_neoul", "teach_폭주 게이지", "teach_퍼펙트 회피"],
+  "steps": [
+    [3, "auto", true],
+    [5, "godmode"],
+    [20, "spawn_enemy", "holy_monk", 56, 19, {"facing": -1}],
+    [60, "tp", 66, 18],
+    [62, "face", -1],
+    [63, "press", "attack"],
+    [64, "logv", "a"],
+    [70, "enemies", "e70"],
+    [80, "enemies", "e80"],
+    [90, "enemies", "e90"],
+    [100, "logv", "b"],
+    [110, "enemies", "e110"],
+    [140, "shot", "back"],
+    [150, "enemies", "e150"],
+    [200, "enemies", "e200"],
+    [201, "release", "attack"],
+    [210, "quit"]
+  ]
+}

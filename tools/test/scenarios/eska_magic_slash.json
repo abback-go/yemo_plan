@@ -1,0 +1,17 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(470, 300))"],
+[40, "tap", "es_attack"],
+[42, "shot", "sl01_f2"], [44, "shot", "sl02_f4"], [47, "shot", "sl03_f7"], [52, "shot", "sl04_f12"], [58, "shot", "sl05_f18"], [66, "shot", "sl06_f26"],
+[100, "tap", "es_skill"],
+[110, "shot", "sl07_flurry_a"], [122, "shot", "sl08_flurry_b"], [123, "eval", "perf()"], [124, "eval", "bench(100)"], [136, "shot", "sl09_flurry_end"], [150, "shot", "sl10_flurry_close"],
+[200, "press", "es_up"], [201, "tap", "es_skill"], [206, "release", "es_up"],
+[212, "shot", "sl11_up_a"], [226, "shot", "sl12_up_b"], [240, "shot", "sl13_up_c"],
+[270, "eval", "dummy.set('hp', dummy.max_hp)"],
+[280, "eval", "get_node('MagicCast').cast('flurry', 0.5)"], [292, "shot", "sl14_echo_a"], [306, "shot", "sl15_echo_b"], [340, "eval", "dummy.hp"],
+[350, "eval", "dummy.set('hp', dummy.max_hp)"],
+[352, "eval", "get_node('MagicCast').cast('flurry', 1.0, 1.35)"], [372, "shot", "sl16_wide"], [420, "eval", "dummy.hp"],
+[440, "eval", "get_node('MagicCast').cast('sigil', 1.0)"], [442, "shot", "sl17_sigil_a"], [446, "shot", "sl18_sigil_b"],
+[460, "quit"]
+]}

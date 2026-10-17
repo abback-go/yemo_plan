@@ -1,0 +1,25 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "t_gate",
+  "spawn": "west",
+  "flags": ["p_intro_done", "t_trial_done", "p_bead_done", "ab_neoul", "teach_폭주 게이지"],
+  "steps": [
+    [2, "godmode"],
+    [3, "auto", true],
+    [20, "tp", 10, 18],
+    [400, "status", "engaged"],
+    [401, "shot", "h_notch"],
+    [402, "flags", "f1"],
+    [700, "status", "t5s"],
+    [1000, "status", "t10s"],
+    [1050, "shot", "h_fox"],
+    [1300, "status", "fox"],
+    [1301, "kill"],
+    [1330, "kill"],
+    [1360, "kill"],
+    [1390, "kill"],
+    [1700, "status", "end"],
+    [1701, "shot", "h_end"],
+    [1702, "quit"]
+  ]
+}

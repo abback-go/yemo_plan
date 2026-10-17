@@ -1,0 +1,19 @@
+{"scene": "res://proto/eska/eska_tutorial.tscn", "steps": [
+[2, "attach", "../tools/test/eska_tut_bot.gd"],
+[900, "eval", "step_name()"],
+[900, "shot", "b01_dangong"],
+[1500, "eval", "step_name()"],
+[1500, "shot", "b02_cauldron"],
+[2000, "eval", "step_name()"],
+[2000, "shot", "b03_hound"],
+[2600, "eval", "step_name()"],
+[2600, "shot", "b04_boss_rift"],
+[3000, "eval", "step_name()"],
+[3000, "shot", "b05_boss_gauge"],
+[3600, "eval", "step_name()"],
+[3600, "shot", "b06_end"],
+[4200, "eval", "step_name()"],
+[4200, "eval", "perf()"],
+[4200, "shot", "b07_end"],
+[4210, "quit"]
+]}

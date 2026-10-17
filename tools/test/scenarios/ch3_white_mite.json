@@ -1,0 +1,31 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_e_blight",
+  "spawn": "start",
+  "flags": ["p_intro_done", "ab_neoul", "teach_폭주 게이지", "ab_storm", "ab_double_jump", "ab_fox_window", "seen_fox_window_teach"],
+  "steps": [
+    [5, "tp", 36, 19],
+    [6, "face", 1],
+    [10, "spawn_enemy", "white_mite", 50, 19],
+    [80, "shot", "mite_a"],
+    [110, "shot", "mite_b"],
+    [140, "shot", "mite_c"],
+    [170, "shot", "mite_d"],
+    [200, "enemies", "m"],
+    [260, "shot", "mite_e"],
+    [400, "status", "fight"],
+    [401, "log", "fight"],
+    [420, "godmode"],
+    [440, "kill"],
+    [441, "kill"],
+    [470, "shot", "mite_split"],
+    [520, "shot", "mite_small"],
+    [560, "status", "split"],
+    [600, "kill"],
+    [610, "kill"],
+    [620, "kill"],
+    [660, "status", "end"],
+    [670, "shot", "mite_end"],
+    [680, "quit"]
+  ]
+}

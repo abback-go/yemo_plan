@@ -1,0 +1,30 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_tp_mount",
+  "spawn": "mid",
+  "flags": ["p_intro_done", "t_escaped", "s_woke", "ab_neoul", "ab_storm", "ab_double_jump", "teach_폭주 게이지", "teach_퍼펙트 회피"],
+  "steps": [
+    [3, "auto", true],
+    [5, "setting", "difficulty", 1],
+    [20, "spawn_enemy", "pilgrim_shade", 29, 19, {"facing": -1}],
+    [21, "spawn_enemy", "pilgrim_shade", 18, 19, {"facing": 1, "line": "…노래를… 다시 부를 수 있겠어. 고마워.", "free_flag": "dev_choir_found"}],
+    [60, "shot", "shade_walk"],
+    [110, "shot", "shade_reach"],
+    [140, "shot", "shade_grab"],
+    [200, "status", "after_grab"],
+    [201, "face", 1],
+    [202, "press", "attack"],
+    [400, "release", "attack"],
+    [401, "status", "front_one"],
+    [405, "shot", "shade_freed"],
+    [440, "shot", "shade_thanks"],
+    [460, "godmode"],
+    [461, "face", -1],
+    [462, "press", "attack"],
+    [650, "release", "attack"],
+    [651, "status", "second"],
+    [700, "shot", "shade_thanks2"],
+    [701, "flags", "f"],
+    [710, "quit"]
+  ]
+}

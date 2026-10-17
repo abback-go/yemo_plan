@@ -1,0 +1,18 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "t_stairs",
+  "spawn": "west",
+  "flags": ["p_intro_done", "trig_t_stairs_tw", "trig_t_stairs_tdrop", "teach_폭주 게이지"],
+  "steps": [
+    [5, "rm_enemies"],
+    [10, "tp", 37.5, 15.5],
+    [40, "logv", "before"],
+    [41, "press", "move_down"],
+    [50, "press", "jump"],
+    [80, "logv", "held"],
+    [81, "release", "jump"],
+    [82, "release", "move_down"],
+    [120, "logv", "after"],
+    [125, "quit"]
+  ]
+}

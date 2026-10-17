@@ -1,0 +1,32 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "k_knights_yard",
+  "spawn": "west",
+  "flags": ["p_intro_done", "p_bead_done", "t_escaped", "t_trial_done", "haetae_down", "s_woke", "hall_intro", "met_emberlyn", "s_training_intro", "t_targets_done", "s_golem_started", "golem_done", "key_stolen", "ophelia_awake", "lev_done", "key_recovered", "adv_met", "adv_done", "met_astrid", "key_basement", "agwi_met", "agwi_defeated", "chapter_end", "ch1_done", "ab_double_jump", "ab_storm", "ab_fox_window", "ab_fox_mode", "ab_neoul", "s_clock_seen", "s_gallery_seen", "s_stacks_seen", "s_cellar_seen", "seal_open", "grim_met", "s_broom_seen", "k_breakfast", "ab_wings", "k_envoy_seen", "k_departed", "warp_kingdom", "k_met_leonie"],
+  "steps": [
+    [2, "auto", true],
+    [12, "setting", "difficulty", 0],
+    [22, "flagval", "chapter", 2],
+    [32, "abil", "wings"],
+    [42, "abil", "ward"],
+    [52, "flagval", "eq_s", "ward"],
+    [62, "tp", 31, 19],
+    [182, "shot", "spar_0"],
+    [192, "status", "spar_start"],
+    [492, "shot", "spar_1"],
+    [502, "status", "spar_mid"],
+    [802, "shot", "spar_2"],
+    [812, "run", "dev_ch2_info"],
+    [822, "kill"],
+    [882, "kill"],
+    [942, "kill"],
+    [1002, "kill"],
+    [1062, "kill"],
+    [1122, "kill"],
+    [1182, "waitidle", 3000],
+    [1192, "shot", "spar_end"],
+    [1202, "status", "spar_end"],
+    [1206, "worldinfo", "spar_end"],
+    [1210, "quit"]
+  ]
+}

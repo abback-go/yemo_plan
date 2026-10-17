@@ -1,0 +1,15 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_tp_arena",
+  "spawn": "start",
+  "flags": ["p_intro_done", "t_escaped", "s_woke", "ab_neoul", "teach_폭주 게이지"],
+  "steps": [
+    [2, "godmode"],
+    [20, "tp", 40, 18],
+    [60, "run", "dev_ch4_head"],
+    [120, "shot", "head"],
+    [130, "run", "dev_ch4_poses_zoom2"],
+    [190, "shot", "zoom2"],
+    [200, "quit"]
+  ]
+}
