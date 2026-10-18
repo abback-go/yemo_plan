@@ -80,7 +80,7 @@ func _hint(sword: bool) -> String:
 	var mode_key := "모드" if EKeys.touch_mode else "S"
 	var atk := "공격" if EKeys.touch_mode else "X"
 	if is_instance_valid(stage) and stage.any_scar():
-		return "틈 자국 — %s로 마법 모드, %s로 터뜨리기" % [mode_key, atk] if sword else "%s 균열 점화로 틈 자국을 터뜨린다" % atk
+		return "틈 자국 — %s로 마법 모드, %s로 터뜨리기" % [mode_key, atk] if sword else "%s 흑백 균열로 틈 자국을 터뜨린다" % atk
 	if _t < INTRO:
-		return "%s: 빗자루 ↔ 검 (바꾸는 순간 전환 공격)" % mode_key
+		return "%s: 빗자루 ↔ 검 (빗자루 → 검은 검무로 주변을 벤다)" % mode_key
 	return ""

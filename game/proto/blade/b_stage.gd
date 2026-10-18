@@ -77,7 +77,7 @@ func _build() -> void:
 	respawn_at = Vector2(380, FLOOR)
 	EScenery.build(self, W, FLOOR)
 	flat_ground()
-	for spec: Array in [["small", Vector2(530, FLOOR)], ["small", Vector2(610, FLOOR)], ["big", Vector2(770, FLOOR)], ["hang", Vector2(450, FLOOR - 86)]]:
+	for spec: Array in [["small", Vector2(530, FLOOR)], ["small", Vector2(610, FLOOR)], ["big", Vector2(770, FLOOR)], ["hang", Vector2(690, FLOOR - 86)]]:
 		var d := BDummy.new()
 		d.setup(spec[0])
 		d.position = spec[1]

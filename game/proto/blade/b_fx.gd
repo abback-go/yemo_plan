@@ -317,27 +317,275 @@ class Unfold extends PVfx.Base:
 		pd.glow(Vector2.ZERO, 10.0 * (1.0 - x * 0.5), Color(BFx.LAV, 0.4 * (1.0 - x)), 0.0)
 
 
-## 검 → 빗자루: 몸을 둘러 퍼지는 라벤더 파동 (납작한 고리 + 바깥으로 튀는 결)
+## 검 → 빗자루: 몸을 둘러 퍼지는 라벤더 파동 (납작한 고리 + 바깥으로 튀는 결).
+## bright = 검무 마무리: 더 크고 하얀 고리 + 사방으로 긴 빛줄기 + 가운데 섬광
 class Wave extends PVfx.Base:
 	const R1 := 66.0
 	const SQ := 0.62
+	var r1 := R1
+	var bright := false
 
 	func _ready() -> void:
-		life = 0.26
+		life = 0.34 if bright else 0.26
 		z_index = 6
 
 	func _paint() -> void:
 		var x := k()
 		var e := 1.0 - pow(1.0 - x, 3.0)
-		var r := lerpf(10.0, R1, e)
-		var th := 8.0 * (1.0 - x) + 1.0
+		var r := lerpf(10.0, r1, e)
+		var th := (12.0 if bright else 8.0) * (1.0 - x) + 1.0
 		var a := 1.0 - x * x
-		pd.ring_grad(Vector2.ZERO, Vector2(r - th, (r - th) * SQ), Vector2(r, r * SQ), Color(BFx.MAG, 0.0), Color(BFx.LAV, 0.8 * a), 40)
-		pd.ring_grad(Vector2.ZERO, Vector2(r - 1.2, (r - 1.2) * SQ), Vector2(r + 0.6, (r + 0.6) * SQ), Color(BFx.WHITE, a), Color(BFx.WHITE, a), 40)
-		for i in 10:
-			var an := TAU * float(i) / 10.0 + 0.3
+		if bright and t < 0.06:
+			var g := 1.0 - t / 0.06
+			pd.glow(Vector2.ZERO, 30.0 * g + 8.0, Color(BFx.WHITE, 0.75 * g), 0.0)
+		pd.ring_grad(Vector2.ZERO, Vector2(r - th, (r - th) * SQ), Vector2(r, r * SQ), Color(BFx.MAG, 0.0), Color(BFx.LAV, 0.8 * a), 48)
+		pd.ring_grad(Vector2.ZERO, Vector2(r - 1.2, (r - 1.2) * SQ), Vector2(r + (1.4 if bright else 0.6), (r + (1.4 if bright else 0.6)) * SQ), Color(BFx.WHITE, a), Color(BFx.WHITE, a), 48)
+		var n := 16 if bright else 10
+		var reach := 26.0 if bright else 10.0
+		for i in n:
+			var an := TAU * float(i) / float(n) + 0.3
 			var d := Vector2(cos(an), sin(an) * SQ)
-			pd.line2(d * (r + 2.0), d * (r + 2.0 + 10.0 * (1.0 - x)), Color(BFx.WHITE, a), Color(BFx.LAV, 0.0), 1.2, 0.3)
+			pd.line2(d * (r + 2.0), d * (r + 2.0 + reach * (1.0 - x)), Color(BFx.WHITE, a), Color(BFx.LAV, 0.0), 1.4 if bright else 1.2, 0.3)
+
+
+## 검무 잔광: 한 바퀴 돈 자리에 가는 흰 고리가 남고 빛 알갱이가 고리를 따라 돌다 사라진다 (참격은 빨리 걷히고, 화려함은 이게 맡음)
+class Halo extends PVfx.Base:
+	const SEG := 48
+	var r := 60.0
+	var sq := 0.4
+	var rot := 0.0 ## 라디안 (오른쪽을 보는 기준 — 노드 scale.x로 뒤집음)
+
+	func _ready() -> void:
+		life = 0.42
+		z_index = 5
+
+	func _paint() -> void:
+		var x := k()
+		var a := (1.0 - x) * (1.0 - x)
+		var pts := PackedVector2Array()
+		for i in SEG + 1:
+			pts.append(BFx.ell(r, sq, rot, TAU * float(i) / float(SEG)))
+		pd.draw_polyline(pts, Color(BFx.LAV, 0.3 * a), 3.4)
+		pd.draw_polyline(pts, Color(BFx.WHITE, 0.85 * a), 1.0)
+		for i in 6:
+			var an := -t * 14.0 + float(i) * TAU / 6.0
+			EVfx.star4(pd, BFx.ell(r, sq, rot, an), 3.5 * a + 1.0, an, Color(BFx.WHITE, a), Color(BFx.LAV, 0.0))
+
+
+# ═══════════════════════════════════════════════════════════
+# 흑백 균열 (마법 기본): 모으기(Charge) → 터짐(Rift)
+# ═══════════════════════════════════════════════════════════
+
+## 모으기: 앞손엔 흰 기운, 뒷손엔 검은 기운(보랏빛 테)이 빨려 들며 커지고 지직거린다. 겨눈 자리엔 실금이 자라고 고리가 조여 든다.
+## 전역 좌표로 그린다 (이펙트 층 원점에 놓임). 에스카가 모으기를 멈추면 스스로 사라진다
+class Charge extends PDraw.Canvas:
+	const STREAKS := 9
+	const MOTES := 10 ## 몸 둘레를 도는 흑백 빛 알갱이 (모을수록 조여 든다)
+	var eska: BEska
+	var t := 0.0
+	var _spark_t := 0.0
+	var _aim_shape := PackedVector2Array()
+
+	func _ready() -> void:
+		z_index = 2
+		var n := 7
+		for i in n: # 겨눈 자리 실금 모양 (가운데 기준, 길이 1)
+			var f := float(i) / float(n - 1) - 0.5
+			_aim_shape.append(Vector2(f, (randf() - 0.5) * 0.18 if i > 0 and i < n - 1 else 0.0))
+
+	func _process(delta: float) -> void:
+		t += delta
+		if not is_instance_valid(eska) or eska.rift_charge() < 0.0:
+			queue_free()
+			return
+		_spark_t -= delta
+		if _spark_t <= 0.0: # 손끝에서 튀는 불티 (흰 손 = 흰 불티, 검은 손 = 보랏빛 검은 조각)
+			_spark_t = 0.05
+			var b := eska.bart()
+			EVfx.pixels(b.hand_global(), 2, 90.0, Vector2.ZERO, 180.0, 0.22)
+			EVfx.dark_bits(b.back_hand_global(), 1, 70.0, Vector2.ZERO, 180.0, 0.26, 0)
+		queue_redraw()
+
+	func _paint() -> void:
+		var c := eska.rift_charge()
+		var b := eska.bart()
+		_motes(eska.center(), c)
+		_orb(b.hand_global(), c, true)
+		_orb(b.back_hand_global(), c, false)
+		_aim(eska.rift_aim(), c)
+
+	func _motes(p: Vector2, c: float) -> void:
+		var rr := lerpf(46.0, 18.0, c)
+		for k in MOTES:
+			var an := t * (5.0 + 6.0 * c) + float(k) * TAU / float(MOTES)
+			var q := p + Vector2(cos(an), sin(an) * 0.45) * rr
+			var tail := p + Vector2(cos(an - 0.35), sin(an - 0.35) * 0.45) * rr
+			var white := k % 2 == 0
+			pd.line2(tail, q, Color(BFx.WHITE if white else BFx.MAG, 0.0), Color(BFx.WHITE if white else BFx.LAV, 0.5 + 0.5 * c), 0.4, 1.6)
+
+	func _orb(p: Vector2, c: float, white: bool) -> void:
+		var spin := 1.0 if white else -1.0
+		for k in STREAKS: # 빨려 드는 줄
+			var ph := fmod(t * 2.4 + float(k) / float(STREAKS), 1.0)
+			var rad := (1.0 - ph) * (36.0 + 18.0 * c)
+			var an := float(k) * TAU / float(STREAKS) + ph * 2.4 * spin
+			var q := p + Vector2.from_angle(an) * rad
+			var to := q + (p - q).normalized() * (5.0 + 9.0 * ph)
+			var col := BFx.WHITE if white else BFx.MAG
+			pd.line2(q, to, Color(col, 0.0), Color(col, 0.9 * ph), 0.6, 1.6)
+		var r := 2.0 + 5.0 * c
+		var pulse := 1.0 + 0.12 * sin(t * 40.0)
+		if white:
+			pd.glow(p, (8.0 + 22.0 * c) * pulse, Color(BFx.PALE, 0.55), 0.0)
+			pd.draw_circle(p, r, BFx.WHITE)
+		else:
+			pd.glow(p, (8.0 + 22.0 * c) * pulse, Color(BFx.MAG, 0.45), 0.0)
+			pd.draw_circle(p, r + 1.4, BFx.LAV)
+			pd.draw_circle(p, r, BFx.INK)
+		var seed := int(t * 30.0) # 지직거림: 손에서 뻗는 짧은 번개 셋 (프레임마다 모양이 바뀜)
+		for k in 3:
+			var an := EVfx.hash01(seed * 7 + k * 13 + (0 if white else 101)) * TAU
+			var len := (7.0 + 16.0 * c) * (0.6 + 0.4 * EVfx.hash01(seed + k))
+			var d := Vector2.from_angle(an)
+			var mid := p + d * len * 0.5 + d.orthogonal() * (EVfx.hash01(seed * 3 + k) - 0.5) * 5.0
+			var col2 := BFx.WHITE if white else BFx.LAV
+			pd.draw_line(p, mid, Color(col2, 0.9), 1.0)
+			pd.draw_line(mid, p + d * len, Color(col2, 0.7), 1.0)
+
+	func _aim(p: Vector2, c: float) -> void:
+		var len := 8.0 + 34.0 * c
+		var rot := -0.9
+		var pts := PackedVector2Array()
+		for q: Vector2 in _aim_shape:
+			pts.append(p + Vector2(q.x * len, q.y * len).rotated(rot))
+		pd.draw_polyline(pts, Color(BFx.WHITE, 0.35 + 0.6 * c), 1.0)
+		var rr := lerpf(36.0, 7.0, c)
+		pd.draw_arc(p, rr, 0.0, TAU, 28, Color(BFx.WHITE, 0.25 + 0.5 * c), 1.0)
+		for k in 4: # 네 귀퉁이 눈금이 안으로 조여 든다
+			var d := Vector2.from_angle(float(k) * PI * 0.5 + t * 3.0)
+			pd.draw_line(p + d * (rr + 3.0), p + d * (rr + 8.0), Color(BFx.WHITE, 0.6 * c + 0.2), 1.2)
+
+
+## 터짐: 섬광 → 흰 테의 검은 틈이 비스듬히 벌어지고, 엇갈린 검은 금 · 흰 실금이 뻗고, 흑백 파편과 검은 연기가 퍼졌다가 틈이 닫힌다
+class Rift extends PVfx.Base:
+	const FLASH := 0.035 ## 섬광은 2프레임 — 바로 균열이 보이게
+	const OPEN_T := 0.05
+	const CLOSE_AT := 0.5
+	const MAIN_LEN := 84.0
+	const MAIN_W := 9.0
+	var _ang := -1.0
+	var _main := PackedVector2Array()
+	var _cross := PackedVector2Array() ## 엇갈린 검은 금
+	var _white := PackedVector2Array() ## 엇갈린 흰 금
+	var _hairs: Array = []
+	var _puffs: Array = []
+	var _stars: Array = []
+
+	func _ready() -> void:
+		life = 1.0
+		z_index = 7
+		_ang = randf_range(-1.2, -0.8)
+		_main = _jag(MAIN_LEN, 12, 4.0, _ang)
+		_cross = _jag(64.0, 9, 3.4, _ang + 1.25)
+		_white = _jag(72.0, 9, 3.4, _ang + 2.2)
+		for i in 10: # 흰 실금: 틈 위 아무 자리에서 비스듬히
+			var o := _main[randi_range(2, _main.size() - 3)]
+			var an := _ang + (PI * 0.5 if randf() < 0.5 else -PI * 0.5) + randf_range(-0.7, 0.7)
+			var l := randf_range(18.0, 44.0)
+			var m := o + Vector2.from_angle(an) * l * 0.5 + Vector2.from_angle(an + PI * 0.5) * randf_range(-3.0, 3.0)
+			_hairs.append(PackedVector2Array([o, m, o + Vector2.from_angle(an + randf_range(-0.3, 0.3)) * l]))
+		for i in 12:
+			_puffs.append([Vector2.from_angle(randf() * TAU) * Vector2(1.0, 0.7), randf_range(18.0, 40.0), randf_range(12.0, 22.0)])
+		for i in 4:
+			_stars.append([randf_range(0.2, 0.8), randf_range(0.0, TAU)])
+		var g := global_position
+		EVfx.shards(g, 10, 240.0, Vector2(5, 5), 100.0)
+		EVfx.pixels(g, 16, 320.0, Vector2.ZERO, 180.0, 0.4, Vector2(0, 160))
+		var pp := PParticles.get_layer(false)
+		for i in 12: # 검은 조각 (보랏빛으로 사라짐)
+			var v := Vector2.from_angle(randf() * TAU) * randf_range(80.0, 220.0) + Vector2(0, -60.0)
+			pp.spawn(g, v, Vector2(0, 420), randf_range(0.35, 0.6), randf_range(2.0, 3.4), BFx.INK, BFx.PLUM, 0, 2.0)
+
+	## 멈춤(히트스톱) 중에도 실제 시간으로 움직인다 — 세상이 멈춘 사이 균열만 벌어지게
+	func _process(delta: float) -> void:
+		t += minf(delta / maxf(Engine.time_scale, 0.0001), 1.0 / 30.0)
+		if t >= life:
+			queue_free()
+			return
+		queue_redraw()
+
+	func _jag(len: float, n: int, j: float, ang: float) -> PackedVector2Array:
+		var out := PackedVector2Array()
+		var d := Vector2.from_angle(ang)
+		for i in n:
+			var f := float(i) / float(n - 1) - 0.5
+			var off := 0.0 if i == 0 or i == n - 1 else randf_range(-j, j)
+			out.append(d * f * len + d.orthogonal() * off)
+		return out
+
+	func _paint() -> void:
+		var x := k()
+		# 흰 역광: 검은 틈·검은 연기가 어두운 배경에 묻히지 않고 흑백으로 또렷하게
+		var bl := 1.0 - smoothstep(0.04, 0.55, t)
+		if bl > 0.01:
+			pd.glow(Vector2.ZERO, 50.0, Color(BFx.PALE, 0.5 * bl), 0.0)
+			pd.glow(Vector2.ZERO, 26.0, Color(BFx.WHITE, 0.45 * bl), 0.0)
+		# 검은 연기 (뒤에): 사방으로 번지며 옅어진다
+		var e := 1.0 - pow(1.0 - minf(t / 0.35, 1.0), 2.0)
+		for pf: Array in _puffs:
+			var pos: Vector2 = (pf[0] as Vector2) * float(pf[1]) * e
+			pd.glow(pos, float(pf[2]) * (0.5 + 0.8 * e), Color(BFx.INK, 0.6 * (1.0 - x)), 0.0)
+		# 섬광
+		if t < FLASH * 2.0:
+			var g := 1.0 - t / (FLASH * 2.0)
+			pd.glow(Vector2.ZERO, 30.0 * g + 6.0, Color(BFx.WHITE, 0.7 * g), 0.0)
+			EVfx.star4(pd, Vector2.ZERO, 26.0 * g + 4.0, _ang + 0.6, Color(BFx.WHITE, g), Color(BFx.PALE, 0.0))
+		# 흰 테의 검은 틈 (비스듬히 벌어졌다 닫힘)
+		var open := smoothstep(0.0, OPEN_T, t) * (1.0 - smoothstep(CLOSE_AT, life - 0.1, t))
+		if open > 0.02:
+			var n := _main.size()
+			var nrm := Vector2.from_angle(_ang).orthogonal()
+			var left := PackedVector2Array()
+			var right := PackedVector2Array()
+			for i in n:
+				var f := float(i) / float(n - 1)
+				var hw := MAIN_W * pow(sin(f * PI), 0.8) * open
+				left.append(_main[i] + nrm * hw)
+				right.append(_main[i] - nrm * hw)
+			var poly := left.duplicate()
+			for i in range(n - 1, -1, -1):
+				poly.append(right[i])
+			pd.draw_polyline(left, Color(BFx.LAV, 0.35 * open), 3.4)
+			pd.draw_polyline(right, Color(BFx.LAV, 0.35 * open), 3.4)
+			pd.draw_colored_polygon(poly, BFx.INK)
+			pd.draw_polyline(left, Color(BFx.WHITE, open), 1.4)
+			pd.draw_polyline(right, Color(BFx.WHITE, open), 1.4)
+			for st: Array in _stars: # 틈 안의 별빛
+				var sp := _main[0].lerp(_main[n - 1], float(st[0]))
+				var tw := 0.5 + 0.5 * sin(t * 24.0 + float(st[1]))
+				pd.draw_rect(Rect2(sp - Vector2(0.5, 0.5), Vector2(1, 1)), Color(1, 1, 1, tw * open))
+		# 엇갈린 검은 금 (흰 테두리) · 흰 금 (라벤더 번짐)
+		var ca := 1.0 - smoothstep(0.3, 0.7, x)
+		if ca > 0.01:
+			var grow := minf(t / 0.04, 1.0)
+			var cr := PackedVector2Array()
+			for q: Vector2 in _cross:
+				cr.append(q * grow)
+			pd.draw_polyline(cr, Color(BFx.WHITE, 0.9 * ca), 4.4)
+			pd.draw_polyline(cr, Color(BFx.INK, ca), 2.4)
+			var wr := PackedVector2Array()
+			for q: Vector2 in _white:
+				wr.append(q * grow)
+			pd.draw_polyline(wr, Color(BFx.LAV, 0.4 * ca), 5.0)
+			pd.draw_polyline(wr, Color(BFx.WHITE, ca), 2.0)
+		# 흰 실금
+		var ha := 1.0 - smoothstep(0.15, 0.55, x)
+		if ha > 0.01:
+			var hg := minf(t / 0.05, 1.0)
+			for h: PackedVector2Array in _hairs:
+				pd.draw_line(h[0], h[0].lerp(h[1], hg), Color(BFx.WHITE, ha), 1.0)
+				if hg >= 1.0:
+					pd.draw_line(h[1], h[2], Color(BFx.WHITE, ha * 0.8), 1.0)
 
 
 # ═══════════════════════════════════════════════════════════

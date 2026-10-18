@@ -562,6 +562,18 @@ func _build_blade() -> void:
 		{wave = "sine", f0 = 3100.0, f1 = 2950.0, fm = 2.76, fm_i = 0.9, fm_i1 = 0.1, dur = 0.34, vol = 0.07, tau = 0.1, delay = 0.05},
 		{wave = "noise", dur = 0.08, vol = 0.45, bp = 2800.0, bp1 = 7400.0, q = 0.25, attack = 0.004, decay = 2.2, delay = 0.05},
 	])
+	_add_fast(&"bl_charge", [ # 양손에 흑백 기운을 모음: 0.5초 동안 차오르는 떨림 + 지직거림
+		{wave = "sine", f0 = 180.0, f1 = 720.0, curve = "exp", dur = 0.5, vol = 0.16, attack = 0.12, decay = 0.4, vib = 22.0, vib_depth = 0.04},
+		{wave = "noise", dur = 0.5, vol = 0.22, bp = 2600.0, bp1 = 5200.0, q = 0.5, am = 38.0, am_depth = 0.8, attack = 0.2, decay = 0.4},
+		{wave = "sine", f0 = 90.0, f1 = 140.0, dur = 0.5, vol = 0.12, attack = 0.25, decay = 0.4},
+	], 11025)
+	_add_fast(&"bl_rift", [ # 흑백 균열이 터짐: 유리처럼 쩍 갈라지는 소리 + 깊은 폭음 + 흩어지는 파편
+		{wave = "noise", dur = 0.05, vol = 0.85, bp = 5600.0, q = 0.3, decay = 3.0},
+		{wave = "sine", f0 = 3300.0, fm = 1.41, fm_i = 2.0, fm_i1 = 0.1, dur = 0.3, vol = 0.07, tau = 0.08},
+		{wave = "sine", f0 = 120.0, f1 = 36.0, dur = 0.55, vol = 0.6, tau = 0.18},
+		{wave = "noise", dur = 0.6, vol = 0.45, bp = 500.0, bp1 = 180.0, q = 0.4, attack = 0.01, decay = 1.2},
+		{wave = "noise", dur = 0.3, vol = 0.25, bp = 6000.0, q = 0.4, am = 45.0, am_depth = 0.7, decay = 1.6, delay = 0.06},
+	], 11025)
 	_add_fast(&"bl_fold", [ # 검 → 빗자루: 내려앉는 반짝임 + 부드러운 바람
 		{wave = "sine", f0 = 2400.0, f1 = 520.0, curve = "exp", dur = 0.16, vol = 0.1, decay = 1.3},
 		{wave = "noise", dur = 0.2, vol = 0.4, bp = 600.0, bp1 = 1800.0, q = 0.4, attack = 0.02, decay = 1.5},

@@ -15,8 +15,11 @@ const HANDLE := Color("#3a3046")
 const HANDLE_HI := Color("#6b5a86")
 const BRISTLE_COL := Color("#d8d2e6")
 const STEEL := Color("#e9e4f2")
+const BROOM_FLOAT := Vector2(-7.0, -17.0) ## 흑백 균열을 모을 때 빗자루가 등 뒤에 떠 있는 자리 (자루 가운데)
+const BROOM_FLOAT_ANGLE := 2.05
 
 var _vec := Vector2(-0.5, 0.86)
+var _back_hand := Vector2(-1.5, -16.0) ## 흑백 균열을 모을 때 뒷손 (그림 좌표)
 
 
 func kick_lean(v: float) -> void:
@@ -30,6 +33,12 @@ func tick(delta: float) -> void:
 	super.tick(delta)
 	if delta <= 0.0:
 		return
+	var c := b.rift_charge()
+	var want_back := Vector2(-1.5, -16.0)
+	if b.act == "rift":
+		var open := 1.0 - pow(1.0 - minf(maxf(c, 0.0) * 3.0, 1.0), 3.0) if c >= 0.0 else 1.0
+		want_back = Vector2(-1.5, -16.0).lerp(BEska.BACK_HAND, open)
+	_back_hand = want_back
 	if b.pose_on:
 		_vec = b.blade_vec
 		return
@@ -71,6 +80,10 @@ func hand_global() -> Vector2:
 	return to_global(_hand_local())
 
 
+func back_hand_global() -> Vector2:
+	return to_global(_back_hand + Vector2(0, _bob()))
+
+
 func blade_tip() -> Vector2:
 	var dl := _dir_len()
 	return to_global(_hand_local() + (dl[0] as Vector2) * (1.6 + BLADE_LEN * float(dl[1])))
@@ -82,19 +95,33 @@ func broom_tip() -> Vector2:
 
 
 func _paint() -> void:
+	var b := body as BEska
+	var casting := b.act == "rift"
+	if _ready_done and casting: # 흑백 균열: 뒷팔을 뒤로 벌리고, 빗자루는 등 뒤에 떠 있다 (몸 뒤에 먼저 그림)
+		_paint_back_arm()
+		_paint_broom(BROOM_FLOAT + Vector2(0, sin(_t * 7.0) * 0.8), Vector2.from_angle(BROOM_FLOAT_ANGLE), 1.0, 1.0 - b.morph)
 	super._paint()
 	if not _ready_done:
 		return
-	var b := body as BEska
 	var hand := _hand_local()
 	var dl := _dir_len()
 	var d: Vector2 = dl[0]
 	var fl: float = dl[1]
-	if b.morph < 1.0:
+	if b.morph < 1.0 and not casting:
 		_paint_broom(hand, d, fl, 1.0 - b.morph)
 	if b.morph > 0.0:
 		_paint_sword(hand, d, fl, b.morph, b)
 	pd.draw_circle(hand, 1.15, SKIN) # 손가락이 자루를 감싼다
+
+
+func _paint_back_arm() -> void:
+	var o := Vector2(0, _bob())
+	var sh := o + Vector2(-1.6, -23.0)
+	var bh := _back_hand + o
+	var el := sh.lerp(bh, 0.5) + Vector2(0, 1.0)
+	pd.draw_line(sh, el, SKIN_SH, 1.6)
+	pd.draw_line(el, bh, SKIN_SH, 1.4)
+	pd.draw_circle(bh, 1.1, SKIN_SH)
 
 
 func _paint_broom(hand: Vector2, d: Vector2, fl: float, k: float) -> void:
