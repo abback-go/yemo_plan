@@ -1,7 +1,9 @@
 class_name TUnit
 extends RefCounted
 ## 턴제 전투의 한 명 (마녀 또는 적) — 능력치·게이지·크레딧·버프·징표·상태. 그림·노드는 TActor가 따로 든다.
-## 버프 사전: {cat, v, dur, clock("own"|"enemy"), mark?, el?, name}
+## 버프 사전: {cat, v, dur, clock("own"|"enemy"), mark?, el?, name, per_mark?, count?, on?, born?}
+##   per_mark    = 대상의 그 징표 겹 수를 곱한다 (특공은 늘 곱함)
+##   count · on  = 횟수제 (§16.8): on("basic" 기본 공격 | "skill" 공격 마법 | "attack" 둘 다)을 마칠 때마다 count −1, 0이면 사라짐. born = 건 차례 번호 (그 차례엔 닳지 않음)
 ##   clock own   = 이 유닛이 행동(또는 쉼)을 마칠 때마다 dur −1 (아군에게 건 버프 · 적에게 건 디버프·징표)
 ##   clock enemy = 적이 행동을 마칠 때마다 dur −1 (무적 · 받는 피해 감소 · 도발 · 근성처럼 "다음 적 공격"을 막는 것)
 ## 징표: marks[kind] = {n: 겹 1~5, dur: 남은 행동 수} (combat_proto.md §17.1)
@@ -48,6 +50,8 @@ var guts_used := false ## 장비 근성을 썼나 (전투당 1번)
 var zero_after_turn := -1 ## 불의 신 강림의 대가: 이 차례 번호보다 뒤의 행동이 끝나면 크레딧 0
 var pending_gauge := 0.0 ## 자기 게이지 +N% — 행동이 끝나 0이 된 뒤 더한다
 var last_k := "" ## 적: 마지막으로 실행한 의도 종류
+var hit_kind := "" ## 피해 계산 중인 공격의 종류 basic · skill (횟수제 버프는 자기 종류의 공격에만 붙는다, TBattle._terms가 정함)
+var last_act := "" ## 마녀: 이번 행동의 종류 basic · attack · support · rest (횟수제 버프가 닳는 기준)
 var data := {} ## 원본 데이터 (그림 색 등)
 var acted := 0 ## 행동(쉼 포함) 횟수 (통계)
 var acts := 0 ## 실제로 행동한 횟수 (적의 조건 규칙 acted)
@@ -173,7 +177,16 @@ func passive_val(t: String) -> float:
 	return s
 
 
-## 내가 거는 그 징표에 더해지는 겹 수 (신더·토난)
+## 패시브 효과 중 t이고 cat이 맞는 것의 v 합 (엠버 buff_plus 등)
+func passive_cat_val(t: String, cat: String) -> float:
+	var s := 0.0
+	for e in passive:
+		if String(e.t) == t and String(e.get("cat", "")) == cat:
+			s += float(e.get("v", 0.0))
+	return s
+
+
+## 내가 거는 그 징표에 더해지는 겹 수 (신더)
 func passive_mark_plus(kind: String) -> int:
 	var n := 0
 	for e in passive:
@@ -204,18 +217,23 @@ func has_element_buff() -> bool:
 	return false
 
 
-## 종류별 합 (상한 적용). mark 조건이 있는 것은 대상에게 그 징표가 있을 때만 — 특공(special)은 그 징표의 겹을 곱한다.
-## el 조건이 있는 버프는 공격 속성이 맞을 때만. 패시브 상시 보정(stat)도 여기서 더한다
+## 종류별 합 (상한 적용). mark 조건이 있는 것은 대상에게 그 징표가 있을 때만 — 특공(special)·per_mark는 그 징표의 겹을 곱한다.
+## el 조건이 있는 버프는 공격 속성이 맞을 때만. 패시브 상시 보정(stat)도 여기서 더한다:
+##   stat {cat, v, mark?, per_mark?, own_el?, max?} — own_el이면 자기 속성 공격일 때만(부여받은 속성엔 안 붙음), max는 이 패시브의 상한
 func cat_sum(cat: String, target: TUnit = null, attack_el := "") -> float:
 	var s := 0.0
 	for b in buffs:
 		if b.cat != cat:
 			continue
+		if b.has("count") and hit_kind != "":
+			var on := String(b.get("on", "attack"))
+			if (on == "basic" and hit_kind != "basic") or (on == "skill" and hit_kind != "skill"):
+				continue # 횟수제: 기본 공격 버프는 기본 공격에만, 공격 마법 버프는 공격 마법에만
 		var v := float(b.get("v", 0.0))
 		if b.has("mark"):
 			if target == null or not target.marks.has(b.mark):
 				continue
-			if cat == "special":
+			if cat == "special" or bool(b.get("per_mark", false)):
 				v *= float(target.mark_n(String(b.mark)))
 		if b.has("el") and cat != "element" and attack_el != String(b.el):
 			continue
@@ -225,7 +243,14 @@ func cat_sum(cat: String, target: TUnit = null, attack_el := "") -> float:
 			continue
 		if e.has("mark") and (target == null or not target.marks.has(e.mark)):
 			continue
-		s += float(e.v)
+		if bool(e.get("own_el", false)) and attack_el != element:
+			continue
+		var pv := float(e.v)
+		if e.has("mark") and bool(e.get("per_mark", false)):
+			pv *= float(target.mark_n(String(e.mark)))
+		if e.has("max"):
+			pv = minf(pv, float(e.max))
+		s += pv
 	var cap := float(TData.CAP.get(cat, 99.0))
 	if cat == "dmg_taken":
 		return clampf(s, -0.7, cap)
@@ -243,6 +268,14 @@ func has_buff(cat: String) -> bool:
 	return false
 
 
+## 그 마법이 건 버프가 남아 있나 (자동 선택용)
+func has_skill_buff(sid: String) -> bool:
+	for b in buffs:
+		if String(b.get("sid", "")) == sid:
+			return true
+	return false
+
+
 func is_invincible() -> bool:
 	return has_buff("invincible")
 
@@ -250,6 +283,20 @@ func is_invincible() -> bool:
 ## 도발 중인가 (마법 도발 또는 장비 상시 도발)
 func is_taunting() -> bool:
 	return alive and (has_buff("taunt") or bool(equip_data().get("taunt", false)))
+
+
+## 횟수제 버프를 닳게 한다 (§16.8): 이번 행동 종류 kind가 버프의 on과 맞고, 이번 차례 전에 건 것만
+func consume_counts(kind: String, turn: int) -> void:
+	var keep: Array[Dictionary] = []
+	for b in buffs:
+		if b.has("count") and int(b.get("born", -1)) < turn:
+			var on := String(b.get("on", "attack"))
+			if (on == "basic" and kind == "basic") or (on == "skill" and kind == "attack") or (on == "attack" and kind in ["basic", "attack"]):
+				b.count = int(b.count) - 1
+				if int(b.count) <= 0:
+					continue
+		keep.append(b)
+	buffs = keep
 
 
 ## 이 유닛이 행동(또는 쉼)을 마침: own 시계 버프·징표 −1
@@ -367,7 +414,7 @@ func buff_icons() -> Array:
 			by[key] = {"cat": b.cat, "v": 0.0, "dur": 0, "el": b.get("el", ""), "mark": b.get("mark", "")}
 			order.append(key)
 		by[key].v = float(by[key].v) + float(b.get("v", 0.0))
-		by[key].dur = maxi(int(by[key].dur), int(b.dur))
+		by[key].dur = maxi(int(by[key].dur), int(b.count) if b.has("count") else int(b.dur)) # 횟수제는 남은 횟수
 	var out: Array = []
 	for k in order:
 		out.append(by[k])

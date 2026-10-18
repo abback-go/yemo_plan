@@ -25,9 +25,11 @@ const WHEEL_R := 64.0
 const SLOT_R := 19.0
 const QUEUE_N := 8
 const SHORT := {"eska": "에", "ignis": "이", "ember": "엠", "straw_golem": "골", "swamp_toad": "두", "ash_knight": "기"}
-const CAT_GLYPH := {"atk": "공", "crit_dmg": "크", "crit_rate": "확", "special": "특", "final": "종", "dmg_taken": "막", "element": "화", "def_down": "방", "atk_down": "약", "invincible": "무"}
+const CAT_GLYPH := {"atk": "공", "crit_dmg": "크", "crit_rate": "확", "special": "특", "final": "종", "dmg_taken": "막", "element": "화", "def_down": "방", "atk_down": "약", "invincible": "무",
+	"taunt": "도", "guts": "근", "crit_taken": "표", "final_taken": "틈", "hit_stack": "쌓"}
 const CAT_COL := {"atk": Color("#ff7a5a"), "crit_dmg": Color("#ffe08a"), "crit_rate": Color("#ffd27a"), "special": Color("#ff9a3a"), "final": Color("#c9a0ff"),
-	"dmg_taken": Color("#8ad0ff"), "element": Color("#ff6a3d"), "def_down": Color("#b0a8b8"), "atk_down": Color("#9a8aa6"), "invincible": Color("#ffffff")}
+	"dmg_taken": Color("#8ad0ff"), "element": Color("#ff6a3d"), "def_down": Color("#b0a8b8"), "atk_down": Color("#9a8aa6"), "invincible": Color("#ffffff"),
+	"taunt": Color("#ff9a7a"), "guts": Color("#7ddc8a"), "crit_taken": Color("#ffd27a"), "final_taken": Color("#b9a2ff"), "hit_stack": Color("#8fd4ff")}
 
 var stage: Node
 var battle: TBattle
@@ -518,7 +520,7 @@ func _draw_heads() -> void:
 				break
 			var cat := String(ic.cat)
 			var c2: Color = CAT_COL.get(cat, LAV)
-			var bad := cat in ["def_down", "atk_down"]
+			var bad := cat in ["def_down", "atk_down", "crit_taken", "final_taken"]
 			draw_rect(Rect2(ix, by, 8, 8), Color(INK, 0.85))
 			draw_rect(Rect2(ix, by, 8, 8), Color(c2, 0.9), false, 1.0)
 			if bad:

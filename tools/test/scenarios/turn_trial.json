@@ -1,0 +1,17 @@
+{"scene": "res://proto/turn/turn_proto.tscn", "seed": 20261018, "steps": [
+ [10, "eval", "set_battle(\"trial_01\")"],
+ [12, "eval", "set_party([\"nerei\", \"eska\", \"harpe\"])"],
+ [20, "eval", "set_auto(true)"],
+ [24, "touch", 0, 516, 316], [25, "untouch", 0, 516, 316],
+ [120, "shot", "t00_wave1"],
+ [1800, "shot", "t01"], [1800, "eval", "status()"],
+ [3600, "shot", "t02"], [3600, "eval", "status()"],
+ [5400, "shot", "t03"], [5400, "eval", "status()"],
+ [7200, "shot", "t04"], [7200, "eval", "status()"],
+ [9000, "shot", "t05"], [9000, "eval", "status()"],
+ [10800, "shot", "t06"], [10800, "eval", "status()"],
+ [12600, "shot", "t07"], [12600, "eval", "status()"],
+ [14400, "shot", "t08"], [14400, "eval", "status()"],
+ [14400, "eval", "str(stats)"],
+ [14410, "quit"]
+]}

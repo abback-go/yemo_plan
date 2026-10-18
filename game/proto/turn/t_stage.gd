@@ -304,7 +304,7 @@ func _show_events(ev: Array, targets: Array, timing: Dictionary, kind: String) -
 			if shown.has(j):
 				continue
 			var e: Dictionary = ev[j]
-			if ta != null and e.get("tgt") == ta.unit and e.t in ["hit", "mark", "debuff", "invincible", "enemy_gauge", "gauge_zero", "extend_mark", "resist", "stun", "immune", "stun_resist", "burst"]:
+			if ta != null and e.get("tgt") == ta.unit and e.t in ["hit", "mark", "debuff", "invincible", "enemy_gauge", "gauge_zero", "extend_mark", "resist", "stun", "immune", "stun_resist", "burst", "charge_down"]:
 				if e.t == "hit" and int(e.get("sub", 0)) > 0:
 					nth += 1
 					await _wait(sub)
@@ -437,6 +437,19 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			hud.number(ta.head() + Vector2(0, -4), "버프 지속 +%d" % int(e.v), "buff")
 		"extend_mark":
 			hud.number(ta.center() + Vector2(0, 6), "%s +%d" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.v)], "mark")
+		# 단계 B
+		"chain":
+			hud.number(ta.head() + Vector2(0, -14), "연쇄 %d단계" % int(e.stage), "crit")
+		"charge_down":
+			if int(e.v) > 0:
+				hud.number(ta.head() + Vector2(0, -4), "차지 −%d" % int(e.v), "debuff")
+		"hp_cost":
+			if int(e.v) > 0:
+				hud.number(ta.center() + Vector2(0, -2), "−" + TData.fmt(int(e.v)), "hurt")
+		"stack":
+			hud.number(ta.head() + Vector2(0, 2), "공격력 +%d%% (%d겹)" % [int(round(float(e.v) * 100.0)), int(e.n)], "buff")
+		"hit_stack":
+			hud.number(ta.head() + Vector2(0, 2), "맞으며 쌓기", "buff")
 
 
 func _finish(oc: String, token: int) -> void:

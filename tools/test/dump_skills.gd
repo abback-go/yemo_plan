@@ -27,8 +27,8 @@ func _process(_d: float) -> bool:
 		for sid in w.skills:
 			n[TData.SKILLS[sid].kind] = int(n[TData.SKILLS[sid].kind]) + 1
 		print("### %s — %s (%s) · 공격 %d · 보조 %d · 디버프 %d\n" % [w.name, w.title, TData.ELEMENT_NAME.get(w.element, w.element), n.attack, n.support, n.debuff])
-		print("| 마법 | 비용 | 종류 | 대상 | 배율 | 효과 | 참고 구조 |")
-		print("|---|---|---|---|---|---|---|")
+		print("| 마법 | 비용 | 종류 | 대상 | 배율 | 턴당 | 효과 | 참고 구조 |")
+		print("|---|---|---|---|---|---|---|---|")
 		var ids: Array = (w.skills as Array).duplicate()
 		if String(w.get("ultimate", "")) != "":
 			ids.append(String(w.ultimate))
@@ -39,7 +39,7 @@ func _process(_d: float) -> bool:
 			var mult := ("%.1f" % float(s.mult)) if s.has("mult") else "—"
 			var star := "**" if (w.default as Array).has(sid) else ""
 			var nm := ("대마법 · " + String(s.name)) if bool(s.get("ultimate", false)) else String(s.name)
-			print("| %s%s%s | %d | %s | %s | %s | %s | %s |" % [star, nm, star, int(s.cost), kind, tgt, mult, s.desc, s.get("ref", "")])
+			print("| %s%s%s | %d | %s | %s | %s | %s | %s | %s |" % [star, nm, star, int(s.cost), kind, tgt, mult, _per_turn(s), s.desc, s.get("ref", "")])
 		if w.has("passive"):
 			print("\n패시브 **%s** — %s" % [w.passive.name, w.passive.desc])
 		print("")
@@ -51,3 +51,17 @@ func _process(_d: float) -> bool:
 			continue
 		print("| %s | %s | %s | %s |" % [TData.EQUIPS[eid].name, TData.equip_at(eid, 1).desc, TData.equip_at(eid, 2).desc, TData.equip_at(eid, 3).desc])
 	return true
+
+
+## 턴당 배율 (combat_proto.md §15.3): 이 마법을 끊임없이 쓰면 쓰는 차례 비율 f = 2/(비용+1), 턴당 = f × 배율 + (1 − f) × 1.0 (기본 공격).
+## 크리 확정은 배율 × 1.4 (R2). 공격 마법만, 광역은 적 1체 기준. 터뜨리기·환급·조건 효과는 넣지 않는다
+static func _per_turn(s: Dictionary) -> String:
+	if String(s.get("kind", "")) != "attack" or not s.has("mult"):
+		return "—"
+	var m := float(s.mult)
+	for e in s.get("effects", []):
+		if String(e.t) == "sure_crit":
+			m *= 1.4
+	var c := float(int(s.cost))
+	var f := minf(2.0 / (c + 1.0), 1.0)
+	return "%.2f" % (f * m + (1.0 - f) * 1.0)
