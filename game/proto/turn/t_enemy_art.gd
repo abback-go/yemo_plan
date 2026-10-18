@@ -423,7 +423,7 @@ func _paint_king() -> void:
 	pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(0.93, 0.93)) # 왕관 끝이 보스 카드(y 82) 아래에 오게 (화면 키 약 170)
 	var fl := flare
 	var atk := 1.0 if pose == "attack" else 0.0
-	var beat := 0.5 + 0.5 * sin(_t * TAU / 1.2) # 가슴 화로 맥박 1.2초
+	var beat := 0.5 + 0.5 * sin(_t * TAU / 0.8) # 가슴 화로 맥박 0.8초 (review_D C2)
 	var core_k := 2.0 if phase >= 1 else 1.0
 	var ember := Color(EMBER).lerp(EMBER_PALE, 0.5 * fl)
 	var eye := Color("#ff2a2a") if phase >= 1 else EMBER
@@ -458,12 +458,16 @@ func _paint_king() -> void:
 	var fauld := PackedVector2Array([Vector2(-12, -30), Vector2(12, -30), Vector2(14, -20), Vector2(5, -22), Vector2(0, -19), Vector2(-5, -22), Vector2(-14, -20)])
 	pd.outlined(fauld, plate_dk, OUT, 0.8)
 	pd.draw_line(Vector2(-13, -21), Vector2(13, -21), gold, 1.0)
-	# 몸통 (넓은 가슴판, 왼쪽 빛 · 오른쪽 그늘)
-	var torso := PackedVector2Array([Vector2(-13, -52), Vector2(13, -52), Vector2(14.5, -40), Vector2(10, -28), Vector2(-10, -28), Vector2(-14.5, -40)])
+	# 몸통: 위가 넓은 사다리꼴 가슴판 (허리 0.65배) — 왼쪽 빛 · 오른쪽 그늘 · 가운데 능선 (review_D C2: 예전엔 직사각 블록)
+	var torso := PackedVector2Array([Vector2(-15, -52), Vector2(15, -52), Vector2(13.5, -41), Vector2(9.5, -28), Vector2(-9.5, -28), Vector2(-13.5, -41)])
 	pd.outlined(torso, plate, OUT, 1.0)
-	pd.draw_colored_polygon(PackedVector2Array([Vector2(-13, -52), Vector2(-3, -52), Vector2(-4, -29), Vector2(-10, -28), Vector2(-14.5, -40)]), plate_hi)
-	pd.draw_colored_polygon(PackedVector2Array([Vector2(7, -52), Vector2(13, -52), Vector2(14.5, -40), Vector2(10, -28), Vector2(6, -29)]), plate_dk)
-	pd.draw_line(Vector2(-12, -51), Vector2(12, -51), gold, 1.2)
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(-15, -52), Vector2(-3, -52), Vector2(-3.5, -29), Vector2(-9.5, -28), Vector2(-13.5, -41)]), plate_hi)
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(7, -52), Vector2(15, -52), Vector2(13.5, -41), Vector2(9.5, -28), Vector2(5.5, -29)]), plate_dk)
+	pd.draw_line(Vector2(-0.5, -51), Vector2(-0.8, -30), Color(plate_hi, 0.7), 0.8)
+	pd.draw_line(Vector2(-14, -51), Vector2(14, -51), gold, 1.2)
+	# 몸 오른쪽(등 쪽) 붉은 테 조명 — 보스 하늘의 붉은 빛
+	pd.draw_line(Vector2(15.4, -51), Vector2(13.9, -41), Color("#ff5a4a", 0.55), 1.0)
+	pd.draw_line(Vector2(13.9, -41), Vector2(10.0, -28.5), Color("#ff5a4a", 0.45), 1.0)
 	# 가슴 화로 (금 테 안의 불빛, 맥박) — 2줄째부터 2배
 	var hc := Vector2(-1, -41)
 	var glow_a := (0.35 + 0.35 * beat) * core_k
@@ -471,26 +475,34 @@ func _paint_king() -> void:
 	pd.outlined(PackedVector2Array([hc + Vector2(0, -6), hc + Vector2(5, 0), hc + Vector2(0, 6), hc + Vector2(-5, 0)]), gold, OUT, 0.7)
 	pd.draw_colored_polygon(PackedVector2Array([hc + Vector2(0, -4), hc + Vector2(3.4, 0), hc + Vector2(0, 4), hc + Vector2(-3.4, 0)]), Color(ember).lerp(EMBER_PALE, 0.4 * beat))
 	pd.draw_circle(hc, 1.3 + 0.6 * beat, EMBER_PALE)
-	# 균열 (화로에서 퍼짐)
+	# 균열 (화로에서 퍼짐) — 맥박에 맞춰 빛 번짐이 같이 숨쉼
 	var ca := minf(0.5 + 0.4 * beat * core_k + fl, 1.0)
 	for seg: Array in [[hc + Vector2(-3, -3), Vector2(-8, -48), Vector2(-11, -46)], [hc + Vector2(3, 2), Vector2(7, -34), Vector2(9, -30)], [hc + Vector2(-2, 4), Vector2(-6, -31)]]:
 		for i in range(1, seg.size()):
+			pd.draw_line(seg[i - 1], seg[i], Color(EMBER, 0.35 * ca * beat), 2.6)
 			pd.draw_line(seg[i - 1], seg[i], Color(ember, ca), 1.1)
-	# 어깨 (큰 판 두 겹, 금테 · 뿔)
+	# 어깨: 겹친 반원 판 셋 (위 큰 판 → 아래 작은 판), 금테 · 뿔 (review_D C2)
 	for sgn: float in [1.0, -1.0]:
-		var sx := sgn * 13.0
+		var sx := sgn * 14.0
 		var col := plate_hi if sgn < 0 else plate
-		pd.outlined(PackedVector2Array([Vector2(sx - 6 * sgn, -55), Vector2(sx + 8 * sgn, -51), Vector2(sx + 6 * sgn, -42), Vector2(sx - 5 * sgn, -45)]), col, OUT, 0.9)
-		pd.outlined(PackedVector2Array([Vector2(sx - 3 * sgn, -48), Vector2(sx + 8 * sgn, -45), Vector2(sx + 6 * sgn, -39), Vector2(sx - 3 * sgn, -41)]), plate_dk, OUT, 0.7)
-		pd.draw_line(Vector2(sx - 5 * sgn, -54.5), Vector2(sx + 7.5 * sgn, -50.5), gold, 1.0)
-		pd.draw_line(Vector2(sx + 6 * sgn, -53), Vector2(sx + 10 * sgn, -59), bk, 2.0)
+		for q in 3:
+			var c := Vector2(sx + sgn * 1.5 * float(q), -51.0 + 4.2 * float(q))
+			var rr := 8.0 - 1.6 * float(q)
+			var pts := PackedVector2Array()
+			for k in 9:
+				var an := PI + PI * float(k) / 8.0
+				pts.append(c + Vector2(cos(an) * rr, sin(an) * rr * 0.75))
+			pd.outlined(pts, col if q == 0 else (plate if q == 1 else plate_dk), OUT, 0.8)
+			pd.draw_line(pts[0] + Vector2(0, -0.4), pts[8] + Vector2(0, -0.4), gold if q == 0 else Color(gold, 0.6), 0.9)
+		pd.draw_line(Vector2(sx + 5 * sgn, -56), Vector2(sx + 10 * sgn, -62), bk, 2.0)
 	# 투구
 	var h := Vector2(-1, -57)
 	var helm := PackedVector2Array([h + Vector2(-6.5, -5), h + Vector2(6.5, -5), h + Vector2(7, 5), h + Vector2(3, 8), h + Vector2(-5, 8), h + Vector2(-7.5, 2)])
 	pd.outlined(helm, plate, OUT, 0.9)
 	pd.draw_colored_polygon(PackedVector2Array([h + Vector2(-6.5, -5), h + Vector2(-1.5, -5), h + Vector2(-1.5, 7.6), h + Vector2(-5, 8), h + Vector2(-7.5, 2)]), plate_hi)
 	pd.glow(h + Vector2(-3, 0), 5.0 + 3.0 * float(phase), Color(eye, 0.5), 0.0)
-	pd.draw_line(h + Vector2(-7.4, 0.0), h + Vector2(-0.5, 0.4), Color(eye, 1.0), 1.5) # 눈구멍 빛
+	pd.draw_line(h + Vector2(-7.4, 0.0), h + Vector2(-0.5, 0.4), Color(eye, 1.0), 1.5) # T자 눈구멍 빛 (가로)
+	pd.draw_line(h + Vector2(-3.6, 0.6), h + Vector2(-3.4, 6.4), Color(eye, 0.9), 1.3) # (세로)
 	pd.draw_line(h + Vector2(-6.8, -0.1), h + Vector2(-2.0, 0.2), EMBER_PALE if phase == 0 else Color("#ffb0a0"), 0.5)
 	# 숯 왕관 (뾰족 5, 틈에서 주황 빛)
 	var cb := h + Vector2(0, -5)
@@ -502,6 +514,9 @@ func _paint_king() -> void:
 		var tip := cb + Vector2(x, -2.0 - float(sp[1]))
 		pd.outlined(PackedVector2Array([cb + Vector2(x - 1.4, -1.8), tip, cb + Vector2(x + 1.4, -1.8)]), bk, OUT, 0.6)
 		pd.draw_line(tip + Vector2(0, 1.6), tip, Color(ember, 0.6 + 0.4 * beat), 0.7)
+		var fk := 0.5 + 0.5 * sin(_t * 9.0 + x * 1.3) # 왕관 끝마다 불씨 점 (깜빡)
+		pd.glow(tip, 2.6, Color(EMBER, 0.5 * fk), 0.0)
+		pd.draw_rect(Rect2(tip + Vector2(-0.5, -1.4), Vector2(1, 1)), Color(EMBER_PALE, 0.6 + 0.4 * fk))
 	for x: float in [-4.5, -1.5, 1.5, 4.5]: # 틈 빛
 		pd.draw_rect(Rect2(cb + Vector2(x - 0.4, -2.6), Vector2(0.8, 0.8)), Color(EMBER_PALE, 0.7 + 0.3 * beat))
 	# 대검 (두 손, 1.4배): 서 있을 땐 앞에 꽂아 두 손을 자루 끝에 · 공격 땐 머리 위로
@@ -549,6 +564,8 @@ func _ember_ring(back: bool) -> void:
 
 ## 시련의 거상: 금빛 룬을 새긴 돌 거인 (외눈 · 큰 돌 주먹). 2줄째 = 틈에서 주황 빛 · 3줄째 = 어깨 돌판이 떨어지고 녹은 심장 + 떠도는 돌
 func _paint_colossus() -> void:
+	# 0.92배: 줄 3의 떠도는 돌·공격 때 든 주먹이 보스 카드(y 82)에 닿지 않게 (review_D C2)
+	pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(0.92, 0.92))
 	var atk := 1.0 if pose == "attack" else 0.0
 	var beat := 0.5 + 0.5 * sin(_t * 2.2)
 	var st := Color("#666270")
@@ -647,4 +664,6 @@ func _float_rocks(back: bool) -> void:
 		var p := Vector2(cos(an) * 26.0, -34.0 + sin(an) * 5.0 + sin(_t * 2.0 + float(i)) * 3.0)
 		var r := 2.4 + 1.2 * EVfx.hash01(i * 3)
 		pd.outlined(PackedVector2Array([p + Vector2(-r, -r * 0.6), p + Vector2(r * 0.4, -r), p + Vector2(r, r * 0.2), p + Vector2(-r * 0.2, r)]), Color("#6a6672"), OUT, 0.6)
-		pd.draw_rect(Rect2(p + Vector2(-0.5, -0.5), Vector2(1, 1)), Color(EMBER_PALE, 0.8))
+		pd.draw_rect(Rect2(p + Vector2(-r * 0.6, -r * 0.5), Vector2(1.2, 0.8)), Color("#5f7a4a", 0.9)) # 이끼 점 (고대 돌)
+		pd.glow(p, 3.0, Color("#ffd27a", 0.3 + 0.2 * sin(_t * 4.0 + float(i))), 0.0) # 룬 빛
+		pd.draw_rect(Rect2(p + Vector2(-0.5, -0.5), Vector2(1, 1)), Color("#ffe08a", 0.9))

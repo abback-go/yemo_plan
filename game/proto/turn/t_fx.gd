@@ -1735,7 +1735,9 @@ static func ultimate(sid: String, caster: TActor, targets: Array, stage := 1, fo
 	sg.stage = stage
 	sg.actor = caster
 	add(sg, caster.feet(), true)
-	Sfx.play(&"tn_ult", -2.0)
+	# 연쇄 단계마다 시전 울림을 2·3반음 낮춤 (review_D B3) + 높은 종은 22050으로 따로 (B1)
+	Sfx.play_pitch(&"tn_ult", [1.0, 1.0, 0.89, 0.84][clampi(stage, 1, 3)], -2.0)
+	Sfx.play(&"tn_ult_bell", -2.0)
 	if stage >= 2:
 		Sfx.play(&"tn_bless", -8.0 + 2.0 * float(stage))
 	var ttl := String(TData.skill(sid).get("name", ""))
@@ -1821,9 +1823,21 @@ static func ultimate(sid: String, caster: TActor, targets: Array, stage := 1, fo
 			for i in targets.size():
 				hits.append(fx_at + h0 + 0.05 * float(i))
 	if stage >= 3:
+		# 3단계: 효과 시작에 금 불티 비 40 + 첫 맞음에 짧은 금 섬광(0.2 이하 — B5)과 흔들림 1.4배
+		after(fx_at, func() -> void: gold_rain(40))
 		var hf: float = hits[0] if not hits.is_empty() else 1.2
-		after(hf, func() -> void: Fx.flash(Color(GOLD, 0.35), 0.14))
+		after(hf, func() -> void:
+			Fx.flash(Color(GOLD, 0.2), 0.08)
+			Fx.shake(1.4, 0.4))
 	return {"hits": hits, "total": ULT_TOTAL, "sub": sub}
+
+
+## 연쇄 3단계: 화면 위에서 금 불티가 비처럼 내림 (n개)
+static func gold_rain(n: int) -> void:
+	var layer := PParticles.get_layer(true)
+	for i in n:
+		var p := Vector2(randf_range(10, 630), randf_range(-20, 60))
+		layer.spawn(p, Vector2(randf_range(-20, 20), randf_range(120, 260)), Vector2(0, 80), randf_range(0.7, 1.1), randf_range(1.2, 2.4), GOLD, Color(GOLD, 0.0), 0, 0.3)
 
 
 ## 대마법 컷인 띠: 화면 위 층(HUD 위)에 비스듬히(−12°) 가로지르는 높이 90 띠. 그 마녀를 4배로 띠 안에 잘라 보이고 대마법 이름을 30px로.
@@ -1957,7 +1971,7 @@ class UltDim extends PVfx.Base:
 	func _paint() -> void:
 		var a := smoothstep(0.0, TFx.ULT_DIM, t) * (1.0 - smoothstep(TFx.ULT_TOTAL - 0.35, TFx.ULT_TOTAL, t))
 		pd.draw_rect(Rect2(-80, -80, 800, 520), Color(Color(INK).lerp(_c.dark, 0.35), (0.78 if mono else 0.64) * a))
-		var edge: Color = Color(GOLD, 0.0) if stage < 2 else Color(GOLD, 0.16 * a * float(stage - 1))
+		var edge: Color = Color(GOLD, 0.0) if stage < 2 else Color(GOLD, (0.16 if stage == 2 else 0.35) * a) # 3단계는 화면 가장자리 금빛 고리 진하게 (B3)
 		if mono:
 			pd.rect_grad(Rect2(-80, -80, 800, 140), Color(WHITE, 0.10 * a), Color(WHITE, 0.0))
 		else:
@@ -2022,6 +2036,7 @@ class UltSigil extends PVfx.Base:
 class UltCutin extends Node2D:
 	const LIFE := 0.45
 	const ANG := -12.0
+	const ANG2 := 8.0 ## 연쇄 3단계의 둘째 띠
 	const C := Vector2(320, 160) ## 띠 가운데
 	const BAND := Vector2(940, 90)
 	var unit: TUnit
@@ -2032,6 +2047,8 @@ class UltCutin extends Node2D:
 	var t := 0.0
 	var _rot: Node2D
 	var _band: CutBand
+	var _rot2: Node2D
+	var _band2: CutBand
 	var _vp: SubViewport
 	var _fig: TActor
 	var _lab: CutLabel
@@ -2049,7 +2066,7 @@ class UltCutin extends Node2D:
 		_fig.setup(unit, Vector2(320, 160))
 		_fig.scale = Vector2(4, 4)
 		_fig.z_index = 0
-		_fig.pose("cast")
+		_fig.pose("cast_big")
 		_rot = Node2D.new()
 		_rot.rotation = deg_to_rad(ANG)
 		_rot.position = C
@@ -2058,6 +2075,16 @@ class UltCutin extends Node2D:
 		_band.cut = self
 		_band.tex = _vp.get_texture()
 		_rot.add_child(_band)
+		if stage >= 3: # 3단계: 반대로 기운 둘째 띠 (+8°, 0.05초 늦게) — 첫 띠 뒤에
+			_rot2 = Node2D.new()
+			_rot2.rotation = deg_to_rad(ANG2)
+			_rot2.position = C + Vector2(0, 6)
+			add_child(_rot2)
+			move_child(_rot2, _rot.get_index())
+			_band2 = CutBand.new()
+			_band2.cut = self
+			_band2.second = true
+			_rot2.add_child(_band2)
 		_lab = CutLabel.new()
 		_lab.cut = self
 		add_child(_lab)
@@ -2072,7 +2099,13 @@ class UltCutin extends Node2D:
 	func _place() -> void:
 		var o := off()
 		_band.position = Vector2(o, 0)
-		_fig.home = Vector2(340.0 - 40.0 * t / LIFE, 160.0) # 띠 안에서 천천히 밀림 (모자 끝~가슴이 띠 안)
+		if _band2 != null:
+			var a := clampf((t - 0.05) / 0.1, 0.0, 1.0)
+			var b := clampf((t - (LIFE - 0.1)) / 0.1, 0.0, 1.0)
+			_band2.position = Vector2(lerpf(820.0, 0.0, 1.0 - pow(1.0 - a, 3.0)) - 820.0 * b * b, 0) # 반대쪽에서 들어옴
+			_band2.queue_redraw()
+		# 띠 안에서 천천히 밀림 — 눈이 띠 가운데에 오게 12px 내림 (review_D B6: 모자 챙 그늘에 얼굴이 묻혔다)
+		_fig.home = Vector2(340.0 - 40.0 * t / LIFE, 172.0)
 		_lab.position = Vector2(o * 1.15, 0)
 
 	func _process(delta: float) -> void:
@@ -2088,29 +2121,51 @@ class UltCutin extends Node2D:
 class CutBand extends PDraw.Canvas:
 	var cut: UltCutin
 	var tex: Texture2D
+	var second := false ## 연쇄 3단계의 둘째 띠 (금빛 바탕 · 그림 없음)
 
 	func _paint() -> void:
 		var c: Dictionary = cut._c
 		var t := cut.t
 		var H := 45.0
+		if second:
+			pd.rect_grad(Rect2(-470, -30, 940, 30), Color(c.dark, 0.0), Color(GOLD, 0.55))
+			pd.rect_grad(Rect2(-470, 0, 940, 30), Color(GOLD, 0.55), Color(c.dark, 0.0))
+			for i in 12:
+				var y := -24.0 + 48.0 * EVfx.hash01(i * 11 + 5)
+				var x := fposmod(EVfx.hash01(i * 29) * 940.0 + t * 1800.0, 940.0) - 470.0
+				pd.line2(Vector2(x, y), Vector2(x + 90.0, y), Color(GOLD, 0.0), Color(WHITE, 0.7), 0.4, 1.4)
+			return
 		pd.rect_grad(Rect2(-470, -H, 940, H), Color(c.dark, 0.97), Color(c.deep, 0.97))
 		pd.rect_grad(Rect2(-470, 0, 940, H), Color(c.deep, 0.97), Color(c.dark, 0.97))
 		pd.glow(Vector2(-150, -8), 90.0, Color(c.flame, 0.45), 0.0)
 		TFx.emblem(pd, cut.emblem_kind, Vector2(170, 0), 64.0, Color(c.hot, 0.16), t * 0.8)
+		# 머리 뒤 역광 — 모자 챙 아래 얼굴이 뜨게 (B6). 마녀 그림은 SubViewport에서 x ≈ 300~340
+		pd.glow(Vector2(-150 + 6.0, -6), 50.0, Color(c.hot, 0.35), 0.0)
 		for i in 16: # 속도선 (왼쪽으로 흐름)
 			var y := -40.0 + 80.0 * EVfx.hash01(i * 17 + 3)
 			var len := 60.0 + 110.0 * EVfx.hash01(i * 5 + 1)
 			var x := fposmod(EVfx.hash01(i * 31) * 940.0 - t * 1600.0, 940.0) - 470.0
 			pd.line2(Vector2(x, y), Vector2(x + len, y), Color(c.core, 0.5), Color(c.hot, 0.0), 1.4, 0.4)
+		if cut.stage >= 2: # 연쇄 2단계부터 금빛 속도선 8줄 더 (B3)
+			for i in 8:
+				var y := -38.0 + 76.0 * EVfx.hash01(i * 23 + 7)
+				var len := 90.0 + 120.0 * EVfx.hash01(i * 13 + 2)
+				var x := fposmod(EVfx.hash01(i * 41 + 9) * 940.0 - t * 2200.0, 940.0) - 470.0
+				pd.line2(Vector2(x, y), Vector2(x + len, y), Color(WHITE, 0.85), Color(GOLD, 0.0), 2.0, 0.6)
 
 	func _draw() -> void:
 		super()
+		if second:
+			draw_rect(Rect2(-470, -31, 940, 2), GOLD)
+			draw_rect(Rect2(-470, 29, 940, 2), GOLD)
+			return
 		if tex != null:
 			draw_texture_rect(tex, Rect2(-470, -45, 940, 90), false)
 		var c: Dictionary = cut._c
 		var edge: Color = GOLD if cut.stage >= 2 else c.hot
-		draw_rect(Rect2(-470, -45, 940, 2.5), edge)
-		draw_rect(Rect2(-470, 42.5, 940, 2.5), edge)
+		var ew := 3.5 if cut.stage >= 2 else 2.5 # 2단계부터 금테 굵게
+		draw_rect(Rect2(-470, -45, 940, ew), edge)
+		draw_rect(Rect2(-470, 45.0 - ew, 940, ew), edge)
 		draw_rect(Rect2(-470, -41.5, 940, 1.0), Color(WHITE, 0.5))
 		draw_rect(Rect2(-470, 40.5, 940, 1.0), Color(WHITE, 0.5))
 
@@ -2124,8 +2179,18 @@ class CutLabel extends Node2D:
 		var y := 168.0 # 띠 가운데 줄(−12°)을 따라 글을 놓는다
 		T.text(self, Vector2(x, y - 30), cut.unit.name if cut.unit != null else "", 12, Color(T.TEXT, 0.95))
 		T.text(self, Vector2(x, y), cut.title, 30, WHITE)
-		if cut.stage >= 2:
-			T.text(self, Vector2(x + T.width(cut.title, 30) + 10.0, y - 2), "연쇄 %d단계" % cut.stage, 15, T.GOLD)
+		if cut.stage == 2:
+			T.text(self, Vector2(x + T.width(cut.title, 30) + 10.0, y - 2), "연쇄 2단계", 15, T.GOLD)
+		elif cut.stage >= 3: # 3단계: 띠 가운데 위 24px 금 도장 (0.4초 동안 1.3 → 1.0배)
+			var k := clampf(cut.t / 0.4, 0.0, 1.0)
+			var sc := lerpf(1.3, 1.0, 1.0 - pow(1.0 - k, 3.0))
+			var at := Vector2(330, 118)
+			draw_set_transform(at, deg_to_rad(-12.0), Vector2(sc, sc))
+			var w := T.width("연쇄 3단계", 24) + 16.0
+			draw_rect(Rect2(-w * 0.5, -24, w, 30), Color(T.INK, 0.85))
+			draw_rect(Rect2(-w * 0.5, -24, w, 30), T.GOLD, false, 2.0)
+			T.text(self, Vector2(0, 0), "연쇄 3단계", 24, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+			draw_set_transform(Vector2.ZERO)
 
 
 # ── 12개 효과 ─────────────────────────────────────────────
@@ -2153,7 +2218,7 @@ class SunCollapse extends UltBase:
 		if t >= HIT and not _hit:
 			_hit = true
 			Sfx.play(&"tn_ult_hit", 0.0)
-			Fx.flash(Color(_c.gold, 0.45), 0.1)
+			Fx.flash(Color(_c.gold, 0.18), 0.08) # 대마법 안의 화면 섬광은 0.2 이하·0.1초 이하 (review_D B5) — 밝기는 표적 둘레 빛이 맡음
 			Fx.hitstop(0.16)
 			Fx.shake(1.2, 0.45)
 			var p := TFx.Pillar.new()
@@ -2203,29 +2268,46 @@ class SunCollapse extends UltBase:
 		pd.draw_set_transform(Vector2.ZERO)
 
 
-## 엠버 · 불새의 축복 (전체 버프 + 다른 아군 크레딧): 불새가 파티 사이를 휩쓸고 지나가며 깃불을 떨군다 → 아군마다 금빛 기운, 다른 아군에 크레딧 마름모
+## 엠버 · 불새의 축복 (전체 버프 + 다른 아군 크레딧): 파티 뒤에서 날개폭 220px 불새가 솟아 날개를 펴 파티를 감싸고 →
+## 깃털 불티가 마녀마다 떨어지고(금빛 기운) → 다른 아군의 크레딧 칸으로 불씨가 날아가 박힘 (review_D B4: 예전엔 공격하러 날아가는 모양이었다)
 class Phoenix extends UltBase:
 	const HIT0 := 0.5
-	const P0 := Vector2(-60, 110)
-	const P1 := Vector2(70, 330)
-	const P2 := Vector2(250, 320)
-	const P3 := Vector2(420, 40)
+	const RISE := 0.3 ## 솟아 날개를 펴는 시간
+	const FLY := 0.32 ## 불씨가 크레딧 칸까지 날아가는 시간
 	var _given := false
+	var _home := Vector2(170, 132) ## 날개 가운데 (파티 머리 위 빈 하늘)
+	var _sparks: Array = [] ## [시작(월드), 끝(월드)]
 
 	func _ready() -> void:
-		life = 1.15
+		life = 1.35
 		z_index = 9
+		Sfx.play(&"phoenix_cry", -6.0) # 마녀별 소리 한 겹 (review_D B2)
+		var sx := 0.0
+		var n := 0
+		for a in allies:
+			if _alive(a):
+				sx += (a as TActor).center().x
+				n += 1
+		if n > 0:
+			_home.x = sx / float(n)
+		var inv := get_viewport().get_canvas_transform().affine_inverse()
+		for a in allies:
+			if not _alive(a) or a == caster:
+				continue
+			var ta := a as TActor
+			var slot := int(ta.unit.slot)
+			var cell := Vector2(THud.PANEL_X0 + THud.PANEL_STEP * float(2 - slot) + 89.0, THud.PANEL_Y + 32.0) # 패널의 크레딧 칸 가운데 (화면)
+			_sparks.append([ta.head(), inv * cell])
 
-	func _pos(f: float) -> Vector2:
-		var u := 1.0 - f
-		return P0 * u * u * u + P1 * 3.0 * u * u * f + P2 * 3.0 * u * f * f + P3 * f * f * f
+	func _center() -> Vector2:
+		var r := 1.0 - pow(1.0 - clampf(t / RISE, 0.0, 1.0), 3.0)
+		var up := smoothstep(1.0, 1.35, t)
+		return Vector2(_home.x, lerpf(320.0, _home.y, r) - 40.0 * up)
 
 	func _tick(_d: float) -> void:
-		var f := clampf(t / 0.85, 0.0, 1.0)
-		if f < 1.0:
-			var p := _pos(f)
-			for i in 2:
-				PParticles.get_layer(true).spawn(p + Vector2(randf_range(-6, 6), randf_range(-6, 6)), Vector2(randf_range(-30, 30), randf_range(10, 60)), Vector2(0, 60), 0.6, randf_range(1.2, 2.6), _c.hot, Color(_c.deep, 0.0), 0, 1.0)
+		var c := _center()
+		if t > RISE * 0.6 and t < 1.0 and randf() < 0.9: # 깃털 불티가 파티 위로 떨어짐
+			PParticles.get_layer(true).spawn(c + Vector2(randf_range(-100, 100) * s, randf_range(-6, 14)), Vector2(randf_range(-14, 14), randf_range(30, 80)), Vector2(0, 50), 0.8, randf_range(1.2, 2.6), _c.hot, Color(_c.deep, 0.0), 0, 0.6)
 		if t >= HIT0 and not _given:
 			_given = true
 			Sfx.play(&"tn_bless", -3.0)
@@ -2237,46 +2319,71 @@ class Phoenix extends UltBase:
 				au.col = _c.gold
 				au.kind = "atk"
 				TFx.add(au, (a as TActor).center(), true)
-				if a != caster:
-					var cr := CreditRise.new()
-					cr.n = 2
-					TFx.add(cr, (a as TActor).head() + Vector2(0, -4), true)
+		for sp: Array in _sparks: # 크레딧 칸에 박히는 순간
+			if sp.size() == 2 and t >= HIT0 + FLY:
+				sp.append(true)
+				TFx.add(_credit_pop(), sp[1] as Vector2, true)
+
+	func _credit_pop() -> Node2D:
+		var cr := CreditRise.new()
+		cr.n = 2
+		return cr
 
 	func _paint() -> void:
-		var f := clampf(t / 0.85, 0.0, 1.0)
-		var a := 1.0 - smoothstep(0.85, 1.15, t)
-		# 지나간 길의 빛 띠
-		var pts := PackedVector2Array()
-		for i in 14:
-			pts.append(_pos(maxf(f - 0.3 + 0.3 * float(i) / 13.0, 0.0)))
-		for i in range(1, pts.size()):
-			var q := float(i) / 13.0
-			pd.line2(pts[i - 1], pts[i], Color(_c.flame, 0.25 * q * a), Color(_c.hot, 0.6 * q * a), 2.0 * q * s, 10.0 * q * s)
-		if f >= 1.0:
-			return
-		var p := _pos(f)
-		var dir := (_pos(minf(f + 0.02, 1.0)) - p).normalized()
-		if dir == Vector2.ZERO:
-			dir = Vector2.RIGHT
-		var side := dir.orthogonal()
-		var sz := 1.4 * s
-		var flap := sin(t * 22.0)
-		pd.glow(p, 46.0 * sz, Color(_c.flame, 0.35), 0.0)
-		# 꼬리 (뒤로 길게 셋)
-		for i in 3:
-			var td := (-dir).rotated((float(i) - 1.0) * 0.28)
-			TFx.tongue(pd, p - dir * 6.0 * sz, td, 38.0 * sz, 4.0 * sz, 0.95, sin(t * 16.0 + float(i)) * 6.0, _c)
-		# 날개 둘 (위·아래로 퍼덕)
+		var c := _center()
+		var open := 1.0 - pow(1.0 - clampf((t - 0.05) / RISE, 0.0, 1.0), 2.0)
+		var a := 1.0 - smoothstep(1.0, 1.35, t)
+		var sz := s
+		var beat := sin(t * 9.0) * (1.0 - open * 0.7) # 펴진 뒤엔 천천히 숨쉼
+		pd.glow(c, 120.0 * sz * open, Color(_c.flame, 0.22 * a), 0.0)
+		pd.glow(c + Vector2(0, 50), 150.0 * sz * open, Color(_c.hot, 0.12 * a), 0.0) # 파티를 감싸는 빛
+		# 날개: 어깨 → 손목(위로 솟음) → 날개 끝(파티 양옆으로 내려옴) 활 모양 막 + 아래 가장자리에서 처진 깃 7개씩
 		for sg: float in [-1.0, 1.0]:
-			var wd := (side * sg + -dir * 0.35 + side * sg * flap * 0.5).normalized()
-			TFx.tongue(pd, p + side * sg * 3.0 * sz, wd, 34.0 * sz, 9.0 * sz, 1.0, flap * 6.0 * sg, _c)
-		# 몸·머리
-		TFx.tongue(pd, p - dir * 4.0 * sz, dir, 16.0 * sz, 6.0 * sz, 1.0, 0.0, _c)
-		var hd := p + dir * 12.0 * sz
-		pd.draw_circle(hd, 3.6 * sz, _c.hot)
-		pd.draw_circle(hd, 2.2 * sz, _c.core)
-		pd.convex(PackedVector2Array([hd + dir * 6.0 * sz, hd + side * 1.4 * sz, hd - side * 1.4 * sz]), _c.gold)
-		pd.draw_circle(hd + side * 1.0 * sz + dir * 0.8 * sz, 0.8 * sz, INK)
+			var arm := PackedVector2Array()
+			var low := PackedVector2Array()
+			for i in 9:
+				var f := float(i) / 8.0
+				var x := sg * (8.0 + 104.0 * f) * sz * open
+				var y := (-34.0 * sin(f * PI * 0.8) + 30.0 * f * f) * sz * open - 6.0 * beat * f
+				arm.append(c + Vector2(x, y))
+				low.append(c + Vector2(x, y + (20.0 - 12.0 * f) * sz * open))
+			var mem := PackedVector2Array(arm)
+			for i in range(low.size() - 1, -1, -1):
+				mem.append(low[i])
+			pd.draw_colored_polygon(mem, Color(_c.deep, 0.75 * a))
+			pd.draw_polyline(arm, Color(_c.hot, a), 2.4 * sz)
+			pd.draw_polyline(arm, Color(_c.core, 0.8 * a), 1.0)
+			for i in 7:
+				var f := (float(i) + 0.5) / 7.0
+				var base := low[int(f * 8.0)]
+				var d := Vector2(sg * (0.35 + 0.5 * f), 1.0).normalized()
+				TFx.tongue(pd, base + Vector2(0, -4) * sz, d, (14.0 + 16.0 * f) * sz * open, (4.6 - 1.2 * f) * sz, a, sin(t * 14.0 + float(i)) * 2.0 * sg, _c)
+		# 꼬리 (아래로 셋)
+		for i in 3:
+			var td := Vector2.DOWN.rotated((float(i) - 1.0) * 0.32)
+			TFx.tongue(pd, c + Vector2(0, 8) * sz, td, 46.0 * sz, 5.0 * sz, a, sin(t * 12.0 + float(i)) * 5.0, _c)
+		# 몸·머리 (몸통 1.3배)
+		TFx.tongue(pd, c + Vector2(0, 12) * sz, Vector2.UP, 38.0 * sz, 12.0 * sz, a, 0.0, _c)
+		var hd := c + Vector2(0, -28) * sz
+		pd.glow(hd, 12.0 * sz, Color(_c.hot, 0.5 * a), 0.0)
+		pd.draw_circle(hd, 6.0 * sz, Color(_c.hot, a))
+		pd.draw_circle(hd, 3.8 * sz, Color(_c.core, a))
+		pd.convex(PackedVector2Array([hd + Vector2(0, -9) * sz, hd + Vector2(2.2, -3) * sz, hd + Vector2(-2.2, -3) * sz]), Color(_c.gold, a)) # 볏
+		for sg: float in [-1.0, 1.0]:
+			pd.draw_circle(hd + Vector2(sg * 1.8, 0.4) * sz, 0.9 * sz, Color(INK, a))
+		# 크레딧 칸으로 날아가는 불씨
+		for sp: Array in _sparks:
+			var f := clampf((t - HIT0) / FLY, 0.0, 1.0)
+			if f <= 0.0 or f >= 1.0:
+				continue
+			var p0: Vector2 = sp[0]
+			var p1: Vector2 = sp[1]
+			var mid := (p0 + p1) * 0.5 + Vector2(0, -50)
+			var q := p0.lerp(mid, f).lerp(mid.lerp(p1, f), f)
+			var q0 := p0.lerp(mid, maxf(f - 0.12, 0.0)).lerp(mid.lerp(p1, maxf(f - 0.12, 0.0)), maxf(f - 0.12, 0.0))
+			pd.line2(q0, q, Color(_c.flame, 0.0), Color(_c.hot, 0.9), 0.5, 3.0)
+			pd.glow(q, 9.0, Color(GOLD, 0.6), 0.0)
+			pd.draw_circle(q, 2.2, Color(WHITE, 1.0))
 
 
 ## 크레딧 마름모가 머리 위로 솟아 사라짐 (n개) — 자원이 생긴 것을 그림으로
@@ -2332,13 +2439,20 @@ class AshFuneral extends UltBase:
 
 	func _paint() -> void:
 		var cloud := smoothstep(0.0, 0.3, t) * (1.0 - smoothstep(1.05, 1.4, t))
-		# 재구름 (적 진영 위)
-		for i in 7:
-			var cx := 380.0 + 42.0 * float(i) + sin(t * 2.0 + float(i)) * 6.0
-			var cy := 112.0 + 12.0 * sin(float(i) * 1.9)
-			pd.glow(Vector2(cx, cy), (40.0 + 10.0 * EVfx.hash01(i * 3)) * s * cloud, Color("#5a4c56", 0.8 * cloud), 0.0)
-			pd.glow(Vector2(cx, cy - 6.0), (24.0 + 6.0 * EVfx.hash01(i * 5)) * s * cloud, Color("#7a6a72", 0.6 * cloud), 0.0)
-			pd.glow(Vector2(cx, cy + 14.0), 20.0 * s * cloud, Color(_c.flame, 0.35 * cloud * (0.6 + 0.4 * sin(t * 9.0 + float(i)))), 0.0)
+		# 재구름 (적 진영 위): 아래가 평평한 뭉게 실루엣 + 아래 가장자리 주황 그을림 (review_D B4: 예전엔 흐린 원 줄)
+		var by := 138.0
+		var ash_dark := Color("#3e343c")
+		pd.rect_grad(Rect2(350, by - 4.0, 300, 16), Color(_c.flame, 0.4 * cloud * (0.75 + 0.25 * sin(t * 9.0))), Color(_c.flame, 0.0))
+		pd.draw_rect(Rect2(350, by - 18.0, 300, 18), Color(ash_dark, 0.9 * cloud))
+		for i in 12:
+			var cx := 356.0 + 26.0 * float(i) + sin(t * 2.0 + float(i)) * 3.0
+			var rr := (16.0 + 10.0 * EVfx.hash01(i * 3 + 1)) * s
+			pd.draw_circle(Vector2(cx, by - 14.0 - 8.0 * EVfx.hash01(i * 7)), rr * cloud, Color(ash_dark, 0.9 * cloud))
+		for i in 12:
+			var cx := 360.0 + 26.0 * float(i) + sin(t * 2.0 + float(i)) * 3.0
+			var rr := (10.0 + 7.0 * EVfx.hash01(i * 5 + 2)) * s
+			pd.draw_circle(Vector2(cx, by - 20.0 - 8.0 * EVfx.hash01(i * 7)), rr * cloud, Color("#5e525a", 0.85 * cloud))
+		pd.draw_rect(Rect2(350, by - 1.0, 300, 1.5), Color(_c.flame, 0.7 * cloud))
 		# 내리는 재
 		for fl: Vector3 in _flakes:
 			var y := fl.y + fmod(t * 160.0 * fl.z * 0.6, 160.0)
@@ -2359,11 +2473,19 @@ class AshFuneral extends UltBase:
 			var fade := 1.0 - smoothstep(0.55, 0.95, lt)
 			var ft := f.feet()
 			pd.glow(ft + Vector2(0, -24), 44.0 * s * burn, Color(_c.flame, 0.35 * fade), 0.0)
-			for j in 7:
-				var ox := (float(j) - 3.0) * 8.0 * s
+			for j in 9: # 장작불: 높이·폭을 흩고 가운데 높게 (예전엔 같은 높이 빗살이 울타리처럼 줄지었다)
+				var e := float(j) - 4.0
+				var hr := EVfx.hash01(i * 31 + j * 7)
+				var ox := e * 6.5 * s + (EVfx.hash01(i * 13 + j) - 0.5) * 4.0
 				var ph := t * 15.0 + float(j) * 1.3 + float(i)
-				var h := (60.0 - 6.0 * absf(float(j) - 3.0)) * s * burn * (0.8 + 0.2 * sin(ph))
-				TFx.tongue(pd, ft + Vector2(ox, 0), Vector2.UP, h, 5.0 * s, fade, sin(ph * 0.6) * 4.0, _c)
+				var h := (64.0 - 9.0 * absf(e)) * (0.6 + 0.4 * hr) * s * burn * (0.85 + 0.15 * sin(ph))
+				TFx.tongue(pd, ft + Vector2(ox, 0), Vector2.UP.rotated(e * 0.06), h, (3.6 + 2.6 * hr) * s, fade, sin(ph * 0.6) * 4.0, _c)
+			for j in 8: # 떠오르는 재 조각 (사각 3px 회전)
+				var ph := fposmod(lt * 0.9 + EVfx.hash01(i * 7 + j * 3), 1.0)
+				var p := ft + Vector2((EVfx.hash01(j * 11 + i) - 0.5) * 50.0 + sin(t * 3.0 + float(j)) * 5.0, -20.0 - 90.0 * ph)
+				var r := t * 4.0 + float(j)
+				var q := Vector2.from_angle(r) * 1.6
+				pd.convex(PackedVector2Array([p + q, p + q.orthogonal(), p - q, p - q.orthogonal()]), Color(ASH if j % 3 else _c.hot, fade * (1.0 - ph)))
 			var c := f.center()
 			for j in 3: # 화상 3겹 (도는 불씨)
 				var an := t * 5.0 + TAU * float(j) / 3.0
@@ -2539,6 +2661,7 @@ class TideSanctum extends UltBase:
 			_given = true
 			Sfx.play(&"tn_heal", -2.0)
 			Sfx.play(&"bl_unfold", -6.0)
+			Sfx.play(&"ward", -6.0) # 돔이 닫힘 (review_D B2)
 			for a in allies:
 				if not _alive(a):
 					continue
@@ -2612,6 +2735,7 @@ class AbsoluteZero extends UltBase:
 					if i == 0:
 						Sfx.play(&"tn_ult_hit", -4.0)
 						Sfx.play(&"bl_unfold", -4.0)
+						Sfx.play(&"kb_shatter", -4.0) # 얼음 기둥이 솟음 (review_D B2)
 
 	func _paint() -> void:
 		var cold := smoothstep(0.0, 0.25, t) * (1.0 - smoothstep(1.05, 1.4, t))
@@ -2663,16 +2787,29 @@ class AbsoluteZero extends UltBase:
 class ThunderHammer extends UltBase:
 	const HIT0 := 0.3
 	const STEP := 0.1
+	const SIZE := 1.4 ## 망치 크기 (review_D B4: 예전엔 작아 건전지처럼 보였다)
 	var to := Vector2.ZERO
 	var _n := 0
+	var _cracks: Array = []
 
 	func _ready() -> void:
 		life = 1.25
 		z_index = 9
+		for i in 7: # 마지막 타의 바닥 금 (원근 타원 위 꺾은선)
+			var an := TAU * float(i) / 7.0 + randf_range(-0.2, 0.2)
+			var pts := PackedVector2Array([Vector2.ZERO])
+			var p := Vector2.ZERO
+			for j in 3:
+				p += Vector2.from_angle(an + randf_range(-0.4, 0.4)) * randf_range(14.0, 26.0)
+				pts.append(Vector2(p.x, p.y * 0.3))
+			_cracks.append(pts)
 
 	func _hammer_pos() -> Vector2:
-		var slam := clampf((t - (HIT0 + STEP * 3.0)) / STEP, 0.0, 1.0)
-		return to + Vector2(0, -118.0 * s).lerp(Vector2(0, -26.0), slam * slam)
+		# 4타째 뒤 높이 들었다가(0.6 STEP) 5타째에 내려찍음
+		var lift := smoothstep(HIT0 + STEP * 3.0, HIT0 + STEP * 3.6, t)
+		var slam := clampf((t - (HIT0 + STEP * 3.6)) / (STEP * 0.4), 0.0, 1.0)
+		var hover := Vector2(0, -96.0 * s - 18.0 * lift)
+		return to + hover.lerp(Vector2(0, -30.0), slam * slam)
 
 	func _tick(_d: float) -> void:
 		while _n < 5 and t >= HIT0 + STEP * float(_n):
@@ -2682,7 +2819,7 @@ class ThunderHammer extends UltBase:
 			Fx.shake(1.2 if last else 0.5, 0.4 if last else 0.12)
 			if last:
 				Sfx.play(&"tn_ult_hit", -2.0)
-				Fx.flash(Color(_c.hot, 0.45), 0.1)
+				Fx.flash(Color(_c.hot, 0.18), 0.08)
 				Fx.hitstop(0.16)
 				var sw := TFx.Shockwave.new()
 				sw.col = _c.flame
@@ -2706,30 +2843,47 @@ class ThunderHammer extends UltBase:
 		pd.rect_grad(Rect2(0, 0, 640, 200), Color(_c.dark, 0.55 * dark), Color(_c.dark, 0.0))
 		var form := 1.0 - pow(1.0 - smoothstep(0.0, 0.28, t), 2.0)
 		var a := 1.0 - smoothstep(0.85, 1.15, t)
+		# 휘두름 호 잔상: 1~4타마다 다른 각도 (흰 → 금 → 투명)
+		for i in 4:
+			var lt := t - (HIT0 + STEP * float(i)) + 0.04
+			if lt < 0.0 or lt > 0.16:
+				continue
+			var x := lt / 0.16
+			var a0 := [-2.4, -0.7, -2.0, -1.0][i] as float
+			var span := 1.5
+			var r := 62.0 * s
+			var pts := PackedVector2Array()
+			for q in 13:
+				pts.append(to + Vector2.from_angle(a0 + span * float(q) / 12.0) * r)
+			pd.draw_polyline(pts, Color(GOLD, 0.7 * (1.0 - x)), 7.0 * s * (1.0 - x * 0.5))
+			pd.draw_polyline(pts, Color(WHITE, 0.95 * (1.0 - x)), 2.4)
 		var hp := _hammer_pos()
-		var sz := s * form
+		var sz := s * form * SIZE
 		if sz > 0.05 and a > 0.0:
-			# 망치: 비스듬히 든 쇠망치 (자루 감개 · 양 끝 두꺼운 면 · 가운데 번개 문양) — 내려찍을 때 똑바로 선다
-			var slam := clampf((t - (HIT0 + STEP * 3.0)) / STEP, 0.0, 1.0)
+			# 망치: 위가 좁은 사다리꼴 쇠머리 + 금 테 + 가운데 룬 번개, 자루 + 감은 가죽 줄 둘 — 내려찍을 때 똑바로 선다
+			var slam := smoothstep(HIT0 + STEP * 3.0, HIT0 + STEP * 4.0, t)
 			var rot := lerpf(-0.45, 0.0, slam)
 			var P := func(v: Vector2) -> Vector2: return hp + v.rotated(rot) * sz
 			pd.glow(hp, 64.0 * sz, Color(_c.flame, 0.28 * a), 0.0)
-			pd.draw_line(P.call(Vector2(0, -14)), P.call(Vector2(0, -70)), Color(INK, a), 7.5 * sz)
-			pd.draw_line(P.call(Vector2(0, -14)), P.call(Vector2(0, -70)), Color("#6a4a2a", a), 4.6 * sz)
-			for q in 4: # 자루 감개
-				var y := -40.0 - 7.0 * float(q)
-				pd.draw_line(P.call(Vector2(-2.6, y)), P.call(Vector2(2.6, y - 2.5)), Color(_c.flame, a), 1.4 * sz)
-			pd.draw_circle(P.call(Vector2(0, -72)), 3.4 * sz, Color(_c.flame, a))
+			pd.draw_line(P.call(Vector2(0, -14)), P.call(Vector2(0, -62)), Color(INK, a), 7.5 * sz)
+			pd.draw_line(P.call(Vector2(0, -14)), P.call(Vector2(0, -62)), Color("#6a4a2a", a), 4.6 * sz)
+			for q in 2: # 감은 가죽 줄
+				var y := -32.0 - 14.0 * float(q)
+				pd.draw_line(P.call(Vector2(0, y)), P.call(Vector2(0, y - 5.0)), Color("#3a2414", a), 6.0 * sz)
+				pd.draw_line(P.call(Vector2(-2.8, y - 1.0)), P.call(Vector2(2.8, y - 4.0)), Color("#9a6a3a", a), 1.2 * sz)
+			pd.draw_circle(P.call(Vector2(0, -64)), 3.4 * sz, Color(GOLD, a))
 			var head := PackedVector2Array()
-			for v: Vector2 in [Vector2(-34, -12), Vector2(-28, -18), Vector2(28, -18), Vector2(34, -12), Vector2(34, 12), Vector2(28, 18), Vector2(-28, 18), Vector2(-34, 12)]:
+			for v: Vector2 in [Vector2(-26, -18), Vector2(26, -18), Vector2(34, 16), Vector2(-34, 16)]:
 				head.append(P.call(v))
 			pd.outlined(head, Color(_c.dark, a), Color(INK, a), 1.4 * sz)
+			var rim := PackedVector2Array(head)
+			rim.append(head[0])
+			pd.draw_polyline(rim, Color(GOLD, 0.9 * a), 1.2 * sz)
 			for sg: float in [-1.0, 1.0]: # 양 끝 면 (밝은 쇠)
-				pd.convex(PackedVector2Array([P.call(Vector2(sg * 34, -12)), P.call(Vector2(sg * 26, -16)), P.call(Vector2(sg * 26, 16)), P.call(Vector2(sg * 34, 12))]), Color(_c.deep, a))
-				pd.draw_line(P.call(Vector2(sg * 26, -16)), P.call(Vector2(sg * 26, 16)), Color(_c.flame, a), 1.2 * sz)
-			pd.convex(PackedVector2Array([P.call(Vector2(-20, -18)), P.call(Vector2(20, -18)), P.call(Vector2(20, -12)), P.call(Vector2(-20, -12))]), Color(_c.deep, 0.8 * a))
-			pd.draw_polyline(PackedVector2Array([P.call(Vector2(-4, -11)), P.call(Vector2(3, -2)), P.call(Vector2(-3, 1)), P.call(Vector2(4, 11))]), Color(_c.core, a), 2.0 * sz)
-			pd.draw_polyline(PackedVector2Array([P.call(Vector2(-4, -11)), P.call(Vector2(3, -2)), P.call(Vector2(-3, 1)), P.call(Vector2(4, 11))]), Color(_c.flame, 0.6 * a), 4.0 * sz)
+				pd.convex(PackedVector2Array([P.call(Vector2(sg * 26, -18)), P.call(Vector2(sg * 20, -18)), P.call(Vector2(sg * 26, 16)), P.call(Vector2(sg * 34, 16))]), Color(_c.deep, a))
+			var rune := PackedVector2Array([P.call(Vector2(-4, -12)), P.call(Vector2(4, -2)), P.call(Vector2(-3, 1)), P.call(Vector2(5, 12))])
+			pd.draw_polyline(rune, Color(_c.flame, 0.6 * a), 4.0 * sz)
+			pd.draw_polyline(rune, Color(_c.core, a), 2.0 * sz)
 			var sd := int(t * 30.0)
 			for kk in 4: # 머리를 감는 지직임
 				var an := EVfx.hash01(sd * 3 + kk) * TAU
@@ -2742,7 +2896,7 @@ class ThunderHammer extends UltBase:
 			if lt < 0.0 or lt > 0.1:
 				continue
 			var al := 1.0 - lt / 0.1
-			_bolt(hp + Vector2((float(i) - 2.0) * 8.0, 10), to + Vector2((float(i) - 2.0) * 5.0, 0), i + 3, 1.6 * s, al)
+			_bolt(hp + Vector2((float(i) - 2.0) * 8.0, 18), to + Vector2((float(i) - 2.0) * 5.0, 0), i + 3, 1.8 * s, al)
 			pd.glow(to, 30.0 * s, Color(_c.hot, 0.6 * al), 0.0)
 		if t > HIT0 + STEP * 4.0:
 			var x := clampf((t - (HIT0 + STEP * 4.0)) / 0.5, 0.0, 1.0)
@@ -2750,9 +2904,19 @@ class ThunderHammer extends UltBase:
 			for i in 10:
 				var d := Vector2.from_angle(TAU * float(i) / 10.0)
 				pd.line2(to + d * 10.0, to + d * (40.0 + 90.0 * x) * s, Color(_c.core, 1.0 - x), Color(_c.flame, 0.0), 3.0, 0.3)
+			# 바닥 금빛 균열 (발밑)
+			var ca := 1.0 - smoothstep(0.6, 1.0, x)
+			var gr := 1.0 - pow(1.0 - minf(x * 4.0, 1.0), 2.0)
+			for pts: PackedVector2Array in _cracks:
+				var seg := PackedVector2Array()
+				for q: Vector2 in pts:
+					seg.append(to + Vector2(0, 40) + q * s * gr * 1.6)
+				pd.draw_polyline(seg, Color(INK, 0.8 * ca), 3.0)
+				pd.draw_polyline(seg, Color(GOLD, ca), 1.4)
 
 
-## 아스트라 · 유성의 행진 (전체 크리 버프 + 다른 아군 게이지 +100%): 유성들이 줄지어 하늘을 가로지르고, 아군마다 별이 내려앉음 → 다른 아군은 빛 띠가 차오르며 앞으로 당겨짐
+## 아스트라 · 유성의 행진 (전체 크리 버프 + 다른 아군 게이지 +100%): 유성들이 아군 머리 위로 왼쪽 → 오른쪽(적 쪽) 아치를 그리며 행진하고,
+## 별 셋이 마녀 머리 위에 박혀 금별 표식 0.5초 → 다른 아군은 발밑 게이지 띠가 차오르고 위 띠 차례 칸이 금빛으로 깜빡 (review_D B4: 예전엔 적 쪽에서 아군 쪽으로 들어와 공격처럼 보였다)
 class StarParade extends UltBase:
 	const HIT0 := 0.52
 	var _given := false
@@ -2760,12 +2924,14 @@ class StarParade extends UltBase:
 	func _ready() -> void:
 		life = 1.3
 		z_index = 9
+		Sfx.play(&"meteor_fall", -6.0)
 
 	func _tick(_d: float) -> void:
 		if t >= HIT0 and not _given:
 			_given = true
 			Sfx.play(&"tn_bless", -3.0)
-			Sfx.play(&"tn_crit", -8.0)
+			Sfx.play(&"star_burst", -8.0)
+			var hud: Variant = Fx.get_tree().current_scene.get("hud") if Fx.get_tree().current_scene != null else null
 			for a in allies:
 				if not _alive(a):
 					continue
@@ -2774,34 +2940,46 @@ class StarParade extends UltBase:
 				au.col = _c.gold
 				au.kind = "crit"
 				TFx.add(au, (a as TActor).center(), true)
+				if a != caster and hud is THud: # 차례가 당겨진 마녀의 차례 칸을 금빛으로 깜빡
+					(hud as THud)._flash[(a as TActor).unit] = 0.9
+
+	func _arch(f: float, i: int) -> Vector2:
+		# 아군 머리 위(왼쪽 아래)에서 솟아 화면 가운데 위를 지나 적 쪽(오른쪽)으로
+		return Vector2(lerpf(-40.0, 680.0, f), 176.0 - 92.0 * sin(f * PI) + 6.0 * float(i % 3))
 
 	func _paint() -> void:
 		var a := 1.0 - smoothstep(1.0, 1.3, t)
-		# 유성 행진 (오른쪽 위 → 왼쪽, 활 모양 길)
 		for i in 9:
-			var st := 0.03 * float(i)
-			var f := clampf((t - st) / 0.55, 0.0, 1.0)
+			var st := 0.035 * float(i)
+			var f := clampf((t - st) / 0.6, 0.0, 1.0)
 			if f <= 0.0 or f >= 1.0:
 				continue
-			var x := lerpf(700.0, -60.0, f)
-			var y := 96.0 + 30.0 * sin(f * PI) + 10.0 * float(i % 3) + 5.0 * float(i)
-			var head := Vector2(x, y)
-			var tail := head + Vector2(70.0, -14.0) * s
-			pd.line2(tail, head, Color(_c.flame, 0.0), Color(_c.hot, 0.9), 0.4, 3.0 * s)
-			EVfx.star4(pd, head, 5.0 * s, t * 8.0 + float(i), Color(WHITE, 1.0), Color(_c.gold, 0.5))
-		# 아군마다 내려앉는 큰 별
+			var head := _arch(f, i)
+			var tail := _arch(maxf(f - 0.12, 0.0), i)
+			pd.line2(tail, head, Color(_c.flame, 0.0), Color(_c.hot, 0.9), 0.4, 3.4 * s)
+			EVfx.star4(pd, head, 6.0 * s, t * 8.0 + float(i), Color(WHITE, 1.0), Color(_c.gold, 0.5))
+		# 아군마다 행진에서 떨어져 머리 위에 박히는 큰 별 → 0.5초 금별 표식
 		for j in allies.size():
 			var al: TActor = allies[j] if _alive(allies[j]) else null
 			if al == null:
 				continue
-			var c := al.center()
-			var f := clampf((t - 0.3 - 0.04 * float(j)) / 0.22, 0.0, 1.0)
+			var hd := al.head() + Vector2(0, -12)
+			var f := clampf((t - 0.3 - 0.05 * float(j)) / 0.2, 0.0, 1.0)
+			var from := hd + Vector2(-40, -90)
 			if f > 0.0 and f < 1.0:
-				var p := c + Vector2(30, -160).lerp(Vector2.ZERO, f * f)
-				pd.line2(p + Vector2(30, -160) * 0.25, p, Color(_c.gold, 0.0), Color(_c.gold, 0.9), 0.4, 3.0)
+				var p := from.lerp(hd, f * f)
+				pd.line2(from.lerp(hd, maxf(f * f - 0.3, 0.0)), p, Color(_c.gold, 0.0), Color(_c.gold, 0.9), 0.4, 3.0)
 				EVfx.star4(pd, p, 7.0 * s, t * 6.0, Color(WHITE, 1.0), Color(_c.gold, 0.6))
+			elif f >= 1.0:
+				var lt := t - (0.5 + 0.05 * float(j))
+				var ma := (1.0 - smoothstep(0.4, 0.55, lt)) * a
+				if ma > 0.0:
+					var pop := 1.0 + 0.6 * (1.0 - clampf(lt / 0.12, 0.0, 1.0))
+					pd.glow(hd, 14.0 * pop, Color(GOLD, 0.5 * ma), 0.0)
+					EVfx.star4(pd, hd, 6.5 * pop, 0.0, Color(GOLD, ma), Color(WHITE, 0.5 * ma))
 			# 차례: 다른 아군 뒤로 흐르는 빛 띠 + 발밑 게이지 띠가 가득 참
 			if al != caster and t > HIT0:
+				var c := al.center()
 				var g := clampf((t - HIT0) / 0.3, 0.0, 1.0) * a
 				for q in 4:
 					var y := c.y - 12.0 + 8.0 * float(q)
@@ -2812,15 +2990,23 @@ class StarParade extends UltBase:
 				pd.draw_rect(Rect2(bar.position, Vector2(bar.size.x * g / maxf(a, 0.01), bar.size.y)), Color(_c.gold, a))
 
 
-## 토난 · 천둥 선고 (광역 + 감전 3겹 + 이 적을 때리는 크리 확률 +30%): 적 위로 먹구름과 선고의 문장 → 적마다 큰 벼락 → 감전 불꽃 셋이 돌고 금빛 표적 고리가 걸림
+## 토난 · 천둥 선고 (광역 + 감전 3겹 + 이 적을 때리는 크리 확률 +30%): 적 진영 위(y 100~150) 가로 300px 먹구름 띠가 덮이고 안에서 번쩍 →
+## 적마다 굵은 벼락(흰 심 + 금 + 보라 빛, 갈래 둘) + 발밑 충격 고리 → 감전 불꽃 셋이 돌고 금빛 표적 고리가 걸림 (review_D B4: 예전 구름은 UI 배지처럼 작았다)
 class ThunderVerdict extends UltBase:
 	const HIT0 := 0.36
 	const STEP := 0.12
+	const BOLT := 0.12 ## 벼락이 남는 시간
+	const BAND_X := Vector2(330, 640) ## 먹구름 띠 가로 범위
+	const BASE_Y := 142.0 ## 먹구름 아래 끝 (평평)
 	var _struck := {}
+	var _puffs: Array = [] ## [x, 위로 솟은 높이, 반지름]
 
 	func _ready() -> void:
 		life = 1.4
 		z_index = 9
+		for i in 14:
+			var f := float(i) / 13.0
+			_puffs.append(Vector3(lerpf(BAND_X.x, BAND_X.y, f) + randf_range(-6, 6), randf_range(14.0, 30.0), randf_range(20.0, 30.0)))
 
 	func _fx_at(i: int) -> float:
 		return HIT0 - 0.02 + STEP * float(i)
@@ -2830,23 +3016,51 @@ class ThunderVerdict extends UltBase:
 			if not _struck.has(i) and t >= _fx_at(i):
 				_struck[i] = true
 				if _alive(foes[i]):
-					Sfx.play(&"tn_spear", -4.0)
+					var f := foes[i] as TActor
+					Sfx.play(&"tn_spear", -6.0)
+					Sfx.play(&"sky_crack", -8.0)
 					Fx.shake(0.8, 0.25)
-					TFx.embers((foes[i] as TActor).center(), 10, 240.0, Vector2.UP, 180.0, 0.4, Vector2(0, 300))
+					TFx.embers(f.center(), 10, 240.0, Vector2.UP, 180.0, 0.4, Vector2(0, 300))
+					var sw := TFx.Shockwave.new()
+					sw.col = _c.flame
+					TFx.add(sw, f.feet(), true)
 					if i == 0:
-						Fx.flash(Color(_c.hot, 0.35), 0.08)
+						Fx.flash(Color(_c.hot, 0.15), 0.08)
 						Sfx.play(&"tn_ult_hit", -4.0)
+
+	## 벼락 한 줄기 (흰 심 2 · 금 5 · 보라 빛 14) + 갈래 둘
+	func _bolt(a0: Vector2, b0: Vector2, seed_i: int, al: float) -> void:
+		var pts := PackedVector2Array([a0])
+		for j in range(1, 8):
+			var q := float(j) / 8.0
+			pts.append(a0.lerp(b0, q) + Vector2((EVfx.hash01(seed_i * 17 + j) - 0.5) * 34.0, 0))
+		pts.append(b0)
+		pd.draw_polyline(pts, Color(_c.deep, 0.55 * al), 14.0 * s)
+		pd.draw_polyline(pts, Color(GOLD, al), 5.0 * s)
+		pd.draw_polyline(pts, Color(WHITE, al), 2.0 * s)
+		for k in 2: # 갈래
+			var at := 2 + k * 3
+			var st := pts[at]
+			var dir := Vector2(1.0 if k == 0 else -1.0, 1.2).normalized()
+			var br := PackedVector2Array([st, st + dir * 14.0 + Vector2(4, 0), st + dir * 30.0])
+			pd.draw_polyline(br, Color(GOLD, 0.8 * al), 2.4 * s)
+			pd.draw_polyline(br, Color(WHITE, 0.8 * al), 1.0)
 
 	func _paint() -> void:
 		var cloud := smoothstep(0.0, 0.25, t) * (1.0 - smoothstep(1.05, 1.4, t))
-		for i in 8:
-			var cx := 370.0 + 40.0 * float(i)
-			var cy := 108.0 + 10.0 * sin(float(i) * 2.3)
-			pd.glow(Vector2(cx, cy), 40.0 * s * cloud, Color("#2e3266", 0.85 * cloud), 0.0)
-			pd.glow(Vector2(cx, cy - 8.0), 24.0 * s * cloud, Color("#4a50a0", 0.6 * cloud), 0.0)
-		var fl := 0.5 + 0.5 * sin(t * 37.0)
-		pd.glow(Vector2(470, 120), 80.0 * cloud, Color(_c.hot, 0.25 * cloud * fl), 0.0)
-		TFx.emblem(pd, "cloud", Vector2(400, 116), 26.0 * s * cloud, Color(_c.hot, 0.85 * cloud), 0.0)
+		var drop := (1.0 - pow(1.0 - smoothstep(0.0, 0.25, t), 2.0)) * 12.0 # 위에서 내려앉음
+		var flick := 1.0 if fmod(t, 0.2) < 0.1 and t < 1.0 else 0.0 # 0.1초 깜빡
+		var y0 := BASE_Y - 12.0 + drop
+		# 먹구름: 위는 뭉게(원 14) · 아래는 평평(띠) — 뒤 그림자 → 앞 몸통 두 겹
+		var dark := Color("#262a52")
+		pd.draw_rect(Rect2(BAND_X.x - 10.0, y0 - 22.0, BAND_X.y - BAND_X.x + 20.0, 22.0), Color(dark, 0.92 * cloud))
+		for pf: Vector3 in _puffs:
+			pd.draw_circle(Vector2(pf.x, y0 - pf.y), pf.z * s, Color(dark, 0.92 * cloud))
+		for pf: Vector3 in _puffs:
+			pd.draw_circle(Vector2(pf.x + 3.0, y0 - pf.y - 4.0), pf.z * 0.72 * s, Color(INK.lerp(dark, 0.6), 0.9 * cloud))
+		pd.draw_rect(Rect2(BAND_X.x - 10.0, y0 - 1.0, BAND_X.y - BAND_X.x + 20.0, 1.0), Color(GOLD, 0.8 * cloud)) # 아래 가장자리 금 1px
+		if flick > 0.0:
+			pd.glow(Vector2(lerpf(BAND_X.x, BAND_X.y, EVfx.hash01(int(t * 10.0))), y0 - 20.0), 60.0, Color(_c.hot, 0.35 * cloud), 0.0)
 		for i in foes.size():
 			var f: TActor = foes[i] if _alive(foes[i]) else null
 			if f == null:
@@ -2855,18 +3069,10 @@ class ThunderVerdict extends UltBase:
 			if lt < 0.0:
 				continue
 			var c := f.center()
-			if lt < 0.14: # 벼락
-				var al := 1.0 - lt / 0.14
-				var a0 := Vector2(c.x + 10.0, 112.0)
-				var pts := PackedVector2Array([a0])
-				for j in range(1, 8):
-					var q := float(j) / 8.0
-					pts.append(a0.lerp(c, q) + Vector2((EVfx.hash01(i * 17 + j) - 0.5) * 30.0, 0))
-				pts.append(c)
-				pd.draw_polyline(pts, Color(_c.deep, 0.7 * al), 9.0 * s)
-				pd.draw_polyline(pts, Color(_c.flame, al), 4.6 * s)
-				pd.draw_polyline(pts, Color(_c.core, al), 1.8 * s)
-				pd.glow(c, 40.0 * s, Color(_c.hot, 0.7 * al), 0.0)
+			if lt < BOLT: # 벼락
+				var al := 1.0 - lt / BOLT * 0.6
+				_bolt(Vector2(c.x + 8.0, y0), c, i, al)
+				pd.glow(c, 46.0 * s, Color(_c.hot, 0.6 * al), 0.0)
 			var stay := smoothstep(0.1, 0.25, lt) * (1.0 - smoothstep(0.8, 1.0, lt))
 			for j in 3: # 감전 3겹
 				var an := t * 6.0 + TAU * float(j) / 3.0
@@ -2892,12 +3098,13 @@ class WorldEnd extends UltBase:
 	func _ready() -> void:
 		life = 1.4
 		z_index = 9
+		Sfx.play(&"es_blackstar", -8.0) # 검은 별이 열림 (review_D B2)
 		for i in 11:
 			var an := -PI * 0.15 + TAU * float(i) / 11.0 + randf_range(-0.15, 0.15)
 			var pts := PackedVector2Array([Vector2.ZERO])
 			var p := Vector2.ZERO
-			for j in 6:
-				p += Vector2.from_angle(an + randf_range(-0.45, 0.45)) * randf_range(40.0, 80.0)
+			for j in 5: # 마디 다섯 (화면 끝까지 가로지르지 않게 — 짧고 꺾인 금)
+				p += Vector2.from_angle(an + randf_range(-0.55, 0.55)) * randf_range(26.0, 52.0)
 				pts.append(p)
 			_cracks.append(pts)
 
@@ -2910,7 +3117,7 @@ class WorldEnd extends UltBase:
 					TFx.rift(at, 96.0 * s, -0.5 + 0.35 * float(i), true) # 균열 하나가 입자를 충분히 뿌린다 (흑성 이하로)
 		if t >= HIT0 + 0.25 and not _shatter:
 			_shatter = true
-			EVfx.big_flash(0.45, true)
+			EVfx.big_flash(0.18, true)
 			Fx.hitstop(0.14)
 			Fx.shake(1.2, 0.45)
 			Sfx.play(&"tn_ult_hit", 0.0)
@@ -2919,8 +3126,8 @@ class WorldEnd extends UltBase:
 	func _paint() -> void:
 		var open := 1.0 - pow(1.0 - smoothstep(0.0, 0.3, t), 2.0)
 		var a := 1.0 - smoothstep(1.05, 1.4, t)
-		# 바랜 하늘 + 검은 별
-		pd.rect_grad(Rect2(0, 0, 640, 300), Color(WHITE, 0.22 * open * a), Color(WHITE, 0.03 * a))
+		# 어두워진 하늘 + 검은 별 (review_D B5: 예전엔 화면이 밝은 라벤더로 씻겨 숫자 대비가 무너졌다 — 이제 먹빛으로 가라앉음)
+		pd.rect_grad(Rect2(0, 0, 640, 300), Color(INK, 0.4 * open * a), Color(INK, 0.06 * a))
 		var R := 34.0 * s * open
 		pd.glow(_c0, R * 2.6, Color(WHITE, 0.55 * a), 0.0)
 		pd.draw_circle(_c0, R + 2.0, Color(WHITE, a))
@@ -2934,17 +3141,18 @@ class WorldEnd extends UltBase:
 			var n := int(ceil(float(pts.size() - 1) * grow))
 			if n < 1:
 				continue
-			var seg := PackedVector2Array()
-			for j in n + 1:
-				seg.append(_c0 + pts[j] * s)
-			pd.draw_polyline(seg, Color(INK, 0.9 * a), 4.0)
-			pd.draw_polyline(seg, Color(WHITE, a), 1.4)
+			for j in n: # 마디마다 가늘어짐 (2 → 0.6) — 고른 직선이 기계적으로 보이지 않게
+				var w := lerpf(2.0, 0.6, float(j) / 4.0)
+				var p0 := _c0 + pts[j] * s
+				var p1 := _c0 + pts[j + 1] * s
+				pd.draw_line(p0, p1, Color(INK, 0.9 * a), w + 2.6)
+				pd.draw_line(p0, p1, Color(WHITE, a), w)
 
 
 ## 호라 · 시간의 정적 (적 차지 −1 + 게이지 −50% + 아군 버프 지속 +2): 전장 위에 큰 시계판이 떠 바늘이 거꾸로 돌다 멈춤 → 멈춘 순간 회색빛 파문, 떠다니던 재가 허공에 멎음 → 적 머리 위 모래시계 · 아군 금빛
 class TimeStill extends UltBase:
 	const HIT0 := 0.6
-	const C := Vector2(262, 146) ## 적 카드·마녀 머리를 피한 빈 하늘
+	const C := Vector2(320, 125) ## 빈 하늘 (§22.2: y 95~220) — 예전 (262, 146)·반지름 74는 가운데 마녀의 체력 막대·모자를 덮었다 (review_D B7)
 	var _stopped := false
 	var _motes: Array = []
 
@@ -2957,9 +3165,9 @@ class TimeStill extends UltBase:
 	func _tick(_d: float) -> void:
 		if t >= 0.52 and not _stopped:
 			_stopped = true
-			Sfx.play(&"tn_ult_hit", -6.0)
+			Sfx.play(&"bell", -6.0) # 바늘이 멈춤 — 피해 없는 대마법이라 폭음(tn_ult_hit)은 뺌 (review_D B2)
 			Sfx.play(&"tn_turn", -2.0)
-			Fx.flash(Color(_c.gold, 0.25), 0.08)
+			Fx.flash(Color(_c.gold, 0.15), 0.08)
 			for a in allies:
 				if _alive(a):
 					var au := TFx.Aura.new()
@@ -2971,7 +3179,7 @@ class TimeStill extends UltBase:
 	func _paint() -> void:
 		var appear := 1.0 - pow(1.0 - smoothstep(0.0, 0.25, t), 2.0)
 		var a := 1.0 - smoothstep(1.05, 1.4, t)
-		var R := 74.0 * s * appear
+		var R := 56.0 * s * appear
 		var stop := smoothstep(0.38, 0.52, t)
 		# 시계판
 		pd.glow(C, R * 1.2, Color(_c.flame, 0.16 * a), 0.0)
@@ -3003,6 +3211,21 @@ class TimeStill extends UltBase:
 				continue
 			var hp := (f as TActor).head() + Vector2(0, -20)
 			TFx.hourglass(pd, hp, 6.0, Color(_c.hot, a * smoothstep(0.52, 0.65, t)))
+		# 아군: 시계 바늘 끝에서 마녀 머리로 금 실 (버프 지속 연장)
+		var tip := C + Vector2.from_angle(-PI * 0.5) * R * 0.78
+		var th := smoothstep(0.52, 0.72, t) * a
+		for al in allies:
+			if not _alive(al):
+				continue
+			var hd := (al as TActor).head() + Vector2(0, -4)
+			var mid := (tip + hd) * 0.5 + Vector2(0, 24)
+			var pts := PackedVector2Array()
+			for q in 9:
+				var f := float(q) / 8.0 * th
+				pts.append(tip.lerp(mid, f).lerp(mid.lerp(hd, f), f))
+			pd.draw_polyline(pts, Color(GOLD, 0.75 * a), 1.2)
+			if th >= 0.99 * a and a > 0.0:
+				pd.glow(hd, 8.0, Color(GOLD, 0.6 * a), 0.0)
 
 
 ## 모래시계 (차지·시간 감소 그림)
@@ -3041,13 +3264,16 @@ class FinalCurtain extends PVfx.Base:
 			BFx.slash(_to + Vector2(0, 4), spec, flip)
 			BFx.cut(_to + Vector2(randf_range(-6, 6), randf_range(-8, 8)), Vector2.from_angle(-0.6 + 0.5 * float(i)), 90.0 * s, i >= 5)
 			Sfx.play(&"bl_swish_big" if i % 2 == 0 else &"bl_cut", -2.0)
+			if i == 0:
+				Sfx.play(&"kb_draw", -4.0) # 첫 타: 검을 뽑음 (review_D B2)
 		if t >= HIT0 + STEP * 5.0 and not _split:
 			_split = true
-			EVfx.big_flash(0.5, true)
+			EVfx.big_flash(0.18, true)
 			Fx.hitstop(0.16)
 			Fx.shake(1.3, 0.45)
 			Sfx.play(&"tn_ult_hit", 0.0)
 			Sfx.play(&"bl_cut", 0.0)
+			Sfx.play(&"kb_burst", -4.0) # 마지막 타
 			BFx.ink_sparks(_to, 10, 320.0, Vector2.UP)
 
 	func _paint() -> void:
@@ -3069,9 +3295,10 @@ class FinalCurtain extends PVfx.Base:
 		var a := 1.0 - x
 		# 화면을 세로로 가르는 흰 선 + 양옆 먹 번짐
 		var w := (6.0 + 20.0 * (1.0 - pow(1.0 - minf(x * 3.0, 1.0), 2.0))) * s * a
-		pd.draw_rect(Rect2(_to.x - w - 3.0, -40, 3.0, 440), Color(INK, a))
-		pd.draw_rect(Rect2(_to.x + w, -40, 3.0, 440), Color(INK, a))
-		pd.draw_rect(Rect2(_to.x - w, -40, w * 2.0, 440), Color(WHITE, a))
+		# 위 띠(차례 줄, y 0~31)는 지나가지 않게 y 32부터 (review_D §2)
+		pd.draw_rect(Rect2(_to.x - w - 3.0, 32, 3.0, 368), Color(INK, a))
+		pd.draw_rect(Rect2(_to.x + w, 32, 3.0, 368), Color(INK, a))
+		pd.draw_rect(Rect2(_to.x - w, 32, w * 2.0, 368), Color(WHITE, a))
 		pd.draw_rect(Rect2(_to.x - 200, _to.y - 1, 400, 2), Color(WHITE, a * 0.7))
 
 
@@ -3091,7 +3318,9 @@ static func break_fx(a: TActor, bar_rect: Rect2, hud: CanvasItem) -> void:
 	if hud != null and bar_rect.size.x > 0.0:
 		var sh := BarShatter.new()
 		sh.bar = bar_rect
-		sh.at = (hud as CanvasItem).get_viewport().get_canvas_transform() * a.center()
+		var ct := (hud as CanvasItem).get_viewport().get_canvas_transform()
+		sh.at = ct * a.center()
+		sh.left = (ct * (a.center() - Vector2(a.half_w(), 0))).x
 		hud.add_child(sh)
 
 
@@ -3121,6 +3350,7 @@ class BarShatter extends PDraw.Canvas:
 	const LIFE := 1.0
 	var bar := Rect2()
 	var at := Vector2.ZERO
+	var left := 0.0 ## 보스 몸 왼쪽 끝 (화면 x)
 	var t := 0.0
 	var _pieces: Array = [] ## [중심, 속도, 회전 속도, 점들]
 
@@ -3175,8 +3405,14 @@ class BarShatter extends PDraw.Canvas:
 		super()
 		var a := clampf(t / 0.08, 0.0, 1.0) * (1.0 - smoothstep(0.75, 1.0, t))
 		var sc := 1.0 + 0.4 * (1.0 - clampf(t / 0.12, 0.0, 1.0))
-		draw_set_transform(at + Vector2(-92, -6), 0.0, Vector2(sc, sc)) # 보스 왼쪽 빈 들판 (피해 숫자·카드와 안 겹치게)
+		# 보스 몸 왼쪽 끝 바깥 빈 들판 (review_D A3: 고정 −92는 넓은 보스의 몸 가운데로 들어가 피해 숫자와 겹쳤다) — 좌우 금선 40px
+		var w := T.width("브레이크", 30)
+		var cx := clampf(minf(left, at.x - 40.0) - w * 0.5 - 10.0, w * 0.5 + 46.0, 640.0 - w * 0.5 - 46.0)
+		var c := Vector2(cx, at.y + 4.0)
+		draw_set_transform(c, 0.0, Vector2(sc, sc))
 		T.text(self, Vector2.ZERO, "브레이크", 30, Color(T.GOLD, a), HORIZONTAL_ALIGNMENT_CENTER)
+		for sd in [-1.0, 1.0]:
+			draw_rect(Rect2(Vector2(sd * (w * 0.5 + 4.0) + (0.0 if sd > 0 else -40.0), -12.0), Vector2(40, 1)), Color(T.GOLD, 0.8 * a))
 		draw_set_transform(Vector2.ZERO)
 
 
@@ -3184,7 +3420,7 @@ class BarShatter extends PDraw.Canvas:
 static func stun_fx(a: TActor) -> void:
 	Sfx.play(&"tn_stun", -4.0)
 	var s := StunPop.new()
-	add(s, a.head() + Vector2(0, -8), true)
+	add(s, a.head() + Vector2(0, -20), true) # 머리 위 막대보다 위 (review_D B8)
 
 
 class StunPop extends PVfx.Base:
@@ -3207,6 +3443,7 @@ class StunPop extends PVfx.Base:
 ## lost = {TUnit: [아이콘 사전…]} — 해제 직전에 장면이 모아 둔다
 static func dispel_fx(witches: Array, lost: Dictionary, hud: THud) -> void:
 	Sfx.play(&"tn_dispel", -2.0)
+	Sfx.play(&"tn_dispel_glint", -2.0) # 반짝임 층은 22050 (review_D B1)
 	var w := DispelWind.new()
 	var pts: Array = []
 	for a in witches:
@@ -3323,13 +3560,19 @@ static func heart(pd: PDraw, p: Vector2, r: float, col: Color) -> void:
 
 
 ## 도발: 시전자에게서 붉은 방패 고리가 퍼지고 적 쪽으로 화살 셋 (적이 이쪽을 노린다)
-static func taunt_fx(a: TActor) -> void:
+## 도발: 탱커 앞에 붉은 육각 방패 문장이 0.3초 크게(반지름 30) 떴다 줄고 + 적들의 눈에서 탱커로 붉은 점선 시선 0.5초 (review_D B8)
+static func taunt_fx(a: TActor, foes: Array = []) -> void:
 	Sfx.play(&"tn_taunt", -4.0)
 	var f := TauntRing.new()
+	for e in foes:
+		if is_instance_valid(e):
+			f.eyes.append((e as TActor).head() + Vector2(0, 8) - a.center())
 	add(f, a.center(), true)
 
 
 class TauntRing extends PVfx.Base:
+	var eyes: Array = [] ## 적 눈 자리 (탱커 기준)
+
 	func _ready() -> void:
 		life = 0.8
 		z_index = 9
@@ -3337,6 +3580,29 @@ class TauntRing extends PVfx.Base:
 	func _paint() -> void:
 		var x := k()
 		var a := 1.0 - smoothstep(0.5, 1.0, x)
+		# 육각 방패 문장: 0.3초에 반지름 30까지 튀었다가 18로 줄며 사라짐
+		var g := t / 0.3
+		var r := 30.0 * (1.0 - pow(1.0 - minf(g, 1.0), 3.0)) if g < 1.0 else lerpf(30.0, 18.0, smoothstep(0.3, 0.8, t))
+		var hex := PackedVector2Array()
+		for i in 7:
+			hex.append(Vector2(16, -4) + Vector2.from_angle(TAU * float(i) / 6.0 + PI / 6.0) * r)
+		pd.glow(Vector2(16, -4), r * 1.3, Color("#ff4f6a", 0.3 * a), 0.0)
+		pd.draw_polyline(hex, Color(INK, 0.8 * a), 4.0)
+		pd.draw_polyline(hex, Color("#ff6a5a", a), 2.0)
+		pd.draw_line(Vector2(16, -4 - r * 0.5), Vector2(16, -4 + r * 0.5), Color("#ff6a5a", a), 2.0)
+		pd.draw_line(Vector2(16 - r * 0.4, -4), Vector2(16 + r * 0.4, -4), Color("#ff6a5a", a), 2.0)
+		# 적 시선 (붉은 점선, 0.5초)
+		var la := 1.0 - smoothstep(0.4, 0.55, t)
+		for e: Vector2 in eyes:
+			var n := int(e.length() / 9.0)
+			var grow := minf(t / 0.15, 1.0)
+			for q in n:
+				var f0 := float(q) / float(n)
+				if f0 > grow:
+					break
+				var p0 := e.lerp(Vector2(16, -4), f0)
+				var p1 := e.lerp(Vector2(16, -4), minf(f0 + 0.5 / float(n), 1.0))
+				pd.draw_line(p0, p1, Color("#ff4f6a", 0.85 * la), 1.6)
 		for i in 2:
 			var ph := clampf(x * 1.4 - 0.25 * float(i), 0.0, 1.0)
 			pd.draw_arc(Vector2.ZERO, 10.0 + 36.0 * ph, 0.0, TAU, 6, Color("#ff7a5a", 0.9 * (1.0 - ph)), 2.0)

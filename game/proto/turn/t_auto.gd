@@ -7,6 +7,9 @@ extends RefCounted
 ##   "값 − 실제 비용 × 대마법 크레딧당 값 ≥ 기본 공격 값 + 크레딧 1 × 대마법 크레딧당 값"일 때만 쓴다 (값 = 배율 × 맞는 적 수 × 크리 확정 1.4 × 이 공격만 특공,
 ##   실제 비용 = 비용 − 조건이 맞는 환급). 징표가 없을 때의 징표 심기 · 3겹 이상 터뜨리기는 예외 · 게이지 점수 = v × 2.5 (딜러 게이지 < 60%) ·
 ##   보조·디버프는 1.8부터 쓴다 · 3비용 이상 아끼기(×0.4)는 공격 마법에만.
+## D2·E2 (combat_proto.md §27.3): 크레딧 한 개의 값 λ = (대마법 값 − 기본 공격 값) / (7 − 환급 + 덤 1) — "기본 공격 + 대마법" 순환과 비기는 값 (예전 값/7은 27% 컸다) ·
+##   공격 마법 값에 공격 직전 자기 강화·방어 무시·지금 크리 확률을 넣고, 비교할 기본 공격엔 횟수제 기본 공격 버프를 곱함 · 크레딧 6부터는 3비용 이상 공격 마법을 쓰지 않고
+##   대마법을 마저 모음(SAVE_AT) · 대가(이 행동 뒤 크레딧 0)가 걸린 차례엔 가장 센 공격 마법을 바로 씀 · trigger는 비용 + 1을 남김.
 ## 단계 B: 횟수제 기본 공격 버프가 있으면 기본 공격 · 차지가 차면 차지 감소 · 관통 필살기 앞에선 무적 대신 받는 피해 감소.
 ## 빌드 원형 시험(tools/test/turn_sim.gd)은 plan으로 역할을 정해 준다 (비어 있으면 위 규칙만):
 ##   dealer: 딜러 id · ult_only: [대마법·기본 공격만 쓰는 id] · battery: [딜러에게 크레딧을 몰아주는 id — 자기 대마법은 안 씀]
@@ -16,6 +19,7 @@ extends RefCounted
 
 const USE_AT := 2.2 ## 공격 마법: 이 점수 아래면 기본 공격
 const USE_AT_SUP := 1.8 ## 보조·디버프 마법의 기준 (review_E E0 ④)
+const SAVE_AT := 6 ## 공격 대마법이 있는 마녀: 크레딧이 이만큼이면 3비용 이상 공격 마법을 쓰지 않고 대마법을 마저 모은다 (D2·E2)
 const DANGER := ["heavy", "aoe", "stun_attack", "finisher"] ## 미리 막을 만한 적 의도
 static var plan := {}
 
@@ -37,6 +41,17 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 		if not b.needs_target_pick(ult) or String(TData.skill(ult).target) != "enemy":
 			t = b.valid_targets(u, ult)[0]
 		return {"kind": "skill", "skill": ult, "target": t}
+	if u.zero_after_turn >= 0 and en != null:
+		# 대가(이 행동 뒤 크레딧 0)가 걸려 있으면 남는 크레딧의 값이 0 — 쓸 수 있는 가장 센 공격 마법을 바로 쓴다 (D2·E2)
+		var dump := ""
+		var dv := float(u.data.basic.mult) * 1.5
+		for sid in u.equipped:
+			var sk := TData.skill(sid)
+			if String(sk.kind) == "attack" and b.can_use(u, sid) and _attack_value(b, sk, en, u) > dv:
+				dump = sid
+				dv = _attack_value(b, sk, en, u)
+		if dump != "":
+			return {"kind": "skill", "skill": dump, "target": en}
 	if _in("ult_only", u):
 		return {"kind": "basic", "skill": "basic", "target": en}
 	if _in("battery", u):
@@ -68,10 +83,10 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 		var tsid := String(trig.skill)
 		if dealer.credits + 1 >= int(trig.at) and dealer.has_buff("atk") and b.can_use(u, tsid):
 			return {"kind": "skill", "skill": tsid, "target": dealer}
-		if u.credits < TData.cost_of(tsid) + 2:
+		if u.credits < TData.cost_of(tsid) + 1: # 비용 + 1을 남겨 둔다 (D2·E2: + 2면 별빛 역류보다 자기 대마법이 먼저 차서 역류가 판당 5번뿐이었다)
 			return {"kind": "basic", "skill": "basic", "target": en}
 	if _counting(u, "basic"):
-		return {"kind": "basic", "skill": "basic", "target": en} # 횟수제 기본 공격 버프가 남아 있으면 기본 공격
+		return {"kind": "basic", "skill": "basic", "target": en} # 횟수제 기본 공격 버프가 남아 있으면 기본 공격 (D2·E2에서 "곧 끝날 때만"을 재 봤으나 버프가 겹쳐 버려지고 충전을 다시 걸어 B1 보스가 20.9 → 24.7분 — 되돌림)
 	var guard_cost := 0
 	if _in("guard", u):
 		var gd := _guard_pick(b, u, en, dealer)
@@ -82,10 +97,12 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 				guard_cost = maxi(guard_cost, TData.cost_of(sid))
 	# 공격 대마법을 모으는 중 (E0 ①): 기본 공격(+크레딧)보다 값이 낮은 공격 마법은 쓰지 않는다
 	var ult_pc := 0.0
-	var basic_v := float(u.data.basic.mult)
+	var basic_v := float(u.data.basic.mult) * _count_boost(u, "basic") # 횟수제 기본 공격 버프가 있으면 그만큼 센 기본 공격과 비교 (D2·E2)
 	if ult != "" and not _in("battery", u) and String(TData.skill(ult).kind) == "attack":
+		# 크레딧 한 개의 값 λ (D2·E2): "기본 공격만 + 대마법" 순환과 비기는 값 — 기본 공격 b + (차례 1 + 덤 1)λ = 대마법 M + (차례 1 − (7 − 환급))λ
+		#   → λ = (M − b) / (7 − 환급 + 덤). 예전 M / (7 − 환급)은 차례마다 오는 +1과 기본 공격이 대신 못 하는 몫을 빼먹어 λ를 27% 크게 잡았다 (10배: 1.43 → 1.125)
 		var us := TData.skill(ult)
-		ult_pc = _attack_value(b, us, en) / float(maxi(TData.ULT_COST - _refund(us, en), 1))
+		ult_pc = maxf(_attack_value(b, us, en, u) - basic_v, 0.1) / float(maxi(TData.ULT_COST - _refund(us, en) + TData.BASIC_BONUS, 1))
 	var best_sid := ""
 	var best_tgt: TUnit = null
 	var best := 0.0
@@ -100,10 +117,12 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 			continue # 모으는 중엔 자기 강화(검기 두르기 등)에 크레딧을 쓰지 않는다 — 횟수제(다음 공격 1번·기본 공격 3번)는 대마법·기본 공격에 붙으므로 예외
 		if atk and ult_pc > 0.0 and not _save_exempt(sk, en):
 			var net := float(int(sk.cost) - _refund(sk, en))
-			if _attack_value(b, sk, en) - net * ult_pc < basic_v + float(TData.BASIC_BONUS) * ult_pc:
+			if _attack_value(b, sk, en, u) - net * ult_pc < basic_v + float(TData.BASIC_BONUS) * ult_pc:
 				continue
 		var r := score(b, u, sid, en, dealer)
 		var sc := float(r.score)
+		if atk and ult_pc > 0.0 and u.credits >= SAVE_AT and int(sk.cost) >= 3 and not _save_exempt(sk, en):
+			continue # 공격 대마법이 두 차례 안: 크레딧 5부터는 대마법을 마저 모은다 (D2·E2 — ×0.4로는 배율 높은 마법을 못 막아 대마법이 사라졌다)
 		if atk and ult != "" and u.credits >= 5 and int(sk.cost) >= 3 and not _in("battery", u):
 			sc *= 0.4 # 대마법까지 한 차례 — 큰 공격 마법은 아낀다
 		var need := USE_AT if atk else USE_AT_SUP
@@ -116,15 +135,33 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 	return {"kind": "basic", "skill": "basic", "target": en}
 
 
-## 공격 마법의 대략 값 (배율 × 맞는 적 수 × 크리 확정 1.4 × 이 공격만 특공 + 터뜨리기 겹) — 대마법 모으기 판단용
-static func _attack_value(b: TBattle, sk: Dictionary, en: TUnit) -> float:
+## 공격 마법의 대략 값 (배율 × 맞는 적 수 × 크리 확정 1.4 × 이 공격만 특공 × 공격 직전 자기 강화 × 방어 무시 + 터뜨리기 겹) — 대마법 모으기 판단용
+static func _attack_value(b: TBattle, sk: Dictionary, en: TUnit, u: TUnit = null) -> float:
 	var v := float(sk.get("mult", 0.0))
+	# 지금 크리 확률 (u가 있으면) — 이미 크리가 거의 확정인 마녀에게 크리 강화·확정 크리의 값은 작다
+	var cr := 0.2
+	if u != null:
+		cr = minf(TData.CRIT_BASE + u.cat_sum("crit_rate") + float(u.equip_data().get("crit_rate", 0.0)) + (en.cat_sum("crit_taken") if en != null else 0.0), 1.0)
+	var ck := TData.CRIT_MULT - 1.0
 	if String(sk.get("target", "")) == "enemies":
 		v *= float(maxi(b.alive_of(b.enemies).size(), 1))
 	for e in sk.get("effects", []):
 		match String(e.t):
+			"buff": # 공격 직전 자기 강화 (pre) — 이 공격에 바로 붙는다 (D2·E2: 예전엔 값에 안 넣어 강한 마법을 낮게 봤다)
+				if bool(e.get("pre", false)) and String(e.get("who", "self")) == "self":
+					match String(e.get("cat", "")):
+						"atk", "final":
+							v *= 1.0 + float(e.v)
+						"crit_rate":
+							v *= (1.0 + minf(cr + float(e.v), 1.0) * ck) / (1.0 + cr * ck)
+						"crit_dmg":
+							v *= 1.0 + float(e.v) * 0.3
 			"sure_crit":
-				v *= 1.4
+				v *= (1.0 + ck) / (1.0 + cr * ck)
+			"ignore_def": # 이 공격만 방어 무시 — 방어가 높은 보스에게 큰 몫 (D2·E2)
+				if en != null:
+					var dd := en.cat_sum("def_down")
+					v *= clampf(1.0 + dd, TData.DEF_MIN, TData.DEF_MAX) / clampf(1.0 - en.def_rate + dd, TData.DEF_MIN, TData.DEF_MAX)
 			"burst":
 				if en != null:
 					v += float(e.per) * float(en.mark_n(String(e.mark)))
@@ -227,11 +264,29 @@ static func _danger(b: TBattle) -> bool:
 	return false
 
 
-## 그 종류(on)의 횟수제 버프가 남아 있나
-static func _counting(u: TUnit, on: String) -> bool:
+## 그 종류(on)의 횟수제 버프가 그 공격에 곱하는 대략 배수 (공격력·최종 = 1 + v · 크리 데미지 = 1 + 크리 확률 × v / 1.5 · 크리 확률 = 크리 기대값 비)
+static func _count_boost(u: TUnit, on: String) -> float:
+	var cr := minf(TData.CRIT_BASE + u.cat_sum("crit_rate") + float(u.equip_data().get("crit_rate", 0.0)), 1.0)
+	var k := 1.0
+	for bf in u.buffs:
+		if not bf.has("count") or String(bf.get("on", "")) != on:
+			continue
+		match String(bf.get("cat", "")):
+			"atk", "final":
+				k *= 1.0 + float(bf.v)
+			"crit_dmg":
+				k *= 1.0 + cr * float(bf.v) / TData.CRIT_MULT
+			"crit_rate":
+				k *= (1.0 + minf(cr + float(bf.v), 1.0) * (TData.CRIT_MULT - 1.0)) / (1.0 + cr * (TData.CRIT_MULT - 1.0))
+	return k
+
+
+## 그 종류(on)의 횟수제 버프가 남아 있나. urgent = 남은 지속이 남은 횟수 이하 (지금 쓰지 않으면 일부를 버림)
+static func _counting(u: TUnit, on: String, urgent := false) -> bool:
 	for bf in u.buffs:
 		if bf.has("count") and String(bf.get("on", "")) == on:
-			return true
+			if not urgent or int(bf.get("dur", 0)) <= int(bf.count):
+				return true
 	return false
 
 

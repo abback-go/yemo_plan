@@ -53,6 +53,11 @@ const NUM_STYLE := {"dmg": [12, Color("#fff3e0")], "crit": [24, Color("#ffe08a")
 	"status": [12, Color("#cfcfe0")], "break": [15, Color("#ffe08a")], "buff": [10, Color("#d9ccff")], "debuff": [10, Color("#c9b8c8")],
 	"credit": [10, Color("#ffe08a")], "zero": [10, Color("#ff4f6a")], "mark": [10, Color("#ffb08a")]}
 const BODY_KINDS := ["dmg", "crit", "weak", "big", "hurt", "heal", "revive", "total"]
+const MERGE_KINDS := ["dmg", "crit", "weak", "big", "hurt"] ## 다단을 하나로 합치는 피해 숫자
+const MERGE := 0.45 ## 같은 대상이 이 안에 또 맞으면 숫자를 더함 (대마법 다단 간격 0.09초 · 광역 히트 사이)
+const HOLD_AGE := 0.2 ## 합칠 때 나이를 여기까지만 되돌림 (PVfx.Numbers와 같음)
+const GROW_HITS := 3 ## 이만큼 합치면 글자를 한 단계 키움
+const STACK_MAX := 3 ## 다른 숫자를 피해 쌓는 칸 최대
 
 var stage: Node
 var battle: TBattle
@@ -82,6 +87,7 @@ var _flash := {} ## TUnit → 남은 시간 (차례 칸을 눌러 그 유닛을 
 var _wave_t := 0.0 ## 웨이브 배너 남은 시간
 var _wave_txt := ""
 var _wave_flash := 0.0
+var ult_t := 0.0 ## 대마법 연출 남은 시간 (연쇄 칩 숨쉬기)
 var _back: PanelBack
 var _portraits := {} ## TUnit → PortraitBox
 var _view := {} ## TUnit → 보이는 값 {hp, max_hp, bar_i, alive, icons, marks} — 행동 연출 중에만 (비면 실제 값)
@@ -142,6 +148,7 @@ func _process(delta: float) -> void:
 	_banner_t += delta
 	_wave_t = maxf(_wave_t - delta, 0.0)
 	_wave_flash = maxf(_wave_flash - delta, 0.0)
+	ult_t = maxf(ult_t - delta, 0.0)
 	for k in _flash.keys():
 		_flash[k] = float(_flash[k]) - delta
 		if float(_flash[k]) <= 0.0:
@@ -153,6 +160,7 @@ func _process(delta: float) -> void:
 			Sfx.play(&"tn_select", -12.0)
 	for n: Dictionary in numbers:
 		n.age = float(n.age) + delta
+		n.last = float(n.get("last", 0.0)) + delta
 	numbers = numbers.filter(func(n: Dictionary) -> bool: return float(n.age) < 1.1)
 	if actor != null and _wheel_on():
 		_dim_others(true)
@@ -222,12 +230,24 @@ func wave_banner(i: int, n: int) -> void:
 
 
 ## 숫자·글 띄우기 (u = 맞은/받은 유닛). kind: dmg · crit · weak · big · hurt · heal · revive · total · status · break · buff · debuff · credit · zero · mark
-## weak = 위에 "약점" 꼬리표
-func pop(u: TUnit, text: String, kind := "dmg", weak := false) -> void:
+## weak = 위에 "약점" 꼬리표. value > 0 = 피해 값 — 같은 대상의 다단은 숫자 하나를 이어서 키운다 (review_D A1, PVfx.Numbers와 같은 규칙)
+func pop(u: TUnit, text: String, kind := "dmg", weak := false, value := 0) -> void:
 	if u == null or not actors.has(u):
 		return
 	var a: TActor = actors[u]
 	var key := "%d:%s" % [u.get_instance_id(), "body" if kind in BODY_KINDS else ("st" if kind in ["status", "break"] else "txt")]
+	if value > 0 and kind in MERGE_KINDS:
+		for n: Dictionary in numbers:
+			if String(n.key) == key and int(n.get("val", 0)) > 0 and float(n.last) < MERGE and String(n.kind) in MERGE_KINDS:
+				n.val = int(n.val) + value
+				n.hits = int(n.hits) + 1
+				n.last = 0.0
+				n.age = minf(float(n.age), HOLD_AGE)
+				n.weak = bool(n.weak) or weak
+				n.crit = bool(n.crit) or kind == "crit"
+				n.kind = "crit" if bool(n.crit) else ("hurt" if kind == "hurt" else ("big" if int(n.val) >= 300000 or String(n.kind) == "big" else ("weak" if bool(n.weak) else String(n.kind))))
+				n.text = TData.fmt_short(int(n.val)) + ("!" if bool(n.crit) else "")
+				return
 	var k := 0
 	for n: Dictionary in numbers:
 		if String(n.key) == key and float(n.age) < 0.5:
@@ -236,16 +256,23 @@ func pop(u: TUnit, text: String, kind := "dmg", weak := false) -> void:
 	var dir := -1.0
 	var age := 0.0
 	if kind in BODY_KINDS:
-		# 머리 꼭대기 아래 14px (맞는 연출의 번쩍·번개 중심인 몸 가운데를 피함, review_C2 H3) — 다단은 오른쪽 아래로 비켜 쌓기
-		p = _num_base(a) + Vector2(8, 10) * float(k % 6)
-		p = _avoid_numbers(p, text, int(NUM_STYLE.get(kind, NUM_STYLE.dmg)[0]), key)
+		# 머리 꼭대기 아래 14px (맞는 연출의 번쩍·번개 중심인 몸 가운데를 피함, review_C2 H3) — 같은 몸의 다른 숫자는 아래 _avoid_numbers가 비킴
+		p = _num_base(a)
+		var fs0 := int(NUM_STYLE.get(kind, NUM_STYLE.dmg)[0])
+		p = _avoid_numbers(p, text, fs0)
+		var hw := T.width(text, fs0) * 0.5 + 18.0 # 화면 밖으로 잘리지 않게 (오른쪽 끝 적 · "n타" 꼬리표 몫)
+		p.x = clampf(p.x, hw, 640.0 - hw)
 	elif kind in ["status", "break"]:
 		# 상태 글은 그 몸의 마지막 숫자 칸 위에서 (숫자와 겹치지 않게)
 		var last := _last_number(u)
-		if last.is_empty():
+		if last.is_empty() and u.is_witch():
+			# 마녀 머리 위 체력·게이지 막대 오른쪽 (review_D B8: 막대 위에 겹쳤다)
+			var top := to_screen(a.head()).round()
+			p = Vector2(top.x + 24.0 + T.width(text, 12) * 0.5, top.y - 1.0 - 14.0 * float(k % 3))
+		elif last.is_empty():
 			p = _num_base(a) + Vector2(0, -16 - 14 * (k % 3))
 		else:
-			p = Vector2((last.p as Vector2).x, (last.p as Vector2).y - float(NUM_STYLE[String(last.kind)][0]) - 6.0 - 14.0 * float(k % 3))
+			p = Vector2((last.p as Vector2).x, (last.p as Vector2).y - float(_num_fs(last)) - 6.0 - 14.0 * float(k % 3))
 	elif u.is_witch():
 		p = Vector2(_panel_rect(u.slot).position.x + 104.0, PANEL_Y - 4.0) + Vector2(0, -12.0 * float(k % 2))
 		age = -0.35 * float(k / 2) # 한 패널에 두 줄씩, 나머지는 늦춰서
@@ -255,9 +282,20 @@ func pop(u: TUnit, text: String, kind := "dmg", weak := false) -> void:
 		p = Vector2(cr.position.x + cr.size.x * 0.5, cr.end.y + 12.0 + stagger) + Vector2(0, 12.0 * float(k % 2))
 		age = -0.35 * float(k / 2)
 		dir = 1.0
-	numbers.append({"p": p, "text": text, "kind": kind, "age": age, "dir": dir, "weak": weak, "key": key})
+	numbers.append({"p": p, "text": text, "kind": kind, "age": age, "dir": dir, "weak": weak, "key": key,
+		"val": value, "hits": 1, "last": 0.0, "crit": kind == "crit"})
 	if numbers.size() > 48:
 		numbers.pop_front()
+
+
+## 숫자 항목의 글자 크기: 종류 크기, 3타 이상 합치면 한 단계 큰 설계 크기 (12 → 15 · 15 → 24 · 24 → 30 — 갈무리는 설계 크기로만 그림)
+func _num_fs(n: Dictionary) -> int:
+	var fs := int(NUM_STYLE.get(String(n.kind), NUM_STYLE.dmg)[0])
+	if int(n.get("hits", 1)) >= GROW_HITS:
+		var i := T.SIZES.find(fs)
+		if i >= 0 and i + 1 < T.SIZES.size():
+			fs = int(T.SIZES[i + 1])
+	return fs
 
 
 ## 피해 숫자의 시작점: 머리 꼭대기 아래 14px, 몸 가운데 + 6 (적 카드 밑보다 위로는 안 감)
@@ -266,25 +304,35 @@ func _num_base(a: TActor) -> Vector2:
 	return Vector2(to_screen(a.center()).x + 6.0, maxf(top.y + 14.0, NUM_MIN_Y))
 
 
-## 같은 행동에서 다른 대상의 숫자 칸과 겹치면 14px씩 위로 (위가 막히면 아래로)
-func _avoid_numbers(p: Vector2, text: String, fs: int, key: String) -> Vector2:
-	var w := T.width(text, fs)
-	for tries in 6:
-		var r := Rect2(p.x - w * 0.5, p.y - float(fs), w, float(fs))
-		var hit := false
-		for n: Dictionary in numbers:
-			if String(n.key) == key or not (String(n.kind) in BODY_KINDS) or float(n.age) > 0.5:
-				continue
-			var nfs := int(NUM_STYLE.get(String(n.kind), NUM_STYLE.dmg)[0])
-			var nw := T.width(String(n.text), nfs)
-			var q: Vector2 = n.p
-			if r.intersects(Rect2(q.x - nw * 0.5, q.y - float(nfs), nw, float(nfs)).grow(1.0)):
-				hit = true
-				break
-		if not hit:
-			break
-		p.y += -14.0 if p.y - 14.0 >= NUM_MIN_Y else 14.0
+## 살아 있는 다른 숫자 칸과 겹치면 글자 높이 + 2px씩 위로 (위가 막히면 처음부터 아래로) 최대 STACK_MAX칸, 넘치면 가로로 비킴
+## (review_D A2 — PVfx.Numbers의 STACK 규칙. 예전 14px 위·아래 번갈이는 NUM_MIN_Y 근처에서 제자리걸음을 했다)
+func _avoid_numbers(p: Vector2, text: String, fs: int) -> Vector2:
+	var w := T.width(text, fs) + 8.0 # 다단으로 커지는 몫
+	var step := float(fs) + 2.0
+	var dy := -step if p.y - step * float(STACK_MAX) >= NUM_MIN_Y else step
+	var base := p
+	for tries in STACK_MAX * 2 + 1:
+		if not _number_hit(p, w, fs):
+			return p
+		if tries < STACK_MAX:
+			p.y += dy
+		else: # 칸이 다 차면 대상 쪽 x로 ±20씩
+			var side := 1.0 if (tries - STACK_MAX) % 2 == 0 else -1.0
+			p = base + Vector2(side * 20.0 * float((tries - STACK_MAX) / 2 + 1), dy * float(STACK_MAX - 1))
 	return p
+
+
+func _number_hit(p: Vector2, w: float, fs: int) -> bool:
+	var r := Rect2(p.x - w * 0.5, p.y - float(fs), w, float(fs))
+	for n: Dictionary in numbers:
+		if not (String(n.kind) in BODY_KINDS) or float(n.age) > 0.7 or float(n.age) < 0.0:
+			continue
+		var nfs := _num_fs(n)
+		var nw := T.width(String(n.text), nfs)
+		var q: Vector2 = n.p
+		if r.intersects(Rect2(q.x - nw * 0.5, q.y - float(nfs), nw, float(nfs)).grow(1.0)):
+			return true
+	return false
 
 
 ## 그 유닛의 가장 최근 몸 숫자 (0.6초 안)
@@ -817,7 +865,7 @@ func _layout_portraits() -> void:
 	_back.visible = not strip
 	for w in _portraits:
 		var p: PortraitBox = _portraits[w]
-		p.visible = not strip
+		p.visible = not strip and modulate.a > 0.5 # 대마법 동안 HUD가 걷힐 때 초상은 숨김 (에스카의 EArt 테 셰이더는 알파를 0/1로 잘라 흰 유령이 됨, review_D A4)
 		var r := _panel_rect(w.slot)
 		p.position = r.position + Vector2(4, 4)
 		p.modulate = Color(1, 1, 1, 0.45) if not valive(w) else Color.WHITE
@@ -881,7 +929,7 @@ func _draw() -> void:
 	if _detail != null:
 		_draw_detail(_detail)
 	if _wave_t > 0.0:
-		_draw_banner_box(_wave_txt, "", T.TEXT, 1.0 - _wave_t)
+		_draw_banner_box(_wave_txt, "", T.TEXT, 1.0 - _wave_t, _wave_t)
 	if state == "banner":
 		_draw_banner()
 	if confirm_open:
@@ -903,8 +951,11 @@ func _draw_top() -> void:
 		var cx := 596.0 - T.width(wl, 10) - 8.0
 		var lab := "대마법 연쇄 %d단계 · 다음 %d단계" % [battle.chain_stage, mini(battle.chain_stage + 1, 3)] if battle.chain_stage < 3 else "대마법 연쇄 3단계 (최대)"
 		var w := T.width(lab, 10) + 10.0
-		T.panel(self, Rect2(cx - w, 8, w, 15), Color(T.INK, 0.9), Color(T.GOLD, 0.8), 1, 3)
-		T.text(self, Vector2(cx - w * 0.5, 20), lab, 10, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+		var br := 0.5 + 0.5 * sin(_t * TAU / 0.6) if ult_t > 0.0 else 0.0 # 대마법 동안 0.6초 주기로 숨쉼
+		if br > 0.0:
+			draw_rect(Rect2(cx - w - 2.0, 6, w + 4.0, 19), Color(T.GOLD, 0.25 * br))
+		T.panel(self, Rect2(cx - w, 8, w, 15), Color(T.INK, 0.9).lerp(Color(T.GOLD, 0.9), 0.25 * br), Color(T.GOLD, 0.8 + 0.2 * br), 1, 3)
+		T.text(self, Vector2(cx - w * 0.5, 20), lab, 10, T.GOLD.lerp(Color.WHITE, 0.5 * br), HORIZONTAL_ALIGNMENT_CENTER)
 	# 나가기 X
 	draw_circle(X_C, 12.0, Color(T.INK, 0.6))
 	draw_arc(X_C, 12.0, 0.0, TAU, 24, Color(T.LINE, 0.6), 1.0)
@@ -1402,11 +1453,12 @@ func _draw_numbers() -> void:
 			continue
 		var kind := String(n.kind)
 		var st: Array = NUM_STYLE.get(kind, NUM_STYLE.dmg)
-		var fs := int(st[0])
+		var fs := _num_fs(n)
 		var col: Color = st[1]
+		var hits := int(n.get("hits", 1))
 		var rise := 18.0 * (1.0 - pow(1.0 - minf(age / 0.5, 1.0), 2.0)) * float(n.dir)
 		var a := 1.0 - clampf((age - 0.6) / 0.5, 0.0, 1.0)
-		var pop := 1.0 - clampf(age / 0.12, 0.0, 1.0)
+		var pop := 1.0 - clampf(minf(age, float(n.get("last", age))) / 0.12, 0.0, 1.0) # 합칠 때마다 다시 툭 커짐
 		var q: Vector2 = (n.p as Vector2) + Vector2(0, rise)
 		var s := 1.0 + 0.25 * pop
 		draw_set_transform(q, 0.0, Vector2(s, s))
@@ -1419,6 +1471,8 @@ func _draw_numbers() -> void:
 		T.text(self, Vector2.ZERO, String(n.text), fs, c, HORIZONTAL_ALIGNMENT_CENTER, ow)
 		if bool(n.weak):
 			T.text(self, Vector2(0, -float(fs) - 1.0), "약점", 10, Color(T.WEAK, a), HORIZONTAL_ALIGNMENT_CENTER)
+		if hits > 1: # 오른쪽 위 "n타" 꼬리표
+			T.text(self, Vector2(T.width(String(n.text), fs) * 0.5 + 2.0, -float(fs) + 9.0), "%d타" % hits, 10, Color(T.TEXT, a), HORIZONTAL_ALIGNMENT_LEFT, 3)
 		draw_set_transform(Vector2.ZERO)
 
 
@@ -1502,9 +1556,11 @@ func _draw_detail(u: TUnit) -> void:
 		y += T.wrap(self, Vector2(X, y), String(ln[0]), DETAIL_W - 16.0, 10, ln[1], 13.0, int(ln[2])) + 1.0
 
 
-func _draw_banner_box(title: String, sub: String, col: Color, t: float) -> void:
+## left = 남은 시간 (닫히는 배너만): 마지막 0.2초에 높이 84 → 0, 글 알파 1 → 0 (review_D C4: 끝에 툭 사라졌다)
+func _draw_banner_box(title: String, sub: String, col: Color, t: float, left := 99.0) -> void:
 	var k := clampf(t / 0.35, 0.0, 1.0)
-	var e := 1.0 - pow(1.0 - k, 3.0)
+	var e := (1.0 - pow(1.0 - k, 3.0)) * clampf(left / 0.2, 0.0, 1.0)
+	col = Color(col, col.a * clampf(left / 0.2, 0.0, 1.0))
 	var h := 84.0 * e
 	var cy := 180.0
 	draw_rect(Rect2(0, cy - h * 0.5, size.x, h), Color(T.INK, 0.86 * e))

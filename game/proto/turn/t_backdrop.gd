@@ -4,6 +4,7 @@ extends PDraw.Canvas
 ## 왼쪽 아래에서 오른쭉 위로 비스듬히 뻗은 길(대각선 사이드뷰의 깊이) · 떠다니는 재 · 가장자리 어둡게.
 ## 재와 안개만 움직이므로 20Hz로 다시 그린다.
 ## 단계 D: 깊이 세 겹(먼 산등성이 · 무너진 성벽 · 앞쪽 바위 테두리) + 달빛 줄기 · 흐르는 안개 띠 · 보스 웨이브에서 하늘 아래가 0.6초에 붉어짐(set_boss).
+## D2 (review_D C3): 허리 높이 옅은 안개 띠 · 왼쪽 아래 따뜻한 키 라이트 · 바위 덤불 두 줄.
 
 const SKY_TOP := Color("#120a22")
 const SKY_MID := Color("#2a1740")
@@ -147,6 +148,29 @@ func _paint() -> void:
 	pd.glow(Vector2.ZERO, 130.0, Color("#3a4a4a", 0.30), 0.0)
 	pd.glow(Vector2.ZERO, 120.0, Color("#ff6a4a", 0.08), 0.0)
 	pd.draw_set_transform(Vector2.ZERO)
+	# 땅의 넓은 평면을 깨는 바위 덤불 두 줄 (뒤 줄 y ≈ 214~222 · 앞 줄 y ≈ 296~300, 마녀·적이 서는 자리는 비움) — review_D C3
+	for row: Array in [[216.0, 0.8, [24, 250, 300, 360, 610]], [298.0, 1.6, [40, 300, 340, 400, 540]]]:
+		var y0: float = row[0]
+		var sc: float = row[1]
+		for x0 in row[2]:
+			var b := Vector2(float(x0), y0 + 3.0 * sin(float(x0)))
+			for j in 3:
+				var q := b + Vector2((float(j) - 1.0) * 5.0 * sc, -float(j % 2) * 1.0 * sc)
+				pd.draw_colored_polygon(PackedVector2Array([q + Vector2(-3.4 * sc, 0), q + Vector2(-1.4 * sc, -3.0 * sc), q + Vector2(2.0 * sc, -2.6 * sc), q + Vector2(3.6 * sc, 0)]), Color("#2a2236").lerp(Color("#3b3148"), 0.5 * float(j % 2)))
+				pd.draw_line(q + Vector2(-1.4 * sc, -3.0 * sc), q + Vector2(2.0 * sc, -2.6 * sc), Color("#52465f", 0.8), 0.8)
+			for j in 5:
+				var g := b + Vector2((float(j) - 2.0) * 3.2 * sc, 0)
+				pd.draw_line(g, g + Vector2(sin(_t * 1.5 + float(x0) + float(j)) * 0.8, -(4.0 + 2.0 * float(j % 3)) * sc), GRASS.lightened(0.1), 0.9)
+	# 캐릭터 허리 높이 옅은 안개 띠 (y 200~240) — 짙은 옷의 실루엣을 땅에서 뗌
+	for i in 2:
+		var fx := fposmod(_t * (5.0 + 3.0 * float(i)) + 420.0 * float(i), 1000.0) - 180.0
+		pd.draw_set_transform(Vector2(fx, 222.0 + 10.0 * float(i)), 0.0, Vector2(1.0, 0.14))
+		pd.glow(Vector2.ZERO, 200.0, Color(1, 1, 1, 0.06), 0.0)
+		pd.draw_set_transform(Vector2.ZERO)
+	pd.rect_grad(Rect2(0, 200, 640, 20), Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.035))
+	pd.rect_grad(Rect2(0, 220, 640, 20), Color(1, 1, 1, 0.035), Color(1, 1, 1, 0.0))
+	# 아군 쪽 왼편 따뜻한 키 라이트 (적 쪽 차가운 보라와 온도를 나눔)
+	pd.glow(Vector2(40, 330), 240.0, Color("#ff9a5a", 0.08), 0.0)
 	# 앞쪽 바위 테두리 (아래 모서리 — 화면 앞 층, 아래 띠 뒤라 그림을 가리지 않음)
 	pd.draw_colored_polygon(PackedVector2Array([Vector2(0, 360), Vector2(0, 286), Vector2(18, 290), Vector2(34, 302), Vector2(52, 300), Vector2(70, 312), Vector2(76, 360)]), NEAR)
 	pd.draw_colored_polygon(PackedVector2Array([Vector2(640, 360), Vector2(640, 280), Vector2(622, 286), Vector2(606, 298), Vector2(590, 296), Vector2(574, 310), Vector2(566, 360)]), NEAR)

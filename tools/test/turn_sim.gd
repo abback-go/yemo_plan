@@ -10,6 +10,7 @@ extends SceneTree
 ##   suite              : 위 전부를 짧게 (원형 표·속도 비·220파티·속성 지표·잠금) — 문서 §27.3 표의 숫자
 ##   bt 전투id           : 원형 8개 프리셋을 그 전투 하나로만 (승 · 행동 · 분)
 ##   acts 원형id 전투id  : 그 원형 프리셋의 행동 내역 (마녀:마법별 횟수 · 판당 · 1회 평균 피해) — 느리고 빠른 까닭 찾기
+##   e2                 : 밸런스 후속 E2 목표 셋만 빠르게 — 원형별 딜러 마법 몫 · 기본 파티 보스 분 · 회복 없는 파티 일반 승률 (combat_proto.md §27.3)
 ## 출력: 전략별 승률·걸린 차례·마녀별 준 피해·최대 한 방·남은 체력, 스킬 효율표, 문서의 숫자 규모 확인,
 ##       전투별 승률·행동 수·시간 모형(전체 행동 × 1.3초 + 마녀 행동 × 3초, combat_proto.md §1.4)·대마법·기절·터뜨리기 횟수.
 
@@ -45,7 +46,7 @@ const BUILDS := {
 		"state": {"glacia": {"equipped": ["still_frost", "deep_freeze", "ice_wall", "rime"], "equip": "swift_boots"},
 			"hora": {"equipped": ["stopped_clock", "doomsday_clock", "rewind", "time_haste"], "equip": "hourglass_charm"},
 			"undine": {"equipped": ["water_lance", "return_tide", "glacier", "abyss_lance"], "equip": "notebook"}}},
-	"B8": {"name": "대가 몰빵", "party": ["ignis", "ember", "astra"], "plan": {"dealer": "ignis", "ult_only": ["ignis"], "trigger": {"astra": {"skill": "overcharge", "at": 7}}},
+	"B8": {"name": "대가 몰빵", "party": ["ignis", "ember", "astra"], "plan": {"dealer": "ignis", "ult_only": ["ignis"], "trigger": {"astra": {"skill": "overcharge", "at": 5}}}, # D2·E2: 역류는 이그니스가 5가 될 때 → 대가가 걸린 차례엔 가장 센 공격(태양의 창)을 바로 씀 (TAuto 대가 규칙)
 		"state": {"ignis": {"equipped": ["spark", "pillar", "sun_spear", "focus"], "equip": "kaleido"},
 			"ember": {"equipped": ["crown", "bellows", "flame_breath", "blessing"], "equip": "notebook"},
 			"astra": {"equipped": ["overcharge", "rod", "static", "starlight"], "equip": "star_shard"}}},
@@ -65,6 +66,9 @@ func _process(_d: float) -> bool:
 		return true
 	if args.size() > 3 and String(args[1]) == "acts":
 		_mode_acts(String(args[2]), String(args[3]), runs)
+		return true
+	if args.size() > 1 and String(args[1]) == "e2":
+		_mode_e2(runs)
 		return true
 	if args.size() > 1 and String(args[1]) in ["roster", "style", "lock", "suite"]:
 		var bt := String(args[2]) if args.size() > 2 else "normal_01"
@@ -191,7 +195,8 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 	var r := {"witch_acts": 0, "all_acts": 0, "biggest": 0, "biggest_who": "", "downs": 0, "ults": 0, "stuns": 0, "bursts": 0, "breaks": 0, "resists": 0,
 		"dmg_basic": 0, "dmg_skill": 0, "dmg_ult": 0, "basic_hits": 0, "basic_crits": 0, "chain2": 0, "chain3": 0, "burst_n": 0, "charge_downs": 0,
 		"finishers": 0, "enemy_acts": 0, "enemy_rounds": 0.0, "stack_max": 0, "oneshots": 0, "acts": {},
-		"basic_acts": 0, "cred_skill": 0, "w_hits": 0, "w_crits": 0, "ally_gauge": 0.0, "foe_gauge": 0.0, "act_dmg": [], "inv_hits": 0, "foe_hits": 0, "heals": 0}
+		"basic_acts": 0, "cred_skill": 0, "w_hits": 0, "w_crits": 0, "ally_gauge": 0.0, "foe_gauge": 0.0, "act_dmg": [], "inv_hits": 0, "foe_hits": 0, "heals": 0,
+		"skill_by": {}} ## 마녀별 공격 마법(대마법 아님) 피해 — 딜러 마법 몫 (D2·E2)
 	var guard := 0
 	while guard < 1500:
 		var oc := b.outcome()
@@ -221,6 +226,8 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 				if e.t == "hit" and e.src == u:
 					r["dmg_" + src] = int(r["dmg_" + src]) + int(e.dmg)
 					adm += int(e.dmg)
+					if src == "skill":
+						r.skill_by[u.id] = int(r.skill_by.get(u.id, 0)) + int(e.dmg)
 					r.w_hits = int(r.w_hits) + 1
 					r.w_crits = int(r.w_crits) + (1 if bool(e.crit) else 0)
 					if src == "basic":
@@ -543,8 +550,8 @@ func _conditions() -> void:
 	print("B1 풀구르 → 늪 두꺼비(감전): 충전 + 거울 조각 크리 확률 %d%% · 크리 배율 ×%.2f → 기본 공격 %s · + 별의 손길 ×%.2f → %s" % [
 		int(round(float(t1.crit_rate) * 100.0)), float(t1.crit_mult), TData.fmt(int(round(float(t1.base) * float(t1.crit_mult)))), float(t2.crit_mult), TData.fmt(int(round(float(t2.base) * float(t2.crit_mult))))])
 	var c_rate := 2.0 / 3.0 # 충전(2) 뒤 기본 공격 3번: 4차례에 크레딧 +1(충전 차례) +2×3 = +7 → 4차례마다 대마법 1번 몫
-	print("B1 4차례(충전 + 기본 공격 3번) 피해 합 %s · 같은 4차례 크레딧 순증 +5 (대마법 7까지 4차례 남짓) · 마법 순환(태양의 창급 6배 + 기본 공격, 턴당 %.2f배)과 비교: 기본 공격 턴당 %.2f배" % [
-		TData.fmt(int(round(float(t2.base) * float(t2.crit_mult))) * 3), 1.0 / 3.0 * 6.0 + c_rate * 1.0, 3.0 * float(t2.crit_mult) * 1.2 / 4.0])
+	print("B1 4차례(충전 + 기본 공격 3번) 피해 합 %s · 같은 4차례 크레딧 순증 +5 (대마법 7까지 4차례 남짓) · 마법 순환(태양의 창급 %.1f배 + 기본 공격, 턴당 %.2f배)과 비교: 기본 공격 턴당 %.2f배" % [
+		TData.fmt(int(round(float(t2.base) * float(t2.crit_mult))) * 3), float(TData.skill("sun_spear").mult), 1.0 / 3.0 * float(TData.skill("sun_spear").mult) + c_rate * 1.0, 3.0 * float(t2.crit_mult) * 1.2 / 4.0])
 	# B6: 에스카 화염 부여 종언 / 이그니스 태양의 창 (짚 골렘, 크리 아님)
 	var b6 := _cb(["eska", "ember", "ignis"], ["straw_golem"])
 	var es := _wu(b6, "eska")
@@ -778,26 +785,35 @@ func _build_stat(bid: String, bt: String, runs: int) -> Dictionary:
 	var wins := 0
 	var w := 0
 	var a := 0
+	var tot := 0
+	var dsk := 0
+	var ult := 0
+	var dealer := String(bd.plan.get("dealer", ""))
 	for i in runs:
 		var r := _auto_game(bd.party, bt, bd.state, 7000 + i, bd.plan)
+		tot += int(r.dmg_basic) + int(r.dmg_skill) + int(r.dmg_ult)
+		dsk += int(r.skill_by.get(dealer, 0))
+		ult += int(r.dmg_ult)
 		if bool(r.win):
 			wins += 1
 			w += int(r.witch_acts)
 			a += int(r.all_acts)
 	var wn := maxf(float(wins), 1.0)
-	return {"win": wins, "w_avg": float(w) / wn, "min": _minutes(float(w) / wn, float(a) / wn)}
+	return {"win": wins, "w_avg": float(w) / wn, "min": _minutes(float(w) / wn, float(a) / wn),
+		"dealer_skill": float(dsk) / maxf(float(tot), 1.0), "ult_share": float(ult) / maxf(float(tot), 1.0)} # 딜러 공격 마법 몫 · 대마법 몫 (파티 전체 피해 중)
 
 
 ## 문서 §27.3 표: 원형 8 × 전투 3 · 속도 비 · 기본 파티 · 220파티(1판) · 속성 지표 · 잠금
 func _mode_suite(runs: int) -> void:
-	print("=== 단계 E 측정 묶음 (원형 %d판씩) ===" % runs)
+	print("=== 단계 E 측정 묶음 (원형 %d판씩) — 칸 = 승 · 승리 평균 마녀 행동 · 분 · [딜러 마법 몫 / 대마법 몫] ===" % runs)
 	print("| 원형 | normal_01 | boss_01 | trial_01 |")
 	var spd := {"normal_01": [], "boss_01": []}
 	for bid in BUILDS:
 		var cells: Array = []
 		for bt in ["normal_01", "boss_01", "trial_01"]:
 			var st := _build_stat(String(bid), bt, runs)
-			cells.append("%d/%d · %.1f · %.1f분" % [int(st.win), runs, float(st.w_avg), float(st.min)] if int(st.win) > 0 else "%d/%d" % [int(st.win), runs])
+			var sh := " [%d%% / %d%%]" % [int(round(100.0 * float(st.dealer_skill))), int(round(100.0 * float(st.ult_share)))]
+			cells.append(("%d/%d · %.1f · %.1f분" % [int(st.win), runs, float(st.w_avg), float(st.min)] if int(st.win) > 0 else "%d/%d" % [int(st.win), runs]) + sh)
 			if spd.has(bt) and int(st.win) > 0:
 				(spd[bt] as Array).append([float(st.w_avg), String(bid)])
 		print("| %s %s | %s |" % [bid, BUILDS[bid].name, " | ".join(cells)])
@@ -824,6 +840,43 @@ func _mode_suite(runs: int) -> void:
 	for bt in ["normal_01", "boss_01"]:
 		_mode_style(bt, runs)
 	_mode_lock(runs)
+
+
+## E2 목표 셋 (원형 B1·B3~B8 딜러 마법 몫 ≥ 20% · 기본 파티 보스 ≤ 22분 · 회복 없는 파티 일반 ≥ 60%)
+func _mode_e2(runs: int) -> void:
+	print("=== E2 목표 (%d판씩) ===" % runs)
+	for bid in BUILDS:
+		var cells: Array = []
+		for bt in ["normal_01", "boss_01"]:
+			var st := _build_stat(String(bid), bt, runs)
+			cells.append("%s %d/%d · %.1f분 · 딜러 마법 %d%% · 대마법 %d%%" % [bt, int(st.win), runs, float(st.min), int(round(100.0 * float(st.dealer_skill))), int(round(100.0 * float(st.ult_share)))])
+		print("  %s %s: %s" % [bid, BUILDS[bid].name, " | ".join(cells)])
+	for bt in ["normal_01", "boss_01"]:
+		var wins := 0
+		var w := 0
+		var a := 0
+		for i in runs:
+			var r := _auto_game(TData.BATTLE.party, bt, {}, 9000 + i)
+			if bool(r.win):
+				wins += 1
+				w += int(r.witch_acts)
+				a += int(r.all_acts)
+		var wn := maxf(float(wins), 1.0)
+		print("  기본 파티 %s: 승 %d/%d · %.1f행동 · %.1f분" % [bt, wins, runs, float(w) / wn, _minutes(float(w) / wn, float(a) / wn)])
+	var n0 := 0
+	var w0 := 0
+	for pi in _all_parties().size():
+		var p: Array = _all_parties()[pi]
+		var heal := false
+		for wid in p:
+			heal = heal or _healer(wid)
+		if heal:
+			continue
+		for k in maxi(runs / 5, 1):
+			var r := _auto_game(p, "normal_01", {}, 31000 + pi * 13 + k)
+			n0 += 1
+			w0 += 1 if bool(r.win) else 0
+	print("  회복 없는 파티 normal_01: %d/%d (%d%%)" % [w0, n0, int(100.0 * w0 / maxf(n0, 1.0))])
 
 
 ## 원형 프리셋의 행동 내역: 마녀:마법 → 판당 횟수 · 1회 평균 피해

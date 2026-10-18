@@ -67,6 +67,13 @@ static func font(fs: int) -> Font:
 	return _fonts[file]
 
 
+## 정적 캐시(글꼴 4 · 판 StyleBox)를 놓는다 — 전투·편성 장면이 나갈 때. 글꼴이 글리프 아틀라스·TextLine 캐시를 종료 때까지 붙잡아
+## 엔진 누수 경고(텍스처·ShapedText·FontAdvanced)가 나던 것 (review_D §8.1). 다음에 그리면 다시 불러온다.
+static func release() -> void:
+	_fonts.clear()
+	_box = null
+
+
 ## 허용 크기 중 가장 가까운 것
 static func size_of(fs: int) -> int:
 	var best := 12

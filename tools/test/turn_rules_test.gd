@@ -138,15 +138,15 @@ func _damage_tests() -> void:
 	_ok("D03 난수 1.05", _first(b.basic_attack(ig, g)), 18900)
 
 	b = _b(["ignis"], ["straw_golem"])
-	_ok("D04 태양의 창", _first(b.use_skill(_w(b, "ignis"), "sun_spear", _e(b, "straw_golem"))), 108000)
+	_ok("D04 태양의 창", _first(b.use_skill(_w(b, "ignis"), "sun_spear", _e(b, "straw_golem"))), 126000)
 
-	for c in [["D05 + 풀무질 (화상 특공 25%/겹), 화상 1겹", 1, 135000], ["D06 화상 3겹 (75%)", 3, 189000], ["D07 화상 5겹 (125%)", 5, 243000]]:
+	for c in [["D05 + 풀무질 (화상 특공 25%/겹), 화상 1겹", 1, 157500], ["D06 화상 3겹 (75%)", 3, 220500], ["D07 화상 5겹 (125%)", 5, 283500]]:
 		b = _b(["ignis", "ember"], ["straw_golem"])
 		b.use_skill(_w(b, "ember"), "bellows", _w(b, "ignis"))
 		_e(b, "straw_golem").add_mark("burn", 3, int(c[1]))
 		_ok(String(c[0]), _first(b.use_skill(_w(b, "ignis"), "sun_spear", _e(b, "straw_golem"))), int(c[2]))
 
-	for c in [["D08 D06 + 불의 축복 30% + 열기 응축 80% (다음 공격 마법)", 0, 396900], ["D09 D08이 크리 (×1.5)", 1, 595350]]:
+	for c in [["D08 D06 + 불의 축복 30% + 열기 응축 80% (다음 공격 마법)", 0, 463050], ["D09 D08이 크리 (×1.5)", 1, 694575]]:
 		b = _b(["ignis", "ember"], ["straw_golem"])
 		ig = _w(b, "ignis")
 		b.use_skill(_w(b, "ember"), "bellows", ig)
@@ -158,13 +158,13 @@ func _damage_tests() -> void:
 		_ok(String(c[0]), _first(b.use_skill(ig, "sun_spear", _e(b, "straw_golem"))), int(c[2]))
 
 	b = _b(["eska"], ["ash_knight"])
-	_ok("D10 에스카 종언 (4.5배, 선버프 +15%) → 재의 기사", _first(b.use_skill(_w(b, "eska"), "doom", _e(b, "ash_knight"))), 56511)
+	_ok("D10 에스카 종언 (6.0배, 선버프 +15%) → 재의 기사", _first(b.use_skill(_w(b, "eska"), "doom", _e(b, "ash_knight"))), 75348)
 	b = _b(["ignis"], ["ash_knight"])
 	_e(b, "ash_knight").add_buff({"cat": "def_down", "v": 0.60, "dur": 3, "clock": "own"})
 	_ok("D11 방어 다운 60% (상한 50%)", _first(b.basic_attack(_w(b, "ignis"), _e(b, "ash_knight"))), 14400)
 	b = _b(["eska"], ["ash_knight"])
-	_ok("D12 공간 압축 (방어 무시)", _first(b.use_skill(_w(b, "eska"), "compress", _e(b, "ash_knight"))), 46800)
-	for c in [["D13 화염 부여 종언 → 짚 골렘 (100,912.49…)", "straw_golem", 100912], ["D14 화염 부여 종언 → 늪 두꺼비", "swamp_toad", 53820]]:
+	_ok("D12 공간 압축 (방어 무시)", _first(b.use_skill(_w(b, "eska"), "compress", _e(b, "ash_knight"))), 67080)
+	for c in [["D13 화염 부여 종언 → 짚 골렘 (134,549.99…)", "straw_golem", 134550], ["D14 화염 부여 종언 → 늪 두꺼비", "swamp_toad", 71760]]:
 		b = _b(["eska", "ember"], [String(c[1])])
 		b.use_skill(_w(b, "ember"), "kindling", _w(b, "eska"))
 		_ok(String(c[0]), _first(b.use_skill(_w(b, "eska"), "doom", b.enemies[0])), int(c[2]))
@@ -187,9 +187,9 @@ func _damage_tests() -> void:
 	b = _b(["ignis"], ["straw_golem"])
 	_e(b, "straw_golem").add_mark("burn", 3, 2)
 	ev = b.use_skill(_w(b, "ignis"), "ult_ignis", _e(b, "straw_golem"))
-	_ok("D19 대마법 태양 붕괴, 화상 2겹 터뜨리기 (10 + 1.0×2) → 뒤에 화상 1겹", "%d %d" % [_first(ev), _e(b, "straw_golem").mark_n("burn")], "216000 1")
+	_ok("D19 대마법 태양 붕괴, 화상 2겹 터뜨리기 (9 + 1.0×2) → 뒤에 화상 1겹", "%d %d" % [_first(ev), _e(b, "straw_golem").mark_n("burn")], "198000 1")
 	b = _b(["ignis"], ["straw_golem"], {"ignis": {"skill_lv": {"sun_spear": 3}}})
-	_ok("D20 태양의 창 강화 Lv3 (7.8배)", _first(b.use_skill(_w(b, "ignis"), "sun_spear", _e(b, "straw_golem"))), 140400)
+	_ok("D20 태양의 창 강화 Lv3 (9.1배)", _first(b.use_skill(_w(b, "ignis"), "sun_spear", _e(b, "straw_golem"))), 163800)
 	b = _b(["ignis"], ["straw_golem"])
 	_w(b, "ignis").passive = TData.WITCHES.ignis.passive.effects
 	_e(b, "straw_golem").add_mark("burn", 3, 1)
@@ -528,17 +528,17 @@ func _scenario_tests() -> void:
 	b.fix_roll = 0.99
 	b.use_skill(_w(b, "ignis"), "spark", _e(b, "ash_king"))
 	_ok("T19 재의 왕에게 화상 → 늘 걸림", _e(b, "ash_king").mark_n("burn"), 1)
-	# T20 차지 4 → 필살기
+	# T20 차지 5 → 필살기 (D2·E2: 재의 기사 차지 4 → 5, 필살기 2.0 → 1.5배)
 	b = _b(["ignis"], ["ash_knight"])
 	_tough(b)
 	k = _e(b, "ash_knight")
-	for i in 4:
+	for i in 5:
 		b.enemy_action(k)
 		b.end_action(k)
 	var it4 := "%s %d" % [String(k.intent().get("name", k.intent().k)), k.charge]
 	ev = b.enemy_action(k)
 	b.end_action(k)
-	_ok("T20 재의 기사 행동 4번 → 필살기 보임 → 전체 2.0배 → 차지 0", "%s | %d %d %s" % [it4, _first(ev), k.charge, String(k.intent().k)], "잿불 베기 4 | 10260 0 attack")
+	_ok("T20 재의 기사 행동 5번 → 필살기 보임 → 전체 1.5배 (3,000 × 1.5 × 0.95) → 차지 0", "%s | %d %d %s" % [it4, _first(ev), k.charge, String(k.intent().k)], "잿불 베기 5 | 4275 0 buff")
 	# T21 차지 3에서 기절
 	b = _b(["glacia"], ["ash_knight"])
 	_tough(b)
@@ -561,7 +561,7 @@ func _scenario_tests() -> void:
 	kg = _e(b, "ash_king")
 	kg.hp = 50000
 	ev = b.use_skill(_w(b, "harpe"), "ult_harpe", kg)
-	_ok("T23 종막의 검 (8배 6히트) 2번째에 브레이크 → 남은 4히트는 0", "%s %d %d" % [str(_hits(ev)), kg.bar_i, kg.hp], "[33600, 33600] 1 1500000")
+	_ok("T23 종막의 검 (6.8배 6히트) 2번째에 브레이크 → 남은 4히트는 0", "%s %d %d" % [str(_hits(ev)), kg.bar_i, kg.hp], "[28560, 28560] 1 1500000")
 	# T24 해제
 	b = _b(["ignis", "eska"], ["ash_king"], {"ignis": {"equip": "feather_charm"}})
 	ig = _w(b, "ignis")
@@ -721,7 +721,7 @@ func _stage_b_tests() -> void:
 	ig.credits = 7
 	var ns := _first(b.use_skill(ig, "sun_spear", g))
 	b.end_action(ig)
-	_ok("N02 열기 응축 → 기본 공격 18,000(그대로) → 태양의 창 108,000 × 1.8 → 사라짐", "%d %d %s" % [nb, ns, str(ig.has_skill_buff("focus"))], "18000 194400 false")
+	_ok("N02 열기 응축 → 기본 공격 18,000(그대로) → 태양의 창 126,000 × 1.8 → 사라짐", "%d %d %s" % [nb, ns, str(ig.has_skill_buff("focus"))], "18000 226800 false")
 	# N03 대마법 연쇄: 주인의 다음 행동 전에 다시 대마법 → 단계 2 (부가 효과 × 1.25), 기본 공격을 마치면 끊김
 	b = _b(["undine"], ["straw_golem"])
 	var un := _w(b, "undine")
@@ -742,7 +742,7 @@ func _stage_b_tests() -> void:
 	_until(b, un)
 	b.basic_attack(un, t)
 	b.end_action(un)
-	_ok("N03 심연 붕괴 연쇄 2단계: 빙결 특공 +30% → +37.5% · 기본 공격 뒤 끊김", "%d %d | %d" % [st, d2, b.chain_stage], "2 247500 | 0")
+	_ok("N03 심연 붕괴 연쇄 2단계: 빙결 특공 +15% → +18.75% · 기본 공격 뒤 끊김", "%d %d | %d" % [st, d2, b.chain_stage], "2 192375 | 0")
 	# N04 물의 환급: 맞기 전 빙결이 있었을 때만 크레딧 +1
 	b = _b(["undine"], ["straw_golem"])
 	un = _w(b, "undine")
@@ -756,7 +756,7 @@ func _stage_b_tests() -> void:
 	# N05 적 차지 감소: 필살기가 보이던 재의 기사 → 차지 3, 의도는 패턴으로 / 재의 왕(내성 30%) 성공률 = 1.0 − 0.3 + 글라시아 0.15
 	b = _b(["glacia"], ["ash_knight"])
 	var k := _e(b, "ash_knight")
-	k.charge = 4
+	k.charge = 5
 	b.decide_intent(k)
 	var before := String(k.intent().k)
 	b.use_skill(_w(b, "glacia"), "still_frost", k)
@@ -770,7 +770,7 @@ func _stage_b_tests() -> void:
 		b.fix_roll = roll
 		b.use_skill(_w(b, "glacia"), "still_frost", kg)
 		r6.append(kg.charge)
-	_ok("N05 멎는 서리: 재의 기사 필살기 거둠 · 재의 왕 판정 0.84 성공 / 0.86 저항", "%s | %s" % [r5, str(r6)], "finisher → 3 attack | [1, 2]")
+	_ok("N05 멎는 서리: 재의 기사 필살기 거둠 · 재의 왕 판정 0.84 성공 / 0.86 저항", "%s | %s" % [r5, str(r6)], "finisher → 4 attack | [1, 2]")
 	# N06 무적 관통 필살기: 무적이어도 맞고, 받는 피해 감소는 통함 (시련의 일격 단일 3.0배)
 	b = _b(["harpe"], ["trial_colossus"])
 	var hp := _w(b, "harpe")
@@ -838,7 +838,7 @@ func _stage_b_tests() -> void:
 	b = _b(["undine"], ["straw_golem"])
 	t = _dummy(b, "fire")
 	t.add_mark("frost", 3, 3)
-	_ok("N13 쇄빙 일격 → 빙결 3겹이어도 특공 +50% 그대로", _first(b.use_skill(_w(b, "undine"), "ice_break", t)), 81000)
+	_ok("N13 쇄빙 일격 → 빙결 3겹이어도 특공 +50% 그대로", _first(b.use_skill(_w(b, "undine"), "ice_break", t)), 116100)
 	# N14 번개: 크리 히트 1번마다 자신 게이지 +5% (벼락 내리꽂기 4히트 모두 크리)
 	b = _b(["fulgur"], ["straw_golem"])
 	fu = _w(b, "fulgur")
@@ -868,7 +868,7 @@ func _stage_b_tests() -> void:
 	b.use_skill(ne, "wave_hold", null)
 	g = _e(b, "straw_golem")
 	g.intent_now = {"k": "attack", "mult": 1.0}
-	_ok("N16 짚 골렘 공격 3,600 × 0.82 × 0.8 (도발 중)", _first(b.enemy_action(g)), 2362)
+	_ok("N16 짚 골렘 공격 3,000 × 0.82 × 0.8 (도발 중)", _first(b.enemy_action(g)), 1968)
 	# N17 대가 몰빵 기준 한 방 (§15.9 B8): 타는 왕관 + 풀무질 + 별빛 역류, 화상 3겹 → 태양 붕괴 크리
 	b = _b(["ignis", "ember", "astra"], ["straw_golem"])
 	ig = _w(b, "ignis")
@@ -880,7 +880,7 @@ func _stage_b_tests() -> void:
 	b.use_skill(_w(b, "ember"), "bellows", ig)
 	b.use_skill(_w(b, "astra"), "overcharge", ig)
 	b.fix_crit = 1
-	_ok("N17 대가 몰빵: 12,000 × 13 × 1.5 × 1.7 × 2.2 × 2.74 (보스 한 줄 150만의 1.6배)", _first(b.use_skill(ig, "ult_ignis", g)), 2397938)
+	_ok("N17 대가 몰빵: 12,000 × 12 × 1.5 × 1.7 × 2.2 × 2.74 (보스 한 줄 150만의 1.5배)", _first(b.use_skill(ig, "ult_ignis", g)), 2213482)
 
 
 

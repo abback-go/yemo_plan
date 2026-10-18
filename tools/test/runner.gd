@@ -451,5 +451,7 @@ func _process(_d: float) -> bool:
 						base = current_scene # 월드가 아닌 장면(전투 시제품 훈련장 등)
 					print("EVAL ", s[2], " -> ", ex.execute([], base))
 			"quit":
+				if current_scene != null:
+					current_scene.free() # 창을 닫을 때처럼 장면을 먼저 풀어 _exit_tree가 돈다 (정적 캐시 정리가 돌아 종료 누수 경고가 실제 앱과 같게 — review_D §8.1)
 				return true
 	return false

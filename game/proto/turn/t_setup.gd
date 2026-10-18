@@ -85,6 +85,10 @@ static func fix_equip(wid: String) -> void:
 	TData.fix_equip(state, wid)
 
 
+func _exit_tree() -> void:
+	TTheme.release()
+
+
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE

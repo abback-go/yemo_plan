@@ -3,7 +3,8 @@ extends PDraw.Canvas
 ## 마녀 11명(에스카 제외)의 코드 그림 틀 (키 약 40px, 원점 = 발밑 가운데, 오른쪽을 보는 모습 — 부모가 scale.x로 뒤집는다). 에스카(EArt)와 같은 비례·말투.
 ## "코드 그림 변형": 한 틀에 STYLE(모자·머리·옷·소품)과 PAL(색)을 조합해 마녀마다 다르게 그린다 (2026-10-18 사용자 선택).
 ##   모자  point_fwd(끝이 앞으로 꺾인 뾰족 모자, brim burnt=그을린 불씨 / fur=털) · soft_back(둥글고 끝이 뒤로 늘어짐, charm bell/star/clock)
-##         wide(챙 넓고 낮은 모자) · wave(물결 챙) · hood(두건 망토) · crown_tall(높고 좁은 모자, 번개 문장) · band(모자 없이 리본 머리띠)
+##         wide(챙 넓고 낮은 모자) · wave(물결 챙) · hood(두건 망토) · crown_tall(높고 좁은 모자, 번개 문장) · band(모자 없이 리본 머리띠) · veil(검은 베일)
+##   마녀별 실루엣 소품 (review_D C1): 이그니스 불꽃 모자 끝 · 신더 베일 · 글라시아 얼음 결정 · 풀구르 등의 망치 + 쌍갈래 · 토난 높은 모자 + 구름 장식 · 호라 시계 고리 후광
 ##   머리  fringe(앞머리) / spiky(뻗침) / bob(단발) + 뒤: braid(땋음) / long(긴 머리) / ponytail / none, 앞 줄: braid / lock
 ##   옷    coat(짧은 외투 + 비대칭 치마 + 긴 부츠) · coat_long(긴 외투) · robe(넓은 소매 로브) · dress(긴 드레스)
 ##   소품  glove(불타는 장갑) · lantern(등불) · censer(향로) · staff_orb(구슬 지팡이) · orb(떠 있는 구슬) · fan(부채) · staff_rod(피뢰침 지팡이) · watch(회중시계) · sword(흑백 검)
@@ -18,11 +19,11 @@ static var _rim_mats := {} ## 색 → 재질
 const STYLE := {
 	"ignis": {"hat": "point_fwd", "brim": "burnt", "hair": "spiky", "back": "braid", "front": "lock", "outfit": "coat", "prop": "glove"},
 	"ember": {"hat": "soft_back", "charm": "bell", "hair": "fringe", "back": "braid", "front": "braid", "outfit": "robe", "prop": "lantern"},
-	"cinder": {"hat": "wide", "hair": "fringe", "back": "long", "front": "lock", "outfit": "dress", "prop": "censer"},
+	"cinder": {"hat": "veil", "hair": "fringe", "back": "long", "front": "lock", "outfit": "dress", "prop": "censer"},
 	"undine": {"hat": "wave", "hair": "fringe", "back": "long", "front": "lock", "outfit": "dress", "prop": "staff_orb"},
 	"nerei": {"hat": "hood", "hair": "fringe", "back": "long", "front": "lock", "outfit": "robe", "prop": "orb"},
 	"glacia": {"hat": "point_fwd", "brim": "fur", "hair": "bob", "back": "none", "front": "lock", "outfit": "coat", "prop": "fan"},
-	"fulgur": {"hat": "crown_tall", "hair": "spiky", "back": "none", "front": "lock", "outfit": "coat", "prop": "glove"},
+	"fulgur": {"hat": "crown_tall", "hair": "spiky", "back": "twin", "front": "lock", "outfit": "coat", "prop": "glove"},
 	"astra": {"hat": "soft_back", "charm": "star", "hair": "fringe", "back": "ponytail", "front": "lock", "outfit": "robe", "prop": "orb"},
 	"tonan": {"hat": "wide", "hair": "fringe", "back": "long", "front": "lock", "outfit": "coat_long", "prop": "staff_rod"},
 	"hora": {"hat": "soft_back", "charm": "clock", "hair": "fringe", "back": "long", "front": "lock", "outfit": "dress", "prop": "watch"},
@@ -37,8 +38,8 @@ const PAL := {
 		"cloth": "#f6e7cf", "cloth_hi": "#fff8ea", "cloth_edge": "#d9c3a2", "inner": "#f1a662", "inner_hi": "#ffc98a", "band": "#c4512e",
 		"hat": "#efdcc0", "hat_hi": "#fbf0dc", "brim_edge": "#c4512e", "glow": "#ffb95a", "glow_pale": "#fff0c8", "eye": "#8a4a22", "boot": "#6b3a24", "metal": "#c9933a"},
 	"cinder": {"hair": "#7a6f7a", "hair_hi": "#ffb067", "hair_sh": "#4a414b", "skin": "#ead9cf", "skin_sh": "#c4ada3", "skin_hi": "#f8ede6",
-		"cloth": "#382b35", "cloth_hi": "#4c3d47", "cloth_edge": "#5a4a52", "inner": "#8a3a2a", "inner_hi": "#c9623a", "band": "#5a2a22",
-		"hat": "#2e2530", "hat_hi": "#40353f", "brim_edge": "#c9623a", "glow": "#ff8a3a", "glow_pale": "#ffd9a0", "eye": "#ff9a4a", "boot": "#15101a", "metal": "#b08a4a"},
+		"cloth": "#5a5460", "cloth_hi": "#746d7a", "cloth_edge": "#8a8290", "inner": "#8a3a2a", "inner_hi": "#c9623a", "band": "#5a2a22",
+		"hat": "#1a1520", "hat_hi": "#40353f", "brim_edge": "#c9623a", "glow": "#ff8a3a", "glow_pale": "#ffd9a0", "eye": "#ff9a4a", "boot": "#15101a", "metal": "#b08a4a"},
 	"undine": {"hair": "#2f7fd6", "hair_hi": "#8fd4ff", "hair_sh": "#1c4f8f", "skin": "#f3e2d6", "skin_sh": "#cdb3a6", "skin_hi": "#fbf0ea",
 		"cloth": "#1d3b6b", "cloth_hi": "#2c5c9c", "cloth_edge": "#4a86c9", "inner": "#8fd4ff", "inner_hi": "#dff6ff", "band": "#dff6ff",
 		"hat": "#1a2f55", "hat_hi": "#28457a", "brim_edge": "#8fd4ff", "glow": "#3fb0ff", "glow_pale": "#dff6ff", "eye": "#9fe8ff", "boot": "#12213d", "metal": "#c9d9e8"},
@@ -46,10 +47,10 @@ const PAL := {
 		"cloth": "#eef7fb", "cloth_hi": "#ffffff", "cloth_edge": "#c9dde8", "inner": "#7fc4e8", "inner_hi": "#bfe6f7", "band": "#4f93c2",
 		"hat": "#dcedf7", "hat_hi": "#f3fafd", "brim_edge": "#4f93c2", "glow": "#9fe8ff", "glow_pale": "#ffffff", "eye": "#3a7ab8", "boot": "#5c7f99", "metal": "#d8c38a"},
 	"glacia": {"hair": "#eaf6ff", "hair_hi": "#ffffff", "hair_sh": "#a9c7dd", "skin": "#f4ece9", "skin_sh": "#cbbfbc", "skin_hi": "#ffffff",
-		"cloth": "#2b4864", "cloth_hi": "#3a5e80", "cloth_edge": "#ffffff", "inner": "#bfe9ff", "inner_hi": "#ffffff", "band": "#9fd0ee",
+		"cloth": "#4a83b0", "cloth_hi": "#6aa2cc", "cloth_edge": "#ffffff", "inner": "#bfe9ff", "inner_hi": "#ffffff", "band": "#9fd0ee",
 		"hat": "#253a52", "hat_hi": "#33506d", "brim_edge": "#ffffff", "glow": "#bfe9ff", "glow_pale": "#ffffff", "eye": "#79c6ff", "boot": "#15202e", "metal": "#c8dbe8"},
 	"fulgur": {"hair": "#fff1a8", "hair_hi": "#ffffff", "hair_sh": "#d1b24a", "skin": "#f0cfa8", "skin_sh": "#c9a47e", "skin_hi": "#fbe6cc",
-		"cloth": "#382e52", "cloth_hi": "#4a3f72", "cloth_edge": "#6a5aa0", "inner": "#ffe34a", "inner_hi": "#fff6b0", "band": "#9a7cff",
+		"cloth": "#4a3a78", "cloth_hi": "#5e4c96", "cloth_edge": "#ffe34a", "inner": "#ffe34a", "inner_hi": "#fff6b0", "band": "#9a7cff",
 		"hat": "#2e2546", "hat_hi": "#41365e", "brim_edge": "#ffe34a", "glow": "#ffe34a", "glow_pale": "#fff8d0", "eye": "#ffe34a", "boot": "#141022", "metal": "#ffd84a"},
 	"astra": {"hair": "#8c6fe0", "hair_hi": "#c9b3ff", "hair_sh": "#5a44a0", "skin": "#f6e3d8", "skin_sh": "#d4b9ac", "skin_hi": "#fff2ea",
 		"cloth": "#f4efff", "cloth_hi": "#ffffff", "cloth_edge": "#cfc1ea", "inner": "#ffe34a", "inner_hi": "#fff8d0", "band": "#7a5fd0",
@@ -58,7 +59,7 @@ const PAL := {
 		"cloth": "#2a3054", "cloth_hi": "#3a4270", "cloth_edge": "#515aa0", "inner": "#ffe34a", "inner_hi": "#fff6b0", "band": "#3f4a9a",
 		"hat": "#252a4a", "hat_hi": "#343b63", "brim_edge": "#ffe34a", "glow": "#ffe34a", "glow_pale": "#ffffff", "eye": "#ffe34a", "boot": "#10132a", "metal": "#b9c0e8"},
 	"hora": {"hair": "#e9d8a8", "hair_hi": "#fff8e0", "hair_sh": "#b39a66", "skin": "#f6e8dc", "skin_sh": "#d2bcae", "skin_hi": "#fff6ee",
-		"cloth": "#46344f", "cloth_hi": "#5a4468", "cloth_edge": "#7a5c8a", "inner": "#f2d27a", "inner_hi": "#fff0c0", "band": "#f2d27a",
+		"cloth": "#8a5a2c", "cloth_hi": "#a8743e", "cloth_edge": "#f3e4c4", "inner": "#f6e8c8", "inner_hi": "#fffaf0", "band": "#f2d27a",
 		"hat": "#382a46", "hat_hi": "#4c3a5e", "brim_edge": "#f2d27a", "glow": "#f2d27a", "glow_pale": "#fff8e0", "eye": "#c9a24a", "boot": "#1f1628", "metal": "#f2d27a"},
 	"harpe": {"hair": "#15121b", "hair_hi": "#f2eff7", "hair_sh": "#0a090e", "skin": "#f0e6e2", "skin_sh": "#c9b4b4", "skin_hi": "#fff8f4",
 		"cloth": "#f2eff7", "cloth_hi": "#ffffff", "cloth_edge": "#cfc9dc", "inner": "#14081f", "inner_hi": "#3b1268", "band": "#14081f",
@@ -118,7 +119,8 @@ func _draw() -> void:
 static func rim_make(ci: CanvasItem, col: Color) -> RID:
 	if _rim_shader == null:
 		_rim_shader = Shader.new()
-		_rim_shader.code = EArt.RIM_SHADER
+		# 턴제만: 알파를 0/1로 자르지 않고 그대로 곱함 — 부모(HUD 초상)가 옅어질 때 테두리만 흰 유령으로 남던 것 (review_D A4)
+		_rim_shader.code = EArt.RIM_SHADER.replace("step(0.001, COLOR.a)", "COLOR.a")
 	var mat: ShaderMaterial = _rim_mats.get(col)
 	if mat == null:
 		mat = ShaderMaterial.new()
@@ -417,6 +419,22 @@ func _paint() -> void:
 	# 두건은 몸 뒤에 망토부터
 	if _s.hat == "hood":
 		_paint_cape(o)
+	if kind == "hora": # 머리 뒤 시계 고리 후광
+		var hc := o + Vector2(0.6, -31.0)
+		pd.glow(hc, 11.0, Color(_p.glow, 0.18), 0.0)
+		pd.draw_arc(hc, 9.0, 0.0, TAU, 28, Color(_p.metal, 0.6), 0.9)
+		for i in 12:
+			var d := Vector2.from_angle(TAU * float(i) / 12.0)
+			pd.draw_line(hc + d * (8.0 if i % 3 == 0 else 8.5), hc + d * 9.6, Color(_p.metal, 0.75), 0.6)
+		pd.draw_line(hc, hc + Vector2.from_angle(_t * 0.6) * 7.0, Color(_p.metal, 0.35), 0.5)
+	elif kind == "fulgur": # 등에 멘 작은 망치 (대마법 뇌신의 철퇴와 같은 모양)
+		var hb := o + Vector2(-5.4, -15.0)
+		pd.draw_line(hb, hb + Vector2(3.0, -13.0), OUT, 2.0)
+		pd.draw_line(hb, hb + Vector2(3.0, -13.0), Color("#6a4a2a"), 1.1)
+		var hh := hb + Vector2(3.4, -14.0)
+		var head := PackedVector2Array([hh + Vector2(-4.0, -1.0), hh + Vector2(3.4, -2.6), hh + Vector2(4.4, 1.8), hh + Vector2(-3.4, 3.2)])
+		pd.outlined(head, _p.cloth, OUT, 0.7)
+		pd.draw_line(hh + Vector2(-0.6, -1.4), hh + Vector2(0.8, 1.6), _p.metal, 0.7)
 	# 뒤 머리
 	match String(_s.back):
 		"braid":
@@ -433,6 +451,16 @@ func _paint() -> void:
 		"ponytail":
 			_long_hair(_hair.p)
 			pd.draw_line(o + Vector2(-4.4, -33.0), o + Vector2(-1.6, -33.4), _p.band, 1.6) # 묶은 리본
+		"twin": # 쌍갈래 (풀구르): 머리 양옆 뒤로 짧게 뻗친 두 갈래
+			for i in 2:
+				var root := o + Vector2(-3.6 + 1.0 * float(i), -31.0 + 1.6 * float(i))
+				var sway := sin(_t * 4.0 + float(i) * 1.7) * 0.8
+				var tip := root + Vector2(-6.0 - _big * 2.0, 4.0 + 3.0 * float(i) + sway)
+				var mid := root.lerp(tip, 0.5) + Vector2(0, -1.4)
+				pd.draw_polyline(PackedVector2Array([root, mid, tip]), OUT, 3.2)
+				pd.draw_polyline(PackedVector2Array([root, mid, tip]), _p.hair, 2.0)
+				pd.draw_line(mid, tip, _p.hair_hi, 0.6)
+				pd.draw_circle(root, 1.0, _p.band)
 	_paint_outfit(o)
 	_paint_head(o)
 	_paint_hat(o)
@@ -556,7 +584,7 @@ func _paint_head(o: Vector2) -> void:
 	pd.draw_circle(hc, 3.3, _p.skin)
 	pd.draw_circle(hc + Vector2(-1.0, 0.9), 2.0, Color(_p.skin_sh, 0.55)) # 뒤쪽 볼 그늘 (명암)
 	pd.draw_circle(hc + Vector2(1.2, -1.0), 1.2, Color(_p.skin_hi, 0.7))
-	if _s.hat != "band" and _s.hat != "hood":
+	if not (_s.hat in ["band", "hood", "veil"]):
 		pd.draw_rect(Rect2(hc + Vector2(-2.6, -3.2), Vector2(5.6, 1.6)), Color(_p.skin_sh, 0.9)) # 챙 그늘
 	pd.draw_rect(Rect2(hc + Vector2(1.6, 1.5), Vector2(1.2, 0.8)), _p.skin_sh)
 	pd.draw_rect(Rect2(hc + Vector2(2.1, 0.6), Vector2(1.0, 0.5)), Color("#c9736e"))
@@ -660,6 +688,25 @@ func _paint_hat(o: Vector2) -> void:
 			pd.draw_colored_polygon(PackedVector2Array([o + Vector2(1.6, -34.5), o + Vector2(5.4, -34.5), o + Vector2(4.6, -38.6), o + Vector2(1.6, -40.0)]), _p.hat_hi)
 			pd.draw_line(o + Vector2(-4.8, -35.4), o + Vector2(5.0, -35.6), _p.band, 1.6)
 			pd.draw_rect(Rect2(o + Vector2(2.2, -36.6), Vector2(1.6, 1.6)), _p.metal)
+			if kind == "ignis": # 모자 끝이 불꽃 혀 두 갈래로 갈라짐
+				for i in 2:
+					var base := o + tip + Vector2(-1.0 * float(i), 0.6 * float(i))
+					var h := (3.6 + 0.8 * sin(_t * 12.0 + float(i) * 2.0)) * (1.0 - 0.3 * float(i))
+					var d := Vector2(0.55 - 0.5 * float(i), -1.0).normalized()
+					pd.glow(base, 3.4, Color(_p.glow, 0.35 * fl), 0.0)
+					pd.draw_colored_polygon(PackedVector2Array([base + d.orthogonal() * 1.1, base + d * h, base - d.orthogonal() * 1.1]), Color(_p.glow, 0.95))
+					pd.draw_colored_polygon(PackedVector2Array([base + d.orthogonal() * 0.5, base + d * h * 0.6, base - d.orthogonal() * 0.5]), Color(_p.glow_pale, 0.95))
+			elif kind == "glacia": # 모자에 얼음 결정 장식 셋
+				for spec: Array in [[Vector2(-2.6, -37.6), 1.8], [Vector2(0.6, -39.8), 1.4], [Vector2(3.6, -37.0), 1.6]]:
+					var c: Vector2 = o + (spec[0] as Vector2)
+					var r: float = spec[1]
+					for q in 3:
+						var d := Vector2.from_angle(PI * float(q) / 3.0 + 0.3) * r
+						pd.draw_line(c - d, c + d, OUT, 1.2)
+					for q in 3:
+						var d := Vector2.from_angle(PI * float(q) / 3.0 + 0.3) * r
+						pd.draw_line(c - d, c + d, _p.brim_edge, 0.6)
+					pd.draw_circle(c, 0.5, Color(_p.inner, 0.9))
 		"soft_back":
 			_brim(brim_c, 10.6, 2.2, -0.05)
 			pd.draw_set_transform(Vector2.ZERO)
@@ -684,7 +731,8 @@ func _paint_hat(o: Vector2) -> void:
 		"wide":
 			_brim(brim_c + Vector2(0, 0.6), 16.0, 2.8, -0.04)
 			pd.draw_set_transform(Vector2.ZERO)
-			var crown := PackedVector2Array([o + Vector2(-5.6, -34.3), o + Vector2(5.6, -34.5), o + Vector2(4.4, -39.6), o + Vector2(0.4 - _tip, -41.2), o + Vector2(-4.6, -39.0)])
+			var top_y := -49.0 if kind == "tonan" else -41.2 # 토난: 아주 높은 모자
+			var crown := PackedVector2Array([o + Vector2(-5.6, -34.3), o + Vector2(5.6, -34.5), o + Vector2(4.4, top_y + 1.6), o + Vector2(0.4 - _tip, top_y), o + Vector2(-4.6, top_y + 2.2)])
 			pd.outlined(crown, _p.hat, OUT, 0.8)
 			pd.draw_colored_polygon(PackedVector2Array([o + Vector2(1.2, -34.5), o + Vector2(5.6, -34.5), o + Vector2(4.4, -39.6), o + Vector2(1.6, -40.4)]), _p.hat_hi)
 			pd.draw_line(o + Vector2(-5.2, -35.6), o + Vector2(5.2, -35.8), _p.band, 1.6)
@@ -692,9 +740,14 @@ func _paint_hat(o: Vector2) -> void:
 				for i in 5:
 					var x := -14.0 + 3.0 * float(i)
 					pd.draw_line(o + Vector2(x, -32.8), o + Vector2(x - 0.6 + sin(_t * 2.0 + float(i)) * 0.6, -29.0 + float(i % 2)), Color(_p.hat_hi, 0.7), 0.7)
-			else: # 토난: 챙 끝 노란 번개 술
-				pd.draw_line(o + Vector2(-15.0, -33.0), o + Vector2(-16.0, -29.5), _p.brim_edge, 0.8)
-				pd.draw_line(o + Vector2(-16.0, -29.5), o + Vector2(-14.8, -27.5), _p.brim_edge, 0.8)
+			else: # 토난: 챙 끝 구름 장식 + 노란 번개 술 + 모자 금 줄
+				pd.draw_line(o + Vector2(-5.0, -38.0), o + Vector2(4.8, -38.4), _p.brim_edge, 0.7)
+				for cc: Array in [[Vector2(-15.4, -33.6), 1.9], [Vector2(-13.2, -34.6), 2.3], [Vector2(-11.0, -33.6), 1.7]]:
+					pd.draw_circle(o + (cc[0] as Vector2), float(cc[1]) + 0.6, OUT)
+				for cc: Array in [[Vector2(-15.4, -33.6), 1.9], [Vector2(-13.2, -34.6), 2.3], [Vector2(-11.0, -33.6), 1.7]]:
+					pd.draw_circle(o + (cc[0] as Vector2), float(cc[1]), Color("#b9c0e8"))
+				pd.draw_line(o + Vector2(-14.0, -32.0), o + Vector2(-15.0, -29.5), _p.brim_edge, 0.8)
+				pd.draw_line(o + Vector2(-15.0, -29.5), o + Vector2(-13.8, -27.5), _p.brim_edge, 0.8)
 		"wave":
 			_brim(brim_c + Vector2(0, 0.4), 14.5, 2.6, -0.06, true)
 			pd.draw_set_transform(Vector2.ZERO)
@@ -726,6 +779,19 @@ func _paint_hat(o: Vector2) -> void:
 			pd.draw_line(z + Vector2(0.6, -2.2), z + Vector2(-0.8, 0.0), _p.brim_edge, 1.0)
 			pd.draw_line(z + Vector2(-0.8, 0.0), z + Vector2(0.6, 0.0), _p.brim_edge, 1.0)
 			pd.draw_line(z + Vector2(0.6, 0.0), z + Vector2(-0.6, 2.2), _p.brim_edge, 1.0)
+		"veil":
+			# 신더: 모자 대신 얇은 검은 베일 — 정수리 작은 관 + 어깨까지 흘러내리는 반투명 천 + 재 장식
+			var sway := sin(_t * 1.6) * 0.6
+			var veil := PackedVector2Array([o + Vector2(-4.6, -34.2), o + Vector2(2.2, -35.4), o + Vector2(5.4, -33.0), o + Vector2(6.0, -29.6),
+				o + Vector2(3.8, -31.6), o + Vector2(0.0, -32.4), o + Vector2(-4.4, -30.0), o + Vector2(-7.6 + sway, -22.0), o + Vector2(-9.6 + sway, -19.0), o + Vector2(-6.4, -27.0)])
+			pd.draw_colored_polygon(veil, Color(_p.hat, 0.82))
+			var edge := PackedVector2Array(veil)
+			edge.append(veil[0])
+			pd.draw_polyline(edge, OUT, 0.7)
+			pd.draw_line(o + Vector2(-5.0, -31.0), o + Vector2(-8.6 + sway, -20.6), Color(_p.hat_hi, 0.8), 0.6)
+			pd.draw_line(o + Vector2(-3.8, -34.6), o + Vector2(2.6, -35.8), _p.inner_hi, 0.8) # 관
+			for i in 3: # 관 위 불씨 점
+				pd.draw_rect(Rect2(o + Vector2(-2.6 + 2.2 * float(i), -36.8 - 0.6 * float(i % 2)), Vector2(0.8, 0.8)), Color(_p.glow, 0.7 + 0.3 * sin(_t * 6.0 + float(i))))
 		"band":
 			# 모자 없음: 리본 머리띠 + 뒤로 날리는 리본 두 가닥
 			pd.draw_line(o + Vector2(-4.6, -32.4), o + Vector2(4.8, -33.2), _p.band, 1.6)
@@ -817,9 +883,9 @@ func _paint_glove_fire(hand: Vector2) -> void:
 func _paint_lantern(hand: Vector2) -> void:
 	var top := hand + Vector2(1.5, 1.6)
 	var c := hand + Vector2(1.5, 4.6)
-	var k := 0.45 + 0.55 * glow
+	var k := 0.7 + 0.3 * glow # 등불 빛을 밝게 (review_D C1)
 	var fl := _flicker
-	pd.glow(c, (6.0 + 10.0 * glow) * fl, Color(_p.glow, 0.4 * k), 0.0)
+	pd.glow(c, (9.0 + 10.0 * glow) * fl, Color(_p.glow, 0.5 * k), 0.0)
 	pd.draw_line(hand, top, _p.metal, 0.8)
 	pd.outlined(PackedVector2Array([c + Vector2(-2.2, -2.6), c + Vector2(2.2, -2.6), c + Vector2(2.6, 2.4), c + Vector2(-2.6, 2.4)]), Color(_p.glow_pale, 0.55 + 0.3 * glow), OUT, 0.7)
 	pd.draw_rect(Rect2(c + Vector2(-2.8, -3.4), Vector2(5.6, 1.0)), _p.metal)

@@ -6,7 +6,7 @@ extends Node2D
 ## 배경·마녀·적은 모두 코드 그림. Esc 또는 오른쪽 위 X → 철수 확인 → 편성. 전투는 편성의 "전투 고르기"(S-03)에서 고른다.
 
 const ArenaScript := preload("res://proto/p_arena.gd")
-const WITCH_AT: Array[Vector2] = [Vector2(214, 288), Vector2(160, 258), Vector2(106, 228)] ## 앞 · 중 · 뒤 (대각선, 아래 띠 y 302 위)
+const WITCH_AT: Array[Vector2] = [Vector2(222, 288), Vector2(160, 258), Vector2(98, 228)] ## 앞 · 중 · 뒤 (대각선, 아래 띠 y 302 위) — 간격 62 (review_D C1: 54면 모자 챙이 겹쳤다)
 const ENEMY_AT: Array[Vector2] = [Vector2(424, 290), Vector2(507, 256), Vector2(590, 222)] ## 적 1명 = 가운데 · 2명 = 앞·뒤 (THud.pos_index). 간격 83 (review_C2 L11)
 
 var battle: TBattle
@@ -23,6 +23,10 @@ var stats := {"turns": 0, "biggest": 0} ## 시험용
 var battle_id: String = TData.BATTLE.battle ## 전투 데이터 id (TData.BATTLES)
 var _bg: TBackdrop
 var auto := false ## 시험용 자동 플레이: 바퀴를 잠깐 보여 준 뒤 간단한 규칙으로 고른다 (tools/test/scenarios/turn_*.json)
+
+
+func _exit_tree() -> void:
+	TTheme.release()
 
 
 func _ready() -> void:
@@ -232,6 +236,7 @@ func _wave_change(token: int) -> void:
 		TFx.after(0.4, func() -> void:
 			Fx.shake(0.8, 0.35)
 			Sfx.play(&"tn_wave", 0.0, 0.0)
+			Sfx.play(&"colossus_step", -6.0) # 보스 착지 (review_D B2)
 			for e in battle.enemies:
 				if actors.has(e):
 					var sw := TFx.Shockwave.new()
@@ -386,6 +391,7 @@ func _alive_actors(units: Array) -> Array:
 
 ## 대마법 동안 HUD를 걷었다가(컷인 0.15~0.62초) 피해 숫자 전에 되돌린다
 func _ult_hud_fade() -> void:
+	hud.ult_t = TFx.ULT_TOTAL # 위 띠의 연쇄 칩이 대마법 동안 숨쉼 (review_D B3)
 	var tw := create_tween()
 	tw.tween_property(hud, "modulate:a", 0.12, 0.15)
 	tw.tween_interval(0.47)
@@ -449,7 +455,7 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			if bool(e.crit) and not tgt.is_witch():
 				TFx.crit_flash(ta.center())
 			if dmg >= 10000000:
-				Fx.flash(Color(1, 1, 1, 0.5), 0.12) # 1,000만 이상 (§22.3)
+				Fx.flash(Color(1, 1, 1, 0.2), 0.1) # 1,000만 이상 (§22.3) — 0.2 이하 (review_D B5: 밝은 막이 숫자 대비를 무너뜨림)
 			var dir := -1.0 if tgt.is_witch() else 1.0
 			TFx.impact(ta.center() + Vector2(randf_range(-4, 4), randf_range(-6, 2)), kind, heavy, dir)
 			# 숫자 (§21.12): 일반 12 · 크리 24 금빛 "!" · 약점 15 + "약점" 꼬리표 · 한 히트 30만 이상 24 · 받은 피해 15
@@ -467,7 +473,7 @@ func _show_event(e: Dictionary, kind: String) -> void:
 				nk = "big"
 			elif bool(e.weak):
 				nk = "weak"
-			hud.pop(tgt, txt, nk, bool(e.weak) and not tgt.is_witch())
+			hud.pop(tgt, txt, nk, bool(e.weak) and not tgt.is_witch(), dmg)
 			if dmg >= 300000:
 				Fx.hitstop(0.1)
 				Fx.shake(0.7, 0.3)
@@ -526,7 +532,7 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			TFx.resist_fx(ta, true)
 		"taunt":
 			hud.pop(tgt, "도발", "buff")
-			TFx.taunt_fx(ta)
+			TFx.taunt_fx(ta, _alive_actors(battle.enemies))
 		"guts_on":
 			hud.pop(tgt, "근성", "buff")
 		"dispel":
@@ -602,6 +608,10 @@ func _finish(oc: String, token: int) -> void:
 		Sfx.play(&"tn_victory", -2.0)
 		hud.banner("승리", "눌러서 편성으로")
 	else:
+		for u in actors: # 쓰러진 마녀는 모두 무릎 꿇은 모습으로 (사건 없이 쓰러진 경우도 — review_D C5)
+			if u.is_witch() and not u.alive:
+				hud.view_event({"t": "down", "tgt": u})
+				(actors[u] as TActor).set_down(true)
 		Sfx.play(&"tn_defeat", -2.0)
 		hud.banner("패배", "")
 
@@ -737,7 +747,7 @@ func demo_ult(sid: String, stage := 1) -> String:
 				if attack:
 					ta.hurt(true)
 					TFx.impact(ta.center(), "space" if caster.unit.element in ["space", "sword"] else "fire", true, 1.0)
-					hud.pop(ta.unit, TData.fmt_short(1234567 * (j + 1)) + ("!" if sid == "ult_harpe" else ""), "crit" if sid in ["ult_harpe", "ult_fulgur"] else "big")
+					hud.pop(ta.unit, TData.fmt_short(1234567) + ("!" if sid == "ult_harpe" else ""), "crit" if sid in ["ult_harpe", "ult_fulgur"] else "big", false, 1234567)
 				else:
 					hud.pop(ta.unit, "버프", "buff"))
 	var tw := create_tween()
