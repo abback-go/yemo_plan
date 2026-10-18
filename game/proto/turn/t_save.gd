@@ -207,9 +207,28 @@ static func load_battle() -> Dictionary:
 		return {}
 	var v = str_to_var(f.get_as_text())
 	f.close()
-	if v is Dictionary and int(v.get("ver", 0)) == VER and TData.BATTLES.has(String(v.get("battle_id", ""))):
+	if v is Dictionary and battle_ok(v):
 		return v
-	return {}
+	return {} # 판이 다르거나 모르는 id — 부른 쪽이 파일을 지우고, 편성(turn_setup.json)은 parse_setup이 따로 고쳐 살린다
+
+
+## 끊긴 전투 사본을 이 데이터로 이어 할 수 있나 (review_I I-03): 파일 판 · 데이터 판(TData.DATA_VER — 1.7 파일엔 없음 = 1) · 전투·마녀·적·장착 마법·장비 id
+static func battle_ok(v: Dictionary) -> bool:
+	if int(v.get("ver", 0)) != VER or int(v.get("data", 1)) != TData.DATA_VER or not TData.BATTLES.has(String(v.get("battle_id", ""))):
+		return false
+	for wd in v.get("witches", []):
+		if not (wd is Dictionary) or not TData.WITCHES.has(String(wd.get("id", ""))):
+			return false
+		var st: Dictionary = wd.get("setup", {})
+		for sid in st.get("equipped", []):
+			if not TData.SKILLS.has(String(sid)):
+				return false
+		if not TData.EQUIPS.has(String(st.get("equip", ""))):
+			return false
+	for ed in v.get("enemies", []):
+		if not (ed is Dictionary) or not TData.ENEMIES.has(String(ed.get("id", ""))):
+			return false
+	return true
 
 
 static func clear_battle() -> void:

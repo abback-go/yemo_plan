@@ -79,6 +79,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `turn_ui_trial.json` | 전투 고르기에서 시련 → 시련의 거상 필살기 무적 관통 표시 · 상세 (t00~t04) |
 | `turn_ui_setup.json` | 전투 고르기 카드 3장 · 편성의 고른 전투 줄 · 마법 장착 탭 3 · 장착 최대 안내 · 장비 설명 (s00~s10) |
 | `turn_firstplay.json` | 단계 F-1: 저장 없는 첫 실행(`"turn_save": "fresh"`)에서 **터치만으로** 안내 A1~A3 → 안내 전투 B1~B7 → C1~C3 → 일반 전투 시작. 봇 `turn_touch_bot.gd`(안내 판 누름·강조 칸 누름·바퀴는 `TAuto.pick` 칸 → 다시 → 대상). 판마다 스크린샷 `g_<id>`, 끝 "FIRSTPLAY done …" |
+| `turn_enemies.json` | 단계 F-2: 새 일반 전투 다섯 첫 화면 + 적마다 상세(길게 누름) · 세 빛의 인형 줄 1~3 · 둥지어미 줄 1~2 · 새 의도 알약 9 · 방어 태세·막아서기·봉인·약화 표시 · 봉인 바퀴 · 막아서기 대상 · 의도 연출 `ev_*`(시험 훅 `TStage.demo_enemy`·`demo_basic`·`demo_down`) |
 | `turn_save.json` | 단계 F-1: 안내 끄기 → 편성 바꿈·장비 목록·명단 상세 → 출격 → 창 가려짐(멈춤) → 다시 켬(`test_relaunch`) → 끊긴 전투 판 → 이어 하기 → 다시 켬 → 버리기 → 설정·도움말. `test_files()`로 파일·편성 출력 |
 | `turn_auto.json` · `turn_auto2.json` · `turn_boss.json` · `turn_trial.json` · `turn_fx.json` | 자동 전투(일반·보스·시련)와 마법 연출 35종. 편성 → 전투 고르기 → 출격은 "전투 시작" 자리를 두 번 누른다 |
 | `turn_ult.json` | 대마법 12개 연출 — 마녀마다 컷인(a)·문장 고리(b)·효과(c)·맞음(d) 4장 + 연쇄 3단계 2개 + `perf()`(그리기 호출·입자·연출 노드)와 기존 큰 마법 4개 비교 (단계 D) |

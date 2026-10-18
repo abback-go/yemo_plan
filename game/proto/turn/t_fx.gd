@@ -542,6 +542,37 @@ static func play(fx: String, caster: TActor, targets: Array) -> Dictionary:
 			Sfx.play(&"tn_buff", -8.0)
 			hits = [0.4]
 			total = 0.9
+		# ── 단계 F-2 새 의도 (피해 없는 것): 의도 알약과 같은 색·모양의 표식 (review_H §2.2)
+		"enemy_guard", "enemy_cover", "enemy_purge":
+			var k := fx.substr(6)
+			intent_sign(caster, k)
+			Sfx.play(&"tn_guard" if k != "purge" else &"tn_dispel", -6.0)
+			hits = [0.35]
+			total = 0.9
+		"enemy_rally", "enemy_summon":
+			var k := fx.substr(6)
+			intent_sign(caster, k)
+			Sfx.play(&"tn_summon" if k == "summon" else &"tn_buff", -6.0)
+			var i := 0
+			for t in targets:
+				if t != caster:
+					TFx.after(0.15 + 0.08 * float(i), func() -> void:
+						if is_instance_valid(t):
+							intent_sign(t, k))
+				hits.append(0.35 + 0.08 * float(i))
+				i += 1
+			total = 1.0
+		"enemy_weaken", "enemy_seal", "enemy_scatter":
+			var k := fx.substr(6)
+			var sw := Shockwave.new()
+			sw.col = TTheme.INTENT_COL.get(k, ASH)
+			add(sw, caster.feet(), false)
+			Sfx.play(&"tn_scatter" if k == "scatter" else (&"tn_seal" if k == "seal" else &"tn_dispel"), -6.0)
+			var i := 0
+			for t in targets:
+				hits.append(0.3 + 0.06 * float(i))
+				i += 1
+			total = 1.0
 		_:
 			hits = [0.2]
 			total = 0.6
@@ -3557,6 +3588,68 @@ static func heart(pd: PDraw, p: Vector2, r: float, col: Color) -> void:
 	pd.draw_circle(p + Vector2(-r * 0.5, -r * 0.2), r * 0.55, col)
 	pd.draw_circle(p + Vector2(r * 0.5, -r * 0.2), r * 0.55, col)
 	pd.convex(PackedVector2Array([p + Vector2(-r * 1.02, 0.0), p + Vector2(r * 1.02, 0.0), p + Vector2(0, r * 1.1)]), col)
+
+
+## 적 새 의도 표식 (단계 F-2, review_H §2.2): 그 유닛 몸 위에 의도 아이콘을 크게(2.6배) 찍고 종류별로 움직인다 —
+## guard 방패가 앞으로 내려앉음 · cover 펼친 팔이 좌우로 · rally 셰브론이 솟음 · summon 문이 열리며 흰빛 · purge 고리가 터지며 점이 흩어짐 ·
+## weaken 분홍 화살이 내려꽂힘 · seal 자물쇠가 조여 듦 · scatter 마름모가 흩어져 떨어짐
+static func intent_sign(a: TActor, kind: String) -> void:
+	if a == null or not is_instance_valid(a):
+		return
+	var f := IntentSign.new()
+	f.kind = kind
+	f.col = TTheme.INTENT_COL.get(kind, PALE)
+	add(f, a.center() + (Vector2(-14, 0) if kind in ["guard", "cover"] and not a.unit.is_witch() else Vector2.ZERO), true)
+
+
+class IntentSign extends PVfx.Base:
+	var kind := "guard"
+	var col := PALE
+
+	func _ready() -> void:
+		life = 0.9
+		z_index = 9
+
+	func _tick(_d: float) -> void:
+		if t < 0.5 and randf() < 0.6:
+			var v := Vector2(randf_range(-30, 30), randf_range(-30, 30))
+			if kind in ["rally", "summon"]:
+				v = Vector2(randf_range(-12, 12), -randf_range(50, 100))
+			elif kind in ["weaken", "scatter"]:
+				v = Vector2(randf_range(-12, 12), randf_range(40, 90))
+			PParticles.get_layer(true).spawn(global_position + Vector2(randf_range(-10, 10), randf_range(-10, 10)), v, Vector2.ZERO, 0.5, randf_range(1.0, 2.0), col, Color(col, 0.0), 0, 1.0)
+
+	func _paint() -> void:
+		var x := k()
+		var grow := 1.0 - pow(1.0 - minf(x * 2.4, 1.0), 3.0)
+		var a := 1.0 - smoothstep(0.6, 1.0, x)
+		pd.glow(Vector2.ZERO, 26.0 * grow + 4.0, Color(col, 0.28 * a), 0.0)
+		var sc := 2.6
+		var off := Vector2.ZERO
+		match kind:
+			"guard": off = Vector2(0, -10.0 * (1.0 - grow))
+			"cover": sc = 2.0 + 1.2 * grow
+			"rally": off = Vector2(0, 8.0 - 24.0 * x)
+			"weaken": off = Vector2(0, -16.0 + 22.0 * grow)
+			"seal": sc = 4.2 - 1.6 * grow
+			"purge":
+				pd.draw_arc(Vector2.ZERO, 6.0 + 30.0 * grow, 0.0, TAU, 28, Color(col, 0.8 * a), 1.6)
+				for i in 8:
+					var d := Vector2.from_angle(TAU * float(i) / 8.0 + 0.3)
+					pd.draw_circle(d * (8.0 + 34.0 * grow), 2.0 * a + 0.5, Color(col, a))
+			"scatter":
+				for i in 5:
+					var d := Vector2(-20.0 + 10.0 * float(i), -6.0 + 34.0 * x + 6.0 * sin(float(i) * 2.1))
+					TTheme.diamond(pd, d, 3.0, Color(col, a))
+				return
+			"summon":
+				var h := 34.0
+				var w := 22.0 * grow
+				pd.draw_rect(Rect2(Vector2(-w * 0.5, -h * 0.5), Vector2(w, h)), Color(WHITE, 0.5 * a))
+				pd.draw_rect(Rect2(Vector2(-13, -h * 0.5 - 1), Vector2(26, h + 2)), Color(col, a), false, 1.6)
+		pd.draw_set_transform(off, 0.0, Vector2(sc, sc))
+		TTheme.intent_icon(pd, Vector2.ZERO, kind, Color(col, a))
+		pd.draw_set_transform(Vector2.ZERO)
 
 
 ## 도발: 시전자에게서 붉은 방패 고리가 퍼지고 적 쪽으로 화살 셋 (적이 이쪽을 노린다)

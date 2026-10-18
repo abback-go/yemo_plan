@@ -358,6 +358,8 @@ func _wave_change(token: int) -> void:
 	await _wait(1.0)
 	if token != _run_id:
 		return
+	if battle.outcome() != "wave":
+		return # 이미 다음 웨이브로 넘어감 (시험용 demo_wave와 흐름이 겹칠 때)
 	for e in battle.enemies:
 		if actors.has(e):
 			(actors[e] as TActor).queue_free()
@@ -458,6 +460,8 @@ func _perform_witch(a: TActor, action: Dictionary) -> void:
 		timing = TFx.play(fx_id, a, targets)
 	_note_events(ev, "")
 	await _show_events(ev, targets, timing, "space" if el in ["space", "time", "sword"] else "fire")
+	if not is_instance_valid(a):
+		return # 연출 중에 전투가 접혔다
 	_show_total(ev)
 	hud.release_view()
 	a.pose("idle")
@@ -486,24 +490,36 @@ func _perform_enemy(a: TActor) -> void:
 		await _wait(0.35)
 	hud.hold_view()
 	var ev := battle.enemy_action(u)
+	for e in ev:
+		if String(e.t) == "summon":
+			_summon_actor(e) # 부르기: 쓰러진 칸의 그림을 새 적으로 (review_H §10.1)
 	_note_events(ev, kind, u, String(it.get("name", TData.INTENT_NAME.get(kind, ""))), bool(it.get("pierce", false)))
 	if kind == "dispel":
 		_why.dispelled = int(_why.get("dispelled", 0)) + nbuf
 	hud.show_msg("%s — %s" % [u.name, battle.last_action], TTheme.DANGER)
-	a.pose("buff" if kind == "buff" else "attack")
-	if kind != "buff":
+	var self_kind := kind in ["buff", "guard", "cover", "purge", "summon", "rally"]
+	a.pose("buff" if self_kind else "attack")
+	if not self_kind:
 		a.lunge()
 	var targets: Array = []
 	for e in ev:
-		if e.t == "hit" and actors.has(e.tgt):
+		if e.t == "hit" and actors.has(e.tgt) and not targets.has(actors[e.tgt]):
 			targets.append(actors[e.tgt])
+	if targets.is_empty():
+		# 피해 없는 새 의도: 효과를 받은 쪽 (약화·봉인·흩기 = 마녀 · 재촉·부르기 = 적)
+		for e in ev:
+			if String(e.t) in ["weaken", "seal", "seal_resist", "credits", "charge_up", "gauge", "summon"] and actors.has(e.tgt) and not targets.has(actors[e.tgt]):
+				targets.append(actors[e.tgt])
 	if targets.is_empty():
 		targets.append(a)
 	var fx_id := "enemy_" + kind
+	var dmg_it := float(it.get("mult", 0.0)) > 0.0
 	match kind:
 		"stun_attack": fx_id = "enemy_heavy"
 		"finisher": fx_id = "enemy_aoe" if bool(it.get("aoe", false)) else "enemy_heavy"
 		"dispel": fx_id = "enemy_buff"
+		"seal": fx_id = "enemy_attack" if dmg_it else "enemy_seal"
+		"weaken": fx_id = ("enemy_aoe" if bool(it.get("aoe", false)) else "enemy_attack") if dmg_it else "enemy_weaken"
 	var timing := TFx.play(fx_id, a, targets)
 	if bool(it.get("pierce", false)) and targets[0] != a:
 		var ps := TFx.PierceSpear.new()
@@ -519,10 +535,26 @@ func _perform_enemy(a: TActor) -> void:
 		TFx.after(0.3, func() -> void: TFx.dispel_fx(_alive_actors(battle.witches), lost, hud))
 	await _show_events(ev, targets, timing, "enemy")
 	await _wait(0.2)
+	if not is_instance_valid(a):
+		return # 연출 중에 전투가 접혔다 (철수·다시 시작 — 그림은 이미 지워짐)
 	hud.release_view()
 	a.set_acting(false)
 	a.pose("idle")
 	hud.refresh()
+
+
+## 부르기 (review_H §2.1): 쓰러진 칸(old)의 그림을 지우고 새 적(tgt)을 그 자리에 — 오른쪽에서 짧게 걸어 들어온다
+func _summon_actor(e: Dictionary) -> void:
+	var old: TUnit = e.get("old")
+	if old != null and actors.has(old):
+		(actors[old] as TActor).queue_free()
+		actors.erase(old)
+	var nu: TUnit = e.tgt
+	var n := battle.enemies.size()
+	_add_actor(nu, ENEMY_AT[THud.pos_index(n, int(e.slot))] + (Vector2(0, 10) if n == 1 else Vector2.ZERO))
+	var na: TActor = actors[nu]
+	na.walk_in(70.0, 0.35)
+	TFx.walk_dust(na.feet() + Vector2(70, 0))
 
 
 func _alive_actors(units: Array) -> Array:
@@ -554,6 +586,8 @@ func _show_events(ev: Array, targets: Array, timing: Dictionary, kind: String) -
 		await _wait(ht - t_prev)
 		t_prev = ht
 		var ta: TActor = targets[i] if i < targets.size() else (targets[0] if not targets.is_empty() else null)
+		if ta != null and not is_instance_valid(ta):
+			return # 연출 중에 전투가 접혔다
 		var nth := 0
 		for j in ev.size():
 			if shown.has(j):
@@ -632,6 +666,18 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			if bool(e.guts):
 				hud.pop(tgt, "근성", "status")
 				TFx.guts_fx(ta)
+			for f in e.get("fall", []):
+				# 우두머리와 함께 사라지는 졸개 (review_H §6.2)
+				if actors.has(f):
+					var fa: TActor = actors[f]
+					var ft: TUnit = f
+					var tw2 := create_tween()
+					tw2.tween_interval(0.35)
+					tw2.tween_callback(func() -> void:
+						hud.view_event({"t": "down", "tgt": ft})
+						fa.set_down(true)
+						TFx.ash_dissolve(fa)
+						hud.pop(ft, "사라짐", "status"))
 			if bool(e.killed):
 				var tw := create_tween()
 				tw.tween_interval(0.25)
@@ -684,6 +730,9 @@ func _show_event(e: Dictionary, kind: String) -> void:
 		"credits":
 			if int(e.v) > 0:
 				hud.pop(tgt, "크레딧 +%d" % int(e.v), "credit")
+			elif int(e.v) < 0:
+				hud.pop(tgt, "크레딧 %d" % int(e.v), "zero") # 크레딧 흩기 (review_H §2.1)
+				TFx.intent_sign(ta, "scatter")
 		"gauge":
 			if float(e.v) > 0.0:
 				hud.pop(tgt, "게이지 +%d%%" % int(round(float(e.v) * 100.0)), "buff")
@@ -722,6 +771,39 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			hud.pop(tgt, "공격력 +%d%% (%d겹)" % [int(round(float(e.v) * 100.0)), int(e.n)], "buff")
 		"hit_stack":
 			hud.pop(tgt, "맞으며 쌓기", "buff")
+		# 단계 F-2 새 의도 (review_H §2)
+		"seal":
+			hud.pop(tgt, "대마법 봉인" if bool(e.get("ult", false)) else "봉인", "debuff")
+			TFx.intent_sign(ta, "seal")
+			Sfx.play(&"tn_seal", -4.0)
+		"seal_resist":
+			hud.pop(tgt, "봉인 내성", "status")
+			TFx.resist_fx(ta, true)
+		"weaken":
+			var wt := "공격력 −%d%%" if String(e.cat) == "atk_down" else "받는 피해 +%d%%"
+			hud.pop(tgt, wt % int(round(float(e.v) * 100.0)), "debuff")
+			TFx.intent_sign(ta, "weaken")
+		"guard":
+			hud.pop(tgt, "방어 태세 −%d%%" % int(round(float(e.v) * 100.0)), "status")
+		"cover":
+			hud.pop(tgt, "막아서기", "status")
+		"charge_up":
+			if int(e.v) > 0:
+				hud.pop(tgt, "차지 +%d" % int(e.v), "debuff")
+		"summon":
+			hud.pop(tgt, "부름", "status")
+		"purge":
+			hud.pop(tgt, "징표 털기" + (" %d겹" % int(e.n) if int(e.n) > 0 else ""), "status")
+		"self_ko":
+			var sa := ta
+			var tw3 := create_tween()
+			tw3.tween_interval(0.2)
+			tw3.tween_callback(func() -> void:
+				hud.view_event({"t": "down", "tgt": tgt})
+				sa.set_down(true)
+				TFx.ash_dissolve(sa)
+				hud.pop(tgt, "자폭", "status")
+				Sfx.play(&"bl_fold", -6.0))
 
 
 ## 한 행동의 적 피해 합계 (히트가 2번 이상일 때, §21.12 [하면 좋음 G1]) — 행동 띠 끝에 금빛으로 (review_C2 L4)
@@ -891,6 +973,14 @@ func _common_tips() -> void:
 		if k == "dispel":
 			if guide.tip("D3", "해제", "이 적이 마녀들의 버프를 모두 지웁니다. 그 전에 쏟아붓거나, 지난 뒤에 거세요.", [top]):
 				return
+		# 단계 F-2 새 의도 — 처음 보일 때 한 번 (용어 풀이 글, review_H §2)
+		var tk := "자폭" if k == "finisher" and bool(e.intent().get("self_ko", false)) else String(TData.INTENT_NAME.get(k, ""))
+		if k in ["seal", "weaken", "guard", "cover", "rally", "summon", "purge", "scatter"] or tk == "자폭":
+			var gl := TData.gloss_for(tk)
+			if gl != "" and guide.tip("E_" + tk, tk, gl.get_slice(" — ", 1), [top]):
+				return
+		if e.leader and guide.tip("E_우두머리", "우두머리", TData.gloss_for("우두머리").get_slice(" — ", 1), [top]):
+			return
 		if not e.marks.is_empty():
 			if guide.tip("D2", "징표", "화상·빙결·감전은 그 자체로는 피해가 없습니다. 겹이 쌓일수록 관련 마법이 세지고, 불은 터뜨려 한 번에 씁니다.", [cr.grow(2)]):
 				return
@@ -1097,6 +1187,36 @@ func demo_event(kind: String) -> String:
 
 
 ## 시험용: 지금 웨이브의 적을 모두 쓰러뜨리고 다음 웨이브로 넘긴다 (웨이브 전환 연출 확인 — 규칙의 다음 웨이브를 그대로 씀)
+## 시험용: 적 i가 의도 it를 지금 실행하는 연출 (차례·패턴은 그대로 — tools/test/scenarios/turn_enemies.json, 단계 F-2)
+func demo_enemy(i: int, it: Dictionary) -> String:
+	var e := battle.enemies[i]
+	if not actors.has(e) or not e.alive:
+		return "no enemy %d" % i
+	hud.close_wheel()
+	e.intent_now = it
+	e.intent_src = "insert"
+	_perform_enemy(actors[e])
+	return "%s %s" % [e.name, String(it.get("k", ""))]
+
+
+## 시험용: 마녀 wi가 적 ei에게 기본 공격 (우두머리 쓰러짐 등 히트 연출 확인)
+func demo_basic(wi: int, ei: int) -> String:
+	hud.close_wheel()
+	_perform_witch(actors[battle.witches[wi]], {"kind": "basic", "skill": "basic", "target": battle.enemies[ei]})
+	return "basic %d → %d" % [wi, ei]
+
+
+## 시험용: 적 i를 바로 쓰러뜨림 (빈 칸 만들기)
+func demo_down(i: int) -> String:
+	var e := battle.enemies[i]
+	e.alive = false
+	e.hp = 0
+	if actors.has(e):
+		(actors[e] as TActor).set_down(true)
+		TFx.ash_dissolve(actors[e])
+	return "down %d" % i
+
+
 func demo_wave() -> String:
 	hud.close_wheel()
 	for e in battle.enemies:

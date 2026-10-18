@@ -16,6 +16,9 @@ extends RefCounted
 ##   push: [딜러 게이지를 올려 차례를 몰아주는 id]
 ##   trigger: {id: {skill, at}} — 딜러가 다음 차례에 at 크레딧이 되고 공격력 버프가 있을 때 그 마법을 딜러에게 (대가 몰빵의 마지막 신호)
 ##   guard: [지키는 id] — 가장 큰 보호 마법(받는 피해 감소·무적·공격력 다운·되살림)의 비용을 남겨 두고, 위험한 의도·차지 가득 앞에서 쓴다 (버티기 원형, 단계 E)
+## 단계 F-2 (review_H §10.4 — 새 적 행동에 대응): ① 막아서는 적이 있으면 그 적만 · 방어 태세 중인 적은 다른 적이 있으면 피함 · 자폭 차지가 찬 적을 먼저
+##   ② 방어 태세 중인 적 하나만 남았으면 공격 대마법·3비용 이상 공격 마법을 미룸(위험이 없을 때) · 태세 알약이 보이면 지금 큰 공격(모으기 예외)
+##   ③ 크레딧 흩기·봉인 알약이 보이면 모으지 않고 씀 ④ 징표 털기가 보이면 1겹부터 터뜨리기 ⑥ 맞는 적이 셋 이상이면 광역 공격 마법은 모으기·횟수제 기본 공격보다 먼저
 
 const USE_AT := 2.2 ## 공격 마법: 이 점수 아래면 기본 공격
 const USE_AT_SUP := 1.8 ## 보조·디버프 마법의 기준 (review_E E0 ④)
@@ -32,10 +35,13 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 	var en := enemy_for(b, u)
 	var dealer := dealer_of(b)
 	var ult := String(u.data.get("ultimate", ""))
+	var spend := _spend_now(b, u)
 	if _in("battery", u) and dealer != u and dealer.alive:
 		ult = "" # 배터리는 자기 대마법을 아끼고 딜러에게 몰아준다
 	if ult != "" and b.can_use(u, ult) and String(TData.skill(ult).kind) == "support" and _protective(ult) and not _danger(b):
 		ult = "" # 지키는 대마법(무적·받는 피해·회복·되살림)은 위험한 의도·쓰러진/낮은 아군이 있을 때까지 아낀다
+	if ult != "" and b.can_use(u, ult) and String(TData.skill(ult).kind) == "attack" and _guarded(en) and not _danger(b) and not spend:
+		ult = "" # ② 방어 태세 중인 적만 남음: 공격 대마법은 태세가 풀린 차례로 미룬다 (F-2)
 	if ult != "" and b.can_use(u, ult):
 		var t: TUnit = en
 		if not b.needs_target_pick(ult) or String(TData.skill(ult).target) != "enemy":
@@ -58,7 +64,7 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 		var fd := _feed(b, u, dealer)
 		if not fd.is_empty():
 			return fd
-		if b.chain_stage == 0 and dealer.alive and dealer.credits < TData.ULT_COST:
+		if b.chain_stage == 0 and dealer.alive and dealer.credits < TData.ULT_COST and not spend:
 			return {"kind": "basic", "skill": "basic", "target": en} # 연쇄 전에는 모은다
 	if _in("push", u) and dealer.alive and dealer != u:
 		# 차례 몰아주기: 장착한 것 중 딜러 게이지를 가장 크게 올리는 마법 — 크레딧이 모자라면 모은다
@@ -85,6 +91,9 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 			return {"kind": "skill", "skill": tsid, "target": dealer}
 		if u.credits < TData.cost_of(tsid) + 1: # 비용 + 1을 남겨 둔다 (D2·E2: + 2면 별빛 역류보다 자기 대마법이 먼저 차서 역류가 판당 5번뿐이었다)
 			return {"kind": "basic", "skill": "basic", "target": en}
+	var aoe := _aoe_pick(b, u, en)
+	if not aoe.is_empty():
+		return aoe # ⑥ 맞는 적이 셋 이상: 광역 공격 마법 (F-2 — 예전엔 대마법 모으기·횟수제 기본 공격에 밀려 무리 전투에서 한 번도 안 씀)
 	if _counting(u, "basic"):
 		return {"kind": "basic", "skill": "basic", "target": en} # 횟수제 기본 공격 버프가 남아 있으면 기본 공격 (D2·E2에서 "곧 끝날 때만"을 재 봤으나 버프가 겹쳐 버려지고 충전을 다시 걸어 B1 보스가 20.9 → 24.7분 — 되돌림)
 	var guard_cost := 0
@@ -98,7 +107,7 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 	# 공격 대마법을 모으는 중 (E0 ①): 기본 공격(+크레딧)보다 값이 낮은 공격 마법은 쓰지 않는다
 	var ult_pc := 0.0
 	var basic_v := float(u.data.basic.mult) * _count_boost(u, "basic") # 횟수제 기본 공격 버프가 있으면 그만큼 센 기본 공격과 비교 (D2·E2)
-	if ult != "" and not _in("battery", u) and String(TData.skill(ult).kind) == "attack":
+	if ult != "" and not _in("battery", u) and String(TData.skill(ult).kind) == "attack" and not spend:
 		# 크레딧 한 개의 값 λ (D2·E2): "기본 공격만 + 대마법" 순환과 비기는 값 — 기본 공격 b + (차례 1 + 덤 1)λ = 대마법 M + (차례 1 − (7 − 환급))λ
 		#   → λ = (M − b) / (7 − 환급 + 덤). 예전 M / (7 − 환급)은 차례마다 오는 +1과 기본 공격이 대신 못 하는 몫을 빼먹어 λ를 27% 크게 잡았다 (10배: 1.43 → 1.125)
 		var us := TData.skill(ult)
@@ -115,6 +124,8 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 			continue # 지키는 마녀: 큰 보호 마법 비용은 남긴다 (도발·회복은 예외)
 		if ult_pc > 0.0 and String(sk.kind) == "support" and String(sk.target) == "self" and not _has_count(sk):
 			continue # 모으는 중엔 자기 강화(검기 두르기 등)에 크레딧을 쓰지 않는다 — 횟수제(다음 공격 1번·기본 공격 3번)는 대마법·기본 공격에 붙으므로 예외
+		if atk and int(sk.cost) >= 3 and _guarded(en) and String(sk.target) != "enemies" and not spend and not _danger(b):
+			continue # ② 방어 태세 중인 적 하나: 큰 단일 공격은 미룬다
 		if atk and ult_pc > 0.0 and not _save_exempt(sk, en):
 			var net := float(int(sk.cost) - _refund(sk, en))
 			if _attack_value(b, sk, en, u) - net * ult_pc < basic_v + float(TData.BASIC_BONUS) * ult_pc:
@@ -188,26 +199,82 @@ static func _has_count(sk: Dictionary) -> bool:
 	return false
 
 
-## 모으는 중에도 쓸 공격: 징표가 없을 때의 징표 심기 · 3겹 이상 터뜨리기
+## 모으는 중에도 쓸 공격: 징표가 없을 때의 징표 심기 · 3겹 이상 터뜨리기 (징표 털기가 보이면 1겹부터) · 태세 알약이 보이는 적에게 지금 (F-2 ②④)
 static func _save_exempt(sk: Dictionary, en: TUnit) -> bool:
 	if en == null:
 		return false
+	var ek := String(en.intent().get("k", ""))
+	if ek == "guard" and not en.has_buff("dmg_cut"):
+		return true
 	for e in sk.get("effects", []):
 		match String(e.t):
 			"mark":
 				if String(e.get("who", "target")) == "target" and not en.marks.has(String(e.kind)):
 					return true
 			"burst":
-				if en.mark_n(String(e.mark)) >= 3:
+				if en.mark_n(String(e.mark)) >= (1 if ek == "purge" else 3):
 					return true
 	return false
 
 
-## 이 마녀의 공격 속성이 약점인 적 → 불 약점(짚 골렘) → 체력이 가장 적은 적
+## 방어 태세 중인 적인가 (받는 피해 감소 30% 이상)
+static func _guarded(en: TUnit) -> bool:
+	return en != null and en.cat_sum("dmg_cut") >= 0.3
+
+
+## 크레딧을 들고 있으면 잃는 의도가 보임: 크레딧 흩기(전원) · 봉인(크레딧 5 이상일 때) (F-2 ③)
+static func _spend_now(b: TBattle, u: TUnit) -> bool:
+	for e in b.alive_of(b.enemies):
+		var k := String(e.intent().get("k", ""))
+		if k == "scatter" and u.credits >= 3:
+			return true
+		if k == "seal" and u.credits >= 5:
+			return true
+	return false
+
+
+## ⑥ 광역: 맞는 적이 셋 이상이면 장착한 광역 공격 마법 중 값(배율 × 적 수)이 가장 큰 것 — 순 비용 × 크레딧 값을 빼고도 기본 공격 + 크레딧 1개보다 크면
+static func _aoe_pick(b: TBattle, u: TUnit, en: TUnit) -> Dictionary:
+	var n := b.alive_of(b.enemies).size()
+	if n < 3 or en == null or _in("ult_only", u) or _in("battery", u):
+		return {}
+	var basic_v := float(u.data.basic.mult) * _count_boost(u, "basic")
+	var lam := 0.0
+	var ult := String(u.data.get("ultimate", ""))
+	if ult != "" and String(TData.skill(ult).kind) == "attack":
+		var us := TData.skill(ult)
+		lam = maxf(_attack_value(b, us, en, u) - basic_v, 0.1) / float(maxi(TData.ULT_COST - _refund(us, en) + TData.BASIC_BONUS, 1))
+	var best := ""
+	var best_v := basic_v + float(TData.BASIC_BONUS) * lam
+	for sid in u.equipped:
+		var sk := TData.skill(sid)
+		if String(sk.kind) != "attack" or String(sk.target) != "enemies" or not b.can_use(u, sid):
+			continue
+		var v := _attack_value(b, sk, en, u) - float(int(sk.cost) - _refund(sk, en)) * lam
+		if v > best_v:
+			best_v = v
+			best = sid
+	if best == "":
+		return {}
+	return {"kind": "skill", "skill": best, "target": en}
+
+
+## 단일 대상 후보(막아서는 적이 있으면 그 적만) 중: 자폭 차지가 찬 적 → 이 마녀의 공격 속성이 약점인 적 → 불 약점(짚 골렘) → 체력이 가장 적은 적.
+## 방어 태세 중인 적은 다른 적이 있으면 뺀다 (F-2 ①)
 static func enemy_for(b: TBattle, u: TUnit = null) -> TUnit:
-	var a := b.alive_of(b.enemies)
+	var a := b.foe_targets()
 	if a.is_empty():
 		return null
+	var open: Array[TUnit] = []
+	for e in a:
+		if not e.has_buff("dmg_cut"):
+			open.append(e)
+	if not open.is_empty():
+		a = open
+	for e in a:
+		var it := e.intent()
+		if String(it.get("k", "")) == "finisher" and bool(it.get("self_ko", false)):
+			return e # 자폭 직전 졸개를 먼저 (F-2 ⑤)
 	if u != null:
 		var el := u.attack_element()
 		for e in a:
@@ -347,7 +414,8 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 					s *= 1.0 + float(e.v) * float(en.mark_n(String(e.mark)))
 				"burst":
 					var n := en.mark_n(String(e.mark))
-					s *= (mult + float(e.per) * float(n)) / mult if n >= 3 else 0.5 # 3겹 전에는 쌓아 둔다
+					var purge := String(en.intent().get("k", "")) == "purge"
+					s *= (mult + float(e.per) * float(n)) / mult if (n >= 3 or (purge and n >= 1)) else 0.5 # 3겹 전에는 쌓아 둔다 (징표 털기가 보이면 지금)
 				"hp_cost":
 					if u.hp_ratio() < 0.45:
 						s *= 0.3
@@ -362,6 +430,9 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 		if u.credits >= 5 and cost >= 4:
 			s *= 1.6 # 모았으면 큰 것
 		s *= 1.0 + 0.4 * u.cat_sum("atk") # 버프를 받았으면 지금 때린다
+		if String(en.intent().get("k", "")) == "guard" and not en.has_buff("dmg_cut") and cost >= 3:
+			s *= 1.3 # 태세 알약: 태세 전에 큰 공격 (F-2 ②)
+		s *= 1.0 - minf(en.cat_sum("dmg_cut"), 0.7) * 0.5
 	elif kind == "debuff":
 		var fresh := 0.0
 		for e in effects:

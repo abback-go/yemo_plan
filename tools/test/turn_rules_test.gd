@@ -23,6 +23,7 @@ func _process(_d: float) -> bool:
 	_stage_b_tests()
 	_stage_e_tests()
 	_stage_f_tests()
+	_stage_f2_tests()
 	print("RULES 통과 %d/%d%s" % [_pass, _pass + _fail, "" if _fail == 0 else " — 실패 %d" % _fail])
 	quit(1 if _fail > 0 else 0)
 	return true
@@ -1136,6 +1137,309 @@ func _stage_f_tests() -> void:
 	_ok("V27 끊긴 전투 파일 쓰기·읽기·지우기", "%s %d %s" % [str(had), int(back.get("turn_no", -1)), str(TSave.has_battle())], "true %d false" % int(snap.turn_no))
 	# V28 용어 풀이: 글에 나온 첫 용어
 	_ok("V28 용어 풀이 첫 용어 (겹·특공 글 → 겹)", TData.gloss_for("화상 겹마다 특공").get_slice(" — ", 0), "겹")
+
+
+# ═══════════════════════════════════════════════════════════
+# 단계 F-2 — 적 엔진 (review_F F01·F02 V01~V16 · review_H §10.2 V38~V45 · 새 규칙 V46~)
+# ═══════════════════════════════════════════════════════════
+
+## 적 u에게 의도 it를 정해 두고 실행 → end_action. 돌려준 사건
+func _act(b: TBattle, u: TUnit, it: Dictionary) -> Array:
+	u.intent_now = it
+	u.intent_src = "insert"
+	b.actor = u
+	var ev := b.enemy_action(u)
+	b.end_action(u)
+	return ev
+
+
+func _stage_f2_tests() -> void:
+	print("── 단계 F-2 적 엔진")
+	# V01 봉인(피해 0) → 이그니스 크레딧 5: 다음 차례 크레딧 6 · 장착 4개·대마법 못 씀 · 기본 공격 → 7 · 그 차례 끝 봉인 풀림 + 봉인 내성
+	var b := _b(["ignis"], ["thunder_crow"])
+	_tough(b)
+	var ig := _w(b, "ignis")
+	var crow := b.enemies[0]
+	ig.credits = 5
+	_act(b, crow, {"k": "seal", "mult": 0.0})
+	_until(b, ig)
+	var any_ok := false
+	for sid in ig.equipped:
+		any_ok = any_ok or b.can_use(ig, sid)
+	var c6 := ig.credits
+	ig.credits = 7
+	var ult_ok := b.can_use(ig, "ult_ignis")
+	ig.credits = c6
+	b.basic_attack(ig, crow)
+	var c7 := ig.credits
+	b.end_action(ig)
+	_ok("V01 봉인 → 크레딧 6 · 장착 마법·대마법 못 씀 · 기본 공격 7 · 풀림 + 봉인 내성", "%d %s %s %d %d %s" % [c6, str(any_ok), str(ult_ok), c7, ig.sealed, str(ig.seal_guard)], "6 false false 7 0 true")
+	# 봉인 내성 중엔 봉인되지 않고 ("seal_resist"), 그다음 자기 차례가 끝나면 내성도 풀림
+	var ev := _act(b, crow, {"k": "seal", "mult": 0.0})
+	var resisted := _kinds(ev).has("seal_resist") and ig.sealed == 0
+	_until(b, ig)
+	b.basic_attack(ig, crow)
+	b.end_action(ig)
+	_ok("V01b 봉인 내성 중 봉인 → 막힘 · 다음 차례 끝에 내성 풀림", "%s %s" % [str(resisted), str(ig.seal_guard)], "true false")
+	# V02 대마법 봉인 → 크레딧 7 운디네: 장착 마법은 됨 · 대마법만 못 씀
+	b = _b(["undine"], ["thunder_crow"])
+	_tough(b)
+	var un := _w(b, "undine")
+	_act(b, b.enemies[0], {"k": "seal", "mult": 0.0, "ult": true})
+	un.credits = 7
+	_ok("V02 대마법 봉인: 물의 창 됨 · 심연 붕괴 못 씀", "%s %s" % [str(b.can_use(un, "water_lance")), str(b.can_use(un, "ult_undine"))], "true false")
+	# V03 무적 마녀에게 봉인 공격(피해 있음) → 피해 0 · 봉인 없음
+	b = _b(["ignis"], ["thunder_crow"])
+	_tough(b)
+	ig = _w(b, "ignis")
+	ig.add_buff({"cat": "invincible", "v": 1.0, "dur": 2, "clock": "enemy"})
+	ev = _act(b, b.enemies[0], {"k": "seal", "mult": 0.6})
+	_ok("V03 무적 → 봉인 공격 피해 0 · 봉인 없음", "%d %d" % [_first(ev), ig.sealed], "0 0")
+	# V04 약화(공격력 −20%, 행동 2번) 뒤 이그니스 기본 공격 → 짚 골렘 = 18,000 × 0.8
+	b = _b(["ignis"], ["straw_golem"])
+	_tough(b)
+	ig = _w(b, "ignis")
+	var g := b.enemies[0]
+	_act(b, g, {"k": "weaken", "cat": "atk_down", "v": 0.20, "dur": 2})
+	var d4 := _first(b.basic_attack(ig, g))
+	_ok("V04 약화 공격력 −20% → 기본 공격 14,400 (나쁜 효과 bad)", "%d %s" % [d4, str(bool(ig.buffs[0].get("bad", false)))], "14400 true")
+	# V05 방어 태세 −50% 짚 골렘에게 태양의 창 = 126,000 × 0.5 · 방어 무시 마법(공간 압축 → 빈 갑주)도 같이 반
+	b = _b(["ignis", "eska"], ["straw_golem", "hollow_armor"])
+	ig = _w(b, "ignis")
+	var es := _w(b, "eska")
+	g = b.enemies[0]
+	var ha := b.enemies[1]
+	var plain := b.estimate(es, ha, "compress")
+	g.add_buff({"cat": "dmg_cut", "v": 0.5, "dur": 3, "clock": "own"})
+	ha.add_buff({"cat": "dmg_cut", "v": 0.5, "dur": 3, "clock": "own"})
+	_ok("V05 방어 태세 −50%: 태양의 창 63,000 · 공간 압축(방어 무시) 67,080 → 33,540", "%d %d %d" % [b.estimate(ig, g, "sun_spear"), plain, b.estimate(es, ha, "compress")], "63000 67080 33540")
+	# V06 방어 태세 −50% 둘 → −70% 상한
+	g.add_buff({"cat": "dmg_cut", "v": 0.5, "dur": 3, "clock": "own"})
+	_ok("V06 방어 태세 둘 → 상한 70% (126,000 × 0.3)", b.estimate(ig, g, "sun_spear"), 37800)
+	# V07 막아서기 중 단일 대상 후보 = 막아서는 적만 · 광역은 전원 · 기본 공격 후보도
+	b = _b(["fulgur"], ["mist_jelly", "swamp_toad", "frost_knight"])
+	var fu := _w(b, "fulgur")
+	fu.credits = 7
+	var fk := b.enemies[2]
+	_act(b, fk, {"k": "cover", "dur": 2})
+	var vt := b.valid_targets(fu, "thunderbolt")
+	_ok("V07 막아서기: 단일 후보 서리 기사 1 · 기본 공격 후보 1 · 광역 맞는 적 3", "%d %s %d %d" % [vt.size(), vt[0].id, b.foe_targets().size(), b._resolve_targets(fu, TData.skill("chain_lightning"), null).size()], "1 frost_knight 1 3")
+	# V08 재촉: 재의 기사 차지 2 → 3 · 4 → 5(가득)면 의도가 필살기로
+	b = _b(["ignis"], ["will_o", "ash_knight"])
+	_tough(b)
+	var kn := b.enemies[1]
+	kn.charge = 2
+	_act(b, b.enemies[0], {"k": "rally", "charge": 1})
+	var c3 := kn.charge
+	kn.charge = 4
+	b.decide_intent(kn)
+	_act(b, b.enemies[0], {"k": "rally", "charge": 1})
+	_ok("V08 재촉 차지 2 → 3 · 4 → 5 → 의도 필살기", "%d %d %s" % [c3, kn.charge, String(kn.intent().get("k", ""))], "3 5 finisher")
+	# V09 부르기: 빈 칸 없음 → 안 고름 · 빈 칸 1 → 부르기, 그 칸에 새 적(게이지 0) · summon_cap에 닿으면 안 고름
+	b = _b(["ignis"], ["ash_servant", "lantern_keeper", "ash_servant"])
+	_tough(b)
+	var lk := b.enemies[1]
+	b.decide_intent(lk)
+	var k0 := String(lk.intent().get("k", ""))
+	b.deal(b.enemies[0], b.enemies[0].hp)
+	b.decide_intent(lk)
+	var k1 := String(lk.intent().get("k", ""))
+	ev = _act(b, lk, lk.intent())
+	var sm: Dictionary = {}
+	for e in ev:
+		if e.t == "summon":
+			sm = e
+	var nu: TUnit = b.enemies[0]
+	var k2s := "%s %s %d %d" % [k0, k1, int(sm.get("slot", -1)), int(nu.gauge)]
+	b.deal(b.enemies[0], b.enemies[0].hp)
+	b.summoned = 4
+	b.decide_intent(lk)
+	_ok("V09 부르기: 빈 칸 없음 → 공격 · 빈 칸 → 부르기 · 칸 0에 새 시종 게이지 0 · 4번 부르면 안 부름", "%s %s %s" % [k2s, str(nu.id == "ash_servant"), String(lk.intent().get("k", ""))],
+		"attack summon 0 0 true attack")
+	# V10 자폭: 시종 차지 3 → 필살기(자폭) → 마녀 피해 뒤 시종 쓰러짐 · 마지막 적이면 승리
+	b = _b(["ignis", "ember"], ["ash_servant"])
+	_tough(b)
+	var sv := b.enemies[0]
+	sv.charge = 3
+	b.decide_intent(sv)
+	b.actor = sv
+	ev = b.enemy_action(sv)
+	_ok("V10 자폭: 히트 2 · 시종 쓰러짐 · 승리", "%d %s %s %s" % [_hits(ev).size(), str(sv.alive), str(_kinds(ev).has("self_ko")), b.outcome()], "2 false true win")
+	# V11 징표 털기: 화상 4겹·방어 다운 → 화상 0 · 방어 다운 남음
+	b = _b(["ignis"], ["ash_king"])
+	_tough(b)
+	var kg := b.enemies[0]
+	kg.add_mark("burn", 3, 4)
+	kg.add_buff({"cat": "def_down", "v": 0.2, "dur": 3, "clock": "own"})
+	ev = _act(b, kg, {"k": "purge"})
+	_ok("V11 징표 털기: 화상 0 · 방어 다운 남음 · 사건 n 4", "%d %s %d" % [kg.mark_n("burn"), str(kg.has_buff("def_down")), int(ev[0].n)], "0 true 4")
+	# V12 보스 해제: 공격력 +50%(이로움) · 공격력 다운 20%(나쁨) → 공격력 다운만 남음
+	b = _b(["ignis"], ["ash_king"])
+	_tough(b)
+	ig = _w(b, "ignis")
+	ig.add_buff({"cat": "atk", "v": 0.5, "dur": 3, "clock": "own"})
+	_act(b, b.enemies[0], {"k": "weaken", "cat": "atk_down", "v": 0.20, "dur": 3})
+	_act(b, b.enemies[0], {"k": "dispel"})
+	_ok("V12 해제가 나쁜 효과를 남김 (공격력 다운만)", "%d %s" % [ig.buffs.size(), String(ig.buffs[0].cat) if not ig.buffs.is_empty() else ""], "1 atk_down")
+	# V14 화상 최대 3겹 적(화로 거북)에게 화상 5번 → 3겹
+	b = _b(["cinder"], ["hearth_turtle"])
+	var tt := b.enemies[0]
+	for k in 5:
+		b._add_mark(_w(b, "cinder"), tt, "burn", 3, 1)
+	_ok("V14 달군 몸: 화상 5번 → 3겹", tt.mark_n("burn"), 3)
+	# V16 적 크리 15% − 크리 다운 20% → 0% (200번 맞혀 크리 0) · 크리 다운 없으면 15%
+	b = _b(["nerei"], ["thunder_crow"])
+	_tough(b)
+	b.fix_crit = -1
+	crow = b.enemies[0]
+	crow.add_buff({"cat": "crit_down", "v": 0.2, "dur": 999, "clock": "own"})
+	var nc := 0
+	for k in 200:
+		if bool(b._enemy_hit(crow, b.witches[0], 1.0).crit):
+			nc += 1
+	_ok("V16 까마귀 크리 15% · 크리 다운 20% → 200번 중 크리 0", "%s %d" % [str(snappedf(crow.ecrit, 0.01)), nc], "0.15 0")
+	# V38 세 빛의 인형 줄 1 브레이크 → 약점 불 · 속성 번개 · 패턴 [공격, 방어 태세, 강공격 2.2, 전체] · 줄 3 → 약점 물
+	b = _b(["ignis"], ["prism_doll"])
+	var pd := b.enemies[0]
+	var w0 := str(pd.weak)
+	b.deal(pd, 2000000)
+	var pk: Array = []
+	for it in pd.pattern:
+		pk.append("%s%s" % [String(it.k), (str(float(it.mult)) if it.has("mult") and String(it.k) == "heavy" else "")])
+	var mid := "%s %s %s" % [str(pd.weak), pd.element, " ".join(pk)]
+	b.deal(pd, 2000000)
+	_ok("V38 세 빛의 인형 줄마다 약점 (번개 → 불 → 물)", "%s | %s | %s" % [w0, mid, str(pd.weak)], "[\"bolt\"] | [\"fire\"] bolt attack guard heavy2.2 aoe | [\"water\"]")
+	# V39 봉인 공격 → 아스트라: 대마법·장착 마법 못 씀 · 기본 공격 됨
+	b = _b(["astra"], ["thunder_crow"])
+	_tough(b)
+	var asr := _w(b, "astra")
+	_act(b, b.enemies[0], {"k": "seal", "mult": 0.6})
+	asr.credits = 7
+	var eq_ok := false
+	for sid in asr.equipped:
+		eq_ok = eq_ok or b.can_use(asr, sid)
+	_ok("V39 봉인 → 아스트라 대마법·장착 못 씀 · 기본 공격 피해 > 0", "%s %s %s" % [str(b.can_use(asr, "ult_astra")), str(eq_ok), str(_first(b.basic_attack(asr, b.enemies[0])) > 0)], "false false true")
+	# V40 등불지기 + 시종 살아 있음 → 태양의 창 × 0.7 · 시종이 쓰러지면 × 1.0 (12,000 × 7.0 × 방어 0.8 = 67,200)
+	b = _b(["ignis"], ["ash_servant", "lantern_keeper"])
+	ig = _w(b, "ignis")
+	lk = b.enemies[1]
+	var with_s := b.estimate(ig, lk, "sun_spear")
+	b.deal(b.enemies[0], b.enemies[0].hp)
+	_ok("V40 등불 가림 −30% (시종 살아 있음) → 쓰러진 뒤 그대로", "%d %d" % [with_s, b.estimate(ig, lk, "sun_spear")], "47040 67200")
+	# V41 둥지어미가 쓰러짐(시종 2 살아 있음) → 나머지도 사라짐 · 마지막 웨이브면 승리
+	b = _b(["ignis"], ["ash_servant", "ash_brood", "ash_servant"])
+	var br := b.enemies[1]
+	b.deal(br, 2800000)
+	var res := b.deal(br, 2800000)
+	_ok("V41 우두머리 쓰러짐 → 졸개 2 사라짐 · 승리", "%d %s" % [(res.get("fall", []) as Array).size(), b.outcome()], "2 win")
+	# V42 화로 거북에 신더 화상 2겹 × 3번 → 3겹
+	b = _b(["cinder"], ["hearth_turtle"])
+	tt = b.enemies[0]
+	for k in 3:
+		b._add_mark(_w(b, "cinder"), tt, "burn", 3, 2)
+	_ok("V42 달군 몸: 화상 2겹 × 3 → 3겹", tt.mark_n("burn"), 3)
+	# V43 시종 차지 3 → 자폭: 마녀 전원 피해 뒤 시종 쓰러짐 · 빈 칸 1 → 둥지어미 다음 의도 = 부르기 (부른 수 0 < 3)
+	b = _b(["ignis", "ember", "eska"], ["ash_servant", "ash_brood", "ash_servant"])
+	_tough(b)
+	sv = b.enemies[0]
+	sv.charge = 3
+	b.decide_intent(sv)
+	b.actor = sv
+	ev = b.enemy_action(sv)
+	b.end_action(sv)
+	b.decide_intent(b.enemies[1])
+	_ok("V43 자폭 → 히트 3 · 시종 쓰러짐 · 둥지어미 부르기", "%d %s %s" % [_hits(ev).size(), str(sv.alive), String(b.enemies[1].intent().get("k", ""))], "3 false summon")
+	# V44 그림자 서기: 운디네 크레딧 6 → 의도 = 크레딧 흩기 · 실행 뒤 전원 −2 (0 아래 안 감)
+	b = _b(["undine", "ignis"], ["shade_scribe"])
+	_tough(b)
+	un = _w(b, "undine")
+	ig = _w(b, "ignis")
+	un.credits = 6
+	ig.credits = 1
+	var sc := b.enemies[0]
+	b.decide_intent(sc)
+	var k44 := String(sc.intent().get("k", ""))
+	b.actor = sc
+	b.enemy_action(sc)
+	_ok("V44 크레딧 흩기: 의도 scatter · 운디네 6 → 4 · 이그니스 1 → 0", "%s %d %d" % [k44, un.credits, ig.credits], "scatter 4 0")
+	# V45 보스 해제: 공격력 +50%(이로움) · 받는 피해 +20%(불꽃 사제, bad) → 받는 피해 +20%만 남음
+	b = _b(["ignis"], ["flame_priest", "ash_king"])
+	_tough(b)
+	ig = _w(b, "ignis")
+	ig.add_buff({"cat": "atk", "v": 0.5, "dur": 3, "clock": "own"})
+	b.enemies[0].intent_now = {"k": "weaken", "cat": "dmg_taken", "v": 0.20, "dur": 3, "aoe": true}
+	b.actor = b.enemies[0]
+	b.enemy_action(b.enemies[0]) # (end_action 없이 — 받는 피해가 적 행동마다 닳으므로)
+	b.enemies[1].intent_now = {"k": "dispel"}
+	b.enemy_action(b.enemies[1])
+	_ok("V45 해제 뒤 받는 피해 +20%만 남음", "%d %s %s" % [ig.buffs.size(), String(ig.buffs[0].cat) if not ig.buffs.is_empty() else "", str(snappedf(ig.cat_sum("dmg_taken"), 0.01))], "1 dmg_taken 0.2")
+	# V46 받는 피해 +20% 약화 = 적 행동 2번 (적 버프 §18.8처럼 건 행동부터 셈 → 다음 적 행동 하나를 맞음)
+	b = _b(["ignis"], ["flame_priest", "straw_golem"])
+	_tough(b)
+	ig = _w(b, "ignis")
+	_act(b, b.enemies[0], b.enemies[0].data.pattern[0])
+	var n1 := ig.buffs.size()
+	_act(b, b.enemies[1], {"k": "attack", "mult": 1.0})
+	var n2 := ig.buffs.size()
+	_act(b, b.enemies[1], {"k": "attack", "mult": 1.0})
+	_ok("V46 받는 피해 약화(적 행동 2번 — 건 행동부터 셈): 건 뒤 1 · 적 행동 1번 뒤 0", "%d %d %d" % [n1, n2, ig.buffs.size()], "1 0 0")
+	# V47 방어 태세(2) = 그 적의 행동 2번 (건 행동부터 셈): 태세 → 있음 · 다음 자기 행동이 끝나면 없음
+	b = _b(["ignis"], ["volt_golem"])
+	_tough(b)
+	var vg := b.enemies[0]
+	_act(b, vg, {"k": "guard", "v": 0.5, "dur": 2})
+	var g1 := vg.has_buff("dmg_cut")
+	_act(b, vg, {"k": "attack", "mult": 1.0})
+	var g2 := vg.has_buff("dmg_cut")
+	_act(b, vg, {"k": "attack", "mult": 1.0})
+	_ok("V47 방어 태세 지속: 건 뒤 있음 · 다음 행동 뒤 없음", "%s %s %s" % [str(g1), str(g2), str(vg.has_buff("dmg_cut"))], "true false false")
+	# V48 먼저 날아듦: 뇌운 고개 시작 게이지 까마귀 500 · 골렘 0
+	b = TBattle.new()
+	b.setup(["ignis"], "normal_bolt", {}, 1)
+	_ok("V48 먼저 날아듦 게이지 +50%", "%d %d %d" % [int(b.enemies[0].gauge), int(b.enemies[1].gauge), int(b.enemies[2].gauge)], "500 500 0")
+	# V49 조건 self_buff (+not) · allies_alive (틀만 — 데이터에 규칙을 넣어 확인)
+	b = _b(["ignis"], ["straw_golem", "swamp_toad"])
+	g = b.enemies[0]
+	g.data = g.data.duplicate(true)
+	g.data["rules"] = [{"when": {"self_buff": "dmg_cut", "not": true, "allies_alive": 1}, "insert": {"k": "guard", "v": 0.5, "dur": 2}}]
+	b.decide_intent(g)
+	var ka := String(g.intent().get("k", ""))
+	g.add_buff({"cat": "dmg_cut", "v": 0.5, "dur": 3, "clock": "own"})
+	b.decide_intent(g)
+	var kb := String(g.intent().get("k", ""))
+	g.buffs.clear()
+	b.deal(b.enemies[1], b.enemies[1].hp)
+	b.decide_intent(g)
+	_ok("V49 조건 self_buff not · allies_alive: 태세 없음 → guard · 태세 있음 → 패턴 · 동료 없음 → 패턴", "%s %s %s" % [ka, kb, String(g.intent().get("k", ""))], "guard attack attack")
+	# V50 웨이브 구성 규칙 (F04): 새 보스 전투 통과 · boss_01은 ①② 43%(1.6 그대로 — 규칙은 새 보스 전투부터) · 일반 전투 모두 통과
+	var bad_n := 0
+	for bid in TData.BATTLE_ORDER:
+		if String(bid) != "boss_01":
+			bad_n += TBattle.wave_rules(String(bid)).size()
+	_ok("V50 웨이브 규칙: 새 전투 어긋남 0 · boss_01 ①②", "%d %s" % [bad_n, str(TBattle.wave_rules("boss_01"))], "0 [\"웨이브 ①② 체력 43% (> 35%)\"]")
+	# V51 저장·불러오기: 봉인·부른 수가 남음
+	b = TBattle.new()
+	b.setup(["ignis", "ember"], "normal_swarm", {}, 5)
+	b.witches[0].sealed = 1
+	b.summoned = 2
+	var b2 := TBattle.from_dict(str_to_var(var_to_str(b.to_dict())))
+	_ok("V51 저장: 봉인 · 부른 수 · 고유 효과", "%d %d %d" % [b2.witches[0].sealed, b2.summoned, b2.enemies[1].passive.size()], "1 2 1")
+	# V52 데이터 판 (review_I I-03): 지금 판 사본은 읽힘 · 판이 다르거나(1.7 파일 = 판 없음) 모르는 적·마법 id면 버림 → 파일 지움 (편성은 parse_setup이 따로 고침, V26)
+	TSave.enabled = true
+	TSave.dir = "user://test_rules/"
+	var cur := b.to_dict()
+	var old := cur.duplicate(true)
+	old.erase("data")
+	var bad_e := cur.duplicate(true)
+	bad_e.enemies[0]["id"] = "old_enemy"
+	var bad_s := cur.duplicate(true)
+	bad_s.witches[0].setup["equipped"] = ["crack_old"]
+	var got: Array = []
+	for d in [cur, old, bad_e, bad_s]:
+		TSave.save_battle(d)
+		got.append(str(not TSave.load_battle().is_empty()))
+	TSave.clear_battle()
+	_ok("V52 데이터 판: 지금 판 읽힘 · 판 없음/모르는 적/모르는 마법 버림", " ".join(got), "true false false false")
 
 
 func _names(q: Array) -> String:

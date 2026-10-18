@@ -17,7 +17,7 @@
  [84, "eval", "test_files()"],
  [90, "touch", 0, 516, 316], [91, "untouch", 0, 516, 316],
  [94, "shot", "s04_battles"],
- [96, "touch", 0, 112, 150], [97, "untouch", 0, 112, 150],
+ [96, "touch", 0, 112, 84], [97, "untouch", 0, 112, 84],
  [100, "touch", 0, 516, 316], [101, "untouch", 0, 516, 316],
  [102, "eval", "set_auto(true)"],
  [700, "eval", "status()"],

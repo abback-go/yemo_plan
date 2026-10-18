@@ -70,7 +70,7 @@ func _process(delta: float) -> void:
 				var ids := TSetup.battle_ids()
 				var want := "normal_01" if ids.has("normal_01") else String(ids[0])
 				if TSetup.battle_pick != want:
-					_tap(setup._battle_rect(ids.find(want)).get_center())
+					_tap(setup.pick_rect_for(want).get_center())
 				else:
 					_tap(TSetup.START1_RECT.get_center())
 		return

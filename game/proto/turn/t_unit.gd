@@ -7,6 +7,7 @@ extends RefCounted
 ##   clock own   = 이 유닛이 행동(또는 쉼)을 마칠 때마다 dur −1 (아군에게 건 버프 · 적에게 건 디버프·징표)
 ##   clock enemy = 적이 행동을 마칠 때마다 dur −1 (무적 · 받는 피해 감소 · 도발 · 근성처럼 "다음 적 공격"을 막는 것)
 ## 징표: marks[kind] = {n: 겹 1~5, dur: 남은 행동 수} (combat_proto.md §17.1)
+## [단계 F-2] 적이 마녀에게 건 나쁜 효과(약화)는 버프 목록에 bad = true — 보스 해제가 남긴다 (review_H §2.1). 적의 자기 보호: dmg_cut(방어 태세) · cover(막아서기)
 
 var id := ""
 var name := ""
@@ -57,6 +58,13 @@ var data := {} ## 원본 데이터 (그림 색 등)
 var acted := 0 ## 행동(쉼 포함) 횟수 (통계)
 var acts := 0 ## 실제로 행동한 횟수 (적의 조건 규칙 acted)
 var dealt := 0 ## 준 피해 합 (통계)
+# ── 단계 F-2 (review_H_enemies.md)
+var traits: Array = [] ## 적 특성 (TData.TRAIT_NAME)
+var ecrit := TData.ENEMY_CRIT_BASE ## 적 크리 확률 (크리 다운 디버프 전)
+var leader := false ## 우두머리: 쓰러지면 같은 웨이브의 나머지도 사라짐 (§18.6)
+var summon_cap := 0 ## 이 적이 한 웨이브에 부를 수 있는 수
+var sealed := 0 ## 마녀 봉인: 1 = 장착 마법·대마법 못 씀 · 2 = 대마법만 못 씀. 다음 자기 차례가 끝나면 풀림
+var seal_guard := false ## 봉인이 풀린 뒤 그다음 자기 차례가 끝날 때까지 봉인되지 않음
 var _eq := {}
 
 
@@ -119,6 +127,11 @@ static func make_enemy(eid: String, slot_i: int, over := {}) -> TUnit:
 	u.boss = u.tier == "boss"
 	u.charge_max = int(d.get("charge_max", 0))
 	u.pattern = d.pattern
+	u.traits = d.get("traits", [])
+	u.passive = d.get("passive", []) # 적 고유 효과 (mark_cap · guard_allies · first_strike) — 마녀 패시브와 같은 칸, t가 겹치지 않음
+	u.ecrit = float(d.get("crit", TData.ENEMY_CRIT_BASE))
+	u.leader = bool(d.get("leader", false))
+	u.summon_cap = int(d.get("summon_cap", 0))
 	return u
 
 
@@ -158,10 +171,28 @@ func mark_dur(kind: String) -> int:
 	return int(marks[kind].dur) if marks.has(kind) else 0
 
 
-## 징표 n겹을 건다: 겹 = min(지금 + n, MARK_MAX), 남은 수 = max(지금, dur). 돌려준 값 = 새 겹 수
+## 그 징표의 최대 겹 (고유 효과 mark_cap)
+func mark_cap(kind: String) -> int:
+	var cap := TData.MARK_MAX
+	for e in passive:
+		if String(e.get("t", "")) == "mark_cap" and String(e.get("kind", "")) == kind:
+			cap = mini(cap, int(e.n))
+	return cap
+
+
+## 징표 겹 합 (조건 self_marks)
+func marks_total() -> int:
+	var n := 0
+	for k in marks:
+		n += int(marks[k].n)
+	return n
+
+
+## 징표 n겹을 건다: 겹 = min(지금 + n, 상한), 남은 수 = max(지금, dur). 돌려준 값 = 새 겹 수.
+## 상한 = MARK_MAX, 적 고유 효과 mark_cap(그 징표 최대 n겹 — 반감이 아니라 겹만 막음, review_H §3)이 있으면 그것
 func add_mark(kind: String, dur: int, n := 1) -> int:
 	var m: Dictionary = marks.get(kind, {"n": 0, "dur": 0})
-	m["n"] = mini(int(m.n) + maxi(n, 1), TData.MARK_MAX)
+	m["n"] = mini(int(m.n) + maxi(n, 1), mark_cap(kind))
 	m["dur"] = maxi(int(m.dur), dur)
 	marks[kind] = m
 	return int(m.n)
@@ -269,6 +300,15 @@ func has_buff(cat: String) -> bool:
 	return false
 
 
+## 이로운 버프 수 (적이 건 나쁜 효과 bad는 빼고 — 해제 조건 witch_buffs · 해제 알약 "버프 n")
+func good_buffs() -> int:
+	var n := 0
+	for b in buffs:
+		if not bool(b.get("bad", false)):
+			n += 1
+	return n
+
+
 ## 그 마법이 건 버프가 남아 있나 (자동 선택용)
 func has_skill_buff(sid: String) -> bool:
 	for b in buffs:
@@ -363,6 +403,8 @@ func take_damage(v: int) -> Dictionary:
 	marks.clear()
 	stunned = false
 	stun_guard = false
+	sealed = 0
+	seal_guard = false
 	inv_guard = 0
 	gauge = 0.0
 	pending_gauge = 0.0
@@ -403,6 +445,8 @@ func revive(pct: float) -> void:
 	pending_gauge = 0.0
 	stunned = false
 	stun_guard = false
+	sealed = 0
+	seal_guard = false
 
 
 ## 머리 위·바퀴에 보여 줄 버프 아이콘 목록 [{cat, v, dur, el?, mark?}] (같은 종류는 하나로 합침)
@@ -427,7 +471,7 @@ func buff_icons() -> Array:
 # ── 저장 (전투 이어하기, combat_proto.md §28.4): 데이터(data·_eq)는 id로 다시 만들고 바뀌는 값만 담는다
 const SAVE_KEYS := ["hp", "max_hp", "atk", "speed", "def_rate", "element", "gauge", "credits", "buffs", "marks", "alive", "pattern", "intent_i", "intent_now",
 	"intent_src", "rule_pat", "charge", "bar_i", "stunned", "stun_guard", "guts_used", "inv_guard", "zero_after_turn", "pending_gauge", "last_k", "last_act",
-	"acted", "acts", "dealt", "weak", "resist", "passive"]
+	"acted", "acts", "dealt", "weak", "resist", "passive", "sealed", "seal_guard"]
 
 
 func to_dict() -> Dictionary:

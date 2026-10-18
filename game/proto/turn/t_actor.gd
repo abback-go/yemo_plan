@@ -101,6 +101,11 @@ func _process(delta: float) -> void:
 	position = home + Vector2(_lunge * float(facing) + _walk, hop)
 	if enemy != null and enemy.phase != unit.bar_i:
 		enemy.set_phase(unit.bar_i)
+	if enemy != null: # 단계 F-2 상태 그림 (방어 태세·막아서기·차지·등불 가림)
+		enemy.guarding = unit.has_buff("dmg_cut")
+		enemy.covering = unit.has_buff("cover")
+		enemy.charge_k = float(unit.charge) / float(unit.charge_max) if unit.charge_max > 0 else 0.0
+		enemy.guard_link = not unit.passive.is_empty() and unit.alive
 	if _ring != null:
 		var on := unit.alive and (turn_on or act_on or (unit.is_witch() and unit.is_taunting()))
 		_ring.visible = on

@@ -9,6 +9,9 @@ extends RefCounted
 ##   {"t":"invincible", tgt}  {"t":"zeroed", tgt}  {"t":"enemy_buff", tgt, v}  {"t":"resist", tgt}  {"t":"stun"|"immune"|"stun_resist", tgt}
 ##   {"t":"taunt", tgt}  {"t":"guts_on", tgt}  {"t":"dispel", tgt}  {"t":"stun_skip", tgt}  [단계 E] {"t":"inv_guard", tgt} (무적 내성으로 무적이 안 걸림)
 ##   [단계 B] {"t":"chain", tgt, stage}  {"t":"charge_down", tgt, v}  {"t":"hp_cost", tgt, v}  {"t":"stack", tgt, n, v}  {"t":"hit_stack", tgt}
+##   [단계 F-2 — review_H] {"t":"seal", tgt, ult}  {"t":"seal_resist", tgt}  {"t":"weaken", tgt, cat, v, dur}  {"t":"guard", tgt, v}  {"t":"cover", tgt}
+##   {"t":"charge_up", tgt, v}  {"t":"summon", tgt(새 적), old(쓰러진 적), slot}  {"t":"self_ko", tgt}  {"t":"purge", tgt, n}  {"t":"credits", tgt, v < 0}(흩기)
+##   hit 사건의 fall = 우두머리와 함께 사라진 적 목록
 ## 시험 훅 (tools/test/turn_rules_test.gd): fix_rand(피해 난수) · fix_crit(-1 판정 / 0 아님 / 1 크리) · fix_roll(디버프 성공 판정 난수)
 
 var witches: Array[TUnit] = []
@@ -32,6 +35,7 @@ var max_chain := 0 ## 이 전투에서 닿은 가장 높은 연쇄 단계 (통�
 var _cur_skill := "" ## 지금 실행 중인 마법 id (버프에 sid로 남김 — 자동 선택이 "이 마법의 버프가 이미 있나"를 본다)
 var resume := false ## 불러온 전투: 다음 next_actor()는 저장된 차례(actor)를 그대로 돌려준다 (크레딧 +1은 저장 전에 받음)
 var _pre := {} ## 이번 마법을 맞기 전의 징표 (TUnit → [kind]) — if_mark 조건은 이것으로 본다 (§17.1)
+var summoned := 0 ## 이 웨이브에서 부르기로 세운 적 수 (적 summon_cap과 견줌, review_H §2.1)
 
 
 ## party: 마녀 id 1~3개 (앞·중·뒤). foes: 전투 id(TData.BATTLES) 또는 적 id 목록(1웨이브).
@@ -70,6 +74,7 @@ func setup(party: Array, foes, state: Dictionary, seed_v := 0) -> void:
 
 func _spawn_wave(i: int) -> void:
 	enemies.clear()
+	summoned = 0
 	var list: Array = waves[i]
 	for j in list.size():
 		var item = list[j]
@@ -77,6 +82,9 @@ func _spawn_wave(i: int) -> void:
 		var over: Dictionary = item if item is Dictionary else {}
 		enemies.append(TUnit.make_enemy(eid, j, over))
 	for e in enemies:
+		for p in e.passive:
+			if String(p.get("t", "")) == "first_strike":
+				e.gauge += TData.GAUGE_MAX * float(p.v) # 먼저 날아듦 (웨이브 시작 게이지 +v)
 		decide_intent(e)
 
 
@@ -213,7 +221,26 @@ func can_use(u: TUnit, skill_id: String) -> bool:
 		return false
 	if u.credits < int(s.cost):
 		return false
+	if sealed_out(u, skill_id):
+		return false
 	return not valid_targets(u, skill_id).is_empty()
+
+
+## 봉인으로 못 쓰는 마법인가 (봉인 1 = 장착 마법·대마법 전부 · 2 = 대마법만, review_H §2.1). 기본 공격은 늘 된다
+func sealed_out(u: TUnit, skill_id: String) -> bool:
+	if u.sealed <= 0 or skill_id == "" or skill_id == "basic":
+		return false
+	return u.sealed == 1 or bool(TData.skill(skill_id).get("ultimate", false))
+
+
+## 마녀가 단일 대상으로 고를 수 있는 적: 막아서는 적이 있으면 그 적만 (review_H §2.1 cover), 없으면 살아 있는 적 전부
+func foe_targets() -> Array[TUnit]:
+	var a := alive_of(enemies)
+	var cv: Array[TUnit] = []
+	for e in a:
+		if e.has_buff("cover"):
+			cv.append(e)
+	return cv if not cv.is_empty() else a
 
 
 ## 고를 수 있는 대상 (단일 대상 마법). 전체·자신 대상은 [대표 하나]만 돌려준다
@@ -222,7 +249,7 @@ func valid_targets(u: TUnit, skill_id: String) -> Array[TUnit]:
 	var out: Array[TUnit] = []
 	match String(s.get("target", "enemy")):
 		"enemy":
-			out = alive_of(enemies)
+			out = foe_targets()
 		"enemies":
 			if not alive_of(enemies).is_empty():
 				out.append(alive_of(enemies)[0])
@@ -699,15 +726,97 @@ func enemy_action(u: TUnit) -> Array:
 				var t := _enemy_target()
 				if t != null:
 					ev.append(_enemy_hit(u, t, float(it.get("mult", 1.0)), bool(it.get("pierce", false))))
+			if bool(it.get("self_ko", false)):
+				# 자폭 (review_H §2.1): 피해 뒤 그 적이 쓰러진다 — take_damage를 거치지 않아 근성·줄·우두머리 처리 없음, 막타 보상 없음 [10-1 A]
+				u.alive = false
+				u.hp = 0
+				u.buffs.clear()
+				u.marks.clear()
+				u.stunned = false
+				log.append("%s 자폭" % u.name)
+				ev.append({"t": "self_ko", "tgt": u})
 		"buff":
 			u.add_buff({"cat": "atk", "v": float(it.get("v", 0.3)), "dur": int(it.get("dur", 3)), "clock": "own", "name": "공격력"})
 			ev.append({"t": "enemy_buff", "tgt": u, "v": float(it.get("v", 0.3))})
 		"dispel":
-			# 마녀 전원의 버프를 전부 지운다 (패시브·장비·장비 근성·대가는 남음, §16.6)
+			# 마녀 전원의 이로운 버프를 지운다 (적이 건 나쁜 효과 bad · 패시브·장비·장비 근성·대가는 남음, §16.6 · review_H §2.1)
 			for w in alive_w:
-				if not w.buffs.is_empty():
-					w.buffs.clear()
+				if w.good_buffs() > 0:
+					w.buffs = w.buffs.filter(func(b: Dictionary) -> bool: return bool(b.get("bad", false)))
 					ev.append({"t": "dispel", "tgt": w})
+		# ── 단계 F-2 새 의도 (review_H §2.1)
+		"seal":
+			var t := _enemy_target()
+			if t != null:
+				var blocked := false
+				if float(it.get("mult", 0.0)) > 0.0:
+					var h := _enemy_hit(u, t, float(it.mult), bool(it.get("pierce", false)))
+					ev.append(h)
+					blocked = bool(h.invincible) # 피해가 있는 봉인은 무적이면 피해와 함께 막힌다
+				if not blocked and t.alive:
+					ev.append(_try_seal(t, bool(it.get("ult", false))))
+		"weaken":
+			var recv: Array[TUnit] = []
+			if bool(it.get("aoe", false)):
+				recv = alive_w
+			else:
+				var t := _enemy_target()
+				if t != null:
+					recv.append(t)
+			for t in recv:
+				if float(it.get("mult", 0.0)) > 0.0:
+					var h := _enemy_hit(u, t, float(it.mult), bool(it.get("pierce", false)))
+					ev.append(h)
+					if bool(h.invincible) or not t.alive:
+						continue
+				ev.append(_weaken(t, it))
+		"guard":
+			# 방어 태세: 그 적의 행동 dur번 (적 버프 §18.8과 같이 건 행동부터 셈 — dur 2 = 다음 자기 행동이 끝날 때까지)
+			u.add_buff({"cat": "dmg_cut", "v": float(it.get("v", 0.5)), "dur": int(it.get("dur", 2)), "clock": "own", "name": "방어 태세"})
+			ev.append({"t": "guard", "tgt": u, "v": float(it.get("v", 0.5))})
+		"cover":
+			u.add_buff({"cat": "cover", "v": 1.0, "dur": int(it.get("dur", 2)), "clock": "own", "name": "막아서기"})
+			ev.append({"t": "cover", "tgt": u})
+		"rally":
+			if it.has("charge"):
+				for e in alive_of(enemies):
+					if e == u or e.charge_max <= 0:
+						continue
+					var before := e.charge
+					e.charge = mini(e.charge + int(it.charge), e.charge_max)
+					if e.charge >= e.charge_max and e.intent_src != "charge":
+						decide_intent(e) # 가득 차면 바로 필살기 의도 (§18.2 ①)
+					ev.append({"t": "charge_up", "tgt": e, "v": e.charge - before})
+			elif it.has("gauge"):
+				var low: TUnit = null
+				for e in alive_of(enemies):
+					if e != u and (low == null or e.gauge < low.gauge):
+						low = e
+				if low != null:
+					low.gauge += TData.GAUGE_MAX * float(it.gauge)
+					ev.append({"t": "gauge", "tgt": low, "v": float(it.gauge)})
+		"summon":
+			for i in enemies.size():
+				if enemies[i].alive:
+					continue
+				var over := {"hp": int(it.hp)} if it.has("hp") else {}
+				var nu := TUnit.make_enemy(String(it.id), i, over)
+				var old := enemies[i]
+				enemies[i] = nu
+				decide_intent(nu)
+				summoned += 1
+				log.append("%s 부르기 → %s" % [u.name, nu.name])
+				ev.append({"t": "summon", "tgt": nu, "old": old, "slot": i})
+				break
+		"purge":
+			var n := u.marks_total()
+			u.marks.clear()
+			ev.append({"t": "purge", "tgt": u, "n": n})
+		"scatter":
+			for w in alive_w:
+				var before := w.credits
+				w.credits = maxi(w.credits - int(it.get("v", 2)), 0)
+				ev.append({"t": "credits", "tgt": w, "v": w.credits - before})
 	# 맞으며 쌓기 (§17.11): 이 행동에 실제로 맞은(피해 > 0) 마녀마다 한 겹
 	var st: Array = []
 	for e in ev:
@@ -719,6 +828,25 @@ func enemy_action(u: TUnit) -> Array:
 	if u.intent_src == "pattern":
 		u.intent_i += 1
 	return ev
+
+
+## 봉인 걸기 (review_H §2.1): 봉인 내성이면 막힘. 판정 없이 성공
+func _try_seal(t: TUnit, ult_only: bool) -> Dictionary:
+	if t.seal_guard:
+		return {"t": "seal_resist", "tgt": t}
+	t.sealed = 2 if ult_only else 1
+	log.append("%s 봉인" % t.name)
+	return {"t": "seal", "tgt": t, "ult": ult_only}
+
+
+## 약화 (review_H §2.1): 마녀에게 나쁜 효과 (판정 없이 성공, bad — 해제가 남김). 공격력 다운 = 그 마녀 행동 dur번 · 받는 피해 = 적 행동 dur번 (건 행동부터 셈)
+func _weaken(t: TUnit, it: Dictionary) -> Dictionary:
+	var cat := String(it.get("cat", "atk_down"))
+	var dur := int(it.get("dur", 2))
+	var enemy_clock := cat == "dmg_taken"
+	t.add_buff({"cat": cat, "v": float(it.get("v", 0.15)), "dur": dur, "clock": "enemy" if enemy_clock else "own",
+		"name": TData.CAT_NAME.get(cat, cat), "bad": true})
+	return {"t": "weaken", "tgt": t, "cat": cat, "v": float(it.get("v", 0.15)), "dur": dur}
 
 
 ## 맞으며 쌓기: w의 hit_stack 버프마다 받는 사람(to)에게 공격력 겹 하나 (이 출처의 겹이 max면 가장 오래된 겹의 남은 수만 새로)
@@ -799,6 +927,7 @@ func decide_intent(u: TUnit, broke := false) -> void:
 	u.intent_src = "pattern"
 
 
+## 조건 하나라도 안 맞으면 false (한 when 안의 조건은 모두 맞아야 함). not = self_buff를 뒤집는 표시 (조건 아님)
 func _rule_ok(u: TUnit, when: Dictionary) -> bool:
 	for c in when:
 		var v = when[c]
@@ -812,7 +941,7 @@ func _rule_ok(u: TUnit, when: Dictionary) -> bool:
 			"witch_buffs":
 				var n := 0
 				for w in alive_of(witches):
-					n += w.buffs.size()
+					n += w.good_buffs() # 적이 건 나쁜 효과는 세지 않음 (해제가 지우지 않으므로)
 				if n < int(v):
 					return false
 			"allies_dead":
@@ -825,11 +954,50 @@ func _rule_ok(u: TUnit, when: Dictionary) -> bool:
 			"acted":
 				if u.acts <= 0 or u.acts % int(v) != 0:
 					return false
+			# ── 단계 F-2 (review_H §4)
+			"empty_slot": # 같은 웨이브 빈 칸 ≥ n 그리고 이 웨이브에 부른 수 < summon_cap
+				var n := 0
+				for e in enemies:
+					if not e.alive:
+						n += 1
+				if n < int(v) or summoned >= u.summon_cap:
+					return false
+			"self_marks":
+				if u.marks_total() < int(v):
+					return false
+			"witch_credits":
+				var any := false
+				for w in alive_of(witches):
+					any = any or w.credits >= int(v)
+				if not any:
+					return false
+			"self_buff":
+				if u.has_buff(String(v)) == bool(when.get("not", false)):
+					return false
+			"allies_alive":
+				var n := 0
+				for e in enemies:
+					if e != u and e.alive:
+						n += 1
+				if n < int(v):
+					return false
 	return true
 
 
 ## 줄이 깨짐 (§18.6): 징표·디버프는 남고, on_break(패턴·자기 버프) 뒤 다음 의도를 다시 정한다
 func _on_break(u: TUnit) -> void:
+	# 줄마다 데이터 (review_H §6.1): 그 줄의 phases 칸을 덮어씀 (적힌 칸만). 징표·디버프·버프는 그대로
+	var ph: Array = u.data.get("phases", [])
+	if u.bar_i < ph.size():
+		var p: Dictionary = ph[u.bar_i]
+		if p.has("weak"):
+			u.weak = p.weak
+		if p.has("element"):
+			u.element = String(p.element)
+		if p.has("def"):
+			u.def_rate = float(p.def)
+		if p.has("speed"):
+			u.speed = int(p.speed)
 	var ob: Dictionary = u.data.get("on_break", {})
 	if ob.has("pattern"):
 		u.pattern = ob.pattern
@@ -848,6 +1016,12 @@ func end_action(u: TUnit) -> Array:
 	u.pending_gauge = 0.0
 	if u.is_witch():
 		u.consume_counts(u.last_act, turn_no)
+		# 봉인 (review_H §2.1): 봉인된 차례(쉼 포함)가 끝나면 풀리고 봉인 내성 — 그다음 자기 차례 끝까지 봉인 무효
+		if u.sealed > 0:
+			u.sealed = 0
+			u.seal_guard = true
+		elif u.seal_guard:
+			u.seal_guard = false
 		# 대마법 연쇄가 끊기는 때: 주인의 다음 행동(대마법이 아닌 것·쉼)이 끝남, 또는 주인이 쓰러짐
 		if chain_owner != null and ((chain_owner == u and turn_no > chain_turn) or not chain_owner.alive):
 			chain_owner = null
@@ -923,8 +1097,27 @@ func _terms_in(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: 
 	final_sum = minf(final_sum, float(TData.CAP.final))
 	var def_v := 0.0 if opts.get("ignore_def", false) else maxf(tgt.def_rate - src.passive_val("def_pierce"), 0.0)
 	var def_f := clampf(1.0 - def_v + tgt.cat_sum("def_down"), TData.DEF_MIN, TData.DEF_MAX)
-	var base := float(src.atk) * mult * elem * (1.0 + atk_sum) * (1.0 + special) * (1.0 + final_sum) * def_f
+	# 적이 건 마녀 공격력 다운 (약화, review_H §2.1): 공격력 항 = 1 + 공격력 합 − 다운(상한 50%), 하한 0.3
+	var atk_f := maxf(1.0 + atk_sum - (src.cat_sum("atk_down") if src.is_witch() else 0.0), 0.3)
+	var base := float(src.atk) * mult * elem * atk_f * (1.0 + special) * (1.0 + final_sum) * def_f
+	# 적의 방어 태세·보호 (review_H §2.1 · §3): × (1 − min(받는 피해 감소 합, 70%)) — 방어율이 아닌 축이라 방어 무시·에스카 패시브로 안 뚫림
+	if not tgt.is_witch():
+		base *= 1.0 - minf(tgt.cat_sum("dmg_cut") + _ally_guard(tgt), float(TData.CAP.dmg_cut))
 	return {"base": base, "crit_rate": crit_rate, "crit_mult": crit_mult, "weak": weak, "special": special, "el": el}
+
+
+## 적 고유 효과 guard_allies: 다른 적이 하나라도 살아 있으면 v (등불 가림 · 둥지 보호)
+func _ally_guard(tgt: TUnit) -> float:
+	var v := 0.0
+	for p in tgt.passive:
+		if String(p.get("t", "")) == "guard_allies":
+			v += float(p.v)
+	if v <= 0.0:
+		return 0.0
+	for e in alive_of(enemies):
+		if e != tgt:
+			return v
+	return 0.0
 
 
 ## 살아 있는 마녀들의 패시브 aura 중 cat인 것의 합 (mark 조건은 대상 tgt의 징표)
@@ -959,7 +1152,7 @@ func _hit(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: bool)
 	src.dealt += dmg
 	log.append("%s → %s %s%s%s %s" % [src.name, tgt.name, TData.fmt(dmg), " 크리" if crit else "", " 약점" if tm.weak else "", "쓰러짐" if res.killed else ("브레이크" if res.broke else "")])
 	return {"t": "hit", "src": src, "tgt": tgt, "dmg": dmg, "crit": crit, "weak": tm.weak, "special": float(tm.special) > 0.0, "killed": res.killed, "guts": res.guts, "broke": res.broke, "invincible": false, "el": tm.el,
-		"hp": tgt.hp, "max_hp": tgt.max_hp, "bar_i": tgt.bar_i}
+		"hp": tgt.hp, "max_hp": tgt.max_hp, "bar_i": tgt.bar_i, "fall": res.get("fall", [])}
 
 
 ## 피해를 넣는다: 쓰러짐·근성·브레이크 처리까지 (시험에서 직접 부르기도 한다)
@@ -969,6 +1162,18 @@ func deal(tgt: TUnit, dmg: int) -> Dictionary:
 		_on_break(tgt)
 	if bool(res.guts):
 		log.append("%s 근성" % tgt.name)
+	if bool(res.killed) and tgt.leader:
+		# 우두머리 (review_H §6.2): 같은 웨이브의 나머지도 사라진다 → outcome()이 "wave"/"win"
+		var fall: Array = []
+		for e in enemies:
+			if e != tgt and e.alive:
+				e.alive = false
+				e.hp = 0
+				e.buffs.clear()
+				e.marks.clear()
+				fall.append(e)
+		res["fall"] = fall
+		log.append("%s 쓰러짐 — 졸개 %d 사라짐" % [tgt.name, fall.size()])
 	return res
 
 
@@ -982,7 +1187,7 @@ func _enemy_hit(src: TUnit, tgt: TUnit, mult: float, pierce := false) -> Diction
 	if tgt.is_taunting():
 		aura += tgt.passive_val("taunt_guard") # 네레이: 도발 중 자신 받는 피해 −
 	var taken := 1.0 + clampf(tgt.cat_sum("dmg_taken") + aura, -0.7, float(TData.CAP.dmg_taken)) + float(tgt.equip_data().get("dmg_taken", 0.0))
-	var crit := _crit_roll(maxf(TData.ENEMY_CRIT_BASE - src.cat_sum("crit_down"), 0.0))
+	var crit := _crit_roll(maxf(src.ecrit - src.cat_sum("crit_down"), 0.0)) # 적 크리 확률 (데이터 crit, 기본 5% — review_H §3)
 	var r := _rand()
 	var dmg := maxi(int(round(float(src.atk) * mult * atk_f * (1.0 - tgt.def_rate) * maxf(taken, 0.2) * (TData.CRIT_MULT if crit else 1.0) * r)), 1)
 	var res := deal(tgt, dmg)
@@ -1106,6 +1311,55 @@ func finisher_slots(q: Array) -> Dictionary:
 
 
 # ═══════════════════════════════════════════════════════════
+# 웨이브 구성 규칙 검사 (review_F F04 · review_H §7.2) — 데이터 검사, 시험·시뮬이 부른다
+# ═══════════════════════════════════════════════════════════
+
+## 전투 bid가 어긴 규칙의 글 목록 (비면 통과).
+##   1. 보스 전투: 웨이브 ①②(마지막 웨이브 앞) 체력 합 ≤ 전체의 35%
+##   2. 필살기(차지)가 있는 적은 웨이브당 1체 — 자폭 졸개(self_ko)는 세지 않음. 보스 웨이브엔 보스 말고 차지 적이 없음
+static func wave_rules(bid: String) -> Array:
+	var out: Array = []
+	var bd: Dictionary = TData.BATTLES[bid]
+	var waves_d: Array = bd.waves
+	var hp_w: Array = []
+	for wi in waves_d.size():
+		var sum := 0
+		var chargers := 0
+		var boss_wave := false
+		var non_boss_charge := 0
+		for item in waves_d[wi]:
+			var eid := String(item.id) if item is Dictionary else String(item)
+			var d: Dictionary = TData.ENEMIES[eid]
+			if d.has("bars"):
+				for h in d.bars:
+					sum += int(h)
+			else:
+				sum += int(item.get("hp", d.get("hp", 0))) if item is Dictionary else int(d.get("hp", 0))
+			var self_ko := bool((d.get("charge_act", {}) as Dictionary).get("self_ko", false))
+			if int(d.get("charge_max", 0)) > 0 and not self_ko:
+				chargers += 1
+				if String(d.get("tier", "")) != "boss":
+					non_boss_charge += 1
+			boss_wave = boss_wave or String(d.get("tier", "")) == "boss"
+		hp_w.append(sum)
+		if chargers > 1:
+			out.append("웨이브 %d: 필살기 적 %d체" % [wi + 1, chargers])
+		if boss_wave and non_boss_charge > 0:
+			out.append("웨이브 %d: 보스 웨이브에 다른 필살기 적" % (wi + 1))
+	if String(bd.get("kind", "")) == "boss" and hp_w.size() > 1:
+		var total := 0
+		var front := 0
+		for i in hp_w.size():
+			total += int(hp_w[i])
+			if i < hp_w.size() - 1:
+				front += int(hp_w[i])
+		var pct := 100.0 * float(front) / float(maxi(total, 1))
+		if pct > 35.0:
+			out.append("웨이브 ①② 체력 %d%% (> 35%%)" % int(round(pct)))
+	return out
+
+
+# ═══════════════════════════════════════════════════════════
 # 저장·불러오기 (전투 이어하기 — combat_proto.md §28.4, review_F F07 규칙 2)
 # 마녀 차례가 시작될 때(크레딧 +1을 준 뒤, 고르기 전) 찍는다. 유닛 참조는 "w0"~"w2" · "e0"~"e2"
 # ═══════════════════════════════════════════════════════════
@@ -1137,7 +1391,7 @@ func to_dict() -> Dictionary:
 		es.append(e.to_dict())
 	return {"ver": 1, "battle_id": battle_id, "rng_seed": rng.seed, "rng_state": rng.state, "turn_no": turn_no, "wave_i": wave_i,
 		"actor": unit_key(actor), "chain_stage": chain_stage, "chain_owner": unit_key(chain_owner), "chain_turn": chain_turn, "max_chain": max_chain,
-		"last_action": last_action, "witches": ws, "enemies": es, "waves": waves.duplicate(true), "log": log.slice(maxi(log.size() - 40, 0))}
+		"data": TData.DATA_VER, "last_action": last_action, "witches": ws, "enemies": es, "waves": waves.duplicate(true), "log": log.slice(maxi(log.size() - 40, 0)), "summoned": summoned}
 
 
 ## 저장한 전투를 다시 세운다. 돌려준 전투의 next_actor()는 저장된 차례부터
@@ -1159,6 +1413,7 @@ static func from_dict(d: Dictionary) -> TBattle:
 	b.chain_turn = int(d.chain_turn)
 	b.max_chain = int(d.max_chain)
 	b.last_action = String(d.get("last_action", ""))
+	b.summoned = int(d.get("summoned", 0))
 	for l in d.get("log", []):
 		b.log.append(String(l))
 	b.resume = b.actor != null

@@ -680,6 +680,31 @@ func _build_turn() -> void:
 		{wave = "sine", f0 = 900.0, f1 = 700.0, dur = 0.15, vol = 0.12, tau = 0.05},
 		{wave = "noise", dur = 0.04, vol = 0.25, bp = 2500.0, q = 0.5, decay = 3.0},
 	])
+	# ── 단계 F-2 적 새 의도 (review_H §2) — 폰 스피커에서 들리게 300 Hz 위 몸통을 둔다 (§22.4)
+	_add_fast(&"tn_seal", [ # 봉인: 자물쇠가 '철컥' 잠김 (쇠 두 번 + 낮은 울림)
+		{wave = "noise", dur = 0.05, vol = 0.7, bp = 2600.0, q = 0.5, decay = 3.0},
+		{wave = "tri", f0 = 520.0, f1 = 380.0, dur = 0.12, vol = 0.45, tau = 0.04},
+		{wave = "noise", dur = 0.05, vol = 0.8, bp = 1800.0, q = 0.5, decay = 3.0, delay = 0.09},
+		{wave = "tri", f0 = 440.0, f1 = 300.0, dur = 0.16, vol = 0.5, tau = 0.05, delay = 0.09},
+		{wave = "sine", f0 = 150.0, f1 = 90.0, dur = 0.2, vol = 0.25, tau = 0.06, delay = 0.09},
+	])
+	_add_fast(&"tn_guard", [ # 방어 태세·막아서기: 돌·쇠 판이 '둥' 내려앉음
+		{wave = "tri", f0 = 360.0, f1 = 220.0, dur = 0.25, vol = 0.6, tau = 0.08},
+		{wave = "noise", dur = 0.1, vol = 0.6, bp = 900.0, q = 0.5, decay = 2.5},
+		{wave = "sine", f0 = 720.0, fm = 1.41, fm_i = 0.8, fm_i1 = 0.1, dur = 0.3, vol = 0.12, tau = 0.09},
+	])
+	_add_fast(&"tn_summon", [ # 부르기: 낮은 데서 올라오는 울림 + 문 열리는 바람
+		{wave = "tri", f0 = 220.0, f1 = 440.0, curve = "exp", dur = 0.45, vol = 0.45, attack = 0.08, decay = 0.8},
+		{wave = "noise", dur = 0.45, vol = 0.35, bp = 600.0, bp1 = 2400.0, q = 0.4, attack = 0.1, decay = 1.0},
+		{wave = "sine", f0 = 880.0, f1 = 1320.0, dur = 0.3, vol = 0.08, attack = 0.05, decay = 0.8, delay = 0.2},
+	])
+	_add_fast(&"tn_scatter", [ # 크레딧 흩기: 유리 조각이 흩어지며 떨어짐 (내려가는 톡 여러 개)
+		{wave = "sine", f0 = 2200.0, f1 = 1600.0, dur = 0.06, vol = 0.16, tau = 0.03},
+		{wave = "sine", f0 = 1900.0, f1 = 1300.0, dur = 0.06, vol = 0.15, tau = 0.03, delay = 0.07},
+		{wave = "sine", f0 = 1600.0, f1 = 1000.0, dur = 0.07, vol = 0.14, tau = 0.03, delay = 0.14},
+		{wave = "tri", f0 = 420.0, f1 = 260.0, dur = 0.25, vol = 0.45, tau = 0.08},
+		{wave = "noise", dur = 0.3, vol = 0.25, bp = 4000.0, q = 0.5, am = 25.0, am_depth = 0.8, decay = 1.5},
+	])
 
 
 # ─── 빗자루 검 손맛 데모 (proto/blade/) — 짧고 날카롭게 ─────

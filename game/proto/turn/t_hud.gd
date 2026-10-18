@@ -50,7 +50,6 @@ const DETAIL_Y := 86.0 ## 상세 판 위 끝 — 적 카드(y 32~82)를 덮지 �
 const HEAD_MIN_Y := 92.0 ## 적 머리 위 의도·게이지의 가장 위 (적 카드 밑 — review_C2 M1)
 const NUM_MIN_Y := 118.0 ## 피해 숫자 시작 y의 가장 위 (18px 떠올라도 "약점" 꼬리표까지 적 카드 밑)
 ## 차례 줄의 적 글자
-const SHORT := {"straw_golem": "골", "swamp_toad": "두", "ash_knight": "기", "ash_king": "왕", "trial_colossus": "거"}
 ## 피해 숫자 종류 → [글꼴 크기, 색]
 const NUM_STYLE := {"dmg": [12, Color("#fff3e0")], "crit": [24, Color("#ffe08a")], "weak": [15, Color("#ffb04a")], "big": [24, Color("#fff3e0")],
 	"hurt": [15, Color("#ff8a9a")], "heal": [12, Color("#b8f0a0")], "revive": [12, Color("#e6dcff")], "total": [12, Color("#ffe08a")],
@@ -728,7 +727,7 @@ func _build_slots() -> void:
 		else:
 			var s := TData.skill(sid)
 			slots.append({"id": sid, "name": String(s.name), "cost": int(s.cost), "can": battle.can_use(u, sid), "pos": pos, "kind": String(s.kind), "target": String(s.target),
-				"icon": String(s.get("icon", "strike")), "empty": false, "ult": bool(s.get("ultimate", false))})
+				"icon": String(s.get("icon", "strike")), "empty": false, "ult": bool(s.get("ultimate", false)), "sealed": battle.sealed_out(u, sid)})
 
 
 func _wheel_center() -> Vector2:
@@ -750,7 +749,10 @@ func _confirm_slot() -> void:
 	var s: Dictionary = slots[sel]
 	if not bool(s.can):
 		Sfx.play(&"tn_cancel", -8.0)
-		show_msg("크레딧이 모자랍니다 (%d 필요)" % int(s.cost), T.DANGER)
+		if bool(s.get("sealed", false)):
+			show_msg("봉인 — 이번 차례는 기본 공격만" if actor.unit.sealed == 1 else "봉인 — 이번 차례는 대마법을 못 씀", T.DANGER)
+		else:
+			show_msg("크레딧이 모자랍니다 (%d 필요)" % int(s.cost), T.DANGER)
 		return
 	_begin_target(s)
 	if state == "target":
@@ -765,7 +767,7 @@ func _begin_target(s: Dictionary) -> void:
 	targets.clear()
 	var u := actor.unit
 	if String(s.id) == "basic" or battle.needs_target_pick(String(s.id)):
-		var us: Array[TUnit] = battle.alive_of(battle.enemies) if String(s.id) == "basic" else battle.valid_targets(u, String(s.id))
+		var us: Array[TUnit] = battle.foe_targets() if String(s.id) == "basic" else battle.valid_targets(u, String(s.id)) # 막아서는 적이 있으면 그 적만 (단계 F-2)
 		for t in us:
 			if actors.has(t):
 				targets.append(actors[t])
@@ -1041,7 +1043,7 @@ func _draw_queue() -> void:
 			fill = fill.darkened(0.5)
 		var fm: Dictionary = fin.get(i, {})
 		T.panel(self, r, fill, T.DANGER if not fm.is_empty() and i > 0 else border, 2 if (i == 0 or not fm.is_empty()) else 1, 4 if i == 0 else 3)
-		var glyph: String = SHORT.get(u.id, u.name.substr(0, 1))
+		var glyph: String = String(u.data.get("short", u.name.substr(0, 1))) # 적은 데이터 short (단계 F-2)
 		var fs := 12 if i == 0 else 10
 		T.text(self, r.get_center() + Vector2(0, 5 if i == 0 else 4), glyph, fs, T.INK if witch else T.TEXT, HORIZONTAL_ALIGNMENT_CENTER, 0 if witch else -1)
 		var dup := _dup_suffix(u).strip_edges() if not witch else ""
@@ -1254,12 +1256,13 @@ func _intent_pill(e: TUnit, p: Vector2) -> float:
 		name = "기절"
 		col = T.STUN
 	var pierce := bool(it.get("pierce", false)) and not e.stunned
+	var boom := bool(it.get("self_ko", false)) and not e.stunned # 자폭 필살기: 알약 끝 작은 폭발 (review_H §2.2)
 	if k == "dispel":
 		var nb := 0
 		for wt in battle.alive_of(battle.witches):
-			nb += wt.buffs.size()
-		name += " · 버프 %d" % nb # 지워질 버프 수 (review_G G15)
-	var w := T.width(name, 10) + 18.0 + (12.0 if pierce else 0.0)
+			nb += wt.good_buffs()
+		name += " · 버프 %d" % nb # 지워질 버프 수 (review_G G15) — 적이 건 나쁜 효과는 안 지워짐
+	var w := T.width(name, 10) + 18.0 + (12.0 if pierce or boom else 0.0)
 	var pulse := 1.0
 	if k in ["heavy", "finisher"]:
 		pulse = 0.6 + 0.4 * (0.5 + 0.5 * sin(_t * 5.0))
@@ -1273,6 +1276,12 @@ func _intent_pill(e: TUnit, p: Vector2) -> float:
 		draw_line(c + Vector2(1, -3), c + Vector2(4, 0), T.DANGER, 1.4)
 		draw_line(c + Vector2(1, 3), c + Vector2(4, 0), T.DANGER, 1.4)
 		draw_line(c + Vector2(-1, -4), c + Vector2(-1, 4), Color(T.TEXT, 0.7), 1.0)
+	if boom:
+		var c := p + Vector2(w - 7, 6.5)
+		draw_circle(c, 1.4, Color(T.GOLD, pulse))
+		for k2 in 4:
+			var d := Vector2.from_angle(PI * 0.25 + float(k2) * PI * 0.5)
+			draw_line(c + d * 2.4, c + d * 4.4, Color(T.DANGER, pulse), 1.2)
 	return w
 
 
@@ -1380,7 +1389,7 @@ func _draw_card(e: TUnit) -> void:
 		if lx - T.width("차지", 8) > X + 3.0 + pw + 2.0:
 			T.text(self, Vector2(lx, Y + 12), "차지", 8, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT, 0)
 	# 이름 · 약점 · 줄 수
-	T.text(self, Vector2(X + 4, Y + 28), T.clip(e.name + _dup_suffix(e), 10, 70), 10, T.TEXT)
+	T.text(self, Vector2(X + 4, Y + 28), T.clip(e.name + _dup_suffix(e), 10, 70), 10, T.GOLD if e.boss else T.TEXT) # 졸개와 같은 웨이브의 보스는 일반 카드에 금빛 이름 (둥지어미)
 	var wx := X + 86.0
 	for el in e.weak:
 		draw_rect(Rect2(wx, Y + 18, 11, 11), Color(T.INK, 0.9))
@@ -1417,6 +1426,18 @@ func _draw_boss_card(e: TUnit) -> void:
 			draw_rect(Rect2(wx + 0.5, Y + 18.5, 10, 10), Color(T.WEAK, 0.9), false, 1.0)
 			T.element_icon(self, Vector2(wx + 5.5, Y + 23.5), String(el), 4.2)
 			wx += 13.0
+		# 줄마다 약점이 바뀌는 보스 (review_H §6.1): "▶ 다음 줄 약점" (다음 줄은 TEXT_SUB로 흐리게)
+		var ph: Array = e.data.get("phases", [])
+		for k in range(vbar(e) + 1, ph.size()):
+			if not (ph[k] as Dictionary).has("weak"):
+				continue
+			T.text(self, Vector2(wx + 1, Y + 28), "▶", 8, T.TEXT_SUB)
+			wx += 10.0
+			for el in ph[k].weak:
+				draw_rect(Rect2(wx, Y + 19, 9, 9), Color(T.INK, 0.9))
+				draw_rect(Rect2(wx + 0.5, Y + 19.5, 8, 8), Color(T.TEXT_SUB, 0.7), false, 1.0)
+				T.element_icon(self, Vector2(wx + 4.5, Y + 23.5), String(el), 3.4, 0.6)
+				wx += 11.0
 	# 남은 줄: 칸 (깬 줄 = 빈 칸, 남은 줄 = 금빛) + "줄 2/3"
 	if e.bars.size() > 1:
 		var n := e.bars.size()
@@ -1516,6 +1537,8 @@ func _draw_panels() -> void:
 			icons.append({"cat": "taunt", "dur": -1})
 		if float(w.equip_data().get("guts_once", 0.0)) > 0.0 and not w.guts_used:
 			icons.append({"cat": "guts", "dur": -1})
+		if w.sealed > 0:
+			icons.push_front({"cat": "seal", "dur": -1}) # 봉인 (적이 건 나쁜 효과 — 빨간 테, review_H §2.2)
 		for k in mini(icons.size(), 6):
 			T.buff_icon(self, Vector2(X + 50 + 15 * k, Y + 43), icons[k], int(icons[k].get("dur", -1)))
 			if not _icon_active(w, icons[k]):
@@ -1525,6 +1548,9 @@ func _draw_panels() -> void:
 		if w.stunned:
 			for k in 3:
 				T.star(self, Vector2(X + 14 + 10 * k, Y + 10), 3.5, T.STUN)
+		if w.sealed > 0: # 초상 위 자물쇠
+			draw_circle(Vector2(X + 38, Y + 12), 6.5, Color(T.INK, 0.95))
+			T.intent_icon(self, Vector2(X + 38, Y + 12), "seal", T.DANGER)
 		if cur:
 			# 지금 차례: 판 위 작은 금빛 삼각
 			draw_colored_polygon(PackedVector2Array([Vector2(X + 104 - 5, Y - 6), Vector2(X + 104 + 5, Y - 6), Vector2(X + 104, Y - 1)]), T.GOLD)
@@ -1586,6 +1612,12 @@ func _draw_wheel() -> void:
 				T.cost_badge(self, p + Vector2(14, 14), "+1", "gain")
 			else:
 				T.cost_badge(self, p + Vector2(14, 14), str(int(s.cost)), "ok" if can else "short")
+		if bool(s.get("sealed", false)):
+			# 봉인 (review_H §2.2): 칸을 어둡게 + 자물쇠 + 테 TEXT_OFF
+			draw_circle(p, r - 1.0, Color(T.INK, 0.6))
+			draw_arc(p, r, 0.0, TAU, 28, T.TEXT_OFF, 1.5)
+			draw_circle(p, 7.0, Color(T.INK, 0.95))
+			T.intent_icon(self, p, "seal", T.DANGER)
 		if on:
 			draw_arc(p, r, 0.0, TAU, 32, T.TEXT, 2.0)
 		elif state == "target":
@@ -1620,7 +1652,10 @@ func _draw_strip() -> void:
 	var hint := ""
 	if sel < 0 or sel >= slots.size():
 		T.text(self, Vector2(X, 318), "%s의 차례 — 마법을 고르세요" % u.name, 12, T.TEXT)
-		T.text(self, Vector2(X, 333), "칸을 한 번 누르면 설명, 다시 누르면 사용 · 대상이 필요하면 적·아군을 누릅니다", 10, T.TEXT_SUB)
+		if u.sealed > 0:
+			T.text(self, Vector2(X, 333), "봉인 — 이번 차례는 기본 공격만" if u.sealed == 1 else "봉인 — 이번 차례는 대마법을 못 씀", 10, T.DANGER)
+		else:
+			T.text(self, Vector2(X, 333), "칸을 한 번 누르면 설명, 다시 누르면 사용 · 대상이 필요하면 적·아군을 누릅니다", 10, T.TEXT_SUB)
 	else:
 		var s: Dictionary = slots[sel]
 		var can := bool(s.can)
@@ -1657,7 +1692,9 @@ func _draw_strip() -> void:
 		var bf := T.body_fs()
 		T.text(self, Vector2(X, 334 if bf == 10 else 335), T.clip(desc, bf, 616), bf, T.TEXT)
 		if not can:
-			hint = "크레딧이 모자랍니다"
+			hint = "봉인됨" if bool(s.get("sealed", false)) else "크레딧이 모자랍니다"
+		elif state == "target" and not _ally_pick() and battle.foe_targets().size() < battle.alive_of(battle.enemies).size():
+			hint = "막아서기 — 이 적만 고를 수 있음" # 단일 대상이 막아서는 적뿐 (review_H §2.2)
 		elif state == "target":
 			hint = "대상을 누르세요 · 빈 곳 = 뒤로" if _touch_seen else "←→ 대상 · Z 확인 · X 뒤로"
 		else:
@@ -1790,13 +1827,18 @@ func _draw_detail(u: TUnit) -> void:
 			st.append("도발 중")
 		if u.inv_guard > 0:
 			st.append("무적 내성 (적 행동 %d번)" % u.inv_guard)
+		if u.sealed > 0:
+			st.append("봉인 (다음 차례 기본 공격만)" if u.sealed == 1 else "대마법 봉인")
+		elif u.seal_guard:
+			st.append("봉인 내성")
 		if float(eq.get("guts_once", 0.0)) > 0.0:
 			st.append("장비 근성 %s" % ("씀" if u.guts_used else "남음"))
 		if not st.is_empty():
 			lines.append([" · ".join(st), T.STUN, 1])
 		for b in u.buffs:
 			var off := _buff_off_reason(u, b)
-			lines.append([T.buff_line(b) + (" " + off if off != "" else ""), (Color("#d9ccff") if off == "" else T.TEXT_OFF) if not (String(b.cat) in T.BAD_CATS) else T.DANGER, 1 if off == "" else 2])
+			var bad := String(b.cat) in T.BAD_CATS or bool(b.get("bad", false)) # 적이 건 약화 (해제가 안 지움)
+			lines.append([T.buff_line(b) + (" " + off if off != "" else "") + (" (적의 약화)" if bool(b.get("bad", false)) else ""), (Color("#d9ccff") if off == "" else T.TEXT_OFF) if not bad else T.DANGER, 1 if off == "" else 2])
 	else:
 		title = u.name + _dup_suffix(u)
 		title_col = T.GOLD if u.boss else T.TEXT
@@ -1806,7 +1848,27 @@ func _draw_detail(u: TUnit) -> void:
 		var wn: Array = []
 		for el in u.weak:
 			wn.append(TData.ELEMENT_NAME.get(String(el), ""))
-		lines.append(["약점 %s · 방어율 %d%% · 내성 %d%%" % [", ".join(wn) if not wn.is_empty() else "없음", int(round(u.def_rate * 100.0)), int(round(u.resist * 100.0))], T.WEAK if not wn.is_empty() else T.TEXT, 1])
+		var crit_s := " · 크리 %d%%" % int(round(u.ecrit * 100.0)) if absf(u.ecrit - TData.ENEMY_CRIT_BASE) > 0.001 else ""
+		lines.append(["약점 %s · 방어율 %d%% · 내성 %d%%%s" % [", ".join(wn) if not wn.is_empty() else "없음", int(round(u.def_rate * 100.0)), int(round(u.resist * 100.0)), crit_s], T.WEAK if not wn.is_empty() else T.TEXT, 1])
+		# 줄마다 약점 (review_H §6.1 — 약점은 처음부터 보임 [확정 21-5 A])
+		var ph: Array = u.data.get("phases", [])
+		if ph.size() > 1:
+			var parts: Array = []
+			for k in ph.size():
+				var wk: Array = (ph[k] as Dictionary).get("weak", u.data.get("weak", [])) if k > 0 else u.data.get("weak", [])
+				var nm: Array = []
+				for el in wk:
+					nm.append(TData.ELEMENT_NAME.get(String(el), ""))
+				parts.append("%d %s" % [k + 1, "·".join(nm)])
+			lines.append(["줄마다 약점 — " + " ▶ ".join(parts), T.WEAK, 1])
+		# 특성 · 고유 효과 · 우두머리 (review_H §3)
+		if not u.traits.is_empty():
+			var tn: Array = []
+			for tr in u.traits:
+				tn.append(TData.TRAIT_NAME.get(String(tr), ""))
+			lines.append(["특성 " + " · ".join(tn) + (" · 우두머리 (쓰러지면 졸개도 사라짐)" if u.leader else ""), T.TEXT_SUB, 1])
+		for pa in u.passive:
+			lines.append(["고유 효과 — " + TData.enemy_passive_text(pa), T.GOLD, 2])
 		var it := u.intent()
 		var k := String(it.get("k", "attack"))
 		var il := "다음 의도 %s%s" % [TData.INTENT_NAME.get(k, ""), " (무적 관통)" if bool(it.get("pierce", false)) else ""]

@@ -2,7 +2,7 @@ class_name TData
 extends RefCounted
 ## 턴제 전투 프로토타입 데이터 (docs/eska-turn/combat_proto.md). 숫자는 전부 여기에만 둔다 — 코드는 이 표를 읽기만 한다.
 ##
-## 마녀 12명 · 마법 120개 + 대마법 12 · 패시브 12 · 장비 15개 · 적 5종 · 전투 3개 (단계 B: witches_12.md §0~§3 속성별 플레이스타일).
+## 마녀 12명 · 마법 120개 + 대마법 12 · 패시브 12 · 장비 15개 · 적 14 + 보스 3 + 시련 1 · 전투 10 + 안내 1 (단계 B: witches_12.md §0~§3 속성별 플레이스타일 · 단계 F-2: review_H_enemies.md).
 ## 마법 효과(effects)는 작은 사전들의 목록이다. "t"가 종류:
 ##   buff      who(target|self|allies) cat(atk|crit_dmg|crit_rate|special|final|dmg_taken|element) v dur [mark] [el] [pre]
 ##             — pre: 공격 마법에서 피해를 주기 "직전" 자신에게 거는 버프 (그 행동으로 소모)
@@ -62,6 +62,9 @@ extends RefCounted
 ##   on_hit_debuff cat v dur  — 내가 때린 적에게 판정 없이 (따로 쌓지 않고 남은 수만 새로, 에스카 "틈")
 ## 버프 지속 "dur"은 대상이 행동을 N번 마칠 때까지(clock own). invincible·dmg_taken·taunt·guts는 적 행동 N번(clock enemy).
 
+## 데이터 판: 적·마법·전투 데이터(id·패턴·의도 종류)를 바꿀 때 올린다. 끊긴 전투 파일에 적고, 판이 다르면 이어 하기를 버린다 (review_I I-03)
+##   1 = 1.7까지 · 2 = 단계 F-2 (적 14·보스 3·전투 10, 의도 9종)
+const DATA_VER := 2
 const GAUGE_MAX := 1000.0
 const CREDIT_MAX := 7
 const BASIC_BONUS := 1 ## 기본 공격을 쓰면 더 주는 크레딧
@@ -71,7 +74,7 @@ const CRIT_BASE := 0.10
 const CRIT_MULT := 1.5
 const WEAK := 1.5
 const SPECIAL := 1.2
-const CAP := {"atk": 3.0, "crit_dmg": 3.0, "special": 2.0, "final": 1.0, "def_down": 0.5, "atk_down": 0.5, "dmg_taken": 1.0, "crit_rate": 0.9, "crit_taken": 0.5, "crit_down": 0.5, "final_taken": 0.5}
+const CAP := {"atk": 3.0, "crit_dmg": 3.0, "special": 2.0, "final": 1.0, "def_down": 0.5, "atk_down": 0.5, "dmg_taken": 1.0, "crit_rate": 0.9, "crit_taken": 0.5, "crit_down": 0.5, "final_taken": 0.5, "dmg_cut": 0.7}
 const ENEMY_CRIT_BASE := 0.05 ## 적의 크리 확률 (크리 다운 디버프의 대상)
 const ULT_COST := 7 ## 대마법 비용 (= 크레딧 상한, §13)
 const MARK_MAX := 5 ## 징표 최대 겹 (§17.1)
@@ -92,7 +95,8 @@ const ELEMENT_NAME := {"fire": "불", "water": "물", "bolt": "번개", "space":
 const MARK_NAME := {"burn": "화상", "frost": "빙결", "shock": "감전"}
 const CAT_NAME := {"atk": "공격력", "crit_dmg": "크리 데미지", "crit_rate": "크리 확률", "special": "특공", "final": "최종 데미지",
 	"dmg_taken": "받는 피해", "element": "속성 부여", "def_down": "방어 다운", "atk_down": "공격력 다운", "invincible": "무적",
-	"crit_taken": "받는 크리 확률", "crit_down": "크리 확률 다운", "taunt": "도발", "guts": "근성", "final_taken": "받는 최종 데미지", "hit_stack": "맞으며 쌓기"}
+	"crit_taken": "받는 크리 확률", "crit_down": "크리 확률 다운", "taunt": "도발", "guts": "근성", "final_taken": "받는 최종 데미지", "hit_stack": "맞으며 쌓기",
+	"dmg_cut": "방어 태세", "cover": "막아서기"}
 const ROLE_NAME := {"dealer": "딜러", "buffer": "버퍼", "caster": "술사", "special": "범용"}
 const ELEMENT_COLOR := {"fire": Color("#ff8a3a"), "water": Color("#5ec8ff"), "bolt": Color("#ffe34a"), "space": Color("#b9a2ff"), "time": Color("#f2d27a"), "sword": Color("#f2eff7")}
 ## 편성 명단 순서 (속성별 딜러·버퍼·술사 → 무상성)
@@ -671,49 +675,133 @@ const EQUIPS := {
 const EQUIP_ORDER := ["", "black_cup", "kaleido", "notebook", "swift_boots", "mana_spring", "ember_ring", "tide_ring", "storm_ring", "mirror_shard", "star_shard", "iron_heart", "hourglass_charm", "ash_charm", "feather_charm"]
 
 ## 적 (combat_proto.md §18 · §24.6 [제안]). tier = normal(일반) · elite(강적) · boss(보스) → 내성 RESIST · 보스는 기절 면역
-## weak = 약점 직접 지정 (빈 목록 = 약점 없음, 없으면 WEAK_TO 순환표) · bars = 여러 줄 체력 (hp 대신) · art = 그림 (없으면 id)
-## pattern = 의도 순서(돌아감): attack·heavy(단일 × mult) · aoe(전체 × mult) · buff(자기 공격력 +v, 행동 dur번) · stun_attack(단일 × mult + 기절) · dispel(마녀 버프 전부 해제)
-## charge_max·charge_act = 차지 칸 수와 가득 찼을 때의 필살기(finisher, aoe면 전체) · on_break = 줄이 깨질 때 {intent?, pattern?, buff?}
-## rules = 조건 규칙 (위에서부터 처음 맞는 것): when {hp_below · bar(0부터) · witch_buffs · allies_dead · acted} → pattern(바꿈) 또는 insert(하나 끼움) (§18.2)
+## weak = 약점 직접 지정 (빈 목록 = 약점 없음, 없으면 WEAK_TO 순환표) · bars = 여러 줄 체력 (hp 대신) · art = 그림 (없으면 id) · short = 차례 칸 글자
+## pattern = 의도 순서(돌아감): attack·heavy(단일 × mult) · aoe(전체 × mult) · buff(자기 공격력 +v, 행동 dur번) · stun_attack(단일 × mult + 기절) · dispel(마녀 버프 해제 — 나쁜 효과는 남음)
+##   [단계 F-2, review_H §2] seal(단일 × mult(0이면 피해 없음) + 봉인: 다음 자기 차례에 장착 마법·대마법 못 씀, ult면 대마법만) ·
+##   weaken{cat atk_down|dmg_taken, v, dur, aoe?, mult?}(마녀에게 나쁜 효과 — 공격력 다운은 그 마녀 행동 dur번, 받는 피해는 적 행동 dur번) ·
+##   guard{v, dur}(자신 받는 피해 −v, 그 적 행동 dur번, 방어 무시로 안 뚫림) · cover{dur}(마녀의 단일 대상이 이 적만) ·
+##   rally{charge? | gauge?}(다른 적 전원 차지 +n · 또는 게이지가 가장 낮은 다른 적 게이지 +v) · summon{id, hp?}(쓰러진 칸에 그 적을 세움, 적 summon_cap까지) ·
+##   purge(자신의 징표 전부 지움) · scatter{v}(마녀 전원 크레딧 −v)
+## charge_max·charge_act = 차지 칸 수와 가득 찼을 때의 필살기(finisher, aoe면 전체, self_ko면 쓴 뒤 그 적이 쓰러짐 = 자폭) · on_break = 줄이 깨질 때 {intent?, pattern?, buff?}
+## phases = 줄마다 덮어쓸 칸 [{}, {element?, weak?, def?, speed?}, …] (줄이 깨질 때 그 줄 번호의 것, §18.6) · leader = 쓰러지면 같은 웨이브의 나머지도 사라짐
+## traits = 특성 (TRAIT_NAME) · passive = 고유 효과 [{t, name, …}]: mark_cap{kind, n}(그 징표 최대 n겹) · guard_allies{v}(다른 적이 살아 있으면 받는 피해 −v) · first_strike{v}(웨이브 시작 게이지 +v)
+## crit = 적 크리 확률 (없으면 ENEMY_CRIT_BASE) · summon_cap = 이 적이 한 웨이브에 부를 수 있는 수
+## rules = 조건 규칙 (위에서부터 처음 맞는 것): when {hp_below · bar(0부터) · witch_buffs · allies_dead · acted · empty_slot · self_marks · witch_credits · self_buff(+not) · allies_alive}
+##   (한 when 안의 조건은 모두 맞아야 함) → pattern(바꿈) 또는 insert(하나 끼움) (§18.2)
 const ENEMIES := {
-	"straw_golem": {"name": "짚 골렘", "tier": "normal", "hp": 480000, "atk": 3000, "speed": 80, "def": 0.0, "element": "straw", "weak": ["fire"],
+	"straw_golem": {"name": "짚 골렘", "short": "골", "tier": "normal", "hp": 480000, "atk": 3000, "speed": 80, "def": 0.0, "element": "straw", "weak": ["fire"], "traits": ["construct"],
 		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "heavy", "mult": 2.0}], "size": 1.0, "color": Color("#c9a85c")},
-	"swamp_toad": {"name": "늪 두꺼비", "tier": "normal", "hp": 720000, "atk": 2600, "speed": 105, "def": 0.20, "element": "water",
+	"swamp_toad": {"name": "늪 두꺼비", "short": "두", "tier": "normal", "hp": 720000, "atk": 2600, "speed": 105, "def": 0.20, "element": "water", "traits": ["beast"],
 		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "stun_attack", "mult": 0.6}, {"k": "aoe", "mult": 0.8}], "size": 1.0, "color": Color("#6f8a3a")},
-	"ash_knight": {"name": "재의 기사", "tier": "elite", "hp": 1200000, "atk": 3000, "speed": 95, "def": 0.30, "element": "ash", "weak": [],
+	"ash_knight": {"name": "재의 기사", "short": "기", "tier": "elite", "hp": 1200000, "atk": 3000, "speed": 95, "def": 0.30, "element": "ash", "weak": [], "traits": ["armored", "ash"],
 		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "buff", "v": 0.30, "dur": 3}, {"k": "heavy", "mult": 1.6}, {"k": "aoe", "mult": 0.7}],
 		"charge_max": 5, "charge_act": {"k": "finisher", "name": "잿불 베기", "aoe": true, "mult": 1.5},
 		"rules": [{"when": {"hp_below": 0.5}, "pattern": [{"k": "heavy", "mult": 1.6}, {"k": "aoe", "mult": 0.7}]}],
 		"size": 1.3, "color": Color("#6e6673")},
-	# 보스 그림은 단계 D — 지금은 재의 기사 그림을 크게 쓴다
-	"ash_king": {"name": "재의 왕", "tier": "boss", "bars": [1500000, 1500000, 1500000], "atk": 6000, "speed": 100, "def": 0.30, "element": "ash", "weak": ["water"],
+	# ── 단계 F-2 새 적 11 (review_H §5.1) — 불 약점 3 · 물 약점 3 · 번개 약점 3 · 약점 없음 3 · 특수 약점 2 (기존 포함)
+	"will_o": {"name": "도깨비불", "short": "깨", "tier": "normal", "hp": 420000, "atk": 2800, "speed": 125, "def": 0.0, "element": "fire", "traits": ["spirit"],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "rally", "charge": 1}, {"k": "attack", "mult": 1.0}], "size": 0.9, "color": Color("#ff8a3a")},
+	"hearth_turtle": {"name": "화로 거북", "short": "북", "tier": "normal", "hp": 960000, "atk": 2400, "speed": 75, "def": 0.25, "element": "fire", "traits": ["armored", "beast"],
+		"passive": [{"t": "mark_cap", "kind": "burn", "n": 3, "name": "달군 몸"}],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "guard", "v": 0.50, "dur": 2}, {"k": "heavy", "mult": 1.8}], "size": 1.1, "color": Color("#a8442a")},
+	"flame_priest": {"name": "불꽃 사제", "short": "사", "tier": "elite", "hp": 1250000, "atk": 3000, "speed": 100, "def": 0.20, "element": "fire",
+		"passive": [{"t": "mark_cap", "kind": "burn", "n": 3, "name": "달군 몸"}],
+		"pattern": [{"k": "weaken", "cat": "dmg_taken", "v": 0.20, "dur": 2, "aoe": true}, {"k": "attack", "mult": 1.0}, {"k": "heavy", "mult": 1.8}],
+		"charge_max": 4, "charge_act": {"k": "finisher", "name": "업화의 설교", "aoe": true, "mult": 1.5}, "size": 1.25, "color": Color("#c0402a")},
+	"mist_jelly": {"name": "물안개 해파리", "short": "파", "tier": "normal", "hp": 480000, "atk": 2600, "speed": 100, "def": 0.10, "element": "water", "traits": ["spirit"],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "weaken", "cat": "atk_down", "v": 0.15, "dur": 2, "aoe": true}, {"k": "aoe", "mult": 0.6}], "size": 0.95, "color": Color("#8fd8ff")},
+	"frost_knight": {"name": "서리 기사", "short": "서", "tier": "elite", "hp": 1300000, "atk": 3200, "speed": 95, "def": 0.30, "element": "water", "traits": ["armored"],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "cover", "dur": 2}, {"k": "heavy", "mult": 1.8}, {"k": "aoe", "mult": 0.7}],
+		"charge_max": 5, "charge_act": {"k": "finisher", "name": "빙창 돌격", "aoe": true, "mult": 1.5}, "size": 1.2, "color": Color("#5a86b8")},
+	"thunder_crow": {"name": "번개 까마귀", "short": "까", "tier": "normal", "hp": 340000, "atk": 3000, "speed": 140, "def": 0.0, "element": "bolt", "traits": ["beast"], "crit": 0.15,
+		"passive": [{"t": "first_strike", "v": 0.50, "name": "먼저 날아듦"}],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "attack", "mult": 1.0}, {"k": "seal", "mult": 0.6}], "size": 0.85, "color": Color("#ffe34a")},
+	"volt_golem": {"name": "뇌석 골렘", "short": "뇌", "tier": "elite", "hp": 1850000, "atk": 3200, "speed": 85, "def": 0.30, "element": "bolt", "traits": ["construct"],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "guard", "v": 0.50, "dur": 2}, {"k": "heavy", "mult": 2.0}, {"k": "aoe", "mult": 0.8}],
+		"charge_max": 5, "charge_act": {"k": "finisher", "name": "과부하 방전", "aoe": true, "mult": 1.8}, "size": 1.15, "color": Color("#8a8070")},
+	"ash_servant": {"name": "잿빛 시종", "short": "종", "tier": "normal", "hp": 240000, "atk": 2200, "speed": 110, "def": 0.0, "element": "ash", "weak": [], "traits": ["ash"],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "rally", "gauge": 0.30}],
+		"charge_max": 3, "charge_act": {"k": "finisher", "name": "재 터짐", "aoe": true, "mult": 1.6, "self_ko": true}, "size": 0.75, "color": Color("#8a8090")},
+	"lantern_keeper": {"name": "등불지기", "short": "등", "tier": "elite", "hp": 900000, "atk": 2800, "speed": 90, "def": 0.20, "element": "ash", "weak": [], "traits": ["ash", "spirit"],
+		"passive": [{"t": "guard_allies", "v": 0.30, "name": "등불 가림"}], "summon_cap": 4,
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "aoe", "mult": 0.7}, {"k": "heavy", "mult": 1.6}],
+		"rules": [{"when": {"empty_slot": 1}, "insert": {"k": "summon", "id": "ash_servant"}}], "size": 1.2, "color": Color("#7a6a58")},
+	"shade_scribe": {"name": "그림자 서기", "short": "그", "tier": "normal", "hp": 520000, "atk": 2800, "speed": 120, "def": 0.10, "element": "none", "weak": ["space"], "traits": ["spirit"],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "aoe", "mult": 0.6}, {"k": "attack", "mult": 1.0}],
+		"rules": [{"when": {"witch_credits": 6}, "insert": {"k": "scatter", "v": 2}}], "size": 1.0, "color": Color("#5a4a78")},
+	"hollow_armor": {"name": "빈 갑주", "short": "갑", "tier": "normal", "hp": 900000, "atk": 2600, "speed": 80, "def": 0.35, "element": "none", "weak": ["sword"], "traits": ["armored", "construct"],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "guard", "v": 0.40, "dur": 2}, {"k": "heavy", "mult": 2.0}], "size": 1.15, "color": Color("#9a98a8")},
+	# ── 보스
+	"ash_king": {"name": "재의 왕", "short": "왕", "tier": "boss", "bars": [1500000, 1500000, 1500000], "atk": 6000, "speed": 100, "def": 0.30, "element": "ash", "weak": ["water"], "traits": ["ash"],
 		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "heavy", "mult": 2.0}, {"k": "buff", "v": 0.30, "dur": 3}, {"k": "aoe", "mult": 1.0}],
 		"charge_max": 5, "charge_act": {"k": "finisher", "name": "잿빛 낙인", "aoe": true, "mult": 2.5},
 		"rules": [{"when": {"bar": 2}, "pattern": [{"k": "heavy", "mult": 2.0}, {"k": "aoe", "mult": 1.2}, {"k": "dispel"}, {"k": "heavy", "mult": 2.5}]},
 			{"when": {"witch_buffs": 8}, "insert": {"k": "dispel"}}],
 		"on_break": {"intent": {"k": "dispel"}},
 		"art": "ash_knight", "size": 1.5, "color": Color("#4e4653")},
+	# 세 빛의 인형 (review_H §5.2 · §6): 줄마다 속성·약점이 돈다 — 줄 1 물(약점 번개) → 줄 2 번개(약점 불) → 줄 3 불(약점 물). 줄 2~3 방어 태세 · 줄 3 해제
+	"prism_doll": {"name": "세 빛의 인형", "short": "인", "tier": "boss", "bars": [1500000, 1200000, 3100000], "atk": 6000, "speed": 100, "def": 0.25, "element": "water", "weak": ["bolt"], "traits": ["construct"],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "aoe", "mult": 1.0}, {"k": "heavy", "mult": 2.0}, {"k": "buff", "v": 0.30, "dur": 3}],
+		"charge_max": 5, "charge_act": {"k": "finisher", "name": "삼색 섬광", "aoe": true, "mult": 2.5},
+		"phases": [{}, {"element": "bolt", "weak": ["fire"]}, {"element": "fire", "weak": ["water"]}],
+		"rules": [{"when": {"bar": 1}, "pattern": [{"k": "attack", "mult": 1.0}, {"k": "guard", "v": 0.50, "dur": 2}, {"k": "heavy", "mult": 2.2}, {"k": "aoe", "mult": 1.0}]},
+			{"when": {"bar": 2}, "pattern": [{"k": "heavy", "mult": 2.0}, {"k": "aoe", "mult": 1.2}, {"k": "dispel"}, {"k": "guard", "v": 0.50, "dur": 2}, {"k": "heavy", "mult": 2.5}]}],
+		"size": 1.5, "color": Color("#c8c0e0")},
+	# 잿빛 둥지어미 (review_H §5.2 · §6): 우두머리 · 둥지 보호 · 잿빛 시종 부르기(웨이브에 3) · 줄 2에서 징표 4겹 이상이면 징표 털기 (부르기보다 먼저)
+	"ash_brood": {"name": "잿빛 둥지어미", "short": "둥", "tier": "boss", "bars": [2800000, 2800000], "atk": 6500, "speed": 95, "def": 0.30, "element": "ash", "weak": ["bolt"], "traits": ["ash", "beast"],
+		"leader": true, "summon_cap": 2, "passive": [{"t": "guard_allies", "v": 0.20, "name": "둥지 보호"}],
+		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "aoe", "mult": 1.0}, {"k": "heavy", "mult": 2.0}],
+		"charge_max": 4, "charge_act": {"k": "finisher", "name": "잿빛 산란", "aoe": true, "mult": 2.2},
+		"rules": [{"when": {"bar": 1, "self_marks": 4}, "insert": {"k": "purge"}}, {"when": {"empty_slot": 1}, "insert": {"k": "summon", "id": "ash_servant"}}],
+		"size": 1.5, "color": Color("#5a4048")},
 	# 시련 보스 (§24.6 · 원형 B3 "버티며 쌓기"용 고난이도 1판): 공격력이 보스전의 6배, 필살기는 무적 관통 (받는 피해 감소·근성은 통함)
-	"trial_colossus": {"name": "시련의 거상", "tier": "boss", "bars": [1200000, 1200000, 1200000], "atk": 36000, "speed": 100, "def": 0.30, "element": "ash", "weak": [],
+	"trial_colossus": {"name": "시련의 거상", "short": "거", "tier": "boss", "bars": [1200000, 1200000, 1200000], "atk": 36000, "speed": 100, "def": 0.30, "element": "ash", "weak": [], "traits": ["ash"],
 		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "aoe", "mult": 0.6}, {"k": "heavy", "mult": 1.6}, {"k": "aoe", "mult": 0.6}],
 		"charge_max": 4, "charge_act": {"k": "finisher", "name": "시련의 일격", "aoe": false, "mult": 3.0, "pierce": true},
 		"rules": [{"when": {"bar": 2}, "pattern": [{"k": "heavy", "mult": 1.6}, {"k": "aoe", "mult": 0.8}, {"k": "attack", "mult": 1.0}, {"k": "aoe", "mult": 0.8}]}],
 		"on_break": {"buff": {"v": 0.20, "dur": 4}},
 		"art": "ash_knight", "size": 1.6, "color": Color("#3a3240")},
 }
-const INTENT_NAME := {"attack": "공격", "heavy": "강공격", "aoe": "전체 공격", "buff": "버프", "stun_attack": "기절 공격", "dispel": "해제", "finisher": "필살기"}
+const INTENT_NAME := {"attack": "공격", "heavy": "강공격", "aoe": "전체 공격", "buff": "버프", "stun_attack": "기절 공격", "dispel": "해제", "finisher": "필살기",
+	"seal": "봉인", "weaken": "약화", "guard": "방어 태세", "cover": "막아서기", "rally": "재촉", "summon": "부르기", "purge": "징표 털기", "scatter": "크레딧 흩기"}
+## 적 특성 (review_H §3) — 이번엔 상세 표시와 다음 단계 특성 특공의 자리만
+const TRAIT_NAME := {"armored": "갑각", "spirit": "영체", "beast": "짐승", "construct": "인형", "ash": "재"}
 
-## 전투 (§5.6 · §24.6). 웨이브 = 적 1~3 (앞·중·뒤 순). 항목이 {id, hp}면 그 적의 체력만 덮어쓴다
+## 전투 (§5.6 · §24.6 · review_H §7). 웨이브 = 적 1~3 (앞·중·뒤 순). 항목이 {id, hp}면 그 적의 체력만 덮어쓴다
 ## start_credits = 전투를 시작할 때 마녀 모두의 크레딧 (안내 전투만 — 첫 차례부터 마법을 써 보게, combat_proto.md §28 [제안])
+## ask = 전투 고르기(S-03)의 한 줄 "묻는 것" · stars = 난이도 1~3 · mins = 예상 시간(분, turn_sim.gd -- N h의 원형 평균 — §27.7)
 const BATTLES := {
-	"intro_01": {"name": "안내 전투", "kind": "intro", "start_credits": 3, "waves": [[{"id": "straw_golem", "hp": 240000}, {"id": "straw_golem", "hp": 240000}]]},
-	"normal_01": {"name": "일반 전투", "kind": "normal", "waves": [["straw_golem", "swamp_toad", "ash_knight"]]},
-	"boss_01": {"name": "보스 전투 — 재의 왕", "kind": "boss", "waves": [
+	"intro_01": {"name": "안내 전투", "kind": "intro", "start_credits": 3, "stars": 1, "mins": 2, "ask": "처음 한 번. 짚 골렘 두 마리와 짧게 싸우며 조작을 배웁니다",
+		"waves": [[{"id": "straw_golem", "hp": 240000}, {"id": "straw_golem", "hp": 240000}]]},
+	"normal_01": {"name": "들판", "kind": "normal", "stars": 1, "mins": 6, "ask": "적 3마리 한 웨이브 — 빌드를 시험하기 좋습니다",
+		"waves": [["straw_golem", "swamp_toad", "ash_knight"]]},
+	"normal_fire": {"name": "불길의 골짜기", "kind": "normal", "stars": 2, "mins": 6, "ask": "재촉·방어 태세·약화 — 물 파티와 차지 감소가 통합니다",
+		"waves": [["will_o", "hearth_turtle", "flame_priest"]]},
+	"normal_water": {"name": "안개 호수", "kind": "normal", "stars": 2, "mins": 6, "ask": "약화·막아서기 — 번개 파티가 통합니다",
+		"waves": [["mist_jelly", "swamp_toad", "frost_knight"]]},
+	"normal_bolt": {"name": "뇌운 고개", "kind": "normal", "stars": 2, "mins": 6, "ask": "봉인·빠른 적·단단한 골렘 — 불 파티의 한 방이 통합니다",
+		"waves": [["thunder_crow", "thunder_crow", "volt_golem"]]},
+	"normal_swarm": {"name": "등불 회랑", "kind": "normal", "stars": 2, "mins": 5, "ask": "자폭하는 시종과 부르는 등불지기 — 광역이 통합니다",
+		"waves": [["ash_servant", "lantern_keeper", "ash_servant"]]},
+	"normal_rift": {"name": "틈새 서고", "kind": "normal", "stars": 2, "mins": 7, "ask": "속성 약점이 없는 곳 · 크레딧 흩기 — 에스카·하르페가 통합니다",
+		"waves": [["shade_scribe", "hollow_armor", "ash_knight"]]},
+	"boss_01": {"name": "보스 전투 — 재의 왕", "kind": "boss", "stars": 2, "mins": 18, "ask": "버프 해제 — 해제 앞에 쏟아붓기 · 물 약점", "waves": [
 		["straw_golem", "straw_golem", {"id": "swamp_toad", "hp": 480000}],
 		["swamp_toad", "ash_knight"],
 		["ash_king"]]},
-	"trial_01": {"name": "시련 — 시련의 거상", "kind": "trial", "waves": [["trial_colossus"]]},
+	"boss_02": {"name": "보스 전투 — 세 빛의 인형", "kind": "boss", "stars": 3, "mins": 19, "ask": "줄마다 약점이 바뀜 · 방어 태세 — 속성 둘 이상의 파티", "waves": [
+		["will_o", "mist_jelly", "thunder_crow"],
+		["hearth_turtle", "thunder_crow"],
+		["prism_doll"]]},
+	"boss_03": {"name": "보스 전투 — 잿빛 둥지어미", "kind": "boss", "stars": 3, "mins": 19, "ask": "시종을 부르는 우두머리 · 징표 털기 — 번개 파티와 광역", "waves": [
+		["ash_servant", "ash_servant", "ash_servant"],
+		["flame_priest", "will_o"],
+		["ash_servant", "ash_brood", "ash_servant"]]},
+	"trial_01": {"name": "시련 — 시련의 거상", "kind": "trial", "stars": 3, "mins": 10, "ask": "아주 아픈 한 판 · 필살기는 무적 관통. 추천: 버티며 쌓기 (네레이·에스카·하르페)",
+		"waves": [["trial_colossus"]]},
 }
+## 전투 고르기 순서 (S-03 탭 안 순서)
+const BATTLE_ORDER := ["normal_01", "normal_fire", "normal_water", "normal_bolt", "normal_swarm", "normal_rift", "boss_01", "boss_02", "boss_03", "trial_01"]
 
 ## 용어 풀이 (combat_proto.md §2 · §28.6): 도움말 판(? 버튼)과 상세·설명 상자 맨 아래 한 줄이 같이 쓴다. 순서 = 도움말 목록 순서
 const GLOSSARY := [
@@ -734,6 +822,16 @@ const GLOSSARY := [
 	["관통", "무적을 뚫는 공격(→| 표시). 받는 피해 감소·도발·근성은 통한다"],
 	["기절", "다음 차례 하나를 쉰다. 쉰 뒤 한 차례는 다시 기절하지 않는다(기절 내성). 보스는 면역"],
 	["대가", "강한 마법의 값: 그 행동 뒤 크레딧 0, 또는 체력을 깎는다"],
+	["봉인", "적에게 봉인되면 다음 자기 차례에 장착 마법·대마법을 못 쓴다(기본 공격만). 그 차례가 끝나면 풀리고, 한 차례는 다시 봉인되지 않는다"],
+	["약화", "적이 거는 나쁜 효과(공격력 다운·받는 피해 증가). 해제로 지워지지 않는다"],
+	["방어 태세", "적이 받는 피해를 줄인다(최대 70%). 방어 무시로도 안 뚫린다. 태세가 없는 차례에 몰아친다"],
+	["막아서기", "그 적이 막아서는 동안 단일 대상 공격·디버프는 그 적만 고를 수 있다. 전체 공격은 그대로"],
+	["재촉", "다른 적의 차지나 게이지를 채운다. 재촉하는 적을 먼저 치거나 차지 감소로 막는다"],
+	["부르기", "쓰러진 자리에 새 적을 세운다. 부를 수 있는 수는 정해져 있다"],
+	["자폭", "차지가 다 찬 졸개가 전체를 치고 스스로 쓰러진다. 차기 전에 처치하거나 무적으로 받는다"],
+	["징표 털기", "적이 자기 징표를 모두 지운다. 보이면 그 전에 터뜨린다"],
+	["크레딧 흩기", "마녀 모두의 크레딧을 깎는다. 보이면 모은 크레딧을 먼저 쓴다"],
+	["우두머리", "쓰러지면 같은 웨이브의 졸개도 함께 사라진다"],
 ]
 
 ## 글에 나온 첫 용어의 풀이 한 줄 ("징표 — …"). 없으면 ""
@@ -746,6 +844,16 @@ static func gloss_for(text: String) -> String:
 			best = i
 			out = "%s — %s" % [String(g[0]), String(g[1])]
 	return out
+
+
+## 적 고유 효과 한 줄 ("달군 몸: 화상 최대 3겹") — 유닛 상세 (review_H §3)
+static func enemy_passive_text(p: Dictionary) -> String:
+	var body := ""
+	match String(p.get("t", "")):
+		"mark_cap": body = "%s 최대 %d겹" % [MARK_NAME.get(String(p.get("kind", "")), ""), int(p.get("n", 0))]
+		"guard_allies": body = "다른 적이 살아 있으면 받는 피해 −%d%%" % int(round(float(p.get("v", 0.0)) * 100.0))
+		"first_strike": body = "웨이브 시작 게이지 +%d%%" % int(round(float(p.get("v", 0.0)) * 100.0))
+	return "%s: %s" % [String(p.get("name", "")), body]
 
 
 ## 프로토타입 기본 파티와 전투

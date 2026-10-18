@@ -30,14 +30,17 @@ const STUN := Color("#ffe34a") ## 기절 별
 const BG := Color("#0e0916") ## 편성 화면 바탕
 ## 의도 색 (combat_proto.md §18.3)
 const INTENT_COL := {"attack": Color("#ff9a7a"), "heavy": Color("#ff4f6a"), "aoe": Color("#ffcf7a"), "buff": Color("#c9a0ff"),
-	"stun_attack": Color("#8fd8ff"), "dispel": Color("#a070ff"), "finisher": Color("#ff2a4a")}
+	"stun_attack": Color("#8fd8ff"), "dispel": Color("#a070ff"), "finisher": Color("#ff2a4a"),
+	# 단계 F-2 (review_H §2.2 — 기존 7색과 CIEDE2000 ΔE ≥ 14.3): 마녀 방해 청록·분홍·갈색 · 자기 보호 회청·연두노랑 · 적끼리 연두·흰회 · 징표 주황
+	"seal": Color("#3fe0a8"), "weaken": Color("#ff70c8"), "guard": Color("#7f9cc0"), "cover": Color("#c8d070"), "rally": Color("#7ae05a"),
+	"summon": Color("#e8e8f0"), "purge": Color("#ffa040"), "scatter": Color("#b07a3a")}
 const KIND_NAME := {"attack": "공격", "support": "보조", "debuff": "디버프"}
 const TARGET_NAME := {"enemy": "적 1", "enemies": "적 전체", "ally": "아군 1", "ally_any": "아군 1", "allies": "아군 전체", "self": "자신"}
 const SLOT_NAME := ["앞", "중", "뒤"]
 ## 속성 → 아이콘 모양 (TIcon)
 const ELEMENT_ICON := {"fire": "flame", "water": "drop", "bolt": "bolt", "space": "rift", "time": "clock", "sword": "slash"}
 ## 나쁜 버프 종류 (테 DANGER)
-const BAD_CATS := ["def_down", "atk_down", "crit_taken", "final_taken", "crit_down"]
+const BAD_CATS := ["def_down", "atk_down", "crit_taken", "final_taken", "crit_down", "seal"]
 const SIZES := [8, 10, 12, 15, 24, 30]
 
 static var _fonts := {}
@@ -190,7 +193,7 @@ static func cost_badge(ci: CanvasItem, c: Vector2, label: String, mode := "ok") 
 
 
 ## 마름모 (크레딧 칸)
-static func diamond(ci: CanvasItem, c: Vector2, half: float, col: Color) -> void:
+static func diamond(ci, c: Vector2, half: float, col: Color) -> void:
 	ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -half), c + Vector2(half, 0), c + Vector2(0, half), c + Vector2(-half, 0)]), col)
 
 
@@ -239,8 +242,8 @@ static func element_icon(ci: CanvasItem, c: Vector2, el: String, r: float, alpha
 			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(1, -5), c + Vector2(-3, 0.5), c + Vector2(0, 0.5), c + Vector2(-1, 5), c + Vector2(3, -0.5), c + Vector2(0, -0.5)]), col)
 
 
-## 의도 아이콘 (9×9 안, c = 가운데)
-static func intent_icon(ci: CanvasItem, c: Vector2, kind: String, col: Color) -> void:
+## 의도 아이콘 (9×9 안, c = 가운데). ci = CanvasItem 또는 PDraw (같은 이름의 그리기 함수 — 연출 IntentSign이 크게 찍음)
+static func intent_icon(ci, c: Vector2, kind: String, col: Color) -> void:
 	match kind:
 		"attack":
 			ci.draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), col, 1.6)
@@ -267,10 +270,43 @@ static func intent_icon(ci: CanvasItem, c: Vector2, kind: String, col: Color) ->
 			ci.draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), col, 1.6)
 		"stun":
 			star(ci, c, 4.0, col)
+		# ── 단계 F-2 (review_H §2.2) — 모양이 모두 다름
+		"seal": # 자물쇠: 몸(채움) + 위 반원 고리
+			ci.draw_rect(Rect2(c + Vector2(-3, -0.5), Vector2(6, 4)), col)
+			ci.draw_arc(c + Vector2(0, -0.8), 2.2, PI, TAU, 8, col, 1.2)
+			ci.draw_rect(Rect2(c + Vector2(-0.5, 0.6), Vector2(1, 1.6)), INK)
+		"weaken": # 아래 화살표
+			ci.draw_line(c + Vector2(0, -3.5), c + Vector2(0, 3), col, 1.6)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-3, 0), c + Vector2(0, 3.5), c + Vector2(3, 0)]), col, 1.6)
+		"guard": # 방패: 오각형 테 + 가운데 세로선
+			var sh := PackedVector2Array([c + Vector2(-3.2, -3.5), c + Vector2(3.2, -3.5), c + Vector2(3.2, 0.2), c + Vector2(0, 3.8), c + Vector2(-3.2, 0.2), c + Vector2(-3.2, -3.5)])
+			ci.draw_polyline(sh, col, 1.2)
+			ci.draw_line(c + Vector2(0, -3.0), c + Vector2(0, 2.8), col, 1.0)
+		"cover": # 펼친 팔: 가로선 + 양 끝 짧은 세로
+			ci.draw_line(c + Vector2(-4, 0), c + Vector2(4, 0), col, 1.6)
+			ci.draw_line(c + Vector2(-4, -2.5), c + Vector2(-4, 2.5), col, 1.4)
+			ci.draw_line(c + Vector2(4, -2.5), c + Vector2(4, 2.5), col, 1.4)
+			ci.draw_circle(c + Vector2(0, -2.4), 1.2, col)
+		"rally": # 위 셰브론 두 겹
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-3, -0.5), c + Vector2(0, -3.5), c + Vector2(3, -0.5)]), col, 1.4)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-3, 3), c + Vector2(0, 0), c + Vector2(3, 3)]), col, 1.4)
+		"summon": # 열린 문: 사각 테 + 안쪽 점
+			ci.draw_rect(Rect2(c + Vector2(-3, -3.8), Vector2(6, 7.6)), col, false, 1.2)
+			ci.draw_line(c + Vector2(-3, -3.8), c + Vector2(-0.5, -2.8), col, 1.0)
+			ci.draw_circle(c + Vector2(0.8, 0.5), 1.1, col)
+		"purge": # 원 + 바깥으로 흩어지는 점 3
+			ci.draw_arc(c, 2.0, 0.0, TAU, 10, col, 1.2)
+			for k in 3:
+				var a := -PI * 0.5 + float(k) * TAU / 3.0
+				ci.draw_circle(c + Vector2(cos(a), sin(a)) * 3.9, 0.9, col)
+		"scatter": # 흩어지는 마름모 3 (크레딧 칸 모양)
+			diamond(ci, c + Vector2(-2.4, 1.6), 1.8, col)
+			diamond(ci, c + Vector2(2.2, 0.6), 1.6, col)
+			diamond(ci, c + Vector2(0.2, -2.6), 1.4, Color(col, 0.7))
 
 
 ## 작은 다섯 꼭짓점 별
-static func star(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
+static func star(ci, c: Vector2, r: float, col: Color) -> void:
 	var pts := PackedVector2Array()
 	for i in 10:
 		var a := -PI * 0.5 + float(i) * PI / 5.0
@@ -308,6 +344,9 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 			col = Color("#8fd8ff") if not bad else DANGER
 		"guts": col = HEAL
 		"taunt": col = Color("#ff9a7a")
+		"dmg_cut": col = INTENT_COL.guard # 적의 방어 태세 (이로운 것 — 테 LINE 계열, review_H §2.2)
+		"cover": col = INTENT_COL.cover
+		"seal": col = DANGER
 		"element": col = TData.ELEMENT_COLOR.get(String(ic.get("el", "")), TEXT)
 	ci.draw_rect(Rect2(p, Vector2(10, 10)), Color(INK, 0.92))
 	ci.draw_rect(Rect2(p + Vector2(0.5, 0.5), Vector2(9, 9)), Color(col, 0.9), false, 1.0)
@@ -352,6 +391,8 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 		"hit_stack":
 			for k in 3:
 				ci.draw_line(c + Vector2(-3, 2.5 - 2.5 * k), c + Vector2(3, 2.5 - 2.5 * k), col, 1.0)
+		"dmg_cut", "cover", "seal":
+			intent_icon(ci, c, "guard" if cat == "dmg_cut" else cat, col)
 		_:
 			ci.draw_circle(c, 1.5, col)
 	if bad:
@@ -379,6 +420,8 @@ static func buff_line(b: Dictionary) -> String:
 		"invincible", "taunt": head = nm
 		"guts": head = "근성 (체력 %d%%로)" % v if v > 0 else "근성"
 		"hit_stack": head = "맞으며 쌓기 +%d%%" % v
+		"dmg_cut": head = "방어 태세 받는 피해 −%d%%" % v
+		"cover": head = "막아서기 (단일 대상이 이 적만)"
 		_:
 			if cat == "special" and String(b.get("mark", "")) != "":
 				nm = "%s 특공" % TData.MARK_NAME.get(String(b.mark), "")

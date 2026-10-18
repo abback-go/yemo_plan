@@ -11,6 +11,10 @@ extends SceneTree
 ##   bt 전투id           : 원형 8개 프리셋을 그 전투 하나로만 (승 · 행동 · 분)
 ##   acts 원형id 전투id  : 그 원형 프리셋의 행동 내역 (마녀:마법별 횟수 · 판당 · 1회 평균 피해) — 느리고 빠른 까닭 찾기
 ##   e2                 : 밸런스 후속 E2 목표 셋만 빠르게 — 원형별 딜러 마법 몫 · 기본 파티 보스 분 · 회복 없는 파티 일반 승률 (combat_proto.md §27.3)
+##   [단계 F-2 — review_H_enemies.md §8 · combat_proto.md §27.7]
+##   h [전투 id …]      : 전투 10개(+안내) × 원형 8 + 비교 파티 3(X3 세 속성 · AX 광역 번개 · D0 기본 파티) — 승·분 표 · B1~B8 평균 · 보스 속도 비 ·
+##                        속성 맞춤 배수(일반 = normal_01, 보스 = boss_01 대비) · K1′(받는 피해 ÷ 파티 최대 체력) · 웨이브 ①② 받은 피해 ÷ 파티 체력(규칙 3) ·
+##                        광역 공격 마법 판당(AX·무리 전투) · 새 의도 판당 · 무적 잠금(K7, 보스 1체 — lock과 같은 실험)
 ## 출력: 전략별 승률·걸린 차례·마녀별 준 피해·최대 한 방·남은 체력, 스킬 효율표, 문서의 숫자 규모 확인,
 ##       전투별 승률·행동 수·시간 모형(전체 행동 × 1.3초 + 마녀 행동 × 3초, combat_proto.md §1.4)·대마법·기절·터뜨리기 횟수.
 
@@ -69,6 +73,12 @@ func _process(_d: float) -> bool:
 		return true
 	if args.size() > 1 and String(args[1]) == "e2":
 		_mode_e2(runs)
+		return true
+	if args.size() > 1 and String(args[1]) == "h":
+		var only: Array = []
+		for k in range(2, args.size()):
+			only.append(String(args[k]))
+		_mode_h(runs, only)
 		return true
 	if args.size() > 1 and String(args[1]) in ["roster", "style", "lock", "suite"]:
 		var bt := String(args[2]) if args.size() > 2 else "normal_01"
@@ -196,7 +206,8 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 		"dmg_basic": 0, "dmg_skill": 0, "dmg_ult": 0, "basic_hits": 0, "basic_crits": 0, "chain2": 0, "chain3": 0, "burst_n": 0, "charge_downs": 0,
 		"finishers": 0, "enemy_acts": 0, "enemy_rounds": 0.0, "stack_max": 0, "oneshots": 0, "acts": {},
 		"basic_acts": 0, "cred_skill": 0, "w_hits": 0, "w_crits": 0, "ally_gauge": 0.0, "foe_gauge": 0.0, "act_dmg": [], "inv_hits": 0, "foe_hits": 0, "heals": 0,
-		"skill_by": {}} ## 마녀별 공격 마법(대마법 아님) 피해 — 딜러 마법 몫 (D2·E2)
+		"skill_by": {}, ## 마녀별 공격 마법(대마법 아님) 피해 — 딜러 마법 몫 (D2·E2)
+		"taken": 0, "taken_front": 0, "aoe_skill": 0, "ev": {}} ## F-2: 마녀가 받은 피해 합 · 마지막 웨이브 앞에서 받은 피해 · 광역 공격 마법(대마법 아님) 횟수 · 새 의도 실행 수
 	var guard := 0
 	while guard < 1500:
 		var oc := b.outcome()
@@ -219,6 +230,8 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 			var src := "basic" if String(a.sid) == "" else ("ult" if bool(TData.skill(String(a.sid)).get("ultimate", false)) else "skill")
 			if src == "ult":
 				r.ults = int(r.ults) + 1
+			if src == "skill" and String(TData.skill(String(a.sid)).get("target", "")) == "enemies" and String(TData.skill(String(a.sid)).kind) == "attack":
+				r.aoe_skill = int(r.aoe_skill) + 1
 			if src == "basic":
 				r.basic_acts = int(r.basic_acts) + 1
 			var adm := 0
@@ -247,11 +260,17 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 			r.enemy_rounds = float(r.enemy_rounds) + 1.0 / float(b.alive_of(b.enemies).size()) # 적 1체당 행동 (적 수로 나눔)
 			if String(u.intent().get("k", "")) == "finisher":
 				r.finishers = int(r.finishers) + 1
+			var ek := String(u.intent().get("k", ""))
 			ev = b.enemy_action(u)
+			if not (ek in ["attack", "heavy", "aoe", "buff"]):
+				r.ev[ek] = int(r.ev.get(ek, 0)) + 1
 			for e in ev:
 				if e.t == "hit":
 					r.foe_hits = int(r.foe_hits) + 1
 					r.inv_hits = int(r.inv_hits) + (1 if bool(e.invincible) else 0)
+					r.taken = int(r.taken) + int(e.dmg)
+					if b.wave_i < b.wave_count() - 1:
+						r.taken_front = int(r.taken_front) + int(e.dmg)
 		for e in ev:
 			match String(e.t):
 				"hit":
@@ -283,6 +302,10 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 	var dealt := {}
 	for w in b.witches:
 		dealt[w.id] = w.dealt
+	var mhp := 0
+	for w in b.witches:
+		mhp += w.max_hp
+	r["party_hp"] = mhp
 	r["win"] = b.outcome() == "win"
 	r["hp_left"] = hp_left
 	r["dealt"] = dealt
@@ -748,7 +771,7 @@ func _mode_style(bt: String, runs: int, quiet := false) -> Dictionary:
 
 
 ## 무적 잠금: 에스카(마력 샘) 봉공 + 네레이 물의 장막만, 나머지 기본 공격 · 재의 왕 1체. 장비 있음/없음
-func _mode_lock(runs: int, quiet := false) -> Dictionary:
+func _mode_lock(runs: int, quiet := false, foe := "ash_king") -> Dictionary:
 	var out := {}
 	for eq in ["mana_spring", ""]:
 		var state := {"eska": {"equipped": ["seal", "crack", "doom", "cradle"], "equip": eq}, "nerei": {"equipped": ["water_veil", "spring", "wave_hold", "current"]}}
@@ -757,7 +780,7 @@ func _mode_lock(runs: int, quiet := false) -> Dictionary:
 		var wins := 0
 		for i in runs:
 			var b := TBattle.new()
-			b.setup(["eska", "nerei", "ignis"], ["ash_king"], state, 41000 + i)
+			b.setup(["eska", "nerei", "ignis"], [foe], state, 41000 + i)
 			var r := _play(b, func(u: TUnit) -> Dictionary:
 				var en: TUnit = b.alive_of(b.enemies)[0]
 				if u.id == "eska" and b.can_use(u, "seal"):
@@ -904,3 +927,96 @@ func _mode_acts(bid: String, bt: String, runs: int) -> void:
 	keys.sort()
 	for k in keys:
 		print("  %s: 판당 %.1f번 · 1회 피해 %s · 판당 피해 %s" % [k, float(tally[k]) / runs, TData.fmt(int(dmg.get(k, 0)) / maxi(int(tally[k]), 1)), TData.fmt(int(dmg.get(k, 0)) / runs)])
+
+
+# ═══════════════════════════════════════════════════════════
+# 단계 F-2 측정 (review_H_enemies.md §8 · combat_proto.md §27.7)
+# ═══════════════════════════════════════════════════════════
+
+## 비교 파티 (review_H §8): X3 세 속성 · AX 광역 번개 · D0 기본 파티 — 원형 프리셋과 같은 꼴
+const COMPARE := {
+	"X3": {"name": "세 속성", "party": ["fulgur", "ignis", "nerei"], "plan": {}, "state": {}},
+	"AX": {"name": "광역 번개", "party": ["fulgur", "tonan", "nerei"], "plan": {},
+		"state": {"fulgur": {"equipped": ["chain_lightning", "thunderstorm", "storm_god", "charge_up"]}, "tonan": {"equipped": ["discharge", "thundercloud", "needle", "conduction"]}}},
+	"D0": {"name": "기본 파티", "party": ["eska", "ignis", "ember"], "plan": {}, "state": {}},
+}
+const H_BATTLES := ["intro_01", "normal_01", "normal_fire", "normal_water", "normal_bolt", "normal_swarm", "normal_rift", "boss_01", "boss_02", "boss_03", "trial_01"]
+
+
+## 원형(또는 비교 파티) 하나 × 전투 하나: 승 · 승리 평균 마녀 행동 · 분 · 받는 피해 ÷ 파티 체력 · ①② 받은 피해 ÷ 파티 체력 · 광역 마법 판당 · 새 의도 판당
+func _h_stat(bd: Dictionary, bt: String, runs: int) -> Dictionary:
+	var wins := 0
+	var w := 0
+	var a := 0
+	var taken := 0.0
+	var front := 0.0
+	var aoe := 0
+	var evs := {}
+	for i in runs:
+		var r := _auto_game(bd.party, bt, bd.state, 7000 + i, bd.plan)
+		taken += float(r.taken) / float(maxi(int(r.party_hp), 1))
+		front += float(r.taken_front) / float(maxi(int(r.party_hp), 1))
+		aoe += int(r.aoe_skill)
+		for k in r.ev:
+			evs[k] = int(evs.get(k, 0)) + int(r.ev[k])
+		if bool(r.win):
+			wins += 1
+			w += int(r.witch_acts)
+			a += int(r.all_acts)
+	var wn := maxf(float(wins), 1.0)
+	for k in evs:
+		evs[k] = snappedf(float(evs[k]) / float(runs), 0.1) # 판당
+	return {"win": wins, "w_avg": float(w) / wn, "min": _minutes(float(w) / wn, float(a) / wn), "taken": taken / runs, "front": front / runs, "aoe": float(aoe) / runs, "ev": evs}
+
+
+func _mode_h(runs: int, only: Array) -> void:
+	var bts: Array = only if not only.is_empty() else H_BATTLES
+	var cols: Array = BUILDS.keys() + COMPARE.keys()
+	var res := {} ## 전투 → 원형 → 통계
+	print("=== 단계 F-2 전투 × 원형 (%d판씩, 시드 7000+) — 칸 = 승리 평균 분 (진 판이 있으면 승/판 · 분) ===" % runs)
+	print("| 전투 | " + " | ".join(cols) + " | B1~B8 평균 | 속도 비 |")
+	for bt in bts:
+		res[bt] = {}
+		var cells: Array = []
+		var sum := 0.0
+		var n := 0
+		var fast := INF
+		var slow := 0.0
+		for c in cols:
+			var bd: Dictionary = BUILDS[c] if BUILDS.has(c) else COMPARE[c]
+			var st := _h_stat(bd, String(bt), runs)
+			res[bt][c] = st
+			cells.append(("%.1f" % float(st.min)) if int(st.win) == runs else ("%d/%d · %.1f" % [int(st.win), runs, float(st.min)] if int(st.win) > 0 else "0/%d" % runs))
+			if BUILDS.has(c) and int(st.win) > 0:
+				sum += float(st.min)
+				n += 1
+				fast = minf(fast, float(st.w_avg))
+				slow = maxf(slow, float(st.w_avg))
+		print("| %s | %s | %.1f | %.2f |" % [bt, " | ".join(cells), sum / maxf(float(n), 1.0), slow / maxf(fast, 1.0) if n > 0 else 0.0])
+	# 속성 맞춤 배수: 같은 원형의 기준 전투(일반 = normal_01, 보스 = boss_01) 대비 분 (1보다 작으면 빨라짐)
+	print("=== 속성 맞춤 배수 (자기 기준 대비 분 — 일반 normal_01 · 보스 boss_01) ===")
+	print("| 전투 | " + " | ".join(cols) + " |")
+	for bt in bts:
+		var kind := String(TData.BATTLES[bt].kind)
+		var base := "normal_01" if kind == "normal" else ("boss_01" if kind == "boss" else "")
+		if base == "" or base == String(bt) or not res.has(base):
+			continue
+		var cells: Array = []
+		for c in cols:
+			var b0: Dictionary = res[base][c]
+			var b1: Dictionary = res[bt][c]
+			cells.append("%.2f" % (float(b1.min) / maxf(float(b0.min), 0.1)) if int(b0.win) > 0 and int(b1.win) > 0 else "—")
+		print("| %s | %s |" % [bt, " | ".join(cells)])
+	# K1′ · 웨이브 규칙 3 · 광역 · 새 의도
+	print("=== 받는 피해 (판당, 파티 최대 체력 배수) · 웨이브 ①② · 광역 마법 · 새 의도 ===")
+	for bt in bts:
+		var d0: Dictionary = res[bt]["D0"]
+		var tk: Array = []
+		for c in BUILDS:
+			tk.append("%.1f" % float(res[bt][c].taken))
+		print("  %s: D0 받은 피해 %.2f배 · ①② %.2f배 · 원형 받은 피해 [%s] · AX 광역 마법 %.1f · D0 광역 %.1f · D0 새 의도 %s · 규칙 %s" % [bt, float(d0.taken), float(d0.front), " ".join(tk),
+			float(res[bt]["AX"].aoe), float(d0.aoe), str(d0.ev), str(TBattle.wave_rules(String(bt)))])
+	# 무적 잠금 (K7) — 보스 1체
+	for foe in ["ash_king", "prism_doll", "ash_brood"]:
+		var lk := _mode_lock(runs, true, String(foe))
+		print("  무적 잠금 %s: 마력 샘 %.0f%% · 장비 없음 %.0f%%" % [foe, float(lk.mana_spring), float(lk.none)])
