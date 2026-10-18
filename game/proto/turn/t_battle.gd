@@ -392,7 +392,7 @@ func end_action(u: TUnit) -> Array:
 
 
 # ═══════════════════════════════════════════════════════════
-# 피해 공식 (combat_proto.md §3)
+# 피해 공식 (combat_proto.md §11)
 # ═══════════════════════════════════════════════════════════
 
 func _hit(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: bool) -> Dictionary:
