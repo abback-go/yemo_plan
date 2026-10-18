@@ -40,7 +40,7 @@ const SLOT_NAME := ["앞", "중", "뒤"]
 ## 속성 → 아이콘 모양 (TIcon)
 const ELEMENT_ICON := {"fire": "flame", "water": "drop", "bolt": "bolt", "space": "rift", "time": "clock", "sword": "slash"}
 ## 나쁜 버프 종류 (테 DANGER)
-const BAD_CATS := ["def_down", "atk_down", "crit_taken", "final_taken", "crit_down", "seal"]
+const BAD_CATS := ["def_down", "atk_down", "crit_taken", "final_taken", "crit_down", "seal", "crit_dmg_taken"]
 const SIZES := [8, 10, 12, 15, 24, 30]
 
 static var _fonts := {}
@@ -369,7 +369,8 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 			col = GOLD if cat in ["crit_rate", "crit_dmg"] else Color("#ffb08a")
 		"invincible", "dmg_taken":
 			col = Color("#8fd8ff") if not bad else DANGER
-		"guts": col = HEAL
+		"guts", "regen": col = HEAL
+		"ult_dmg": col = GOLD
 		"taunt": col = Color("#ff9a7a")
 		"dmg_cut": col = INTENT_COL.guard # 적의 방어 태세 (이로운 것 — 테 LINE 계열, review_H §2.2)
 		"cover": col = INTENT_COL.cover
@@ -389,9 +390,16 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 			ci.draw_line(c + Vector2(2.5, 0.5), c + Vector2(0, 3), col, 1.2)
 		"crit_rate", "crit_taken", "crit_down":
 			star(ci, c, 3.6, col)
-		"crit_dmg":
+		"crit_dmg", "crit_dmg_taken":
 			star(ci, c + Vector2(-0.5, -0.5), 3.2, col)
 			ci.draw_rect(Rect2(c + Vector2(2, 2), Vector2(1.5, 1.5)), col)
+		"regen": # 지속 회복 (F-4): 작은 십자 + 아래 물결
+			ci.draw_line(c + Vector2(0, -3.5), c + Vector2(0, 1.5), col, 1.4)
+			ci.draw_line(c + Vector2(-2.5, -1), c + Vector2(2.5, -1), col, 1.4)
+			ci.draw_line(c + Vector2(-3, 3), c + Vector2(3, 3), col, 1.0)
+		"ult_dmg": # 대마법 위력 (F-4): 채운 마름모 + 위 점
+			diamond(ci, c + Vector2(0, 0.5), 3.0, col)
+			ci.draw_rect(Rect2(c + Vector2(-0.75, -4), Vector2(1.5, 1.5)), col)
 		"special":
 			ci.draw_arc(c, 3.0, 0.0, TAU, 12, col, 1.0)
 			ci.draw_rect(Rect2(c - Vector2(0.75, 0.75), Vector2(1.5, 1.5)), col)

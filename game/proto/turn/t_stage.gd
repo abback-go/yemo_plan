@@ -360,6 +360,8 @@ func _run(token: int) -> void:
 		for e in ev:
 			if e.t == "zeroed":
 				hud.pop(e.tgt, "크레딧 0", "zero")
+			elif e.t == "heal" and int(e.v) > 0:
+				hud.pop(e.tgt, "+" + TData.fmt_short(int(e.v)), "heal") # 지속 회복 (F-4)
 		hud.refresh()
 		var oc := battle.outcome()
 		if oc == "wave":

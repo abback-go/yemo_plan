@@ -249,7 +249,8 @@ func has_element_buff() -> bool:
 	return false
 
 
-## 종류별 합 (상한 적용). mark 조건이 있는 것은 대상에게 그 징표가 있을 때만 — 특공(special)·per_mark는 그 징표의 겹을 곱한다.
+## 종류별 합 (상한 적용). mark 조건이 있는 것은 대상에게 그 징표가 있을 때만 — 특공(special)·per_mark는 그 징표의 겹을 곱한다
+## (특공은 attack_el이 그 징표의 속성 TData.MARK_EL일 때만 겹을 곱하고, 아니면 1겹 값 — F-4 P1).
 ## el 조건이 있는 버프는 공격 속성이 맞을 때만. 패시브 상시 보정(stat)도 여기서 더한다:
 ##   stat {cat, v, mark?, per_mark?, own_el?, max?} — own_el이면 자기 속성 공격일 때만(부여받은 속성엔 안 붙음), max는 이 패시브의 상한
 func cat_sum(cat: String, target: TUnit = null, attack_el := "") -> float:
@@ -266,7 +267,10 @@ func cat_sum(cat: String, target: TUnit = null, attack_el := "") -> float:
 			if target == null or not target.marks.has(b.mark):
 				continue
 			if cat == "special" or bool(b.get("per_mark", false)):
-				v *= float(target.mark_n(String(b.mark)))
+				var n := target.mark_n(String(b.mark))
+				if cat == "special" and attack_el != String(TData.MARK_EL.get(String(b.mark), "")):
+					n = mini(n, 1) # 징표 특공은 그 속성 공격일 때만 겹을 곱한다 — 다른 속성은 1겹 값 (F-4 P1)
+				v *= float(n)
 		if b.has("el") and cat != "element" and attack_el != String(b.el):
 			continue
 		s += v

@@ -849,7 +849,7 @@ func chain_rect() -> Rect2:
 	var cx := 562.0 - T.width(wl, 10) - 8.0
 	if battle.chain_stage <= 0:
 		return Rect2(cx - 120, 6, 120, 19)
-	var lab := "연쇄 %d단계 · 이어 쓰면 대마법 효과 ×%s" % [battle.chain_stage, str(TData.CHAIN_MULT[mini(battle.chain_stage, 2)])] if battle.chain_stage < 3 else "연쇄 3단계 (최대) · 효과 ×1.5"
+	var lab := TData.chain_label(battle.chain_stage)
 	var w := T.width(lab, 10) + 10.0
 	return Rect2(cx - w - 2.0, 6, w + 4.0, 19)
 
@@ -1001,7 +1001,7 @@ func _draw_top() -> void:
 	# 대마법 연쇄 진행 중 (§13.6) — 효과를 같이 (review_G G17)
 	if battle.chain_owner != null and battle.chain_stage > 0 and state != "banner": # 승패 배너가 열리면 숨김 (L5)
 		var cx := 562.0 - T.width(wl, 10) - 8.0
-		var lab := "연쇄 %d단계 · 이어 쓰면 대마법 효과 ×%s" % [battle.chain_stage, str(TData.CHAIN_MULT[mini(battle.chain_stage, 2)])] if battle.chain_stage < 3 else "연쇄 3단계 (최대) · 효과 ×1.5"
+		var lab := TData.chain_label(battle.chain_stage)
 		var w := T.width(lab, 10) + 10.0
 		var br := 0.5 + 0.5 * sin(_t * TAU / 0.6) if ult_t > 0.0 else 0.0 # 대마법 동안 0.6초 주기로 숨쉼
 		if br > 0.0:

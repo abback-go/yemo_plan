@@ -330,8 +330,9 @@ func use_skill(u: TUnit, skill_id: String, tgt: TUnit) -> Array:
 	for e in effects:
 		if e.t == "buff" and bool(e.get("pre", false)):
 			ev.append(_apply_buff(u, u, e))
-	var opts := {"skill": true, "aoe": String(s.get("target", "")) == "enemies"}
+	var opts := {"skill": true, "aoe": String(s.get("target", "")) == "enemies", "ult": bool(s.get("ultimate", false))}
 	var multi := 1
+	var multi_mark := "" ## 히트 수 + 그 징표 겹 (낙뢰 심판, F-4)
 	var burst := {}
 	var crit_gauge := 0.0
 	for e in effects:
@@ -341,8 +342,11 @@ func use_skill(u: TUnit, skill_id: String, tgt: TUnit) -> Array:
 			opts["ignore_def"] = true
 		elif e.t == "sure_crit":
 			opts["sure_crit"] = true
+		elif e.t == "hp_bonus":
+			opts["hp_bonus"] = e
 		elif e.t == "multi":
 			multi = maxi(int(e.n), 1)
+			multi_mark = String(e.get("per_mark", ""))
 		elif e.t == "burst":
 			burst = e
 		elif e.t == "crit_gauge":
@@ -355,10 +359,11 @@ func use_skill(u: TUnit, skill_id: String, tgt: TUnit) -> Array:
 			var n_burst := t.mark_n(String(burst.mark)) if not burst.is_empty() else 0
 			var mult := float(s.mult) + (float(burst.per) * float(n_burst) if n_burst > 0 else 0.0)
 			var any_crit := false
-			for k in multi:
+			var hits := multi + (t.mark_n(multi_mark) if multi_mark != "" else 0)
+			for k in hits:
 				if not t.alive:
 					break
-				var h := _hit(u, t, mult / float(multi), opts, true)
+				var h := _hit(u, t, mult / float(hits), opts, true)
 				h["sub"] = k
 				ev.append(h)
 				any_crit = any_crit or bool(h.crit)
@@ -371,7 +376,7 @@ func use_skill(u: TUnit, skill_id: String, tgt: TUnit) -> Array:
 				if e.t == "on_crit" and any_crit:
 					for e2 in e.effects:
 						ev.append_array(_apply_effect(u, t, e2, targets))
-			if n_burst > 0 and t.alive:
+			if n_burst > 0 and t.alive and not bool(burst.get("keep", false)): # keep(대화재): 겹만큼 더하고 징표는 남김 (F-4)
 				t.marks.erase(String(burst.mark))
 				ev.append({"t": "burst", "tgt": t, "kind": String(burst.mark), "n": n_burst})
 			ev.append_array(_passive_on_hit(u, t))
@@ -379,7 +384,7 @@ func use_skill(u: TUnit, skill_id: String, tgt: TUnit) -> Array:
 		if crit_gauge > 0.0 and crit_hits > 0:
 			ev.append(_gauge_add(u, crit_gauge * float(crit_hits)))
 	for e in effects:
-		if e.t in ["this_special", "ignore_def", "on_crit", "sure_crit", "multi", "burst", "crit_gauge"] or (e.t == "buff" and bool(e.get("pre", false))):
+		if e.t in ["this_special", "ignore_def", "on_crit", "sure_crit", "multi", "burst", "crit_gauge", "hp_bonus"] or (e.t == "buff" and bool(e.get("pre", false))):
 			continue
 		for t in targets:
 			ev.append_array(_apply_effect(u, t, e, targets))
@@ -398,12 +403,13 @@ func use_skill(u: TUnit, skill_id: String, tgt: TUnit) -> Array:
 
 
 ## 패시브 "틈" (에스카): 내가 때린 적에게 받는 최종 데미지 +v (적 행동 dur번). 판정 없음, 따로 쌓지 않고 남은 수만 새로 (§15.6)
-func _passive_on_hit(u: TUnit, t: TUnit) -> Array:
+## kind = on_hit_debuff(때림) · on_slow_debuff(게이지·차지를 깎음 — 글라시아, F-4)
+func _passive_on_hit(u: TUnit, t: TUnit, kind := "on_hit_debuff") -> Array:
 	var ev: Array = []
-	if not t.alive:
+	if not t.alive or t.is_witch():
 		return ev
 	for p in u.passive:
-		if String(p.t) != "on_hit_debuff":
+		if String(p.t) != kind:
 			continue
 		var found := false
 		for b in t.buffs:
@@ -491,7 +497,7 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, _targets: Array) -> Array:
 				ev.append({"t": "debuff", "tgt": r, "cat": e.cat, "v": float(e.v), "dur": int(e.dur)})
 		"mark":
 			for r in recv:
-				if r.alive:
+				if r.alive and (not e.has("if_mark") or _had(r, String(e.if_mark))): # if_mark: 맞기 전 그 징표가 있던 적만 (불의 고리, F-4)
 					ev.append(_add_mark(u, r, String(e.kind), int(e.dur), int(e.get("n", 1))))
 		"credits":
 			if e.has("if_mark") and not _had(t, String(e.if_mark)):
@@ -522,6 +528,7 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, _targets: Array) -> Array:
 					v *= 2.0
 				r.gauge = maxf(r.gauge - TData.GAUGE_MAX * v, 0.0)
 				ev.append({"t": "enemy_gauge", "tgt": r, "v": v})
+				ev.append_array(_passive_on_hit(u, r, "on_slow_debuff"))
 		"gauge_zero":
 			for r in recv:
 				if not r.alive:
@@ -538,6 +545,9 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, _targets: Array) -> Array:
 				if not r.alive:
 					continue
 				if e.has("if_mark") and not _had(r, String(e.if_mark)):
+					continue
+				if r.stun_immune and int(e.get("else_charge", 0)) > 0 and r.charge_max > 0:
+					ev.append_array(_charge_down(u, r, {"v": int(e.else_charge), "rate": e.get("rate", 1.0)})) # 뇌격: 기절 면역(보스)이면 대신 차지 −n (F-4)
 					continue
 				ev.append_array(_try_stun(r))
 		"taunt":
@@ -587,18 +597,14 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, _targets: Array) -> Array:
 				r.zero_after_turn = turn_no
 				ev.append({"t": "demerit", "tgt": r})
 		"enemy_charge":
-			# 적 차지 −v (§18.5): 성공 판정은 디버프와 같다. 차지가 가득해 보이던 필살기는 거둬지고 의도를 다시 정한다
 			for r in recv:
-				if not r.alive or r.is_witch() or r.charge_max <= 0:
-					continue
-				if _resisted(r, e, u):
-					ev.append({"t": "resist", "tgt": r})
-					continue
-				var before := r.charge
-				r.charge = maxi(r.charge - int(e.v), 0)
-				if r.intent_src == "charge" and r.charge < r.charge_max:
-					decide_intent(r)
-				ev.append({"t": "charge_down", "tgt": r, "v": before - r.charge})
+				if r.alive and (not e.has("if_mark") or _had(r, String(e.if_mark))): # if_mark: 심해의 창 (빙결 적만, F-4)
+					ev.append_array(_charge_down(u, r, e))
+		"regen":
+			# 지속 회복 (§17.6, F-4 — 멀린 보구식): 받은 아군이 행동을 마칠 때마다 최대 체력 × pct (행동 dur번)
+			for r in recv:
+				if r.alive:
+					ev.append(_apply_buff(u, r, {"cat": "regen", "v": float(e.pct), "dur": int(e.dur)}))
 		"hp_cost":
 			# 불의 대가 (§17.9): 체력 −최대 체력 × pct (1 아래로는 안 감, 쓰러지지 않음)
 			for r in recv:
@@ -620,6 +626,22 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, _targets: Array) -> Array:
 					r.add_buff({"cat": "hit_stack", "v": float(e.v), "dur": int(e.dur), "clock": "enemy", "name": "맞으며 쌓기",
 						"max": int(e.get("max", 5)), "stack_dur": int(e.get("stack_dur", 6)), "to": String(e.get("to", "self"))})
 					ev.append({"t": "hit_stack", "tgt": r})
+	return ev
+
+
+## 적 차지 −v (§18.5): 성공 판정은 디버프와 같다. 차지가 가득해 보이던 필살기는 거둬지고 의도를 다시 정한다. 깎았으면 글라시아 패시브 (F-4)
+func _charge_down(u: TUnit, r: TUnit, e: Dictionary) -> Array:
+	if not r.alive or r.is_witch() or r.charge_max <= 0:
+		return []
+	if _resisted(r, e, u):
+		return [{"t": "resist", "tgt": r}]
+	var before := r.charge
+	r.charge = maxi(r.charge - int(e.v), 0)
+	if r.intent_src == "charge" and r.charge < r.charge_max:
+		decide_intent(r)
+	var ev: Array = [{"t": "charge_down", "tgt": r, "v": before - r.charge}]
+	if before > r.charge:
+		ev.append_array(_passive_on_hit(u, r, "on_slow_debuff"))
 	return ev
 
 
@@ -1027,6 +1049,13 @@ func end_action(u: TUnit) -> Array:
 			chain_owner = null
 			chain_stage = 0
 		u.last_act = ""
+		# 지속 회복 (F-4): 행동(쉼 포함)을 마칠 때마다 — 버프 시계가 줄기 전에
+		if u.alive:
+			var rg := u.cat_sum("regen")
+			if rg > 0.0:
+				var hv := u.heal(int(round(float(u.max_hp) * rg)))
+				if hv > 0:
+					ev.append({"t": "heal", "tgt": u, "v": hv, "regen": true})
 	u.on_own_acted()
 	if u.is_witch():
 		if u.zero_after_turn >= 0 and turn_no > u.zero_after_turn:
@@ -1081,6 +1110,8 @@ func _terms_in(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: 
 	if src.is_witch():
 		crit_dmg += _aura(tgt, "crit_dmg") # 토난: 감전 적을 때리는 아군 크리 데미지 +
 	var crit_mult := TData.CRIT_MULT + minf(crit_dmg, float(TData.CAP.crit_dmg))
+	if src.is_witch() and not tgt.is_witch():
+		crit_mult += tgt.cat_sum("crit_dmg_taken", tgt) # 받는 크리 데미지 (과전류, F-4 P3): 크리 데미지 상한과 따로 (자기 상한 60%)
 	var special := src.cat_sum("special", tgt, el)
 	if opts.has("this_special"):
 		var ts: Dictionary = opts.this_special
@@ -1089,23 +1120,37 @@ func _terms_in(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: 
 	if not tgt.marks.is_empty():
 		special += float(eq.get("special", 0.0)) # 장비는 겹을 곱하지 않음
 	special = minf(special, float(TData.CAP.special))
-	var final_sum := src.cat_sum("final", tgt, el) + float(eq.get("final", 0.0)) + tgt.cat_sum("final_taken")
+	var final_sum := src.cat_sum("final", tgt, el) + float(eq.get("final", 0.0)) + tgt.cat_sum("final_taken", tgt)
 	if is_skill:
 		final_sum += float(eq.get("skill_final", 0.0))
 	if el != "" and el == String(eq.get("element", "")):
 		final_sum += float(eq.get("el_final", 0.0)) # 속성 반지 Lv2~3
 	final_sum = minf(final_sum, float(TData.CAP.final))
 	var def_v := 0.0 if opts.get("ignore_def", false) else maxf(tgt.def_rate - src.passive_val("def_pierce"), 0.0)
-	var def_f := clampf(1.0 - def_v + tgt.cat_sum("def_down"), TData.DEF_MIN, TData.DEF_MAX)
+	var def_f := clampf(1.0 - def_v + tgt.cat_sum("def_down", tgt), TData.DEF_MIN, TData.DEF_MAX)
 	# 적이 건 마녀 공격력 다운 (약화, review_H §2.1): 공격력 항 = 1 + 공격력 합 − 다운(상한 50%), 하한 0.3
 	var atk_f := maxf(1.0 + atk_sum - (src.cat_sum("atk_down") if src.is_witch() else 0.0), 0.3)
 	var base := float(src.atk) * mult * elem * atk_f * (1.0 + special) * (1.0 + final_sum) * def_f
+	# 대마법 위력 (F-4 — 배터리 마법의 몫): 대마법 공격에만 따로 곱함
+	if bool(opts.get("ult", false)):
+		base *= 1.0 + src.cat_sum("ult_dmg", tgt, el)
+	# 체력 비례 (F-4 — 이그니스): 적 체력(지금 줄)이 at 넘게 남았을수록 × (1 + v × (비율 − at) / (1 − at)), 따로 곱함
+	if opts.has("hp_bonus"):
+		base *= 1.0 + hp_bonus_of(opts.hp_bonus, tgt)
 	# 적의 방어 태세·보호 (review_H §2.1 · §3): × (1 − min(받는 피해 감소 합, 70%)) — 방어율이 아닌 축이라 방어 무시·에스카 패시브로 안 뚫림
 	if not tgt.is_witch():
 		base *= 1.0 - minf(tgt.cat_sum("dmg_cut") + _ally_guard(tgt), float(TData.CAP.dmg_cut))
 		if bool(opts.get("aoe", false)):
 			base *= 1.0 + _passive_v(tgt, "aoe_taken") # 적 고유 효과 aoe_taken (잿빛 무리 "흩날리는 재", F-3): 광역 공격에 받는 피해 +v
 	return {"base": base, "crit_rate": crit_rate, "crit_mult": crit_mult, "weak": weak, "special": special, "el": el}
+
+
+## 체력 비례 보너스 (hp_bonus {v, at}): 대상 체력 비율이 at 이하면 0, 가득이면 v
+static func hp_bonus_of(e: Dictionary, tgt: TUnit) -> float:
+	if tgt == null:
+		return 0.0
+	var at := float(e.get("at", 0.5))
+	return float(e.v) * clampf((tgt.hp_ratio() - at) / maxf(1.0 - at, 0.01), 0.0, 1.0)
 
 
 ## "이 공격만 특공"이 그 대상에게 붙나: mark(징표가 있으면) 또는 trait(그 특성을 가지면 — 특성 특공, review_F F02 · combat_proto.md §11.4)
@@ -1168,12 +1213,13 @@ func _hit(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: bool)
 	var crit := _crit_roll(float(tm.crit_rate), bool(opts.get("sure_crit", false)))
 	var r := _rand()
 	var dmg := maxi(int(round(float(tm.base) * (float(tm.crit_mult) if crit else 1.0) * r)), 1) # 피해 최소 1
+	var over := maxi(dmg - tgt.hp, 0) # 넘친 피해 (줄이 깨지거나 쓰러질 때 버려지는 몫 — 측정용, F-4)
 	var res := deal(tgt, dmg)
 	src.dealt += dmg
 	var gbreak: bool = bool(tm.weak) and not bool(res.killed) and _guard_break(tgt)
 	log.append("%s → %s %s%s%s %s" % [src.name, tgt.name, TData.fmt(dmg), " 크리" if crit else "", " 약점" if tm.weak else "", "쓰러짐" if res.killed else ("브레이크" if res.broke else "")])
 	return {"t": "hit", "src": src, "tgt": tgt, "dmg": dmg, "crit": crit, "weak": tm.weak, "special": float(tm.special) > 0.0, "killed": res.killed, "guts": res.guts, "broke": res.broke, "invincible": false, "el": tm.el,
-		"hp": tgt.hp, "max_hp": tgt.max_hp, "bar_i": tgt.bar_i, "fall": res.get("fall", []), "guard_break": gbreak}
+		"hp": tgt.hp, "max_hp": tgt.max_hp, "bar_i": tgt.bar_i, "fall": res.get("fall", []), "guard_break": gbreak, "over": over}
 
 
 ## 적 고유 효과 guard_break (세 빛의 인형 "갈라지는 빛", F-3): 약점 속성 공격을 맞으면 그 공격 뒤 방어 태세가 풀린다 → true
@@ -1256,6 +1302,7 @@ func est_info(src: TUnit, tgt: TUnit, skill_id: String) -> Dictionary:
 			s = TData.chain_scaled(s, mini(chain_stage + 1, 3))
 		mult = float(s.mult)
 		opts["aoe"] = String(s.get("target", "")) == "enemies"
+		opts["ult"] = bool(s.get("ultimate", false))
 		for e in s.get("effects", []):
 			if e.t == "buff" and bool(e.get("pre", false)):
 				_apply_buff(src, src, e)
@@ -1267,6 +1314,8 @@ func est_info(src: TUnit, tgt: TUnit, skill_id: String) -> Dictionary:
 				opts["ignore_def"] = true
 			elif e.t == "sure_crit":
 				opts["sure_crit"] = true
+			elif e.t == "hp_bonus":
+				opts["hp_bonus"] = e
 			elif e.t == "burst":
 				mult += float(e.per) * float(tgt.mark_n(String(e.mark)))
 	else:

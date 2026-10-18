@@ -34,6 +34,49 @@ static func _in(key: String, u: TUnit) -> bool:
 
 
 static func pick(b: TBattle, u: TUnit) -> Dictionary:
+	var a := _pick(b, u)
+	if String(a.get("kind", "")) == "skill" and a.get("target") is TUnit and not (a.target as TUnit).is_witch():
+		a["target"] = big_target(b, u, String(a.skill), a.target) # 큰 한 방은 넘치지 않는 적에게 (F-4 — 총괄 결정 ①)
+	return a
+
+
+## 큰 단일 공격(3비용 이상·대마법)의 대상: 고를 수 있는 적 중 "넘치지 않는 피해" min(예상 기대 피해, 지금 줄 체력)이 가장 큰 적 (5% 넘게 클 때만 바꿈).
+## 자폭 직전 졸개를 노린 것은 그대로. 이그니스의 체력 비례(hp_bonus)·약점·특공·터뜨리기는 est_info가 다 셈 (F-4 — review_J §2.2 넘친 피해 43%)
+static func big_target(b: TBattle, u: TUnit, sid: String, en: TUnit) -> TUnit:
+	var sk := TData.skill(sid)
+	if en == null or String(sk.get("kind", "")) != "attack" or String(sk.get("target", "")) != "enemy":
+		return en
+	if not (bool(sk.get("ultimate", false)) or int(sk.get("cost", 0)) >= 3):
+		return en
+	if String(en.intent().get("k", "")) == "finisher" and bool(en.intent().get("self_ko", false)):
+		return en
+	var cands := b.foe_targets()
+	var open: Array[TUnit] = []
+	for e in cands:
+		if not e.has_buff("dmg_cut"):
+			open.append(e)
+	if not open.is_empty():
+		cands = open
+	var best := en
+	var best_v := _eff_dmg(b, u, sid, en)
+	for t in cands:
+		var v := _eff_dmg(b, u, sid, t)
+		if v > best_v * 1.05:
+			best = t
+			best_v = v
+	return best
+
+
+## 넘치지 않는 기대 피해: min(예상 × 크리 기대, 지금 줄 체력)
+static func _eff_dmg(b: TBattle, u: TUnit, sid: String, t: TUnit) -> float:
+	var info := b.est_info(u, t, sid)
+	if info.is_empty():
+		return 0.0
+	var ex := float(info.est) if bool(info.sure) else float(info.est) + float(info.rate) * (float(info.crit) - float(info.est))
+	return minf(ex, float(t.hp))
+
+
+static func _pick(b: TBattle, u: TUnit) -> Dictionary:
 	var en := enemy_for(b, u)
 	var dealer := dealer_of(b)
 	var ult := String(u.data.get("ultimate", ""))
@@ -71,6 +114,9 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 		if not fd.is_empty():
 			return fd
 		if b.chain_stage == 0 and dealer.alive and dealer.credits < TData.ULT_COST and not spend:
+			var hl := _heal_pick(b, u, en, dealer)
+			if not hl.is_empty():
+				return hl # 모으는 배터리도 다친 아군은 고친다 (F-4 — 배터리 plan이 회복을 안 써 전멸하던 것, review_J §2.2 C1·C2)
 			return {"kind": "basic", "skill": "basic", "target": en} # 연쇄 전에는 모은다
 	if _in("push", u) and dealer.alive and dealer != u:
 		# 차례 몰아주기: 장착한 것 중 딜러 게이지를 가장 크게 올리는 마법 — 크레딧이 모자라면 모은다
@@ -185,6 +231,10 @@ static func _attack_value(b: TBattle, sk: Dictionary, en: TUnit, u: TUnit = null
 			"this_special":
 				if TBattle.special_hits(e, en):
 					v *= 1.0 + float(e.v)
+			"hp_bonus": # 체력 비례 (F-4)
+				v *= 1.0 + TBattle.hp_bonus_of(e, en)
+	if bool(sk.get("ultimate", false)) and u != null:
+		v *= 1.0 + u.cat_sum("ult_dmg") # 대마법 위력 버프 (F-4)
 	return v
 
 
@@ -437,7 +487,12 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 				"burst":
 					var n := en.mark_n(String(e.mark))
 					var purge := String(en.intent().get("k", "")) == "purge"
-					s *= (mult + float(e.per) * float(n)) / mult if (n >= 3 or (purge and n >= 1)) else 0.5 # 3겹 전에는 쌓아 둔다 (징표 털기가 보이면 지금)
+					if bool(e.get("keep", false)):
+						s *= (mult + float(e.per) * float(n)) / mult # 징표를 남기는 것(대화재)은 쌓을 필요 없이 겹만큼
+					else:
+						s *= (mult + float(e.per) * float(n)) / mult if (n >= 3 or (purge and n >= 1)) else 0.5 # 3겹 전에는 쌓아 둔다 (징표 털기가 보이면 지금)
+				"hp_bonus":
+					s *= 1.0 + TBattle.hp_bonus_of(e, en) # 체력이 많은 적일수록 (F-4)
 				"hp_cost":
 					if u.hp_ratio() < 0.45:
 						s *= 0.3
@@ -447,6 +502,8 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 				"stun":
 					if stun_worth(en) and (not e.has("if_mark") or en.marks.has(e.if_mark)):
 						s *= 1.6
+					elif en.stun_immune and e.has("else_charge") and charge_target(b) == en and (not e.has("if_mark") or en.marks.has(e.if_mark)):
+						s *= 1.6 # 뇌격: 보스면 차지 −1 (F-4)
 		if _counting(u, "skill"):
 			s *= 1.6 if cost >= 3 else 0.3 # "다음 공격 마법 1번" 강화는 큰 공격에 쓴다
 		if u.credits >= 5 and cost >= 4:
@@ -496,8 +553,21 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 		var tank := _tank(b)
 		for e in effects:
 			match String(e.t):
+				"regen": # 지속 회복 (F-4): 다친 아군이 있고 아직 없으면
+					var hurt := false
+					for w in b.alive_of(b.witches):
+						hurt = hurt or w.hp_ratio() < 0.75
+					fresh += (1.4 if hurt else 0.3) if not who.has_buff("regen") else 0.0
 				"buff":
-					if e.cat == "dmg_taken":
+					if e.cat == "ult_dmg": # 대마법 위력 (F-4): 공격 대마법이 있는 마녀가 이 마법의 크레딧까지 받으면 다음 차례에 대마법을 쓸 수 있을 때만
+						var wu := String(who.data.get("ultimate", ""))
+						var atk_ult := wu != "" and String(TData.skill(wu).kind) == "attack"
+						var gain := 0
+						for e2 in effects:
+							if String(e2.t) == "credits" and String(e2.get("who", "target")) == "target":
+								gain += int(e2.v)
+						fresh += 1.0 if atk_ult and not who.has_buff("ult_dmg") and who.credits + gain + 1 >= TData.ULT_COST else 0.0
+					elif e.cat == "dmg_taken":
 						fresh += (2.5 if pierce_coming(b) else 1.2) if heavy_coming(b) else 0.2
 					elif e.has("count"):
 						if who.has_skill_buff(sid):
@@ -506,6 +576,10 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 							pass # 다음 공격 1번 강화: 뒤따를 3비용 이상 공격이 없으면 걸지 않는다
 						else:
 							fresh += 1.4
+					elif e.cat == "element":
+						fresh += 1.0 if _element_worth(who, en, String(e.get("el", ""))) else 0.0
+					elif e.has("el") and who.attack_element() != String(e.el) and not _element_worth(who, en, String(e.el)):
+						pass # 그 속성 공격에만 붙는 버프(장작 얹기의 화염 크리 데미지) — 속성이 안 바뀌면 0
 					else:
 						fresh += 0.0 if who.has_buff(e.cat) else 1.0
 				"credits":
@@ -547,6 +621,18 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 	return {"score": s, "tgt": tgt}
 
 
+## 속성 부여를 걸 가치: 이미 그 속성이 아니고, 적 약점이 그 속성이거나(지금 속성은 약점이 아님) 받은 징표 특공이 그 속성의 겹을 곱하게 될 때 (F-4 P1)
+static func _element_worth(who: TUnit, en: TUnit, el: String) -> bool:
+	if el == "" or who.attack_element() == el:
+		return false
+	if en != null and en.weak.has(el) and not en.weak.has(who.attack_element()):
+		return true
+	for bf in who.buffs:
+		if String(bf.get("cat", "")) == "special" and String(TData.MARK_EL.get(String(bf.get("mark", "")), "")) == el:
+			return true
+	return false
+
+
 ## 광역 공격 마법을 장착했나
 static func _aoe_attacker(u: TUnit) -> bool:
 	for sid in u.equipped:
@@ -563,6 +649,28 @@ static func _guards(sid: String) -> bool:
 		if t in ["invincible", "revive"] or (t == "buff" and String(e.get("cat", "")) == "dmg_taken") or (t == "debuff" and String(e.get("cat", "")) == "atk_down"):
 			return true
 	return false
+
+
+## 회복·되살림·지속 회복 마법 중 점수가 기준을 넘는 것 (아군 체력 45% 미만 또는 쓰러짐이 있을 때만)
+static func _heal_pick(b: TBattle, u: TUnit, en: TUnit, dealer: TUnit) -> Dictionary:
+	var need := false
+	for w in b.witches:
+		need = need or not w.alive or w.hp_ratio() < 0.45
+	if not need:
+		return {}
+	var best := ""
+	var best_s := USE_AT_SUP
+	var best_t: TUnit = null
+	for sid in u.equipped:
+		var effs: Array = TData.skill(sid).get("effects", [])
+		if not (_heals(effs) or _has(effs, "regen")) or not b.can_use(u, sid):
+			continue
+		var r := score(b, u, sid, en, dealer)
+		if float(r.score) > best_s:
+			best_s = float(r.score)
+			best = sid
+			best_t = r.tgt
+	return {} if best == "" else {"kind": "skill", "skill": best, "target": best_t}
 
 
 ## 지키는 마녀: 위험한 의도(강공격·전체·필살기)나 차지 가득 앞이면 쓸 수 있는 보호 마법 중 점수가 가장 높은 것

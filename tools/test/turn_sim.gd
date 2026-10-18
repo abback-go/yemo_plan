@@ -11,6 +11,9 @@ extends SceneTree
 ##   bt 전투id           : 원형 8개 프리셋을 그 전투 하나로만 (승 · 행동 · 분)
 ##   acts 원형id 전투id  : 그 원형 프리셋의 행동 내역 (마녀:마법별 횟수 · 판당 · 1회 평균 피해) — 느리고 빠른 까닭 찾기
 ##   e2                 : 밸런스 후속 E2 목표 셋만 빠르게 — 원형별 딜러 마법 몫 · 기본 파티 보스 분 · 회복 없는 파티 일반 승률 (combat_proto.md §27.3)
+##   [단계 F-4 — review_J_skills.md §8 · combat_proto.md §27.9]
+##   combo [조합 id …]  : 이름 붙은 3인 조합 13 (COMBOS) × boss_01 손 규칙·TAuto + 시련 — 분 · 연쇄 · 넘친 피해 · B7 대비 배수
+##   loadout [마녀 id …]: 그 마녀의 장착 210가지 × boss_01 (같은 속성 파티 · "마녀@a,b,c"면 그 파티) — 최고·기본 순위·10% 안 수·상위 20 마법 횟수
 ##   [단계 F-2 — review_H_enemies.md §8 · combat_proto.md §27.7]
 ##   h [전투 id …]      : 전투 10개(+안내) × 원형 8 + 비교 파티 3(X3 세 속성 · AX 광역 번개 · D0 기본 파티) — 승·분 표 · B1~B8 평균 · 보스 속도 비 ·
 ##                        속성 맞춤 배수(일반 = normal_01, 보스 = boss_01 대비) · K1′(받는 피해 ÷ 파티 최대 체력) · 웨이브 ①② 받은 피해 ÷ 파티 체력(규칙 3) ·
@@ -53,7 +56,7 @@ const BUILDS := {
 	"B8": {"name": "대가 몰빵", "party": ["ignis", "ember", "astra"], "plan": {"dealer": "ignis", "ult_only": ["ignis"], "trigger": {"astra": {"skill": "overcharge", "at": 5}}}, # D2·E2: 역류는 이그니스가 5가 될 때 → 대가가 걸린 차례엔 가장 센 공격(태양의 창)을 바로 씀 (TAuto 대가 규칙)
 		"state": {"ignis": {"equipped": ["spark", "pillar", "sun_spear", "focus"], "equip": "kaleido"},
 			"ember": {"equipped": ["crown", "bellows", "flame_breath", "blessing"], "equip": "notebook"},
-			"astra": {"equipped": ["overcharge", "rod", "static", "starlight"], "equip": "star_shard"}}},
+			"astra": {"equipped": ["overcharge", "guide_bolt", "static", "starlight"], "equip": "star_shard"}}}, # F-4: 피뢰침(감전 특공)은 P1로 불 딜러에게 1겹 값 → 번개 길잡이
 }
 
 
@@ -73,6 +76,15 @@ func _process(_d: float) -> bool:
 		return true
 	if args.size() > 1 and String(args[1]) == "e2":
 		_mode_e2(runs)
+		return true
+	if args.size() > 1 and String(args[1]) in ["combo", "loadout"]:
+		var only2: Array = []
+		for k in range(2, args.size()):
+			only2.append(String(args[k]))
+		if String(args[1]) == "combo":
+			_mode_combo(runs, only2)
+		else:
+			_mode_loadout(runs, only2)
 		return true
 	if args.size() > 1 and String(args[1]) == "h":
 		var only: Array = []
@@ -207,12 +219,14 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 		"finishers": 0, "enemy_acts": 0, "enemy_rounds": 0.0, "stack_max": 0, "oneshots": 0, "acts": {},
 		"basic_acts": 0, "cred_skill": 0, "w_hits": 0, "w_crits": 0, "ally_gauge": 0.0, "foe_gauge": 0.0, "act_dmg": [], "inv_hits": 0, "foe_hits": 0, "heals": 0,
 		"skill_by": {}, ## 마녀별 공격 마법(대마법 아님) 피해 — 딜러 마법 몫 (D2·E2)
-		"taken": 0, "taken_front": 0, "aoe_skill": 0, "ev": {}} ## F-2: 마녀가 받은 피해 합 · 마지막 웨이브 앞에서 받은 피해 · 광역 공격 마법(대마법 아님) 횟수 · 새 의도 실행 수
+		"taken": 0, "taken_front": 0, "aoe_skill": 0, "ev": {}, ## F-2: 마녀가 받은 피해 합 · 마지막 웨이브 앞에서 받은 피해 · 광역 공격 마법(대마법 아님) 횟수 · 새 의도 실행 수
+		"foe_hp": _wave_hp(b), "w_dealt": 0, "over_by": {}, "dealt_by": {}} ## F-4: 적 전체 체력(줄 합, 부른 적 포함) · 마녀가 준 피해 합 — 넘친 피해 = 1 − 적 체력 ÷ 준 피해 (이긴 판)
 	var guard := 0
 	while guard < 1500:
 		var oc := b.outcome()
 		if oc == "wave":
 			b.next_wave()
+			r.foe_hp = int(r.foe_hp) + _wave_hp(b)
 			continue
 		if oc != "":
 			break
@@ -273,7 +287,13 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 						r.taken_front = int(r.taken_front) + int(e.dmg)
 		for e in ev:
 			match String(e.t):
+				"summon":
+					r.foe_hp = int(r.foe_hp) + _unit_hp(e.tgt)
 				"hit":
+					if e.src.is_witch():
+						r.w_dealt = int(r.w_dealt) + int(e.dmg)
+						r.over_by[e.src.id] = int(r.over_by.get(e.src.id, 0)) + int(e.get("over", 0))
+						r.dealt_by[e.src.id] = int(r.dealt_by.get(e.src.id, 0)) + int(e.dmg)
 					if e.src.is_witch() and int(e.dmg) > int(r.biggest):
 						r.biggest = int(e.dmg)
 						r.biggest_who = "%s %s" % [e.src.name, b.last_action]
@@ -311,6 +331,23 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 	r["dealt"] = dealt
 	r["wave"] = b.wave_i + 1
 	return r
+
+
+## 지금 웨이브 적의 체력 합 (여러 줄이면 줄 합)
+func _wave_hp(b: TBattle) -> int:
+	var n := 0
+	for e in b.enemies:
+		n += _unit_hp(e)
+	return n
+
+
+func _unit_hp(e: TUnit) -> int:
+	if e.bars.is_empty():
+		return e.max_hp
+	var n := 0
+	for h in e.bars:
+		n += int(h)
+	return n
 
 
 ## TAuto로 한 차례
@@ -1020,3 +1057,325 @@ func _mode_h(runs: int, only: Array) -> void:
 	for foe in ["ash_king", "prism_doll", "ash_brood"]:
 		var lk := _mode_lock(runs, true, String(foe))
 		print("  무적 잠금 %s: 마력 샘 %.0f%% · 장비 없음 %.0f%%" % [foe, float(lk.mana_spring), float(lk.none)])
+
+
+# ═══════════════════════════════════════════════════════════
+# 단계 F-4 측정 (review_J_skills.md §1.1 · §2 · §8 — 검토자 측정 스크립트를 여기로 옮김, combat_proto.md §27.9)
+# ═══════════════════════════════════════════════════════════
+
+## 이름 붙은 3인 조합 13 (review_J §2.2). hand = 손 규칙(마녀마다 위에서부터 처음 맞는 것, 없으면 대마법 → 기본 공격), plan = TAuto 판의 plan.
+## 손 규칙 한 줄 = {s: 마법 id("ULT" = 자기 대마법), to: foe|dealer|self|low|dead, if: {조건}}
+##   조건: miss(대상에 그 마법 버프 없음 — 값 없이 true) · mark_lt [징표, n](적 겹 < n) · cr_ge n(자기 크레딧 ≥ n) · dcr_lt n · dcr_ge n(딜러 크레딧) · hurt x(아군 체력 < x)
+##         danger(위험한 의도) · foes_ge n · chain_ge n · chain_lt n · no_debuff 종류(적에게 없음) · dbuff 종류(딜러가 그 종류 버프를 받음) · weak_el 속성(적 약점이 그 속성)
+const COMBOS := {
+	"C1": {"name": "물 수문", "party": ["undine", "ember", "astra"], "dealer": "undine", "plan": {"dealer": "undine", "ult_only": ["undine"], "battery": ["ember", "astra"]},
+		"state": {"undine": {"equip": "kaleido"}, "ember": {"equipped": ["tinder", "share_ember", "blessing", "flame_breath"], "equip": "notebook"},
+			"astra": {"equipped": ["lightning_share", "starlight", "spur", "rod"], "equip": "swift_boots"}},
+		"hand": {"undine": [{"s": "ULT", "to": "foe"}],
+			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "share_ember", "to": "dealer", "if": {"dcr_lt": 7}}, {"s": "tinder", "to": "dealer", "if": {"dcr_lt": 7}}],
+			"astra": [{"s": "starlight", "to": "self", "if": {"hurt": 0.5}}, {"s": "lightning_share", "to": "dealer", "if": {"dcr_lt": 7}}]}},
+	"C2": {"name": "검의 수문", "party": ["harpe", "ember", "astra"], "dealer": "harpe", "plan": {"dealer": "harpe", "ult_only": ["harpe"], "battery": ["ember", "astra"]},
+		"state": {"harpe": {"equip": "kaleido"}, "ember": {"equipped": ["tinder", "share_ember", "blessing", "flame_breath"], "equip": "notebook"},
+			"astra": {"equipped": ["lightning_share", "starlight", "spur", "rod"], "equip": "swift_boots"}},
+		"hand": {"harpe": [{"s": "ULT", "to": "foe"}],
+			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "share_ember", "to": "dealer", "if": {"dcr_lt": 7}}, {"s": "tinder", "to": "dealer", "if": {"dcr_lt": 7}}],
+			"astra": [{"s": "starlight", "to": "self", "if": {"hurt": 0.5}}, {"s": "lightning_share", "to": "dealer", "if": {"dcr_lt": 7}}]}},
+	"C3": {"name": "번개 과녁", "party": ["fulgur", "astra", "tonan"], "dealer": "fulgur", "plan": {"dealer": "fulgur"},
+		"state": {"fulgur": {"equipped": ["charge_up", "spark_bolt", "thunderbolt", "thunder_lance"], "equip": "mirror_shard"},
+			"astra": {"equipped": ["star_touch", "rod", "starlight", "spur"], "equip": "star_shard"}, "tonan": {"equipped": ["needle", "overcurrent", "shock_brand", "thunder_oath"], "equip": "ash_charm"}},
+		"hand": {"fulgur": [{"s": "ULT", "to": "foe"}, {"s": "charge_up", "to": "self", "if": {"miss": true}}],
+			"astra": [{"s": "starlight", "to": "self", "if": {"hurt": 0.5}}, {"s": "star_touch", "to": "dealer", "if": {"miss": true}}, {"s": "rod", "to": "dealer", "if": {"miss": true}}],
+			"tonan": [{"s": "needle", "to": "foe", "if": {"mark_lt": ["shock", 3]}}, {"s": "overcurrent", "to": "foe", "if": {"no_debuff": "crit_dmg_taken"}}, {"s": "thunder_oath", "to": "self", "if": {"miss": true}}, {"s": "shock_brand", "to": "foe", "if": {"no_debuff": "def_down"}}]}},
+	"C4": {"name": "화장터", "party": ["cinder", "ember", "ignis"], "dealer": "ignis", "plan": {"dealer": "ignis"},
+		"state": {"cinder": {"equipped": ["kindle_up", "ash_heap", "ash_dust", "ash_oath"], "equip": "ash_charm"}, "ember": {"equipped": ["bellows", "crown", "god_descent", "blessing"]},
+			"ignis": {"equipped": ["spark", "pillar", "burst_fire", "sun_spear"], "equip": "kaleido"}}, # 이그니스 장착은 1.9 기본 그대로 (조합 비교가 기본 장착 교체에 흔들리지 않게)
+		"hand": {"cinder": [{"s": "kindle_up", "to": "foe", "if": {"mark_lt": ["burn", 4]}}, {"s": "ash_heap", "to": "foe", "if": {"no_debuff": "def_down"}}, {"s": "ash_oath", "to": "self", "if": {"miss": true}}],
+			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "bellows", "to": "dealer", "if": {"miss": true}}, {"s": "crown", "to": "dealer", "if": {"miss": true}}, {"s": "god_descent", "to": "dealer", "if": {"dcr_ge": 6}}],
+			"ignis": [{"s": "ULT", "to": "foe"}, {"s": "sun_spear", "to": "foe", "if": {"dbuff": "atk"}}, {"s": "pillar", "to": "foe", "if": {"cr_ge": 3, "dbuff": "special"}}, {"s": "spark", "to": "foe", "if": {"mark_lt": ["burn", 1]}}]}},
+	"C5": {"name": "수행자의 벽", "party": ["nerei", "hora", "harpe"], "dealer": "harpe", "plan": {"dealer": "harpe", "guard": ["nerei", "hora"]}, "auto_only": true,
+		"state": {"nerei": {"equipped": ["wave_hold", "spring", "ocean_blessing", "water_veil"], "equip": "iron_heart"},
+			"hora": {"equipped": ["rewind", "turn_back", "stopped_clock", "time_haste"], "equip": "hourglass_charm"}, "harpe": {"equip": "feather_charm"}}},
+	"C6": {"name": "불꽃 공간", "party": ["eska", "ember", "cinder"], "dealer": "eska", "plan": {"dealer": "eska"},
+		"state": {"eska": {"equipped": ["doom", "blackstar", "crack", "compress"], "equip": "black_cup"}, "ember": {"equipped": ["kindling", "bellows", "blessing", "share_ember"]},
+			"cinder": {"equipped": ["ember_wind", "kindle_up", "ash_oath", "ash_dust"]}},
+		"hand": {"eska": [{"s": "ULT", "to": "foe"}, {"s": "blackstar", "to": "foe", "if": {"foes_ge": 3}}, {"s": "doom", "to": "foe", "if": {"cr_ge": 4}}, {"s": "crack", "to": "foe", "if": {"no_debuff": "def_down"}}],
+			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "kindling", "to": "dealer", "if": {"miss": true}}, {"s": "bellows", "to": "dealer", "if": {"miss": true}}, {"s": "share_ember", "to": "dealer", "if": {"dcr_lt": 4}}],
+			"cinder": [{"s": "ember_wind", "to": "foe", "if": {"foes_ge": 2, "mark_lt": ["burn", 2]}}, {"s": "kindle_up", "to": "foe", "if": {"mark_lt": ["burn", 4]}}, {"s": "ash_oath", "to": "self", "if": {"miss": true}}]}},
+	"C7": {"name": "시계 잠금", "party": ["glacia", "hora", "undine"], "dealer": "undine", "plan": {"dealer": "undine"}, "auto_only": true,
+		"state": {"glacia": {"equipped": ["still_frost", "deep_freeze", "ice_wall", "rime"], "equip": "swift_boots"}, "hora": {"equipped": ["stopped_clock", "rewind", "time_haste", "turn_back"]}, "undine": {"equip": "notebook"}}},
+	"C8": {"name": "세 대마법 행진", "party": ["ember", "astra", "undine"], "dealer": "undine", "plan": {"dealer": "undine"},
+		"state": {"ember": {"equipped": ["blessing", "tinder", "bellows", "flame_breath"], "equip": "notebook"}, "astra": {"equipped": ["starlight", "lightning_share", "spur", "star_touch"], "equip": "notebook"},
+			"undine": {"equip": "kaleido"}},
+		"hand": {"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.45}}, {"s": "ULT", "to": "self", "if": {"chain_lt": 1}}],
+			"astra": [{"s": "starlight", "to": "self", "if": {"hurt": 0.45}}, {"s": "ULT", "to": "self", "if": {"chain_ge": 1}}],
+			"undine": [{"s": "ULT", "to": "foe", "if": {"chain_ge": 2}}, {"s": "ULT", "to": "foe", "if": {"chain_lt": 1}}, {"s": "glacier", "to": "foe", "if": {"cr_ge": 4, "chain_lt": 1, "dcr_lt": 6}}]}},
+	"C9": {"name": "초침 폭주", "party": ["harpe", "astra", "hora"], "dealer": "harpe", "plan": {"dealer": "harpe", "push": ["astra", "hora"]},
+		"state": {"harpe": {"equip": "star_shard"}, "astra": {"equipped": ["spur", "guide_bolt", "starlight", "lightning_share"], "equip": "swift_boots"}, "hora": {"equipped": ["once_more", "second_hand", "time_haste", "rewind"]}},
+		"hand": {"harpe": [{"s": "ULT", "to": "foe"}, {"s": "doom_slash", "to": "foe", "if": {"cr_ge": 5}}, {"s": "heaven_split", "to": "foe", "if": {"cr_ge": 4}}],
+			"astra": [{"s": "starlight", "to": "self", "if": {"hurt": 0.5}}, {"s": "spur", "to": "dealer"}, {"s": "guide_bolt", "to": "dealer"}],
+			"hora": [{"s": "rewind", "to": "low", "if": {"hurt": 0.4}}, {"s": "once_more", "to": "dealer"}, {"s": "time_haste", "to": "self"}]}},
+	"C10": {"name": "벼락 검", "party": ["tonan", "astra", "harpe"], "dealer": "harpe", "plan": {"dealer": "harpe"},
+		"state": {"tonan": {"equipped": ["needle", "thunder_oath", "overcurrent", "shock_brand"], "equip": "ash_charm"}, "astra": {"equipped": ["lightning_cloak", "rod", "starlight", "spur"]},
+			"harpe": {"equip": "star_shard"}},
+		"hand": {"tonan": [{"s": "needle", "to": "foe", "if": {"mark_lt": ["shock", 3]}}, {"s": "thunder_oath", "to": "self", "if": {"miss": true}}, {"s": "overcurrent", "to": "foe", "if": {"no_debuff": "crit_dmg_taken"}}],
+			"astra": [{"s": "starlight", "to": "self", "if": {"hurt": 0.5}}, {"s": "lightning_cloak", "to": "dealer", "if": {"miss": true, "weak_el": "bolt"}}, {"s": "rod", "to": "dealer", "if": {"miss": true}}],
+			"harpe": [{"s": "ULT", "to": "foe"}, {"s": "doom_slash", "to": "foe"}, {"s": "heaven_split", "to": "foe"}]}},
+	"C11": {"name": "서리 물레", "party": ["glacia", "nerei", "undine"], "dealer": "undine", "plan": {"dealer": "undine"},
+		"state": {"glacia": {"equipped": ["rime", "still_frost", "winter_oath", "blizzard"], "equip": "ash_charm"}, "nerei": {"equipped": ["frost_breath", "high_tide", "spring", "water_veil"], "equip": "notebook"},
+			"undine": {"equip": "star_shard"}},
+		"hand": {"glacia": [{"s": "rime", "to": "foe", "if": {"mark_lt": ["frost", 2]}}, {"s": "winter_oath", "to": "self", "if": {"miss": true}}, {"s": "still_frost", "to": "foe", "if": {"no_debuff": "def_down"}}],
+			"nerei": [{"s": "spring", "to": "low", "if": {"hurt": 0.45}}, {"s": "frost_breath", "to": "dealer", "if": {"miss": true}}, {"s": "high_tide", "to": "dealer", "if": {"dcr_lt": 5}}],
+			"undine": [{"s": "ULT", "to": "foe"}, {"s": "glacier", "to": "foe", "if": {"cr_ge": 4}}, {"s": "water_lance", "to": "foe", "if": {"mark_lt": ["frost", 1]}}]}},
+	"C12": {"name": "역류 몰빵", "party": ["ignis", "ember", "astra"], "dealer": "ignis", "plan": {"dealer": "ignis", "ult_only": ["ignis"], "trigger": {"astra": {"skill": "overcharge", "at": 5}}},
+		"state": {"ignis": {"equipped": ["spark", "pillar", "sun_spear", "focus"], "equip": "kaleido"}, "ember": {"equipped": ["crown", "bellows", "flame_breath", "blessing"], "equip": "notebook"},
+			"astra": {"equipped": ["overcharge", "guide_bolt", "static", "starlight"], "equip": "star_shard"}},
+		"hand": {"ignis": [{"s": "ULT", "to": "foe"}, {"s": "sun_spear", "to": "foe", "if": {"dbuff": "atk"}}, {"s": "spark", "to": "foe", "if": {"mark_lt": ["burn", 1]}}],
+			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "bellows", "to": "dealer", "if": {"miss": true}}, {"s": "crown", "to": "dealer", "if": {"miss": true}}],
+			"astra": [{"s": "starlight", "to": "self", "if": {"hurt": 0.5}}, {"s": "overcharge", "to": "dealer", "if": {"dcr_ge": 6, "dbuff": "atk"}}, {"s": "guide_bolt", "to": "dealer", "if": {"miss": true}}]}},
+	# 같은 불 지원에 딜러만 바꾼 대조 (review_J §2.2 아래 표 — 넘친 피해 · 행동당 피해): 엠버 장작 얹기·풀무질·축복·불씨 나눔 · 신더 불씨 바람·연소 촉진·맹세·재 뿌리기, 딜러 검은 잔
+	"D1": {"name": "불 지원 → 이그니스", "party": ["ignis", "ember", "cinder"], "dealer": "ignis", "plan": {"dealer": "ignis"},
+		"state": {"ignis": {"equipped": ["spark", "pillar", "burst_fire", "sun_spear"], "equip": "black_cup"}, "ember": {"equipped": ["kindling", "bellows", "blessing", "share_ember"]}, "cinder": {"equipped": ["ember_wind", "kindle_up", "ash_oath", "ash_dust"]}},
+		"hand": {"ignis": "auto",
+			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "kindling", "to": "dealer", "if": {"miss": true, "not_el": "fire"}}, {"s": "bellows", "to": "dealer", "if": {"miss": true}}, {"s": "share_ember", "to": "dealer", "if": {"dcr_lt": 4}}],
+			"cinder": [{"s": "ember_wind", "to": "foe", "if": {"foes_ge": 2, "mark_lt": ["burn", 2]}}, {"s": "kindle_up", "to": "foe", "if": {"mark_lt": ["burn", 4]}}, {"s": "ash_oath", "to": "self", "if": {"miss": true}}, {"s": "ash_dust", "to": "foe"}]}},
+	"D2": {"name": "불 지원 → 에스카", "party": ["eska", "ember", "cinder"], "dealer": "eska", "plan": {"dealer": "eska"},
+		"state": {"eska": {"equipped": ["crack", "compress", "doom", "blackstar"], "equip": "black_cup"}, "ember": {"equipped": ["kindling", "bellows", "blessing", "share_ember"]}, "cinder": {"equipped": ["ember_wind", "kindle_up", "ash_oath", "ash_dust"]}},
+		"hand": {"eska": "auto",
+			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "kindling", "to": "dealer", "if": {"miss": true, "not_el": "fire"}}, {"s": "bellows", "to": "dealer", "if": {"miss": true}}, {"s": "share_ember", "to": "dealer", "if": {"dcr_lt": 4}}],
+			"cinder": [{"s": "ember_wind", "to": "foe", "if": {"foes_ge": 2, "mark_lt": ["burn", 2]}}, {"s": "kindle_up", "to": "foe", "if": {"mark_lt": ["burn", 4]}}, {"s": "ash_oath", "to": "self", "if": {"miss": true}}, {"s": "ash_dust", "to": "foe"}]}},
+	"D3": {"name": "불 지원 → 하르페", "party": ["harpe", "ember", "cinder"], "dealer": "harpe", "plan": {"dealer": "harpe"},
+		"state": {"harpe": {"equipped": ["heaven_split", "doom_slash", "bw_slash", "sword_ki"], "equip": "black_cup"}, "ember": {"equipped": ["kindling", "bellows", "blessing", "share_ember"]}, "cinder": {"equipped": ["ember_wind", "kindle_up", "ash_oath", "ash_dust"]}},
+		"hand": {"harpe": "auto",
+			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "kindling", "to": "dealer", "if": {"miss": true, "not_el": "fire"}}, {"s": "bellows", "to": "dealer", "if": {"miss": true}}, {"s": "share_ember", "to": "dealer", "if": {"dcr_lt": 4}}],
+			"cinder": [{"s": "ember_wind", "to": "foe", "if": {"foes_ge": 2, "mark_lt": ["burn", 2]}}, {"s": "kindle_up", "to": "foe", "if": {"mark_lt": ["burn", 4]}}, {"s": "ash_oath", "to": "self", "if": {"miss": true}}, {"s": "ash_dust", "to": "foe"}]}},
+	"C13": {"name": "재 묻은 검", "party": ["harpe", "ember", "cinder"], "dealer": "harpe", "plan": {"dealer": "harpe"},
+		"state": {"harpe": {"equipped": ["heaven_split", "doom_slash", "bw_slash", "sword_ki"], "equip": "black_cup"}, "ember": {"equipped": ["bellows", "blessing", "crown", "share_ember"]},
+			"cinder": {"equipped": ["ember_wind", "kindle_up", "ash_oath", "ash_dust"]}},
+		"hand": {"harpe": [{"s": "ULT", "to": "foe"}, {"s": "doom_slash", "to": "foe"}, {"s": "heaven_split", "to": "foe"}],
+			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "bellows", "to": "dealer", "if": {"miss": true}}, {"s": "crown", "to": "dealer", "if": {"miss": true}}, {"s": "share_ember", "to": "dealer", "if": {"dcr_lt": 4}}],
+			"cinder": [{"s": "ember_wind", "to": "foe", "if": {"foes_ge": 2, "mark_lt": ["burn", 2]}}, {"s": "kindle_up", "to": "foe", "if": {"mark_lt": ["burn", 4]}}, {"s": "ash_oath", "to": "self", "if": {"miss": true}}]}},
+}
+
+
+## 손 규칙 한 차례 (COMBOS.hand) — 규칙에 없으면 대마법 → 기본 공격
+func _hand(b: TBattle, u: TUnit, rules: Array, dealer_id: String) -> Dictionary:
+	var en := TAuto.enemy_for(b, u)
+	var dealer := _by_id(b, dealer_id)
+	if dealer == null or not dealer.alive:
+		dealer = u
+	var ult := String(u.data.get("ultimate", ""))
+	for r in rules:
+		var sid := String(r.s)
+		if sid == "ULT":
+			sid = ult
+		if not u.equipped.has(sid) and sid != ult:
+			continue
+		var tgt: TUnit = en
+		match String(r.get("to", "foe")):
+			"dealer": tgt = dealer
+			"self": tgt = u
+			"low", "dead":
+				tgt = null
+				for w in b.witches:
+					if String(r.to) == "dead" and not w.alive:
+						tgt = w
+						break
+					if w.alive and (tgt == null or w.hp_ratio() < tgt.hp_ratio()):
+						tgt = w
+		if tgt == null or not b.can_use(u, sid):
+			continue
+		if not _hand_ok(b, u, sid, tgt, en, dealer, r.get("if", {})):
+			continue
+		if String(TData.skill(sid).target) in ["enemy"]:
+			tgt = TAuto.big_target(b, u, sid, en)
+		elif String(TData.skill(sid).target) in ["enemies", "allies", "self"]:
+			tgt = b.valid_targets(u, sid)[0]
+		return {"ev": b.use_skill(u, sid, tgt), "sid": sid}
+	if ult != "" and b.can_use(u, ult) and not (rules.size() > 0 and String(rules[0].s) == "ULT" and not (rules[0].get("if", {}) as Dictionary).is_empty()):
+		var t: TUnit = en if String(TData.skill(ult).target) == "enemy" else b.valid_targets(u, ult)[0]
+		return {"ev": b.use_skill(u, ult, t), "sid": ult}
+	return {"ev": b.basic_attack(u, en), "sid": ""}
+
+
+func _hand_ok(b: TBattle, u: TUnit, sid: String, tgt: TUnit, en: TUnit, dealer: TUnit, c: Dictionary) -> bool:
+	for k in c:
+		var v = c[k]
+		match String(k):
+			"miss":
+				if tgt.has_skill_buff(sid):
+					return false
+			"mark_lt":
+				if en == null or en.mark_n(String(v[0])) >= int(v[1]):
+					return false
+			"cr_ge":
+				if u.credits < int(v):
+					return false
+			"dcr_lt":
+				if dealer.credits >= int(v):
+					return false
+			"dcr_ge":
+				if dealer.credits < int(v):
+					return false
+			"hurt":
+				var any := false
+				for w in b.witches:
+					any = any or not w.alive or w.hp_ratio() < float(v)
+				if not any:
+					return false
+			"danger":
+				if not TAuto.heavy_coming(b):
+					return false
+			"foes_ge":
+				if b.alive_of(b.enemies).size() < int(v):
+					return false
+			"chain_ge":
+				if b.chain_stage < int(v):
+					return false
+			"chain_lt":
+				if b.chain_stage >= int(v):
+					return false
+			"no_debuff":
+				if en == null or en.has_buff(String(v)):
+					return false
+			"dbuff":
+				if not dealer.has_buff(String(v)):
+					return false
+			"weak_el":
+				if en == null or not en.weak.has(String(v)):
+					return false
+			"not_el":
+				if dealer.attack_element() == String(v):
+					return false
+	return true
+
+
+## 조합 하나 × 전투 하나 × (손 규칙 | TAuto): 승 · 분 · 판당 대마법·연쇄2·연쇄3 · 최대 한 방 · 넘친 피해 % · 딜러 행동/적 1체 행동
+func _combo_stat(cid: String, bt: String, runs: int, hand: bool) -> Dictionary:
+	var cd: Dictionary = COMBOS[cid]
+	var agg := {"win": 0, "w": 0, "a": 0, "ults": 0, "chain2": 0, "chain3": 0, "biggest": 0, "foe_hp": 0, "dealt": 0, "d_acts": 0, "rounds": 0.0, "fin": 0, "d_over": 0, "d_dealt": 0}
+	for i in runs:
+		TAuto.plan = cd.plan
+		var b := TBattle.new()
+		b.setup(cd.party, bt, cd.state, 7000 + i)
+		var r: Dictionary
+		if hand:
+			r = _play(b, func(u: TUnit) -> Dictionary:
+				var hr = (cd.hand as Dictionary).get(u.id, [])
+				return _auto(b, u) if hr is String else _hand(b, u, hr, String(cd.dealer))) # "auto" = 그 마녀만 TAuto
+		else:
+			r = _play(b, func(u: TUnit) -> Dictionary: return _auto(b, u))
+		TAuto.plan = {}
+		for k in ["ults", "chain2", "chain3"]:
+			agg[k] = int(agg[k]) + int(r[k])
+		agg.fin = int(agg.fin) + int(r.finishers)
+		agg.biggest = maxi(int(agg.biggest), int(r.biggest))
+		agg.d_acts = int(agg.d_acts) + int(r.acts.get(String(cd.dealer), 0))
+		agg.rounds = float(agg.rounds) + float(r.enemy_rounds)
+		agg.d_over = int(agg.d_over) + int(r.over_by.get(String(cd.dealer), 0))
+		agg.d_dealt = int(agg.d_dealt) + int(r.dealt_by.get(String(cd.dealer), 0))
+		if bool(r.win):
+			agg.win = int(agg.win) + 1
+			agg.w = int(agg.w) + int(r.witch_acts)
+			agg.a = int(agg.a) + int(r.all_acts)
+			agg.foe_hp = int(agg.foe_hp) + int(r.foe_hp)
+			agg.dealt = int(agg.dealt) + int(r.w_dealt)
+	var wn := maxf(float(agg.win), 1.0)
+	return {"win": int(agg.win), "min": _minutes(float(agg.w) / wn, float(agg.a) / wn), "ults": float(agg.ults) / runs, "chain2": float(agg.chain2) / runs, "chain3": float(agg.chain3) / runs,
+		"biggest": int(agg.biggest), "over": 1.0 - float(agg.foe_hp) / maxf(float(agg.dealt), 1.0) if int(agg.win) > 0 else 0.0, "tempo": float(agg.d_acts) / maxf(float(agg.rounds), 1.0), "fin": float(agg.fin) / runs,
+		"d_over": float(agg.d_over) / maxf(float(agg.d_dealt), 1.0), "d_dpa": float(agg.d_dealt) / maxf(float(agg.d_acts), 1.0)}
+
+
+## combo [조합 id …]: 13 조합 × boss_01 (손 규칙 · TAuto) + 시련 (TAuto). 기준 = 가장 느린 승리 원형 B7 보스 — 2배보다 빠르면 너무 강함 (review_J §2.1)
+func _mode_combo(runs: int, only: Array) -> void:
+	var b7 := _build_stat("B7", "boss_01", runs)
+	print("=== 조합 13 (%d판씩, 시드 7000+, boss_01 — 기준 B7 %.1f분, 2배 경계 %.1f분) ===" % [runs, float(b7.min), float(b7.min) / 2.0])
+	print("| # | 조합 | 손 규칙 (분 · 대마법 · 연쇄2 · 연쇄3 · 넘침 · 최대 한 방 · 딜러 행동/적 1체) | TAuto (승 · 분 · 연쇄3 · 넘침 · 필살기 맞음) | 시련 TAuto | B7 대비 |")
+	for cid in COMBOS:
+		if not only.is_empty() and not only.has(cid):
+			continue
+		var cd: Dictionary = COMBOS[cid]
+		var hs := "—"
+		var fastest := INF
+		if not bool(cd.get("auto_only", false)):
+			var h := _combo_stat(String(cid), "boss_01", runs, true)
+			hs = ("%d/%d · " % [int(h.win), runs] if int(h.win) < runs else "") + "%.1f분 · %.1f · %.1f · %.1f · %d%% · %s · %.2f" % [float(h.min), float(h.ults), float(h.chain2), float(h.chain3), int(round(100.0 * float(h.over))), TData.fmt(int(h.biggest)), float(h.tempo)]
+			if int(h.win) > 0:
+				fastest = float(h.min)
+		var a := _combo_stat(String(cid), "boss_01", runs, false)
+		if int(a.win) > 0:
+			fastest = minf(fastest, float(a.min))
+		var t := _combo_stat(String(cid), "trial_01", runs, false)
+		print("| %s | %s | %s | %d/%d · %.1f분 · %.1f · %d%% (딜러 %d%% · 행동당 %s) · %.1f | %d/%d | %.2f배 |" % [cid, cd.name, hs, int(a.win), runs, float(a.min), float(a.chain3), int(round(100.0 * float(a.over))),
+			int(round(100.0 * float(a.d_over))), TData.fmt(int(a.d_dpa)), float(a.fin), int(t.win), runs,
+			float(b7.min) / fastest if fastest < INF else 0.0])
+
+
+## 장착 측정 (review_J §1.1): 마녀 wid의 장착 4개를 모든 조합(10C4 = 210)으로 바꿔 STYLE_PARTIES의 같은 속성 파티(동료 기본 장착, 장비 없음)에서 boss_01 runs판씩.
+## 출력: 최고 조합·분 · 기본 장착 순위·분 · 최고와 10% 안 조합 수 · 상위 20에 든 마법 횟수 · 상위 5
+func _mode_loadout(runs: int, only: Array) -> void:
+	print("=== 장착 210가지 (boss_01 %d판씩, 동료 = 같은 속성 파티 기본 장착, 장비 없음) ===" % runs)
+	var over := {} ## "마녀@a,b,c" = 그 마녀를 다른 파티에서 (장착 고민이 파티에 따라 다른지)
+	for o in only:
+		if String(o).contains("@"):
+			over[String(o).get_slice("@", 0)] = Array(String(o).get_slice("@", 1).split(","))
+	for wid in TData.ROSTER:
+		if not only.is_empty() and not only.has(String(wid)) and not over.has(String(wid)):
+			continue
+		var party: Array = []
+		for k in STYLE_PARTIES:
+			if (STYLE_PARTIES[k] as Array).has(wid) and k != "기본":
+				party = STYLE_PARTIES[k]
+		if over.has(String(wid)):
+			party = over[String(wid)]
+		var sk: Array = TData.WITCHES[wid].skills
+		var rows: Array = []
+		for a in sk.size():
+			for b2 in range(a + 1, sk.size()):
+				for c in range(b2 + 1, sk.size()):
+					for d in range(c + 1, sk.size()):
+						var eq: Array = [String(sk[a]), String(sk[b2]), String(sk[c]), String(sk[d])]
+						var wins := 0
+						var w := 0
+						var al := 0
+						for i in runs:
+							var r := _auto_game(party, "boss_01", {wid: {"equipped": eq}}, 52000 + i)
+							if bool(r.win):
+								wins += 1
+								w += int(r.witch_acts)
+								al += int(r.all_acts)
+						var wn := maxf(float(wins), 1.0)
+						var m := _minutes(float(w) / wn, float(al) / wn) if wins > 0 else 999.0
+						m += float(runs - wins) * 5.0 # 진 판은 판당 5분 벌점 (지는 조합이 위로 오지 않게)
+						rows.append([m, eq, wins])
+		rows.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+		var best := float(rows[0][0])
+		var within := 0
+		var def_rank := -1
+		var def_min := 0.0
+		var freq := {}
+		var dset: Array = TData.WITCHES[wid].default
+		for i in rows.size():
+			if float(rows[i][0]) <= best * 1.10:
+				within += 1
+			var e: Array = rows[i][1]
+			var same := true
+			for s in dset:
+				same = same and e.has(String(s))
+			if same:
+				def_rank = i + 1
+				def_min = float(rows[i][0])
+			if i < 20:
+				for s in e:
+					freq[s] = int(freq.get(s, 0)) + 1
+		var fl: Array = []
+		for s in sk:
+			fl.append("%s %d" % [TData.SKILLS[s].name, int(freq.get(s, 0))])
+		var top: Array = []
+		for i in mini(5, rows.size()):
+			var names: Array = []
+			for s in rows[i][1]:
+				names.append(String(TData.SKILLS[s].name))
+			top.append("%.1f [%s]%s" % [float(rows[i][0]), "·".join(names), "" if int(rows[i][2]) == runs else " (%d/%d)" % [int(rows[i][2]), runs]])
+		print("%s (%s): 최고 %.1f분 · 기본 %d위 %.1f분 (%+d%%) · 10%% 안 %d가지" % [TData.WITCHES[wid].name, "·".join(party), best, def_rank, def_min, int(round(100.0 * (def_min / best - 1.0))), within])
+		print("   상위 20 횟수: " + " · ".join(fl))
+		print("   상위 5: " + " | ".join(top))

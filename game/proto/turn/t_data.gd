@@ -45,6 +45,16 @@ extends RefCounted
 ##   spread kind                              — 대상의 그 징표 겹 수만큼 다른 적 전체에 (§17.1)
 ##   hit_stack who v max dur stack_dur to     — 맞으며 쌓기: 적 행동 dur번 동안 맞을 때마다 to(self|allies)에게 공격력 +v 한 겹 (§17.11)
 ##   기본 공격 "hits": N                      — 배율을 N번으로 나눠 맞힘 (히트마다 크리 판정)
+##   [단계 F-4 2026-10-18, combat_proto.md 2.0 — review_J_skills.md]
+##   특공(special + mark)은 공격 속성이 그 징표의 속성(MARK_EL)일 때만 겹을 곱한다 — 다른 속성이면 1겹 값 (P1, §11.4)
+##   regen who pct dur                        — 지속 회복: 받은 아군이 행동을 마칠 때마다 최대 체력 × pct 회복 (행동 dur번, §17.6)
+##   buff cat ult_dmg                         — 대마법 위력: 대마법 공격의 피해에만 따로 곱함 (배터리 마법의 몫, §13.3)
+##   debuff cat crit_dmg_taken [mark per_mark] — 이 적을 때리는 아군 크리 데미지 +v (크리 데미지 상한과 따로, 과전류)
+##   hp_bonus v at                            — 이 공격만: 적 체력(지금 줄)이 at 넘게 남았을수록 피해 × (1 + v × (비율 − at) / (1 − at)) (이그니스, §11.4)
+##   burst ... keep                           — 터뜨리기 배율은 더하되 징표는 남김 (대화재)
+##   multi n per_mark kind                    — 히트 수 = n + 대상의 그 징표 겹 (낙뢰 심판)
+##   mark·enemy_charge ... if_mark            — 맞기 전 대상에게 그 징표가 있었을 때만
+##   stun ... else_charge n                   — 기절 면역(보스)이면 대신 차지 −n (뇌격)
 ## 패시브(WITCHES[id].passive.effects, §15.6) — 버프가 아니라 해제되지 않는다:
 ##   stat cat v [mark]        — 상시 보정 (mark가 있으면 대상에게 그 징표가 있을 때만, 겹을 곱하지 않음)
 ##   aura cat v               — 이 마녀가 살아 있는 동안 아군 전체에 (지금은 dmg_taken만)
@@ -61,11 +71,12 @@ extends RefCounted
 ##   rate_plus v              — 내가 거는 디버프·게이지 감소·차지 감소 성공률 +v (글라시아)
 ##   taunt_guard v            — 도발 중 자신 받는 피해 +v (음수, 네레이)
 ##   on_hit_debuff cat v dur  — 내가 때린 적에게 판정 없이 (따로 쌓지 않고 남은 수만 새로, 에스카 "틈")
+##   on_slow_debuff cat v dur — 내가 게이지·차지를 깎은 적에게 판정 없이 (같은 방식, 글라시아 — F-4)
 ## 버프 지속 "dur"은 대상이 행동을 N번 마칠 때까지(clock own). invincible·dmg_taken·taunt·guts는 적 행동 N번(clock enemy).
 
 ## 데이터 판: 적·마법·전투 데이터(id·패턴·의도 종류)를 바꿀 때 올린다. 끊긴 전투 파일에 적고, 판이 다르면 이어 하기를 버린다 (review_I I-03)
-##   1 = 1.7까지 · 2 = 단계 F-2 (적 14·보스 3·전투 10, 의도 9종) · 3 = F-3 (특성 특공 마법 3 · 세 빛의 인형 태세·줄 · 흩날리는 재)
-const DATA_VER := 3
+##   1 = 1.7까지 · 2 = 단계 F-2 (적 14·보스 3·전투 10, 의도 9종) · 3 = F-3 (특성 특공 마법 3 · 세 빛의 인형 태세·줄 · 흩날리는 재) · 4 = F-4 (마법·대마법·패시브 품질 — 새 효과 종류)
+const DATA_VER := 4
 const GAUGE_MAX := 1000.0
 const CREDIT_MAX := 7
 const BASIC_BONUS := 1 ## 기본 공격을 쓰면 더 주는 크레딧
@@ -75,7 +86,10 @@ const CRIT_BASE := 0.10
 const CRIT_MULT := 1.5
 const WEAK := 1.5
 const SPECIAL := 1.2
-const CAP := {"atk": 3.0, "crit_dmg": 3.0, "special": 2.0, "final": 1.0, "def_down": 0.5, "atk_down": 0.5, "dmg_taken": 1.0, "crit_rate": 0.9, "crit_taken": 0.5, "crit_down": 0.5, "final_taken": 0.5, "dmg_cut": 0.7}
+const CAP := {"atk": 3.0, "crit_dmg": 3.0, "special": 2.0, "final": 1.0, "def_down": 0.5, "atk_down": 0.5, "dmg_taken": 1.0, "crit_rate": 0.9, "crit_taken": 0.5, "crit_down": 0.5, "final_taken": 0.5, "dmg_cut": 0.7,
+	"crit_dmg_taken": 0.6, "ult_dmg": 1.0, "regen": 0.5}
+## 징표 → 그 징표의 속성 (특공이 겹을 곱하는 공격 속성, F-4 P1)
+const MARK_EL := {"burn": "fire", "frost": "water", "shock": "bolt"}
 const ENEMY_CRIT_BASE := 0.05 ## 적의 크리 확률 (크리 다운 디버프의 대상)
 const ULT_COST := 7 ## 대마법 비용 (= 크레딧 상한, §13)
 const MARK_MAX := 5 ## 징표 최대 겹 (§17.1)
@@ -83,10 +97,12 @@ const SKILL_LV := [1.00, 1.15, 1.30] ## 마법 강화 Lv1~3 수치 배수 (§4.4
 const RESIST := {"normal": 0.0, "elite": 0.1, "boss": 0.3} ## 적 등급별 디버프 내성 (§16.5)
 const TIER_NAME := {"normal": "일반", "elite": "강적", "boss": "보스"}
 ## 강화로 오르는 효과 칸 (t → 키). 비용·지속·크레딧 +N·겹 수·히트 수·크리 확정·방어 무시·기절·도발·근성·터뜨리기는 그대로 (§4.4)
-const LV_SCALE := {"buff": "v", "debuff": "v", "gauge": "v", "enemy_gauge": "v", "this_special": "v", "heal": "pct", "revive": "pct", "crit_gauge": "v", "hit_stack": "v"}
-## 대마법 연쇄 (§13.6): 단계 1·2·3의 부가 효과 배수 (배율·크레딧·겹 수·지속은 그대로). 칸은 LV_SCALE + 터뜨리기 per
+const LV_SCALE := {"buff": "v", "debuff": "v", "gauge": "v", "enemy_gauge": "v", "this_special": "v", "heal": "pct", "revive": "pct", "crit_gauge": "v", "hit_stack": "v", "regen": "pct", "hp_bonus": "v"}
+## 대마법 연쇄 (§13.6): 단계 1·2·3의 부가 효과 배수 (크레딧·겹 수·지속은 그대로). 칸은 LV_SCALE + 터뜨리기 per
 const CHAIN_MULT := [1.00, 1.25, 1.50]
-const CHAIN_SCALE := {"buff": "v", "debuff": "v", "gauge": "v", "enemy_gauge": "v", "this_special": "v", "heal": "pct", "revive": "pct", "crit_gauge": "v", "hit_stack": "v", "burst": "per"}
+## 공격 대마법의 배율(mult)은 단계 1·2·3에 ×1.15·×1.3 (F-4 P2 — 공격 대마법도 연쇄 끝에 둘 이유)
+const CHAIN_DMG := [1.00, 1.15, 1.30]
+const CHAIN_SCALE := {"buff": "v", "debuff": "v", "gauge": "v", "enemy_gauge": "v", "this_special": "v", "heal": "pct", "revive": "pct", "crit_gauge": "v", "hit_stack": "v", "burst": "per", "regen": "pct", "hp_bonus": "v"}
 const DEF_MIN := 0.3
 const DEF_MAX := 1.5
 const RAND_LO := 0.95
@@ -97,7 +113,7 @@ const MARK_NAME := {"burn": "화상", "frost": "빙결", "shock": "감전"}
 const CAT_NAME := {"atk": "공격력", "crit_dmg": "크리 데미지", "crit_rate": "크리 확률", "special": "특공", "final": "최종 데미지",
 	"dmg_taken": "받는 피해", "element": "속성 부여", "def_down": "방어 다운", "atk_down": "공격력 다운", "invincible": "무적",
 	"crit_taken": "받는 크리 확률", "crit_down": "크리 확률 다운", "taunt": "도발", "guts": "근성", "final_taken": "받는 최종 데미지", "hit_stack": "맞으며 쌓기",
-	"dmg_cut": "방어 태세", "cover": "막아서기"}
+	"dmg_cut": "방어 태세", "cover": "막아서기", "crit_dmg_taken": "받는 크리 데미지", "ult_dmg": "대마법 위력", "regen": "지속 회복"}
 const ROLE_NAME := {"dealer": "딜러", "buffer": "버퍼", "caster": "술사", "special": "범용"}
 const ELEMENT_COLOR := {"fire": Color("#ff8a3a"), "water": Color("#5ec8ff"), "bolt": Color("#ffe34a"), "space": Color("#b9a2ff"), "time": Color("#f2d27a"), "sword": Color("#f2eff7")}
 ## 편성 명단 순서 (속성별 딜러·버퍼·술사 → 무상성)
@@ -112,7 +128,7 @@ const WITCHES := {
 		"element": "space", "special": true,
 		"basic": {"name": "작은 균열", "mult": 1.0, "desc": "단일 1.0배. 차례를 넘기며 크레딧 +1"},
 		"skills": ["crack", "void_gate", "leap", "seal", "gap", "compress", "doom", "stigma", "blackstar", "cradle"],
-		"default": ["crack", "seal", "doom", "cradle"],
+		"default": ["crack", "doom", "blackstar", "cradle"], # F-4 P6: 장착 210가지 측정 (combat_proto.md §27.9)
 		"ultimate": "ult_eska",
 		"passive": {"name": "틈", "desc": "에스카가 때린 적은 아군에게 받는 최종 데미지 +10% (적 행동 2번, 다시 때리면 남은 수만 새로)", "effects": [{"t": "on_hit_debuff", "cat": "final_taken", "v": 0.10, "dur": 2}]},
 		"color": Color("#b9a2ff"), "accent": Color("#f2eff7"),
@@ -122,7 +138,7 @@ const WITCHES := {
 		"element": "fire", "special": false,
 		"basic": {"name": "불씨 튀김", "mult": 1.0, "mark": "burn", "mark_dur": 2, "desc": "단일 1.0배 + 화상(적 행동 2번). 크레딧 +1"},
 		"skills": ["spark", "blood_strike", "focus", "burst_fire", "pillar", "breath_of_fire", "ash_storm", "blaze", "sun_spear", "conflagration"],
-		"default": ["spark", "pillar", "burst_fire", "sun_spear"],
+		"default": ["spark", "ash_storm", "blaze", "sun_spear"], # F-4 P6: 장착 210가지 측정 (combat_proto.md §27.9)
 		"ultimate": "ult_ignis",
 		"passive": {"name": "불꽃 심장", "desc": "불 공격일 때 대상의 화상 1겹마다 크리 데미지 +8% (최대 +40%). 부여받은 속성 공격엔 붙지 않음", "effects": [{"t": "stat", "cat": "crit_dmg", "v": 0.08, "mark": "burn", "per_mark": true, "own_el": true, "max": 0.40}]},
 		"color": Color("#ff6a3d"), "accent": Color("#ffd27a"),
@@ -162,7 +178,7 @@ const WITCHES := {
 		"element": "water", "special": false,
 		"basic": {"name": "물방울", "mult": 0.8, "desc": "단일 0.8배. 크레딧 +1"},
 		"skills": ["droplet", "water_cloak", "frost_breath", "spring", "wave_hold", "current", "high_tide", "water_veil", "sea_embrace", "ocean_blessing"],
-		"default": ["spring", "wave_hold", "current", "water_veil"],
+		"default": ["frost_breath", "spring", "high_tide", "water_veil"], # F-4 P6: 장착 210가지 측정 (combat_proto.md §27.9)
 		"ultimate": "ult_nerei",
 		"passive": {"name": "잔물결 보호", "desc": "네레이가 살아 있는 동안 아군 전체 받는 피해 −10% · 도발 중이면 자신 받는 피해 −10% 더", "effects": [{"t": "aura", "cat": "dmg_taken", "v": -0.10}, {"t": "taunt_guard", "v": -0.10}]},
 		"color": Color("#8fd4ff"), "accent": Color("#f0fbff"),
@@ -172,9 +188,9 @@ const WITCHES := {
 		"element": "water", "special": false,
 		"basic": {"name": "서리 손끝", "mult": 0.9, "mark": "frost", "mark_dur": 2, "desc": "단일 0.9배 + 빙결(적 행동 2번). 크레딧 +1"},
 		"skills": ["rime", "thin_ice", "icicle", "blizzard", "ice_wall", "still_frost", "deep_freeze", "ice_coffin", "permafrost", "winter_oath"],
-		"default": ["rime", "blizzard", "deep_freeze", "still_frost"],
+		"default": ["still_frost", "deep_freeze", "ice_coffin", "permafrost"], # F-4 P6: 장착 210가지 측정 (combat_proto.md §27.9)
 		"ultimate": "ult_glacia",
-		"passive": {"name": "서리 장인", "desc": "글라시아가 거는 디버프·적 게이지 감소·적 차지 감소의 성공률 +15% 더 (덧셈)", "effects": [{"t": "rate_plus", "v": 0.15}]},
+		"passive": {"name": "서리 장인", "desc": "글라시아가 거는 디버프·적 게이지 감소·적 차지 감소의 성공률 +15% 더 (덧셈) · 글라시아가 게이지·차지를 깎은 적은 아군에게 받는 최종 데미지 +15% (적 행동 2번, 다시 깎으면 남은 수만 새로)", "effects": [{"t": "rate_plus", "v": 0.15}, {"t": "on_slow_debuff", "cat": "final_taken", "v": 0.15, "dur": 2}]},
 		"color": Color("#bfe9ff"), "accent": Color("#ffffff"),
 	},
 	"fulgur": {
@@ -182,7 +198,7 @@ const WITCHES := {
 		"element": "bolt", "special": false,
 		"basic": {"name": "스파크 튕김", "mult": 1.2, "hits": 3, "mark": "shock", "mark_dur": 2, "desc": "단일 1.2배를 3번으로 나눠 (각 0.4배, 히트마다 크리 판정) + 감전(적 행동 2번). 크레딧 +1"},
 		"skills": ["spark_bolt", "chain_lightning", "charge_up", "thunderbolt", "flash", "current_share", "thunderstorm", "lightning_strike", "thunder_lance", "storm_god"],
-		"default": ["spark_bolt", "charge_up", "thunderbolt", "thunder_lance"],
+		"default": ["spark_bolt", "thunderbolt", "flash", "lightning_strike"], # F-4 P6: 장착 210가지 측정 (combat_proto.md §27.9)
 		"ultimate": "ult_fulgur",
 		"passive": {"name": "번개 눈", "desc": "감전 적에게 크리 확률 +15% · 크리가 난 행동 뒤 자신 행동 게이지 +10%", "effects": [{"t": "stat", "cat": "crit_rate", "v": 0.15, "mark": "shock"}, {"t": "on_crit", "effects": [{"t": "gauge", "who": "self", "v": 0.10}]}]},
 		"color": Color("#ffe34a"), "accent": Color("#fffbe0"),
@@ -194,7 +210,7 @@ const WITCHES := {
 		"skills": ["static", "lightning_cloak", "rod", "spur", "star_touch", "starlight", "guide_bolt", "overcharge", "lightning_share", "meteor_blessing"],
 		"default": ["star_touch", "rod", "starlight", "lightning_share"],
 		"ultimate": "ult_astra",
-		"passive": {"name": "별의 걸음", "desc": "아스트라가 거는 아군 게이지 증가 +10% 더 (덧셈)", "effects": [{"t": "gauge_plus", "v": 0.10}]},
+		"passive": {"name": "별의 걸음", "desc": "아스트라가 거는 아군 게이지 증가 +10% 더 (덧셈) · 아군에게 보조 마법을 걸면 그 아군 게이지 +10%", "effects": [{"t": "gauge_plus", "v": 0.10}, {"t": "support_gauge", "v": 0.10}]},
 		"color": Color("#c9a0ff"), "accent": Color("#fff6c8"),
 	},
 	"tonan": {
@@ -204,7 +220,7 @@ const WITCHES := {
 		"skills": ["needle", "overcurrent", "volt", "thunder", "shock_spread", "discharge", "shock_brand", "conduction", "thundercloud", "thunder_oath"],
 		"default": ["needle", "overcurrent", "conduction", "thunder_oath"],
 		"ultimate": "ult_tonan",
-		"passive": {"name": "피뢰 표식", "desc": "토난이 살아 있는 동안 감전 적을 때리는 아군 전체 크리 데미지 +15%", "effects": [{"t": "aura", "cat": "crit_dmg", "v": 0.15, "mark": "shock"}]},
+		"passive": {"name": "피뢰 표식", "desc": "토난이 살아 있는 동안 감전 적을 때리는 아군 전체 크리 데미지 +30%", "effects": [{"t": "aura", "cat": "crit_dmg", "v": 0.30, "mark": "shock"}]},
 		"color": Color("#7a8cff"), "accent": Color("#ffe34a"),
 	},
 	"hora": {
@@ -212,9 +228,9 @@ const WITCHES := {
 		"element": "time", "special": true,
 		"basic": {"name": "초침 찌르기", "mult": 0.8, "desc": "단일 0.8배. 크레딧 +1"},
 		"skills": ["second_hand", "stopped_clock", "rewind", "time_haste", "clock_hand", "hourglass", "once_more", "time_stop", "doomsday_clock", "turn_back"],
-		"default": ["second_hand", "time_haste", "once_more", "turn_back"],
+		"default": ["rewind", "time_haste", "hourglass", "turn_back"], # F-4 P6: 장착 210가지 측정 (combat_proto.md §27.9)
 		"ultimate": "ult_hora",
-		"passive": {"name": "이른 시계", "desc": "전투 시작 때 아군 전체 행동 게이지 +20%", "effects": [{"t": "start_gauge", "who": "allies", "v": 0.20}]},
+		"passive": {"name": "이른 시계", "desc": "전투 시작 때 아군 전체 행동 게이지 +20% · 아군에게 보조 마법을 걸면 그 아군 게이지 +10%", "effects": [{"t": "start_gauge", "who": "allies", "v": 0.20}, {"t": "support_gauge", "v": 0.10}]},
 		"color": Color("#f2d27a"), "accent": Color("#fff8e0"),
 	},
 	"harpe": {
@@ -222,9 +238,9 @@ const WITCHES := {
 		"element": "sword", "special": true,
 		"basic": {"name": "흑백 참격", "mult": 1.1, "desc": "단일 1.1배. 크레딧 +1"},
 		"skills": ["bw_slash", "return_cut", "sword_dance", "flash_cut", "space_cut", "sword_ki", "heaven_split", "sword_wind", "doom_slash", "bw_dance"],
-		"default": ["bw_slash", "sword_ki", "heaven_split", "doom_slash"],
+		"default": ["flash_cut", "heaven_split", "sword_wind", "doom_slash"], # F-4 P6: 장착 210가지 측정 (combat_proto.md §27.9)
 		"ultimate": "ult_harpe",
-		"passive": {"name": "검의 리듬", "desc": "크리 데미지 +10% (상시) · 크리가 나면 자신 크리 확률 +20% (다음 행동 1번). 다단 히트는 그 행동이 끝날 때 한 번만", "effects": [{"t": "stat", "cat": "crit_dmg", "v": 0.10}, {"t": "on_crit", "effects": [{"t": "buff", "who": "self", "cat": "crit_rate", "v": 0.20, "dur": 2}]}]},
+		"passive": {"name": "검의 리듬", "desc": "크리 데미지 +10% (상시) · 크리가 나면 자신 크리 데미지 +20% (다음 행동 1번). 다단 히트는 그 행동이 끝날 때 한 번만", "effects": [{"t": "stat", "cat": "crit_dmg", "v": 0.10}, {"t": "on_crit", "effects": [{"t": "buff", "who": "self", "cat": "crit_dmg", "v": 0.20, "dur": 2}]}]},
 		"color": Color("#f2eff7"), "accent": Color("#14081f"),
 	},
 }
@@ -238,8 +254,8 @@ const SKILLS := {
 		"effects": [{"t": "buff", "cat": "final", "v": 0.30, "dur": 3}, {"t": "gauge", "v": 0.30}],
 		"desc": "아군 1: 최종 데미지 +30% (행동 3번) + 행동 게이지 +30%", "ref": "공명·멀린의 단일 몰아주기 + 차례 당기기"},
 	"leap": {"name": "틈새 도약", "cost": 2, "kind": "support", "target": "ally", "fx": "leap", "icon": "dash",
-		"effects": [{"t": "gauge", "v": 0.50}, {"t": "credits", "v": 1}],
-		"desc": "아군 1: 행동 게이지 +50% + 크레딧 +1", "ref": "스카디 S3의 단일 충전 (자원을 한 명에게 넘김)"},
+		"effects": [{"t": "gauge", "v": 0.30}, {"t": "credits", "v": 2}],
+		"desc": "아군 1: 행동 게이지 +30% + 크레딧 +2", "ref": "스카디 S3의 단일 충전 (자원을 한 명에게 넘김, 교환비 1 — F-4: +1은 박차·공허의 문보다 낮았다)"},
 	"seal": {"name": "봉공", "cost": 4, "kind": "support", "target": "allies", "fx": "seal", "icon": "shield",
 		"effects": [{"t": "invincible", "who": "allies", "dur": 1}, {"t": "credits", "who": "other_allies", "v": 1}],
 		"desc": "아군 전체: 무적 (다음 적 행동 1번) + 다른 아군 크레딧 +1", "ref": "캐스토리아의 지키면서 채우기 (자기 충전은 뺌 — 무한 순환 막기). 전체 무적은 4비용 (§15.3, 단계 E E3)"},
@@ -278,21 +294,21 @@ const SKILLS := {
 	"pillar": {"name": "솟구치는 불기둥", "cost": 3, "kind": "attack", "target": "enemy", "mult": 5.0, "fx": "pillar", "icon": "pillar",
 		"effects": [{"t": "mark", "kind": "burn", "dur": 3}],
 		"desc": "5.0배 피해 + 화상 1겹 (적 행동 3번)", "ref": "때리며 겹을 쌓는 쪽 (터뜨리기의 반대 선택)"},
-	"breath_of_fire": {"name": "불의 숨결", "cost": 3, "kind": "support", "target": "ally", "fx": "breath", "icon": "breath",
-		"effects": [{"t": "buff", "cat": "crit_rate", "v": 0.30, "dur": 3}, {"t": "buff", "cat": "crit_dmg", "v": 0.15, "dur": 3, "mark": "burn", "per_mark": true}],
-		"desc": "아군 1: 크리 확률 +30% + 화상 적에게 1겹마다 크리 데미지 +15% (행동 3번)", "ref": "공명 S1의 단일 크리 위력을 화상 겹에 묶음"},
+	"breath_of_fire": {"name": "불의 숨결", "cost": 3, "kind": "support", "target": "self", "fx": "breath", "icon": "breath",
+		"effects": [{"t": "buff", "who": "self", "cat": "crit_rate", "v": 0.90, "dur": 4, "count": 1, "on": "skill"}, {"t": "buff", "who": "self", "cat": "crit_dmg", "v": 0.15, "dur": 4, "mark": "burn", "per_mark": true, "count": 1, "on": "skill"}],
+		"desc": "자신: 다음 공격 마법 1번 크리 확정 + 화상 1겹마다 크리 데미지 +15% (기본 공격·보조 마법엔 닳지 않음, 행동 3번 안에)", "ref": "초인 오리온 S3의 횟수제 크리 위력 — 열기 응축(공격력)과 짝을 이루는 두 번째 '한 방 준비' (F-4: 남에게 거는 단일 버프는 딜러에게 죽은 칸이었다)"},
 	"ash_storm": {"name": "재의 폭풍", "cost": 4, "kind": "attack", "target": "enemies", "mult": 4.0, "fx": "ash_storm", "icon": "storm",
 		"effects": [{"t": "mark", "who": "enemies", "kind": "burn", "dur": 3}],
 		"desc": "적 전체 4.0배 피해 + 전체 화상 1겹 (적 행동 3번)", "ref": "광역 보구 + 광역 징표"},
 	"blaze": {"name": "폭염 개화", "cost": 4, "kind": "attack", "target": "enemy", "mult": 6.7, "fx": "blaze", "icon": "bloom",
-		"effects": [{"t": "hp_cost", "who": "self", "pct": 0.15}],
-		"desc": "6.7배 피해. 대가: 자신 체력 −15% (쓰러지지 않음)", "ref": "대가를 치르는 큰 한 방 (4비용 예산 6.0배 + 대가 몫)"},
+		"effects": [{"t": "hp_bonus", "v": 0.40, "at": 0.5}, {"t": "hp_cost", "who": "self", "pct": 0.15}],
+		"desc": "6.7배 피해, 적 체력이 50% 넘게 남았을수록 이 공격만 최대 +40%. 대가: 자신 체력 −15% (쓰러지지 않음)", "ref": "대가를 치르는 큰 한 방 (4비용 예산 6.0배 + 대가 몫) + 체력 비례 특공 (F-4: 첫 한 방은 체력이 많은 적에게)"},
 	"sun_spear": {"name": "태양의 창", "cost": 5, "kind": "attack", "target": "enemy", "mult": 7.0, "fx": "sun_spear", "icon": "spear",
-		"effects": [{"t": "buff", "who": "self", "cat": "crit_rate", "v": 0.40, "dur": 1, "pre": true}],
-		"desc": "공격 직전 자신 크리 확률 +40% (행동 1번) → 7.0배 피해 (패시브: 화상 겹마다 크리 데미지)", "ref": "아르주나 얼터 S1(약화 적 특공)의 화상판 — 겹이 크리를 키운다"},
+		"effects": [{"t": "buff", "who": "self", "cat": "crit_rate", "v": 0.30, "dur": 1, "pre": true}, {"t": "hp_bonus", "v": 0.50, "at": 0.5}],
+		"desc": "공격 직전 자신 크리 확률 +30% (행동 1번) → 7.0배 피해, 적 체력이 50% 넘게 남았을수록 이 공격만 최대 +50% (패시브: 화상 겹마다 크리 데미지)", "ref": "체력 비례 특공 보구(적 HP가 많을수록 위력)의 구조 — 가득 찬 줄·큰 적을 여는 한 방이라 넘친 피해가 적다 (F-4: '약화 적 특공'이라 적었던 것을 실제 효과대로 바로잡음)"},
 	"conflagration": {"name": "대화재", "cost": 5, "kind": "attack", "target": "enemies", "mult": 4.0, "fx": "conflagration", "icon": "inferno",
-		"effects": [{"t": "burst", "mark": "burn", "per": 0.40}],
-		"desc": "적 전체 4.0배 피해 + 화상 터뜨리기 (겹마다 +0.4배, 대상마다 자기 겹, 맞힌 뒤 화상 제거)", "ref": "징표를 모두 터뜨리는 광역 마무리"},
+		"effects": [{"t": "burst", "mark": "burn", "per": 0.50, "keep": true}],
+		"desc": "적 전체 4.0배 피해 + 화상 1겹마다 +0.5배 (대상마다 자기 겹, 화상은 남음)", "ref": "징표 비례 광역 마무리 (F-4: 맞힌 뒤 화상을 지워 파티 특공을 날리던 것을 '남김'으로)"},
 
 	# ── 엠버: 불 · 버퍼 (공격 2 + 보조 8) — 몰아주고 대가: 공격력·화상 특공 · 체력/크레딧 대가
 	"flame_breath": {"name": "따뜻한 입김", "cost": 1, "kind": "attack", "target": "enemy", "mult": 1.6, "fx": "fireball_small", "icon": "flame",
@@ -303,16 +319,16 @@ const SKILLS := {
 		"desc": "아군 1: 공격에 화염 속성 부여 + 화염 공격 크리 데미지 +50% (행동 3번)", "ref": "사용자 예시 (무상성 딜러를 화염 딜러로) · 스페이스 이슈타르의 색 바꾸기"},
 	"bellows": {"name": "풀무질", "cost": 2, "kind": "support", "target": "ally", "fx": "bellows", "icon": "bellows",
 		"effects": [{"t": "buff", "cat": "special", "mark": "burn", "v": 0.25, "dur": 3}, {"t": "buff", "cat": "crit_rate", "v": 0.30, "dur": 3}],
-		"desc": "아군 1: 화상 특공 1겹마다 +25% + 크리 확률 +30% (행동 3번)", "ref": "코얀스카야 S3의 특공 부여 — 겹을 곱한다"},
+		"desc": "아군 1: 화상 특공 1겹마다 +25% (불 공격만 겹을 곱함) + 크리 확률 +30% (행동 3번)", "ref": "코얀스카야 S3의 특공 부여 — 겹을 곱한다"},
 	"tinder": {"name": "불쏘시개", "cost": 2, "kind": "support", "target": "ally", "fx": "share_ember", "icon": "spark",
-		"effects": [{"t": "credits", "v": 2}, {"t": "hp_cost", "who": "allies", "pct": 0.08}],
-		"desc": "아군 1: 크레딧 +2. 대가: 아군 전체 체력 −8% (쓰러지지 않음)", "ref": "빛의 코얀스카야 S1 — 배터리 + 파티 체력 대가 (교환비 1)"},
+		"effects": [{"t": "credits", "v": 2}, {"t": "buff", "cat": "ult_dmg", "v": 0.30, "dur": 3}, {"t": "hp_cost", "who": "allies", "pct": 0.08}],
+		"desc": "아군 1: 크레딧 +2 + 대마법 위력 +30% (행동 3번). 대가: 아군 전체 체력 −8% (쓰러지지 않음)", "ref": "빛의 코얀스카야 S1 — 배터리 + 파티 체력 대가 (교환비 1) · 오베론 S3의 보구 위력 몫 (F-4: 배터리가 버프와 겨룰 수 있게)"},
 	"blessing": {"name": "불의 축복", "cost": 3, "kind": "support", "target": "allies", "fx": "blessing", "icon": "up",
 		"effects": [{"t": "buff", "who": "allies", "cat": "atk", "v": 0.30, "dur": 3}, {"t": "heal", "who": "allies", "pct": 0.15}],
 		"desc": "아군 전체: 공격력 +30% (행동 3번, 패시브로 +40%) + 체력 15% 회복", "ref": "캐스토리아 S1의 전체 공격 버프 + 작은 전체 회복 (네레이 없는 파티의 버팀, 단계 E E1). 전체 충전은 물(밀려오는 조류)의 몫으로 넘김 — 불은 배율 (단계 E E6)"},
 	"crown": {"name": "타는 왕관", "cost": 3, "kind": "support", "target": "ally", "fx": "god_descent", "icon": "pillar",
 		"effects": [{"t": "buff", "cat": "atk", "v": 0.60, "dur": 3}, {"t": "buff", "cat": "special", "mark": "burn", "v": 0.15, "dur": 3}],
-		"desc": "아군 1: 공격력 +60% (패시브로 +70%) + 화상 특공 1겹마다 +15% (행동 3번)", "ref": "오베론 S3의 단일 몰아주기 (대가 없이 작게)"},
+		"desc": "아군 1: 공격력 +60% (패시브로 +70%) + 화상 특공 1겹마다 +15% (불 공격만 겹을 곱함, 행동 3번)", "ref": "오베론 S3의 단일 몰아주기 (대가 없이 작게)"},
 	"stake": {"name": "화형대", "cost": 3, "kind": "attack", "target": "enemy", "mult": 3.6, "fx": "stake", "icon": "stake",
 		"effects": [{"t": "debuff", "cat": "def_down", "v": 0.20, "dur": 3}, {"t": "mark", "kind": "burn", "dur": 3}],
 		"desc": "3.6배 피해 + 방어 다운 20% (적 행동 3번) + 화상 1겹 (적 행동 3번)", "ref": "모르간의 방어 다운을 버퍼의 디버프 공격으로"},
@@ -320,8 +336,8 @@ const SKILLS := {
 		"effects": [{"t": "buff", "cat": "atk", "v": 1.00, "dur": 1}, {"t": "gauge", "v": 1.00}, {"t": "demerit_zero"}],
 		"desc": "아군 1: 공격력 +100% (행동 1번, 패시브로 +110%) + 게이지 100% (바로 다음 차례). 대가: 그 행동이 끝나면 크레딧 0", "ref": "오베론 S3·코얀스카야 — 한 번 크게, 대가는 나중에"},
 	"share_ember": {"name": "불씨 나눔", "cost": 4, "kind": "support", "target": "ally", "fx": "share_ember", "icon": "link",
-		"effects": [{"t": "credits", "v": 3}, {"t": "buff", "cat": "final", "v": 0.20, "dur": 2}],
-		"desc": "아군 1: 크레딧 +3 + 최종 데미지 +20% (행동 2번)", "ref": "스카디 S3·캐스토리아 S2의 단일 충전 (교환비 0.75)"},
+		"effects": [{"t": "credits", "v": 3}, {"t": "buff", "cat": "ult_dmg", "v": 0.40, "dur": 3}],
+		"desc": "아군 1: 크레딧 +3 + 대마법 위력 +40% (행동 3번)", "ref": "스카디 S3·캐스토리아 S2의 단일 충전 (교환비 0.75) + 보구 위력 (F-4: 최종 데미지 +20%를 대마법 몫으로)"},
 	"sun_blessing": {"name": "태양의 축복", "cost": 5, "kind": "support", "target": "allies", "fx": "sun_blessing", "icon": "sun",
 		"effects": [{"t": "buff", "who": "allies", "cat": "crit_dmg", "v": 0.50, "dur": 3}, {"t": "buff", "who": "allies", "cat": "final", "v": 0.30, "dur": 3},
 			{"t": "credits", "who": "allies", "v": 1}],
@@ -334,9 +350,9 @@ const SKILLS := {
 	"ash_spread": {"name": "재 번짐", "cost": 2, "kind": "debuff", "target": "enemy", "fx": "hex_all", "icon": "smoke",
 		"effects": [{"t": "spread", "kind": "burn"}],
 		"desc": "적 1의 화상 겹 수만큼 다른 적 전체에 화상 (남은 수도 같게, 패시브로 1겹 더)", "ref": "아르주나 얼터 보구의 '먼저 약화' — 한 명에게 쌓은 것을 전체로"},
-	"embers_left": {"name": "잉걸불 찌르기", "cost": 2, "kind": "attack", "target": "enemy", "mult": 2.5, "fx": "fireball", "icon": "spark",
-		"effects": [{"t": "extend_mark", "kind": "burn", "v": 2}],
-		"desc": "2.5배 피해. 화상 적이면 화상 연장 +2", "ref": "징표 연장"},
+	"embers_left": {"name": "잉걸불 그을음", "cost": 2, "kind": "debuff", "target": "enemy", "fx": "hex", "icon": "smoke",
+		"effects": [{"t": "debuff", "cat": "def_down", "v": 0.06, "dur": 3, "mark": "burn", "per_mark": true}, {"t": "extend_mark", "kind": "burn", "v": 1}],
+		"desc": "적 1: 화상 1겹마다 방어 다운 6% (적 행동 3번, 5겹 30%) + 화상 연장 +1", "ref": "모르간식 방어 다운을 겹 수에 묶음 — 어느 속성 딜러에게나 사는 신더의 둘째 축 (F-4: 2.5배 연장 공격은 공격력 10,000 술사에게 죽은 칸이었다)"},
 	"kindle_up": {"name": "연소 촉진", "cost": 2, "kind": "debuff", "target": "enemy", "fx": "hex", "icon": "flame",
 		"effects": [{"t": "mark", "kind": "burn", "dur": 5, "n": 2}],
 		"desc": "적 1: 화상 2겹 (적 행동 5번, 패시브로 3겹)", "ref": "겹을 한 번에 — 터뜨리기의 재료"},
@@ -344,20 +360,20 @@ const SKILLS := {
 		"effects": [{"t": "mark", "who": "enemies", "kind": "burn", "dur": 3}, {"t": "debuff", "who": "enemies", "cat": "def_down", "v": 0.15, "dur": 3}],
 		"desc": "적 전체: 화상 1겹 (적 행동 3번, 패시브로 2겹) + 방어 다운 15% (적 행동 3번)", "ref": "광역 징표 + 광역 디버프"},
 	"fire_ring": {"name": "불의 고리", "cost": 3, "kind": "attack", "target": "enemies", "mult": 3.6, "fx": "conflagration", "icon": "ring",
-		"effects": [{"t": "this_special", "mark": "burn", "v": 0.30}],
-		"desc": "적 전체 3.6배 피해, 화상 적에게 이 공격만 특공 +30%", "ref": "징표 적 광역 특공"},
+		"effects": [{"t": "this_special", "mark": "burn", "v": 0.30}, {"t": "mark", "who": "enemies", "kind": "burn", "dur": 3, "if_mark": "burn"}],
+		"desc": "적 전체 3.6배 피해, 화상 적에게 이 공격만 특공 +30% + 화상 적마다 화상 1겹 더 (적 행동 3번, 패시브로 2겹)", "ref": "징표 적 광역 특공 + 겹 다시 깔기 (F-4: 장송의 불과 합친 '광역으로 겹을 키우는' 칸)"},
 	"ash_heap": {"name": "잿더미", "cost": 4, "kind": "debuff", "target": "enemy", "fx": "hex", "icon": "heap",
 		"effects": [{"t": "debuff", "cat": "def_down", "v": 0.30, "dur": 3}, {"t": "buff", "who": "allies", "cat": "special", "mark": "burn", "v": 0.15, "dur": 3}],
-		"desc": "적 1: 방어 다운 30% (적 행동 3번) + 아군 전체 화상 특공 1겹마다 +15% (행동 3번)", "ref": "모르간 S1 — 적 약화와 파티 버프를 한 번에"},
+		"desc": "적 1: 방어 다운 30% (적 행동 3번) + 아군 전체 화상 특공 1겹마다 +15% (불 공격만 겹을 곱함, 행동 3번)", "ref": "모르간 S1 — 적 약화와 파티 버프를 한 번에"},
 	"fire_brand": {"name": "불의 낙인", "cost": 4, "kind": "attack", "target": "enemy", "mult": 5.4, "fx": "stake", "icon": "brand",
 		"effects": [{"t": "mark", "kind": "burn", "dur": 4}, {"t": "debuff", "cat": "crit_taken", "v": 0.20, "dur": 3}],
 		"desc": "5.4배 피해 + 화상 1겹 (적 행동 4번) + 이 적을 때리는 아군 크리 확률 +20% (적 행동 3번)", "ref": "대상 조건 크리 확률"},
-	"cremation": {"name": "장송의 불", "cost": 5, "kind": "attack", "target": "enemies", "mult": 4.7, "fx": "conflagration", "icon": "inferno",
-		"effects": [{"t": "extend_mark", "who": "enemies", "kind": "burn", "v": 2}, {"t": "this_special", "mark": "burn", "v": 0.50}],
-		"desc": "적 전체 4.7배 피해, 화상 적마다 화상 연장 +2, 이 공격만 화상 특공 +50%", "ref": "징표를 남겨 두는 광역 (터뜨리기 아님)"},
+	"cremation": {"name": "장송의 불", "cost": 5, "kind": "debuff", "target": "enemies", "fx": "conflagration", "icon": "inferno",
+		"effects": [{"t": "debuff", "who": "enemies", "cat": "final_taken", "v": 0.06, "dur": 3, "mark": "burn", "per_mark": true}, {"t": "extend_mark", "who": "enemies", "kind": "burn", "v": 2}],
+		"desc": "적 전체: 화상 1겹마다 받는 최종 데미지 +6% (적 행동 3번, 5겹 30%) + 화상 적마다 화상 연장 +2", "ref": "보구 뒤 약화(받는 피해 증가)를 겹에 묶음 — 속성을 가리지 않는 파티 증폭 (F-4: 술사의 4.7배 광역은 죽은 칸이었다)"},
 	"ash_oath": {"name": "재의 맹세", "cost": 5, "kind": "support", "target": "allies", "fx": "sun_blessing", "icon": "oath",
 		"effects": [{"t": "buff", "who": "allies", "cat": "special", "mark": "burn", "v": 0.20, "dur": 3}, {"t": "buff", "who": "allies", "cat": "atk", "v": 0.20, "dur": 3}, {"t": "credits", "who": "allies", "v": 1}],
-		"desc": "아군 전체: 화상 특공 1겹마다 +20% + 공격력 +20% (행동 3번) + 크레딧 +1", "ref": "캐스토리아 S1의 전체 버프 겹치기"},
+		"desc": "아군 전체: 화상 특공 1겹마다 +20% (불 공격만 겹을 곱함) + 공격력 +20% (행동 3번) + 크레딧 +1", "ref": "캐스토리아 S1의 전체 버프 겹치기"},
 
 	# ── 운디네: 물 · 딜러 (공격 9 + 보조 1) — 돌려서 자주: 빙결 적을 때리면 크레딧이 돌아온다 (배율은 같은 비용 −15%)
 	"water_lance": {"name": "물의 창", "cost": 1, "kind": "attack", "target": "enemy", "mult": 1.7, "fx": "fireball", "icon": "spark",
@@ -368,22 +384,22 @@ const SKILLS := {
 		"effects": [{"t": "credits", "who": "self", "v": 1, "if_mark": "frost"}],
 		"desc": "2.2배 피해. 빙결 적이면 자신 크레딧 +1 (맞기 전 빙결 기준)", "ref": "아츠식 순환 — 피해 대신 자원을 벌어 온다"},
 	"ice_break": {"name": "쇄빙 일격", "cost": 3, "kind": "attack", "target": "enemy", "mult": 4.3, "fx": "pillar", "icon": "crack",
-		"effects": [{"t": "this_special", "mark": "frost", "v": 0.50}],
-		"desc": "4.3배 피해, 빙결 적에게 이 공격만 특공 +50%", "ref": "아르주나 얼터 S1의 약화 적 특공 (물은 터뜨리지 않는다)"},
+		"effects": [{"t": "burst", "mark": "frost", "per": 0.60, "keep": true}],
+		"desc": "4.3배 피해 + 빙결 1겹마다 +0.6배 (빙결은 남음 — 5겹 7.3배)", "ref": "징표 비례 강타 (물은 터뜨리지 않는다 — 겹을 남김). F-4: 빙하 붕괴(순환)와 갈리는 '겹을 쌓는 물' 칸 — 글라시아 절대 영도·눈보라와 짝"},
 	"torrent": {"name": "격류", "cost": 3, "kind": "attack", "target": "enemy", "mult": 3.7, "fx": "meteor", "icon": "wave",
 		"effects": [{"t": "debuff", "cat": "def_down", "v": 0.15, "dur": 2}, {"t": "mark", "kind": "frost", "dur": 2}],
 		"desc": "3.7배 피해 + 방어 다운 15% (적 행동 2번) + 빙결 1겹 (적 행동 2번)", "ref": "모르간의 방어 다운 + 징표"},
-	"still_water": {"name": "잔잔한 수면", "cost": 3, "kind": "support", "target": "ally", "fx": "breath", "icon": "drop",
-		"effects": [{"t": "buff", "cat": "crit_dmg", "v": 0.60, "dur": 2}, {"t": "buff", "cat": "dmg_taken", "v": -0.20, "dur": 2}],
-		"desc": "아군 1: 크리 데미지 +60% (행동 2번) + 받는 피해 −20% (적 행동 2번)", "ref": "공명 S2의 보호 + 크리 위력"},
+	"still_water": {"name": "잔잔한 수면", "cost": 2, "kind": "support", "target": "ally", "fx": "breath", "icon": "drop",
+		"effects": [{"t": "buff", "cat": "dmg_taken", "v": -0.20, "dur": 3}, {"t": "regen", "pct": 0.08, "dur": 4}, {"t": "credits", "v": 1}],
+		"desc": "아군 1: 받는 피해 −20% (적 행동 3번) + 지속 회복 8% (행동마다, 행동 4번) + 크레딧 +1", "ref": "멀린식 지속 회복을 물 딜러가 스스로 — 회복 버퍼 없이도 버티는 '혼자 도는 물' 장착 (F-4)"},
 	"tidal_wave": {"name": "해일", "cost": 4, "kind": "attack", "target": "enemies", "mult": 3.5, "fx": "ash_storm", "icon": "tide",
 		"effects": [{"t": "mark", "who": "enemies", "kind": "frost", "dur": 3}], "desc": "적 전체 3.5배 피해 + 전체 빙결 1겹 (적 행동 3번)", "ref": "광역 보구 + 광역 징표"},
 	"glacier": {"name": "빙하 붕괴", "cost": 4, "kind": "attack", "target": "enemy", "mult": 4.6, "fx": "blaze", "icon": "shard",
 		"effects": [{"t": "this_special", "mark": "frost", "v": 0.30}, {"t": "credits", "who": "self", "v": 2, "if_mark": "frost"}],
 		"desc": "4.6배 피해, 빙결 적에게 이 공격만 특공 +30%. 빙결 적이면 자신 크레딧 +2 (맞기 전 빙결 기준)", "ref": "약속된 승리의 검의 NP 리차지 구조를 마법에"},
 	"abyss_lance": {"name": "심해의 창", "cost": 5, "kind": "attack", "target": "enemy", "mult": 5.6, "fx": "sun_spear", "icon": "spear",
-		"effects": [{"t": "this_special", "mark": "frost", "v": 0.30}, {"t": "credits", "who": "self", "v": 2, "if_mark": "frost"}, {"t": "enemy_gauge", "v": 0.20}],
-		"desc": "5.6배 피해 + 적 게이지 −20%, 빙결 적에게 이 공격만 특공 +30%. 빙결 적이면 자신 크레딧 +2 (맞기 전 빙결 기준)", "ref": "한 방 + 순환"},
+		"effects": [{"t": "this_special", "mark": "frost", "v": 0.30}, {"t": "credits", "who": "self", "v": 2, "if_mark": "frost"}, {"t": "enemy_charge", "v": 1, "if_mark": "frost"}],
+		"desc": "5.6배 피해, 빙결 적에게 이 공격만 특공 +30%. 빙결 적이면 자신 크레딧 +2 + 적 차지 −1 (맞기 전 빙결 기준)", "ref": "한 방 + 순환 + 차지 감소 (F-4: 빙하 붕괴는 '피해', 심해의 창은 '필살기 미루기' — 물·시간의 독점 효과)"},
 	"deluge": {"name": "대홍수", "cost": 5, "kind": "attack", "target": "enemies", "mult": 4.0, "fx": "conflagration", "icon": "storm",
 		"effects": [{"t": "this_special", "mark": "frost", "v": 0.60}, {"t": "enemy_gauge", "who": "enemies", "v": 0.20}],
 		"desc": "적 전체 4.0배 피해, 빙결 적에게 이 공격만 특공 +60% + 적 전체 게이지 −20%", "ref": "광역 마무리 + 지연"},
@@ -396,10 +412,10 @@ const SKILLS := {
 		"desc": "아군 1: 공격에 물 속성 부여 + 물 공격 크리 데미지 +50% (행동 3번)", "ref": "속성 부여"},
 	"frost_breath": {"name": "서리 숨결", "cost": 2, "kind": "support", "target": "ally", "fx": "bellows", "icon": "breath",
 		"effects": [{"t": "buff", "cat": "special", "mark": "frost", "v": 0.25, "dur": 3}, {"t": "buff", "cat": "crit_rate", "v": 0.30, "dur": 3}],
-		"desc": "아군 1: 빙결 특공 1겹마다 +25% + 크리 확률 +30% (행동 3번)", "ref": "특공 부여"},
+		"desc": "아군 1: 빙결 특공 1겹마다 +25% (물 공격만 겹을 곱함) + 크리 확률 +30% (행동 3번)", "ref": "특공 부여"},
 	"spring": {"name": "샘물 붓기", "cost": 2, "kind": "support", "target": "ally", "fx": "warmth_one", "icon": "heart",
-		"effects": [{"t": "heal", "pct": 0.50}, {"t": "buff", "cat": "dmg_taken", "v": -0.20, "dur": 2}],
-		"desc": "아군 1: 체력 50% 회복 + 받는 피해 −20% (적 행동 2번)", "ref": "멀린식 단일 회복 + 보호 (도발은 파도 버티기로 옮김 — 약한 아군을 고치며 과녁으로 만들지 않게)"},
+		"effects": [{"t": "heal", "pct": 0.35}, {"t": "regen", "pct": 0.08, "dur": 3}, {"t": "buff", "cat": "dmg_taken", "v": -0.20, "dur": 2}],
+		"desc": "아군 1: 체력 35% 회복 + 지속 회복 8% (행동마다, 행동 3번) + 받는 피해 −20% (적 행동 2번)", "ref": "멀린식 단일 회복 + 보호 (도발은 파도 버티기로 옮김 — 약한 아군을 고치며 과녁으로 만들지 않게)"},
 	"wave_hold": {"name": "파도 버티기", "cost": 2, "kind": "support", "target": "self", "fx": "seal", "icon": "wall",
 		"effects": [{"t": "taunt", "who": "self", "dur": 3}, {"t": "hit_stack", "who": "self", "v": 0.08, "max": 5, "dur": 5, "stack_dur": 6, "to": "allies"}],
 		"desc": "자신: 도발 (적 행동 3번) + 적 행동 5번 동안 맞을 때마다 아군 전체 공격력 +8% 한 겹 (최대 5겹, 겹마다 행동 6번)", "ref": "가레스 S2(맞을 때마다 쌓임) + 마슈 도발 — 버틴 시간이 파티 피해로"},
@@ -407,8 +423,8 @@ const SKILLS := {
 		"effects": [{"t": "buff", "who": "allies", "cat": "dmg_taken", "v": -0.15, "dur": 2}, {"t": "credits", "who": "allies", "v": 1}],
 		"desc": "아군 전체: 받는 피해 −15% (적 행동 2번) + 크레딧 +1", "ref": "캐스토리아 S1의 전체 충전 — 물은 보호 + 크레딧 (불의 축복과 같던 공격력 +30%는 뺌, 단계 E E6)"},
 	"high_tide": {"name": "밀물", "cost": 3, "kind": "support", "target": "ally", "fx": "share_ember", "icon": "tide",
-		"effects": [{"t": "credits", "v": 2}, {"t": "buff", "cat": "atk", "v": 0.30, "dur": 3}],
-		"desc": "아군 1: 크레딧 +2 + 공격력 +30% (행동 3번)", "ref": "캐스토리아 S2 — 단일 충전 + 버프 (교환비 0.67)"},
+		"effects": [{"t": "credits", "v": 2}, {"t": "buff", "cat": "atk", "v": 0.30, "dur": 3}, {"t": "buff", "cat": "ult_dmg", "v": 0.20, "dur": 3}],
+		"desc": "아군 1: 크레딧 +2 + 공격력 +30% · 대마법 위력 +20% (행동 3번)", "ref": "캐스토리아 S2 — 단일 충전 + 버프 (교환비 0.67) + 보구 위력 몫 (F-4)"},
 	"water_veil": {"name": "물의 장막", "cost": 4, "kind": "support", "target": "allies", "fx": "seal", "icon": "shield",
 		"effects": [{"t": "invincible", "who": "allies", "dur": 1}, {"t": "heal", "who": "allies", "pct": 0.15}],
 		"desc": "아군 전체: 무적 (다음 적 행동 1번) + 체력 15% 회복", "ref": "멀린 S2의 전체 무적 (무적은 4비용 — 봉공과 맞춤)"},
@@ -424,10 +440,11 @@ const SKILLS := {
 		"effects": [{"t": "mark", "kind": "frost", "dur": 4}, {"t": "enemy_gauge", "v": 0.10}, {"t": "credits", "who": "self", "v": 1, "if_mark": "frost"}],
 		"desc": "빙결 1겹 (적 행동 4번) + 적 게이지 −10%. 빙결 적이면 자신 크레딧 +1 (맞기 전 빙결 기준)", "ref": "징표 + 지연 + 물의 환급 (술사도 순환에 들어감, 단계 E E6)"},
 	"thin_ice": {"name": "살얼음 깔기", "cost": 2, "kind": "debuff", "target": "enemies", "fx": "hex_all", "icon": "net",
-		"effects": [{"t": "debuff", "who": "enemies", "cat": "atk_down", "v": 0.15, "dur": 2}, {"t": "enemy_gauge", "who": "enemies", "v": 0.10, "frost_x2": true}],
-		"desc": "적 전체: 공격력 다운 15% (적 행동 2번) + 게이지 −10% (빙결이면 −20%)", "ref": "광역 약화 + 지연"},
+		"effects": [{"t": "debuff", "who": "enemies", "cat": "final_taken", "v": 0.15, "dur": 2, "mark": "frost"}, {"t": "enemy_gauge", "who": "enemies", "v": 0.10, "frost_x2": true}],
+		"desc": "적 전체: 빙결 적이면 받는 최종 데미지 +15% (적 행동 2번) + 게이지 −10% (빙결이면 −20%)", "ref": "광역 지연 + 얼어붙은 적이 깨지기 쉬워짐 (F-4: 늦춘 것이 피해로 돌아오게)"},
 	"icicle": {"name": "고드름 투척", "cost": 2, "kind": "attack", "target": "enemy", "mult": 2.2, "fx": "fireball", "icon": "shard",
-		"effects": [{"t": "mark", "kind": "frost", "dur": 2}], "desc": "2.2배 피해 + 빙결 1겹 (적 행동 2번)", "ref": "징표 심기"},
+		"effects": [{"t": "multi", "n": 2}, {"t": "mark", "kind": "frost", "dur": 3}, {"t": "enemy_gauge", "v": 0.15, "if_mark": "frost"}],
+		"desc": "2.2배 피해를 2번으로 나눠 + 빙결 1겹 (적 행동 3번). 빙결 적이면 게이지 −15% (맞기 전 빙결 기준)", "ref": "징표 심기 + 조건 지연 (F-4: 늦출 때마다 패시브가 붙는 싼 칸)"},
 	"blizzard": {"name": "눈보라", "cost": 3, "kind": "debuff", "target": "enemies", "fx": "ash_storm", "icon": "storm",
 		"effects": [{"t": "mark", "who": "enemies", "kind": "frost", "dur": 3}, {"t": "debuff", "who": "enemies", "cat": "def_down", "v": 0.15, "dur": 3}],
 		"desc": "적 전체: 빙결 1겹 (적 행동 3번) + 방어 다운 15% (적 행동 3번)", "ref": "스카디 S2의 광역 방어 다운 + 징표"},
@@ -448,7 +465,7 @@ const SKILLS := {
 		"desc": "적 전체 4.0배 피해, 빙결 적에게 이 공격만 특공 +50% + 적 전체 게이지 −30%", "ref": "광역 마무리 + 지연"},
 	"winter_oath": {"name": "겨울의 맹세", "cost": 5, "kind": "support", "target": "allies", "fx": "sun_blessing", "icon": "oath",
 		"effects": [{"t": "buff", "who": "allies", "cat": "special", "mark": "frost", "v": 0.20, "dur": 3}, {"t": "buff", "who": "allies", "cat": "dmg_taken", "v": -0.20, "dur": 3}, {"t": "credits", "who": "allies", "v": 1}],
-		"desc": "아군 전체: 빙결 특공 1겹마다 +20% (행동 3번) + 받는 피해 −20% (적 행동 3번) + 크레딧 +1", "ref": "전체 버프 겹치기"},
+		"desc": "아군 전체: 빙결 특공 1겹마다 +20% (물 공격만 겹을 곱함, 행동 3번) + 받는 피해 −20% (적 행동 3번) + 크레딧 +1", "ref": "전체 버프 겹치기"},
 
 	# ── 풀구르: 번개 · 딜러 (공격 8 + 보조 2) — 평타 크리 · 다단: 기본 공격 3히트, 횟수제 크리 버프, 크리마다 게이지
 	"spark_bolt": {"name": "전광 스파크", "cost": 1, "kind": "attack", "target": "enemy", "mult": 2.0, "fx": "fireball", "icon": "spark",
@@ -470,8 +487,8 @@ const SKILLS := {
 	"thunderstorm": {"name": "뇌우", "cost": 4, "kind": "attack", "target": "enemies", "mult": 4.0, "fx": "ash_storm", "icon": "storm",
 		"effects": [{"t": "multi", "n": 2}, {"t": "mark", "who": "enemies", "kind": "shock", "dur": 3}], "desc": "적 전체 4.0배 피해를 2번으로 나눠 + 전체 감전 1겹 (적 행동 3번)", "ref": "광역 보구 + 광역 징표"},
 	"lightning_strike": {"name": "낙뢰 심판", "cost": 4, "kind": "attack", "target": "enemy", "mult": 6.0, "fx": "meteor", "icon": "bolt_big",
-		"effects": [{"t": "multi", "n": 3}, {"t": "buff", "who": "self", "cat": "crit_rate", "mark": "shock", "v": 0.50, "dur": 1, "pre": true}],
-		"desc": "공격 직전 자신 감전 적 크리 확률 +50% (행동 1번) → 6.0배 피해를 3번으로 나눠", "ref": "조건 크리 (4비용 예산 6.0배)"},
+		"effects": [{"t": "multi", "n": 3, "per_mark": "shock"}, {"t": "buff", "who": "self", "cat": "crit_rate", "mark": "shock", "v": 0.40, "dur": 1, "pre": true}, {"t": "crit_gauge", "v": 0.04}],
+		"desc": "공격 직전 자신 감전 적 크리 확률 +40% (행동 1번) → 6.0배 피해를 3번 + 감전 1겹마다 1번 더 나눠 (최대 8번). 크리 1번마다 자신 게이지 +4%", "ref": "조건 크리 + 겹만큼 잦은 다단 (F-4: 천둥의 창과 턴당 같던 것을 '감전이 쌓이면 자주 친다'로)"},
 	"thunder_lance": {"name": "천둥의 창", "cost": 5, "kind": "attack", "target": "enemy", "mult": 7.0, "fx": "sun_spear", "icon": "spear",
 		"effects": [{"t": "buff", "who": "self", "cat": "crit_dmg", "v": 0.50, "dur": 1, "pre": true}, {"t": "on_crit", "effects": [{"t": "gauge", "who": "self", "v": 0.50}]}],
 		"desc": "공격 직전 자신 크리 데미지 +50% (행동 1번) → 7.0배 피해. 크리면 자신 게이지 +50%", "ref": "한 방 + 크리 조건 보너스"},
@@ -487,7 +504,7 @@ const SKILLS := {
 		"desc": "아군 1: 공격에 번개 속성 부여 + 번개 공격 크리 데미지 +50% (행동 3번)", "ref": "속성 부여"},
 	"rod": {"name": "피뢰침 세우기", "cost": 2, "kind": "support", "target": "ally", "fx": "bellows", "icon": "rod",
 		"effects": [{"t": "buff", "cat": "special", "mark": "shock", "v": 0.25, "dur": 3}, {"t": "buff", "cat": "crit_rate", "v": 0.30, "dur": 3}],
-		"desc": "아군 1: 감전 특공 1겹마다 +25% + 크리 확률 +30% (행동 3번)", "ref": "특공 부여"},
+		"desc": "아군 1: 감전 특공 1겹마다 +25% (번개 공격만 겹을 곱함) + 크리 확률 +30% (행동 3번)", "ref": "특공 부여"},
 	"spur": {"name": "박차 가하기", "cost": 2, "kind": "support", "target": "ally", "fx": "leap", "icon": "clock_fwd",
 		"effects": [{"t": "gauge", "v": 0.60}], "desc": "아군 1: 행동 게이지 +60% (패시브로 +70%)", "ref": "단일 차례 당기기"},
 	"star_touch": {"name": "별의 손길", "cost": 2, "kind": "support", "target": "ally", "fx": "stigma", "icon": "eye",
@@ -503,7 +520,8 @@ const SKILLS := {
 		"effects": [{"t": "buff", "cat": "crit_dmg", "v": 1.00, "dur": 1}, {"t": "buff", "cat": "crit_rate", "v": 0.50, "dur": 1}, {"t": "gauge", "v": 1.00}, {"t": "demerit_zero"}],
 		"desc": "아군 1: 크리 데미지 +100% + 크리 확률 +50% (행동 1번) + 게이지 100%. 대가: 그 행동 뒤 크레딧 0", "ref": "오베론 S3의 한 번 크게"},
 	"lightning_share": {"name": "번개 나눔", "cost": 4, "kind": "support", "target": "ally", "fx": "share_ember", "icon": "link",
-		"effects": [{"t": "credits", "v": 3}, {"t": "gauge", "v": 0.30}], "desc": "아군 1: 크레딧 +3 + 행동 게이지 +30% (패시브로 +40%)", "ref": "스카디 S3의 단일 충전 (교환비 0.75)"},
+		"effects": [{"t": "credits", "v": 3}, {"t": "gauge", "v": 0.30}, {"t": "buff", "cat": "ult_dmg", "v": 0.30, "dur": 3}],
+		"desc": "아군 1: 크레딧 +3 + 행동 게이지 +30% (패시브로 +40%) + 대마법 위력 +30% (행동 3번)", "ref": "스카디 S3의 단일 충전 (교환비 0.75) + 보구 위력 몫 (F-4: 배터리가 버프와 겨룰 수 있게)"},
 	"meteor_blessing": {"name": "유성우의 축복", "cost": 5, "kind": "support", "target": "allies", "fx": "sun_blessing", "icon": "starfall",
 		"effects": [{"t": "buff", "who": "allies", "cat": "atk", "v": 0.30, "dur": 3}, {"t": "buff", "who": "allies", "cat": "crit_dmg", "v": 0.50, "dur": 3}, {"t": "gauge", "who": "allies", "v": 0.20}],
 		"desc": "아군 전체: 공격력 +30% + 크리 데미지 +50% (행동 3번) + 행동 게이지 +20%", "ref": "전체 버프 겹치기"},
@@ -513,10 +531,10 @@ const SKILLS := {
 		"effects": [{"t": "mark", "kind": "shock", "dur": 4}, {"t": "debuff", "cat": "def_down", "v": 0.10, "dur": 2}],
 		"desc": "감전 1겹 (적 행동 4번) + 방어 다운 10% (적 행동 2번)", "ref": "징표를 오래 깔기"},
 	"overcurrent": {"name": "과전류", "cost": 2, "kind": "debuff", "target": "enemy", "fx": "hex", "icon": "net",
-		"effects": [{"t": "debuff", "cat": "crit_taken", "v": 0.08, "dur": 3, "mark": "shock", "per_mark": true}],
-		"desc": "적 1: 이 적을 때리는 아군 크리 확률 감전 1겹마다 +8% (적 행동 3번)", "ref": "스카디 S2의 크리 약화를 감전 겹에 묶음"},
+		"effects": [{"t": "debuff", "cat": "crit_dmg_taken", "v": 0.12, "dur": 3, "mark": "shock", "per_mark": true}],
+		"desc": "적 1: 이 적을 때리는 아군 크리 데미지 감전 1겹마다 +12% (적 행동 3번, 크리 데미지 상한과 따로)", "ref": "스카디 S2의 크리 약화를 '받는 크리 위력'으로 — 크리 확률이 100%에 닿은 파티에도 산다 (F-4 P3)"},
 	"volt": {"name": "뇌격", "cost": 2, "kind": "attack", "target": "enemy", "mult": 2.5, "fx": "fireball", "icon": "spark",
-		"effects": [{"t": "stun", "if_mark": "shock"}], "desc": "2.5배 피해. 감전 적이면 기절 (다음 차례 쉼)", "ref": "번개의 마비"},
+		"effects": [{"t": "stun", "if_mark": "shock", "else_charge": 1}], "desc": "2.5배 피해. 감전 적이면 기절 (다음 차례 쉼) — 기절 면역(보스)이면 대신 차지 −1", "ref": "번개의 마비 (F-4: 보스에게 죽은 칸이던 것을 차지 감소로)"},
 	"thunder": {"name": "우레 선포", "cost": 3, "kind": "debuff", "target": "enemies", "fx": "hex_all", "icon": "wave_out",
 		"effects": [{"t": "mark", "who": "enemies", "kind": "shock", "dur": 3}, {"t": "debuff", "who": "enemies", "cat": "def_down", "v": 0.15, "dur": 3}],
 		"desc": "적 전체: 감전 1겹 (적 행동 3번) + 방어 다운 15% (적 행동 3번)", "ref": "광역 징표 + 광역 디버프"},
@@ -536,14 +554,14 @@ const SKILLS := {
 		"desc": "적 전체 4.7배 피해, 감전 적마다 감전 연장 +2, 이 공격만 감전 특공 +50%", "ref": "징표를 남겨 두는 광역"},
 	"thunder_oath": {"name": "우레의 맹세", "cost": 5, "kind": "support", "target": "allies", "fx": "sun_blessing", "icon": "oath",
 		"effects": [{"t": "buff", "who": "allies", "cat": "special", "mark": "shock", "v": 0.20, "dur": 3}, {"t": "buff", "who": "allies", "cat": "crit_rate", "v": 0.20, "dur": 3}, {"t": "credits", "who": "allies", "v": 1}],
-		"desc": "아군 전체: 감전 특공 1겹마다 +20% + 크리 확률 +20% (행동 3번) + 크레딧 +1", "ref": "전체 버프 겹치기"},
+		"desc": "아군 전체: 감전 특공 1겹마다 +20% (번개 공격만 겹을 곱함) + 크리 확률 +20% (행동 3번) + 크레딧 +1", "ref": "전체 버프 겹치기"},
 
 	# ── 호라: 시간 · 버퍼 (공격 2 + 보조 6 + 디버프 2) — 순서·지속·차지
 	"second_hand": {"name": "초침 밀기", "cost": 1, "kind": "support", "target": "ally", "fx": "leap", "icon": "clock_fwd",
 		"effects": [{"t": "gauge", "v": 0.20}], "desc": "아군 1: 행동 게이지 +20%", "ref": "작은 배터리"},
 	"stopped_clock": {"name": "멈춘 시계", "cost": 2, "kind": "debuff", "target": "enemy", "fx": "hex", "icon": "clock",
-		"effects": [{"t": "enemy_charge", "v": 1}, {"t": "enemy_gauge", "v": 0.20}, {"t": "debuff", "cat": "final_taken", "v": 0.15, "dur": 3}],
-		"desc": "적 1: 차지 −1 (가득 차 보이던 필살기는 거둬짐) + 게이지 −20% + 받는 최종 데미지 +15% (적 행동 3번)", "ref": "제갈공명 보구의 차지 감소 + 피해 쪽 부품 (보스 성공률 70%, 단계 E E4)"},
+		"effects": [{"t": "enemy_charge", "v": 1}, {"t": "enemy_gauge", "v": 0.20}, {"t": "debuff", "cat": "final_taken", "v": 0.20, "dur": 3}],
+		"desc": "적 1: 차지 −1 (가득 차 보이던 필살기는 거둬짐) + 게이지 −20% + 받는 최종 데미지 +20% (적 행동 3번)", "ref": "제갈공명 보구의 차지 감소 + 피해 쪽 부품 (보스 성공률 70%, 단계 E E4)"},
 	"rewind": {"name": "되감기", "cost": 2, "kind": "support", "target": "ally", "fx": "warmth_one", "icon": "rewind",
 		"effects": [{"t": "heal", "pct": 0.25}, {"t": "extend_buffs", "v": 1}, {"t": "guts", "dur": 3, "pct": 0.0}],
 		"desc": "아군 1: 체력 25% 회복 + 버프 지속 +1 + 근성 1회 (적 행동 3번 안, 체력 1로 버팀)", "ref": "지속 연장 + 되감아 버팀"},
@@ -570,9 +588,10 @@ const SKILLS := {
 	"bw_slash": {"name": "흑백 참격", "cost": 1, "kind": "attack", "target": "enemy", "mult": 2.0, "fx": "slash", "icon": "slash",
 		"effects": [{"t": "multi", "n": 2}], "desc": "2.0배 피해를 2번으로 나눠 (각 1.0배)", "ref": "다단 히트"},
 	"return_cut": {"name": "되돌려 베기", "cost": 2, "kind": "attack", "target": "enemy", "mult": 2.5, "fx": "slash", "icon": "cut_curve",
-		"effects": [{"t": "buff", "who": "self", "cat": "crit_rate", "v": 0.30, "dur": 3}], "desc": "2.5배 피해 + 자신 크리 확률 +30% (다음 행동 2번)", "ref": "공격 뒤 자기 강화"},
+		"effects": [{"t": "buff", "who": "self", "cat": "crit_dmg", "v": 0.30, "dur": 3}], "desc": "2.5배 피해 + 자신 크리 데미지 +30% (다음 행동 2번)", "ref": "공격 뒤 자기 강화 (F-4: 크리 확률은 크리 확정 마법에 0이라 크리 데미지로 — 일섬·종언참·종막의 검 앞에)"},
 	"sword_dance": {"name": "검무", "cost": 2, "kind": "attack", "target": "enemies", "mult": 1.4, "fx": "slash_all", "icon": "slash2",
-		"effects": [{"t": "multi", "n": 2}], "desc": "적 전체 1.4배 피해를 2번으로 나눠 (각 0.7배)", "ref": "싼 광역 다단"},
+		"effects": [{"t": "multi", "n": 2}, {"t": "buff", "who": "self", "cat": "crit_dmg", "v": 0.40, "dur": 4, "count": 1, "on": "skill"}],
+		"desc": "적 전체 1.4배 피해를 2번으로 나눠 (각 0.7배) + 자신 다음 공격 마법 1번 크리 데미지 +40% (행동 3번 안에)", "ref": "싼 광역 다단 + 다음 한 방 준비 (F-4: 졸개를 쓸며 보스 한 방을 키우는 연결 칸)"},
 	"flash_cut": {"name": "일섬", "cost": 3, "kind": "attack", "target": "enemy", "mult": 3.6, "fx": "slash_big", "icon": "cut_h",
 		"effects": [{"t": "sure_crit"}], "desc": "3.6배 피해, 크리 확정", "ref": "크리 확정 (3비용 예산 5.0배: 확정 크리 ×1.4 → 3.6배)"},
 	"space_cut": {"name": "갑주 가르기", "cost": 3, "kind": "attack", "target": "enemy", "mult": 4.3, "fx": "slash_big", "icon": "cut_h",
@@ -608,8 +627,9 @@ const SKILLS := {
 		"effects": [{"t": "this_special", "mark": "frost", "v": 0.15}, {"t": "credits", "who": "self", "v": 2}, {"t": "mark", "kind": "frost", "dur": 3}],
 		"desc": "9.0배 피해, 빙결 적에게 이 공격만 특공 +15% + 자신 크레딧 +2 + 빙결 1겹 (적 행동 3번)", "ref": "약속된 승리의 검 — 광역 대신 단일, NP 리차지 구조 (환급 2 — 배터리 둘의 유입이 7을 넘지 않게, 단계 E E2)"},
 	"ult_nerei": {"name": "해류의 성소", "cost": 7, "ultimate": true, "kind": "support", "target": "allies", "fx": "seal", "icon": "ring",
-		"effects": [{"t": "invincible", "who": "allies", "dur": 1}, {"t": "buff", "who": "allies", "cat": "dmg_taken", "v": -0.30, "dur": 3}, {"t": "heal", "who": "allies", "pct": 0.20}, {"t": "revive", "who": "dead_allies", "pct": 0.30}],
-		"desc": "아군 전체: 무적 (적 행동 1번) + 받는 피해 −30% (적 행동 3번) + 체력 20% 회복 + 쓰러진 아군을 체력 30%로 되살림", "ref": "멀린 보구식 지속 보호 (무적 관통 필살기에도 피해 감소는 남는다)"},
+		"effects": [{"t": "invincible", "who": "allies", "dur": 1}, {"t": "buff", "who": "allies", "cat": "dmg_taken", "v": -0.30, "dur": 3}, {"t": "heal", "who": "allies", "pct": 0.15},
+			{"t": "regen", "who": "allies", "pct": 0.10, "dur": 4}, {"t": "revive", "who": "dead_allies", "pct": 0.30}],
+		"desc": "아군 전체: 무적 (적 행동 1번) + 받는 피해 −30% (적 행동 3번) + 체력 15% 회복 + 지속 회복 10% (행동마다, 행동 4번) + 쓰러진 아군을 체력 30%로 되살림", "ref": "멀린 보구 — 매 차례 회복(지속 회복)과 보호 (F-4: 엔진에 지속 회복을 넣어 구조대로. 무적 관통 필살기에도 피해 감소·회복은 남는다)"},
 	"ult_glacia": {"name": "절대 영도", "cost": 7, "ultimate": true, "kind": "debuff", "target": "enemies", "fx": "hex_all", "icon": "eclipse",
 		"effects": [{"t": "mark", "who": "enemies", "kind": "frost", "dur": 4, "n": 3}, {"t": "enemy_gauge", "who": "enemies", "v": 0.50},
 			{"t": "debuff", "who": "enemies", "cat": "def_down", "v": 0.20, "dur": 3}, {"t": "enemy_charge", "who": "enemies", "v": 1}],
@@ -622,14 +642,15 @@ const SKILLS := {
 		"effects": [{"t": "buff", "who": "allies", "cat": "crit_rate", "v": 0.50, "dur": 2}, {"t": "buff", "who": "allies", "cat": "crit_dmg", "v": 0.50, "dur": 2}, {"t": "gauge", "who": "other_allies", "v": 1.00}],
 		"desc": "아군 전체: 크리 확률 +50% + 크리 데미지 +50% (행동 2번) + 다른 아군 행동 게이지 +100%", "ref": "전체 2종 + 차례"},
 	"ult_tonan": {"name": "천둥 선고", "cost": 7, "ultimate": true, "kind": "attack", "target": "enemies", "mult": 2.0, "fx": "ash_storm", "icon": "bolt_big",
-		"effects": [{"t": "mark", "who": "enemies", "kind": "shock", "dur": 4, "n": 3}, {"t": "debuff", "who": "enemies", "cat": "crit_taken", "v": 0.30, "dur": 3}],
-		"desc": "적 전체 2.0배 피해 + 감전 3겹 (적 행동 4번) + 이 적을 때리는 아군 크리 확률 +30% (적 행동 3번)", "ref": "보구 뒤 약화"},
+		"effects": [{"t": "mark", "who": "enemies", "kind": "shock", "dur": 4, "n": 3}, {"t": "debuff", "who": "enemies", "cat": "crit_taken", "v": 0.20, "dur": 3},
+			{"t": "debuff", "who": "enemies", "cat": "crit_dmg_taken", "v": 0.08, "dur": 3, "mark": "shock", "per_mark": true}],
+		"desc": "적 전체 2.0배 피해 + 감전 3겹 (적 행동 4번) + 이 적을 때리는 아군 크리 확률 +20% · 크리 데미지 감전 1겹마다 +8% (적 행동 3번)", "ref": "보구 뒤 약화 (F-4: 크리 확률만이면 100%에 막혀 넘쳤다 — 받는 크리 위력을 함께)"},
 	"ult_eska": {"name": "세계의 끝", "cost": 7, "ultimate": true, "kind": "attack", "target": "enemies", "mult": 6.8, "fx": "blackstar", "icon": "burst",
 		"effects": [{"t": "ignore_def"}, {"t": "debuff", "who": "enemies", "cat": "def_down", "v": 0.20, "dur": 3}],
 		"desc": "적 전체 6.8배 피해, 이 공격만 적 방어율 무시 + 방어 다운 20% (적 행동 3번)", "ref": "광역 6.8배 (방어 무시 — 단일 종언 6.0배 + 선버프보다 한 대상에도 크다)"},
 	"ult_hora": {"name": "시간의 정적", "cost": 7, "ultimate": true, "kind": "support", "target": "allies", "fx": "gap", "icon": "ring",
-		"effects": [{"t": "enemy_charge", "who": "enemies", "v": 1}, {"t": "enemy_gauge", "who": "enemies", "v": 0.50}, {"t": "extend_buffs", "who": "allies", "v": 2}],
-		"desc": "적 전체 차지 −1 + 게이지 −50% + 아군 전체 버프 지속 +2", "ref": "제갈공명 보구의 차지 감소 + 시간 연장"},
+		"effects": [{"t": "enemy_charge", "who": "enemies", "v": 1}, {"t": "enemy_gauge", "who": "enemies", "v": 0.50}, {"t": "extend_buffs", "who": "allies", "v": 2}, {"t": "gauge", "who": "other_allies", "v": 0.40}],
+		"desc": "적 전체 차지 −1 + 게이지 −50% + 아군 전체 버프 지속 +2 + 다른 아군 행동 게이지 +40%", "ref": "제갈공명 보구의 차지 감소 + 시간 연장 + 순서 당기기 (F-4: 연쇄로 커지는 칸 — 게이지가 ×1.25·×1.5)"},
 	"ult_harpe": {"name": "종막의 검", "cost": 7, "ultimate": true, "kind": "attack", "target": "enemy", "mult": 6.8, "fx": "slash_doom", "icon": "eclipse",
 		"effects": [{"t": "multi", "n": 6}, {"t": "sure_crit"}, {"t": "ignore_def"}],
 		"desc": "6.8배 피해를 6번으로 나눠, 크리 확정, 이 공격만 적 방어율 무시", "ref": "단일 6.8배 확정 크리 + 방어 무시 (×1.4 = 9.5배 상당, 방어 30% 적에겐 13.6배 — D2·E2에서 8 → 6.8)"},
@@ -813,14 +834,14 @@ const BATTLE_ORDER := ["normal_01", "normal_fire", "normal_water", "normal_bolt"
 ## [용어, 풀이, 화면에서 어디에 보이나] (review_I I-16 — 22 → 32개, 셋째 칸은 도움말 풀이 아래 한 줄)
 const GLOSSARY := [
 	["크레딧", "마녀마다 따로 모으는 마력(◆ 7칸). 차례마다 +1, 기본 공격은 +1 더. 마법을 쓰면 그 비용만큼 줄어든다", "아군 패널의 마름모 7칸 · 바퀴 칸의 숫자 배지(비용)"],
-	["대마법", "크레딧 7을 모두 써서 쓰는 큰 마법. 바퀴 끝 금빛 칸. 쓰고 나면 0부터 다시 모은다", "바퀴 끝 금빛 칸 · 진행 호 n/7"],
-	["연쇄", "대마법을 쓴 마녀가 다시 움직이기 전에 다른 마녀가 대마법을 이으면 단계가 오른다(최대 3). 2단계 효과 ×1.25, 3단계 ×1.5", "위 띠 금빛 칩 \"연쇄 n단계\""],
+	["대마법", "크레딧 7을 모두 써서 쓰는 큰 마법. 바퀴 끝 금빛 칸. 쓰고 나면 0부터 다시 모은다. \"대마법 위력\" 버프(크레딧을 주는 마법에 붙음)는 대마법 피해에만 따로 곱해진다", "바퀴 끝 금빛 칸 · 진행 호 n/7"],
+	["연쇄", "대마법을 쓴 마녀가 다시 움직이기 전에 다른 마녀가 대마법을 이으면 단계가 오른다(최대 3). 2단계 효과 ×1.25 · 공격 피해 ×1.15, 3단계 효과 ×1.5 · 피해 ×1.3", "위 띠 금빛 칩 \"연쇄 n단계\""],
 	["약점", "적 카드의 네모 속성 칸. 그 속성으로 치면 피해 1.5배", "적 카드 이름 줄 오른쪽 금테 네모 · 피해 숫자 위 \"약점\""],
 	["무상성", "공간·시간·검술 마녀는 약점이 없는 대신 모든 적에게 1.2배 (속성을 받으면 그 속성으로 친다)", "편성 카드 \"공간·시간·검술\""],
 	["특성", "적의 갈래(갑각·영체·짐승·인형·재). 그 특성에만 붙는 특공 마법이 있다", "적 상세 \"특성\" 줄 · 설명 띠 \"갑각 특공\""],
 	["징표", "화상·빙결·감전. 그 자체로는 피해가 없다. 걸린 적에게 붙는 효과(특공 등)의 조건이 된다", "적 카드 체력 줄의 둥근 아이콘"],
 	["겹", "같은 징표를 또 걸면 겹이 쌓인다(최대 5). 특공·터뜨리기는 겹 수만큼 세진다", "징표 아이콘 옆 숫자 알약"],
-	["특공", "징표가 걸린 적(또는 그 특성의 적)에게만 붙는 피해 보너스. 징표 특공은 겹마다 곱해진다", "마법 설명 \"특공 +n%\""],
+	["특공", "징표가 걸린 적(또는 그 특성의 적)에게만 붙는 피해 보너스. 징표 특공은 그 속성 공격(화상 = 불 · 빙결 = 물 · 감전 = 번개)일 때 겹마다 곱해지고, 다른 속성은 1겹 값 — 속성 부여로 맞춘다", "마법 설명 \"특공 +n%\""],
 	["터뜨리기", "징표 겹을 모두 써서 한 번에 큰 피해. 겹마다 배율이 오른다", "마법 설명 \"터뜨리기\""],
 	["번짐", "징표 겹 수만큼 다른 적 모두에게 같은 징표를 건다", "마법 설명 \"번짐\""],
 	["차지", "강적·보스 카드의 꺾쇠 칸. 적이 행동할 때마다 한 칸씩 차고, 다 차면 다음 행동이 필살기", "적 카드 체력 숫자 줄 오른쪽 ›››› 칸"],
@@ -953,13 +974,24 @@ static func _scale_effects(effects: Array, k: float, table: Dictionary = LV_SCAL
 	return effects
 
 
-## 대마법 연쇄 단계 stage(1~3)의 마법: 부가 효과 수치 × CHAIN_MULT (배율 mult는 그대로, §13.6)
+## 대마법 연쇄 단계 stage(1~3)의 마법: 부가 효과 수치 × CHAIN_MULT · 공격 대마법 배율 × CHAIN_DMG (§13.6, F-4 P2)
 static func chain_scaled(s: Dictionary, stage: int) -> Dictionary:
 	if stage <= 1:
 		return s
 	var o: Dictionary = s.duplicate(true)
-	o["effects"] = _scale_effects(o.get("effects", []), float(CHAIN_MULT[clampi(stage, 1, 3) - 1]), CHAIN_SCALE)
+	var i := clampi(stage, 1, 3) - 1
+	o["effects"] = _scale_effects(o.get("effects", []), float(CHAIN_MULT[i]), CHAIN_SCALE)
+	if o.has("mult"):
+		o["mult"] = float(o.mult) * float(CHAIN_DMG[i])
 	return o
+
+
+## 연쇄 칩 글 (위 띠 · 안내 강조 자리가 같이 씀): 다음 단계의 효과·피해 배수
+static func chain_label(stage: int) -> String:
+	if stage >= 3:
+		return "연쇄 3단계 (최대) 효과 ×1.5 · 피해 ×1.3"
+	var i := mini(stage, 2)
+	return "연쇄 %d단계 · 다음 효과 ×%s · 피해 ×%s" % [stage, str(CHAIN_MULT[i]), str(CHAIN_DMG[i])]
 
 
 ## 강화 레벨을 반영한 장비 (lv 표의 칸으로 덮어씀)

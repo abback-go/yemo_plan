@@ -1259,7 +1259,10 @@ func _effect_line(e: Dictionary) -> String:
 				dur = " (%s %d번)" % [{"basic": "기본 공격", "skill": "공격 마법", "attack": "공격"}.get(String(e.get("on", "attack")), "공격"), int(e.count)]
 			return who + ("공격 직전 " if bool(e.get("pre", false)) else "") + "%s %+d%%%s" % [nm, v, dur]
 		"debuff":
-			return who + "%s %d%% (적 행동 %d번)" % [TData.CAT_NAME.get(e.cat, e.cat), int(round(float(e.v) * 100.0)), int(e.dur)]
+			var dn: String = TData.CAT_NAME.get(e.cat, e.cat)
+			if e.has("mark"):
+				dn = ("%s 1겹마다 %s" if bool(e.get("per_mark", false)) else "%s 적 %s") % [TData.MARK_NAME.get(String(e.mark), ""), dn]
+			return who + "%s %d%% (적 행동 %d번)" % [dn, int(round(float(e.v) * 100.0)), int(e.dur)]
 		"mark":
 			return who + "%s %d겹 (적 행동 %d번)" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.get("n", 1)), int(e.dur)]
 		"this_special":
@@ -1268,18 +1271,26 @@ func _effect_line(e: Dictionary) -> String:
 			return "이 공격만 %s 특공 +%d%%" % [TData.MARK_NAME.get(e.mark, ""), int(round(float(e.v) * 100.0))]
 		"ignore_def": return "이 공격만 적 방어율 무시"
 		"sure_crit": return "이 공격은 크리티컬 확정"
-		"multi": return "%d번으로 나눠 맞힘" % int(e.n)
+		"multi":
+			if String(e.get("per_mark", "")) != "":
+				return "%d번 + %s 겹마다 1번 더 나눠 맞힘" % [int(e.n), TData.MARK_NAME.get(String(e.per_mark), "")]
+			return "%d번으로 나눠 맞힘" % int(e.n)
+		"hp_bonus": return "적 체력이 %d%% 넘게 남았을수록 이 공격만 최대 +%d%%" % [int(round(float(e.get("at", 0.5)) * 100.0)), int(round(float(e.v) * 100.0))]
+		"regen": return who + "지속 회복 %d%% (행동마다, 행동 %d번)" % [int(round(float(e.pct) * 100.0)), int(e.dur)]
 		"credits":
 			return ("%s 적이면 " % TData.MARK_NAME.get(e.if_mark, "") if e.has("if_mark") else "") + who + "크레딧 +%d" % int(e.v)
 		"crit_gauge": return "크리 1번마다 자신 게이지 +%d%%" % int(round(float(e.v) * 100.0))
-		"enemy_charge": return who + "적 차지 −%d" % int(e.v)
+		"enemy_charge": return ("%s 적이면 " % TData.MARK_NAME.get(e.if_mark, "") if e.has("if_mark") else "") + who + "적 차지 −%d" % int(e.v)
 		"hp_cost": return who + "대가: 체력 −%d%%" % int(round(float(e.pct) * 100.0))
 		"spread": return "%s 겹 수만큼 다른 적 전체에" % TData.MARK_NAME.get(e.kind, "")
-		"burst": return "%s 터뜨리기 (겹마다 +%.1f배)" % [TData.MARK_NAME.get(e.mark, ""), float(e.per)]
+		"burst":
+			if bool(e.get("keep", false)):
+				return "%s 겹마다 +%.1f배 (징표는 남음)" % [TData.MARK_NAME.get(e.mark, ""), float(e.per)]
+			return "%s 터뜨리기 (겹마다 +%.1f배)" % [TData.MARK_NAME.get(e.mark, ""), float(e.per)]
 		"hit_stack": return "맞을 때마다 %s공격력 +%d%% (최대 %d겹)" % ["아군 전체 " if String(e.get("to", "self")) == "allies" else "", int(round(float(e.v) * 100.0)), int(e.get("max", 5))]
 		"taunt": return who + "도발 (적 행동 %d번)" % int(e.dur)
 		"guts": return who + "근성 1회 (적 행동 %d번 안)" % int(e.dur)
-		"stun": return ("%s 적이면 " % TData.MARK_NAME.get(e.if_mark, "") if e.has("if_mark") else "") + who + "기절"
+		"stun": return ("%s 적이면 " % TData.MARK_NAME.get(e.if_mark, "") if e.has("if_mark") else "") + who + "기절" + (" (보스면 차지 −%d)" % int(e.else_charge) if e.has("else_charge") else "")
 		"gauge": return who + "행동 게이지 +%d%%" % int(round(float(e.v) * 100.0))
 		"heal": return who + "체력 %d%% 회복" % int(round(float(e.pct) * 100.0))
 		"revive": return "되살림 %d%% (살아 있으면 회복)" % int(round(float(e.pct) * 100.0))
