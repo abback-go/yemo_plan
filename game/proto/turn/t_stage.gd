@@ -21,6 +21,7 @@ var _hud_layer: CanvasLayer
 var _setup_layer: CanvasLayer
 var stats := {"turns": 0, "biggest": 0} ## 시험용
 var battle_id: String = TData.BATTLE.battle ## 전투 데이터 id (TData.BATTLES)
+var _bg: TBackdrop
 var auto := false ## 시험용 자동 플레이: 바퀴를 잠깐 보여 준 뒤 간단한 규칙으로 고른다 (tools/test/scenarios/turn_*.json)
 
 
@@ -31,6 +32,7 @@ func _ready() -> void:
 	Fx.reset()
 	var bg := TBackdrop.new()
 	add_child(bg)
+	_bg = bg
 	units_node = Node2D.new()
 	units_node.name = "Units"
 	units_node.z_index = 0
@@ -85,6 +87,11 @@ func _to_setup() -> void:
 	actors.clear()
 	for c in get_node("Effects").get_children():
 		c.queue_free()
+	var ul := get_node_or_null("UltLayer")
+	if ul != null:
+		for c in ul.get_children():
+			c.queue_free()
+	hud.modulate.a = 1.0
 	setup.back_to_roster()
 	setup.visible = true
 
@@ -107,6 +114,7 @@ func start_battle() -> void:
 	for i in battle.witches.size():
 		_add_actor(battle.witches[i], WITCH_AT[i])
 	_add_enemies()
+	_bg.set_boss(_wave_has_boss(), true)
 	hud.bind(battle, actors)
 	stats = {"turns": 0, "biggest": 0}
 	_in_battle = true
@@ -160,6 +168,7 @@ func _run(token: int) -> void:
 			hud.pop(u, "기절 — 쉼", "status")
 			await _wait(0.6)
 		elif u.is_witch():
+			a.set_turn(true)
 			hud.open_wheel(a)
 			var action: Dictionary
 			if auto:
@@ -170,6 +179,7 @@ func _run(token: int) -> void:
 				hud.close_wheel()
 			else:
 				action = await hud.chosen
+			a.set_turn(false)
 			if token != _run_id:
 				return
 			stats.turns = int(stats.turns) + 1
@@ -194,13 +204,14 @@ func _run(token: int) -> void:
 			return
 
 
-## 웨이브 전환 (§6.3): 배너 "웨이브 N/M" 1.0초 → 다음 웨이브의 적을 세운다 (마녀 쪽은 그대로). 걸어 들어오는 연출은 단계 D
+## 웨이브 전환 (§6.3 · §22.2): 배너 "웨이브 N/M" 1.0초 + 북 소리 → 다음 웨이브의 적이 오른쪽 밖에서 0.4초 걸어 들어온다 (마녀 쪽은 그대로).
+## 보스 웨이브면 하늘 아래쪽이 붉어지고 보스가 땅을 울린다
 func _wave_change(token: int) -> void:
 	await _wait(0.3)
 	if token != _run_id:
 		return
 	hud.wave_banner(battle.wave_i + 2, battle.wave_count())
-	Sfx.play(&"tn_bless", -10.0)
+	Sfx.play(&"tn_wave", -2.0)
 	await _wait(1.0)
 	if token != _run_id:
 		return
@@ -210,8 +221,29 @@ func _wave_change(token: int) -> void:
 			actors.erase(e)
 	battle.next_wave()
 	_add_enemies()
+	var boss := _wave_has_boss()
+	for e in battle.enemies:
+		var ea: TActor = actors[e]
+		ea.walk_in(260.0 if not e.boss else 300.0, 0.4)
+		TFx.walk_dust(ea.feet() + Vector2(260, 0))
+	if boss:
+		_bg.set_boss(true)
+		TFx.after(0.4, func() -> void:
+			Fx.shake(0.8, 0.35)
+			Sfx.play(&"tn_wave", 0.0, 0.0)
+			for e in battle.enemies:
+				if actors.has(e):
+					var sw := TFx.Shockwave.new()
+					TFx.add(sw, (actors[e] as TActor).feet(), false))
 	hud.refresh()
 	await _wait(0.4)
+
+
+func _wave_has_boss() -> bool:
+	for e in battle.enemies:
+		if e.boss:
+			return true
+	return false
 
 
 func _targets_for(a: TActor, action: Dictionary) -> Array:
@@ -254,17 +286,30 @@ func _perform_witch(a: TActor, action: Dictionary) -> void:
 		ev = battle.basic_attack(u, tgt)
 		a.lunge()
 		a.pose("cast")
-	else:
+	var ult := ""
+	if action.kind != "basic":
 		var s := TData.skill(String(action.skill))
 		fx_id = String(s.fx)
 		big = int(s.cost) >= 4
 		ev = battle.use_skill(u, String(action.skill), tgt)
-		if String(s.kind) == "attack":
+		if bool(s.get("ultimate", false)) and TFx.is_ult(String(action.skill)):
+			ult = String(action.skill)
+		elif String(s.kind) == "attack":
 			a.lunge()
 		a.pose("cast_big" if big else "cast")
 	hud.show_msg("%s — %s" % [u.name, battle.last_action], TData.ELEMENT_COLOR.get(el, TTheme.LINE))
 	hud.refresh()
-	var timing := TFx.play(fx_id, a, targets)
+	var timing: Dictionary
+	if ult != "":
+		# 대마법 2.0초 (§13.4 · §22.2): HUD를 잠깐 걷고 컷인 → 효과 → 숫자
+		var stage := maxi(battle.chain_stage, 1)
+		for e in ev:
+			if String(e.t) == "chain":
+				stage = int(e.stage)
+		_ult_hud_fade()
+		timing = TFx.ultimate(ult, a, targets, stage, _alive_actors(battle.enemies), _alive_actors(battle.witches))
+	else:
+		timing = TFx.play(fx_id, a, targets)
 	await _show_events(ev, targets, timing, "space" if el in ["space", "time", "sword"] else "fire")
 	_show_total(ev)
 	a.pose("idle")
@@ -275,6 +320,20 @@ func _perform_enemy(a: TActor) -> void:
 	var u := a.unit
 	var it := u.intent()
 	var kind := String(it.get("k", "attack"))
+	# 해제 연출용: 행동 전 마녀들의 버프 아이콘 · 관통용: 행동 전 무적
+	var icons_before := {}
+	var inv_before := {}
+	for w in battle.witches:
+		if w.alive:
+			icons_before[w] = w.buff_icons()
+			inv_before[w] = w.is_invincible()
+	a.set_acting(true)
+	if kind == "finisher":
+		# 필살기 예고 0.35초 (화면 가장자리 붉게 + 그 적 둘레 붉은 기운)
+		hud.show_msg("%s — %s" % [u.name, String(it.get("name", "필살기"))], TTheme.DANGER)
+		a.pose("buff")
+		TFx.finisher_warn(a)
+		await _wait(0.35)
 	var ev := battle.enemy_action(u)
 	hud.show_msg("%s — %s" % [u.name, battle.last_action], TTheme.DANGER)
 	a.pose("buff" if kind == "buff" else "attack")
@@ -292,10 +351,39 @@ func _perform_enemy(a: TActor) -> void:
 		"finisher": fx_id = "enemy_aoe" if bool(it.get("aoe", false)) else "enemy_heavy"
 		"dispel": fx_id = "enemy_buff"
 	var timing := TFx.play(fx_id, a, targets)
+	if bool(it.get("pierce", false)) and targets[0] != a:
+		var ps := TFx.PierceSpear.new()
+		ps.from = a.center()
+		ps.to = (targets[0] as TActor).center()
+		ps.barrier = bool(inv_before.get((targets[0] as TActor).unit, false))
+		TFx.add(ps, Vector2.ZERO, true)
+	var lost := {}
+	for e in ev:
+		if String(e.t) == "dispel" and icons_before.has(e.tgt):
+			lost[e.tgt] = icons_before[e.tgt]
+	if not lost.is_empty():
+		TFx.after(0.3, func() -> void: TFx.dispel_fx(_alive_actors(battle.witches), lost, hud))
 	await _show_events(ev, targets, timing, "enemy")
 	await _wait(0.2)
+	a.set_acting(false)
 	a.pose("idle")
 	hud.refresh()
+
+
+func _alive_actors(units: Array) -> Array:
+	var out: Array = []
+	for u in units:
+		if u.alive and actors.has(u):
+			out.append(actors[u])
+	return out
+
+
+## 대마법 동안 HUD를 걷었다가(컷인 0.15~0.62초) 피해 숫자 전에 되돌린다
+func _ult_hud_fade() -> void:
+	var tw := create_tween()
+	tw.tween_property(hud, "modulate:a", 0.12, 0.15)
+	tw.tween_interval(0.47)
+	tw.tween_property(hud, "modulate:a", 1.0, 0.18)
 
 
 ## 연출의 시각표에 맞춰 사건을 보여 준다: 맞는 순간마다 그 대상의 사건(피해·징표·디버프), 그 뒤 나머지(버프·크레딧 …)
@@ -351,6 +439,10 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			var heavy := dmg >= 100000 or bool(e.crit)
 			stats.biggest = maxi(int(stats.biggest), dmg if tgt.is_witch() == false else 0)
 			ta.hurt(heavy)
+			if bool(e.crit) and not tgt.is_witch():
+				TFx.crit_flash(ta.center())
+			if dmg >= 10000000:
+				Fx.flash(Color(1, 1, 1, 0.5), 0.12) # 1,000만 이상 (§22.3)
 			var dir := -1.0 if tgt.is_witch() else 1.0
 			TFx.impact(ta.center() + Vector2(randf_range(-4, 4), randf_range(-6, 2)), kind, heavy, dir)
 			# 숫자 (§21.12): 일반 12 · 크리 24 금빛 "!" · 약점 15 + "약점" 꼬리표 · 한 히트 30만 이상 24 · 받은 피해 15
@@ -376,15 +468,20 @@ func _show_event(e: Dictionary, kind: String) -> void:
 				Fx.hitstop(0.05)
 				Fx.shake(0.4, 0.2)
 			if bool(e.broke):
-				hud.pop(tgt, "브레이크", "break")
-				Fx.hitstop(0.15)
+				# 브레이크 1.0초 (§22.2): 멈춤 0.15 · 막대 깨짐 0.5 · 다음 줄 차오름 0.35 — "브레이크" 글은 BarShatter가 30px로
+				var cr: Rect2 = hud._card_rect(tgt)
+				var bar := Rect2(cr.position + Vector2(4, 32), Vector2(300, 6)) if hud._boss_card_on() else Rect2(cr.position + Vector2(4, 31), Vector2(92, 5))
+				TFx.break_fx(ta, bar, hud)
 			if bool(e.guts):
 				hud.pop(tgt, "근성", "status")
+				TFx.guts_fx(ta)
 			if bool(e.killed):
 				var tw := create_tween()
 				tw.tween_interval(0.25)
 				tw.tween_callback(func() -> void:
 					ta.set_down(true)
+					if not tgt.is_witch():
+						TFx.ash_dissolve(ta)
 					hud.pop(tgt, "쓰러짐", "status")
 					Sfx.play(&"bl_fold", -6.0))
 		"buff":
@@ -409,14 +506,19 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			hud.pop(tgt, "%s %d겹 터뜨림" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.n)], "mark")
 		"resist":
 			hud.pop(tgt, "저항", "status")
+			TFx.resist_fx(ta, false)
 		"stun":
 			hud.pop(tgt, "기절", "status")
+			TFx.stun_fx(ta)
 		"immune":
 			hud.pop(tgt, "면역", "status")
+			TFx.resist_fx(ta, true)
 		"stun_resist":
 			hud.pop(tgt, "기절 내성", "status")
+			TFx.resist_fx(ta, true)
 		"taunt":
 			hud.pop(tgt, "도발", "buff")
+			TFx.taunt_fx(ta)
 		"guts_on":
 			hud.pop(tgt, "근성", "buff")
 		"dispel":
@@ -486,6 +588,7 @@ func _finish(oc: String, token: int) -> void:
 		for u in actors:
 			if u.is_witch() and u.alive:
 				(actors[u] as TActor).pose("win")
+				TFx.victory_sparkle(actors[u])
 		Sfx.play(&"tn_victory", -2.0)
 		hud.banner("승리", "눌러서 편성으로")
 	else:
@@ -584,3 +687,120 @@ func status() -> String:
 	for u in battle.all_units():
 		s += " | %s hp=%d g=%d c=%d%s" % [u.name, u.hp, int(u.gauge), u.credits, "" if u.alive else " X"]
 	return s
+
+
+## 시험용: 대마법 연출 하나를 그냥 띄운다 (규칙은 건드리지 않음 — tools/test/scenarios/turn_ult.json). 맞는 시각마다 가짜 숫자
+func demo_ult(sid: String, stage := 1) -> String:
+	var caster: TActor = null
+	for u in actors:
+		if u.is_witch() and String(u.data.get("ultimate", "")) == sid:
+			caster = actors[u]
+	if caster == null:
+		return "no caster for " + sid
+	hud.close_wheel()
+	var sk := TData.skill(sid)
+	var targets: Array = []
+	match String(sk.get("target", "enemy")):
+		"enemy":
+			targets = _alive_actors(battle.enemies).slice(0, 1)
+		"enemies":
+			targets = _alive_actors(battle.enemies)
+		_:
+			targets = _alive_actors(battle.witches)
+	caster.pose("cast_big")
+	_ult_hud_fade()
+	hud.show_msg("%s — %s" % [caster.unit.name, String(sk.get("name", sid))], TData.ELEMENT_COLOR.get(caster.unit.element, TTheme.LINE))
+	var timing := TFx.ultimate(sid, caster, targets, stage, _alive_actors(battle.enemies), _alive_actors(battle.witches))
+	var hits: Array = timing.hits
+	var sub := float(timing.get("sub", 0.09))
+	var n := int(sk.get("effects", [{}])[0].get("n", 1)) if String(sk.get("effects", [{}])[0].get("t", "")) == "multi" else 1
+	var attack := String(sk.get("kind", "")) == "attack"
+	for i in hits.size():
+		var ta: TActor = targets[i] if i < targets.size() else null
+		if ta == null:
+			continue
+		for j in (n if attack else 1):
+			var at := float(hits[i]) + sub * float(j)
+			TFx.after(at, func() -> void:
+				if not is_instance_valid(ta):
+					return
+				if attack:
+					ta.hurt(true)
+					TFx.impact(ta.center(), "space" if caster.unit.element in ["space", "sword"] else "fire", true, 1.0)
+					hud.pop(ta.unit, TData.fmt_short(1234567 * (j + 1)) + ("!" if sid == "ult_harpe" else ""), "crit" if sid in ["ult_harpe", "ult_fulgur"] else "big")
+				else:
+					hud.pop(ta.unit, "버프", "buff"))
+	var tw := create_tween()
+	tw.tween_interval(float(timing.total))
+	tw.tween_callback(func() -> void: caster.pose("idle"))
+	return "%s stage=%d hits=%s total=%.2f" % [sid, stage, str(hits), float(timing.total)]
+
+
+## 시험용: 지금 프레임의 그리기 호출 · 입자 수 · 연출 노드 수 (대마법 성능 확인, §22)
+func perf() -> String:
+	var dc := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+	var obj := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
+	var pa := PParticles.get_layer(true).count()
+	var pn := PParticles.get_layer(false).count()
+	var fxn := get_node("Effects").get_child_count()
+	var ul := get_node_or_null("UltLayer")
+	return "draw_calls=%d objects=%d particles=%d+%d fx_nodes=%d ult_nodes=%d" % [dc, obj, pa, pn, fxn, ul.get_child_count() if ul != null else 0]
+
+
+## 시험용: 상태 연출 하나를 띄운다 (break · stun · dispel · guts · taunt · resist · immune · pierce · finisher · crit). 규칙은 브레이크의 줄 번호만 넘긴다
+func demo_event(kind: String) -> String:
+	hud.close_wheel()
+	var foe: TUnit = battle.alive_of(battle.enemies)[0]
+	var w: TUnit = battle.alive_of(battle.witches)[0]
+	var hit := {"t": "hit", "tgt": foe, "dmg": 1500000, "crit": false, "weak": false, "invincible": false, "broke": false, "guts": false, "killed": false}
+	match kind:
+		"break":
+			if foe.bars.size() > foe.bar_i + 1:
+				foe.bar_i += 1
+				foe.max_hp = int(foe.bars[foe.bar_i])
+				foe.hp = foe.max_hp
+			hit.broke = true
+			_show_event(hit, "fire")
+		"crit":
+			hit.crit = true
+			_show_event(hit, "fire")
+		"stun":
+			w.stunned = true
+			_show_event({"t": "stun", "tgt": w}, "enemy")
+		"guts":
+			_show_event({"t": "hit", "tgt": w, "dmg": 30000, "crit": false, "weak": false, "invincible": false, "broke": false, "guts": true, "killed": false}, "enemy")
+		"taunt", "resist", "immune":
+			_show_event({"t": kind, "tgt": w if kind == "taunt" else foe}, "enemy")
+		"dispel":
+			var lost := {}
+			for u in battle.alive_of(battle.witches):
+				lost[u] = [{"cat": "atk"}, {"cat": "crit_dmg"}, {"cat": "invincible"}, {"cat": "dmg_taken", "v": -0.3}]
+				hud.pop(u, "버프 해제", "debuff")
+			TFx.dispel_fx(_alive_actors(battle.witches), lost, hud)
+		"pierce", "finisher":
+			var fa: TActor = actors[foe]
+			TFx.finisher_warn(fa)
+			fa.set_acting(true)
+			TFx.after(0.35, func() -> void:
+				var ps := TFx.PierceSpear.new()
+				ps.from = fa.center()
+				ps.to = (actors[w] as TActor).center()
+				ps.barrier = kind == "pierce"
+				TFx.add(ps, Vector2.ZERO, true)
+				fa.set_acting(false))
+	return kind
+
+
+## 시험용: 지금 웨이브의 적을 모두 쓰러뜨리고 다음 웨이브로 넘긴다 (웨이브 전환 연출 확인 — 규칙의 다음 웨이브를 그대로 씀)
+func demo_wave() -> String:
+	hud.close_wheel()
+	for e in battle.enemies:
+		e.alive = false
+		e.hp = 0
+		if actors.has(e):
+			(actors[e] as TActor).set_down(true)
+			TFx.ash_dissolve(actors[e])
+	if battle.wave_i + 1 >= battle.wave_count():
+		return "last wave"
+	_wave_change(_run_id)
+	return "wave %d" % (battle.wave_i + 2)

@@ -10,6 +10,10 @@ extends PDraw.Canvas
 ## 자세(pose): idle · cast(앞손을 뻗어 빛) · cast_big(두 팔을 펼치고 떠오름) · hit · win
 
 const OUT := Color("#0a090e")
+const RIM_LIGHT := Color(0.9, 0.86, 1.0, 0.5) ## 테두리 빛 (review_C §8.1 — 어두운 땅·보라 하늘과 떼어 읽히게)
+const RIM_OFFS: Array[Vector2] = [Vector2(-0.5, -0.5), Vector2(0.5, 0.5)] ## 로컬 px (마녀 배율 2 → 화면 1px)
+static var _rim_shader: Shader
+static var _rim_mats := {} ## 색 → 재질
 
 const STYLE := {
 	"ignis": {"hat": "point_fwd", "brim": "burnt", "hair": "spiky", "back": "braid", "front": "lock", "outfit": "coat", "prop": "glove"},
@@ -27,14 +31,14 @@ const STYLE := {
 
 const PAL := {
 	"ignis": {"hair": "#d8432b", "hair_hi": "#ff9a4a", "hair_sh": "#8e2418", "skin": "#efc9a6", "skin_sh": "#c99a78", "skin_hi": "#fbe6d2",
-		"cloth": "#241a1c", "cloth_hi": "#3b2a2d", "cloth_edge": "#5a3b3b", "inner": "#b8341f", "inner_hi": "#e0582f", "band": "#7a1e16",
-		"hat": "#17121a", "hat_hi": "#2b2130", "brim_edge": "#ff7a2a", "glow": "#ff8a3a", "glow_pale": "#ffd9a0", "eye": "#ffb347", "boot": "#120d10", "metal": "#d9a441"},
+		"cloth": "#33262a", "cloth_hi": "#4a3639", "cloth_edge": "#5a3b3b", "inner": "#b8341f", "inner_hi": "#e0582f", "band": "#7a1e16",
+		"hat": "#2a2030", "hat_hi": "#3e3046", "brim_edge": "#ff7a2a", "glow": "#ff8a3a", "glow_pale": "#ffd9a0", "eye": "#ffb347", "boot": "#120d10", "metal": "#d9a441"},
 	"ember": {"hair": "#f0a850", "hair_hi": "#ffd28a", "hair_sh": "#b86f2a", "skin": "#f6dcc8", "skin_sh": "#d4ac92", "skin_hi": "#fff1e6",
 		"cloth": "#f6e7cf", "cloth_hi": "#fff8ea", "cloth_edge": "#d9c3a2", "inner": "#f1a662", "inner_hi": "#ffc98a", "band": "#c4512e",
 		"hat": "#efdcc0", "hat_hi": "#fbf0dc", "brim_edge": "#c4512e", "glow": "#ffb95a", "glow_pale": "#fff0c8", "eye": "#8a4a22", "boot": "#6b3a24", "metal": "#c9933a"},
 	"cinder": {"hair": "#7a6f7a", "hair_hi": "#ffb067", "hair_sh": "#4a414b", "skin": "#ead9cf", "skin_sh": "#c4ada3", "skin_hi": "#f8ede6",
-		"cloth": "#2a2028", "cloth_hi": "#3d3038", "cloth_edge": "#5a4a52", "inner": "#8a3a2a", "inner_hi": "#c9623a", "band": "#5a2a22",
-		"hat": "#1e181f", "hat_hi": "#2f272f", "brim_edge": "#c9623a", "glow": "#ff8a3a", "glow_pale": "#ffd9a0", "eye": "#ff9a4a", "boot": "#15101a", "metal": "#b08a4a"},
+		"cloth": "#382b35", "cloth_hi": "#4c3d47", "cloth_edge": "#5a4a52", "inner": "#8a3a2a", "inner_hi": "#c9623a", "band": "#5a2a22",
+		"hat": "#2e2530", "hat_hi": "#40353f", "brim_edge": "#c9623a", "glow": "#ff8a3a", "glow_pale": "#ffd9a0", "eye": "#ff9a4a", "boot": "#15101a", "metal": "#b08a4a"},
 	"undine": {"hair": "#2f7fd6", "hair_hi": "#8fd4ff", "hair_sh": "#1c4f8f", "skin": "#f3e2d6", "skin_sh": "#cdb3a6", "skin_hi": "#fbf0ea",
 		"cloth": "#1d3b6b", "cloth_hi": "#2c5c9c", "cloth_edge": "#4a86c9", "inner": "#8fd4ff", "inner_hi": "#dff6ff", "band": "#dff6ff",
 		"hat": "#1a2f55", "hat_hi": "#28457a", "brim_edge": "#8fd4ff", "glow": "#3fb0ff", "glow_pale": "#dff6ff", "eye": "#9fe8ff", "boot": "#12213d", "metal": "#c9d9e8"},
@@ -42,20 +46,20 @@ const PAL := {
 		"cloth": "#eef7fb", "cloth_hi": "#ffffff", "cloth_edge": "#c9dde8", "inner": "#7fc4e8", "inner_hi": "#bfe6f7", "band": "#4f93c2",
 		"hat": "#dcedf7", "hat_hi": "#f3fafd", "brim_edge": "#4f93c2", "glow": "#9fe8ff", "glow_pale": "#ffffff", "eye": "#3a7ab8", "boot": "#5c7f99", "metal": "#d8c38a"},
 	"glacia": {"hair": "#eaf6ff", "hair_hi": "#ffffff", "hair_sh": "#a9c7dd", "skin": "#f4ece9", "skin_sh": "#cbbfbc", "skin_hi": "#ffffff",
-		"cloth": "#223a52", "cloth_hi": "#30506f", "cloth_edge": "#ffffff", "inner": "#bfe9ff", "inner_hi": "#ffffff", "band": "#9fd0ee",
-		"hat": "#1a2a3c", "hat_hi": "#2a3f55", "brim_edge": "#ffffff", "glow": "#bfe9ff", "glow_pale": "#ffffff", "eye": "#79c6ff", "boot": "#15202e", "metal": "#c8dbe8"},
+		"cloth": "#2b4864", "cloth_hi": "#3a5e80", "cloth_edge": "#ffffff", "inner": "#bfe9ff", "inner_hi": "#ffffff", "band": "#9fd0ee",
+		"hat": "#253a52", "hat_hi": "#33506d", "brim_edge": "#ffffff", "glow": "#bfe9ff", "glow_pale": "#ffffff", "eye": "#79c6ff", "boot": "#15202e", "metal": "#c8dbe8"},
 	"fulgur": {"hair": "#fff1a8", "hair_hi": "#ffffff", "hair_sh": "#d1b24a", "skin": "#f0cfa8", "skin_sh": "#c9a47e", "skin_hi": "#fbe6cc",
-		"cloth": "#2b2340", "cloth_hi": "#3d3360", "cloth_edge": "#6a5aa0", "inner": "#ffe34a", "inner_hi": "#fff6b0", "band": "#9a7cff",
-		"hat": "#1f1830", "hat_hi": "#2f2546", "brim_edge": "#ffe34a", "glow": "#ffe34a", "glow_pale": "#fff8d0", "eye": "#ffe34a", "boot": "#141022", "metal": "#ffd84a"},
+		"cloth": "#382e52", "cloth_hi": "#4a3f72", "cloth_edge": "#6a5aa0", "inner": "#ffe34a", "inner_hi": "#fff6b0", "band": "#9a7cff",
+		"hat": "#2e2546", "hat_hi": "#41365e", "brim_edge": "#ffe34a", "glow": "#ffe34a", "glow_pale": "#fff8d0", "eye": "#ffe34a", "boot": "#141022", "metal": "#ffd84a"},
 	"astra": {"hair": "#8c6fe0", "hair_hi": "#c9b3ff", "hair_sh": "#5a44a0", "skin": "#f6e3d8", "skin_sh": "#d4b9ac", "skin_hi": "#fff2ea",
 		"cloth": "#f4efff", "cloth_hi": "#ffffff", "cloth_edge": "#cfc1ea", "inner": "#ffe34a", "inner_hi": "#fff8d0", "band": "#7a5fd0",
 		"hat": "#5a3fa8", "hat_hi": "#7a5fd0", "brim_edge": "#ffe34a", "glow": "#ffe34a", "glow_pale": "#fff8d0", "eye": "#7a5fd0", "boot": "#4a3a7a", "metal": "#ffe34a"},
 	"tonan": {"hair": "#2c3466", "hair_hi": "#ffe34a", "hair_sh": "#1b2040", "skin": "#e8d2c0", "skin_sh": "#c2a994", "skin_hi": "#f6e6d8",
-		"cloth": "#1e2342", "cloth_hi": "#2f3660", "cloth_edge": "#515aa0", "inner": "#ffe34a", "inner_hi": "#fff6b0", "band": "#3f4a9a",
-		"hat": "#161a33", "hat_hi": "#242a4d", "brim_edge": "#ffe34a", "glow": "#ffe34a", "glow_pale": "#ffffff", "eye": "#ffe34a", "boot": "#10132a", "metal": "#b9c0e8"},
+		"cloth": "#2a3054", "cloth_hi": "#3a4270", "cloth_edge": "#515aa0", "inner": "#ffe34a", "inner_hi": "#fff6b0", "band": "#3f4a9a",
+		"hat": "#252a4a", "hat_hi": "#343b63", "brim_edge": "#ffe34a", "glow": "#ffe34a", "glow_pale": "#ffffff", "eye": "#ffe34a", "boot": "#10132a", "metal": "#b9c0e8"},
 	"hora": {"hair": "#e9d8a8", "hair_hi": "#fff8e0", "hair_sh": "#b39a66", "skin": "#f6e8dc", "skin_sh": "#d2bcae", "skin_hi": "#fff6ee",
-		"cloth": "#3a2a44", "cloth_hi": "#4e3a5c", "cloth_edge": "#7a5c8a", "inner": "#f2d27a", "inner_hi": "#fff0c0", "band": "#f2d27a",
-		"hat": "#2b1f36", "hat_hi": "#3d2d4c", "brim_edge": "#f2d27a", "glow": "#f2d27a", "glow_pale": "#fff8e0", "eye": "#c9a24a", "boot": "#1f1628", "metal": "#f2d27a"},
+		"cloth": "#46344f", "cloth_hi": "#5a4468", "cloth_edge": "#7a5c8a", "inner": "#f2d27a", "inner_hi": "#fff0c0", "band": "#f2d27a",
+		"hat": "#382a46", "hat_hi": "#4c3a5e", "brim_edge": "#f2d27a", "glow": "#f2d27a", "glow_pale": "#fff8e0", "eye": "#c9a24a", "boot": "#1f1628", "metal": "#f2d27a"},
 	"harpe": {"hair": "#15121b", "hair_hi": "#f2eff7", "hair_sh": "#0a090e", "skin": "#f0e6e2", "skin_sh": "#c9b4b4", "skin_hi": "#fff8f4",
 		"cloth": "#f2eff7", "cloth_hi": "#ffffff", "cloth_edge": "#cfc9dc", "inner": "#14081f", "inner_hi": "#3b1268", "band": "#14081f",
 		"hat": "#14081f", "hat_hi": "#2a1540", "brim_edge": "#f2eff7", "glow": "#e6dcff", "glow_pale": "#ffffff", "eye": "#b9a2ff", "boot": "#14081f", "metal": "#cfc9dc"},
@@ -85,12 +89,77 @@ var _hair2: EArt.Chain
 var _sleeve: EArt.Chain
 var _ready_done := false
 var _flicker := 0.0
+var _white := 0.0 ## 맞은 순간 흰 번쩍 (0.06초)
+var _kneel := 0.0 ## 쓰러짐 무릎 자세 (0~1)
+var _blink := 0.0
+var _rim_ci := RID()
+var _rng := RandomNumberGenerator.new() ## 눈 깜빡임 (전역 난수를 건드리지 않게)
 
 
 func _ready() -> void:
 	_s = STYLE.get(kind, STYLE.ember)
 	for k in PAL.get(kind, PAL.ember):
 		_p[k] = Color(String(PAL.get(kind, PAL.ember)[k]))
+	_rim_ci = rim_make(self, RIM_LIGHT)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE and _rim_ci.is_valid():
+		RenderingServer.free_rid(_rim_ci)
+
+
+func _draw() -> void:
+	_paint()
+	rim_paint(_rim_ci, pd, RIM_OFFS if fade >= 0.99 else []) # 옅어지는 중엔 끔 (흰 실루엣이 비침)
+	pd.flush(self)
+
+
+## 테두리 빛 그림 자리 (EArt와 같은 방법 — 몸 뒤에 한 색으로). 적 그림(TEnemyArt)도 같이 쓴다
+static func rim_make(ci: CanvasItem, col: Color) -> RID:
+	if _rim_shader == null:
+		_rim_shader = Shader.new()
+		_rim_shader.code = EArt.RIM_SHADER
+	var mat: ShaderMaterial = _rim_mats.get(col)
+	if mat == null:
+		mat = ShaderMaterial.new()
+		mat.shader = _rim_shader
+		mat.set_shader_parameter("rim", col)
+		_rim_mats[col] = mat
+	var rid := RenderingServer.canvas_item_create()
+	RenderingServer.canvas_item_set_parent(rid, ci.get_canvas_item())
+	RenderingServer.canvas_item_set_draw_behind_parent(rid, true)
+	RenderingServer.canvas_item_set_material(rid, mat.get_rid())
+	return rid
+
+
+## 모은 그림 중 진한 삼각형(세 꼭짓점 알파 EArt.RIM_SOLID 이상)만 골라 offs만큼 밀어 rid에 그린다 (pd.flush 전에)
+static func rim_paint(rid: RID, pd: PDraw, offs: Array) -> void:
+	if not rid.is_valid():
+		return
+	RenderingServer.canvas_item_clear(rid)
+	var idx := pd.idx
+	var n := idx.size()
+	if n == 0:
+		return
+	var cols := pd.c
+	var keep := PackedInt32Array()
+	keep.resize(n)
+	var k := 0
+	for i in range(0, n, 3):
+		var a := idx[i]
+		var b := idx[i + 1]
+		var c := idx[i + 2]
+		if cols[a].a >= EArt.RIM_SOLID and cols[b].a >= EArt.RIM_SOLID and cols[c].a >= EArt.RIM_SOLID:
+			keep[k] = a
+			keep[k + 1] = b
+			keep[k + 2] = c
+			k += 3
+	if k == 0:
+		return
+	keep.resize(k)
+	for off: Vector2 in offs:
+		RenderingServer.canvas_item_add_set_transform(rid, Transform2D(0.0, off))
+		RenderingServer.canvas_item_add_triangle_array(rid, keep, pd.v, cols)
 
 
 func _ensure() -> void:
@@ -140,6 +209,8 @@ func _sleeve_rest(root: Vector2) -> PackedVector2Array:
 
 
 func set_pose(p: String) -> void:
+	if p == "cast_big" and pose != "cast_big":
+		squash(Vector2(1.14, 0.84)) # 0.15초 웅크렸다 펼침 (예비 동작)
 	pose = p
 
 
@@ -150,6 +221,7 @@ func squash(s: Vector2) -> void:
 
 func hurt() -> void:
 	_hurt_flash = 1.0
+	_white = 0.06
 	squash(Vector2(1.18, 0.84))
 
 
@@ -223,6 +295,8 @@ func tick(delta: float) -> void:
 		"cast": lean_want = 0.12
 		"cast_big": lean_want = -0.07
 		"hit": lean_want = -0.1
+		"down": lean_want = 0.3
+	_kneel = move_toward(_kneel, 1.0 if pose == "down" else 0.0, dt * 4.0)
 	_lean_v += (lean_want - _lean) * 260.0 * dt - _lean_v * 18.0 * dt
 	_lean += _lean_v * dt
 	_big = move_toward(_big, 1.0 if pose == "cast_big" else 0.0, dt * (5.0 if pose == "cast_big" else 3.0))
@@ -234,9 +308,16 @@ func tick(delta: float) -> void:
 	var glow_want := 1.0 if pose in ["cast", "cast_big", "win"] else 0.0
 	glow = move_toward(glow, glow_want, dt * 6.0)
 	_hurt_flash = maxf(_hurt_flash - dt * 5.0, 0.0)
+	_white = maxf(_white - delta, 0.0)
+	_blink = maxf(_blink - delta, 0.0)
+	if _blink <= 0.0 and pose == "idle" and _rng.randf() < dt * 0.35:
+		_blink = 0.12
 	_flicker = 0.75 + 0.25 * sin(_t * 23.0) * sin(_t * 7.3 + 1.0)
-	modulate = Color(1.0, 1.0 - 0.55 * _hurt_flash, 1.0 - 0.5 * _hurt_flash, fade)
-	scale = _sq
+	if _white > 0.0:
+		modulate = Color(2.4, 2.4, 2.4, fade)
+	else:
+		modulate = Color(1.0, 1.0 - 0.55 * _hurt_flash, 1.0 - 0.5 * _hurt_flash, fade)
+	scale = _sq * Vector2(1.0 + 0.06 * _kneel, 1.0 - 0.2 * _kneel)
 	rotation = _lean
 	var pivot := Vector2(0, -18.0 * _sq.y)
 	position = Vector2(0, -_lift) + pivot.rotated(_lean) - pivot.rotated(rotation)
@@ -471,7 +552,10 @@ func _paint_cape(o: Vector2) -> void:
 
 func _paint_head(o: Vector2) -> void:
 	var hc := o + Vector2(1.3, -29.2)
+	pd.draw_circle(hc, 3.85, OUT) # 얼굴 외곽선
 	pd.draw_circle(hc, 3.3, _p.skin)
+	pd.draw_circle(hc + Vector2(-1.0, 0.9), 2.0, Color(_p.skin_sh, 0.55)) # 뒤쪽 볼 그늘 (명암)
+	pd.draw_circle(hc + Vector2(1.2, -1.0), 1.2, Color(_p.skin_hi, 0.7))
 	if _s.hat != "band" and _s.hat != "hood":
 		pd.draw_rect(Rect2(hc + Vector2(-2.6, -3.2), Vector2(5.6, 1.6)), Color(_p.skin_sh, 0.9)) # 챙 그늘
 	pd.draw_rect(Rect2(hc + Vector2(1.6, 1.5), Vector2(1.2, 0.8)), _p.skin_sh)
@@ -515,7 +599,9 @@ func _paint_head(o: Vector2) -> void:
 		pd.strip(lk[0], lk[1], _p.hair)
 	# 눈
 	var eye := o + Vector2(3.5, -28.9)
-	if kind in ["ignis", "fulgur", "cinder", "tonan"]:
+	if _blink > 0.0 or _kneel > 0.5:
+		pd.draw_line(eye + Vector2(-0.8, 0.2), eye + Vector2(0.8, 0.2), OUT, 0.7) # 감은 눈
+	elif kind in ["ignis", "fulgur", "cinder", "tonan"]:
 		var ea := 0.7 + 0.3 * sin(_t * 3.0) + glow * 0.3
 		pd.glow(eye, 3.0, Color(_p.eye, 0.5 * ea), 0.0)
 		pd.draw_rect(Rect2(eye - Vector2(0.7, 0.5), Vector2(1.4, 1.0)), Color(_p.eye, minf(ea, 1.0)))

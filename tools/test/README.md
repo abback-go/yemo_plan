@@ -77,6 +77,8 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `turn_ui_trial.json` | 전투 고르기에서 시련 → 시련의 거상 필살기 무적 관통 표시 · 상세 (t00~t04) |
 | `turn_ui_setup.json` | 전투 고르기 카드 3장 · 편성의 고른 전투 줄 · 마법 장착 탭 3 · 장착 최대 안내 · 장비 설명 (s00~s10) |
 | `turn_auto.json` · `turn_auto2.json` · `turn_boss.json` · `turn_trial.json` · `turn_fx.json` | 자동 전투(일반·보스·시련)와 마법 연출 35종. 편성 → 전투 고르기 → 출격은 "전투 시작" 자리를 두 번 누른다 |
+| `turn_ult.json` | 대마법 12개 연출 — 마녀마다 컷인(a)·문장 고리(b)·효과(c)·맞음(d) 4장 + 연쇄 3단계 2개 + `perf()`(그리기 호출·입자·연출 노드)와 기존 큰 마법 4개 비교 (단계 D) |
+| `turn_events.json` | 웨이브 전환(걸어 들어옴·보스 착지) · 재의 왕 줄 1~3 모습 · 크리 · 브레이크 · 기절 · 해제 · 근성 · 도발 · 저항/면역 · 관통 필살기 · 시련의 거상 줄 1~3 (단계 D, `demo_wave`·`demo_event`) |
 
 - 출력 폴더는 실행기가 만들지 않는다 — 먼저 `mkdir -p /tmp/out`을 해 두지 않으면 `Can't save PNG` 오류가 난다.
 

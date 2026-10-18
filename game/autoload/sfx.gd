@@ -611,6 +611,59 @@ func _build_turn() -> void:
 		{wave = "sine", f0 = 330.0, dur = 0.6, vol = 0.14, tau = 0.2, delay = 0.25},
 		{wave = "sine", f0 = 80.0, f1 = 55.0, dur = 0.8, vol = 0.2, tau = 0.3, delay = 0.25},
 	])
+	# 단계 D (combat_proto.md §22.4) — 대마법·브레이크·기절·해제·웨이브·근성 + 도발·저항
+	_add_fast(&"tn_ult", [ # 대마법 시전: 낮은 울림이 부풀고 높은 종이 겹친다 (컷인 순간)
+		{wave = "sine", f0 = 55.0, f1 = 42.0, dur = 1.4, vol = 0.45, attack = 0.08, decay = 0.7},
+		{wave = "saw", f0 = 110.0, f1 = 110.0, dur = 1.2, vol = 0.06, lp = 0.08, attack = 0.2, decay = 0.8, vib = 5.0, vib_depth = 0.01},
+		{wave = "noise", dur = 0.5, vol = 0.3, bp = 800.0, bp1 = 3200.0, q = 0.35, attack = 0.25, decay = 1.2},
+		{wave = "sine", f0 = 1568.0, fm = 2.76, fm_i = 0.7, fm_i1 = 0.0, dur = 1.1, vol = 0.11, tau = 0.32, delay = 0.12},
+		{wave = "sine", f0 = 2349.0, fm = 2.76, fm_i = 0.5, fm_i1 = 0.0, dur = 1.0, vol = 0.07, tau = 0.3, delay = 0.2},
+	], 11025)
+	_add_fast(&"tn_ult_hit", [ # 대마법 맞음: 깊은 폭음 + 꼬리 긴 울림
+		{wave = "noise", dur = 0.08, vol = 0.9, bp = 3000.0, bp1 = 600.0, q = 0.3, decay = 2.6},
+		{wave = "sine", f0 = 90.0, f1 = 28.0, dur = 1.0, vol = 0.7, tau = 0.28},
+		{wave = "noise", dur = 1.0, vol = 0.35, bp = 300.0, bp1 = 120.0, q = 0.4, attack = 0.01, decay = 0.9},
+		{wave = "sine", f0 = 3200.0, fm = 1.41, fm_i = 1.2, fm_i1 = 0.0, dur = 0.5, vol = 0.06, tau = 0.14},
+	], 11025)
+	_add_fast(&"tn_break", [ # 브레이크: 유리가 깨지는 쨍그랑 (높은 파편 여러 개) + 둔한 바닥
+		{wave = "noise", dur = 0.05, vol = 0.8, bp = 6500.0, q = 0.25, decay = 3.0},
+		{wave = "sine", f0 = 3100.0, fm = 1.73, fm_i = 2.0, fm_i1 = 0.2, dur = 0.35, vol = 0.12, tau = 0.08},
+		{wave = "sine", f0 = 4400.0, fm = 1.31, fm_i = 1.6, fm_i1 = 0.1, dur = 0.3, vol = 0.09, tau = 0.06, delay = 0.05},
+		{wave = "sine", f0 = 2600.0, fm = 2.13, fm_i = 1.4, fm_i1 = 0.1, dur = 0.3, vol = 0.08, tau = 0.07, delay = 0.11},
+		{wave = "noise", dur = 0.5, vol = 0.3, bp = 5000.0, q = 0.5, am = 38.0, am_depth = 0.9, decay = 1.6, delay = 0.04},
+		{wave = "sine", f0 = 120.0, f1 = 45.0, dur = 0.45, vol = 0.45, tau = 0.14},
+	])
+	_add_fast(&"tn_stun", [ # 기절: 머리 위를 도는 별 소리 (짧게 떨리는 높은 음 두 개)
+		{wave = "sine", f0 = 2093.0, f1 = 2349.0, dur = 0.12, vol = 0.1, tau = 0.05, vib = 30.0, vib_depth = 0.02},
+		{wave = "sine", f0 = 2637.0, f1 = 2093.0, dur = 0.16, vol = 0.09, tau = 0.06, delay = 0.09, vib = 30.0, vib_depth = 0.02},
+		{wave = "sine", f0 = 3136.0, dur = 0.2, vol = 0.06, tau = 0.07, delay = 0.18},
+		{wave = "sine", f0 = 160.0, f1 = 90.0, dur = 0.12, vol = 0.25, tau = 0.04},
+	])
+	_add_fast(&"tn_dispel", [ # 해제: 쓸려 가는 바람 (높은 데서 낮게) + 흩어지는 반짝임
+		{wave = "noise", dur = 0.7, vol = 0.55, bp = 4200.0, bp1 = 500.0, q = 0.3, attack = 0.04, decay = 1.0},
+		{wave = "sine", f0 = 1800.0, f1 = 600.0, dur = 0.5, vol = 0.07, attack = 0.02, decay = 1.0},
+		{wave = "noise", dur = 0.6, vol = 0.15, bp = 7000.0, q = 0.5, am = 30.0, am_depth = 0.8, decay = 1.4, delay = 0.08},
+	], 11025)
+	_add_fast(&"tn_wave", [ # 웨이브 전환: 북 한 번 (두 겹)
+		{wave = "sine", f0 = 95.0, f1 = 52.0, dur = 0.5, vol = 0.7, tau = 0.16},
+		{wave = "noise", dur = 0.06, vol = 0.5, bp = 900.0, bp1 = 300.0, q = 0.4, decay = 2.5},
+		{wave = "sine", f0 = 80.0, f1 = 48.0, dur = 0.5, vol = 0.45, tau = 0.16, delay = 0.18},
+		{wave = "noise", dur = 0.05, vol = 0.3, bp = 800.0, bp1 = 300.0, q = 0.4, decay = 2.5, delay = 0.18},
+	], 11025)
+	_add_fast(&"tn_guts", [ # 근성: 심장 한 번 (두-근) + 올라가는 빛
+		{wave = "sine", f0 = 70.0, f1 = 45.0, dur = 0.16, vol = 0.8, tau = 0.05},
+		{wave = "sine", f0 = 64.0, f1 = 40.0, dur = 0.2, vol = 0.6, tau = 0.06, delay = 0.17},
+		{wave = "sine", f0 = 660.0, f1 = 1320.0, curve = "exp", dur = 0.4, vol = 0.07, attack = 0.1, decay = 0.6, delay = 0.25},
+	], 11025)
+	_add_fast(&"tn_taunt", [ # 도발: 짧고 낮은 쇠 울림 (방패를 두드림)
+		{wave = "sine", f0 = 330.0, fm = 1.41, fm_i = 1.6, fm_i1 = 0.2, dur = 0.35, vol = 0.14, tau = 0.1},
+		{wave = "noise", dur = 0.05, vol = 0.4, bp = 1800.0, q = 0.4, decay = 3.0},
+		{wave = "sine", f0 = 110.0, f1 = 80.0, dur = 0.25, vol = 0.3, tau = 0.08},
+	])
+	_add_fast(&"tn_resist", [ # 저항·면역: 튕겨 나가는 둔한 '팅'
+		{wave = "sine", f0 = 900.0, f1 = 700.0, dur = 0.15, vol = 0.12, tau = 0.05},
+		{wave = "noise", dur = 0.04, vol = 0.25, bp = 2500.0, q = 0.5, decay = 3.0},
+	])
 
 
 # ─── 빗자루 검 손맛 데모 (proto/blade/) — 짧고 날카롭게 ─────

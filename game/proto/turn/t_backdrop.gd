@@ -3,6 +3,7 @@ extends PDraw.Canvas
 ## 턴제 전투 배경 (640×360): 재의 들판의 밤. 자줏빛 밤하늘 · 큰 달 · 지평선의 불탄 나무와 무너진 탑 실루엣 ·
 ## 왼쪽 아래에서 오른쭉 위로 비스듬히 뻗은 길(대각선 사이드뷰의 깊이) · 떠다니는 재 · 가장자리 어둡게.
 ## 재와 안개만 움직이므로 20Hz로 다시 그린다.
+## 단계 D: 깊이 세 겹(먼 산등성이 · 무너진 성벽 · 앞쪽 바위 테두리) + 달빛 줄기 · 흐르는 안개 띠 · 보스 웨이브에서 하늘 아래가 0.6초에 붉어짐(set_boss).
 
 const SKY_TOP := Color("#120a22")
 const SKY_MID := Color("#2a1740")
@@ -15,11 +16,23 @@ const GROUND_DARK := Color("#1d1727")
 const PATH := Color("#3f3550")
 const GRASS := Color("#3b4a3a")
 const FOG := Color("#5a4466")
+const SKY_BOSS := Color("#6a2a3a") ## 보스 웨이브 하늘 아래 (review_C §8.3)
+const RIDGE := Color("#1d1230") ## 먼 산등성이
+const NEAR := Color("#120c1a") ## 앞쪽 바위 테두리
 
 var _t := 0.0
 var _acc := 0.0
 var _ash: Array = [] ## [pos, vel, size, phase]
 var _rng := RandomNumberGenerator.new()
+var _boss := 0.0 ## 보스 하늘 (0~1)
+var _boss_to := 0.0
+
+
+## 보스 웨이브면 하늘 아래를 붉게 (0.6초에 바뀜, instant면 바로)
+func set_boss(on: bool, instant := false) -> void:
+	_boss_to = 1.0 if on else 0.0
+	if instant:
+		_boss = _boss_to
 
 
 func _ready() -> void:
@@ -31,6 +44,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_boss = move_toward(_boss, _boss_to, delta / 0.6)
 	for a: Array in _ash:
 		var p: Vector2 = a[0]
 		p += (a[1] as Vector2) * delta + Vector2(sin(_t * 1.3 + float(a[3])) * 6.0, 0.0) * delta
@@ -49,8 +63,9 @@ func _process(delta: float) -> void:
 
 func _paint() -> void:
 	# 하늘
-	pd.rect_grad(Rect2(0, 0, 640, 150), SKY_TOP, SKY_MID)
-	pd.rect_grad(Rect2(0, 150, 640, 60), SKY_MID, SKY_LOW)
+	var low := SKY_LOW.lerp(SKY_BOSS, _boss)
+	pd.rect_grad(Rect2(0, 0, 640, 150), SKY_TOP, SKY_MID.lerp(Color("#3a1a36"), 0.5 * _boss))
+	pd.rect_grad(Rect2(0, 150, 640, 60), SKY_MID.lerp(Color("#3a1a36"), 0.5 * _boss), low)
 	# 별
 	var r := RandomNumberGenerator.new()
 	r.seed = 3
@@ -65,8 +80,25 @@ func _paint() -> void:
 	pd.draw_circle(mc + Vector2(-5, -3), 3.5, Color("#e2d3b4"))
 	pd.draw_circle(mc + Vector2(7, 6), 2.5, Color("#e2d3b4"))
 	pd.draw_circle(mc + Vector2(-8, 8), 2.0, Color("#e2d3b4"))
-	# 지평선 안개
+	# 달빛 줄기 (달에서 땅으로 비스듬히 — 옅게)
+	pd.draw_colored_polygon(PackedVector2Array([mc + Vector2(-10, 10), mc + Vector2(10, 10), Vector2(420, 300), Vector2(250, 300)]), Color(MOON, 0.035))
+	# 먼 산등성이 (가장 먼 층)
+	var ridge := PackedVector2Array([Vector2(0, 210), Vector2(0, 182)])
+	for i in 17:
+		var x := 40.0 * float(i)
+		ridge.append(Vector2(x, 180.0 + 9.0 * sin(float(i) * 1.3) + 5.0 * sin(float(i) * 3.1)))
+	ridge.append(Vector2(640, 184))
+	ridge.append(Vector2(640, 210))
+	pd.draw_colored_polygon(ridge, Color(RIDGE, 0.85))
+	if _boss > 0.0: # 보스: 산등성이 너머 붉은 불빛
+		pd.rect_grad(Rect2(0, 160, 640, 40), Color(Color("#ff5a3a"), 0.0), Color(Color("#ff5a3a"), 0.22 * _boss))
+	# 지평선 안개 (천천히 흐르는 띠 둘)
 	pd.rect_grad(Rect2(0, 170, 640, 40), Color(FOG, 0.0), Color(FOG, 0.35))
+	for i in 2:
+		var fx := fposmod(_t * (6.0 + 4.0 * float(i)) + 300.0 * float(i), 900.0) - 130.0
+		pd.draw_set_transform(Vector2(fx, 200.0 + 6.0 * float(i)), 0.0, Vector2(1.0, 0.18))
+		pd.glow(Vector2.ZERO, 130.0, Color(FOG, 0.22), 0.0)
+		pd.draw_set_transform(Vector2.ZERO)
 	# 먼 실루엣: 무너진 탑 + 불탄 나무
 	# 무너진 탑은 화면 오른쪽 끝으로 (보스 실루엣과 겹치지 않게)
 	pd.draw_colored_polygon(PackedVector2Array([Vector2(606, 206), Vector2(609, 142), Vector2(620, 136), Vector2(625, 150), Vector2(630, 146), Vector2(636, 206)]), FAR)
@@ -115,6 +147,11 @@ func _paint() -> void:
 	pd.glow(Vector2.ZERO, 130.0, Color("#3a4a4a", 0.30), 0.0)
 	pd.glow(Vector2.ZERO, 120.0, Color("#ff6a4a", 0.08), 0.0)
 	pd.draw_set_transform(Vector2.ZERO)
+	# 앞쪽 바위 테두리 (아래 모서리 — 화면 앞 층, 아래 띠 뒤라 그림을 가리지 않음)
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(0, 360), Vector2(0, 286), Vector2(18, 290), Vector2(34, 302), Vector2(52, 300), Vector2(70, 312), Vector2(76, 360)]), NEAR)
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(640, 360), Vector2(640, 280), Vector2(622, 286), Vector2(606, 298), Vector2(590, 296), Vector2(574, 310), Vector2(566, 360)]), NEAR)
+	pd.draw_line(Vector2(0, 286), Vector2(18, 290), Color("#3a2f48", 0.8), 1.0)
+	pd.draw_line(Vector2(640, 280), Vector2(622, 286), Color("#3a2f48", 0.8), 1.0)
 	# 떠다니는 재
 	for a: Array in _ash:
 		var p: Vector2 = a[0]
