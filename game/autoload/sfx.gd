@@ -536,6 +536,81 @@ func _build_eska() -> void:
 	_build_eska_potion()
 	_build_eska_boss()
 	_build_blade()
+	_build_turn()
+
+
+# ─── 턴제 전투 프로토타입 (proto/turn/) ─────
+func _build_turn() -> void:
+	_add_fast(&"tn_select", [ # 바퀴 칸 고르기: 짧은 유리 톡
+		{wave = "sine", f0 = 1800.0, f1 = 1500.0, dur = 0.05, vol = 0.18, tau = 0.02},
+		{wave = "noise", dur = 0.02, vol = 0.12, bp = 5000.0, q = 0.4, decay = 3.0},
+	])
+	_add_fast(&"tn_confirm", [ # 확인: 두 음 올라감
+		{wave = "sine", f0 = 1200.0, f1 = 1200.0, dur = 0.06, vol = 0.18, tau = 0.03},
+		{wave = "sine", f0 = 1800.0, f1 = 1800.0, dur = 0.1, vol = 0.16, tau = 0.04, delay = 0.05},
+	])
+	_add_fast(&"tn_cancel", [ # 뒤로: 낮은 톡
+		{wave = "sine", f0 = 700.0, f1 = 400.0, dur = 0.08, vol = 0.18, tau = 0.03},
+	])
+	_add_fast(&"tn_turn", [ # 차례가 옴: 맑은 종 한 번
+		{wave = "sine", f0 = 2400.0, f1 = 2350.0, fm = 2.76, fm_i = 0.6, fm_i1 = 0.0, dur = 0.3, vol = 0.12, tau = 0.09},
+		{wave = "sine", f0 = 1200.0, dur = 0.2, vol = 0.06, tau = 0.06},
+	])
+	_add_fast(&"tn_whoosh", [ # 불이 날아감: 바람
+		{wave = "noise", dur = 0.22, vol = 0.45, bp = 900.0, bp1 = 2600.0, q = 0.35, attack = 0.02, decay = 1.6},
+		{wave = "sine", f0 = 220.0, f1 = 480.0, dur = 0.2, vol = 0.08, tau = 0.08},
+	])
+	_add_fast(&"tn_fire", [ # 불이 터짐: 둔탁한 폭발 + 타닥
+		{wave = "noise", dur = 0.08, vol = 0.7, bp = 1400.0, bp1 = 500.0, q = 0.35, decay = 2.4},
+		{wave = "sine", f0 = 140.0, f1 = 50.0, dur = 0.35, vol = 0.5, tau = 0.12},
+		{wave = "noise", dur = 0.4, vol = 0.3, bp = 3800.0, q = 0.5, am = 32.0, am_depth = 0.8, decay = 1.4, delay = 0.04},
+	], 11025)
+	_add_fast(&"tn_storm", [ # 재의 폭풍·대화재: 길게 몰아치는 바람과 불
+		{wave = "noise", dur = 1.1, vol = 0.5, bp = 600.0, bp1 = 2200.0, q = 0.3, attack = 0.15, decay = 0.9},
+		{wave = "noise", dur = 1.0, vol = 0.25, bp = 3600.0, q = 0.5, am = 26.0, am_depth = 0.7, attack = 0.2, decay = 1.0},
+		{wave = "sine", f0 = 90.0, f1 = 60.0, dur = 1.0, vol = 0.25, attack = 0.2, decay = 0.8},
+	], 11025)
+	_add_fast(&"tn_charge", [ # 태양의 창·강림 준비: 차오르는 울림
+		{wave = "sine", f0 = 300.0, f1 = 1400.0, curve = "exp", dur = 0.6, vol = 0.16, attack = 0.1, decay = 0.5, vib = 18.0, vib_depth = 0.03},
+		{wave = "noise", dur = 0.6, vol = 0.16, bp = 2000.0, bp1 = 6000.0, q = 0.5, attack = 0.25, decay = 0.4},
+	], 11025)
+	_add_fast(&"tn_spear", [ # 태양의 창이 꽂힘: 금속 섬광 + 깊은 폭음
+		{wave = "sine", f0 = 3600.0, fm = 1.41, fm_i = 1.8, fm_i1 = 0.1, dur = 0.4, vol = 0.1, tau = 0.1},
+		{wave = "noise", dur = 0.06, vol = 0.85, bp = 5000.0, q = 0.3, decay = 3.0},
+		{wave = "sine", f0 = 110.0, f1 = 30.0, dur = 0.7, vol = 0.65, tau = 0.2},
+		{wave = "noise", dur = 0.7, vol = 0.4, bp = 400.0, bp1 = 150.0, q = 0.4, attack = 0.01, decay = 1.1},
+	], 11025)
+	_add_fast(&"tn_buff", [ # 버프: 따뜻한 반짝임 (올라가는 세 음)
+		{wave = "sine", f0 = 900.0, dur = 0.12, vol = 0.1, tau = 0.05},
+		{wave = "sine", f0 = 1350.0, dur = 0.12, vol = 0.1, tau = 0.05, delay = 0.07},
+		{wave = "sine", f0 = 1800.0, dur = 0.25, vol = 0.1, tau = 0.08, delay = 0.14},
+		{wave = "noise", dur = 0.3, vol = 0.08, bp = 6000.0, q = 0.5, am = 40.0, am_depth = 0.6, decay = 1.5},
+	])
+	_add_fast(&"tn_heal", [ # 회복: 부드러운 화음
+		{wave = "sine", f0 = 660.0, dur = 0.4, vol = 0.09, attack = 0.05, tau = 0.12},
+		{wave = "sine", f0 = 990.0, dur = 0.4, vol = 0.08, attack = 0.08, tau = 0.12},
+		{wave = "sine", f0 = 1320.0, dur = 0.45, vol = 0.07, attack = 0.12, tau = 0.14},
+	])
+	_add_fast(&"tn_bless", [ # 전체 축복: 종소리 화음
+		{wave = "sine", f0 = 1046.0, fm = 2.76, fm_i = 0.5, fm_i1 = 0.0, dur = 0.6, vol = 0.1, tau = 0.18},
+		{wave = "sine", f0 = 1568.0, fm = 2.76, fm_i = 0.5, fm_i1 = 0.0, dur = 0.6, vol = 0.08, tau = 0.18, delay = 0.08},
+		{wave = "sine", f0 = 2093.0, fm = 2.76, fm_i = 0.4, fm_i1 = 0.0, dur = 0.7, vol = 0.07, tau = 0.2, delay = 0.16},
+	])
+	_add_fast(&"tn_crit", [ # 크리티컬: 날카로운 쨍
+		{wave = "sine", f0 = 2800.0, fm = 1.47, fm_i = 1.5, fm_i1 = 0.1, dur = 0.25, vol = 0.12, tau = 0.06},
+		{wave = "noise", dur = 0.04, vol = 0.5, bp = 6500.0, q = 0.3, decay = 3.0},
+	])
+	_add_fast(&"tn_victory", [ # 승리: 올라가는 네 음
+		{wave = "sine", f0 = 784.0, dur = 0.18, vol = 0.14, tau = 0.08},
+		{wave = "sine", f0 = 988.0, dur = 0.18, vol = 0.14, tau = 0.08, delay = 0.14},
+		{wave = "sine", f0 = 1175.0, dur = 0.18, vol = 0.14, tau = 0.08, delay = 0.28},
+		{wave = "sine", f0 = 1568.0, dur = 0.6, vol = 0.16, tau = 0.2, delay = 0.42},
+	])
+	_add_fast(&"tn_defeat", [ # 패배: 내려가는 두 음 + 낮은 울림
+		{wave = "sine", f0 = 440.0, dur = 0.3, vol = 0.14, tau = 0.12},
+		{wave = "sine", f0 = 330.0, dur = 0.6, vol = 0.14, tau = 0.2, delay = 0.25},
+		{wave = "sine", f0 = 80.0, f1 = 55.0, dur = 0.8, vol = 0.2, tau = 0.3, delay = 0.25},
+	])
 
 
 # ─── 빗자루 검 손맛 데모 (proto/blade/) — 짧고 날카롭게 ─────
