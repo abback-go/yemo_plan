@@ -445,7 +445,7 @@ func _press_up() -> void:
 				Sfx.play(&"tn_select", -12.0)
 		"equip":
 			cursor = 11
-			Sfx.play(&"tn_select", -12.0)
+			_open_equip_list(clampi(tab, 0, party().size() - 1)) # S-02 장비 줄 = S-01과 같은 장비 목록 판 (review_I I-25)
 	queue_redraw()
 
 
@@ -475,7 +475,7 @@ func _hold(what: String, i: int) -> void:
 			_say("%s 강화 Lv%d (수치 ×%.2f)" % [String(TData.skill(sid).name), nv, float(TData.SKILL_LV[nv - 1])])
 		"equip":
 			if String(state[wid].equip) == "":
-				_say("장비가 없습니다 — 편성 카드의 ◀ ▶로 고르세요")
+				_say("장비가 없습니다 — 장비 줄을 눌러 고르세요")
 				return
 			state[wid].equip_lv = int(state[wid].get("equip_lv", 1)) % 3 + 1
 			cursor = 11
@@ -904,15 +904,23 @@ func _draw_detail() -> void:
 		draw_rect(Rect2(r.position.x + 2, r.position.y + 2, 3, r.size.y - 4), TData.WITCHES[twid].color)
 		if on:
 			draw_rect(Rect2(r.position.x, r.end.y - 2, r.size.x, 2), T.GOLD)
-		T.text(self, r.get_center() + Vector2(2, 3), String(TData.WITCHES[twid].name), 12, T.TEXT if on else T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER)
-		T.text(self, Vector2(r.end.x - 3, r.end.y - 3), T.SLOT_NAME[i], 8, T.GOLD if on else T.TEXT_OFF, HORIZONTAL_ALIGNMENT_RIGHT, 0)
-	T.text(self, Vector2(216, 22), "마법 장착 — 10개 중 %d개 (%d/%d)" % [TData.EQUIP_MAX, _equipped().size(), TData.EQUIP_MAX], 10, T.TEXT_SUB)
-	# 타일 왼쪽 색 막대의 뜻 (review_G G22)
-	var lx := 380.0
+		# 자리 배지는 이름 앞 원 (S-01 카드와 같은 모양 — 8px 이름 끝 배지는 이름 끝 글자와 붙어 "궁"처럼 읽혔다, review_I I-09)
+		var bc := Vector2(r.position.x + 15, r.get_center().y)
+		draw_circle(bc, 7.0, T.GOLD if on else Color(T.LINE, 0.6))
+		T.text_px(self, bc + Vector2(0, 4), T.SLOT_NAME[i], 10, T.INK, HORIZONTAL_ALIGNMENT_CENTER, 0)
+		var tn := String(TData.WITCHES[twid].name)
+		if T.width(tn, 12) <= r.size.x - 27.0:
+			T.text(self, Vector2(r.position.x + 25, r.get_center().y + 4), tn, 12, T.TEXT if on else T.TEXT_SUB)
+		else: # 탭 폭이 모자라면 10px 그대로 (큰 글자에서도 — 탭 64px)
+			T.text_px(self, Vector2(r.position.x + 24, r.get_center().y + 4), tn, 10, T.TEXT if on else T.TEXT_SUB)
+	var mh := "마법 장착 — 10개 중 %d개 (%d/%d)" % [TData.EQUIP_MAX, _equipped().size(), TData.EQUIP_MAX]
+	T.text(self, Vector2(216, 22), mh, 10, T.TEXT_SUB)
+	# 타일 왼쪽 색 막대의 뜻 (review_G G22) — 큰 글자면 제목이 길어져 그 뒤로
+	var lx := maxf(380.0, 216.0 + T.width(mh, 10) + 12.0)
 	for kd: Array in [["attack", "공격"], ["support", "보조"], ["debuff", "디버프"]]:
 		draw_rect(Rect2(lx, 15, 6, 6), T.kind_col(String(kd[0])))
-		T.text(self, Vector2(lx + 9, 22), String(kd[1]), 8, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_LEFT, 0)
-		lx += 13.0 + T.width(String(kd[1]), 8) + 6.0
+		T.text(self, Vector2(lx + 9, 22), String(kd[1]), 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_LEFT) # 8 → 10px (review_I I-09)
+		lx += 13.0 + T.width(String(kd[1]), 10) + 4.0
 	# 왼쪽: 이름·능력치·패시브
 	T.text(self, Vector2(73, 55), String(w.name), 15, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	T.text(self, Vector2(73, 69), String(w.title), 10, ecol, HORIZONTAL_ALIGNMENT_CENTER)
@@ -982,7 +990,7 @@ func _draw_detail() -> void:
 	draw_arc(EQUIP_ROW.position + Vector2(14, 14), 6.0, 0.0, TAU, 16, T.GOLD if has_eq else T.TEXT_OFF, 1.5)
 	if eheld:
 		draw_arc(EQUIP_ROW.position + Vector2(14, 14), 10.0, -PI * 0.5, -PI * 0.5 + TAU * clampf(float(_press.t) / HOLD, 0.0, 1.0), 24, T.GOLD, 2.0)
-	var etxt := "장비 %s%s — %s" % [String(eq.get("name", "없음")), " Lv%d" % lv if lv > 1 and has_eq else "", String(eq.get("desc", ""))] if has_eq else "장비 없음 — 편성 카드의 장비 칸에서 고릅니다"
+	var etxt := "장비 %s%s — %s" % [String(eq.get("name", "없음")), " Lv%d" % lv if lv > 1 and has_eq else "", String(eq.get("desc", ""))] if has_eq else "장비 없음 — 눌러서 고릅니다"
 	T.text(self, EQUIP_ROW.position + Vector2(26, 18), T.clip(etxt, 10, EQUIP_ROW.size.x - 32), 10, T.GOLD if has_eq else T.TEXT_SUB)
 	T.wrap(self, Vector2(152, 286), "마법·장비를 길게 누르면 강화 Lv", 222, 10, T.TEXT_OFF, 12.0, 2)
 	# 오른쪽: 큰 설명 상자
@@ -1028,7 +1036,11 @@ func _draw_desc(sid: String, lv: int) -> void:
 	y += 14
 	var bf := T.body_fs()
 	var lh := T.body_lh()
-	y += T.wrap(self, Vector2(x, y), String(TData.skill(sid).desc), DESC_W, bf, T.TEXT, lh)
+	# 첫 줄: 공격이면 "적 전체 4.0배 피해"까지만 — 부품은 아래 점 목록에 (같은 말을 되풀이하던 것, review_I I-24). 보조·디버프는 설명 글 그대로
+	var head := String(TData.skill(sid).desc)
+	if kind == "attack" and not (s.get("effects", []) as Array).is_empty():
+		head = "%s%s배 피해" % ["적 전체 " if String(s.target) == "enemies" else "", str(snappedf(float(s.mult), 0.1))]
+	y += T.wrap(self, Vector2(x, y), head, DESC_W, bf, T.TEXT, lh)
 	y += 4
 	# 효과를 항목으로 (수치가 한눈에, 강화 레벨 반영)
 	for e in s.get("effects", []):
@@ -1038,7 +1050,7 @@ func _draw_desc(sid: String, lv: int) -> void:
 		draw_circle(Vector2(x + 3, y - 4), 1.6, Color(kcol, 0.9))
 		y += T.wrap(self, Vector2(x + 9, y), t, DESC_W - 9, bf, T.TEXT_SUB, lh, 2)
 	y += 4
-	var gl := TData.gloss_for(String(TData.skill(sid).desc) + " " + String(s.get("name", "")))
+	var gl := TData.gloss_for(String(TData.skill(sid).desc) + " " + String(s.get("name", "")), TSave.terms_seen)
 	if gl != "" and y < 276:
 		y += T.wrap(self, Vector2(x, y + 8), gl, DESC_W, 10, T.TEXT_OFF, 13.0, maxi(1, mini(3, int((292.0 - y) / 13.0)))) + 8.0 # 용어 풀이 한 줄 (review_F F08)
 	if dev and y < 280:
@@ -1251,6 +1263,8 @@ func _effect_line(e: Dictionary) -> String:
 		"mark":
 			return who + "%s %d겹 (적 행동 %d번)" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.get("n", 1)), int(e.dur)]
 		"this_special":
+			if e.has("trait"):
+				return "%s 적에게 이 공격만 특공 +%d%%" % [TData.TRAIT_NAME.get(e.trait, ""), int(round(float(e.v) * 100.0))]
 			return "이 공격만 %s 특공 +%d%%" % [TData.MARK_NAME.get(e.mark, ""), int(round(float(e.v) * 100.0))]
 		"ignore_def": return "이 공격만 적 방어율 무시"
 		"sure_crit": return "이 공격은 크리티컬 확정"
@@ -1384,7 +1398,7 @@ func _draw_equip_list(ci: CanvasItem) -> void:
 	ci.draw_rect(Rect2(Vector2.ZERO, size), Color(T.INK, 0.55))
 	T.panel(ci, EQ_LIST, Color(T.PANEL, 0.98), Color(T.LINE, 0.9), 1, 4)
 	T.text(ci, EQ_LIST.position + Vector2(12, 22), "장비 — %s" % String(TData.WITCHES[wid].name), 15, T.TEXT)
-	T.text(ci, Vector2(EQ_LIST.end.x - 12, EQ_LIST.position.y + 21), "한 번 누르면 설명 · 다시 누르면 낌", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
+	T.text(ci, Vector2(EQ_LIST.end.x - 12, EQ_LIST.position.y + 21), "한 번 누르면 설명 · 다시 누르면 장착", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
 	var cur := String(state[wid].equip)
 	for i in TData.EQUIP_ORDER.size():
 		var eid := String(TData.EQUIP_ORDER[i])
@@ -1400,9 +1414,9 @@ func _draw_equip_list(ci: CanvasItem) -> void:
 		if taken:
 			for w2 in party():
 				if String(w2) != wid and String(state[String(w2)].equip) == eid and eid != "":
-					T.text(ci, Vector2(r.end.x - 4, r.end.y - 4), String(TData.WITCHES[String(w2)].name), 8, T.TEXT_OFF, HORIZONTAL_ALIGNMENT_RIGHT, 0)
+					T.text(ci, Vector2(r.end.x - 4, r.end.y - 4), String(TData.WITCHES[String(w2)].name), 10, T.TEXT_OFF, HORIZONTAL_ALIGNMENT_RIGHT)
 		elif eid == cur:
-			T.text(ci, Vector2(r.end.x - 4, r.end.y - 4), "낀 것", 8, T.GOLD, HORIZONTAL_ALIGNMENT_RIGHT, 0)
+			T.text(ci, Vector2(r.end.x - 4, r.end.y - 4), "장착", 10, T.GOLD, HORIZONTAL_ALIGNMENT_RIGHT) # 8px "낀 것"은 "찐 것"처럼 찍혔다 (review_I I-09)
 	var e: Dictionary = TData.equip_at(_eq_pick, int(state[wid].get("equip_lv", 1)) if _eq_pick == cur else 1) if _eq_pick != "" else {}
 	var dy := EQ_LIST.position.y + 34 + 44 * 4 + 14.0
 	if _eq_pick == "":

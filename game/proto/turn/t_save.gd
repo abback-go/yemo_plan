@@ -7,6 +7,8 @@ extends RefCounted
 ##   turn_battle.var  끊긴 전투 — TBattle.to_dict()를 var_to_str로 (JSON은 정수를 실수로 바꿔 규칙 엔진의 int 비교가 틀어짐)
 ## 웹: user://는 /userfs(IndexedDB)에 있고, 쓰기용 파일을 닫으면 다음 프레임에 IndexedDB로 동기화된다(엔진 platform/web/os_web.cpp).
 ##   사생활 보호 창·IndexedDB 막힘이면 OS.is_userfs_persistent()가 거짓 → 편성 화면에 "이 브라우저에서는 저장되지 않습니다".
+##   끊긴 전투는 웹이면 localStorage(LS_KEY)에도 바로(동기로) 쓴다 (review_I I-01): 탭이 가려지면 브라우저가 requestAnimationFrame을 멈춰
+##   "다음 프레임"의 IndexedDB 동기화가 안 올 수 있다 → 가려진 탭이 죽어도 남게. 읽을 때는 localStorage를 먼저(늘 파일보다 새것), 지울 때는 둘 다.
 ## 시험: tools/test/runner.gd가 시나리오의 "turn_save"(off 기본 · fresh · keep)로 enabled·dir를 바꾼다 — off면 읽지도 쓰지도 않고 첫 실행도 아님(옛 시나리오가 그대로).
 
 const VER := 1
@@ -14,6 +16,7 @@ const SETUP_FILE := "turn_setup.json"
 const TIPS_FILE := "turn_tips.json"
 const BATTLE_FILE := "turn_battle.var"
 const DEBOUNCE := 0.5 ## 편성이 바뀐 뒤 이만큼 모아서 쓴다
+const LS_KEY := "eska_turn_battle" ## 웹 localStorage 키 (끊긴 전투 사본, 약 5 KB)
 
 static var enabled := true
 static var dir := "user://"
@@ -23,6 +26,7 @@ static var intro_done := false ## 안내 전투를 이겼거나 안내를 껐다
 static var big_text := false ## 큰 글자 (설정)
 static var tips := {} ## 본 안내 id → true
 static var tips_off := false ## "안내 끄기"
+static var terms_seen := {} ## 도움말에서 연 용어 → true (상세·설명 상자의 용어 풀이 한 줄이 건너뜀 — 이번 실행 동안만, review_I I-14)
 static var _dirty := -1.0
 static var _loaded := false
 ## 지금 편성을 주는 함수 () -> {state, pick} — TStage가 넣는다 (TSave는 TSetup을 직접 부르지 않는다: 헤드리스 규칙 시험엔 자동 로드가 없어 편성 화면 스크립트가 안 불림)
@@ -61,6 +65,9 @@ static func load_all() -> void:
 	if t is Dictionary:
 		tips = (t.get("seen", {}) as Dictionary).duplicate() if t.get("seen", {}) is Dictionary else {}
 		tips_off = bool(t.get("off", false))
+		if bool(t.get("big_text", false)) and loaded.is_empty():
+			big_text = true # 편성 파일이 아직 없음(안내 중 새로고침) — 큰 글자는 안내 기록에서 (I-17)
+			TTheme.big = true
 
 
 ## 편성 사전을 검증한다 → {state, pick} (review_F F07 규칙 1 — 데이터에서 빠진 마녀·마법·장비·전투는 버리고 기본값). 깬 전투·안내·큰 글자는 여기 static에
@@ -185,28 +192,38 @@ static func reset_tips() -> void:
 
 static func _save_tips() -> void:
 	if enabled:
-		_write(TIPS_FILE, JSON.stringify({"ver": VER, "seen": tips, "off": tips_off}))
+		_write(TIPS_FILE, JSON.stringify({"ver": VER, "seen": tips, "off": tips_off, "big_text": big_text}))
+
+
+## 설정(큰 글자)이 바뀜 — 안내 중(hold)엔 편성 파일을 안 쓰므로 안내 기록에도 적는다 (review_I I-17)
+static func save_tips() -> void:
+	_save_tips()
 
 
 # ── 끊긴 전투 (F07 규칙 2)
 
 static func has_battle() -> bool:
-	return enabled and FileAccess.file_exists(_path(BATTLE_FILE))
+	return enabled and (FileAccess.file_exists(_path(BATTLE_FILE)) or _ls_get() != "")
 
 
 static func save_battle(d: Dictionary) -> void:
 	if enabled:
-		_write(BATTLE_FILE, var_to_str(d))
+		var text := var_to_str(d)
+		_ls_set(text) # 웹: 동기로 먼저 (I-01)
+		_write(BATTLE_FILE, text)
 
 
 static func load_battle() -> Dictionary:
 	if not has_battle():
 		return {}
-	var f := FileAccess.open(_path(BATTLE_FILE), FileAccess.READ)
-	if f == null:
-		return {}
-	var v = str_to_var(f.get_as_text())
-	f.close()
+	var text := _ls_get()
+	if text == "":
+		var f := FileAccess.open(_path(BATTLE_FILE), FileAccess.READ)
+		if f == null:
+			return {}
+		text = f.get_as_text()
+		f.close()
+	var v = str_to_var(text)
 	if v is Dictionary and battle_ok(v):
 		return v
 	return {} # 판이 다르거나 모르는 id — 부른 쪽이 파일을 지우고, 편성(turn_setup.json)은 parse_setup이 따로 고쳐 살린다
@@ -232,8 +249,29 @@ static func battle_ok(v: Dictionary) -> bool:
 
 
 static func clear_battle() -> void:
-	if has_battle():
+	if not enabled:
+		return
+	if FileAccess.file_exists(_path(BATTLE_FILE)):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(_path(BATTLE_FILE)))
+	if _web():
+		JavaScriptBridge.eval("try{localStorage.removeItem('%s')}catch(e){}" % LS_KEY)
+
+
+## 웹 localStorage (시험 폴더를 쓰는 시나리오·규칙 시험은 웹이 아니라 늘 빈 값)
+static func _web() -> bool:
+	return enabled and OS.has_feature("web") and dir == "user://"
+
+
+static func _ls_set(text: String) -> void:
+	if _web():
+		JavaScriptBridge.eval("try{localStorage.setItem('%s', %s)}catch(e){}" % [LS_KEY, JSON.stringify(text)])
+
+
+static func _ls_get() -> String:
+	if not _web():
+		return ""
+	var v: Variant = JavaScriptBridge.eval("(function(){try{return localStorage.getItem('%s')||''}catch(e){return ''}})()" % LS_KEY, true)
+	return String(v) if v is String else ""
 
 
 ## 시험용: 새로 켠 것처럼 기록을 잊는다 (다음 load_all이 파일에서 다시 읽음 — TStage.test_relaunch가 편성도 비움)

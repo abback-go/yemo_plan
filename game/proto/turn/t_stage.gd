@@ -32,10 +32,16 @@ var _wave_new := true ## 웨이브의 첫 마녀 차례 (저장)
 ## 진 이유를 고르는 기록 (review_F F13): 필살기로 쓰러진 마녀 · 관통 · 해제된 버프 · 회복 횟수 · 가장 큰 받은 피해
 var _why := {}
 var _flags := {} ## 처음 일어난 일 안내용 (broke · resist)
+var turn_only := false ## 웹 주소가 ?turn (턴제만) — 설정의 "타이틀로"(옛 실시간판)를 숨김 (review_I I-21)
+var _page_cb: JavaScriptObject ## 웹: 문서 visibilitychange·pagehide를 받는 콜백 (review_I I-01 — 지우지 않게 붙잡아 둔다)
 
 
 func _exit_tree() -> void:
 	TTheme.release()
+	if _page_cb != null:
+		JavaScriptBridge.get_interface("document").removeEventListener("visibilitychange", _page_cb)
+		JavaScriptBridge.get_interface("window").removeEventListener("pagehide", _page_cb)
+		_page_cb = null
 
 
 func _ready() -> void:
@@ -94,6 +100,11 @@ func _ready() -> void:
 	if OS.has_feature("web"):
 		var q: Variant = JavaScriptBridge.eval("window.location.search", true)
 		TSetup.dev = q is String and String(q).contains("dev")
+		turn_only = q is String and String(q).contains("turn")
+		# 창 focus out(캔버스 blur)이 안 오고 탭이 바로 가려지는 경우(앱 전환·화면 끔)도 받는다 (review_I I-01)
+		_page_cb = JavaScriptBridge.create_callback(_on_page_event)
+		JavaScriptBridge.get_interface("document").addEventListener("visibilitychange", _page_cb)
+		JavaScriptBridge.get_interface("window").addEventListener("pagehide", _page_cb)
 	setup.back_to_roster()
 	if TSave.has_battle():
 		var d := TSave.load_battle()
@@ -164,10 +175,21 @@ func test_focus_out() -> void:
 ## 창이 가려지면(전화·알림·탭 전환) 지금 마녀 차례의 사본을 쓰고 멈춤 판 (F07 규칙 4 · review_G §5.2)
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
-		if _in_battle and TSave.enabled and guide != null:
-			if not _snap.is_empty() and battle_id != "intro_01":
-				TSave.save_battle(_snap)
-			guide.pause()
+		_hidden()
+
+
+## 웹 문서 이벤트: visibilitychange(가려짐) · pagehide → 멈출 때와 같이 저장 (localStorage는 이 안에서 동기로 쓰임)
+func _on_page_event(_args: Array) -> void:
+	var st: Variant = JavaScriptBridge.eval("document.visibilityState", true)
+	if String(st) == "hidden" or (not _args.is_empty() and _args[0] is JavaScriptObject and String((_args[0] as JavaScriptObject).type) == "pagehide"):
+		_hidden()
+
+
+func _hidden() -> void:
+	if _in_battle and TSave.enabled and guide != null:
+		if not _snap.is_empty() and battle_id != "intro_01":
+			TSave.save_battle(_snap)
+		guide.pause()
 
 
 func wheel_ready() -> bool:
@@ -246,7 +268,8 @@ func _begin_battle() -> void:
 	for i in battle.witches.size():
 		_add_actor(battle.witches[i], WITCH_AT[i])
 	_add_enemies()
-	_bg.set_boss(_wave_has_boss(), true)
+	_bg.set_theme(_wave_theme(), true)
+	_bg_tint(true)
 	hud.bind(battle, actors)
 	stats = {"turns": 0, "biggest": 0}
 	_flags = {}
@@ -371,8 +394,9 @@ func _wave_change(token: int) -> void:
 		var ea: TActor = actors[e]
 		ea.walk_in(260.0 if not e.boss else 300.0, 0.4)
 		TFx.walk_dust(ea.feet() + Vector2(260, 0))
+	_bg.set_theme(_wave_theme()) # 웨이브마다 배경 (F-3 · review_F F20) — 0.35초 어두워졌다 밝아짐
+	_bg_tint(true)
 	if boss:
-		_bg.set_boss(true)
 		TFx.after(0.4, func() -> void:
 			Fx.shake(0.8, 0.35)
 			Sfx.play(&"tn_wave", 0.0, 0.0)
@@ -383,6 +407,24 @@ func _wave_change(token: int) -> void:
 					TFx.add(sw, (actors[e] as TActor).feet(), false))
 	hud.refresh()
 	await _wait(0.4)
+
+
+## 지금 웨이브의 배경 테마 (TData.BATTLES의 bgs[웨이브] → bg → field)
+func _wave_theme() -> String:
+	var bd: Dictionary = TData.BATTLES.get(battle_id, {})
+	var bgs: Array = bd.get("bgs", [])
+	if battle != null and battle.wave_i < bgs.size():
+		return String(bgs[battle.wave_i])
+	return String(bd.get("bg", "field"))
+
+
+## 세 빛의 인형 배경: 달 색 = 보스 지금 줄의 속성 색 (review_H §7.2 [제안])
+func _bg_tint(instant := false) -> void:
+	if battle == null:
+		return
+	for e in battle.enemies:
+		if e.boss and (e.data.get("phases", []) as Array).size() > 1:
+			_bg.set_tint(Color(TData.ELEMENT_COLOR.get(e.element, Color("#e8e0ff"))).lerp(Color.WHITE, 0.35), instant)
 
 
 func _wave_has_boss() -> bool:
@@ -585,9 +627,10 @@ func _show_events(ev: Array, targets: Array, timing: Dictionary, kind: String) -
 		var ht := float(hits[i])
 		await _wait(ht - t_prev)
 		t_prev = ht
-		var ta: TActor = targets[i] if i < targets.size() else (targets[0] if not targets.is_empty() else null)
-		if ta != null and not is_instance_valid(ta):
-			return # 연출 중에 전투가 접혔다
+		var ti := i if i < targets.size() else (0 if not targets.is_empty() else -1)
+		if ti >= 0 and not is_instance_valid(targets[ti]):
+			return # 연출 중에 전투가 접혔다 (지워진 그림을 변수에 넣기 전에 봄)
+		var ta: TActor = targets[ti] if ti >= 0 else null
 		var nth := 0
 		for j in ev.size():
 			if shown.has(j):
@@ -663,6 +706,12 @@ func _show_event(e: Dictionary, kind: String) -> void:
 				var cr: Rect2 = hud._card_rect(tgt)
 				var bar := Rect2(cr.position + Vector2(4, 32), Vector2(300, 6)) if hud._boss_card_on() else Rect2(cr.position + Vector2(4, 31), Vector2(92, 5))
 				TFx.break_fx(ta, bar, hud)
+				_bg_tint() # 세 빛의 인형: 달 색이 다음 줄 속성으로
+			if bool(e.get("guard_break", false)):
+				# 약점 속성에 방어 태세가 갈라짐 (세 빛의 인형 "갈라지는 빛", F-3)
+				hud.pop(tgt, "태세 깨짐", "status")
+				TFx.intent_sign(ta, "guard")
+				Sfx.play(&"tn_dispel_glint", -6.0)
 			if bool(e.guts):
 				hud.pop(tgt, "근성", "status")
 				TFx.guts_fx(ta)
@@ -891,6 +940,7 @@ func _note_events(ev: Array, enemy_kind: String, src: TUnit = null, act := "", p
 						_why["big"] = {"dmg": int(e.dmg), "src": src.name, "act": act}
 					if bool(e.killed) and enemy_kind == "finisher":
 						_why.fin_kills = int(_why.get("fin_kills", 0)) + 1
+						_why["fin_src"] = src.name # 필살기로 쓰러뜨린 적 (가장 세게 때린 적과 다를 수 있다 — review_I I-13)
 						if pierce:
 							_why.pierce_kills = int(_why.get("pierce_kills", 0)) + 1
 			"resist":
@@ -905,33 +955,7 @@ func _note_events(ev: Array, enemy_kind: String, src: TUnit = null, act := "", p
 
 ## 진 이유 (review_F F13 · review_G G03): 원인 하나 + 남은 적 체력 + 시련이면 추천 빌드. [[글, 색]]
 func _lose_reasons() -> Array:
-	var out: Array = []
-	var fk := int(_why.get("fin_kills", 0))
-	var big: Dictionary = _why.get("big", {})
-	if fk >= 2:
-		var head := "%s의 필살기%s에 %d명" % [String(big.get("src", "적")), "(무적 관통)" if int(_why.get("pierce_kills", 0)) >= 2 else "", fk]
-		out.append([head + (" · 받는 피해 감소 없음" if int(_why.get("guard", 0)) == 0 else "") + " — 차지가 찬 적 앞에 무적·도발·차지 감소", TTheme.TEXT])
-	elif int(_why.get("heals", 0)) == 0 and battle.wave_i >= 1:
-		out.append(["회복 없이 웨이브 %d까지 — 회복 마법·깃털 부적" % (battle.wave_i + 1), TTheme.TEXT])
-	elif int(_why.get("dispelled", 0)) >= 6:
-		out.append(["버프 %d개가 해제됨 — 해제가 보이면 먼저 쏟아붓기" % int(_why.dispelled), TTheme.TEXT])
-	elif not big.is_empty():
-		out.append(["가장 큰 피해: %s — %s %s · 받는 피해 감소·회복으로 버티기" % [String(big.src), String(big.act), TData.fmt_short(int(big.dmg))], TTheme.TEXT])
-	# 남은 적 체력
-	var foes := battle.alive_of(battle.enemies)
-	if foes.size() == 1 and foes[0].bars.size() > 1:
-		var f := foes[0]
-		out.append(["%s 남은 줄 %d/%d · %s" % [f.name, f.bar_i + 1, f.bars.size(), TData.fmt_short(f.hp)], TTheme.TEXT_SUB])
-	elif not foes.is_empty():
-		var hp := 0
-		var mx := 0
-		for f in foes:
-			hp += f.hp
-			mx += f.max_hp
-		out.append(["남은 적 체력 %d%%%s" % [int(round(100.0 * float(hp) / float(maxi(mx, 1)))), (" · 웨이브 %d/%d" % [battle.wave_i + 1, battle.wave_count()]) if battle.wave_count() > 1 else ""], TTheme.TEXT_SUB])
-	if String(TData.BATTLES[battle_id].get("kind", "")) == "trial":
-		out.append(["이 시련은 버티며 쌓는 빌드용 — 추천: 네레이·에스카·하르페", TTheme.GOLD])
-	return out
+	return TData.lose_lines(_why, battle, battle_id)
 
 
 ## 처음 일어난 일 안내 (review_G §4.6 D1~D6 + F08 T7·T8·T11) — 마녀 차례에 바퀴가 열린 뒤 (고르기를 기다리는 멈춘 순간)
@@ -968,7 +992,7 @@ func _common_tips() -> void:
 				if hud._queue[i] == e:
 					holes.append(hud._queue_rect(int(i)).grow(2))
 					break
-			if guide.tip("D1", "필살기가 옵니다", "차지 칸이 다 차면 다음 행동이 필살기. 차례 줄의 빨간 칸이 그 차례입니다. 보호·도발·기절로 대비하세요.", holes):
+			if guide.tip("D1", "필살기가 옵니다", "차지 칸이 다 차면 다음 행동이 필살기입니다. 차례 줄의 빨간 칸이 그 차례 — 무적·도발·기절·차지 감소로 대비하세요.", holes):
 				return
 		if k == "dispel":
 			if guide.tip("D3", "해제", "이 적이 마녀들의 버프를 모두 지웁니다. 그 전에 쏟아붓거나, 지난 뒤에 거세요.", [top]):
@@ -981,8 +1005,8 @@ func _common_tips() -> void:
 				return
 		if e.leader and guide.tip("E_우두머리", "우두머리", TData.gloss_for("우두머리").get_slice(" — ", 1), [top]):
 			return
-		if not e.marks.is_empty():
-			if guide.tip("D2", "징표", "화상·빙결·감전은 그 자체로는 피해가 없습니다. 겹이 쌓일수록 관련 마법이 세지고, 불은 터뜨려 한 번에 씁니다.", [cr.grow(2)]):
+		if not e.marks.is_empty() and guide.phase == "": # 안내 전투(첫 실행 흐름) 동안은 미룸 — B4 바로 다음 적 차례에 또 멈췄다 (review_I I-07)
+			if guide.tip("D2", "징표", "화상·빙결·감전은 그 자체로 피해가 없습니다. 겹(숫자)이 쌓일수록 그 징표를 노리는 마법이 세지고, 화상은 터뜨려 한 번에 씁니다.", [cr.grow(2)]):
 				return
 		if e.stunned and guide.tip("T7", "기절", "기절하면 다음 차례 하나를 쉽니다. 쉰 뒤 한 차례는 다시 기절하지 않습니다.", [cr.grow(2)]):
 			return

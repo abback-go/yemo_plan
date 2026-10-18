@@ -3751,7 +3751,7 @@ class CritCross extends PVfx.Base:
 
 	func _paint() -> void:
 		var x := k()
-		var a := 1.0 - x
+		var a := (1.0 - x) * (1.0 if bool(GameState.settings.get("flash", true)) else 0.5) # 화면 번쩍임 끔이면 반만 (review_I I-11)
 		var r := 18.0 + 22.0 * x
 		pd.glow(Vector2.ZERO, r, Color(GOLD, 0.4 * a), 0.0)
 		EVfx.star4(pd, Vector2.ZERO, r, 0.0, Color(WHITE, a), Color(0, 0, 0, 0))

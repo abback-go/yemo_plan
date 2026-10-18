@@ -37,6 +37,7 @@ extends RefCounted
 ##   buff ... count N on(basic|skill|attack) — 횟수제: 그 종류의 행동(기본 공격 | 공격 마법 | 둘 다)을 N번 마치면 사라짐 (dur와 함께면 먼저 닿는 쪽, 건 차례엔 닳지 않음, §16.8)
 ##   buff/debuff ... mark per_mark            — 대상의 그 징표 겹 수를 곱한다 (특공은 늘 곱함)
 ##   this_special mark v                      — 이 공격만 특공: 그 징표가 있으면 v (겹을 곱하지 않는 고정값, §11.4)
+##   this_special trait v                     — 특성 특공 (F-3): 대상이 그 특성(TRAIT_NAME)을 가지면 v (TBattle.special_hits)
 ##   credits ... if_mark                      — 맞기 전 대상에게 그 징표가 있었을 때만 (물의 환급, §12.7)
 ##   crit_gauge v                             — 이 공격의 크리 히트 1번마다 자신 게이지 +v (번개, §17.10)
 ##   enemy_charge who v [rate]                — 적 차지 −v (성공 판정, 필살기가 보이던 중이면 거둬짐, §18.5)
@@ -63,8 +64,8 @@ extends RefCounted
 ## 버프 지속 "dur"은 대상이 행동을 N번 마칠 때까지(clock own). invincible·dmg_taken·taunt·guts는 적 행동 N번(clock enemy).
 
 ## 데이터 판: 적·마법·전투 데이터(id·패턴·의도 종류)를 바꿀 때 올린다. 끊긴 전투 파일에 적고, 판이 다르면 이어 하기를 버린다 (review_I I-03)
-##   1 = 1.7까지 · 2 = 단계 F-2 (적 14·보스 3·전투 10, 의도 9종)
-const DATA_VER := 2
+##   1 = 1.7까지 · 2 = 단계 F-2 (적 14·보스 3·전투 10, 의도 9종) · 3 = F-3 (특성 특공 마법 3 · 세 빛의 인형 태세·줄 · 흩날리는 재)
+const DATA_VER := 3
 const GAUGE_MAX := 1000.0
 const CREDIT_MAX := 7
 const BASIC_BONUS := 1 ## 기본 공격을 쓰면 더 주는 크레딧
@@ -246,8 +247,8 @@ const SKILLS := {
 		"effects": [{"t": "debuff", "who": "enemies", "cat": "def_down", "v": 0.20, "dur": 3}, {"t": "debuff", "who": "enemies", "cat": "atk_down", "v": 0.20, "dur": 2}],
 		"desc": "적 전체: 방어 다운 20% (적 행동 3번) + 공격력 다운 20% (적 행동 2번)", "ref": "스카디 S2·모르간의 광역 방어 다운"},
 	"compress": {"name": "공간 압축", "cost": 3, "kind": "attack", "target": "enemy", "mult": 4.3, "fx": "compress", "icon": "converge",
-		"effects": [{"t": "ignore_def"}],
-		"desc": "4.3배 피해, 이 공격만 적 방어율 무시", "ref": "방어 무시 단일기 (단단한 적 전용)"},
+		"effects": [{"t": "ignore_def"}, {"t": "this_special", "trait": "spirit", "v": 0.60}],
+		"desc": "4.3배 피해, 이 공격만 적 방어율 무시. 영체 적에게 이 공격만 특공 +60%", "ref": "방어 무시 단일기 + 특성 특공 (F-3, review_F F02): 공간째 짓눌러 형체 없는 것도 잡음 (베기가 아님)"},
 	"doom": {"name": "종언", "cost": 4, "kind": "attack", "target": "enemy", "mult": 6.0, "fx": "doom", "icon": "eclipse",
 		"effects": [{"t": "buff", "who": "self", "cat": "atk", "v": 0.15, "dur": 1, "pre": true}],
 		"desc": "공격 직전 자신 공격력 +15% (행동 1번) → 6.0배 피해", "ref": "초인 오리온 S1의 1행동 자기 강화 → 강타 (4비용 예산 6.0배 = 비용 + 2, D2·E2)"},
@@ -550,7 +551,7 @@ const SKILLS := {
 		"effects": [{"t": "gauge", "who": "allies", "v": 0.25}, {"t": "credits", "who": "allies", "v": 1}],
 		"desc": "아군 전체: 행동 게이지 +25% + 크레딧 +1", "ref": "전체 배터리 + 자원"},
 	"clock_hand": {"name": "시계 바늘 찌르기", "cost": 3, "kind": "attack", "target": "enemy", "mult": 4.3, "fx": "compress", "icon": "needle",
-		"effects": [{"t": "enemy_gauge", "v": 0.20}], "desc": "4.3배 피해 + 적 게이지 −20%", "ref": "공격 + 지연"},
+		"effects": [{"t": "enemy_gauge", "v": 0.20}, {"t": "this_special", "trait": "construct", "v": 0.60}], "desc": "4.3배 피해 + 적 게이지 −20%. 인형 적에게 이 공격만 특공 +60%", "ref": "공격 + 지연 + 특성 특공 (F-3, review_F F02): 태엽을 멈춤"},
 	"hourglass": {"name": "모래시계 뒤집기", "cost": 3, "kind": "support", "target": "ally", "fx": "stigma", "icon": "hourglass",
 		"effects": [{"t": "extend_buffs", "v": 2}, {"t": "buff", "cat": "final", "v": 0.20, "dur": 2}],
 		"desc": "아군 1: 버프 지속 +2 + 최종 데미지 +20% (행동 2번)", "ref": "지속 연장"},
@@ -574,9 +575,9 @@ const SKILLS := {
 		"effects": [{"t": "multi", "n": 2}], "desc": "적 전체 1.4배 피해를 2번으로 나눠 (각 0.7배)", "ref": "싼 광역 다단"},
 	"flash_cut": {"name": "일섬", "cost": 3, "kind": "attack", "target": "enemy", "mult": 3.6, "fx": "slash_big", "icon": "cut_h",
 		"effects": [{"t": "sure_crit"}], "desc": "3.6배 피해, 크리 확정", "ref": "크리 확정 (3비용 예산 5.0배: 확정 크리 ×1.4 → 3.6배)"},
-	"space_cut": {"name": "공간참", "cost": 3, "kind": "attack", "target": "enemy", "mult": 4.3, "fx": "slash_big", "icon": "rift",
-		"effects": [{"t": "ignore_def"}, {"t": "debuff", "cat": "def_down", "v": 0.15, "dur": 2}],
-		"desc": "4.3배 피해, 이 공격만 적 방어율 무시 + 방어 다운 15% (적 행동 2번)", "ref": "방어 무시"},
+	"space_cut": {"name": "갑주 가르기", "cost": 3, "kind": "attack", "target": "enemy", "mult": 4.3, "fx": "slash_big", "icon": "cut_h",
+		"effects": [{"t": "this_special", "trait": "armored", "v": 0.60}, {"t": "debuff", "cat": "def_down", "v": 0.15, "dur": 2}],
+		"desc": "4.3배 피해 + 방어 다운 15% (적 행동 2번). 갑각 적에게 이 공격만 특공 +60%", "ref": "특성 특공 (F-3, review_F F02): 검으로 껍질을 가름 — 옛 공간참(방어 무시)을 바꿈. 갑각 적(방어 25~35%)에게 4.3 × 1.6 × 0.7 ≈ 4.8배"},
 	"sword_ki": {"name": "검기 두르기", "cost": 3, "kind": "support", "target": "self", "fx": "focus", "icon": "aura",
 		"effects": [{"t": "buff", "who": "self", "cat": "atk", "v": 0.40, "dur": 3}, {"t": "buff", "who": "self", "cat": "crit_dmg", "v": 0.40, "dur": 3}],
 		"desc": "자신: 공격력 +40% + 크리 데미지 +40% (다음 행동 2번)", "ref": "딜러의 자기 강화 (자기 차례에 걸어 행동 3번 = 다음 2행동)"},
@@ -685,6 +686,7 @@ const EQUIP_ORDER := ["", "black_cup", "kaleido", "notebook", "swift_boots", "ma
 ## charge_max·charge_act = 차지 칸 수와 가득 찼을 때의 필살기(finisher, aoe면 전체, self_ko면 쓴 뒤 그 적이 쓰러짐 = 자폭) · on_break = 줄이 깨질 때 {intent?, pattern?, buff?}
 ## phases = 줄마다 덮어쓸 칸 [{}, {element?, weak?, def?, speed?}, …] (줄이 깨질 때 그 줄 번호의 것, §18.6) · leader = 쓰러지면 같은 웨이브의 나머지도 사라짐
 ## traits = 특성 (TRAIT_NAME) · passive = 고유 효과 [{t, name, …}]: mark_cap{kind, n}(그 징표 최대 n겹) · guard_allies{v}(다른 적이 살아 있으면 받는 피해 −v) · first_strike{v}(웨이브 시작 게이지 +v)
+##   [F-3] guard_break(약점 속성 공격을 맞으면 그 공격 뒤 방어 태세가 풀림 — 속성 둘 이상 파티의 몫) · aoe_taken{v}(광역 공격에 받는 피해 +v — 무리 전투에서 광역의 몫)
 ## crit = 적 크리 확률 (없으면 ENEMY_CRIT_BASE) · summon_cap = 이 적이 한 웨이브에 부를 수 있는 수
 ## rules = 조건 규칙 (위에서부터 처음 맞는 것): when {hp_below · bar(0부터) · witch_buffs · allies_dead · acted · empty_slot · self_marks · witch_credits · self_buff(+not) · allies_alive}
 ##   (한 when 안의 조건은 모두 맞아야 함) → pattern(바꿈) 또는 insert(하나 끼움) (§18.2)
@@ -720,10 +722,11 @@ const ENEMIES := {
 		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "guard", "v": 0.50, "dur": 2}, {"k": "heavy", "mult": 2.0}, {"k": "aoe", "mult": 0.8}],
 		"charge_max": 5, "charge_act": {"k": "finisher", "name": "과부하 방전", "aoe": true, "mult": 1.8}, "size": 1.15, "color": Color("#8a8070")},
 	"ash_servant": {"name": "잿빛 시종", "short": "종", "tier": "normal", "hp": 240000, "atk": 2200, "speed": 110, "def": 0.0, "element": "ash", "weak": [], "traits": ["ash"],
+		"passive": [{"t": "aoe_taken", "v": 0.50, "name": "흩날리는 재"}],
 		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "rally", "gauge": 0.30}],
 		"charge_max": 3, "charge_act": {"k": "finisher", "name": "재 터짐", "aoe": true, "mult": 1.6, "self_ko": true}, "size": 0.75, "color": Color("#8a8090")},
 	"lantern_keeper": {"name": "등불지기", "short": "등", "tier": "elite", "hp": 900000, "atk": 2800, "speed": 90, "def": 0.20, "element": "ash", "weak": [], "traits": ["ash", "spirit"],
-		"passive": [{"t": "guard_allies", "v": 0.30, "name": "등불 가림"}], "summon_cap": 4,
+		"passive": [{"t": "guard_allies", "v": 0.30, "name": "등불 가림"}, {"t": "aoe_taken", "v": 0.50, "name": "흩날리는 재"}], "summon_cap": 4,
 		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "aoe", "mult": 0.7}, {"k": "heavy", "mult": 1.6}],
 		"rules": [{"when": {"empty_slot": 1}, "insert": {"k": "summon", "id": "ash_servant"}}], "size": 1.2, "color": Color("#7a6a58")},
 	"shade_scribe": {"name": "그림자 서기", "short": "그", "tier": "normal", "hp": 520000, "atk": 2800, "speed": 120, "def": 0.10, "element": "none", "weak": ["space"], "traits": ["spirit"],
@@ -740,12 +743,14 @@ const ENEMIES := {
 		"on_break": {"intent": {"k": "dispel"}},
 		"art": "ash_knight", "size": 1.5, "color": Color("#4e4653")},
 	# 세 빛의 인형 (review_H §5.2 · §6): 줄마다 속성·약점이 돈다 — 줄 1 물(약점 번개) → 줄 2 번개(약점 불) → 줄 3 불(약점 물). 줄 2~3 방어 태세 · 줄 3 해제
-	"prism_doll": {"name": "세 빛의 인형", "short": "인", "tier": "boss", "bars": [1500000, 1200000, 3100000], "atk": 6000, "speed": 100, "def": 0.25, "element": "water", "weak": ["bolt"], "traits": ["construct"],
+	# F-3: "갈라지는 빛" — 그 줄의 약점 속성으로 맞으면 방어 태세(−60%)가 풀림 → 속성 둘 이상 파티가 태세를 깨며 빨라짐 (combat_proto.md §27.8). 줄 130만·100만·280만
+	"prism_doll": {"name": "세 빛의 인형", "short": "인", "tier": "boss", "bars": [1300000, 1000000, 2800000], "atk": 6000, "speed": 100, "def": 0.25, "element": "water", "weak": ["bolt"], "traits": ["construct"],
+		"passive": [{"t": "guard_break", "name": "갈라지는 빛"}],
 		"pattern": [{"k": "attack", "mult": 1.0}, {"k": "aoe", "mult": 1.0}, {"k": "heavy", "mult": 2.0}, {"k": "buff", "v": 0.30, "dur": 3}],
 		"charge_max": 5, "charge_act": {"k": "finisher", "name": "삼색 섬광", "aoe": true, "mult": 2.5},
 		"phases": [{}, {"element": "bolt", "weak": ["fire"]}, {"element": "fire", "weak": ["water"]}],
-		"rules": [{"when": {"bar": 1}, "pattern": [{"k": "attack", "mult": 1.0}, {"k": "guard", "v": 0.50, "dur": 2}, {"k": "heavy", "mult": 2.2}, {"k": "aoe", "mult": 1.0}]},
-			{"when": {"bar": 2}, "pattern": [{"k": "heavy", "mult": 2.0}, {"k": "aoe", "mult": 1.2}, {"k": "dispel"}, {"k": "guard", "v": 0.50, "dur": 2}, {"k": "heavy", "mult": 2.5}]}],
+		"rules": [{"when": {"bar": 1}, "pattern": [{"k": "attack", "mult": 1.0}, {"k": "guard", "v": 0.60, "dur": 2}, {"k": "heavy", "mult": 2.2}, {"k": "aoe", "mult": 1.0}]},
+			{"when": {"bar": 2}, "pattern": [{"k": "heavy", "mult": 2.0}, {"k": "aoe", "mult": 1.2}, {"k": "dispel"}, {"k": "guard", "v": 0.60, "dur": 2}, {"k": "heavy", "mult": 2.5}]}],
 		"size": 1.5, "color": Color("#c8c0e0")},
 	# 잿빛 둥지어미 (review_H §5.2 · §6): 우두머리 · 둥지 보호 · 잿빛 시종 부르기(웨이브에 3) · 줄 2에서 징표 4겹 이상이면 징표 털기 (부르기보다 먼저)
 	"ash_brood": {"name": "잿빛 둥지어미", "short": "둥", "tier": "boss", "bars": [2800000, 2800000], "atk": 6500, "speed": 95, "def": 0.30, "element": "ash", "weak": ["bolt"], "traits": ["ash", "beast"],
@@ -764,85 +769,105 @@ const ENEMIES := {
 }
 const INTENT_NAME := {"attack": "공격", "heavy": "강공격", "aoe": "전체 공격", "buff": "버프", "stun_attack": "기절 공격", "dispel": "해제", "finisher": "필살기",
 	"seal": "봉인", "weaken": "약화", "guard": "방어 태세", "cover": "막아서기", "rally": "재촉", "summon": "부르기", "purge": "징표 털기", "scatter": "크레딧 흩기"}
-## 적 특성 (review_H §3) — 이번엔 상세 표시와 다음 단계 특성 특공의 자리만
+## 적 특성 (review_H §3) — 상세 표시 · 특성 특공 (this_special trait, F-3)
 const TRAIT_NAME := {"armored": "갑각", "spirit": "영체", "beast": "짐승", "construct": "인형", "ash": "재"}
 
 ## 전투 (§5.6 · §24.6 · review_H §7). 웨이브 = 적 1~3 (앞·중·뒤 순). 항목이 {id, hp}면 그 적의 체력만 덮어쓴다
 ## start_credits = 전투를 시작할 때 마녀 모두의 크레딧 (안내 전투만 — 첫 차례부터 마법을 써 보게, combat_proto.md §28 [제안])
 ## ask = 전투 고르기(S-03)의 한 줄 "묻는 것" · stars = 난이도 1~3 · mins = 예상 시간(분, turn_sim.gd -- N h의 원형 평균 — §27.7)
+## bg = 배경 테마 (TBackdrop.THEMES, 없으면 field) · bgs = 웨이브마다 배경 (bg보다 먼저 — review_F F20 · review_H §7.2 규칙 4, F-3)
 const BATTLES := {
 	"intro_01": {"name": "안내 전투", "kind": "intro", "start_credits": 3, "stars": 1, "mins": 2, "ask": "처음 한 번. 짚 골렘 두 마리와 짧게 싸우며 조작을 배웁니다",
 		"waves": [[{"id": "straw_golem", "hp": 240000}, {"id": "straw_golem", "hp": 240000}]]},
 	"normal_01": {"name": "들판", "kind": "normal", "stars": 1, "mins": 6, "ask": "적 3마리 한 웨이브 — 빌드를 시험하기 좋습니다",
 		"waves": [["straw_golem", "swamp_toad", "ash_knight"]]},
-	"normal_fire": {"name": "불길의 골짜기", "kind": "normal", "stars": 2, "mins": 6, "ask": "재촉·방어 태세·약화 — 물 파티와 차지 감소가 통합니다",
+	"normal_fire": {"name": "불길의 골짜기", "kind": "normal", "bg": "fire", "stars": 2, "mins": 6, "ask": "재촉·방어 태세·약화 — 물 파티와 차지 감소가 통합니다",
 		"waves": [["will_o", "hearth_turtle", "flame_priest"]]},
-	"normal_water": {"name": "안개 호수", "kind": "normal", "stars": 2, "mins": 6, "ask": "약화·막아서기 — 번개 파티가 통합니다",
+	"normal_water": {"name": "안개 호수", "kind": "normal", "bg": "lake", "stars": 2, "mins": 6, "ask": "약화·막아서기 — 번개 파티가 통합니다",
 		"waves": [["mist_jelly", "swamp_toad", "frost_knight"]]},
-	"normal_bolt": {"name": "뇌운 고개", "kind": "normal", "stars": 2, "mins": 6, "ask": "봉인·빠른 적·단단한 골렘 — 불 파티의 한 방이 통합니다",
+	"normal_bolt": {"name": "뇌운 고개", "kind": "normal", "bg": "storm", "stars": 2, "mins": 6, "ask": "봉인·빠른 적·단단한 골렘 — 불 파티의 한 방이 통합니다",
 		"waves": [["thunder_crow", "thunder_crow", "volt_golem"]]},
-	"normal_swarm": {"name": "등불 회랑", "kind": "normal", "stars": 2, "mins": 5, "ask": "자폭하는 시종과 부르는 등불지기 — 광역이 통합니다",
+	"normal_swarm": {"name": "등불 회랑", "kind": "normal", "bg": "corridor", "stars": 2, "mins": 5, "ask": "자폭하는 시종과 부르는 등불지기 · 재는 광역에 흩날림 — 광역이 통합니다",
 		"waves": [["ash_servant", "lantern_keeper", "ash_servant"]]},
-	"normal_rift": {"name": "틈새 서고", "kind": "normal", "stars": 2, "mins": 7, "ask": "속성 약점이 없는 곳 · 크레딧 흩기 — 에스카·하르페가 통합니다",
+	"normal_rift": {"name": "틈새 서고", "kind": "normal", "bg": "library", "stars": 2, "mins": 7, "ask": "속성 약점이 없는 곳 · 크레딧 흩기 — 에스카·하르페가 통합니다",
 		"waves": [["shade_scribe", "hollow_armor", "ash_knight"]]},
-	"boss_01": {"name": "보스 전투 — 재의 왕", "kind": "boss", "stars": 2, "mins": 18, "ask": "버프 해제 — 해제 앞에 쏟아붓기 · 물 약점", "waves": [
+	"boss_01": {"name": "보스 전투 — 재의 왕", "kind": "boss", "bgs": ["field", "field", "ash_sky"], "stars": 2, "mins": 18, "ask": "버프 해제 — 해제 앞에 쏟아붓기 · 물 약점", "waves": [
 		["straw_golem", "straw_golem", {"id": "swamp_toad", "hp": 480000}],
 		["swamp_toad", "ash_knight"],
 		["ash_king"]]},
-	"boss_02": {"name": "보스 전투 — 세 빛의 인형", "kind": "boss", "stars": 3, "mins": 19, "ask": "줄마다 약점이 바뀜 · 방어 태세 — 속성 둘 이상의 파티", "waves": [
+	"boss_02": {"name": "보스 전투 — 세 빛의 인형", "kind": "boss", "bgs": ["lake", "storm", "prism"], "stars": 3, "mins": 17, "ask": "줄마다 약점이 바뀜 · 약점으로 치면 방어 태세가 깨짐 — 속성 둘 이상의 파티", "waves": [
 		["will_o", "mist_jelly", "thunder_crow"],
 		["hearth_turtle", "thunder_crow"],
 		["prism_doll"]]},
-	"boss_03": {"name": "보스 전투 — 잿빛 둥지어미", "kind": "boss", "stars": 3, "mins": 19, "ask": "시종을 부르는 우두머리 · 징표 털기 — 번개 파티와 광역", "waves": [
+	"boss_03": {"name": "보스 전투 — 잿빛 둥지어미", "kind": "boss", "bgs": ["corridor", "fire", "brood"], "stars": 3, "mins": 19, "ask": "시종을 부르는 우두머리 · 징표 털기 — 번개 파티와 광역", "waves": [
 		["ash_servant", "ash_servant", "ash_servant"],
 		["flame_priest", "will_o"],
 		["ash_servant", "ash_brood", "ash_servant"]]},
-	"trial_01": {"name": "시련 — 시련의 거상", "kind": "trial", "stars": 3, "mins": 10, "ask": "아주 아픈 한 판 · 필살기는 무적 관통. 추천: 버티며 쌓기 (네레이·에스카·하르페)",
+	"trial_01": {"name": "시련 — 시련의 거상", "kind": "trial", "bg": "trial", "stars": 3, "mins": 10, "ask": "아주 아픈 한 판 · 필살기는 무적 관통. 추천: 버티며 쌓기 (네레이·에스카·하르페)",
 		"waves": [["trial_colossus"]]},
 }
 ## 전투 고르기 순서 (S-03 탭 안 순서)
 const BATTLE_ORDER := ["normal_01", "normal_fire", "normal_water", "normal_bolt", "normal_swarm", "normal_rift", "boss_01", "boss_02", "boss_03", "trial_01"]
 
-## 용어 풀이 (combat_proto.md §2 · §28.6): 도움말 판(? 버튼)과 상세·설명 상자 맨 아래 한 줄이 같이 쓴다. 순서 = 도움말 목록 순서
+## 용어 풀이 (combat_proto.md §2 · §28.6): 도움말 판(? 버튼)과 상세·설명 상자 맨 아래 한 줄이 같이 쓴다. 순서 = 도움말 목록 순서.
+## [용어, 풀이, 화면에서 어디에 보이나] (review_I I-16 — 22 → 32개, 셋째 칸은 도움말 풀이 아래 한 줄)
 const GLOSSARY := [
-	["크레딧", "마녀마다 따로 모으는 마력(◆ 7칸). 차례마다 +1, 기본 공격은 +1 더. 마법을 쓰면 그 비용만큼 줄어든다"],
-	["대마법", "크레딧 7을 모두 써서 쓰는 큰 마법. 바퀴 끝 금빛 칸. 쓰고 나면 0부터 다시 모은다"],
-	["연쇄", "대마법을 쓴 마녀가 다시 움직이기 전에 다른 마녀가 대마법을 이으면 단계가 오른다(최대 3). 2단계 효과 ×1.25, 3단계 ×1.5"],
-	["약점", "적 카드의 네모 속성 칸. 그 속성으로 치면 피해 1.5배"],
-	["무상성", "공간·시간·검술 마녀는 약점이 없는 대신 모든 적에게 1.2배 (속성을 받으면 그 속성으로 친다)"],
-	["징표", "화상·빙결·감전. 그 자체로는 피해가 없다. 걸린 적에게 붙는 효과(특공 등)의 조건이 된다"],
-	["겹", "같은 징표를 또 걸면 겹이 쌓인다(최대 5). 특공·터뜨리기는 겹 수만큼 세진다"],
-	["특공", "징표가 걸린 적에게만 붙는 피해 보너스. 겹마다 곱해진다"],
-	["터뜨리기", "징표 겹을 모두 써서 한 번에 큰 피해. 겹마다 배율이 오른다"],
-	["번짐", "징표 겹 수만큼 다른 적 모두에게 같은 징표를 건다"],
-	["차지", "강적·보스 카드의 꺾쇠 칸. 적이 행동할 때마다 한 칸씩 차고, 다 차면 다음 행동이 필살기"],
-	["필살기", "차지가 다 찬 적의 큰 공격. 무적·도발·차지 감소·기절로 대비한다"],
-	["줄", "보스의 체력은 여러 줄. 한 줄을 깨면(브레이크) 넘친 피해는 사라지고 보스의 행동이 바뀐다"],
-	["해제", "적이 마녀들의 버프를 모두 지운다. 패시브·장비는 남는다"],
-	["관통", "무적을 뚫는 공격(→| 표시). 받는 피해 감소·도발·근성은 통한다"],
-	["기절", "다음 차례 하나를 쉰다. 쉰 뒤 한 차례는 다시 기절하지 않는다(기절 내성). 보스는 면역"],
-	["대가", "강한 마법의 값: 그 행동 뒤 크레딧 0, 또는 체력을 깎는다"],
-	["봉인", "적에게 봉인되면 다음 자기 차례에 장착 마법·대마법을 못 쓴다(기본 공격만). 그 차례가 끝나면 풀리고, 한 차례는 다시 봉인되지 않는다"],
-	["약화", "적이 거는 나쁜 효과(공격력 다운·받는 피해 증가). 해제로 지워지지 않는다"],
-	["방어 태세", "적이 받는 피해를 줄인다(최대 70%). 방어 무시로도 안 뚫린다. 태세가 없는 차례에 몰아친다"],
-	["막아서기", "그 적이 막아서는 동안 단일 대상 공격·디버프는 그 적만 고를 수 있다. 전체 공격은 그대로"],
-	["재촉", "다른 적의 차지나 게이지를 채운다. 재촉하는 적을 먼저 치거나 차지 감소로 막는다"],
-	["부르기", "쓰러진 자리에 새 적을 세운다. 부를 수 있는 수는 정해져 있다"],
-	["자폭", "차지가 다 찬 졸개가 전체를 치고 스스로 쓰러진다. 차기 전에 처치하거나 무적으로 받는다"],
-	["징표 털기", "적이 자기 징표를 모두 지운다. 보이면 그 전에 터뜨린다"],
-	["크레딧 흩기", "마녀 모두의 크레딧을 깎는다. 보이면 모은 크레딧을 먼저 쓴다"],
-	["우두머리", "쓰러지면 같은 웨이브의 졸개도 함께 사라진다"],
+	["크레딧", "마녀마다 따로 모으는 마력(◆ 7칸). 차례마다 +1, 기본 공격은 +1 더. 마법을 쓰면 그 비용만큼 줄어든다", "아군 패널의 마름모 7칸 · 바퀴 칸의 숫자 배지(비용)"],
+	["대마법", "크레딧 7을 모두 써서 쓰는 큰 마법. 바퀴 끝 금빛 칸. 쓰고 나면 0부터 다시 모은다", "바퀴 끝 금빛 칸 · 진행 호 n/7"],
+	["연쇄", "대마법을 쓴 마녀가 다시 움직이기 전에 다른 마녀가 대마법을 이으면 단계가 오른다(최대 3). 2단계 효과 ×1.25, 3단계 ×1.5", "위 띠 금빛 칩 \"연쇄 n단계\""],
+	["약점", "적 카드의 네모 속성 칸. 그 속성으로 치면 피해 1.5배", "적 카드 이름 줄 오른쪽 금테 네모 · 피해 숫자 위 \"약점\""],
+	["무상성", "공간·시간·검술 마녀는 약점이 없는 대신 모든 적에게 1.2배 (속성을 받으면 그 속성으로 친다)", "편성 카드 \"공간·시간·검술\""],
+	["특성", "적의 갈래(갑각·영체·짐승·인형·재). 그 특성에만 붙는 특공 마법이 있다", "적 상세 \"특성\" 줄 · 설명 띠 \"갑각 특공\""],
+	["징표", "화상·빙결·감전. 그 자체로는 피해가 없다. 걸린 적에게 붙는 효과(특공 등)의 조건이 된다", "적 카드 체력 줄의 둥근 아이콘"],
+	["겹", "같은 징표를 또 걸면 겹이 쌓인다(최대 5). 특공·터뜨리기는 겹 수만큼 세진다", "징표 아이콘 옆 숫자 알약"],
+	["특공", "징표가 걸린 적(또는 그 특성의 적)에게만 붙는 피해 보너스. 징표 특공은 겹마다 곱해진다", "마법 설명 \"특공 +n%\""],
+	["터뜨리기", "징표 겹을 모두 써서 한 번에 큰 피해. 겹마다 배율이 오른다", "마법 설명 \"터뜨리기\""],
+	["번짐", "징표 겹 수만큼 다른 적 모두에게 같은 징표를 건다", "마법 설명 \"번짐\""],
+	["차지", "강적·보스 카드의 꺾쇠 칸. 적이 행동할 때마다 한 칸씩 차고, 다 차면 다음 행동이 필살기", "적 카드 체력 숫자 줄 오른쪽 ›››› 칸"],
+	["필살기", "차지가 다 찬 적의 큰 공격. 무적·도발·기절·차지 감소로 대비한다", "빨간 바탕 알약 · 차례 줄의 빨간 칸"],
+	["관통", "무적을 뚫는 공격(→| 표시). 받는 피해 감소·도발·근성은 통한다", "필살기 알약 끝 →| 표시"],
+	["무적", "적의 공격을 받지 않는다(적 행동 n번). 관통은 막지 못하고, 한 번 걸린 뒤엔 무적 내성이 붙는다", "아군 패널 방패 아이콘 · 피해 숫자 자리 \"무적\""],
+	["도발", "적의 단일 대상 공격을 그 마녀가 받는다. 전체 공격은 그대로", "아군 패널 방패+눈 아이콘 · 머리 위 시선"],
+	["근성", "쓰러질 피해를 한 번 버틴다(체력 1 또는 n%)", "아군 패널 깃털 아이콘 · \"근성\" 글"],
+	["기절", "다음 차례 하나를 쉰다. 쉰 뒤 한 차례는 다시 기절하지 않는다(기절 내성). 보스는 면역", "머리 위 별 · 차례 줄 별"],
+	["저항", "강적·보스가 디버프를 막음(내성). 성공률은 마법 칸을 고르면 설명 띠에 보인다", "피해 숫자 자리 \"저항\" · 설명 띠 \"성공률 n%\""],
+	["줄", "보스의 체력은 여러 줄. 한 줄을 깨면(브레이크) 넘친 피해는 사라지고 보스의 행동이 바뀐다", "보스 카드 오른쪽 금빛 칸 \"줄 n/m\""],
+	["브레이크", "보스의 줄 하나를 깸. 그 순간 보스 행동이 바뀌고, 줄마다 약점이 바뀌는 보스도 있다", "보스 몸 옆 큰 글 \"브레이크\""],
+	["해제", "적이 마녀들의 버프를 모두 지운다. 패시브·장비는 남는다", "보라 알약 \"해제 · 버프 n\""],
+	["대가", "강한 마법의 값: 그 행동 뒤 크레딧 0, 또는 체력을 깎는다", "마법 설명 \"대가\""],
+	["봉인", "적에게 봉인되면 다음 자기 차례에 장착 마법·대마법을 못 쓴다(기본 공격만). 그 차례가 끝나면 풀리고, 한 차례는 다시 봉인되지 않는다", "청록 알약 · 바퀴 칸 자물쇠"],
+	["약화", "적이 거는 나쁜 효과(공격력 다운·받는 피해 증가). 해제로 지워지지 않는다", "분홍 알약 · 아군 패널 빨간 아이콘"],
+	["방어 태세", "적이 받는 피해를 줄인다(최대 70%). 방어 무시로도 안 뚫린다. 태세가 없는 차례에 몰아친다", "회청 알약 · 적 카드 방패"],
+	["막아서기", "그 적이 막아서는 동안 단일 대상 공격·디버프는 그 적만 고를 수 있다. 전체 공격은 그대로", "연두노랑 알약 · 적 앞 방패벽"],
+	["재촉", "다른 적의 차지나 게이지를 채운다. 재촉하는 적을 먼저 치거나 차지 감소로 막는다", "연두 알약"],
+	["부르기", "쓰러진 자리에 새 적을 세운다. 부를 수 있는 수는 정해져 있다", "흰회 알약"],
+	["자폭", "차지가 다 찬 졸개가 전체를 치고 스스로 쓰러진다. 차기 전에 처치하거나 무적으로 받는다", "필살기 알약 끝 작은 폭발"],
+	["징표 털기", "적이 자기 징표를 모두 지운다. 보이면 그 전에 터뜨린다", "주황 알약"],
+	["크레딧 흩기", "마녀 모두의 크레딧을 깎는다. 보이면 모은 크레딧을 먼저 쓴다", "갈색 알약"],
+	["우두머리", "쓰러지면 같은 웨이브의 졸개도 함께 사라진다", "적 상세 \"우두머리\""],
 ]
+## 글 속 다른 말 → 용어 (화상·빙결·감전 → 징표 · 갑각 등 특성 이름 → 특성, review_I I-14)
+const GLOSS_ALIAS := {"화상": "징표", "빙결": "징표", "감전": "징표", "갑각": "특성", "영체": "특성", "짐승": "특성", "인형": "특성", "체력 대가": "대가", "무적 관통": "관통"}
 
-## 글에 나온 첫 용어의 풀이 한 줄 ("징표 — …"). 없으면 ""
-static func gloss_for(text: String) -> String:
+## 글에 나온 첫 용어의 풀이 한 줄 ("징표 — …"). skip에 든 용어(도움말에서 이미 연 것)는 건너뜀. 없으면 ""
+static func gloss_for(text: String, skip: Dictionary = {}) -> String:
 	var best := -1
 	var out := ""
+	var names := {}
 	for g in GLOSSARY:
-		var i := text.find(String(g[0]))
-		if i >= 0 and (best < 0 or i < best):
+		names[String(g[0])] = String(g[1])
+	for g in GLOSSARY:
+		var key := String(g[0])
+		var i := text.find(key)
+		if i >= 0 and not skip.has(key) and (best < 0 or i < best):
 			best = i
-			out = "%s — %s" % [String(g[0]), String(g[1])]
+			out = "%s — %s" % [key, String(g[1])]
+	for al in GLOSS_ALIAS:
+		var key := String(GLOSS_ALIAS[al])
+		var i := text.find(String(al))
+		if i >= 0 and not skip.has(key) and (best < 0 or i < best):
+			best = i
+			out = "%s — %s" % [key, String(names[key])]
 	return out
 
 
@@ -853,7 +878,44 @@ static func enemy_passive_text(p: Dictionary) -> String:
 		"mark_cap": body = "%s 최대 %d겹" % [MARK_NAME.get(String(p.get("kind", "")), ""), int(p.get("n", 0))]
 		"guard_allies": body = "다른 적이 살아 있으면 받는 피해 −%d%%" % int(round(float(p.get("v", 0.0)) * 100.0))
 		"first_strike": body = "웨이브 시작 게이지 +%d%%" % int(round(float(p.get("v", 0.0)) * 100.0))
+		"guard_break": body = "약점 속성 공격을 맞으면 방어 태세가 풀림"
+		"aoe_taken": body = "광역 공격에 받는 피해 +%d%%" % int(round(float(p.get("v", 0.0)) * 100.0))
 	return "%s: %s" % [String(p.get("name", "")), body]
+
+
+## 진 이유 줄 [[글, 색]]: TStage 기록(why)·전투에서 (review_F F13 · review_G G03 · review_I I-02·I-13 — TStage는 자동 로드를 써서 헤드리스 규칙 시험이 못 부르므로 여기)
+static func lose_lines(why: Dictionary, b: TBattle, bid: String) -> Array:
+	var out: Array = []
+	var fk := int(why.get("fin_kills", 0))
+	var big: Dictionary = why.get("big", {})
+	if fk >= 2:
+		# 필살기로 진 판: 1줄 누가·몇 명 · 2줄 대비 — 관통이면 무적을 권하지 않는다 (D6 안내와 같은 말, review_I I-02)
+		var pierce := int(why.get("pierce_kills", 0)) >= 2
+		var src := String(why.get("fin_src", big.get("src", "적")))
+		out.append(["%s 필살기%s에 %d명 쓰러짐" % [src, "(관통)" if pierce else "", fk], TTheme.TEXT])
+		var tip := "관통은 무적을 뚫습니다 — 받는 피해 감소·도발·근성·차지 감소로" if pierce else "차지가 찬 적 앞에 무적·도발·기절·차지 감소"
+		out.append([("받는 피해 감소를 한 번도 안 씀 · " if int(why.get("guard", 0)) == 0 else "") + tip, TTheme.TEXT])
+	elif int(why.get("heals", 0)) == 0 and b.wave_i >= 1:
+		out.append(["회복을 한 번도 안 쓰고 웨이브 %d까지 — 회복 마법이나 깃털 부적(근성)을 넣어 보세요" % (b.wave_i + 1), TTheme.TEXT])
+	elif int(why.get("dispelled", 0)) >= 6:
+		out.append(["버프 %d개가 해제로 지워짐 — \"해제\"가 보이면 그 전에 쏟아붓기" % int(why.dispelled), TTheme.TEXT])
+	elif not big.is_empty():
+		out.append(["가장 아팠던 공격: %s의 %s %s — 받는 피해 감소·회복으로 버티기" % [String(big.src), String(big.act), TData.fmt_short(int(big.dmg))], TTheme.TEXT])
+	# 남은 적 체력
+	var foes := b.alive_of(b.enemies)
+	if foes.size() == 1 and foes[0].bars.size() > 1:
+		var f := foes[0]
+		out.append(["%s 남은 줄 %d/%d · %s" % [f.name, f.bar_i + 1, f.bars.size(), TData.fmt_short(f.hp)], TTheme.TEXT_SUB])
+	elif not foes.is_empty():
+		var hp := 0
+		var mx := 0
+		for f in foes:
+			hp += f.hp
+			mx += f.max_hp
+		out.append(["남은 적 체력 %d%%%s" % [int(round(100.0 * float(hp) / float(maxi(mx, 1)))), (" · 웨이브 %d/%d" % [b.wave_i + 1, b.wave_count()]) if b.wave_count() > 1 else ""], TTheme.TEXT_SUB])
+	if String(TData.BATTLES[bid].get("kind", "")) == "trial":
+		out.append(["이 시련은 버티며 쌓는 빌드용 — 추천: 네레이·에스카·하르페", TTheme.GOLD])
+	return out
 
 
 ## 프로토타입 기본 파티와 전투

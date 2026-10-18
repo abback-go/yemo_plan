@@ -32,9 +32,12 @@
  [62, "shot", "s08_tile_toggled"],
  [64, "touch", 0, 266, 256],
  [65, "untouch", 0, 266, 256],
- [68, "shot", "s09_equip_desc"],
- [70, "touch", 0, 574, 337],
- [71, "untouch", 0, 574, 337],
- [74, "shot", "s10_battles_from_magic"],
- [76, "quit"]
+ [68, "shot", "s09_equip_list"],
+ [70, "touch", 0, 534, 311],
+ [71, "untouch", 0, 534, 311],
+ [74, "shot", "s09b_equip_desc"],
+ [76, "touch", 0, 574, 337],
+ [77, "untouch", 0, 574, 337],
+ [80, "shot", "s10_battles_from_magic"],
+ [82, "quit"]
 ]}

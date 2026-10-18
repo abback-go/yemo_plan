@@ -1136,7 +1136,7 @@ func _stage_f_tests() -> void:
 	TSave.clear_battle()
 	_ok("V27 끊긴 전투 파일 쓰기·읽기·지우기", "%s %d %s" % [str(had), int(back.get("turn_no", -1)), str(TSave.has_battle())], "true %d false" % int(snap.turn_no))
 	# V28 용어 풀이: 글에 나온 첫 용어
-	_ok("V28 용어 풀이 첫 용어 (겹·특공 글 → 겹)", TData.gloss_for("화상 겹마다 특공").get_slice(" — ", 0), "겹")
+	_ok("V28 용어 풀이 첫 용어 (화상 → 징표 별칭 · 도움말에서 연 징표는 건너뜀 → 겹, review_I I-14)", "%s %s" % [TData.gloss_for("화상 겹마다 특공").get_slice(" — ", 0), TData.gloss_for("화상 겹마다 특공", {"징표": true}).get_slice(" — ", 0)], "징표 겹")
 
 
 # ═══════════════════════════════════════════════════════════
@@ -1423,7 +1423,7 @@ func _stage_f2_tests() -> void:
 	b.witches[0].sealed = 1
 	b.summoned = 2
 	var b2 := TBattle.from_dict(str_to_var(var_to_str(b.to_dict())))
-	_ok("V51 저장: 봉인 · 부른 수 · 고유 효과", "%d %d %d" % [b2.witches[0].sealed, b2.summoned, b2.enemies[1].passive.size()], "1 2 1")
+	_ok("V51 저장: 봉인 · 부른 수 · 고유 효과 (등불 가림 · 흩날리는 재)", "%d %d %d" % [b2.witches[0].sealed, b2.summoned, b2.enemies[1].passive.size()], "1 2 2")
 	# V52 데이터 판 (review_I I-03): 지금 판 사본은 읽힘 · 판이 다르거나(1.7 파일 = 판 없음) 모르는 적·마법 id면 버림 → 파일 지움 (편성은 parse_setup이 따로 고침, V26)
 	TSave.enabled = true
 	TSave.dir = "user://test_rules/"
@@ -1440,6 +1440,42 @@ func _stage_f2_tests() -> void:
 		got.append(str(not TSave.load_battle().is_empty()))
 	TSave.clear_battle()
 	_ok("V52 데이터 판: 지금 판 읽힘 · 판 없음/모르는 적/모르는 마법 버림", " ".join(got), "true false false false")
+	_f3_tests()
+
+
+## 단계 F-3 (combat_proto.md §25.9): 특성 특공 · 갈라지는 빛 · 흩날리는 재 · 진 이유 글
+func _f3_tests() -> void:
+	print("── 단계 F-3")
+	# V53 특성 특공 (review_F F02 V13): 갑주 가르기 = 갑각 적에게만 +60% · 공간 압축 = 영체 적에게만 +60% (겹을 곱하지 않는 고정값)
+	var b := _b(["harpe", "eska"], ["hollow_armor", "shade_scribe"])
+	var ha := _w(b, "harpe")
+	var es := _w(b, "eska")
+	var arm := _e(b, "hollow_armor")
+	var spi := _e(b, "shade_scribe")
+	_ok("V53 특성 특공: 하르페 갑주 가르기 빈 갑주(갑각·검술 약점·방어 35%) / 그림자 서기 · 에스카 공간 압축 그림자 서기(영체·공간 약점) / 빈 갑주",
+		"%d %d %d %d" % [b.estimate(ha, arm, "space_cut"), b.estimate(ha, spi, "space_cut"), b.estimate(es, spi, "compress"), b.estimate(es, arm, "compress")], "93912 65016 134160 67080")
+	# V54 갈라지는 빛: 방어 태세 중인 세 빛의 인형(줄 1 = 약점 번개) — 불 기본 공격은 태세 그대로 · 번개 기본 공격은 맞힌 뒤 태세가 풀림
+	b = _b(["fulgur", "ignis"], ["prism_doll"])
+	var doll := b.enemies[0]
+	doll.add_buff({"cat": "dmg_cut", "v": 0.6, "dur": 2, "clock": "own", "name": "방어 태세"})
+	b.basic_attack(_w(b, "ignis"), doll)
+	var kept := doll.has_buff("dmg_cut")
+	var gb := false
+	for e in b.basic_attack(_w(b, "fulgur"), doll):
+		gb = gb or bool(e.get("guard_break", false))
+	_ok("V54 갈라지는 빛: 불 → 태세 남음 · 번개(약점) → 깨짐 사건 · 태세 없음", "%s %s %s" % [str(kept), str(gb), str(doll.has_buff("dmg_cut"))], "true true false")
+	# V55 흩날리는 재: 잿빛 시종은 광역 공격에 받는 피해 +50% (단일은 그대로) — 같은 방어·약점 없는 도깨비불과 견줌
+	b = _b(["fulgur"], ["ash_servant", "will_o"])
+	var fu := _w(b, "fulgur")
+	var sv := _e(b, "ash_servant")
+	var wo := _e(b, "will_o")
+	_ok("V55 흩날리는 재: 연쇄 번개(광역) 시종 ÷ 도깨비불 · 전광 스파크(단일)", "%.2f %.2f" % [float(b.estimate(fu, sv, "chain_lightning")) / float(b.estimate(fu, wo, "chain_lightning")), float(b.estimate(fu, sv, "spark_bolt")) / float(b.estimate(fu, wo, "spark_bolt"))], "1.50 1.00")
+	# V56 진 이유 (review_I I-02 · I-13): 관통 필살기로 2명 → 필살기를 쓴 적 이름 · 무적을 권하지 않음 · 받는 피해 감소 0번이면 앞에
+	b = _b(["eska", "nerei", "harpe"], "trial_01")
+	var why := {"fin_kills": 2, "pierce_kills": 2, "guard": 0, "fin_src": "시련의 거상", "big": {"src": "다른 적", "act": "강공격", "dmg": 1}}
+	var ll := TData.lose_lines(why, b, "trial_01")
+	_ok("V56 진 이유: 관통 패배 두 줄", "%s | %s | %s" % [String(ll[0][0]), String(ll[1][0]), str(String(ll[1][0]).contains("무적·"))],
+		"시련의 거상 필살기(관통)에 2명 쓰러짐 | 받는 피해 감소를 한 번도 안 씀 · 관통은 무적을 뚫습니다 — 받는 피해 감소·도발·근성·차지 감소로 | false")
 
 
 func _names(q: Array) -> String:

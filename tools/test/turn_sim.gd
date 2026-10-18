@@ -904,7 +904,7 @@ func _mode_e2(runs: int) -> void:
 
 ## 원형 프리셋의 행동 내역: 마녀:마법 → 판당 횟수 · 1회 평균 피해
 func _mode_acts(bid: String, bt: String, runs: int) -> void:
-	var bd: Dictionary = BUILDS[bid] if BUILDS.has(bid) else {"party": String(bid).split(","), "plan": {}, "state": {}} # 원형 id 대신 "eska,ignis,ember"처럼 파티를 주면 기본 장착
+	var bd: Dictionary = BUILDS[bid] if BUILDS.has(bid) else (COMPARE[bid] if COMPARE.has(bid) else {"party": String(bid).split(","), "plan": {}, "state": {}}) # 원형·비교 파티 id 대신 "eska,ignis,ember"처럼 파티를 주면 기본 장착
 	var tally := {}
 	var dmg := {}
 	var wins := 0

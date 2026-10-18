@@ -330,7 +330,7 @@ func use_skill(u: TUnit, skill_id: String, tgt: TUnit) -> Array:
 	for e in effects:
 		if e.t == "buff" and bool(e.get("pre", false)):
 			ev.append(_apply_buff(u, u, e))
-	var opts := {"skill": true}
+	var opts := {"skill": true, "aoe": String(s.get("target", "")) == "enemies"}
 	var multi := 1
 	var burst := {}
 	var crit_gauge := 0.0
@@ -1084,8 +1084,8 @@ func _terms_in(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: 
 	var special := src.cat_sum("special", tgt, el)
 	if opts.has("this_special"):
 		var ts: Dictionary = opts.this_special
-		if tgt.marks.has(String(ts.mark)):
-			special += float(ts.v) # 이 공격만 특공은 겹을 곱하지 않는 고정값 (§11.4, 단계 B)
+		if special_hits(ts, tgt):
+			special += float(ts.v) # 이 공격만 특공은 겹을 곱하지 않는 고정값 (§11.4, 단계 B) — 징표 또는 특성 (F-3 특성 특공)
 	if not tgt.marks.is_empty():
 		special += float(eq.get("special", 0.0)) # 장비는 겹을 곱하지 않음
 	special = minf(special, float(TData.CAP.special))
@@ -1103,7 +1103,27 @@ func _terms_in(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: 
 	# 적의 방어 태세·보호 (review_H §2.1 · §3): × (1 − min(받는 피해 감소 합, 70%)) — 방어율이 아닌 축이라 방어 무시·에스카 패시브로 안 뚫림
 	if not tgt.is_witch():
 		base *= 1.0 - minf(tgt.cat_sum("dmg_cut") + _ally_guard(tgt), float(TData.CAP.dmg_cut))
+		if bool(opts.get("aoe", false)):
+			base *= 1.0 + _passive_v(tgt, "aoe_taken") # 적 고유 효과 aoe_taken (잿빛 무리 "흩날리는 재", F-3): 광역 공격에 받는 피해 +v
 	return {"base": base, "crit_rate": crit_rate, "crit_mult": crit_mult, "weak": weak, "special": special, "el": el}
+
+
+## "이 공격만 특공"이 그 대상에게 붙나: mark(징표가 있으면) 또는 trait(그 특성을 가지면 — 특성 특공, review_F F02 · combat_proto.md §11.4)
+static func special_hits(ts: Dictionary, tgt: TUnit) -> bool:
+	if tgt == null:
+		return false
+	if ts.has("trait"):
+		return tgt.traits.has(String(ts.trait))
+	return tgt.marks.has(String(ts.get("mark", "")))
+
+
+## 적 고유 효과 t의 v 합 (없으면 0)
+func _passive_v(tgt: TUnit, t: String) -> float:
+	var v := 0.0
+	for p in tgt.passive:
+		if String(p.get("t", "")) == t:
+			v += float(p.get("v", 0.0))
+	return v
 
 
 ## 적 고유 효과 guard_allies: 다른 적이 하나라도 살아 있으면 v (등불 가림 · 둥지 보호)
@@ -1150,9 +1170,26 @@ func _hit(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: bool)
 	var dmg := maxi(int(round(float(tm.base) * (float(tm.crit_mult) if crit else 1.0) * r)), 1) # 피해 최소 1
 	var res := deal(tgt, dmg)
 	src.dealt += dmg
+	var gbreak: bool = bool(tm.weak) and not bool(res.killed) and _guard_break(tgt)
 	log.append("%s → %s %s%s%s %s" % [src.name, tgt.name, TData.fmt(dmg), " 크리" if crit else "", " 약점" if tm.weak else "", "쓰러짐" if res.killed else ("브레이크" if res.broke else "")])
 	return {"t": "hit", "src": src, "tgt": tgt, "dmg": dmg, "crit": crit, "weak": tm.weak, "special": float(tm.special) > 0.0, "killed": res.killed, "guts": res.guts, "broke": res.broke, "invincible": false, "el": tm.el,
-		"hp": tgt.hp, "max_hp": tgt.max_hp, "bar_i": tgt.bar_i, "fall": res.get("fall", [])}
+		"hp": tgt.hp, "max_hp": tgt.max_hp, "bar_i": tgt.bar_i, "fall": res.get("fall", []), "guard_break": gbreak}
+
+
+## 적 고유 효과 guard_break (세 빛의 인형 "갈라지는 빛", F-3): 약점 속성 공격을 맞으면 그 공격 뒤 방어 태세가 풀린다 → true
+func _guard_break(tgt: TUnit) -> bool:
+	if tgt.is_witch() or not tgt.has_buff("dmg_cut"):
+		return false
+	var has := false
+	for p in tgt.passive:
+		if String(p.get("t", "")) == "guard_break":
+			has = true
+	if not has:
+		return false
+	for i in range(tgt.buffs.size() - 1, -1, -1):
+		if String(tgt.buffs[i].get("cat", "")) == "dmg_cut":
+			tgt.buffs.remove_at(i)
+	return true
 
 
 ## 피해를 넣는다: 쓰러짐·근성·브레이크 처리까지 (시험에서 직접 부르기도 한다)
@@ -1218,6 +1255,7 @@ func est_info(src: TUnit, tgt: TUnit, skill_id: String) -> Dictionary:
 		if bool(s.get("ultimate", false)) and chain_owner != null and chain_stage > 0:
 			s = TData.chain_scaled(s, mini(chain_stage + 1, 3))
 		mult = float(s.mult)
+		opts["aoe"] = String(s.get("target", "")) == "enemies"
 		for e in s.get("effects", []):
 			if e.t == "buff" and bool(e.get("pre", false)):
 				_apply_buff(src, src, e)

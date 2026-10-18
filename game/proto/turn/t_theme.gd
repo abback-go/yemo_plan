@@ -21,7 +21,7 @@ const HP_FOE_TRAIL := Color("#ffb0a0")
 const GAUGE := Color("#c9b8ff")
 const KIND_ATK := Color("#ffb08a") ## 공격 칸 테
 const KIND_SUP := Color("#b9a2ff") ## 보조 칸 테
-const KIND_DEB := Color("#c07aff") ## 디버프 칸 테
+const KIND_DEB := Color("#ff7ad8") ## 디버프 칸 테 (분홍 — 보조 #b9a2ff와 ΔE 28 · 제2색약 13.8로 가까웠다, review_I I-22)
 const WEAK := Color("#ffcf4a") ## 약점
 const DANGER := Color("#ff4f6a") ## 강공격·필살기·차지 가득·크레딧 모자람·패배
 const HEAL := Color("#b8f0a0")
@@ -45,7 +45,8 @@ const SIZES := [8, 10, 12, 15, 24, 30]
 
 static var _fonts := {}
 static var _box: StyleBoxFlat
-static var big := false ## 큰 글자 (설정, review_F F12): 설명 띠·상세·편성 설명·안내 판의 본문 10 → 12px
+static var big := false ## 큰 글자 (설정, review_F F12 · review_I I-10): 모든 글 8 → 10px · 10 → 12px (본문 함수 body_fs와 같이). 칸 크기가 정해진 글(비용 배지·겹 수 알약·차례 칸)은 text_px로 그대로
+static var _px := false ## text_px가 그리는 중 (큰 글자를 따르지 않음)
 
 
 ## 본문 글자 크기 (큰 글자면 12)
@@ -97,16 +98,41 @@ static func size_of(fs: int) -> int:
 	return best
 
 
-static func width(s: String, fs: int) -> float:
+## 실제로 그릴 크기: 큰 글자면 8 → 10 · 10 → 12 (12 이상은 그대로)
+static func eff(fs: int) -> int:
 	fs = size_of(fs)
+	if big and not _px:
+		if fs == 8:
+			return 10
+		if fs == 10:
+			return 12
+	return fs
+
+
+static func width(s: String, fs: int) -> float:
+	fs = eff(fs)
 	return font(fs).get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+
+
+## 칸 크기가 정해진 글 (큰 글자에서도 그 크기 그대로)
+static func text_px(ci: CanvasItem, p: Vector2, s: String, fs: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, outline := -1) -> void:
+	_px = true
+	text(ci, p, s, fs, col, align, outline)
+	_px = false
+
+
+static func width_px(s: String, fs: int) -> float:
+	_px = true
+	var w := width(s, fs)
+	_px = false
+	return w
 
 
 ## 글자 + 먹 테두리 (10px 이하 2px · 12~15px 3px · 24px 이상 4px). 오른쪽·가운데 맞춤은 글자 폭으로 자리를 옮긴다. 좌표는 정수로 맞춤 (픽셀 글꼴)
 static func text(ci: CanvasItem, p: Vector2, s: String, fs: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, outline := -1) -> void:
 	if s == "":
 		return
-	fs = size_of(fs)
+	fs = eff(fs)
 	var f := font(fs)
 	if align != HORIZONTAL_ALIGNMENT_LEFT:
 		var tw := f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
@@ -122,7 +148,7 @@ static func text(ci: CanvasItem, p: Vector2, s: String, fs: int, col: Color, ali
 static func wrap(ci: CanvasItem, p: Vector2, s: String, w: float, fs: int, col: Color, lh := 0.0, max_lines := 0) -> float:
 	fs = size_of(fs)
 	if lh <= 0.0:
-		lh = float(fs) + 3.0
+		lh = float(eff(fs)) + 3.0
 	var lines := split_lines(s, w, fs)
 	if max_lines > 0 and lines.size() > max_lines:
 		lines.resize(max_lines)
@@ -189,7 +215,7 @@ static func cost_badge(ci: CanvasItem, c: Vector2, label: String, mode := "ok") 
 	var r := 6.0 if label.length() <= 1 else 7.0
 	ci.draw_circle(c, r + 1.0, Color(INK, 0.95))
 	ci.draw_circle(c, r, bg)
-	text(ci, c + Vector2(0, 3), label, 8, fg, HORIZONTAL_ALIGNMENT_CENTER, 0)
+	text_px(ci, c + Vector2(0, 3), label, 8, fg, HORIZONTAL_ALIGNMENT_CENTER, 0)
 
 
 ## 마름모 (크레딧 칸)
@@ -206,9 +232,10 @@ static func credit_row(ci: CanvasItem, p: Vector2, n: int, gap := 10.0, half := 
 
 
 ## 예상 피해 한 줄 (전투 설명 띠·편성 설명 상자가 같이 씀, review_C2 L9): "예상 n · 크리 m" / 크리 확정이면 "예상 n (크리 확정)"
-static func est_text(est: int, est_c: int, head := "예상") -> String:
+static func est_text(est: int, est_c: int, head := "예상", rate := -1.0) -> String:
 	if est_c != est:
-		return "%s %s · 크리 %s" % [head, TData.fmt_short(est), TData.fmt_short(est_c)]
+		var ck := "크리" if rate < 0.0 else "크리(%d%%)" % int(round(rate * 100.0)) # 확률은 "크리" 바로 뒤 — 뒤에 두면 "크리면 10% 더"로 읽힘 (review_I I-19)
+		return "%s %s · %s %s" % [head, TData.fmt_short(est), ck, TData.fmt_short(est_c)]
 	return "%s %s (크리 확정)" % [head, TData.fmt_short(est)]
 
 
@@ -404,9 +431,9 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 ## 아이콘(10×10, p = 왼쪽 위) 오른쪽 아래 바깥의 먹 알약 + 숫자 (겹 수·남은 수) — 옆 아이콘·테에 닿지 않게 (review_C2 L1)
 static func count_pill(ci: CanvasItem, p: Vector2, n: int) -> void:
 	var s := str(n)
-	var w := maxf(width(s, 8) + 2.0, 6.0)
+	var w := maxf(width_px(s, 8) + 2.0, 6.0)
 	ci.draw_rect(Rect2(p + Vector2(8, 4), Vector2(w, 8)), Color(INK, 0.95))
-	text(ci, p + Vector2(8.0 + w * 0.5, 11), s, 8, TEXT, HORIZONTAL_ALIGNMENT_CENTER, 0)
+	text_px(ci, p + Vector2(8.0 + w * 0.5, 11), s, 8, TEXT, HORIZONTAL_ALIGNMENT_CENTER, 0)
 
 
 ## 버프 한 줄 글 (상세 판): "공격력 +50% · 2행동" / "공격력 +30% · 기본 공격 2번"

@@ -19,6 +19,8 @@ extends RefCounted
 ## 단계 F-2 (review_H §10.4 — 새 적 행동에 대응): ① 막아서는 적이 있으면 그 적만 · 방어 태세 중인 적은 다른 적이 있으면 피함 · 자폭 차지가 찬 적을 먼저
 ##   ② 방어 태세 중인 적 하나만 남았으면 공격 대마법·3비용 이상 공격 마법을 미룸(위험이 없을 때) · 태세 알약이 보이면 지금 큰 공격(모으기 예외)
 ##   ③ 크레딧 흩기·봉인 알약이 보이면 모으지 않고 씀 ④ 징표 털기가 보이면 1겹부터 터뜨리기 ⑥ 맞는 적이 셋 이상이면 광역 공격 마법은 모으기·횟수제 기본 공격보다 먼저
+## 단계 F-3 (combat_proto.md §27.8 — 무리 판단): 적 셋 이상이고 광역 공격 마법을 장착했으면 ⑦ 단일 공격 대마법 차례에 크레딧당 값이 더 큰 광역 공격 마법을 먼저
+##   ⑧ 한 명에게 거는 징표 디버프 점수 ×0.3 (크레딧을 광역에) · 특성 특공(this_special trait)은 TBattle.special_hits로
 
 const USE_AT := 2.2 ## 공격 마법: 이 점수 아래면 기본 공격
 const USE_AT_SUP := 1.8 ## 보조·디버프 마법의 기준 (review_E E0 ④)
@@ -42,6 +44,10 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 		ult = "" # 지키는 대마법(무적·받는 피해·회복·되살림)은 위험한 의도·쓰러진/낮은 아군이 있을 때까지 아낀다
 	if ult != "" and b.can_use(u, ult) and String(TData.skill(ult).kind) == "attack" and _guarded(en) and not _danger(b) and not spend:
 		ult = "" # ② 방어 태세 중인 적만 남음: 공격 대마법은 태세가 풀린 차례로 미룬다 (F-2)
+	if ult != "" and b.can_use(u, ult) and String(TData.skill(ult).kind) == "attack" and String(TData.skill(ult).target) == "enemy" and not spend:
+		var crowd := _aoe_pick(b, u, en, true)
+		if not crowd.is_empty():
+			return crowd # 무리(적 셋 이상): 단일 대마법보다 크레딧당 값이 큰 광역 공격 마법 (F-3 — 광역 원형이 무리 전투에서 크레딧을 단일 대마법에 쓰던 것)
 	if ult != "" and b.can_use(u, ult):
 		var t: TUnit = en
 		if not b.needs_target_pick(ult) or String(TData.skill(ult).target) != "enemy":
@@ -177,7 +183,7 @@ static func _attack_value(b: TBattle, sk: Dictionary, en: TUnit, u: TUnit = null
 				if en != null:
 					v += float(e.per) * float(en.mark_n(String(e.mark)))
 			"this_special":
-				if en != null and en.marks.has(String(e.mark)):
+				if TBattle.special_hits(e, en):
 					v *= 1.0 + float(e.v)
 	return v
 
@@ -234,7 +240,8 @@ static func _spend_now(b: TBattle, u: TUnit) -> bool:
 
 
 ## ⑥ 광역: 맞는 적이 셋 이상이면 장착한 광역 공격 마법 중 값(배율 × 적 수)이 가장 큰 것 — 순 비용 × 크레딧 값을 빼고도 기본 공격 + 크레딧 1개보다 크면
-static func _aoe_pick(b: TBattle, u: TUnit, en: TUnit) -> Dictionary:
+## vs_ult: 대마법을 쓸 수 있는 차례 — 크레딧당 값이 단일 대마법(값 ÷ 7)보다 큰 광역 공격 마법만 (F-3)
+static func _aoe_pick(b: TBattle, u: TUnit, en: TUnit, vs_ult := false) -> Dictionary:
 	var n := b.alive_of(b.enemies).size()
 	if n < 3 or en == null or _in("ult_only", u) or _in("battery", u):
 		return {}
@@ -246,6 +253,18 @@ static func _aoe_pick(b: TBattle, u: TUnit, en: TUnit) -> Dictionary:
 		lam = maxf(_attack_value(b, us, en, u) - basic_v, 0.1) / float(maxi(TData.ULT_COST - _refund(us, en) + TData.BASIC_BONUS, 1))
 	var best := ""
 	var best_v := basic_v + float(TData.BASIC_BONUS) * lam
+	if vs_ult:
+		best_v = 0.0
+		var uv := _attack_value(b, TData.skill(ult), en, u) / float(TData.ULT_COST)
+		for sid in u.equipped:
+			var sk := TData.skill(sid)
+			if String(sk.kind) != "attack" or String(sk.target) != "enemies" or not b.can_use(u, sid):
+				continue
+			var pc := _attack_value(b, sk, en, u) / float(maxi(int(sk.cost) - _refund(sk, en), 1))
+			if pc > uv and pc > best_v:
+				best_v = pc
+				best = sid
+		return {} if best == "" else {"kind": "skill", "skill": best, "target": en}
 	for sid in u.equipped:
 		var sk := TData.skill(sid)
 		if String(sk.kind) != "attack" or String(sk.target) != "enemies" or not b.can_use(u, sid):
@@ -411,7 +430,10 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 		for e in effects:
 			match String(e.t):
 				"this_special":
-					s *= 1.0 + float(e.v) * float(en.mark_n(String(e.mark)))
+					if e.has("trait"):
+						s *= 1.0 + (float(e.v) if TBattle.special_hits(e, en) else 0.0) # 특성 특공 (F-3)
+					else:
+						s *= 1.0 + float(e.v) * float(en.mark_n(String(e.mark)))
 				"burst":
 					var n := en.mark_n(String(e.mark))
 					var purge := String(en.intent().get("k", "")) == "purge"
@@ -435,9 +457,10 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 		s *= 1.0 - minf(en.cat_sum("dmg_cut"), 0.7) * 0.5
 	elif kind == "debuff":
 		var fresh := 0.0
+		var crowd := target == "enemy" and b.alive_of(b.enemies).size() >= 3 and _aoe_attacker(u)
 		for e in effects:
 			match String(e.t):
-				"mark": fresh += 1.0 if en.mark_n(String(e.kind)) < 3 else 0.2 # 겹을 쌓는다
+				"mark": fresh += (1.0 if en.mark_n(String(e.kind)) < 3 else 0.2) * (0.3 if crowd else 1.0) # 겹을 쌓는다 (적 셋 이상이고 광역 공격 마법이 있으면 한 명에게 거는 징표는 덜 — 크레딧을 광역에)
 				"debuff": fresh += 0.0 if en.has_buff(e.cat) else 1.0
 				"enemy_gauge", "gauge_zero": fresh += 0.5 if en.gauge > 500.0 else 0.1
 				"stun": fresh += 1.5 if stun_worth(en) else 0.0
@@ -522,6 +545,15 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 		else:
 			tgt = who
 	return {"score": s, "tgt": tgt}
+
+
+## 광역 공격 마법을 장착했나
+static func _aoe_attacker(u: TUnit) -> bool:
+	for sid in u.equipped:
+		var sk := TData.skill(sid)
+		if String(sk.kind) == "attack" and String(sk.target) == "enemies":
+			return true
+	return false
 
 
 ## 보호 마법인가 (받는 피해 감소 · 무적 · 공격력 다운 · 되살림)
