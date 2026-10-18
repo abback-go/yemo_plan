@@ -1,9 +1,10 @@
 class_name TUnit
 extends RefCounted
-## 턴제 전투의 한 명 (마녀 또는 적) — 능력치·게이지·크레딧·버프·징표. 그림·노드는 TActor가 따로 든다.
+## 턴제 전투의 한 명 (마녀 또는 적) — 능력치·게이지·크레딧·버프·징표·상태. 그림·노드는 TActor가 따로 든다.
 ## 버프 사전: {cat, v, dur, clock("own"|"enemy"), mark?, el?, name}
-##   clock own   = 이 유닛이 행동을 마칠 때마다 dur −1 (아군에게 건 버프 · 적에게 건 디버프·징표)
-##   clock enemy = 적이 행동을 마칠 때마다 dur −1 (무적 · 받는 피해 감소처럼 "다음 적 공격"을 막는 것)
+##   clock own   = 이 유닛이 행동(또는 쉼)을 마칠 때마다 dur −1 (아군에게 건 버프 · 적에게 건 디버프·징표)
+##   clock enemy = 적이 행동을 마칠 때마다 dur −1 (무적 · 받는 피해 감소 · 도발 · 근성처럼 "다음 적 공격"을 막는 것)
+## 징표: marks[kind] = {n: 겹 1~5, dur: 남은 행동 수} (combat_proto.md §17.1)
 
 var id := ""
 var name := ""
@@ -20,18 +21,38 @@ var special := false ## 무상성 (특수 속성 1.2배)
 var gauge := 0.0
 var credits := 0
 var buffs: Array[Dictionary] = []
-var marks := {} ## kind → 남은 적 행동 수
+var marks := {} ## kind → {n, dur}
 var alive := true
 var equip := "" ## 장비 id (마녀)
+var equip_lv := 1 ## 장비 강화 레벨 1~3
+var skill_lv := {} ## 마법 id → 강화 레벨 (없으면 1)
 var equipped: Array[String] = [] ## 장착 마법 id (마녀)
-var pattern: Array = [] ## 적 행동 패턴
+var passive: Array = [] ## 패시브 효과 목록 (마녀, §15.6). 버프가 아니므로 해제되지 않는다
+var pattern: Array = [] ## 적 행동 패턴 (조건 규칙이 바꿀 수 있다)
 var intent_i := 0
+var intent_now := {} ## 확정된 다음 의도 (§18.2). 비어 있으면 패턴 위치의 것
+var intent_src := "pattern" ## intent_now의 출처: pattern · insert · charge · break (pattern일 때만 실행 뒤 패턴 위치가 넘어간다)
+var rule_pat := -1 ## 패턴을 바꾼 규칙 번호 (-1 = 기본 패턴)
+var tier := "normal" ## 적 등급 normal · elite · boss
+var resist := 0.0 ## 디버프 내성 (§16.5)
+var stun_immune := false
+var weak: Array = [] ## 약점인 공격 속성 (적)
+var charge := 0 ## 차지 칸 (§18.5)
+var charge_max := 0
+var bars: Array = [] ## 여러 줄 체력 (§18.6). 비어 있으면 한 줄
+var bar_i := 0
 var boss := false
+var stunned := false ## 기절: 다음 차례를 쉰다 (§17.2)
+var stun_guard := false ## 기절로 쉰 뒤 다음 자기 차례가 끝날 때까지 기절에 걸리지 않음
+var guts_used := false ## 장비 근성을 썼나 (전투당 1번)
 var zero_after_turn := -1 ## 불의 신 강림의 대가: 이 차례 번호보다 뒤의 행동이 끝나면 크레딧 0
 var pending_gauge := 0.0 ## 자기 게이지 +N% — 행동이 끝나 0이 된 뒤 더한다
+var last_k := "" ## 적: 마지막으로 실행한 의도 종류
 var data := {} ## 원본 데이터 (그림 색 등)
-var acted := 0 ## 행동 횟수 (통계)
+var acted := 0 ## 행동(쉼 포함) 횟수 (통계)
+var acts := 0 ## 실제로 행동한 횟수 (적의 조건 규칙 acted)
 var dealt := 0 ## 준 피해 합 (통계)
+var _eq := {}
 
 
 static func make_witch(wid: String, setup: Dictionary, slot_i: int) -> TUnit:
@@ -50,9 +71,13 @@ static func make_witch(wid: String, setup: Dictionary, slot_i: int) -> TUnit:
 	u.element = String(d.element)
 	u.special = bool(d.special)
 	u.equip = String(setup.get("equip", ""))
+	u.equip_lv = clampi(int(setup.get("equip_lv", 1)), 1, 3)
+	u.skill_lv = setup.get("skill_lv", {})
 	for s in setup.get("equipped", d.default):
 		u.equipped.append(String(s))
-	var eq: Dictionary = TData.EQUIPS.get(u.equip, {})
+	u.passive = d.get("passive", {}).get("effects", [])
+	u._eq = TData.equip_at(u.equip, u.equip_lv)
+	var eq := u._eq
 	u.atk = int(round(float(u.base_atk) * (1.0 + float(eq.get("atk", 0.0)))))
 	u.max_hp = int(round(float(u.max_hp) * (1.0 + float(eq.get("hp", 0.0)))))
 	u.hp = u.max_hp
@@ -62,7 +87,8 @@ static func make_witch(wid: String, setup: Dictionary, slot_i: int) -> TUnit:
 	return u
 
 
-static func make_enemy(eid: String, slot_i: int) -> TUnit:
+## over: 전투 데이터의 덮어쓰기 {hp}
+static func make_enemy(eid: String, slot_i: int, over := {}) -> TUnit:
 	var d: Dictionary = TData.ENEMIES[eid]
 	var u := TUnit.new()
 	u.id = eid
@@ -72,13 +98,22 @@ static func make_enemy(eid: String, slot_i: int) -> TUnit:
 	u.data = d
 	u.base_atk = int(d.atk)
 	u.atk = u.base_atk
-	u.max_hp = int(d.hp)
+	u.bars = d.get("bars", [])
+	u.max_hp = int(u.bars[0]) if not u.bars.is_empty() else int(over.get("hp", d.get("hp", 1)))
 	u.hp = u.max_hp
 	u.speed = int(d.speed)
 	u.def_rate = float(d.def)
 	u.element = String(d.element)
+	if d.has("weak"):
+		u.weak = d.weak
+	elif String(TData.WEAK_TO.get(u.element, "")) != "":
+		u.weak = [String(TData.WEAK_TO[u.element])]
+	u.tier = String(d.get("tier", "normal"))
+	u.resist = float(d.get("resist", TData.RESIST.get(u.tier, 0.0)))
+	u.stun_immune = bool(d.get("stun_immune", u.tier == "boss"))
+	u.boss = u.tier == "boss"
+	u.charge_max = int(d.get("charge_max", 0))
 	u.pattern = d.pattern
-	u.boss = bool(d.get("boss", false))
 	return u
 
 
@@ -90,14 +125,61 @@ func hp_ratio() -> float:
 	return clampf(float(hp) / float(max_hp), 0.0, 1.0)
 
 
+## 남은 줄 수 (지금 줄 포함, 한 줄이면 1)
+func bars_left() -> int:
+	return maxi(bars.size() - bar_i, 1)
+
+
+## 머리 위에 보이는 다음 의도 (확정된 것, 없으면 패턴 위치)
 func intent() -> Dictionary:
+	if not intent_now.is_empty():
+		return intent_now
 	if pattern.is_empty():
 		return {}
 	return pattern[intent_i % pattern.size()]
 
 
 func equip_data() -> Dictionary:
-	return TData.EQUIPS.get(equip, {})
+	return _eq
+
+
+# ── 징표 (겹 · 남은 수)
+
+func mark_n(kind: String) -> int:
+	return int(marks[kind].n) if marks.has(kind) else 0
+
+
+func mark_dur(kind: String) -> int:
+	return int(marks[kind].dur) if marks.has(kind) else 0
+
+
+## 징표 n겹을 건다: 겹 = min(지금 + n, MARK_MAX), 남은 수 = max(지금, dur). 돌려준 값 = 새 겹 수
+func add_mark(kind: String, dur: int, n := 1) -> int:
+	var m: Dictionary = marks.get(kind, {"n": 0, "dur": 0})
+	m["n"] = mini(int(m.n) + maxi(n, 1), TData.MARK_MAX)
+	m["dur"] = maxi(int(m.dur), dur)
+	marks[kind] = m
+	return int(m.n)
+
+
+# ── 패시브
+
+## 패시브 효과 중 t인 것의 v 합
+func passive_val(t: String) -> float:
+	var s := 0.0
+	for e in passive:
+		if String(e.t) == t:
+			s += float(e.get("v", 0.0))
+	return s
+
+
+## 내가 거는 그 징표에 더해지는 겹 수 (신더·토난)
+func passive_mark_plus(kind: String) -> int:
+	var n := 0
+	for e in passive:
+		if String(e.t) == "mark_plus" and String(e.kind) == kind:
+			n += int(e.n)
+	return n
 
 
 ## 지금 공격 속성 (속성 부여 버프가 있으면 그것 — 마지막에 건 것)
@@ -122,18 +204,28 @@ func has_element_buff() -> bool:
 	return false
 
 
-## 종류별 합 (상한 적용). special은 대상에게 징표가 있는 것만, el 조건이 있는 버프는 공격 속성이 맞을 때만
+## 종류별 합 (상한 적용). mark 조건이 있는 것은 대상에게 그 징표가 있을 때만 — 특공(special)은 그 징표의 겹을 곱한다.
+## el 조건이 있는 버프는 공격 속성이 맞을 때만. 패시브 상시 보정(stat)도 여기서 더한다
 func cat_sum(cat: String, target: TUnit = null, attack_el := "") -> float:
 	var s := 0.0
 	for b in buffs:
 		if b.cat != cat:
 			continue
+		var v := float(b.get("v", 0.0))
 		if b.has("mark"):
 			if target == null or not target.marks.has(b.mark):
 				continue
+			if cat == "special":
+				v *= float(target.mark_n(String(b.mark)))
 		if b.has("el") and cat != "element" and attack_el != String(b.el):
 			continue
-		s += float(b.get("v", 0.0))
+		s += v
+	for e in passive:
+		if String(e.t) != "stat" or String(e.cat) != cat:
+			continue
+		if e.has("mark") and (target == null or not target.marks.has(e.mark)):
+			continue
+		s += float(e.v)
 	var cap := float(TData.CAP.get(cat, 99.0))
 	if cat == "dmg_taken":
 		return clampf(s, -0.7, cap)
@@ -155,17 +247,22 @@ func is_invincible() -> bool:
 	return has_buff("invincible")
 
 
-## 이 유닛이 행동을 마침: own 시계 버프·징표 −1
+## 도발 중인가 (마법 도발 또는 장비 상시 도발)
+func is_taunting() -> bool:
+	return alive and (has_buff("taunt") or bool(equip_data().get("taunt", false)))
+
+
+## 이 유닛이 행동(또는 쉼)을 마침: own 시계 버프·징표 −1
 func on_own_acted() -> void:
 	acted += 1
 	_tick("own")
 	var gone: Array = []
 	for k in marks:
-		marks[k] = int(marks[k]) - 1
-		if int(marks[k]) <= 0:
+		marks[k].dur = int(marks[k].dur) - 1
+		if int(marks[k].dur) <= 0:
 			gone.append(k)
 	for k in gone:
-		marks.erase(k)
+		marks.erase(k) # 겹째로 사라진다
 
 
 ## 적이 행동을 마침 (마녀에게): enemy 시계 버프 −1
@@ -194,13 +291,49 @@ func extend_buffs(v: int) -> int:
 	return n
 
 
-func take_damage(v: int) -> bool:
+## 피해를 받는다. 돌려줌 {killed, guts, broke}: 줄이 깨지면(broke) 넘친 피해는 버리고 다음 줄로 (§18.6),
+## 쓰러질 피해면 근성(마법 근성 지속 짧은 것부터 → 장비 근성)으로 버틴다 (§17.4)
+func take_damage(v: int) -> Dictionary:
+	var r := {"killed": false, "guts": false, "broke": false}
+	if not alive:
+		return r
 	hp = maxi(hp - v, 0)
-	if hp <= 0 and alive:
-		alive = false
-		buffs.clear()
-		marks.clear()
-		gauge = 0.0
+	if hp > 0:
+		return r
+	if bar_i < bars.size() - 1:
+		bar_i += 1
+		max_hp = int(bars[bar_i])
+		hp = max_hp
+		r.broke = true
+		return r
+	if _use_guts():
+		r.guts = true
+		return r
+	alive = false
+	buffs.clear()
+	marks.clear()
+	stunned = false
+	stun_guard = false
+	gauge = 0.0
+	pending_gauge = 0.0
+	r.killed = true
+	return r
+
+
+func _use_guts() -> bool:
+	var best := -1
+	for i in buffs.size():
+		if buffs[i].cat == "guts" and (best < 0 or int(buffs[i].dur) < int(buffs[best].dur)):
+			best = i
+	if best >= 0:
+		var pct := float(buffs[best].get("v", 0.0))
+		buffs.remove_at(best)
+		hp = maxi(int(round(float(max_hp) * pct)), 1)
+		return true
+	var once := float(equip_data().get("guts_once", 0.0))
+	if once > 0.0 and not guts_used:
+		guts_used = true
+		hp = maxi(int(round(float(max_hp) * once)), 1)
 		return true
 	return false
 
@@ -218,6 +351,8 @@ func revive(pct: float) -> void:
 	hp = maxi(int(round(float(max_hp) * pct)), 1)
 	gauge = 0.0
 	pending_gauge = 0.0
+	stunned = false
+	stun_guard = false
 
 
 ## 머리 위·바퀴에 보여 줄 버프 아이콘 목록 [{cat, v, dur, el?, mark?}] (같은 종류는 하나로 합침)

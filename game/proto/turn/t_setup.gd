@@ -27,7 +27,7 @@ const DESC_W := 242.0
 const START_RECT := Rect2(520, 322, 108, 30) ## 2단계 전투 시작
 const BACK_RECT := Rect2(152, 322, 80, 30) ## 2단계 편성으로
 const START1_RECT := Rect2(404, 300, 224, 32) ## 1단계 전투 시작
-const EQUIP_IDS := ["", "black_cup", "kaleido", "notebook", "swift_boots", "mana_spring", "ember_ring", "tide_ring", "storm_ring", "mirror_shard", "star_shard", "iron_heart", "hourglass_charm", "ash_charm"]
+const EQUIP_IDS := TData.EQUIP_ORDER
 const CARD_W := 122.0
 const CARD_H := 300.0
 const CARD_Y := 36.0
@@ -35,7 +35,7 @@ const ROSTER_X := 404.0
 const ROSTER_Y := 40.0
 const SLOT_NAME := ["앞", "중", "뒤"]
 
-static var state := {} ## "party": [id, id, id] · 마녀 id → {"equipped": [id...], "equip": 장비 id}
+static var state := {} ## "party": [id, id, id] · 마녀 id → {"equipped": [id...], "equip": 장비 id, "equip_lv": 1~3, "skill_lv": {마법 id: 1~3}}
 
 var step := 1 ## 1 편성(카드) · 2 마법
 var tab := 0 ## 2단계: 파티원 번호
@@ -61,12 +61,23 @@ static func ensure_state() -> void:
 			var d: Array[String] = []
 			for s in TData.WITCHES[wid].default:
 				d.append(String(s))
-			state[wid] = {"equipped": d, "equip": ""}
+			state[wid] = {"equipped": d, "equip": "", "equip_lv": 1, "skill_lv": {}}
 
 
 static func party() -> Array:
 	ensure_state()
 	return state.party
+
+
+## 장비는 파티에 한 명만 (combat_proto.md §4.3) — 규칙은 TData (헤드리스 시험에서도 쓰게)
+static func step_equip(slot: int, d: int) -> String:
+	ensure_state()
+	return TData.step_equip(state, slot, d)
+
+
+static func fix_equip(wid: String) -> void:
+	ensure_state()
+	TData.fix_equip(state, wid)
 
 
 func _ready() -> void:
@@ -308,6 +319,7 @@ func _assign(slot: int, wid: String) -> void:
 	if was >= 0:
 		p[was] = p[slot]
 	p[slot] = wid
+	fix_equip(wid)
 	Sfx.play(&"tn_select", -8.0)
 	_say("%s 자리: %s" % [SLOT_NAME[slot], TData.WITCHES[wid].name])
 	_layout_actors()
@@ -322,14 +334,14 @@ func _cycle_slot(slot: int, d: int) -> void:
 		var wid := String(TData.ROSTER[i])
 		if not p.has(wid):
 			p[slot] = wid
+			fix_equip(wid)
 			_layout_actors()
 			return
 
 
 func _cycle_equip(slot: int, d: int) -> void:
 	var wid := String(party()[slot])
-	var i := EQUIP_IDS.find(String(state[wid].equip))
-	state[wid].equip = EQUIP_IDS[(i + d + EQUIP_IDS.size()) % EQUIP_IDS.size()]
+	step_equip(slot, d)
 	Sfx.play(&"tn_select", -10.0)
 	_say("%s 장비: %s — %s" % [TData.WITCHES[wid].name, TData.EQUIPS[state[wid].equip].name, TData.EQUIPS[state[wid].equip].desc])
 	queue_redraw()

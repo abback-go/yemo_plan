@@ -305,6 +305,8 @@ func _build_slots() -> void:
 	var ids: Array = ["basic"]
 	for sid in u.equipped:
 		ids.append(sid)
+	if String(u.data.get("ultimate", "")) != "":
+		ids.append(String(u.data.ultimate)) # 대마법: 바퀴 끝 칸 (크레딧 7일 때만, §13) — 꾸밈은 단계 C
 	var n := ids.size()
 	var arc := _wheel_arc()
 	for i in n:
@@ -452,6 +454,8 @@ func _draw_heads() -> void:
 		var x := top.x - w * 0.5
 		var y := top.y - 6.0
 		var cur := battle.actor == unit
+		if unit.stunned:
+			_text(Vector2(top.x, y - (40.0 if not unit.is_witch() else 18.0)), "기절", 8, Color("#ffe34a", 0.95), HORIZONTAL_ALIGNMENT_CENTER, 0)
 		# 이름 (지금 차례면 밝게)
 		_text(Vector2(top.x, y - 7), unit.name, 10, Color(PALE if cur else DIM, 1.0 if cur else 0.85), HORIZONTAL_ALIGNMENT_CENTER, 0)
 		# 체력 바
@@ -487,6 +491,9 @@ func _draw_heads() -> void:
 				"heavy": icol = RED
 				"aoe": icol = Color("#ffcf7a")
 				"buff": icol = Color("#c9a0ff")
+				"stun_attack": icol = Color("#8fd8ff")
+				"dispel": icol = Color("#a070ff")
+				"finisher": icol = Color("#ff2a4a")
 			var pulse := 0.7 + 0.3 * sin(_t * 4.0)
 			var pw := _font.get_string_size(kname, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 16.0
 			var pr := Rect2(top.x - pw * 0.5, y - 29, pw, 12)
@@ -498,8 +505,8 @@ func _draw_heads() -> void:
 			var mx := x
 			for mk in unit.marks:
 				_mark_icon(Vector2(mx + 4, by + 3), String(mk))
-				_text(Vector2(mx + 10, by + 6), "%s %d" % [TData.MARK_NAME.get(mk, mk), int(unit.marks[mk])], 8, Color(FIRE, 0.95))
-				mx += 36.0
+				_text(Vector2(mx + 10, by + 6), "%s %d겹·%d" % [TData.MARK_NAME.get(mk, mk), unit.mark_n(String(mk)), unit.mark_dur(String(mk))], 8, Color(FIRE, 0.95))
+				mx += 50.0
 			if not unit.marks.is_empty():
 				by += 7.0
 		# 버프 아이콘 (최대 6)
@@ -538,6 +545,15 @@ func _intent_icon(c: Vector2, kind: String, col: Color) -> void:
 			draw_line(c + Vector2(0, 3), c + Vector2(0, -3), col, 1.6)
 			draw_line(c + Vector2(-3, 0), c + Vector2(0, -3), col, 1.6)
 			draw_line(c + Vector2(3, 0), c + Vector2(0, -3), col, 1.6)
+		"stun_attack":
+			draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), col, 1.6)
+			draw_circle(c + Vector2(-2, -2), 1.2, col)
+		"dispel":
+			draw_line(c + Vector2(-3, -3), c + Vector2(3, 3), col, 1.4)
+			draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), col, 1.4)
+		"finisher":
+			draw_arc(c, 3.5, 0.0, TAU, 12, col, 1.6)
+			draw_line(c + Vector2(-3, 3), c + Vector2(3, -3), col, 1.6)
 
 
 func _mark_icon(c: Vector2, kind: String) -> void:

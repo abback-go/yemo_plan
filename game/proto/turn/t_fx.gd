@@ -514,7 +514,7 @@ static func play(fx: String, caster: TActor, targets: Array) -> Dictionary:
 			var heavy := fx == "enemy_heavy"
 			var sl := EnemySlash.new()
 			sl.heavy = heavy
-			sl.kind = caster.unit.id
+			sl.kind = String(caster.unit.data.get("art", caster.unit.id))
 			add(sl, tp, false)
 			Sfx.play(&"bl_swish_big" if heavy else &"bl_swish", -6.0)
 			hits = [0.26 if heavy else 0.2]

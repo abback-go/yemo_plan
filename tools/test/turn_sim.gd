@@ -1,7 +1,9 @@
 extends SceneTree
 ## 턴제 전투 헤드리스 시뮬레이션 (tools/test/README.md): 규칙 엔진(TBattle)만 돌려 밸런스를 잰다.
-##   cd game && godot --headless --script ../tools/test/turn_sim.gd -- [반복 수]
-## 출력: 전략별 승률·걸린 차례·마녀별 준 피해·최대 한 방·남은 체력, 스킬 효율표, 문서의 숫자 규모 확인.
+##   cd game && godot --headless --script ../tools/test/turn_sim.gd -- [반복 수] [전투 id]
+##   전투 id(normal_01 · boss_01)를 주면 그 전투만 TAuto로 돌린다 (기본 파티 + 12명 무작위 파티).
+## 출력: 전략별 승률·걸린 차례·마녀별 준 피해·최대 한 방·남은 체력, 스킬 효율표, 문서의 숫자 규모 확인,
+##       전투별 승률·행동 수·시간 모형(전체 행동 × 1.3초 + 마녀 행동 × 3초, combat_proto.md §1.4)·대마법·기절·터뜨리기 횟수.
 
 var _done := false
 
@@ -12,6 +14,9 @@ func _process(_d: float) -> bool:
 	_done = true
 	var args := OS.get_cmdline_user_args()
 	var runs := int(args[0]) if args.size() > 0 else 20
+	if args.size() > 1:
+		_run_battle(String(args[1]), runs)
+		return true
 	print("=== 스킬 효율 (배율/비용, 버프 없음, 방어 0 기준) ===")
 	for wid in TData.BATTLE.party:
 		var line := "%s:" % TData.WITCHES[wid].name
@@ -27,6 +32,9 @@ func _process(_d: float) -> bool:
 		_run_many(strat, runs)
 	print("")
 	_run_roster(runs)
+	print("")
+	for bid in TData.BATTLES:
+		_run_battle(String(bid), runs)
 	return true
 
 
@@ -42,7 +50,7 @@ func _scale_check() -> void:
 	g.hp = g.max_hp
 	print("기본 공격 예상: ", TData.fmt(b.estimate(ig, g, "")), " (약점 불 1.5배 포함)")
 	print("태양의 창 단독 예상: ", TData.fmt(b.estimate(ig, g, "sun_spear")))
-	g.marks["burn"] = 3
+	g.add_mark("burn", 3, 1)
 	b.actor = em
 	b.use_skill(em, "bellows", ig)
 	print("+ 풀무(화상 특공 50%): ", TData.fmt(b.estimate(ig, g, "sun_spear")))
@@ -104,49 +112,106 @@ func _run_one(strat: String, seed_v: int) -> Dictionary:
 		state = {"eska": {"equipped": ["crack", "void_gate", "seal", "doom", "blackstar"], "equip": "black_cup"},
 			"ember": {"equipped": ["flame_breath", "kindling", "bellows", "blessing", "share_ember"], "equip": "notebook"},
 			"ignis": {"equipped": ["spark", "focus", "pillar", "ash_storm", "sun_spear"], "equip": "kaleido"}}
-	b.setup(TData.BATTLE.party, TData.BATTLE.enemies, state, seed_v)
-	var turns := 0
-	var biggest := 0
-	var biggest_who := ""
-	var downs := 0
+	b.setup(TData.BATTLE.party, TData.BATTLE.battle, state, seed_v)
+	var r := _play(b, func(u: TUnit) -> Dictionary: return {"ev": _witch_act(b, u, strat), "sid": ""})
+	r["turns"] = r.witch_acts
+	return r
+
+
+## 한 판을 끝까지: 기절이면 쉬고, 웨이브가 전멸하면 다음 웨이브. choose(u) → {ev, sid}
+func _play(b: TBattle, choose: Callable) -> Dictionary:
+	var r := {"witch_acts": 0, "all_acts": 0, "biggest": 0, "biggest_who": "", "downs": 0, "ults": 0, "stuns": 0, "bursts": 0, "breaks": 0, "resists": 0}
 	var guard := 0
-	while b.outcome() == "" and guard < 400:
+	while guard < 1500:
+		var oc := b.outcome()
+		if oc == "wave":
+			b.next_wave()
+			continue
+		if oc != "":
+			break
 		guard += 1
 		var u := b.next_actor()
 		var ev: Array = []
-		if u.is_witch():
-			turns += 1
-			ev = _witch_act(b, u, strat)
+		r.all_acts = int(r.all_acts) + 1
+		if u.stunned:
+			ev = b.rest(u)
+		elif u.is_witch():
+			r.witch_acts = int(r.witch_acts) + 1
+			var a: Dictionary = choose.call(u)
+			ev = a.ev
+			if bool(TData.skill(String(a.sid)).get("ultimate", false)):
+				r.ults = int(r.ults) + 1
 		else:
 			ev = b.enemy_action(u)
 		for e in ev:
-			if e.t == "hit":
-				if e.src.is_witch() and int(e.dmg) > biggest:
-					biggest = int(e.dmg)
-					biggest_who = "%s %s" % [e.src.name, b.last_action]
-				if bool(e.killed) and e.tgt.is_witch():
-					downs += 1
+			match String(e.t):
+				"hit":
+					if e.src.is_witch() and int(e.dmg) > int(r.biggest):
+						r.biggest = int(e.dmg)
+						r.biggest_who = "%s %s" % [e.src.name, b.last_action]
+					if bool(e.killed) and e.tgt.is_witch():
+						r.downs = int(r.downs) + 1
+					if bool(e.broke):
+						r.breaks = int(r.breaks) + 1
+				"stun": r.stuns = int(r.stuns) + 1
+				"burst": r.bursts = int(r.bursts) + 1
+				"resist": r.resists = int(r.resists) + 1
 		b.end_action(u)
 	var hp_left := 0.0
 	for w in b.witches:
-		hp_left += w.hp_ratio() / 3.0
+		hp_left += w.hp_ratio() / float(b.witches.size())
 	var dealt := {}
 	for w in b.witches:
 		dealt[w.id] = w.dealt
-	return {"win": b.outcome() == "win", "turns": turns, "biggest": biggest, "biggest_who": biggest_who, "hp_left": hp_left, "downs": downs, "dealt": dealt}
+	r["win"] = b.outcome() == "win"
+	r["hp_left"] = hp_left
+	r["dealt"] = dealt
+	r["wave"] = b.wave_i + 1
+	return r
+
+
+## TAuto로 한 차례
+func _auto(b: TBattle, u: TUnit) -> Dictionary:
+	var a := TAuto.pick(b, u)
+	if a.kind == "basic":
+		return {"ev": b.basic_attack(u, a.target), "sid": ""}
+	return {"ev": b.use_skill(u, String(a.skill), a.target), "sid": String(a.skill)}
+
+
+## 전투 id 하나: 기본 파티(TAuto) + 12명 무작위 파티 — 승률·행동 수·시간 모형
+func _run_battle(bid: String, runs: int) -> void:
+	print("=== 전투 %s (%s, 웨이브 %d) — %d판씩 ===" % [bid, TData.BATTLES[bid].name, (TData.BATTLES[bid].waves as Array).size(), runs])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	for mode in ["기본 파티", "12명 무작위"]:
+		var agg := {"win": 0, "w_acts": 0, "a_acts": 0, "biggest": 0, "ults": 0, "stuns": 0, "bursts": 0, "breaks": 0, "resists": 0, "downs": 0, "wave_sum": 0}
+		for i in runs:
+			var party: Array = TData.BATTLE.party
+			if mode != "기본 파티":
+				var pool: Array = TData.ROSTER.duplicate()
+				party = []
+				for j in 3:
+					party.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+			var b := TBattle.new()
+			b.setup(party, bid, {}, 9000 + i)
+			var r := _play(b, func(u: TUnit) -> Dictionary: return _auto(b, u))
+			agg.wave_sum = int(agg.wave_sum) + int(r.wave)
+			for k in ["ults", "stuns", "bursts", "breaks", "resists", "downs"]:
+				agg[k] = int(agg[k]) + int(r[k])
+			agg.biggest = maxi(int(agg.biggest), int(r.biggest))
+			if bool(r.win):
+				agg.win = int(agg.win) + 1
+				agg.w_acts = int(agg.w_acts) + int(r.witch_acts)
+				agg.a_acts = int(agg.a_acts) + int(r.all_acts)
+		var wn := maxf(float(agg.win), 1.0)
+		var w_avg := float(agg.w_acts) / wn
+		var a_avg := float(agg.a_acts) / wn
+		print("  %s: 승 %d/%d · 승리 평균 마녀 행동 %.1f · 전체 행동 %.1f · 시간 모형 %.1f분 · 도달 웨이브 평균 %.2f" % [mode, int(agg.win), runs, w_avg, a_avg, (a_avg * 1.3 + w_avg * 3.0) / 60.0, float(agg.wave_sum) / float(runs)])
+		print("     판당: 대마법 %.1f · 기절 %.1f · 터뜨리기 %.1f · 브레이크 %.1f · 저항 %.1f · 쓰러진 마녀 %.1f · 최대 한 방 %s" % [float(agg.ults) / runs, float(agg.stuns) / runs, float(agg.bursts) / runs, float(agg.breaks) / runs, float(agg.resists) / runs, float(agg.downs) / runs, TData.fmt(int(agg.biggest))])
 
 
 func _front_enemy(b: TBattle) -> TUnit:
-	var a := b.alive_of(b.enemies)
-	# 불 약점(짚 골렘)이 살아 있으면 그쪽, 아니면 체력이 가장 적은 적
-	for e in a:
-		if e.element == "straw":
-			return e
-	var best: TUnit = a[0]
-	for e in a:
-		if e.hp < best.hp:
-			best = e
-	return best
+	return TAuto.enemy_for(b) # 불 약점(짚 골렘)이 살아 있으면 그쪽, 아니면 체력이 가장 적은 적
 
 
 func _by_id(b: TBattle, wid: String) -> TUnit:
@@ -248,11 +313,7 @@ func _biggest_attack(b: TBattle, u: TUnit, en: TUnit) -> Array:
 
 
 func _heavy_coming(b: TBattle) -> bool:
-	for e in b.alive_of(b.enemies):
-		var k := String(e.intent().get("k", ""))
-		if k == "heavy" or k == "aoe":
-			return true
-	return false
+	return TAuto.heavy_coming(b)
 
 
 ## 12명: 명단에서 무작위 3명(기본 장착)으로 TAuto 규칙 플레이 — 마녀마다 승률·준 피해를 모은다
@@ -271,23 +332,10 @@ func _run_roster(runs: int) -> void:
 		for j in 3:
 			party.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 		var b := TBattle.new()
-		b.setup(party, TData.BATTLE.enemies, {}, 5000 + i)
-		var guard := 0
-		var t := 0
-		while b.outcome() == "" and guard < 400:
-			guard += 1
-			var u := b.next_actor()
-			if u.is_witch():
-				t += 1
-				var a := TAuto.pick(b, u)
-				if a.kind == "basic":
-					b.basic_attack(u, a.target)
-				else:
-					b.use_skill(u, String(a.skill), a.target)
-			else:
-				b.enemy_action(u)
-			b.end_action(u)
-		var win := b.outcome() == "win"
+		b.setup(party, TData.BATTLE.battle, {}, 5000 + i)
+		var r := _play(b, func(u: TUnit) -> Dictionary: return _auto(b, u))
+		var t := int(r.witch_acts)
+		var win := bool(r.win)
 		if win:
 			wins += 1
 			turns += t

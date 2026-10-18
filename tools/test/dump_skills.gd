@@ -29,19 +29,25 @@ func _process(_d: float) -> bool:
 		print("### %s — %s (%s) · 공격 %d · 보조 %d · 디버프 %d\n" % [w.name, w.title, TData.ELEMENT_NAME.get(w.element, w.element), n.attack, n.support, n.debuff])
 		print("| 마법 | 비용 | 종류 | 대상 | 배율 | 효과 | 참고 구조 |")
 		print("|---|---|---|---|---|---|---|")
-		for sid in w.skills:
+		var ids: Array = (w.skills as Array).duplicate()
+		if String(w.get("ultimate", "")) != "":
+			ids.append(String(w.ultimate))
+		for sid in ids:
 			var s: Dictionary = TData.SKILLS[sid]
 			var kind: String = {"attack": "공격", "support": "보조", "debuff": "디버프"}.get(String(s.kind), "")
 			var tgt: String = {"enemy": "적 1", "enemies": "적 전체", "ally": "아군 1", "ally_any": "아군 1(쓰러진 아군 가능)", "allies": "아군 전체", "self": "자신"}.get(String(s.target), "")
 			var mult := ("%.1f" % float(s.mult)) if s.has("mult") else "—"
 			var star := "**" if (w.default as Array).has(sid) else ""
-			print("| %s%s%s | %d | %s | %s | %s | %s | %s |" % [star, s.name, star, int(s.cost), kind, tgt, mult, s.desc, s.get("ref", "")])
+			var nm := ("대마법 · " + String(s.name)) if bool(s.get("ultimate", false)) else String(s.name)
+			print("| %s%s%s | %d | %s | %s | %s | %s | %s |" % [star, nm, star, int(s.cost), kind, tgt, mult, s.desc, s.get("ref", "")])
+		if w.has("passive"):
+			print("\n패시브 **%s** — %s" % [w.passive.name, w.passive.desc])
 		print("")
-	print("### 장비 (캐릭터당 1개)\n")
-	print("| 장비 | 효과 |")
-	print("|---|---|")
-	for eid in TData.EQUIPS:
+	print("### 장비 (캐릭터당 1개 · 한 장비는 파티에 한 명만 · 강화 Lv1~3)\n")
+	print("| 장비 | Lv1 | Lv2 | Lv3 |")
+	print("|---|---|---|---|")
+	for eid in TData.EQUIP_ORDER:
 		if eid == "":
 			continue
-		print("| %s | %s |" % [TData.EQUIPS[eid].name, TData.EQUIPS[eid].desc])
+		print("| %s | %s | %s | %s |" % [TData.EQUIPS[eid].name, TData.equip_at(eid, 1).desc, TData.equip_at(eid, 2).desc, TData.equip_at(eid, 3).desc])
 	return true

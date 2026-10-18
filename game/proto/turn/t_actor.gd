@@ -42,7 +42,7 @@ func setup(u: TUnit, at: Vector2) -> void:
 	else:
 		facing = -1
 		enemy = TEnemyArt.new()
-		enemy.kind = u.id
+		enemy.kind = String(u.data.get("art", u.id))
 		sz = float(u.data.get("size", 1.0))
 		add_child(enemy)
 	scale = Vector2(SCALE * sz, SCALE * sz)
