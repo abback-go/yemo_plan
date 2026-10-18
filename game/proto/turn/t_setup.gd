@@ -532,11 +532,12 @@ func _draw_detail() -> void:
 			draw_string(_font, r.position + Vector2(6.5, 14), str(idx), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, INK)
 		else:
 			draw_arc(r.position + Vector2(10, 10), 6.0, 0.0, TAU, 16, Color(DIM, 0.5), 1.0)
+		TIcon.draw(self, r.position + Vector2(29, 10), String(s.get("icon", "strike")), ecol if (on or cur) else Color(ecol, 0.75), 7.5)
 		for j in int(s.cost):
-			var q := r.position + Vector2(26 + float(j) * 6.0, 10)
+			var q := r.position + Vector2(44 + float(j) * 5.6, 10)
 			draw_circle(q, 2.2, Color(INK, 0.9))
 			draw_circle(q, 1.7, GOLD)
-		_text(r.position + Vector2(62, 14), String(s.name), 11, kcol)
+		_text(r.position + Vector2(76, 14), String(s.name), 11, kcol)
 		_text(r.position + Vector2(r.size.x - 6, 14), _kind_label(s), 8, Color(DIM, 0.9), HORIZONTAL_ALIGNMENT_RIGHT, 0)
 	# 오른쪽: 큰 설명 상자
 	if cursor >= 0 and cursor < skills.size():
@@ -572,8 +573,10 @@ func _draw_desc(s: Dictionary, sid: String) -> void:
 	var kind := String(s.kind)
 	var kcol := FIRE if kind == "attack" else (Color("#c9b8c8") if kind == "debuff" else LAV)
 	var on := _equipped().has(sid)
-	_text(Vector2(x, y + 14), String(s.name), 15, kcol)
-	var nx := x + _font.get_string_size(String(s.name), HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 8.0
+	var ecol: Color = TData.ELEMENT_COLOR.get(String(TData.WITCHES[_wid()].element), LAV)
+	TIcon.draw(self, Vector2(x + 9, y + 9), String(s.get("icon", "strike")), ecol, 8.5)
+	_text(Vector2(x + 22, y + 14), String(s.name), 15, kcol)
+	var nx := x + 22.0 + _font.get_string_size(String(s.name), HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 8.0
 	for j in int(s.cost):
 		draw_circle(Vector2(nx + float(j) * 7.5, y + 9), 3.0, Color(INK, 0.9))
 		draw_circle(Vector2(nx + float(j) * 7.5, y + 9), 2.3, GOLD)

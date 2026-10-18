@@ -2,7 +2,7 @@ class_name THud
 extends Control
 ## 턴제 전투 화면 표시 + 입력 (터치 우선, 키보드도 같은 흐름).
 ## 위: 차례 줄(다음 8명) · 가운데 위: 지금 행동 이름 · 머리 위: 체력 바 + 행동 게이지 + 크레딧 점 7개(마녀) / 의도·징표(적) + 버프 아이콘
-## 차례가 온 마녀 오른쪽에 부채꼴 스킬 바퀴(기본 공격 + 장착 마법 5): 한 번 누르면 고르고(아래 설명 상자), 대상이 필요하면 적/아군을 누른다.
+## 차례가 온 마녀 오른쪽에 부채꼴 스킬 바퀴(기본 공격 + 장착 마법 4, 칸은 아이콘 TIcon): 한 번 누르면 고르고(아래 설명 상자에 이름·설명), 대상이 필요하면 적/아군을 누른다.
 ## 대상이 없는 마법은 같은 칸을 다시 누르면 쓴다. 키보드: ←→↑↓ 고르기 · Z 확인 · X 뒤로.
 ## 피해 숫자(쉼표, 크리는 금빛 크게, 약점은 주홍, 회복은 연둣빛, 버프는 라벤더 글)는 여기서 띄운다.
 
@@ -313,10 +313,10 @@ func _build_slots() -> void:
 		var pos := c + Vector2(cos(ang), sin(ang)) * WHEEL_R
 		var sid: String = ids[i]
 		if sid == "basic":
-			slots.append({"id": "basic", "name": "공격", "cost": 0, "can": true, "pos": pos, "kind": "attack", "target": "enemy"})
+			slots.append({"id": "basic", "name": "공격", "cost": 0, "can": true, "pos": pos, "kind": "attack", "target": "enemy", "icon": "strike"})
 		else:
 			var s := TData.skill(sid)
-			slots.append({"id": sid, "name": String(s.name), "cost": int(s.cost), "can": battle.can_use(u, sid), "pos": pos, "kind": String(s.kind), "target": String(s.target)})
+			slots.append({"id": sid, "name": String(s.name), "cost": int(s.cost), "can": battle.can_use(u, sid), "pos": pos, "kind": String(s.kind), "target": String(s.target), "icon": String(s.get("icon", "strike"))})
 
 
 func _wheel_center() -> Vector2:
@@ -594,24 +594,11 @@ func _draw_wheel() -> void:
 		draw_circle(p, r + 1.5, Color(INK, 0.92))
 		draw_circle(p, r, Color(LAV if on else INK, 0.95 if on else 0.75))
 		draw_arc(p, r, 0.0, TAU, 28, Color(ring, 0.95 if can else 0.4), 1.6 if on else 1.0)
-		var name: String = s.name
-		var tcol := INK if on else (PALE if can else Color(DIM, 0.6))
-		var line1 := name
-		var line2 := ""
-		if name.contains(" "):
-			var parts := name.split(" ")
-			line1 = parts[0]
-			line2 = " ".join(parts.slice(1))
-		elif name.length() > 4:
-			line1 = name.substr(0, 3)
-			line2 = name.substr(3)
-		var fs := 9 if maxi(line1.length(), line2.length()) <= 3 else 8
+		# 칸 안은 아이콘만 (이름은 아래 설명 상자에). 색: 속성 색, 고른 칸은 INK, 못 쓰면 흐리게
+		var ecol: Color = TData.ELEMENT_COLOR.get(String(actor.unit.data.get("element", "")), LAV)
+		var icol := INK if on else (ecol if can else Color(DIM, 0.6))
+		TIcon.draw(self, p + Vector2(0, -2.5), String(s.icon), icol, r * 0.46)
 		var tw := int(r * 2.0 - 2.0)
-		if line2 == "":
-			draw_string(_font, p + Vector2(-r + 1.0, 1.5), line1, HORIZONTAL_ALIGNMENT_CENTER, tw, fs, tcol)
-		else:
-			draw_string(_font, p + Vector2(-r + 1.0, -3.0), line1, HORIZONTAL_ALIGNMENT_CENTER, tw, fs, tcol)
-			draw_string(_font, p + Vector2(-r + 1.0, 6.0), line2, HORIZONTAL_ALIGNMENT_CENTER, tw, fs, tcol)
 		# 비용 점 (칸 아래 테 안쪽)
 		var cost := int(s.cost)
 		if cost > 0:
@@ -635,8 +622,10 @@ func _draw_wheel() -> void:
 			desc = String(actor.unit.data.basic.desc)
 		else:
 			desc = String(TData.skill(String(s.id)).desc)
-		_text(box.position + Vector2(10, 16), title, 12, PALE if bool(s.can) else DIM)
-		var cx := box.position.x + 14.0 + _font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		var decol: Color = TData.ELEMENT_COLOR.get(String(actor.unit.data.get("element", "")), LAV)
+		TIcon.draw(self, box.position + Vector2(14, 12), String(s.icon), decol if bool(s.can) else DIM, 7.0)
+		_text(box.position + Vector2(26, 16), title, 12, PALE if bool(s.can) else DIM)
+		var cx := box.position.x + 30.0 + _font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 		for j in cost:
 			draw_circle(Vector2(cx + float(j) * 7.0, box.position.y + 12), 2.6, Color(INK, 0.9))
 			draw_circle(Vector2(cx + float(j) * 7.0, box.position.y + 12), 2.0, GOLD if bool(s.can) else DIM)
