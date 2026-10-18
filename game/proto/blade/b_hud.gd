@@ -6,7 +6,7 @@ extends Control
 const PALE := Color("#e6dcff")
 const LAV := Color("#b9a2ff")
 const INK := Color("#14081f")
-const HELP_KEYS := "←→ 이동   Z 점프   X 공격   A 스킬   S 모드 바꾸기   Esc 나가기"
+const HELP_KEYS := "←→ 이동   Z 점프   X 공격   A 스킬   C 순간이동   S 모드 바꾸기   Esc 나가기"
 const INTRO := 7.0 ## 처음 안내를 보여 주는 시간
 
 var eska: BEska

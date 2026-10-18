@@ -123,9 +123,9 @@ class Slash extends PVfx.Base:
 	const ROW_A := [1.0, 1.0, 0.97, 0.95, 0.92, 0.9, 0.7, 0.0]
 	## 결무늬 [깊이, 색, 진하기] — 흰 몸통엔 먹 결, 먹 띠엔 흰 결 (붓으로 그은 듯 길이가 서로 다름)
 	const STRANDS := [[0.16, BFx.INK, 0.65], [0.28, BFx.INK, 0.8], [0.5, BFx.WHITE, 0.85], [0.72, BFx.INK, 0.7], [0.8, BFx.INK, 0.5]]
-	const LINE_LIFE := 0.16
-	const LINE_SPEED := 560.0
-	const SPARK_AT := 0.5 ## 휘두름의 이 지점에서 칼끝 흑백 불티
+	const LINE_LIFE := 0.26
+	const LINE_SPEED := 420.0
+	const SPARK_AT := [0.35, 0.8] ## 휘두름의 이 지점들에서 칼끝 흑백 불티
 	var r := 50.0
 	var w := 18.0
 	var a0 := 0.0
@@ -137,7 +137,7 @@ class Slash extends PVfx.Base:
 	var _dirn := 1.0
 	var _lines: Array = [] ## [칼끝이 지나간 몫, 바깥으로 비킨 거리, 길이, 태어나는 시각]
 	var _seed := 0
-	var _sparked := false
+	var _sparks := 0 ## 불티를 몇 번 뿌렸나
 
 	func setup(spec: Dictionary, facing: int) -> void:
 		r = float(spec.r)
@@ -154,25 +154,25 @@ class Slash extends PVfx.Base:
 		z_index = 6
 		_seed = randi() % 1000
 		var k := r / 50.0
-		for i in (12 if heavy else 7): # 흰 실선: 칼끝이 지난 자리 바깥에서 길게 튀어 나간다
-			var f := randf_range(0.25, 1.0)
+		for i in (30 if heavy else 18): # 흰 실선: 칼끝이 지난 자리 안팎에서 길게 튀어 나간다 (참고 영상의 방사 실선 구조)
+			var f := randf_range(0.2, 1.0)
 			var born := sw * (1.0 - pow(1.0 - f, 1.0 / 3.0)) # head_f의 역: 칼끝이 그 자리를 지나는 순간
-			_lines.append([f, randf_range(3.0, 18.0) * k, randf_range(18.0, 46.0) * k * (1.3 if heavy else 1.0), born])
+			_lines.append([f, randf_range(-8.0, 24.0) * k, randf_range(24.0, 70.0) * k * (1.3 if heavy else 1.0), born, randf_range(0.8, 1.9)])
 
 	func _tail_f() -> float:
 		var td := sw * 0.4
 		var q := clampf((t - td) / (sw + CHASE - td), 0.0, 1.0)
 		return q * q
 
-	## 칼끝이 반쯤 지났을 때 흑백 네모 불티가 휘두르는 방향으로 튄다
+	## 칼끝이 지나는 동안 두 번, 흑백 네모 불티가 휘두르는 방향으로 왕창 튄다
 	func _tick(_delta: float) -> void:
-		if _sparked or t < sw * SPARK_AT:
+		if _sparks >= SPARK_AT.size() or t < sw * float(SPARK_AT[_sparks]):
 			return
-		_sparked = true
+		_sparks += 1
 		var a := lerpf(a0, a1, BFx.head_f(t, sw))
 		var hp := BFx.ell(r, sq, rot, a)
 		var tn := BFx.ell_t(sq, rot, a, _dirn)
-		BFx.ink_sparks(global_position + Vector2(hp.x * scale.x, hp.y), 9 if heavy else 5, 260.0 if heavy else 200.0, Vector2(tn.x * scale.x, tn.y))
+		BFx.ink_sparks(global_position + Vector2(hp.x * scale.x, hp.y), 12 if heavy else 7, 300.0 if heavy else 230.0, Vector2(tn.x * scale.x, tn.y))
 
 	func _paint() -> void:
 		var hf := BFx.head_f(t, sw)
@@ -184,7 +184,7 @@ class Slash extends PVfx.Base:
 		var hd_a := lerpf(a0, a1, hf)
 		var vis := absf(hd_a - th_a)
 		var after := clampf((t - sw) / CHASE, 0.0, 1.0)
-		var wk := w * (1.0 - 0.55 * after) * clampf(vis / 0.7, 0.35, 1.0)
+		var wk := w * (1.0 - 0.45 * after) * clampf(vis / 0.7, 0.35, 1.0)
 		var n := clampi(int(vis * r / 4.0), 6, 56)
 		var es := PackedVector2Array()
 		var ns := PackedVector2Array()
@@ -202,7 +202,8 @@ class Slash extends PVfx.Base:
 			th[i] = wk * BFx.prof(s)
 			la[i] = (0.35 + 0.65 * smoothstep(0.0, 0.5, s)) * (1.0 - 0.35 * after)
 		_paint_ghost(th_a, hd_a, n, wk, after)
-		# 먹빛 테두리 (칼끝 선 바깥으로 두껍게 — 어두운 배경에서도 흰 몸통이 또렷하게)
+		_paint_inner(th_a, hd_a, n, wk, la)
+		# 먹빛 테두리 (칼끝 선 바깥으로 두껍게, 가장자리는 도트처럼 들쭉날쭉 — 어두운 배경에서도 흰 몸통이 또렷하게)
 		var ink_o := PackedVector2Array()
 		var ink_i := PackedVector2Array()
 		var ink_c := PackedColorArray()
@@ -210,9 +211,10 @@ class Slash extends PVfx.Base:
 		ink_i.resize(n)
 		ink_c.resize(n)
 		for i in n:
-			ink_o[i] = es[i] + ns[i] * (2.4 + th[i] * 0.1)
+			var jag := EVfx.hash01(_seed * 3 + i * 7) * 2.6 * clampf(th[i] / wk, 0.0, 1.0)
+			ink_o[i] = es[i] + ns[i] * (3.2 + th[i] * 0.12 + jag)
 			ink_i[i] = es[i] - ns[i] * minf(th[i] * 0.3, 3.0)
-			ink_c[i] = Color(BFx.INK, 0.92 * la[i])
+			ink_c[i] = Color(BFx.INK, 0.94 * la[i])
 		BFx.grid(pd, [ink_o, ink_i], [ink_c, ink_c])
 		# 몸통 (셀 그림처럼 단단한 경계): 흰 칼끝 심 → 흰 몸통 | 먹 띠 → 투명
 		var rows: Array = []
@@ -270,6 +272,36 @@ class Slash extends PVfx.Base:
 			pd.line2(hp, hp + tn * (10.0 + 16.0 * g) * (r / 50.0), Color(BFx.WHITE, g), Color(BFx.WHITE, 0.0), 1.6, 0.2)
 			EVfx.star4(pd, hp, (6.0 if not heavy else 10.0) * (0.6 + 0.4 * g), tn.angle(), Color(BFx.WHITE, g), Color(BFx.LAV, 0.3 * g))
 
+	## 안쪽 흰 초승달: 본 초승달 안쪽(반지름 0.66)에 가늘고 긴 두 번째 흰 날 — 참고 영상처럼 참격이 여러 겹으로 겹쳐 보인다
+	func _paint_inner(th_a: float, hd_a: float, n: int, wk: float, la: PackedFloat32Array) -> void:
+		var lag := _dirn * 0.06
+		var outer := PackedVector2Array()
+		var inner := PackedVector2Array()
+		var ink_o := PackedVector2Array()
+		var ink_i := PackedVector2Array()
+		var cw := PackedColorArray()
+		var ci := PackedColorArray()
+		outer.resize(n)
+		inner.resize(n)
+		ink_o.resize(n)
+		ink_i.resize(n)
+		cw.resize(n)
+		ci.resize(n)
+		for i in n:
+			var s := float(i) / float(n - 1)
+			var a := lerpf(th_a, hd_a, s) + lag
+			var e := BFx.ell(r * 0.66, sq, rot, a)
+			var nn := BFx.ell_n(sq, rot, a)
+			var tk := wk * BFx.prof(s) * 0.34
+			outer[i] = e + nn * tk * 0.5
+			inner[i] = e - nn * tk * 0.5
+			ink_o[i] = e + nn * (tk * 0.5 + 1.6)
+			ink_i[i] = e - nn * (tk * 0.5 + 1.6)
+			cw[i] = Color(BFx.WHITE, 0.95 * la[i])
+			ci[i] = Color(BFx.INK, 0.8 * la[i])
+		BFx.grid(pd, [ink_o, ink_i], [ci, ci])
+		BFx.grid(pd, [outer, inner], [cw, cw])
+
 	## 먹빛 그림자 초승달: 본 초승달보다 한 발 늦게, 조금 작게 뒤따라 — 참격이 두 겹으로 보여 깊이가 생긴다
 	func _paint_ghost(th_a: float, hd_a: float, n: int, wk: float, after: float) -> void:
 		var lag := -_dirn * 0.1
@@ -299,11 +331,12 @@ class Slash extends PVfx.Base:
 			var q := age / LINE_LIFE
 			var a := lerpf(a0, a1, float(ln[0]))
 			var tn := BFx.ell_t(sq, rot, a, _dirn)
-			var p := BFx.ell(r, sq, rot, a) + BFx.ell_n(sq, rot, a) * float(ln[1]) + tn * LINE_SPEED * age
-			var tail := p - tn * float(ln[2]) * (1.0 - q)
-			var al := 1.0 - q
-			pd.line2(tail, p, Color(BFx.INK, 0.0), Color(BFx.INK, 0.6 * al), 1.2, 2.6)
-			pd.line2(tail, p, Color(BFx.WHITE, 0.0), Color(BFx.WHITE, al), 0.4, 1.4)
+			var p := BFx.ell(r, sq, rot, a) + BFx.ell_n(sq, rot, a) * float(ln[1]) + tn * LINE_SPEED * age * (1.0 - 0.5 * q)
+			var tail := p - tn * float(ln[2]) * (1.0 - q * q)
+			var al := 1.0 - q * q
+			var w1: float = ln[4]
+			pd.line2(tail, p, Color(BFx.INK, 0.0), Color(BFx.INK, 0.7 * al), w1 * 0.8, w1 + 1.6)
+			pd.line2(tail, p, Color(BFx.WHITE, 0.0), Color(BFx.WHITE, al), w1 * 0.3, w1)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -312,18 +345,39 @@ class Slash extends PVfx.Base:
 
 class CutLine extends PVfx.Base:
 	const BRIGHT := 0.035 ## 처음 하얗게 번쩍이는 시간 (2프레임)
+	const BURST_T := 0.12 ## 사방으로 뻗는 흰 바늘이 보이는 시간
 	var len := 64.0
 	var heavy := false
+	var _rays: Array = [] ## [각도, 길이, 굵기]
 
 	func _ready() -> void:
 		life = 0.26 if heavy else 0.2
 		z_index = 7
+		for i in (10 if heavy else 7):
+			_rays.append([randf() * TAU, randf_range(14.0, 34.0) * (1.4 if heavy else 1.0), randf_range(0.8, 1.6)])
+
+	## 맞은 자리에서 사방으로 뻗었다 줄어드는 흰 바늘 (먹 테) — 참고 영상의 방사 섬광 구조
+	func _paint_burst(x: float) -> void:
+		if t >= BURST_T:
+			return
+		var q := t / BURST_T
+		var grow := 1.0 - pow(1.0 - minf(q * 2.0, 1.0), 3.0)
+		var al := 1.0 - q
+		for ry: Array in _rays:
+			var d := Vector2.from_angle(float(ry[0]))
+			var l := float(ry[1]) * grow
+			var wd: float = ry[2]
+			var a := d * l * (q * 0.6) # 뿌리가 바깥으로 따라가며 바늘이 짧아진다
+			var b := d * l
+			BFx.needle(pd, a, b, wd + 1.6, Color(BFx.INK, 0.7 * al))
+			BFx.needle(pd, a, b, wd, Color(BFx.WHITE, al))
 
 	func _paint() -> void:
 		var x := k()
 		var hl := len * 0.5 * (1.0 + 0.2 * (1.0 - pow(1.0 - x, 2.0)))
 		var a := Vector2(-hl, 0)
 		var b := Vector2(hl, 0)
+		_paint_burst(x)
 		if t < BRIGHT:
 			BFx.needle(pd, a * 1.1, b * 1.1, 8.0 if heavy else 6.0, Color(BFx.INK, 0.7))
 			BFx.needle(pd, a, b, 4.0 if heavy else 3.0, BFx.WHITE)
@@ -462,10 +516,12 @@ class Charge extends PDraw.Canvas:
 	func _paint() -> void:
 		var c := eska.rift_charge()
 		var b := eska.bart()
+		_aim_line(eska.rift_line(), c)
+		if eska.st == EEska.St.BLINK: # 순간이동으로 사라진 동안은 손 기운도 안 보임
+			return
 		_motes(eska.center(), c)
 		_orb(b.hand_global(), c, true)
 		_orb(b.back_hand_global(), c, false)
-		_aim_line(eska.rift_line(), c)
 
 	func _motes(p: Vector2, c: float) -> void:
 		var rr := lerpf(46.0, 18.0, c)

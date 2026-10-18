@@ -10,7 +10,8 @@ extends EEska
 ## 검이 아닌 공격(마법)이 닿으면 자국이 한꺼번에 터진다.
 ## 휘두름 = 준비(wu) → 휘두름(sw, 칼끝은 BFx.head_f로 첫 프레임에 약 70%) → 거둠(rec). 휘두름 0.6 지점에서 한 번 판정.
 ## 참격은 기울인(rot) 납작한(sq) 타원의 호 — 기본 공격은 sq 0.3 안팎·rot ±35~40도로 대각선 초승달이 된다.
-## 이동·점프·이단점프·그림의 몸·낙성은 EEska를 그대로 쓴다. 순간이동·물약·대마법은 데모에서 뺐다.
+## 순간이동(C · 터치 "순간"): 대시처럼 짧게(TP_DIST) 사라졌다 나타난다 — 평소·휘두름 거둠·모으는 중 모두 가능, 공중은 착지 전까지 1번.
+## 이동·점프·이단점프·그림의 몸·낙성·순간이동 상태(St.BLINK)는 EEska를 그대로 쓴다. 물약·대마법은 데모에서 뺐다.
 
 enum Mode { MAGIC, SWORD }
 
@@ -19,17 +20,17 @@ const ARM := 7.0
 ## 휘두름 표. 각도(도)는 오른쪽을 보는 기준, 아래가 +. c = 호 중심(발 기준), lunge = 휘두르는 순간 앞으로 미끄러지는 빠르기
 ## "\" = rot +, 위-뒤 끝(180)에서 바깥으로 불룩하게(270) 아래-앞 끝(360)으로. "/" = rot −, 아래-뒤 끝(180)에서 앞-아래로 불룩하게(90) 위-앞 끝(0)으로
 const SWING := {
-	"s1": {"wu": 0.04, "sw": 0.05, "rec": 0.16, "a0": 175.0, "a1": 365.0, "r": 58.0, "w": 16.0, "sq": 0.3, "rot": 38.0,
-		"c": Vector2(16, -28), "dmg": 55, "lunge": 170.0, "hs": 0.05, "kick": 3.0, "cut": 80.0},
-	"s2": {"wu": 0.035, "sw": 0.05, "rec": 0.16, "a0": 185.0, "a1": -5.0, "r": 60.0, "w": 17.0, "sq": 0.3, "rot": -38.0,
-		"c": Vector2(16, -24), "dmg": 55, "lunge": 150.0, "hs": 0.05, "kick": 3.0, "cut": 80.0},
-	"s3": {"wu": 0.09, "sw": 0.06, "rec": 0.3, "a0": 172.0, "a1": 372.0, "r": 108.0, "w": 26.0, "sq": 0.3, "rot": 32.0,
-		"c": Vector2(26, -32), "dmg": 130, "lunge": 260.0, "hs": 0.09, "kick": 7.0, "cut": 130.0, "heavy": true, "scar": true, "echo": true},
-	"air1": {"wu": 0.035, "sw": 0.05, "rec": 0.14, "a0": 175.0, "a1": 365.0, "r": 52.0, "w": 16.0, "sq": 0.32, "rot": 40.0,
-		"c": Vector2(14, -26), "dmg": 55, "lunge": 60.0, "hs": 0.05, "kick": 3.0, "cut": 80.0},
-	"air2": {"wu": 0.035, "sw": 0.05, "rec": 0.18, "a0": 185.0, "a1": -5.0, "r": 55.0, "w": 17.0, "sq": 0.32, "rot": -40.0,
-		"c": Vector2(14, -22), "dmg": 55, "lunge": 60.0, "hs": 0.05, "kick": 3.0, "cut": 80.0},
-	"skill": {"wu": 0.14, "sw": 0.045, "rec": 0.32, "a0": 105.0, "a1": -100.0, "r": 165.0, "w": 30.0, "sq": 0.2, "rot": 0.0,
+	"s1": {"wu": 0.04, "sw": 0.05, "rec": 0.16, "a0": 175.0, "a1": 365.0, "r": 78.0, "w": 24.0, "sq": 0.3, "rot": 38.0,
+		"c": Vector2(20, -30), "dmg": 55, "lunge": 170.0, "hs": 0.05, "kick": 3.0, "cut": 90.0},
+	"s2": {"wu": 0.035, "sw": 0.05, "rec": 0.16, "a0": 185.0, "a1": -5.0, "r": 80.0, "w": 25.0, "sq": 0.3, "rot": -38.0,
+		"c": Vector2(20, -26), "dmg": 55, "lunge": 150.0, "hs": 0.05, "kick": 3.0, "cut": 90.0},
+	"s3": {"wu": 0.09, "sw": 0.06, "rec": 0.3, "a0": 172.0, "a1": 372.0, "r": 136.0, "w": 38.0, "sq": 0.3, "rot": 32.0,
+		"c": Vector2(32, -34), "dmg": 130, "lunge": 260.0, "hs": 0.09, "kick": 7.0, "cut": 140.0, "heavy": true, "scar": true, "echo": true},
+	"air1": {"wu": 0.035, "sw": 0.05, "rec": 0.14, "a0": 175.0, "a1": 365.0, "r": 70.0, "w": 22.0, "sq": 0.32, "rot": 40.0,
+		"c": Vector2(18, -28), "dmg": 55, "lunge": 60.0, "hs": 0.05, "kick": 3.0, "cut": 90.0},
+	"air2": {"wu": 0.035, "sw": 0.05, "rec": 0.18, "a0": 185.0, "a1": -5.0, "r": 72.0, "w": 23.0, "sq": 0.32, "rot": -40.0,
+		"c": Vector2(18, -24), "dmg": 55, "lunge": 60.0, "hs": 0.05, "kick": 3.0, "cut": 90.0},
+	"skill": {"wu": 0.14, "sw": 0.045, "rec": 0.32, "a0": 105.0, "a1": -100.0, "r": 165.0, "w": 36.0, "sq": 0.2, "rot": 0.0,
 		"c": Vector2(0, -22), "dmg": 110, "lunge": 120.0, "hs": 0.08, "kick": 6.0, "cut": 130.0, "heavy": true, "scar": true},
 }
 const COMBO := ["s1", "s2", "s3"]
@@ -46,9 +47,9 @@ const SPACE_DMG := 160 ## 공간참 틈이 터질 때 피해
 ## 검무 (마법 → 검): 빗자루가 펼쳐지는 동안(SPIN_UNFOLD) 검을 머리 위로 세웠다가, 몸 둘레로 세 바퀴(바퀴마다 기울기가 다름)
 const SPIN_UNFOLD := 0.08
 const SPIN_LOOPS := [
-	{"sw": 0.12, "a0": 180.0, "a1": -180.0, "r": 70.0, "w": 17.0, "sq": 0.3, "rot": 0.0, "c": Vector2(0, -20), "dmg": 45},
-	{"sw": 0.12, "a0": 180.0, "a1": -180.0, "r": 80.0, "w": 18.0, "sq": 0.45, "rot": 28.0, "c": Vector2(0, -24), "dmg": 45},
-	{"sw": 0.11, "a0": 180.0, "a1": -180.0, "r": 92.0, "w": 22.0, "sq": 0.4, "rot": -24.0, "c": Vector2(0, -24), "dmg": 80, "heavy": true},
+	{"sw": 0.12, "a0": 180.0, "a1": -180.0, "r": 80.0, "w": 22.0, "sq": 0.3, "rot": 0.0, "c": Vector2(0, -20), "dmg": 45},
+	{"sw": 0.12, "a0": 180.0, "a1": -180.0, "r": 92.0, "w": 24.0, "sq": 0.45, "rot": 28.0, "c": Vector2(0, -24), "dmg": 45},
+	{"sw": 0.11, "a0": 180.0, "a1": -180.0, "r": 106.0, "w": 30.0, "sq": 0.4, "rot": -24.0, "c": Vector2(0, -24), "dmg": 80, "heavy": true},
 ]
 const SPIN_TAIL := 0.2 ## 마지막 바퀴 뒤 마무리 자세
 const SPIN_BURST_R := 118.0
@@ -68,6 +69,7 @@ const RIFT_DMG := 240
 const FRONT_HAND := Vector2(12.5, -26.0) ## 균열을 모을 때 앞손 (팔을 앞으로 벌림)
 const BACK_HAND := Vector2(-11.0, -25.5) ## 뒷손 (팔을 뒤로 벌림 — BArt가 그린다)
 const MORPH_T := 0.07 ## 빗자루 ↔ 검 바뀌는 그림 시간
+const TP_DIST := 128.0 ## 순간이동 거리 (대시 느낌 — 옛 실시간판 150보다 짧게)
 
 var mode := Mode.MAGIC
 var morph := 0.0 ## 0 = 빗자루, 1 = 검 (그림이 읽는다)
@@ -159,20 +161,26 @@ func _physics_process(delta: float) -> void:
 	_atk_buf = maxf(_atk_buf - delta, 0.0)
 	_buf_skill = maxf(_buf_skill - delta, 0.0)
 	_buf_mode = maxf(_buf_mode - delta, 0.0)
+	_buf_blink = maxf(_buf_blink - delta, 0.0)
+	_blink_cd = maxf(_blink_cd - delta, 0.0)
 	_poll_presses()
 	var dir_x := Input.get_axis("es_left", "es_right")
 	morph = move_toward(morph, 1.0 if mode == Mode.SWORD else 0.0, delta / MORPH_T)
-	if st == St.CAST: # 낙성 (EEska 그대로)
+	if st == St.BLINK: # 순간이동 중 (EEska._blink — 동작(act)은 그동안 멈춰 있다가 이어진다)
+		_blink(delta)
+	elif st == St.CAST: # 낙성 (EEska 그대로)
 		_cast(delta)
 	elif act != "":
 		_act(delta, dir_x)
 	else:
 		_free(delta, dir_x)
-	move_and_slide()
+	if st != St.BLINK:
+		move_and_slide()
 	var on_floor := is_on_floor()
 	if on_floor:
 		_air_n = 0
 		_air_jump = true
+		_air_blink = true
 		if not _was_floor:
 			EVfx.land_dust(global_position)
 			Sfx.play(&"land", -14.0)
@@ -189,6 +197,8 @@ func _poll_presses() -> void:
 		_atk_buf = ATTACK_BUFFER
 	if Input.is_action_just_pressed("es_skill"):
 		_buf_skill = ACTION_BUFFER
+	if Input.is_action_just_pressed("es_blink"):
+		_buf_blink = ACTION_BUFFER
 	if Input.is_action_just_pressed(BStage.MODE_ACTION):
 		_buf_mode = ACTION_BUFFER
 
@@ -203,6 +213,10 @@ func _free(delta: float, dir_x: float) -> void:
 
 ## 기억해 둔 입력으로 동작 시작 (시작했으면 true)
 func _start_actions(dir_x: float) -> bool:
+	if _buf_blink > 0.0 and _can_blink():
+		_buf_blink = 0.0
+		_start_blink(dir_x)
+		return true
 	if _buf_mode > 0.0:
 		_buf_mode = 0.0
 		_switch_mode(dir_x)
@@ -311,6 +325,12 @@ func _swing(delta: float) -> void:
 		if _jump_buf > 0.0 and (_coyote > 0.0 or (_air_jump and not is_on_floor())):
 			_end_act()
 			_try_jump(dx)
+			return
+		if _buf_blink > 0.0 and _can_blink(): # 순간이동으로 끊기 (대시 캔슬)
+			_end_act()
+			_combo_gap = COMBO_GAP
+			_buf_blink = 0.0
+			_start_blink(dx)
 			return
 		if _buf_mode > 0.0 or _buf_skill > 0.0 or _atk_buf > 0.0 or Input.is_action_pressed("es_attack"):
 			var keep := act_t
@@ -616,6 +636,39 @@ func _fold(delta: float) -> void:
 
 
 # ═══════════════════════════════════════════════════════════
+# 순간이동 (대시처럼)
+# ═══════════════════════════════════════════════════════════
+
+## EEska._start_blink와 같되 거리가 TP_DIST이고 경로 찢기(옛 틈 등록)는 하지 않는다. 나타나는 쪽은 EEska._blink 그대로
+func _start_blink(dir_x: float) -> void:
+	var d := facing
+	if dir_x > 0.01:
+		d = 1
+	elif dir_x < -0.01:
+		d = -1
+	facing = d
+	_blink_dir = d
+	var motion := Vector2(d * TP_DIST, 0)
+	var from_xf := global_transform.translated(Vector2(0, -2))
+	var col := KinematicCollision2D.new()
+	var travel := motion
+	if test_move(from_xf, motion, col):
+		travel = col.get_travel()
+	_blink_to = global_position + Vector2(travel.x, 0)
+	if not is_on_floor():
+		_air_blink = false
+	st = St.BLINK
+	st_t = 0.0
+	invuln = BLINK_INVULN
+	var to_c := _blink_to + Vector2(0, -SIZE.y * 0.55)
+	EMoveFx.blink_out(art, center(), d)
+	EMoveFx.blink_trail(art, center(), to_c, not is_on_floor())
+	art.visible = false
+	velocity = Vector2.ZERO
+	Sfx.play(&"es_blink", -3.0)
+
+
+# ═══════════════════════════════════════════════════════════
 # 흑백 균열 (마법 기본)
 # ═══════════════════════════════════════════════════════════
 
@@ -647,6 +700,10 @@ func _rift(delta: float, dir_x: float) -> void:
 	if not _fired and act_t >= RIFT_FIRE:
 		_fired = true
 		_fire_rift()
+	if _buf_blink > 0.0 and _can_blink(): # 모으는 중에도 순간이동 — 모으기는 그대로 이어진다 (균열은 새 자리 앞에)
+		_buf_blink = 0.0
+		_start_blink(Input.get_axis("es_left", "es_right"))
+		return
 	if not _fired and _buf_mode > 0.0: # 모으는 중에 모드를 바꾸면 끊긴다
 		_end_act()
 		_cancel_charge()
