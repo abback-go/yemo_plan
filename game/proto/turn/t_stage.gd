@@ -100,7 +100,7 @@ func start_battle() -> void:
 		(actors[u] as TActor).queue_free()
 	actors.clear()
 	battle = TBattle.new()
-	battle.setup(TData.BATTLE.party, TData.BATTLE.enemies, TSetup.state)
+	battle.setup(TSetup.party(), TData.BATTLE.enemies, TSetup.state)
 	for i in battle.witches.size():
 		_add_actor(battle.witches[i], WITCH_AT[i])
 	for i in battle.enemies.size():
@@ -204,8 +204,13 @@ func _perform_witch(a: TActor, action: Dictionary) -> void:
 	var fx_id := ""
 	var ev: Array = []
 	var big := false
+	var el := String(u.data.element)
 	if action.kind == "basic":
-		fx_id = "basic_eska" if u.id == "eska" else "basic_fire"
+		fx_id = "basic_fire"
+		if el in ["space", "time"]:
+			fx_id = "basic_eska"
+		elif el == "sword":
+			fx_id = "slash"
 		ev = battle.basic_attack(u, tgt)
 		a.lunge()
 		a.pose("cast")
@@ -220,7 +225,7 @@ func _perform_witch(a: TActor, action: Dictionary) -> void:
 	hud.show_msg("%s — %s" % [u.name, battle.last_action])
 	hud.refresh()
 	var timing := TFx.play(fx_id, a, targets)
-	await _show_events(ev, targets, timing, "space" if u.id == "eska" else "fire")
+	await _show_events(ev, targets, timing, "space" if el in ["space", "time", "sword"] else "fire")
 	a.pose("idle")
 	hud.refresh()
 
@@ -252,6 +257,7 @@ func _perform_enemy(a: TActor) -> void:
 func _show_events(ev: Array, targets: Array, timing: Dictionary, kind: String) -> void:
 	var hits: Array = timing.get("hits", [0.2])
 	var total := float(timing.get("total", 0.8))
+	var sub := float(timing.get("sub", 0.09)) # 같은 대상의 다단 타격 간격
 	var shown := {}
 	var t_prev := 0.0
 	for i in hits.size():
@@ -259,11 +265,16 @@ func _show_events(ev: Array, targets: Array, timing: Dictionary, kind: String) -
 		await _wait(ht - t_prev)
 		t_prev = ht
 		var ta: TActor = targets[i] if i < targets.size() else (targets[0] if not targets.is_empty() else null)
+		var nth := 0
 		for j in ev.size():
 			if shown.has(j):
 				continue
 			var e: Dictionary = ev[j]
-			if ta != null and e.get("tgt") == ta.unit and e.t in ["hit", "mark", "debuff", "invincible"]:
+			if ta != null and e.get("tgt") == ta.unit and e.t in ["hit", "mark", "debuff", "invincible", "enemy_gauge", "gauge_zero", "extend_mark"]:
+				if e.t == "hit" and int(e.get("sub", 0)) > 0:
+					nth += 1
+					await _wait(sub)
+					t_prev += sub
 				_show_event(e, kind)
 				shown[j] = true
 			elif e.t == "hit" and i == hits.size() - 1: # 시각표보다 사건이 많으면 마지막 때에 몰아서
@@ -362,6 +373,14 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			hud.number(ta.head() + Vector2(0, -4), "공격력 +%d%%" % int(round(float(e.v) * 100.0)), "buff")
 		"demerit":
 			hud.number(ta.head() + Vector2(0, 8), "다음 행동 뒤 크레딧 0", "zero")
+		"enemy_gauge":
+			hud.number(ta.head() + Vector2(0, -4), "게이지 −%d%%" % int(round(float(e.v) * 100.0)), "debuff")
+		"gauge_zero":
+			hud.number(ta.head() + Vector2(0, -4), "게이지 0", "debuff")
+		"extend_buffs":
+			hud.number(ta.head() + Vector2(0, -4), "버프 지속 +%d" % int(e.v), "buff")
+		"extend_mark":
+			hud.number(ta.center() + Vector2(0, 6), "%s +%d" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.v)], "mark")
 
 
 func _finish(oc: String, token: int) -> void:
@@ -392,92 +411,18 @@ func set_auto(v: bool) -> void:
 	auto = v
 
 
-## 시험용 자동 선택 (tools/test/turn_sim.gd의 default 전략과 같은 뼈대): 장착한 마법 안에서만 고른다
+## 시험용: 파티를 바꾼다 (편성 화면을 거치지 않고)
+func set_party(ids: Array) -> void:
+	TSetup.ensure_state()
+	var p: Array = []
+	for i in ids:
+		p.append(String(i))
+	TSetup.state.party = p
+
+
+## 시험용 자동 선택: TAuto (turn_sim과 같은 규칙)
 func _auto_pick(a: TActor) -> Dictionary:
-	var u := a.unit
-	var en := _auto_enemy()
-	var ignis := _by_id("ignis")
-	var eska := _by_id("eska")
-	var dealer: TUnit = ignis if (ignis != null and ignis.alive) else eska
-	match u.id:
-		"ember":
-			var low: TUnit = null
-			for w in battle.alive_of(battle.witches):
-				if w.hp_ratio() < 0.5:
-					low = w
-			if low != null and _can(u, "warmth"):
-				return _act("warmth", null)
-			if dealer != null and dealer.alive:
-				if dealer.id == "eska" and not dealer.has_buff("element") and _can(u, "kindling"):
-					return _act("kindling", dealer)
-				if not dealer.has_buff("special") and _can(u, "bellows"):
-					return _act("bellows", dealer)
-				if not u.has_buff("atk") and _can(u, "blessing"):
-					return _act("blessing", null)
-				if dealer.credits <= 3 and _can(u, "share_ember"):
-					return _act("share_ember", dealer)
-				if dealer.credits >= 5 and not dealer.has_buff("atk") and _can(u, "god_descent"):
-					return _act("god_descent", dealer)
-			if u.credits >= 3 and _can(u, "flame_breath"):
-				return _act("flame_breath", en)
-		"ignis":
-			if u.credits >= 7 and not u.has_buff("atk") and _can(u, "focus"):
-				return _act("focus", u)
-			if u.credits >= 5:
-				for sid in ["sun_spear", "conflagration", "ash_storm", "blaze"]:
-					if _can(u, sid):
-						return _act(sid, en)
-			if not en.marks.has("burn") and _can(u, "spark"):
-				return _act("spark", en)
-			if u.credits >= 3 and en.marks.has("burn") and _can(u, "pillar"):
-				return _act("pillar", en)
-		"eska":
-			if dealer != null and dealer != u and dealer.alive and not dealer.has_buff("final") and _can(u, "void_gate"):
-				return _act("void_gate", dealer)
-			if u.credits >= 3 and _heavy_coming() and _can(u, "seal"):
-				return _act("seal", null)
-			if u.credits >= 5 and _can(u, "blackstar"):
-				return _act("blackstar", en)
-			if u.credits >= 4 and _can(u, "doom"):
-				return _act("doom", en)
-			if u.credits >= 2 and _can(u, "crack"):
-				return _act("crack", en)
-	return {"kind": "basic", "skill": "basic", "target": en}
-
-
-func _act(sid: String, tgt: TUnit) -> Dictionary:
-	return {"kind": "skill", "skill": sid, "target": tgt}
-
-
-func _can(u: TUnit, sid: String) -> bool:
-	return u.equipped.has(sid) and battle.can_use(u, sid)
-
-
-func _by_id(wid: String) -> TUnit:
-	for w in battle.witches:
-		if w.id == wid:
-			return w
-	return null
-
-
-func _auto_enemy() -> TUnit:
-	var a := battle.alive_of(battle.enemies)
-	for e in a:
-		if e.element == "straw":
-			return e
-	var best: TUnit = a[0]
-	for e in a:
-		if e.hp < best.hp:
-			best = e
-	return best
-
-
-func _heavy_coming() -> bool:
-	for e in battle.alive_of(battle.enemies):
-		var k := String(e.intent().get("k", ""))
-		if k == "heavy" or k == "aoe":
-			return true
-	return false
+	return TAuto.pick(battle, a.unit)
 
 
 ## 시험용: 마법 연출 하나를 그냥 띄운다 (규칙은 건드리지 않음). 시전자는 마법 주인 마녀, 대상은 종류에 맞춰 고른다

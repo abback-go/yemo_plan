@@ -16,6 +16,7 @@ var log: Array[String] = []
 var last_action := "" ## 마지막 행동 이름 (화면 표시)
 
 
+## party: 마녀 id 3개 (앞·중·뒤). state: 마녀 id → {"equipped": [...], "equip": ""}
 func setup(party: Array, enemy_ids: Array, state: Dictionary, seed_v := 0) -> void:
 	rng.seed = seed_v if seed_v != 0 else randi()
 	witches.clear()
@@ -191,21 +192,32 @@ func use_skill(u: TUnit, skill_id: String, tgt: TUnit) -> Array:
 		if e.t == "buff" and bool(e.get("pre", false)):
 			ev.append(_apply_buff(u, u, e))
 	var opts := {"skill": true}
+	var multi := 1
 	for e in effects:
 		if e.t == "this_special":
 			opts["this_special"] = e
 		elif e.t == "ignore_def":
 			opts["ignore_def"] = true
+		elif e.t == "sure_crit":
+			opts["sure_crit"] = true
+		elif e.t == "multi":
+			multi = maxi(int(e.n), 1)
 	if s.kind == "attack":
 		for t in targets:
-			var h := _hit(u, t, float(s.mult), opts, true)
-			ev.append(h)
+			var any_crit := false
+			for k in multi:
+				if not t.alive:
+					break
+				var h := _hit(u, t, float(s.mult) / float(multi), opts, true)
+				h["sub"] = k
+				ev.append(h)
+				any_crit = any_crit or bool(h.crit)
 			for e in effects:
-				if e.t == "on_crit" and bool(h.crit):
+				if e.t == "on_crit" and any_crit:
 					for e2 in e.effects:
 						ev.append_array(_apply_effect(u, t, e2, targets))
 	for e in effects:
-		if e.t in ["this_special", "ignore_def", "on_crit"] or (e.t == "buff" and bool(e.get("pre", false))):
+		if e.t in ["this_special", "ignore_def", "on_crit", "sure_crit", "multi"] or (e.t == "buff" and bool(e.get("pre", false))):
 			continue
 		for t in targets:
 			ev.append_array(_apply_effect(u, t, e, targets))
@@ -238,6 +250,10 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, targets: Array[TUnit]) -> 
 		"self": recv.append(u)
 		"allies": recv = alive_of(witches)
 		"enemies": recv = alive_of(enemies)
+		"others":
+			for e2 in alive_of(enemies):
+				if e2 != t:
+					recv.append(e2)
 	match String(e.t):
 		"buff":
 			for r in recv:
@@ -265,7 +281,37 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, targets: Array[TUnit]) -> 
 					r.gauge += TData.GAUGE_MAX * float(e.v)
 					ev.append({"t": "gauge", "tgt": r, "v": float(e.v)})
 				elif r == actor:
-					ev.append({"t": "gauge", "tgt": r, "v": 0.0}) # 자기 차례에 자기 게이지는 올려도 행동 뒤 0이 됨
+					r.pending_gauge += TData.GAUGE_MAX * float(e.v) # 행동이 끝나 0이 된 뒤 더한다
+					ev.append({"t": "gauge", "tgt": r, "v": float(e.v)})
+		"enemy_gauge":
+			for r in recv:
+				if not r.alive:
+					continue
+				if e.has("if_mark") and not r.marks.has(e.if_mark):
+					continue
+				var v := float(e.v)
+				if bool(e.get("frost_x2", false)) and r.marks.has("frost"):
+					v *= 2.0
+				r.gauge = maxf(r.gauge - TData.GAUGE_MAX * v, 0.0)
+				ev.append({"t": "enemy_gauge", "tgt": r, "v": v})
+		"gauge_zero":
+			for r in recv:
+				if not r.alive:
+					continue
+				if e.has("if_mark") and not r.marks.has(e.if_mark):
+					continue
+				r.gauge = 0.0
+				ev.append({"t": "gauge_zero", "tgt": r})
+		"extend_buffs":
+			for r in recv:
+				if r.alive:
+					r.extend_buffs(int(e.v))
+					ev.append({"t": "extend_buffs", "tgt": r, "v": int(e.v)})
+		"extend_mark":
+			for r in recv:
+				if r.alive and r.marks.has(e.kind):
+					r.marks[e.kind] = int(r.marks[e.kind]) + int(e.v)
+					ev.append({"t": "extend_mark", "tgt": r, "kind": e.kind, "v": int(e.v)})
 		"heal":
 			for r in recv:
 				if r.alive:
@@ -325,7 +371,8 @@ func enemy_action(u: TUnit) -> Array:
 ## 행동이 끝남: 시계 감기 · 대가 · 게이지 0
 func end_action(u: TUnit) -> Array:
 	var ev: Array = []
-	u.gauge = 0.0
+	u.gauge = u.pending_gauge
+	u.pending_gauge = 0.0
 	u.on_own_acted()
 	if u.is_witch():
 		if u.zero_after_turn >= 0 and turn_no > u.zero_after_turn:
@@ -355,8 +402,8 @@ func _hit(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: bool)
 	elif src.special and not src.has_element_buff():
 		elem = TData.SPECIAL
 	var atk_sum := src.cat_sum("atk")
-	var crit_rate := minf(TData.CRIT_BASE + src.cat_sum("crit_rate"), 1.0)
-	var crit := rng.randf() < crit_rate
+	var crit_rate := minf(TData.CRIT_BASE + src.cat_sum("crit_rate", tgt) + tgt.cat_sum("crit_taken"), 1.0)
+	var crit := bool(opts.get("sure_crit", false)) or rng.randf() < crit_rate
 	var crit_mult := 1.0
 	if crit:
 		crit_mult = TData.CRIT_MULT + src.cat_sum("crit_dmg", tgt, el)
@@ -386,11 +433,12 @@ func _enemy_hit(src: TUnit, tgt: TUnit, mult: float) -> Dictionary:
 		return {"t": "hit", "src": src, "tgt": tgt, "dmg": 0, "crit": false, "weak": false, "special": false, "killed": false, "invincible": true, "el": ""}
 	var atk_f := clampf(1.0 + src.cat_sum("atk") - src.cat_sum("atk_down"), 0.3, 4.0)
 	var taken := 1.0 + tgt.cat_sum("dmg_taken") + float(tgt.equip_data().get("dmg_taken", 0.0))
+	var crit := rng.randf() < maxf(TData.ENEMY_CRIT_BASE - src.cat_sum("crit_down"), 0.0)
 	var r := rng.randf_range(TData.RAND_LO, TData.RAND_HI)
-	var dmg := int(round(float(src.atk) * mult * atk_f * (1.0 - tgt.def_rate) * maxf(taken, 0.2) * r))
+	var dmg := int(round(float(src.atk) * mult * atk_f * (1.0 - tgt.def_rate) * maxf(taken, 0.2) * (TData.CRIT_MULT if crit else 1.0) * r))
 	var killed := tgt.take_damage(dmg)
-	log.append("%s → %s %s%s" % [src.name, tgt.name, TData.fmt(dmg), " 쓰러짐" if killed else ""])
-	return {"t": "hit", "src": src, "tgt": tgt, "dmg": dmg, "crit": false, "weak": false, "special": false, "killed": killed, "invincible": false, "el": ""}
+	log.append("%s → %s %s%s%s" % [src.name, tgt.name, TData.fmt(dmg), " 크리" if crit else "", " 쓰러짐" if killed else ""])
+	return {"t": "hit", "src": src, "tgt": tgt, "dmg": dmg, "crit": crit, "weak": false, "special": false, "killed": killed, "invincible": false, "el": ""}
 
 
 ## 예상 피해 (화면 안내용: 난수·크리 없이, 징표 특공은 지금 대상 기준)
@@ -408,6 +456,8 @@ func estimate(src: TUnit, tgt: TUnit, skill_id: String) -> int:
 				opts["this_special"] = e
 			elif e.t == "ignore_def":
 				opts["ignore_def"] = true
+			elif e.t == "sure_crit":
+				opts["sure_crit"] = true
 	else:
 		mult = float(src.data.basic.mult)
 	var el := src.attack_element()
@@ -422,4 +472,5 @@ func estimate(src: TUnit, tgt: TUnit, skill_id: String) -> int:
 	var final_sum := src.cat_sum("final") + (float(src.equip_data().get("skill_final", 0.0)) if is_skill else 0.0)
 	var def_v := 0.0 if opts.get("ignore_def", false) else tgt.def_rate
 	var def_f := clampf(1.0 - def_v + tgt.cat_sum("def_down"), TData.DEF_MIN, TData.DEF_MAX)
-	return int(round(float(src.atk) * mult * elem * (1.0 + src.cat_sum("atk")) * (1.0 + minf(special, float(TData.CAP.special))) * (1.0 + minf(final_sum, float(TData.CAP.final))) * def_f))
+	var crit_m := (TData.CRIT_MULT + src.cat_sum("crit_dmg", tgt, el)) if bool(opts.get("sure_crit", false)) else 1.0
+	return int(round(float(src.atk) * mult * elem * (1.0 + src.cat_sum("atk")) * crit_m * (1.0 + minf(special, float(TData.CAP.special))) * (1.0 + minf(final_sum, float(TData.CAP.final))) * def_f))

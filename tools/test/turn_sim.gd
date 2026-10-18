@@ -25,6 +25,8 @@ func _process(_d: float) -> bool:
 	print("")
 	for strat in ["basic", "default", "eska_fire", "ignis_burst"]:
 		_run_many(strat, runs)
+	print("")
+	_run_roster(runs)
 	return true
 
 
@@ -251,3 +253,50 @@ func _heavy_coming(b: TBattle) -> bool:
 		if k == "heavy" or k == "aoe":
 			return true
 	return false
+
+
+## 12명: 명단에서 무작위 3명(기본 장착)으로 TAuto 규칙 플레이 — 마녀마다 승률·준 피해를 모은다
+func _run_roster(runs: int) -> void:
+	print("=== 12명 무작위 파티 (%d판, TAuto 규칙) ===" % runs)
+	var wins := 0
+	var turns := 0
+	var per := {}
+	for wid in TData.ROSTER:
+		per[wid] = {"n": 0, "win": 0, "dealt": 0}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	for i in runs:
+		var pool: Array = TData.ROSTER.duplicate()
+		var party: Array = []
+		for j in 3:
+			party.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+		var b := TBattle.new()
+		b.setup(party, TData.BATTLE.enemies, {}, 5000 + i)
+		var guard := 0
+		var t := 0
+		while b.outcome() == "" and guard < 400:
+			guard += 1
+			var u := b.next_actor()
+			if u.is_witch():
+				t += 1
+				var a := TAuto.pick(b, u)
+				if a.kind == "basic":
+					b.basic_attack(u, a.target)
+				else:
+					b.use_skill(u, String(a.skill), a.target)
+			else:
+				b.enemy_action(u)
+			b.end_action(u)
+		var win := b.outcome() == "win"
+		if win:
+			wins += 1
+			turns += t
+		for w in b.witches:
+			per[w.id].n += 1
+			per[w.id].win += 1 if win else 0
+			per[w.id].dealt += w.dealt
+	print("승 %d/%d, 승리 평균 마녀 행동 %.1f" % [wins, runs, float(turns) / maxf(float(wins), 1.0)])
+	for wid in TData.ROSTER:
+		var d: Dictionary = per[wid]
+		if int(d.n) > 0:
+			print("  %s: 출전 %d 승 %d 평균 피해 %s" % [TData.WITCHES[wid].name, int(d.n), int(d.win), TData.fmt(int(d.dealt) / int(d.n))])

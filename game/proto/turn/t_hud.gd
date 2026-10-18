@@ -392,7 +392,13 @@ func _emit(s: Dictionary, tgt: TUnit) -> void:
 # 그림
 # ═══════════════════════════════════════════════════════════
 
+## 글자 + 먹 테두리. 오른쪽·가운데 맞춤은 폭이 없으면 글자 폭으로 자리를 옮겨 맞춘다 (Godot은 폭 0이면 맞춤을 무시한다)
 func _text(p: Vector2, s: String, fs: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT, w := -1) -> void:
+	if w <= 0 and align != HORIZONTAL_ALIGNMENT_LEFT:
+		var tw := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		p.x -= tw if align == HORIZONTAL_ALIGNMENT_RIGHT else tw * 0.5
+		align = HORIZONTAL_ALIGNMENT_LEFT
+		w = -1
 	draw_string_outline(_font, p, s, align, w, fs, 3, Color(INK, 0.9 * col.a))
 	draw_string(_font, p, s, align, w, fs, col)
 
@@ -636,6 +642,10 @@ func _draw_wheel() -> void:
 			draw_circle(Vector2(cx + float(j) * 7.0, box.position.y + 12), 2.0, GOLD if bool(s.can) else DIM)
 		if cost == 0:
 			_text(Vector2(cx, box.position.y + 16), "크레딧 +1", 10, Color(GOLD, 0.9))
+		else:
+			var kname: String = {"attack": "공격", "support": "보조", "debuff": "디버프"}.get(String(s.kind), "")
+			var tname: String = {"enemy": "적 1", "enemies": "적 전체", "ally": "아군 1", "ally_any": "아군 1", "allies": "아군 전체", "self": "자신"}.get(String(s.target), "")
+			_text(Vector2(cx + float(cost) * 7.0 + 4.0, box.position.y + 16), "%s · %s" % [kname, tname], 9, Color(DIM, 0.95))
 		# 예상 피해 (대상이 있으면 그 대상, 아니면 첫 적)
 		var est_tgt: TUnit = null
 		if state == "target" and not targets.is_empty():

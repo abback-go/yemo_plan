@@ -28,6 +28,7 @@ var pattern: Array = [] ## 적 행동 패턴
 var intent_i := 0
 var boss := false
 var zero_after_turn := -1 ## 불의 신 강림의 대가: 이 차례 번호보다 뒤의 행동이 끝나면 크레딧 0
+var pending_gauge := 0.0 ## 자기 게이지 +N% — 행동이 끝나 0이 된 뒤 더한다
 var data := {} ## 원본 데이터 (그림 색 등)
 var acted := 0 ## 행동 횟수 (통계)
 var dealt := 0 ## 준 피해 합 (통계)
@@ -117,7 +118,7 @@ func cat_sum(cat: String, target: TUnit = null, attack_el := "") -> float:
 	for b in buffs:
 		if b.cat != cat:
 			continue
-		if b.has("mark") and cat == "special":
+		if b.has("mark"):
 			if target == null or not target.marks.has(b.mark):
 				continue
 		if b.has("el") and cat != "element" and attack_el != String(b.el):
@@ -173,6 +174,16 @@ func _tick(clock: String) -> void:
 	buffs = keep
 
 
+## own 시계 버프 전부 지속 +v (시간의 마녀)
+func extend_buffs(v: int) -> int:
+	var n := 0
+	for b in buffs:
+		if b.get("clock", "own") == "own":
+			b.dur = int(b.dur) + v
+			n += 1
+	return n
+
+
 func take_damage(v: int) -> bool:
 	hp = maxi(hp - v, 0)
 	if hp <= 0 and alive:
@@ -196,6 +207,7 @@ func revive(pct: float) -> void:
 	alive = true
 	hp = maxi(int(round(float(max_hp) * pct)), 1)
 	gauge = 0.0
+	pending_gauge = 0.0
 
 
 ## 머리 위·바퀴에 보여 줄 버프 아이콘 목록 [{cat, v, dur, el?, mark?}] (같은 종류는 하나로 합침)
