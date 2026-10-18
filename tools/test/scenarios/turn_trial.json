@@ -3,6 +3,7 @@
  [12, "eval", "set_party([\"nerei\", \"eska\", \"harpe\"])"],
  [20, "eval", "set_auto(true)"],
  [24, "touch", 0, 516, 316], [25, "untouch", 0, 516, 316],
+ [30, "touch", 0, 516, 316], [31, "untouch", 0, 516, 316],
  [120, "shot", "t00_wave1"],
  [1800, "shot", "t01"], [1800, "eval", "status()"],
  [3600, "shot", "t02"], [3600, "eval", "status()"],

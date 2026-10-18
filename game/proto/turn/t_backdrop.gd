@@ -58,19 +58,19 @@ func _paint() -> void:
 		var p := Vector2(r.randf_range(0, 640), r.randf_range(0, 170))
 		var tw := 0.5 + 0.5 * sin(_t * r.randf_range(1.0, 3.0) + r.randf() * TAU)
 		pd.draw_rect(Rect2(p, Vector2(1, 1)), Color(1, 1, 1, 0.25 + 0.5 * tw * (1.0 - p.y / 200.0)))
-	# 달 (오른쪽 위) + 번짐
-	var mc := Vector2(500, 62)
-	pd.glow(mc, 70.0, Color(MOON, 0.16), 0.0)
-	pd.draw_circle(mc, 26.0, MOON)
-	pd.draw_circle(mc + Vector2(-6, -4), 4.0, Color("#e2d3b4"))
-	pd.draw_circle(mc + Vector2(8, 7), 3.0, Color("#e2d3b4"))
-	pd.draw_circle(mc + Vector2(-9, 10), 2.0, Color("#e2d3b4"))
+	# 달 (가운데 빈 하늘 — 오른쪽 위는 적 카드 자리) + 번짐
+	var mc := Vector2(300, 108)
+	pd.glow(mc, 56.0, Color(MOON, 0.16), 0.0)
+	pd.draw_circle(mc, 22.0, MOON)
+	pd.draw_circle(mc + Vector2(-5, -3), 3.5, Color("#e2d3b4"))
+	pd.draw_circle(mc + Vector2(7, 6), 2.5, Color("#e2d3b4"))
+	pd.draw_circle(mc + Vector2(-8, 8), 2.0, Color("#e2d3b4"))
 	# 지평선 안개
 	pd.rect_grad(Rect2(0, 170, 640, 40), Color(FOG, 0.0), Color(FOG, 0.35))
 	# 먼 실루엣: 무너진 탑 + 불탄 나무
-	pd.draw_colored_polygon(PackedVector2Array([Vector2(548, 206), Vector2(552, 120), Vector2(566, 112), Vector2(572, 130), Vector2(578, 124), Vector2(584, 206)]), FAR)
-	pd.draw_colored_polygon(PackedVector2Array([Vector2(584, 206), Vector2(586, 160), Vector2(596, 164), Vector2(600, 206)]), FAR)
-	pd.draw_rect(Rect2(560, 150, 4, 6), Color(SKY_LOW, 0.8)) # 창
+	# 무너진 탑은 화면 오른쪽 끝으로 (보스 실루엣과 겹치지 않게)
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(606, 206), Vector2(609, 142), Vector2(620, 136), Vector2(625, 150), Vector2(630, 146), Vector2(636, 206)]), FAR)
+	pd.draw_rect(Rect2(616, 166, 3, 5), Color(SKY_LOW, 0.8)) # 창
 	for tx: Array in [[60, 32], [96, 22], [150, 28], [230, 18], [410, 26], [470, 16], [620, 30]]:
 		var x := float(tx[0])
 		var h := float(tx[1])
@@ -107,16 +107,20 @@ func _paint() -> void:
 			for j in 4:
 				var b := p + Vector2((float(j) - 1.5) * 1.6 * s, 0)
 				pd.draw_line(b, b + Vector2(r.randf_range(-1.5, 1.5) * s + sin(_t * 1.5 + p.x) * 0.6, -r.randf_range(3.0, 6.0) * s), GRASS, 0.9)
-	# 양 진영 아래 빛 웅덩이 (마녀 쪽 따뜻하게, 적 쪽 차갑게)
-	pd.draw_set_transform(Vector2(150, 300), 0.0, Vector2(1.0, 0.35))
-	pd.glow(Vector2.ZERO, 110.0, Color("#6a4a5a", 0.35), 0.0)
-	pd.draw_set_transform(Vector2(500, 300), 0.0, Vector2(1.0, 0.35))
-	pd.glow(Vector2.ZERO, 120.0, Color("#3a4a4a", 0.35), 0.0)
+	# 양 진영 아래 빛 웅덩이 — 그림이 바닥에서 떠오르게 (마녀 쪽 라벤더, 적 쪽 붉은 빛, review_C §8.3)
+	pd.draw_set_transform(Vector2(160, 262), 0.0, Vector2(1.0, 0.35))
+	pd.glow(Vector2.ZERO, 130.0, Color("#6a4a5a", 0.35), 0.0)
+	pd.glow(Vector2.ZERO, 120.0, Color("#b9a2ff", 0.10), 0.0)
+	pd.draw_set_transform(Vector2(506, 262), 0.0, Vector2(1.0, 0.35))
+	pd.glow(Vector2.ZERO, 130.0, Color("#3a4a4a", 0.30), 0.0)
+	pd.glow(Vector2.ZERO, 120.0, Color("#ff6a4a", 0.08), 0.0)
 	pd.draw_set_transform(Vector2.ZERO)
 	# 떠다니는 재
 	for a: Array in _ash:
 		var p: Vector2 = a[0]
 		var al := 0.25 + 0.35 * (0.5 + 0.5 * sin(_t * 2.0 + float(a[3])))
 		pd.draw_rect(Rect2(p, Vector2(float(a[2]), float(a[2]))), Color("#9a8aa6", al))
-	# 가장자리 어둡게
+	# 가장자리 어둡게 + 아래 띠(아군 패널) 뒤를 더 어둡게 — 패널이 바탕과 섞이지 않게
 	pd.ring_grad(Vector2(320, 180), Vector2(300, 170), Vector2(520, 330), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.6), 40)
+	pd.rect_grad(Rect2(0, 290, 640, 12), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.35))
+	pd.draw_rect(Rect2(0, 302, 640, 58), Color(0, 0, 0, 0.35))

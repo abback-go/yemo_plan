@@ -3,11 +3,11 @@ extends Node2D
 ## 턴제 전투 프로토타입 장면 (웹 주소 끝 ?turn). docs/eska-turn/combat_proto.md.
 ## 편성(TSetup) → 전투(TBattle 규칙 + TActor 그림 + THud 표시 + TFx 연출) → 승리(편성으로) / 패배(바로 다시).
 ## 전투는 코루틴 _run()이 돈다: 다음 차례 → 마녀면 바퀴에서 고르기를 기다림 / 적이면 의도대로 → 연출의 맞는 시각에 피해·숫자 → 다음.
-## 배경·마녀·적은 모두 코드 그림. Esc 또는 오른쪽 위 X로 나간다.
+## 배경·마녀·적은 모두 코드 그림. Esc 또는 오른쪽 위 X → 철수 확인 → 편성. 전투는 편성의 "전투 고르기"(S-03)에서 고른다.
 
 const ArenaScript := preload("res://proto/p_arena.gd")
-const WITCH_AT: Array[Vector2] = [Vector2(206, 300), Vector2(152, 270), Vector2(100, 240)] ## 앞 · 중 · 뒤 (대각선)
-const ENEMY_AT: Array[Vector2] = [Vector2(436, 300), Vector2(500, 270), Vector2(566, 240)]
+const WITCH_AT: Array[Vector2] = [Vector2(214, 288), Vector2(160, 258), Vector2(106, 228)] ## 앞 · 중 · 뒤 (대각선, 아래 띠 y 302 위)
+const ENEMY_AT: Array[Vector2] = [Vector2(440, 288), Vector2(506, 258), Vector2(572, 228)] ## 적 1명 = 가운데 · 2명 = 앞·뒤 (THud.pos_index)
 
 var battle: TBattle
 var actors := {} ## TUnit → TActor
@@ -57,15 +57,10 @@ func _ready() -> void:
 	add_child(_setup_layer)
 	setup = TSetup.new()
 	_setup_layer.add_child(setup)
-	setup.start_pressed.connect(start_battle)
+	setup.start_pressed.connect(_on_setup_start)
 	setup.exit_pressed.connect(_exit)
 	hud.visible = false
 	Music.play("boss")
-
-
-func _process(_delta: float) -> void:
-	if Input.is_action_just_pressed("es_exit") and _in_battle:
-		_to_setup()
 
 
 func _exit() -> void:
@@ -90,7 +85,14 @@ func _to_setup() -> void:
 	actors.clear()
 	for c in get_node("Effects").get_children():
 		c.queue_free()
+	setup.back_to_roster()
 	setup.visible = true
+
+
+## 편성의 전투 고르기(S-03)에서 "출격"
+func _on_setup_start() -> void:
+	battle_id = TSetup.battle_pick
+	start_battle()
 
 
 func start_battle() -> void:
@@ -104,8 +106,7 @@ func start_battle() -> void:
 	battle.setup(TSetup.party(), battle_id, TSetup.state)
 	for i in battle.witches.size():
 		_add_actor(battle.witches[i], WITCH_AT[i])
-	for i in battle.enemies.size():
-		_add_actor(battle.enemies[i], ENEMY_AT[i])
+	_add_enemies()
 	hud.bind(battle, actors)
 	stats = {"turns": 0, "biggest": 0}
 	_in_battle = true
@@ -117,8 +118,14 @@ func _add_actor(u: TUnit, at: Vector2) -> void:
 	var a := TActor.new()
 	units_node.add_child(a)
 	a.setup(u, at)
-	a.z_index = 1 + int((at.y - 230.0) / 25.0) # 앞(아래)이 위에 그려짐 (1~4)
+	a.z_index = 1 + int((at.y - 218.0) / 25.0) # 앞(아래)이 위에 그려짐 (1~3)
 	actors[u] = a
+
+
+## 지금 웨이브의 적을 세운다: 1명 = 가운데 · 2명 = 앞·뒤 · 3명 = 앞·중·뒤
+func _add_enemies() -> void:
+	for i in battle.enemies.size():
+		_add_actor(battle.enemies[i], ENEMY_AT[THud.pos_index(battle.enemies.size(), i)])
 
 
 func _wait(sec: float) -> void:
@@ -137,6 +144,10 @@ func _run(token: int) -> void:
 	hud.show_msg("전투 시작")
 	await _wait(0.6)
 	while token == _run_id and is_inside_tree():
+		while hud.confirm_open and token == _run_id: # 철수 확인 판이 열려 있는 동안 멈춤
+			await _wait(0.1)
+		if token != _run_id:
+			return
 		var u := battle.next_actor()
 		if u == null:
 			return
@@ -145,8 +156,8 @@ func _run(token: int) -> void:
 		if u.stunned:
 			# 기절로 쉬는 차례 (§17.2): 행동 없음, 0.6초
 			battle.rest(u)
-			hud.show_msg("%s — 기절 — 쉼" % u.name)
-			hud.number(a.head() + Vector2(0, -4), "기절 — 쉼", "miss")
+			hud.show_msg("%s — 기절 — 쉼" % u.name, TTheme.STUN)
+			hud.pop(u, "기절 — 쉼", "status")
 			await _wait(0.6)
 		elif u.is_witch():
 			hud.open_wheel(a)
@@ -173,7 +184,7 @@ func _run(token: int) -> void:
 		var ev := battle.end_action(u)
 		for e in ev:
 			if e.t == "zeroed":
-				hud.number((actors[e.tgt] as TActor).head(), "크레딧 0", "zero")
+				hud.pop(e.tgt, "크레딧 0", "zero")
 		hud.refresh()
 		var oc := battle.outcome()
 		if oc == "wave":
@@ -183,12 +194,12 @@ func _run(token: int) -> void:
 			return
 
 
-## 웨이브 전환 (§6.3): "웨이브 N/M" 1.0초 → 다음 웨이브의 적을 세운다 (마녀 쪽은 그대로). 꾸밈은 단계 C·D
+## 웨이브 전환 (§6.3): 배너 "웨이브 N/M" 1.0초 → 다음 웨이브의 적을 세운다 (마녀 쪽은 그대로). 걸어 들어오는 연출은 단계 D
 func _wave_change(token: int) -> void:
 	await _wait(0.3)
 	if token != _run_id:
 		return
-	hud.show_msg("웨이브 %d/%d" % [battle.wave_i + 2, battle.wave_count()])
+	hud.wave_banner(battle.wave_i + 2, battle.wave_count())
 	Sfx.play(&"tn_bless", -10.0)
 	await _wait(1.0)
 	if token != _run_id:
@@ -198,8 +209,7 @@ func _wave_change(token: int) -> void:
 			(actors[e] as TActor).queue_free()
 			actors.erase(e)
 	battle.next_wave()
-	for i in battle.enemies.size():
-		_add_actor(battle.enemies[i], ENEMY_AT[i])
+	_add_enemies()
 	hud.refresh()
 	await _wait(0.4)
 
@@ -252,10 +262,11 @@ func _perform_witch(a: TActor, action: Dictionary) -> void:
 		if String(s.kind) == "attack":
 			a.lunge()
 		a.pose("cast_big" if big else "cast")
-	hud.show_msg("%s — %s" % [u.name, battle.last_action])
+	hud.show_msg("%s — %s" % [u.name, battle.last_action], TData.ELEMENT_COLOR.get(el, TTheme.LINE))
 	hud.refresh()
 	var timing := TFx.play(fx_id, a, targets)
 	await _show_events(ev, targets, timing, "space" if el in ["space", "time", "sword"] else "fire")
+	_show_total(ev)
 	a.pose("idle")
 	hud.refresh()
 
@@ -265,7 +276,7 @@ func _perform_enemy(a: TActor) -> void:
 	var it := u.intent()
 	var kind := String(it.get("k", "attack"))
 	var ev := battle.enemy_action(u)
-	hud.show_msg("%s — %s" % [u.name, battle.last_action])
+	hud.show_msg("%s — %s" % [u.name, battle.last_action], TTheme.DANGER)
 	a.pose("buff" if kind == "buff" else "attack")
 	if kind != "buff":
 		a.lunge()
@@ -331,7 +342,7 @@ func _show_event(e: Dictionary, kind: String) -> void:
 	match String(e.t):
 		"hit":
 			if bool(e.invincible):
-				hud.number(ta.center(), "무적", "miss")
+				hud.pop(tgt, "무적", "status")
 				var b := TFx.Barrier.new()
 				TFx.add(b, ta.center(), false)
 				Sfx.play(&"bl_unfold", -10.0)
@@ -342,6 +353,7 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			ta.hurt(heavy)
 			var dir := -1.0 if tgt.is_witch() else 1.0
 			TFx.impact(ta.center() + Vector2(randf_range(-4, 4), randf_range(-6, 2)), kind, heavy, dir)
+			# 숫자 (§21.12): 일반 12 · 크리 24 금빛 "!" · 약점 15 + "약점" 꼬리표 · 한 히트 30만 이상 24 · 받은 피해 15
 			var nk := "dmg"
 			var txt := TData.fmt_short(dmg)
 			if tgt.is_witch():
@@ -352,13 +364,11 @@ func _show_event(e: Dictionary, kind: String) -> void:
 				nk = "crit"
 				txt += "!"
 				Sfx.play(&"tn_crit", -4.0)
+			elif dmg >= 300000:
+				nk = "big"
 			elif bool(e.weak):
 				nk = "weak"
-			if bool(e.weak) and not bool(e.crit):
-				txt = "약점 " + txt
-			elif bool(e.weak):
-				txt = "약점 " + txt
-			hud.number(ta.center() + Vector2(0, -10), txt, nk)
+			hud.pop(tgt, txt, nk, bool(e.weak) and not tgt.is_witch())
 			if dmg >= 300000:
 				Fx.hitstop(0.1)
 				Fx.shake(0.7, 0.3)
@@ -366,16 +376,16 @@ func _show_event(e: Dictionary, kind: String) -> void:
 				Fx.hitstop(0.05)
 				Fx.shake(0.4, 0.2)
 			if bool(e.broke):
-				hud.number(ta.head() + Vector2(0, -12), "브레이크", "crit")
+				hud.pop(tgt, "브레이크", "break")
 				Fx.hitstop(0.15)
 			if bool(e.guts):
-				hud.number(ta.head() + Vector2(0, -4), "근성", "miss")
+				hud.pop(tgt, "근성", "status")
 			if bool(e.killed):
 				var tw := create_tween()
 				tw.tween_interval(0.25)
 				tw.tween_callback(func() -> void:
 					ta.set_down(true)
-					hud.number(ta.center(), "쓰러짐", "miss")
+					hud.pop(tgt, "쓰러짐", "status")
 					Sfx.play(&"bl_fold", -6.0))
 		"buff":
 			var cat := String(e.cat)
@@ -383,73 +393,88 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			if cat == "element":
 				txt = "%s 속성 부여" % TData.ELEMENT_NAME.get(e.get("el", ""), "")
 			elif cat == "dmg_taken":
-				txt = "받는 피해 %d%%" % int(round(float(e.v) * 100.0))
+				txt = "받는 피해 %+d%%" % int(round(float(e.v) * 100.0))
 			else:
 				var nm: String = TData.CAT_NAME.get(cat, cat)
 				if cat == "special":
 					nm = "%s 특공" % TData.MARK_NAME.get(e.get("mark", ""), "")
 				txt = "%s +%d%%" % [nm, int(round(float(e.v) * 100.0))]
-			hud.number(ta.head() + Vector2(0, -4), txt, "buff")
+			hud.pop(tgt, txt, "buff")
 		"debuff":
-			hud.number(ta.head() + Vector2(0, -4), "%s %d%%" % [TData.CAT_NAME.get(e.cat, e.cat), int(round(float(e.v) * 100.0))], "debuff")
+			hud.pop(tgt, "%s %d%%" % [TData.CAT_NAME.get(e.cat, e.cat), int(round(float(e.v) * 100.0))], "debuff")
 		"mark":
 			var mn := int(e.get("n", 1))
-			hud.number(ta.center() + Vector2(0, 6), TData.MARK_NAME.get(e.kind, e.kind) + (" %d겹" % mn if mn > 1 else ""), "mark")
+			hud.pop(tgt, TData.MARK_NAME.get(e.kind, e.kind) + (" %d겹" % mn if mn > 1 else ""), "mark")
 		"burst":
-			hud.number(ta.center() + Vector2(0, 6), "%s %d겹 터뜨림" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.n)], "mark")
+			hud.pop(tgt, "%s %d겹 터뜨림" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.n)], "mark")
 		"resist":
-			hud.number(ta.head() + Vector2(0, -4), "저항", "debuff")
+			hud.pop(tgt, "저항", "status")
 		"stun":
-			hud.number(ta.head() + Vector2(0, -4), "기절", "miss")
+			hud.pop(tgt, "기절", "status")
 		"immune":
-			hud.number(ta.head() + Vector2(0, -4), "면역", "miss")
+			hud.pop(tgt, "면역", "status")
 		"stun_resist":
-			hud.number(ta.head() + Vector2(0, -4), "기절 내성", "miss")
+			hud.pop(tgt, "기절 내성", "status")
 		"taunt":
-			hud.number(ta.head() + Vector2(0, -4), "도발", "buff")
+			hud.pop(tgt, "도발", "buff")
 		"guts_on":
-			hud.number(ta.head() + Vector2(0, -4), "근성", "buff")
+			hud.pop(tgt, "근성", "buff")
 		"dispel":
-			hud.number(ta.head() + Vector2(0, -4), "해제", "debuff")
+			hud.pop(tgt, "버프 해제", "debuff")
 		"credits":
 			if int(e.v) > 0:
-				hud.number(ta.head() + Vector2(0, 6), "크레딧 +%d" % int(e.v), "credit")
+				hud.pop(tgt, "크레딧 +%d" % int(e.v), "credit")
 		"gauge":
 			if float(e.v) > 0.0:
-				hud.number(ta.head() + Vector2(0, 6), "게이지 +%d%%" % int(round(float(e.v) * 100.0)), "buff")
+				hud.pop(tgt, "게이지 +%d%%" % int(round(float(e.v) * 100.0)), "buff")
 		"heal":
 			if int(e.v) > 0:
-				hud.number(ta.center(), "+" + TData.fmt(int(e.v)), "heal")
+				hud.pop(tgt, "+" + TData.fmt_short(int(e.v)), "heal")
 		"revive":
 			ta.set_down(false)
-			hud.number(ta.center(), "되살아남", "revive")
+			hud.pop(tgt, "되살아남", "revive")
 		"invincible":
-			hud.number(ta.head() + Vector2(0, -4), "무적", "buff")
+			hud.pop(tgt, "무적", "buff")
 		"enemy_buff":
-			hud.number(ta.head() + Vector2(0, -4), "공격력 +%d%%" % int(round(float(e.v) * 100.0)), "buff")
+			hud.pop(tgt, "공격력 +%d%%" % int(round(float(e.v) * 100.0)), "debuff")
 		"demerit":
-			hud.number(ta.head() + Vector2(0, 8), "다음 행동 뒤 크레딧 0", "zero")
+			hud.pop(tgt, "다음 행동 뒤 크레딧 0", "zero")
 		"enemy_gauge":
-			hud.number(ta.head() + Vector2(0, -4), "게이지 −%d%%" % int(round(float(e.v) * 100.0)), "debuff")
+			hud.pop(tgt, "게이지 −%d%%" % int(round(float(e.v) * 100.0)), "debuff")
 		"gauge_zero":
-			hud.number(ta.head() + Vector2(0, -4), "게이지 0", "debuff")
+			hud.pop(tgt, "게이지 0", "debuff")
 		"extend_buffs":
-			hud.number(ta.head() + Vector2(0, -4), "버프 지속 +%d" % int(e.v), "buff")
+			hud.pop(tgt, "버프 지속 +%d" % int(e.v), "buff")
 		"extend_mark":
-			hud.number(ta.center() + Vector2(0, 6), "%s +%d" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.v)], "mark")
+			hud.pop(tgt, "%s +%d" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.v)], "mark")
 		# 단계 B
 		"chain":
-			hud.number(ta.head() + Vector2(0, -14), "연쇄 %d단계" % int(e.stage), "crit")
+			hud.pop(tgt, "연쇄 %d단계" % int(e.stage), "break")
 		"charge_down":
 			if int(e.v) > 0:
-				hud.number(ta.head() + Vector2(0, -4), "차지 −%d" % int(e.v), "debuff")
+				hud.pop(tgt, "차지 −%d" % int(e.v), "debuff")
 		"hp_cost":
 			if int(e.v) > 0:
-				hud.number(ta.center() + Vector2(0, -2), "−" + TData.fmt(int(e.v)), "hurt")
+				hud.pop(tgt, "−" + TData.fmt_short(int(e.v)), "hurt")
 		"stack":
-			hud.number(ta.head() + Vector2(0, 2), "공격력 +%d%% (%d겹)" % [int(round(float(e.v) * 100.0)), int(e.n)], "buff")
+			hud.pop(tgt, "공격력 +%d%% (%d겹)" % [int(round(float(e.v) * 100.0)), int(e.n)], "buff")
 		"hit_stack":
-			hud.number(ta.head() + Vector2(0, 2), "맞으며 쌓기", "buff")
+			hud.pop(tgt, "맞으며 쌓기", "buff")
+
+
+## 한 행동의 적 피해 합계 (히트가 2번 이상일 때, §21.12 [하면 좋음 G1])
+func _show_total(ev: Array) -> void:
+	var sum := 0
+	var n := 0
+	var first: TUnit = null
+	for e in ev:
+		if String(e.t) == "hit" and e.tgt is TUnit and not (e.tgt as TUnit).is_witch() and not bool(e.invincible):
+			sum += int(e.dmg)
+			n += 1
+			if first == null:
+				first = e.tgt
+	if n >= 2 and first != null:
+		hud.pop(first, "합계 " + TData.fmt_short(sum), "total")
 
 
 func _finish(oc: String, token: int) -> void:
@@ -465,24 +490,26 @@ func _finish(oc: String, token: int) -> void:
 		hud.banner("승리", "눌러서 편성으로")
 	else:
 		Sfx.play(&"tn_defeat", -2.0)
-		hud.banner("패배", "눌러서 다시 시작")
+		hud.banner("패배", "")
 
 
-func _on_banner() -> void:
-	if hud.banner_text == "승리":
-		_to_setup()
-	else:
+## 배너 누름: 승리 → 편성 · 패배 → "다시 도전"(같은 전투) 또는 "편성으로"
+func _on_banner(choice: String) -> void:
+	if hud.banner_text == "패배" and choice == "retry":
 		hud.clear_banner()
 		start_battle()
+	else:
+		_to_setup()
 
 
 func set_auto(v: bool) -> void:
 	auto = v
 
 
-## 시험용: 전투 데이터를 바꾼다 (normal_01 · boss_01)
+## 시험용: 전투 데이터를 바꾼다 (normal_01 · boss_01 · trial_01) — 편성의 전투 고르기에서 고른 것과 같다
 func set_battle(id: String) -> void:
 	battle_id = id
+	TSetup.battle_pick = id
 
 
 ## 시험용: 파티를 바꾼다 (편성 화면을 거치지 않고)

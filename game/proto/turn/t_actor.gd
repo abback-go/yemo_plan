@@ -3,7 +3,8 @@ extends Node2D
 ## 전장 위의 한 명: 규칙 유닛(TUnit)과 그림을 잇는다. 에스카는 실시간판 그림(EEska/EArt)을 물리 없이 서 있는 모드로,
 ## 불의 마녀 둘은 TWitchArt, 적은 TEnemyArt. 자세 바꾸기·맞음·쓰러짐·되살아남·보이는 체력(천천히 따라감)을 맡는다.
 
-const SCALE := 1.6 ## 코드 그림(키 40px)을 화면에서 이만큼 키움
+const SCALE := 2.0 ## 마녀 코드 그림(키 40px)을 화면에서 이만큼 키움 (키 약 80px = 화면 22%, review_C §5.3)
+const ENEMY_SCALE := 1.8 ## 적 그림 배율 (× 데이터 size): 일반 약 90 · 강적 약 140 · 보스 약 160~175px
 const DOWN_FADE := 0.25 ## 쓰러진 마녀는 이만큼 옅게 남아 되살릴 수 있음을 보여 준다
 
 var unit: TUnit
@@ -18,6 +19,7 @@ var _lunge_v := 0.0
 var _down := false
 var _down_t := 0.0
 var _mark: DownMark
+var _shadow: Node2D
 
 
 func setup(u: TUnit, at: Vector2) -> void:
@@ -41,10 +43,14 @@ func setup(u: TUnit, at: Vector2) -> void:
 			add_child(witch)
 	else:
 		facing = -1
+		var sh := Shadow.new()
+		add_child(sh)
+		_shadow = sh
 		enemy = TEnemyArt.new()
 		enemy.kind = String(u.data.get("art", u.id))
-		sz = float(u.data.get("size", 1.0))
+		sz = float(u.data.get("size", 1.0)) * ENEMY_SCALE / SCALE
 		add_child(enemy)
+		sh.hw = enemy.half_w() + 4.0
 	scale = Vector2(SCALE * sz, SCALE * sz)
 	if facing < 0:
 		# 적 그림은 왼콈을 보게 그렸으므로 뒤집지 않는다
@@ -190,6 +196,18 @@ func set_down(down: bool) -> void:
 	elif enemy != null:
 		enemy.set_pose("down")
 		tw.tween_property(enemy, "fade", 0.0, 0.8)
+		if _shadow != null:
+			tw.parallel().tween_property(_shadow, "modulate:a", 0.0, 0.8)
+
+
+## 적 발밑 그림자 타원 (마녀는 그림 안에 있음) — 적이 떠 보이지 않게
+class Shadow extends PDraw.Canvas:
+	var hw := 12.0
+
+	func _paint() -> void:
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.25))
+		pd.glow(Vector2.ZERO, hw + 3.0, Color(0, 0, 0, 0.5), 0.0)
+		pd.draw_set_transform(Vector2.ZERO)
 
 
 ## 쓰러진 자리 표시: 바닥의 보랏빛 고리 + 떠오르는 작은 빛 (되살릴 수 있다는 뜻)

@@ -1,0 +1,18 @@
+{"scene": "res://proto/turn/turn_proto.tscn", "seed": 20261018, "steps": [
+ [10, "eval", "set_party([\"nerei\", \"eska\", \"harpe\"])"],
+ [20, "eval", "set_auto(true)"],
+ [24, "touch", 0, 516, 316], [25, "untouch", 0, 516, 316],
+ [28, "touch", 0, 532, 160], [29, "untouch", 0, 532, 160],
+ [34, "shot", "t00_pick_trial"],
+ [36, "touch", 0, 516, 316], [37, "untouch", 0, 516, 316],
+ [120, "shot", "t01_trial"],
+ [130, "eval", "battle.enemies[0].set('charge', 4)"],
+ [131, "eval", "battle.decide_intent(battle.enemies[0])"],
+ [134, "shot", "t02_pierce"],
+ [136, "touch", 0, 480, 57],
+ [166, "shot", "t03_detail_pierce"],
+ [170, "untouch", 0, 480, 57],
+ [600, "shot", "t04"],
+ [600, "eval", "status()"],
+ [610, "quit"]
+]}

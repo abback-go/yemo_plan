@@ -71,6 +71,14 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `eska_boss_*.json` | 검성 보스장(`eska_boss.tscn`): `flow`(입구 → 등장 → 싸움) · `moves`·`art`(기술별 스크린샷, `skip_intro`·`move(이름)`) · `majesty`(등장 연출) · `still`(봉공에 굳음) · `bot`·`bot_shots`(자동 플레이 봇 `tools/test/eska_boss_bot.gd` — 걸린 시간·밸런스) |
 | `eska_perf.json` | 에스카 시제품 성능: 대기·연격·스킬 겹침·연격 중 `perf()` (그리기 호출·도형·노드·처리 시간·입자). 그림 코드별 비용은 eval `bench(400)` (µs) |
 | `title_touch.json` | 터치: 타이틀 탭 → 설정 → 돌아가기 → 구버전 (세라 데모) → 새로 시작 → 확인 (저장 기록이 있을 때 기준 좌표). 끝에 `STATUS title_end ... room=t_pass` 이면 통과 |
+| `turn_touch.json` | 턴제(`?turn`) 터치 흐름: 편성 1단계(카드 → 명단 → 장비 ▶) → 마법 장착(타일 설명 · **길게 눌러 강화 Lv2** · 장비 길게 눌러 Lv2 · 대마법 줄) → 편성 → 전투 고르기(S-03) → 출격 → 자동 전투. 스크린샷 c00~c13, 끝 `status()` |
+| `turn_ui_wheel.json` | 턴제 화면(단계 C): 앞·중·뒤 마녀 바퀴(w0·w5·w6) · 칸 고름 · 대상 고르기 · **적·마녀 상세(0.4초 누름)** · 대마법 칸 · 피해 숫자(n0~n3) · 철수 확인 판(x0) · 승리 → 편성(x1·x2) |
+| `turn_ui_boss.json` | 보스 전투: 웨이브 1(같은 적 A/B·번호 배지) · 웨이브 배너 · 웨이브 2(앞·뒤 자리) · 재의 왕 보스 카드(차지 가득·줄 2/3·징표 겹) · 기절 별·도발 아이콘 · 보스 상세 · 패배 배너 → 편성으로 (k00~k10) |
+| `turn_ui_trial.json` | 전투 고르기에서 시련 → 시련의 거상 필살기 무적 관통 표시 · 상세 (t00~t04) |
+| `turn_ui_setup.json` | 전투 고르기 카드 3장 · 편성의 고른 전투 줄 · 마법 장착 탭 3 · 장착 최대 안내 · 장비 설명 (s00~s10) |
+| `turn_auto.json` · `turn_auto2.json` · `turn_boss.json` · `turn_trial.json` · `turn_fx.json` | 자동 전투(일반·보스·시련)와 마법 연출 35종. 편성 → 전투 고르기 → 출격은 "전투 시작" 자리를 두 번 누른다 |
+
+- 출력 폴더는 실행기가 만들지 않는다 — 먼저 `mkdir -p /tmp/out`을 해 두지 않으면 `Can't save PNG` 오류가 난다.
 
 ## 웹 빌드 연기 시험
 ```bash
