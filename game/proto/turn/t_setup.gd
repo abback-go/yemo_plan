@@ -473,12 +473,20 @@ func _draw_card(i: int, wid: String, on: bool) -> void:
 	draw_colored_polygon(PackedVector2Array([chip.position + Vector2(5, 11), chip.position + Vector2(12, 6), chip.position + Vector2(12, 16)]), Color(PALE, 0.9))
 	draw_colored_polygon(PackedVector2Array([chip.position + Vector2(chip.size.x - 5, 11), chip.position + Vector2(chip.size.x - 12, 6), chip.position + Vector2(chip.size.x - 12, 16)]), Color(PALE, 0.9))
 	draw_string(_font, Vector2(chip.position.x + 14, chip.position.y + 15), "장비 " + String(TData.EQUIPS[state[wid].equip].name), HORIZONTAL_ALIGNMENT_CENTER, int(chip.size.x - 28), 9, GOLD if has_eq else Color(PALE, 0.8))
-	# 마법 장착 버튼 (장착 수)
+	# 마법 장착 버튼: 장착한 마법을 아이콘으로 (빈 칸은 흐린 고리), 오른쪽 ▶
 	var mb := _magic_btn(i)
 	var eqd: Array = state[wid].equipped
 	draw_rect(mb, Color(LAV, 0.55 if on else 0.35))
 	draw_rect(mb, Color(PALE, 0.8), false, 1.0)
-	draw_string(_font, Vector2(mb.position.x, mb.position.y + 16), "마법 장착 %d/%d ▶" % [eqd.size(), TData.EQUIP_MAX], HORIZONTAL_ALIGNMENT_CENTER, int(mb.size.x), 10, INK if on else PALE)
+	draw_string(_font, mb.position + Vector2(5, 16), "장착", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, INK if on else PALE)
+	for k in TData.EQUIP_MAX:
+		var cc := mb.position + Vector2(36 + 18 * k, 12)
+		if k < eqd.size():
+			draw_circle(cc, 8.0, Color(INK, 0.9))
+			TIcon.draw(self, cc, String(TData.skill(String(eqd[k])).get("icon", "strike")), ecol, 6.0)
+		else:
+			draw_arc(cc, 7.0, 0.0, TAU, 16, Color(INK if on else DIM, 0.5), 1.0)
+	draw_string(_font, mb.position + Vector2(mb.size.x - 13, 16), "▶", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, INK if on else PALE)
 
 
 func _draw_detail() -> void:
