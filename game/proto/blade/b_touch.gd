@@ -56,7 +56,7 @@ func _process(_delta: float) -> void:
 	_view.visible = active
 	if not active:
 		return
-	var sig := "%s|%s|%s|%s" % [_held.keys(), _pad_pos.round() if _pad_index >= 0 else Vector2.INF, screen()]
+	var sig := "%s|%s|%s" % [_held.keys(), _pad_pos.round() if _pad_index >= 0 else Vector2.INF, screen()]
 	if is_instance_valid(eska):
 		sig += "|%d|%d" % [eska.mode, int(eska.skill_ratio() * 30.0)]
 	if sig != _sig:
