@@ -21,6 +21,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 ```
 
 시나리오 JSON: `{"scene": "res://world/world.tscn", "room": 방ID, "spawn": 등장 위치, "flags": [미리 세울 플래그], "steps": [[프레임, 명령, 인자...], ...]}`
+턴제 저장 `"turn_save"`: `off`(기본 — 턴제 저장을 읽지도 쓰지도 않고 첫 실행 안내도 없음) · `fresh`(시험 폴더 `user://test_turn/`을 비우고 시작 = 첫 실행) · `keep`(그 폴더 그대로).
 
 | 명령 | 뜻 |
 |---|---|
@@ -77,6 +78,8 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `turn_ui_boss.json` | 보스 전투: 웨이브 1(같은 적 A/B·번호 배지) · 웨이브 배너 · 웨이브 2(앞·뒤 자리) · 재의 왕 보스 카드(차지 가득·줄 2/3·징표 겹) · 기절 별·도발 아이콘 · 보스 상세 · 패배 배너 → 편성으로 (k00~k10) |
 | `turn_ui_trial.json` | 전투 고르기에서 시련 → 시련의 거상 필살기 무적 관통 표시 · 상세 (t00~t04) |
 | `turn_ui_setup.json` | 전투 고르기 카드 3장 · 편성의 고른 전투 줄 · 마법 장착 탭 3 · 장착 최대 안내 · 장비 설명 (s00~s10) |
+| `turn_firstplay.json` | 단계 F-1: 저장 없는 첫 실행(`"turn_save": "fresh"`)에서 **터치만으로** 안내 A1~A3 → 안내 전투 B1~B7 → C1~C3 → 일반 전투 시작. 봇 `turn_touch_bot.gd`(안내 판 누름·강조 칸 누름·바퀴는 `TAuto.pick` 칸 → 다시 → 대상). 판마다 스크린샷 `g_<id>`, 끝 "FIRSTPLAY done …" |
+| `turn_save.json` | 단계 F-1: 안내 끄기 → 편성 바꿈·장비 목록·명단 상세 → 출격 → 창 가려짐(멈춤) → 다시 켬(`test_relaunch`) → 끊긴 전투 판 → 이어 하기 → 다시 켬 → 버리기 → 설정·도움말. `test_files()`로 파일·편성 출력 |
 | `turn_auto.json` · `turn_auto2.json` · `turn_boss.json` · `turn_trial.json` · `turn_fx.json` | 자동 전투(일반·보스·시련)와 마법 연출 35종. 편성 → 전투 고르기 → 출격은 "전투 시작" 자리를 두 번 누른다 |
 | `turn_ult.json` | 대마법 12개 연출 — 마녀마다 컷인(a)·문장 고리(b)·효과(c)·맞음(d) 4장 + 연쇄 3단계 2개 + `perf()`(그리기 호출·입자·연출 노드)와 기존 큰 마법 4개 비교 (단계 D) |
 | `turn_events.json` | 웨이브 전환(걸어 들어옴·보스 착지) · 재의 왕 줄 1~3 모습 · 크리 · 브레이크 · 기절 · 해제 · 근성 · 도발 · 저항/면역 · 관통 필살기 · 시련의 거상 줄 1~3 (단계 D, `demo_wave`·`demo_event`) |

@@ -30,6 +30,7 @@ var chain_owner: TUnit = null
 var chain_turn := -1
 var max_chain := 0 ## 이 전투에서 닿은 가장 높은 연쇄 단계 (통계)
 var _cur_skill := "" ## 지금 실행 중인 마법 id (버프에 sid로 남김 — 자동 선택이 "이 마법의 버프가 이미 있나"를 본다)
+var resume := false ## 불러온 전투: 다음 next_actor()는 저장된 차례(actor)를 그대로 돌려준다 (크레딧 +1은 저장 전에 받음)
 var _pre := {} ## 이번 마법을 맞기 전의 징표 (TUnit → [kind]) — if_mark 조건은 이것으로 본다 (§17.1)
 
 
@@ -52,6 +53,10 @@ func setup(party: Array, foes, state: Dictionary, seed_v := 0) -> void:
 	actor = null
 	wave_i = 0
 	_spawn_wave(0)
+	if foes is String:
+		var sc := int(TData.BATTLES[foes].get("start_credits", 0))
+		for w in witches:
+			w.credits = maxi(w.credits, mini(sc, TData.CREDIT_MAX))
 	# 패시브: 전투 시작 효과 (호라 — 첫 웨이브 때만)
 	for w in witches:
 		for e in w.passive:
@@ -114,6 +119,10 @@ func outcome() -> String:
 ## 다음에 1000에 닿는 사람까지 시간을 흘린다. 돌려준 사람이 지금 행동할 차례 (게이지는 1000으로 맞춰 보임).
 ## 마녀면 크레딧 +1 (기절로 쉬는 차례는 없음 — 그 차례는 rest())
 func next_actor() -> TUnit:
+	if resume:
+		resume = false
+		if actor != null and actor.alive:
+			return actor
 	var alive := alive_of(all_units())
 	if alive.is_empty():
 		return null
@@ -985,14 +994,22 @@ func _enemy_hit(src: TUnit, tgt: TUnit, mult: float, pierce := false) -> Diction
 ## 예상 피해 (화면 안내용 §11.7: 난수 1.0, 크리 아님 — 크리 확정이면 크리, crit = true면 크리 값). 터뜨리기는 지금 겹으로.
 ## 그 마법의 선버프(pre)는 실제처럼 공격 직전에 걸린 셈으로 넣고 계산한 뒤 뺀다 (use_skill과 같은 순서, 대마법은 연쇄 단계 수치로 — review_F F06 a)
 func estimate(src: TUnit, tgt: TUnit, skill_id: String, crit := false) -> int:
+	var info := est_info(src, tgt, skill_id)
+	if info.is_empty():
+		return 0
+	return int(info.crit) if crit or bool(info.sure) else int(info.est)
+
+
+## 예상 한 벌 {est, crit, rate(크리 확률, 선버프 포함), sure} — 공격이 아니면 {} (review_F F06 b)
+func est_info(src: TUnit, tgt: TUnit, skill_id: String) -> Dictionary:
 	var mult := 1.0
 	var opts := {}
-	var is_skill := skill_id != ""
+	var is_skill := skill_id != "" and skill_id != "basic"
 	var pre_n := 0
 	if is_skill:
 		var s := skill_of(src, skill_id)
 		if s.get("kind", "") != "attack":
-			return 0
+			return {}
 		if bool(s.get("ultimate", false)) and chain_owner != null and chain_stage > 0:
 			s = TData.chain_scaled(s, mini(chain_stage + 1, 3))
 		mult = float(s.mult)
@@ -1014,5 +1031,136 @@ func estimate(src: TUnit, tgt: TUnit, skill_id: String, crit := false) -> int:
 	var tm := _terms(src, tgt, mult, opts, is_skill)
 	for k in pre_n:
 		src.buffs.pop_back() # 넣었던 선버프를 뺀다 (add_buff는 뒤에 붙인다)
-	var c := crit or bool(opts.get("sure_crit", false))
-	return maxi(int(round(float(tm.base) * (float(tm.crit_mult) if c else 1.0))), 1)
+	var sure := bool(opts.get("sure_crit", false))
+	var base := float(tm.base)
+	var e1 := maxi(int(round(base * (float(tm.crit_mult) if sure else 1.0))), 1)
+	var e2 := maxi(int(round(base * float(tm.crit_mult))), 1)
+	return {"est": e1, "crit": e2, "rate": 1.0 if sure else float(tm.crit_rate), "sure": sure}
+
+
+## 디버프·게이지 감소 같은 판정의 성공률 (화면 안내용, §16.5): rate + 거는 마녀 패시브 − 대상 내성 (0~1). 아군 대상이면 1
+func success_rate(src: TUnit, tgt: TUnit, e: Dictionary) -> float:
+	if tgt == null or tgt.is_witch():
+		return 1.0
+	return clampf(float(e.get("rate", 1.0)) - tgt.resist + (src.passive_val("rate_plus") if src != null else 0.0), 0.0, 1.0)
+
+
+## 마법을 썼다고 치고(피해 난수 1.0 · 크리 아님 · 판정은 모두 성공) 행동을 끝낸 뒤의 전투 사본 (review_F F05 규칙 B "사용 뒤" 줄).
+## 사본의 preview()가 그 마법을 쓴 뒤의 차례 순서다. 이 전투는 건드리지 않는다
+func simulate(u: TUnit, skill_id: String, tgt: TUnit) -> TBattle:
+	var c := TBattle.from_dict(to_dict())
+	c.resume = false
+	c.fix_rand = 1.0
+	c.fix_crit = 0
+	c.fix_roll = 0.0
+	var cu := c.unit_by_key(unit_key(u))
+	var ct := c.unit_by_key(unit_key(tgt))
+	if cu == null:
+		return c
+	if skill_id == "" or skill_id == "basic":
+		c.basic_attack(cu, ct)
+	else:
+		c.use_skill(cu, skill_id, ct)
+	c.end_action(cu)
+	return c
+
+
+## 마법을 쓴 뒤의 차례 줄: [지금 차례 u] + 그 뒤 n − 1명 (preview와 같은 꼴)
+func preview_if(u: TUnit, skill_id: String, tgt: TUnit, n := 8) -> Array[TUnit]:
+	var c := simulate(u, skill_id, tgt)
+	var out: Array[TUnit] = [u]
+	for x in c.preview(n - 1):
+		var k := c.unit_key(x)
+		var mine := unit_by_key(k)
+		if mine != null:
+			out.append(mine)
+	return out
+
+
+## 다가오는 필살기 칸 (review_F F05 규칙 A): 차례 줄 q(이 전투의 유닛)에서 차지 적의 필살기 차례 번호 → {pierce}.
+## 적 e의 앞으로 j번째 행동(쉼 빼고)이 필살기: 지금 의도가 필살기면 j = 1 + (m + 1)k, 아니면 j = (m − c + 1) + (m + 1)k.
+## 기절 중인 적의 첫 차례는 쉼. 조건 규칙·차지 감소는 넣지 않은 예상 (행동이 끝날 때마다 다시 센다)
+func finisher_slots(q: Array) -> Dictionary:
+	var out := {}
+	for e in enemies:
+		if not e.alive or e.charge_max <= 0:
+			continue
+		var m := e.charge_max
+		var c := clampi(e.charge, 0, m)
+		var it := e.intent()
+		var fin_now := String(it.get("k", "")) == "finisher"
+		var pierce := bool((e.data.get("charge_act", {}) as Dictionary).get("pierce", false))
+		var first := 1 if fin_now else (m - c + 1)
+		var rest := e.stunned
+		var k := 0
+		for i in q.size():
+			if q[i] != e:
+				continue
+			if rest:
+				rest = false
+				continue
+			k += 1
+			if k >= first and (k - first) % (m + 1) == 0:
+				out[i] = {"pierce": pierce if not fin_now else bool(it.get("pierce", false))}
+	return out
+
+
+# ═══════════════════════════════════════════════════════════
+# 저장·불러오기 (전투 이어하기 — combat_proto.md §28.4, review_F F07 규칙 2)
+# 마녀 차례가 시작될 때(크레딧 +1을 준 뒤, 고르기 전) 찍는다. 유닛 참조는 "w0"~"w2" · "e0"~"e2"
+# ═══════════════════════════════════════════════════════════
+
+func unit_key(u: TUnit) -> String:
+	if u == null:
+		return ""
+	var i := witches.find(u)
+	if i >= 0:
+		return "w%d" % i
+	i = enemies.find(u)
+	return "e%d" % i if i >= 0 else ""
+
+
+func unit_by_key(k: String) -> TUnit:
+	if k.length() < 2:
+		return null
+	var i := int(k.substr(1))
+	var side_units: Array[TUnit] = witches if k[0] == "w" else enemies
+	return side_units[i] if i >= 0 and i < side_units.size() else null
+
+
+func to_dict() -> Dictionary:
+	var ws: Array = []
+	for w in witches:
+		ws.append(w.to_dict())
+	var es: Array = []
+	for e in enemies:
+		es.append(e.to_dict())
+	return {"ver": 1, "battle_id": battle_id, "rng_seed": rng.seed, "rng_state": rng.state, "turn_no": turn_no, "wave_i": wave_i,
+		"actor": unit_key(actor), "chain_stage": chain_stage, "chain_owner": unit_key(chain_owner), "chain_turn": chain_turn, "max_chain": max_chain,
+		"last_action": last_action, "witches": ws, "enemies": es, "waves": waves.duplicate(true), "log": log.slice(maxi(log.size() - 40, 0))}
+
+
+## 저장한 전투를 다시 세운다. 돌려준 전투의 next_actor()는 저장된 차례부터
+static func from_dict(d: Dictionary) -> TBattle:
+	var b := TBattle.new()
+	b.battle_id = String(d.battle_id)
+	b.waves = d.waves if d.has("waves") else TData.BATTLES[b.battle_id].waves
+	b.wave_i = int(d.wave_i)
+	for wd in d.witches:
+		b.witches.append(TUnit.from_dict(wd))
+	for ed in d.enemies:
+		b.enemies.append(TUnit.from_dict(ed))
+	b.rng.seed = int(d.rng_seed)
+	b.rng.state = int(d.rng_state)
+	b.turn_no = int(d.turn_no)
+	b.actor = b.unit_by_key(String(d.actor))
+	b.chain_stage = int(d.chain_stage)
+	b.chain_owner = b.unit_by_key(String(d.chain_owner))
+	b.chain_turn = int(d.chain_turn)
+	b.max_chain = int(d.max_chain)
+	b.last_action = String(d.get("last_action", ""))
+	for l in d.get("log", []):
+		b.log.append(String(l))
+	b.resume = b.actor != null
+	return b
+

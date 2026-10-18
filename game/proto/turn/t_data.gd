@@ -129,7 +129,7 @@ const WITCHES := {
 		"skills": ["flame_breath", "kindling", "bellows", "tinder", "blessing", "crown", "stake", "god_descent", "share_ember", "sun_blessing"],
 		"default": ["flame_breath", "bellows", "blessing", "god_descent"],
 		"ultimate": "ult_ember",
-		"passive": {"name": "불씨 지기", "desc": "엠버가 거는 공격력 버프 +10%p", "effects": [{"t": "buff_plus", "cat": "atk", "v": 0.10}]},
+		"passive": {"name": "불씨 지기", "desc": "엠버가 거는 공격력 버프 +10% 더 (덧셈)", "effects": [{"t": "buff_plus", "cat": "atk", "v": 0.10}]},
 		"color": Color("#ffb347"), "accent": Color("#fff2dc"),
 	},
 	"cinder": {
@@ -169,7 +169,7 @@ const WITCHES := {
 		"skills": ["rime", "thin_ice", "icicle", "blizzard", "ice_wall", "still_frost", "deep_freeze", "ice_coffin", "permafrost", "winter_oath"],
 		"default": ["rime", "blizzard", "deep_freeze", "still_frost"],
 		"ultimate": "ult_glacia",
-		"passive": {"name": "서리 장인", "desc": "글라시아가 거는 디버프·적 게이지 감소·적 차지 감소의 성공률 +15%p", "effects": [{"t": "rate_plus", "v": 0.15}]},
+		"passive": {"name": "서리 장인", "desc": "글라시아가 거는 디버프·적 게이지 감소·적 차지 감소의 성공률 +15% 더 (덧셈)", "effects": [{"t": "rate_plus", "v": 0.15}]},
 		"color": Color("#bfe9ff"), "accent": Color("#ffffff"),
 	},
 	"fulgur": {
@@ -189,7 +189,7 @@ const WITCHES := {
 		"skills": ["static", "lightning_cloak", "rod", "spur", "star_touch", "starlight", "guide_bolt", "overcharge", "lightning_share", "meteor_blessing"],
 		"default": ["star_touch", "rod", "starlight", "lightning_share"],
 		"ultimate": "ult_astra",
-		"passive": {"name": "별의 걸음", "desc": "아스트라가 거는 아군 게이지 증가 +10%p", "effects": [{"t": "gauge_plus", "v": 0.10}]},
+		"passive": {"name": "별의 걸음", "desc": "아스트라가 거는 아군 게이지 증가 +10% 더 (덧셈)", "effects": [{"t": "gauge_plus", "v": 0.10}]},
 		"color": Color("#c9a0ff"), "accent": Color("#fff6c8"),
 	},
 	"tonan": {
@@ -704,7 +704,9 @@ const ENEMIES := {
 const INTENT_NAME := {"attack": "공격", "heavy": "강공격", "aoe": "전체 공격", "buff": "버프", "stun_attack": "기절 공격", "dispel": "해제", "finisher": "필살기"}
 
 ## 전투 (§5.6 · §24.6). 웨이브 = 적 1~3 (앞·중·뒤 순). 항목이 {id, hp}면 그 적의 체력만 덮어쓴다
+## start_credits = 전투를 시작할 때 마녀 모두의 크레딧 (안내 전투만 — 첫 차례부터 마법을 써 보게, combat_proto.md §28 [제안])
 const BATTLES := {
+	"intro_01": {"name": "안내 전투", "kind": "intro", "start_credits": 3, "waves": [[{"id": "straw_golem", "hp": 240000}, {"id": "straw_golem", "hp": 240000}]]},
 	"normal_01": {"name": "일반 전투", "kind": "normal", "waves": [["straw_golem", "swamp_toad", "ash_knight"]]},
 	"boss_01": {"name": "보스 전투 — 재의 왕", "kind": "boss", "waves": [
 		["straw_golem", "straw_golem", {"id": "swamp_toad", "hp": 480000}],
@@ -712,6 +714,39 @@ const BATTLES := {
 		["ash_king"]]},
 	"trial_01": {"name": "시련 — 시련의 거상", "kind": "trial", "waves": [["trial_colossus"]]},
 }
+
+## 용어 풀이 (combat_proto.md §2 · §28.6): 도움말 판(? 버튼)과 상세·설명 상자 맨 아래 한 줄이 같이 쓴다. 순서 = 도움말 목록 순서
+const GLOSSARY := [
+	["크레딧", "마녀마다 따로 모으는 마력(◆ 7칸). 차례마다 +1, 기본 공격은 +1 더. 마법을 쓰면 그 비용만큼 줄어든다"],
+	["대마법", "크레딧 7을 모두 써서 쓰는 큰 마법. 바퀴 끝 금빛 칸. 쓰고 나면 0부터 다시 모은다"],
+	["연쇄", "대마법을 쓴 마녀가 다시 움직이기 전에 다른 마녀가 대마법을 이으면 단계가 오른다(최대 3). 2단계 효과 ×1.25, 3단계 ×1.5"],
+	["약점", "적 카드의 네모 속성 칸. 그 속성으로 치면 피해 1.5배"],
+	["무상성", "공간·시간·검술 마녀는 약점이 없는 대신 모든 적에게 1.2배 (속성을 받으면 그 속성으로 친다)"],
+	["징표", "화상·빙결·감전. 그 자체로는 피해가 없다. 걸린 적에게 붙는 효과(특공 등)의 조건이 된다"],
+	["겹", "같은 징표를 또 걸면 겹이 쌓인다(최대 5). 특공·터뜨리기는 겹 수만큼 세진다"],
+	["특공", "징표가 걸린 적에게만 붙는 피해 보너스. 겹마다 곱해진다"],
+	["터뜨리기", "징표 겹을 모두 써서 한 번에 큰 피해. 겹마다 배율이 오른다"],
+	["번짐", "징표 겹 수만큼 다른 적 모두에게 같은 징표를 건다"],
+	["차지", "강적·보스 카드의 꺾쇠 칸. 적이 행동할 때마다 한 칸씩 차고, 다 차면 다음 행동이 필살기"],
+	["필살기", "차지가 다 찬 적의 큰 공격. 무적·도발·차지 감소·기절로 대비한다"],
+	["줄", "보스의 체력은 여러 줄. 한 줄을 깨면(브레이크) 넘친 피해는 사라지고 보스의 행동이 바뀐다"],
+	["해제", "적이 마녀들의 버프를 모두 지운다. 패시브·장비는 남는다"],
+	["관통", "무적을 뚫는 공격(→| 표시). 받는 피해 감소·도발·근성은 통한다"],
+	["기절", "다음 차례 하나를 쉰다. 쉰 뒤 한 차례는 다시 기절하지 않는다(기절 내성). 보스는 면역"],
+	["대가", "강한 마법의 값: 그 행동 뒤 크레딧 0, 또는 체력을 깎는다"],
+]
+
+## 글에 나온 첫 용어의 풀이 한 줄 ("징표 — …"). 없으면 ""
+static func gloss_for(text: String) -> String:
+	var best := -1
+	var out := ""
+	for g in GLOSSARY:
+		var i := text.find(String(g[0]))
+		if i >= 0 and (best < 0 or i < best):
+			best = i
+			out = "%s — %s" % [String(g[0]), String(g[1])]
+	return out
+
 
 ## 프로토타입 기본 파티와 전투
 const BATTLE := {"party": ["eska", "ignis", "ember"], "battle": "normal_01"}
@@ -767,6 +802,21 @@ static func equip_at(id: String, lv := 1) -> Dictionary:
 	for key in over:
 		o[key] = over[key]
 	return o
+
+
+## 편성 상태의 빈 곳을 기본값으로 채운다 (파티 · 마녀마다 장착·장비·강화) — TSetup.ensure_state · TSave가 같이 씀
+static func fill_state(state: Dictionary) -> void:
+	if not state.has("party"):
+		var p: Array = []
+		for w in BATTLE.party:
+			p.append(String(w))
+		state["party"] = p
+	for wid in ROSTER:
+		if not state.has(wid):
+			var d: Array[String] = []
+			for s in WITCHES[wid].default:
+				d.append(String(s))
+			state[wid] = {"equipped": d, "equip": "", "equip_lv": 1, "skill_lv": {}}
 
 
 ## 장비는 파티에 한 명만 (§4.3). state = 편성 상태 {"party": [...], 마녀 id: {"equip": ...}} (TSetup.state)

@@ -42,6 +42,17 @@ const SIZES := [8, 10, 12, 15, 24, 30]
 
 static var _fonts := {}
 static var _box: StyleBoxFlat
+static var big := false ## 큰 글자 (설정, review_F F12): 설명 띠·상세·편성 설명·안내 판의 본문 10 → 12px
+
+
+## 본문 글자 크기 (큰 글자면 12)
+static func body_fs() -> int:
+	return 12 if big else 10
+
+
+## 본문 줄 높이
+static func body_lh() -> float:
+	return 15.0 if big else 13.0
 
 
 ## 크기 → 글꼴 (설계 크기에 맞춘 파일)

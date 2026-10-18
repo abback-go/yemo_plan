@@ -31,15 +31,28 @@ const CARD_H := 300.0
 const CARD_Y := 34.0
 const ROSTER_X := 404.0
 const ROSTER_Y := 34.0
-const BATTLE_IDS := ["normal_01", "boss_01", "trial_01"]
-const KIND_TAG := {"normal": ["일반", Color("#b9a2ff")], "boss": ["보스", Color("#ffe08a")], "trial": ["시련", Color("#ff4f6a")]}
-## 전투 카드의 한 줄 안내 (데이터에 없는 화면 글)
+const BATTLE_IDS := ["normal_01", "boss_01", "trial_01"] ## 안내를 마친 뒤의 전투 카드 (첫 실행엔 안내 전투 intro_01 한 장만 — battle_ids())
+const ALL_BATTLES := ["intro_01", "normal_01", "boss_01", "trial_01"]
+## 전투 카드 아래 줄 (review_G G09): 난이도 별 · 예상 시간(turn_sim 시간 모형 — 기본 파티, 시련은 추천 빌드) · 한 줄 안내
+const BATTLE_INFO := {"intro_01": [1, "약 2분", "처음 한 번. 짚 골렘 두 마리와 짧게 싸우며 조작을 배웁니다"],
+	"normal_01": [1, "약 10분", "적 3마리 한 웨이브. 빌드를 시험하기 좋습니다"],
+	"boss_01": [2, "약 18분", "웨이브 3. 마지막에 강한 보스가 나옵니다"],
+	"trial_01": [3, "약 10분", "아주 아픈 한 판. 추천: 버티며 쌓기 (네레이·에스카·하르페)"]}
+## 이긴 뒤 다음 추천 (review_G G06)
+const NEXT := {"intro_01": "normal_01", "normal_01": "boss_01", "boss_01": "trial_01"}
+const GEAR_C := Vector2(624, 16) ## S-01 설정 톱니 (review_G G18 — 옛 X 자리)
+const HELP_C := Vector2(590, 16) ## S-01 도움말 ?
+const EQ_LIST := Rect2(40, 30, 560, 304) ## 장비 목록 판 (review_G G11 · review_F F11)
+const EQ_CLOSE := Rect2(480, 296, 108, 30)
+const KIND_TAG := {"intro": ["안내", Color("#7ddc8a")], "normal": ["일반", Color("#b9a2ff")], "boss": ["보스", Color("#ffe08a")], "trial": ["시련", Color("#ff4f6a")]}
+## 전투 카드를 길게 누르면 보이는 자세한 안내 (용어가 든 글 — 카드 위에서는 뺌, review_G G09)
 const BATTLE_NOTE := {"normal_01": "적 3마리 한 웨이브. 빌드 시험에 알맞음", "boss_01": "웨이브 3. 마지막에 재의 왕 (3줄 · 차지 5 · 버프 해제)",
 	"trial_01": "공격력이 아주 높고 필살기는 무적 관통. 버티며 쌓는 빌드용"}
 const HOLD := 0.4
 
 static var state := {} ## "party": [id, id, id] · 마녀 id → {"equipped": [id...], "equip": 장비 id, "equip_lv": 1~3, "skill_lv": {마법 id: 1~3}}
 static var battle_pick: String = TData.BATTLE.battle ## S-03에서 고른 전투 id
+static var dev := false ## 주소에 &dev — 개발자용 글("참고 구조")을 보임 (review_G G12)
 
 var step := 1 ## 1 편성(카드) · 2 마법 · 3 전투 고르기
 var tab := 0 ## 2단계: 파티원 번호
@@ -53,20 +66,15 @@ var _foes := {} ## 전투 id → TActor (전투 카드의 적 그림)
 var _msg := ""
 var _msg_t := 0.0
 var _press := {} ## 누르는 중 {pos, t, what, i, held}
+var guide: TGuide ## 설정·도움말 판 (TStage가 넣음)
+var _peek := "" ## 명단을 길게 누르는 동안 보이는 마녀 상세 (review_G G10)
+var _eq_slot := -1 ## 장비 목록 판을 연 자리 (−1 = 닫힘)
+var _eq_pick := "" ## 장비 목록에서 고른(설명 중인) 장비
+var _over: Overlay
 
 
 static func ensure_state() -> void:
-	if not state.has("party"):
-		var p: Array = []
-		for w in TData.BATTLE.party:
-			p.append(String(w))
-		state["party"] = p
-	for wid in TData.ROSTER:
-		if not state.has(wid):
-			var d: Array[String] = []
-			for s in TData.WITCHES[wid].default:
-				d.append(String(s))
-			state[wid] = {"equipped": d, "equip": "", "equip_lv": 1, "skill_lv": {}}
+	TData.fill_state(state)
 
 
 static func party() -> Array:
@@ -106,7 +114,7 @@ func _ready() -> void:
 				_big[wid] = a
 			else:
 				_actors[wid] = a
-	for bid in BATTLE_IDS:
+	for bid in ALL_BATTLES:
 		var waves: Array = TData.BATTLES[bid].waves
 		var list: Array = []
 		for item in waves[waves.size() - 1]: # 마지막 웨이브의 적
@@ -117,6 +125,11 @@ func _ready() -> void:
 			a.z_index = 0
 			list.append(a)
 		_foes[bid] = list
+	_over = Overlay.new()
+	_over.setup = self
+	_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_over.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_over)
 	_layout_actors()
 
 
@@ -147,15 +160,19 @@ func _layout_actors() -> void:
 			b.scale = Vector2(2.6, 2.6)
 		a.position = a.home
 		b.position = b.home
-	for i in BATTLE_IDS.size():
-		var list: Array = _foes[BATTLE_IDS[i]]
+	var ids := battle_ids()
+	for bid in ALL_BATTLES:
+		for f: TActor in _foes[bid]:
+			f.visible = false
+	for i in ids.size():
+		var list: Array = _foes[ids[i]]
 		var c := _battle_rect(i)
 		for j in list.size():
 			var f: TActor = list[j]
 			f.visible = step == 3
 			var sz := float(f.unit.data.get("size", 1.0))
 			var k := 1.0 if list.size() == 1 else 0.85
-			f.home = c.position + Vector2(c.size.x * (0.5 if list.size() == 1 else 0.24 + 0.27 * float(j)), 154.0 - (8.0 * float(j) if list.size() > 1 else 0.0))
+			f.home = c.position + Vector2(c.size.x * (0.5 if list.size() == 1 else 0.24 + 0.27 * float(j)), 148.0 - (8.0 * float(j) if list.size() > 1 else 0.0)) # 6px 위로 (review_G G24 — 보스 검이 웨이브 글을 가렸다)
 			f.scale = Vector2(k * sz, k * sz)
 			f.z_index = list.size() - j
 			f.position = f.home
@@ -172,6 +189,8 @@ func back_to_roster() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	size = get_viewport_rect().size # 캔버스 층 아래 Control은 앵커로 화면 크기를 못 받는다
+	if _over != null:
+		_over.size = size
 	_msg_t = maxf(_msg_t - delta, 0.0)
 	if not _press.is_empty() and not bool(_press.held):
 		_press.t = float(_press.t) + delta
@@ -229,13 +248,23 @@ func _tile_rect(i: int) -> Rect2:
 	return Rect2(152 + 116 * (i % 2), 40 + 33 * (i / 2), 112, 30)
 
 
+## 탭 (자리 i): 왼→오 = 뒤·중·앞 — S-01 카드·전투 패널과 같은 순서 (review_G G14)
 func _tab_rect(i: int) -> Rect2:
-	return Rect2(8 + 68 * i, 4, 64, 28)
+	return Rect2(8 + 68 * (2 - i), 4, 64, 28)
 
 
-## 3단계 전투 카드
+## 3단계 전투 카드 (한 장이면 가운데)
 func _battle_rect(i: int) -> Rect2:
+	if battle_ids().size() == 1:
+		i = 1
 	return Rect2(12 + 208 * i, 36, 200, 256)
+
+
+## 전투 고르기에 보이는 전투: 첫 실행 안내 중엔 안내 전투 한 장 (진행 안내일 뿐 잠금 아님 — 안내를 끄면 처음부터 셋, review_G §4.3 A3)
+static func battle_ids() -> Array:
+	if not TSave.intro_done and not TSave.tips_off:
+		return ["intro_01"]
+	return BATTLE_IDS
 
 
 # ═══════════════════════════════════════════════════════════
@@ -293,8 +322,9 @@ func _key_detail(event: InputEvent) -> void:
 	elif event.is_action_pressed("es_up"):
 		cursor = maxi(cursor - 1, -1)
 	elif event.is_action_pressed("es_right") or event.is_action_pressed("es_left"):
-		var d := 1 if event.is_action_pressed("es_right") else -1
+		var d := -1 if event.is_action_pressed("es_right") else 1 # 탭이 왼→오 = 뒤·중·앞 (review_G G14)
 		tab = (tab + d + party().size()) % party().size()
+		_msg_t = 0.0
 		_layout_actors()
 	elif event.is_action_pressed("es_jump"):
 		if cursor == 12:
@@ -314,10 +344,12 @@ func _key_detail(event: InputEvent) -> void:
 
 
 func _key_battle(event: InputEvent) -> void:
-	var i := BATTLE_IDS.find(battle_pick)
+	var ids := battle_ids()
+	var i := ids.find(battle_pick)
 	if event.is_action_pressed("es_right") or event.is_action_pressed("es_left"):
 		var d := 1 if event.is_action_pressed("es_right") else -1
-		battle_pick = BATTLE_IDS[(i + d + BATTLE_IDS.size()) % BATTLE_IDS.size()]
+		battle_pick = ids[(i + d + ids.size()) % ids.size()]
+		TSave.save_soon()
 	elif event.is_action_pressed("es_jump") or event.is_action_pressed("es_bind"):
 		_start()
 	elif event.is_action_pressed("es_exit") or event.is_action_pressed("es_attack"):
@@ -330,12 +362,31 @@ func _key_battle(event: InputEvent) -> void:
 ## 손가락이 닿음: 길게 누를 수 있는 것(마법 타일·장비 줄)은 떼는 때까지 기다리고, 나머지는 바로
 func _press_down(p: Vector2) -> void:
 	_press = {}
-	if p.distance_to(Vector2(size.x - 16, 16)) < 16.0:
-		if step == 1:
-			exit_pressed.emit()
-		else:
-			_go_roster()
+	if _eq_slot >= 0:
+		_equip_list_press(p)
 		return
+	if step == 1 and p.distance_to(GEAR_C) < 16.0:
+		if guide != null:
+			guide.open_settings()
+		return
+	if step == 1 and p.distance_to(HELP_C) < 16.0:
+		if guide != null:
+			guide.open_help()
+		return
+	if step != 1 and p.distance_to(Vector2(size.x - 16, 16)) < 16.0:
+		_go_roster()
+		return
+	if step == 1:
+		for i in 12:
+			if _roster_rect(i).has_point(p):
+				_press = {"pos": p, "t": 0.0, "what": "roster", "i": i, "held": false}
+				return
+	if step == 3:
+		var ids := battle_ids()
+		for i in ids.size():
+			if _battle_rect(i).has_point(p):
+				_press = {"pos": p, "t": 0.0, "what": "battle", "i": i, "held": false}
+				return
 	if step == 2:
 		var skills: Array = TData.WITCHES[_wid()].skills
 		for i in skills.size():
@@ -353,9 +404,14 @@ func _press_up() -> void:
 		return
 	var pr := _press
 	_press = {}
+	_peek = ""
 	if bool(pr.held):
 		return
 	match String(pr.what):
+		"roster":
+			_assign(active, String(TData.ROSTER[int(pr.i)]))
+		"battle":
+			_pick_battle(int(pr.i))
 		"skill":
 			var i := int(pr.i)
 			if cursor == i:
@@ -373,6 +429,15 @@ func _press_up() -> void:
 func _hold(what: String, i: int) -> void:
 	var wid := _wid()
 	match what:
+		"roster":
+			_peek = String(TData.ROSTER[i]) # 길게 누르는 동안 그 마녀 상세 (떼면 닫힘, 교체 없음)
+			Sfx.play(&"tn_select", -12.0)
+			return
+		"battle":
+			var bid := String(battle_ids()[i])
+			_say(String(BATTLE_NOTE.get(bid, BATTLE_INFO[bid][2])))
+			Sfx.play(&"tn_select", -12.0)
+			return
 		"skill":
 			var sid := String(TData.WITCHES[wid].skills[i])
 			var lv: Dictionary = state[wid].skill_lv
@@ -382,6 +447,7 @@ func _hold(what: String, i: int) -> void:
 			else:
 				lv[sid] = nv
 			cursor = i
+			TSave.save_soon()
 			_say("%s 강화 Lv%d (수치 ×%.2f)" % [String(TData.skill(sid).name), nv, float(TData.SKILL_LV[nv - 1])])
 		"equip":
 			if String(state[wid].equip) == "":
@@ -389,6 +455,7 @@ func _hold(what: String, i: int) -> void:
 				return
 			state[wid].equip_lv = int(state[wid].get("equip_lv", 1)) % 3 + 1
 			cursor = 11
+			TSave.save_soon()
 			var eq := TData.equip_at(String(state[wid].equip), int(state[wid].equip_lv))
 			_say("%s 강화 Lv%d — %s" % [String(eq.name), int(state[wid].equip_lv), String(eq.desc)])
 	Sfx.play(&"tn_confirm", -8.0)
@@ -397,7 +464,11 @@ func _hold(what: String, i: int) -> void:
 func _tap_now(p: Vector2) -> void:
 	if step == 1:
 		for i in 3:
-			if _equip_btn(i, false).has_point(p) or _equip_btn(i, true).has_point(p) or _equip_name_rect(i).has_point(p):
+			if _equip_name_rect(i).has_point(p):
+				active = i
+				_open_equip_list(i)
+				return
+			if _equip_btn(i, false).has_point(p) or _equip_btn(i, true).has_point(p):
 				active = i
 				_cycle_equip(i, -1 if _equip_btn(i, false).has_point(p) else 1)
 				return
@@ -418,12 +489,9 @@ func _tap_now(p: Vector2) -> void:
 			_go_battle()
 		return
 	if step == 3:
-		for i in BATTLE_IDS.size():
+		for i in battle_ids().size():
 			if _battle_rect(i).has_point(p):
-				if battle_pick != BATTLE_IDS[i]:
-					battle_pick = BATTLE_IDS[i]
-					Sfx.play(&"tn_select", -10.0)
-				queue_redraw()
+				_pick_battle(i)
 				return
 		if START1_RECT.has_point(p):
 			_start()
@@ -434,6 +502,7 @@ func _tap_now(p: Vector2) -> void:
 		if _tab_rect(i).has_point(p):
 			tab = i
 			cursor = -1
+			_msg_t = 0.0 # 앞 탭의 안내 글을 남기지 않음 (review_G G23)
 			Sfx.play(&"tn_select", -10.0)
 			_layout_actors()
 			return
@@ -447,6 +516,15 @@ func _tap_now(p: Vector2) -> void:
 		_go_battle()
 	elif BACK_RECT.has_point(p):
 		_go_roster()
+
+
+func _pick_battle(i: int) -> void:
+	var bid := String(battle_ids()[i])
+	if battle_pick != bid:
+		battle_pick = bid
+		Sfx.play(&"tn_select", -10.0)
+		TSave.save_soon()
+	queue_redraw()
 
 
 ## 자리 slot에 마녀 wid를 넣는다 (이미 다른 자리에 있으면 둘을 맞바꿈)
@@ -466,6 +544,7 @@ func _assign(slot: int, wid: String) -> void:
 		_say("%s 자리: %s — 장비 %s는 다른 파티원이 끼고 있어 뺐습니다" % [T.SLOT_NAME[slot], TData.WITCHES[wid].name, TData.EQUIPS[had].name])
 	else:
 		_say("%s 자리: %s" % [T.SLOT_NAME[slot], TData.WITCHES[wid].name])
+	TSave.save_soon()
 	_layout_actors()
 
 
@@ -479,6 +558,7 @@ func _cycle_slot(slot: int, d: int) -> void:
 		if not p.has(wid):
 			p[slot] = wid
 			fix_equip(wid)
+			TSave.save_soon()
 			_layout_actors()
 			return
 
@@ -503,6 +583,7 @@ func _cycle_equip(slot: int, d: int) -> void:
 	if not skipped.is_empty():
 		s += " (다른 파티원이 낀 %s 건너뜀)" % ", ".join(skipped)
 	_say(s)
+	TSave.save_soon()
 	queue_redraw()
 
 
@@ -510,6 +591,7 @@ func _go_detail(slot: int) -> void:
 	step = 2
 	tab = slot
 	cursor = 0
+	_msg_t = 0.0
 	Sfx.play(&"tn_confirm", -8.0)
 	_layout_actors()
 
@@ -519,6 +601,7 @@ func _go_roster() -> void:
 		active = tab
 	step = 1
 	cursor = 0
+	_msg_t = 0.0
 	Sfx.play(&"tn_cancel", -10.0)
 	_layout_actors()
 
@@ -526,8 +609,10 @@ func _go_roster() -> void:
 ## 전투 고르기 (S-03)
 func _go_battle() -> void:
 	step = 3
-	if not BATTLE_IDS.has(battle_pick):
-		battle_pick = BATTLE_IDS[0]
+	_msg_t = 0.0
+	var ids := battle_ids()
+	if not ids.has(battle_pick):
+		battle_pick = ids[0]
 	Sfx.play(&"tn_confirm", -8.0)
 	_layout_actors()
 
@@ -549,6 +634,7 @@ func _toggle(i: int) -> void:
 			return
 		eq.append(sid)
 		Sfx.play(&"tn_select", -8.0)
+	TSave.save_soon()
 	queue_redraw()
 
 
@@ -559,6 +645,7 @@ func _say(s: String) -> void:
 
 func _start() -> void:
 	Sfx.play(&"tn_confirm", -4.0)
+	TSave.save_setup()
 	start_pressed.emit()
 
 
@@ -568,15 +655,30 @@ func _start() -> void:
 
 func _x_button() -> void:
 	var c := Vector2(size.x - 16, 16)
+	if step == 1:
+		# 설정 톱니 + 도움말 ? (review_G G18 — 나가기는 설정 판 안 "타이틀로")
+		draw_circle(GEAR_C, 12.0, Color(T.INK, 0.6))
+		draw_arc(GEAR_C, 12.0, 0.0, TAU, 24, Color(T.LINE, 0.6), 1.0)
+		for k in 8:
+			var a := TAU * float(k) / 8.0
+			draw_line(GEAR_C + Vector2(cos(a), sin(a)) * 4.0, GEAR_C + Vector2(cos(a), sin(a)) * 7.5, Color(T.TEXT, 0.85), 2.0)
+		draw_circle(GEAR_C, 4.5, Color(T.TEXT, 0.85))
+		draw_circle(GEAR_C, 2.0, Color(T.INK, 1.0))
+		draw_circle(HELP_C, 12.0, Color(T.INK, 0.6))
+		draw_arc(HELP_C, 12.0, 0.0, TAU, 24, Color(T.LINE, 0.6), 1.0)
+		T.text(self, HELP_C + Vector2(0, 5), "?", 12, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		return
 	draw_circle(c, 12.0, Color(T.INK, 0.6))
 	draw_arc(c, 12.0, 0.0, TAU, 24, Color(T.LINE, 0.6), 1.0)
 	draw_line(c + Vector2(-4, -4), c + Vector2(4, 4), Color(T.TEXT, 0.85), 1.6)
 	draw_line(c + Vector2(-4, 4), c + Vector2(4, -4), Color(T.TEXT, 0.85), 1.6)
 
 
-func _button(r: Rect2, label: String, main: bool, pulse := 1.0) -> void:
-	T.panel(self, r, Color(T.LINE, 0.8 * pulse) if main else Color(T.INK, 0.85), Color(T.TEXT, 0.9) if main else Color(T.TEXT_OFF, 0.9), 1, 3)
-	T.text(self, r.get_center() + Vector2(0, 5), label, 12, T.INK if main else T.TEXT, HORIZONTAL_ALIGNMENT_CENTER, 0 if main else -1)
+func _button(r: Rect2, label: String, main: bool, pulse := 1.0, ci: CanvasItem = null) -> void:
+	if ci == null:
+		ci = self
+	T.panel(ci, r, Color(T.LINE, 0.8 * pulse) if main else Color(T.INK, 0.85), Color(T.TEXT, 0.9) if main else Color(T.TEXT_OFF, 0.9), 1, 3)
+	T.text(ci, r.get_center() + Vector2(0, 5), label, 12, T.INK if main else T.TEXT, HORIZONTAL_ALIGNMENT_CENTER, 0 if main else -1)
 
 
 func _msg_line(p: Vector2, w: float, fallback: String) -> void:
@@ -593,12 +695,14 @@ func _draw() -> void:
 		2: _draw_detail()
 		3: _draw_battles()
 	_x_button()
+	if _over != null:
+		_over.queue_redraw()
 
 
 func _draw_roster() -> void:
 	var p: Array = party()
 	T.text(self, Vector2(12, 22), "편성", 15, T.TEXT)
-	T.text(self, Vector2(56, 21), "카드를 누르고 명단에서 마녀를 고르세요", 10, T.TEXT_SUB)
+	T.text(self, Vector2(56, 21), "카드를 누르고 명단에서 마녀를 고르세요 · 명단을 길게 누르면 자세히", 10, T.TEXT_SUB)
 	for i in 3:
 		_draw_card(i, String(p[i]), i == active)
 	# 오른쪽 명단 (이름 10px · 속성 색 윗선 · 파티 배지)
@@ -610,6 +714,10 @@ func _draw_roster() -> void:
 		var ecol: Color = TData.ELEMENT_COLOR.get(w.element, T.LINE)
 		T.panel(self, r, Color(T.LINE, 0.2) if slot >= 0 else Color(T.PANEL, 0.9), Color(T.LINE, 0.75) if slot >= 0 else Color(ecol, 0.3), 1, 3)
 		draw_rect(Rect2(r.position + Vector2(2, 1), Vector2(r.size.x - 4, 2)), Color(ecol, 0.9))
+		# 속성 아이콘 + 역할 한 글자 (review_G G10)
+		draw_circle(r.position + Vector2(9, 11), 6.0, Color(T.INK, 0.9))
+		T.element_icon(self, r.position + Vector2(9, 11), String(w.element), 4.0)
+		T.text(self, r.position + Vector2(9, 27), String(TData.ROLE_NAME.get(String(w.get("role", "")), " ")).substr(0, 1), 8, ecol, HORIZONTAL_ALIGNMENT_CENTER, 0)
 		T.text(self, Vector2(r.get_center().x, r.end.y - 4), String(w.name), 10, T.TEXT if slot >= 0 else T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER)
 		if slot >= 0:
 			var b := r.position + Vector2(r.size.x - 9, 11)
@@ -632,8 +740,12 @@ func _draw_roster() -> void:
 			draw_rect(Rect2(wx + 0.5, PICK_RECT.position.y + 9.5, 10, 10), Color(T.WEAK, 0.9), false, 1.0)
 			T.element_icon(self, Vector2(wx + 5.5, PICK_RECT.position.y + 14.5), String(weak[k]), 4.2)
 		T.text(self, Vector2(wx - 4, PICK_RECT.position.y + 19), "약점", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
+	if NEXT.values().has(battle_pick) and not TSave.cleared.has(battle_pick) and not TSave.cleared.is_empty():
+		var tg := Rect2(PICK_RECT.position + Vector2(PICK_RECT.size.x - 52, -9), Vector2(48, 12))
+		T.panel(self, tg, Color(T.INK, 0.95), T.GOLD, 1, 2)
+		T.text(self, Vector2(tg.get_center().x, tg.end.y - 2), "다음 추천", 8, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER, 0)
 	_button(START1_RECT, "전투 고르기  ▶", true, 0.8 + 0.2 * sin(_t * 4.0))
-	_msg_line(Vector2(12, 350), 616, "")
+	_msg_line(Vector2(12, 350), 616, "" if TSave.persistent() else "이 브라우저에서는 저장되지 않습니다 (사생활 보호 창·저장 막힘)")
 
 
 ## 전투 카드 제목: "보스 전투 — 재의 왕" → "재의 왕"
@@ -713,7 +825,7 @@ func _draw_card(i: int, wid: String, on: bool) -> void:
 	# 마법 장착 버튼: 위에 "장착 마법" 꼬리표 (L10), 장착한 마법 4개 아이콘 + 비용 배지, 오른쪽 ▶
 	var mb := _magic_btn(i)
 	var eqd: Array = state[wid].equipped
-	T.text(self, Vector2(mb.position.x + 2, mb.position.y - 2), "장착 마법", 8, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_LEFT, 0)
+	T.text(self, Vector2(mb.position.x + 2, mb.position.y - 2), "장착 마법 · 숫자 = 크레딧", 8, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_LEFT, 0)
 	T.panel(self, mb, Color(T.LINE, 0.3 if on else 0.18), Color(T.TEXT, 0.7), 1, 3)
 	for k in TData.EQUIP_MAX:
 		var cc := mb.position + Vector2(13 + 24 * k, 15)
@@ -744,8 +856,15 @@ func _draw_detail() -> void:
 		draw_rect(Rect2(r.position.x + 2, r.position.y + 2, 3, r.size.y - 4), TData.WITCHES[twid].color)
 		if on:
 			draw_rect(Rect2(r.position.x, r.end.y - 2, r.size.x, 2), T.GOLD)
-		T.text(self, r.get_center() + Vector2(2, 5), String(TData.WITCHES[twid].name), 12, T.TEXT if on else T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER)
+		T.text(self, r.get_center() + Vector2(2, 3), String(TData.WITCHES[twid].name), 12, T.TEXT if on else T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER)
+		T.text(self, Vector2(r.end.x - 3, r.end.y - 3), T.SLOT_NAME[i], 8, T.GOLD if on else T.TEXT_OFF, HORIZONTAL_ALIGNMENT_RIGHT, 0)
 	T.text(self, Vector2(216, 22), "마법 장착 — 10개 중 %d개 (%d/%d)" % [TData.EQUIP_MAX, _equipped().size(), TData.EQUIP_MAX], 10, T.TEXT_SUB)
+	# 타일 왼쪽 색 막대의 뜻 (review_G G22)
+	var lx := 380.0
+	for kd: Array in [["attack", "공격"], ["support", "보조"], ["debuff", "디버프"]]:
+		draw_rect(Rect2(lx, 15, 6, 6), T.kind_col(String(kd[0])))
+		T.text(self, Vector2(lx + 9, 22), String(kd[1]), 8, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_LEFT, 0)
+		lx += 13.0 + T.width(String(kd[1]), 8) + 6.0
 	# 왼쪽: 이름·능력치·패시브
 	T.text(self, Vector2(73, 55), String(w.name), 15, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	T.text(self, Vector2(73, 69), String(w.title), 10, ecol, HORIZONTAL_ALIGNMENT_CENTER)
@@ -754,7 +873,7 @@ func _draw_detail() -> void:
 	var atk := int(round(float(w.atk) * (1.0 + float(eq.get("atk", 0.0)))))
 	var hp := int(round(float(w.hp) * (1.0 + float(eq.get("hp", 0.0)))))
 	var lines := ["공격력 %s" % TData.fmt(atk), "체력 %s" % TData.fmt(hp), "속도 %d · 방어 %d%%" % [int(w.speed) + int(eq.get("speed", 0)), int(round(float(w.def) * 100.0))],
-		"속성 %s%s" % [TData.ELEMENT_NAME.get(w.element, w.element), " (무상성 1.2배)" if bool(w.special) else ""], "기본 공격 %s" % String(w.basic.name)]
+		"속성 %s%s" % [TData.ELEMENT_NAME.get(w.element, w.element), " · 모든 적에게 1.2배" if bool(w.special) else ""], "기본 공격 %s" % String(w.basic.name)]
 	for i in lines.size():
 		T.text(self, Vector2(6, 208 + 12 * i), T.clip(lines[i], 10, 136), 10, T.TEXT)
 	var pas: Dictionary = w.get("passive", {})
@@ -800,8 +919,13 @@ func _draw_detail() -> void:
 	var ult := TData.skill(uid)
 	T.panel(self, ULT_ROW, Color(T.GOLD, 0.12), T.TEXT if cursor == 10 else Color(T.GOLD, 0.8), 2 if cursor == 10 else 1, 3)
 	TIcon.draw(self, ULT_ROW.position + Vector2(17, 15), String(ult.get("icon", "burst")), T.GOLD, 7.5)
-	T.text(self, ULT_ROW.position + Vector2(30, 19), "대마법  " + String(ult.get("name", "")), 10, T.GOLD)
-	T.text(self, ULT_ROW.end - Vector2(8, 11), "크레딧 7 · 바퀴 끝 칸", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
+	var ul := "대마법  " + String(ult.get("name", ""))
+	T.text(self, ULT_ROW.position + Vector2(30, 19), ul, 10, T.GOLD)
+	var ur := "크레딧 7 · 바퀴 끝 칸"
+	if T.width(ul, 10) + T.width(ur, 10) + 46.0 > ULT_ROW.size.x:
+		ur = "크레딧 7" # 이름이 길면 줄여서 (review_G G13 — "불새의 축복크레딧 7"처럼 붙었다)
+	if T.width(ul, 10) + T.width(ur, 10) + 46.0 <= ULT_ROW.size.x:
+		T.text(self, ULT_ROW.end - Vector2(8, 11), ur, 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
 	# 장비 줄 (길게 누르면 강화 Lv)
 	var has_eq := String(state[wid].equip) != ""
 	var eheld := not _press.is_empty() and String(_press.what) == "equip"
@@ -810,9 +934,9 @@ func _draw_detail() -> void:
 	draw_arc(EQUIP_ROW.position + Vector2(14, 14), 6.0, 0.0, TAU, 16, T.GOLD if has_eq else T.TEXT_OFF, 1.5)
 	if eheld:
 		draw_arc(EQUIP_ROW.position + Vector2(14, 14), 10.0, -PI * 0.5, -PI * 0.5 + TAU * clampf(float(_press.t) / HOLD, 0.0, 1.0), 24, T.GOLD, 2.0)
-	var etxt := "장비 %s%s — %s" % [String(eq.get("name", "없음")), " Lv%d" % lv if lv > 1 and has_eq else "", String(eq.get("desc", ""))] if has_eq else "장비 없음 — 편성 카드의 ◀ ▶로 고릅니다"
+	var etxt := "장비 %s%s — %s" % [String(eq.get("name", "없음")), " Lv%d" % lv if lv > 1 and has_eq else "", String(eq.get("desc", ""))] if has_eq else "장비 없음 — 편성 카드의 장비 칸에서 고릅니다"
 	T.text(self, EQUIP_ROW.position + Vector2(26, 18), T.clip(etxt, 10, EQUIP_ROW.size.x - 32), 10, T.GOLD if has_eq else T.TEXT_SUB)
-	T.wrap(self, Vector2(152, 286), "마법·장비를 길게 누르면 강화 Lv1→2→3 (시험용)", 222, 10, T.TEXT_OFF, 12.0, 2)
+	T.wrap(self, Vector2(152, 286), "마법·장비를 길게 누르면 강화 Lv", 222, 10, T.TEXT_OFF, 12.0, 2)
 	# 오른쪽: 큰 설명 상자
 	if cursor >= 0 and cursor < skills.size():
 		_draw_desc(String(skills[cursor]), int(slv.get(String(skills[cursor]), 1)))
@@ -847,16 +971,16 @@ func _draw_desc(sid: String, lv: int) -> void:
 		T.cost_badge(self, Vector2(nx + 4, y - 5), str(int(s.cost)))
 	T.text(self, Vector2(x + DESC_W, y - 1), "대마법" if ult else ("장착됨" if on else "미장착"), 10, T.GOLD if ult else (T.LINE if on else T.TEXT_OFF), HORIZONTAL_ALIGNMENT_RIGHT)
 	y += 18
-	var line2 := "비용 %d · %s" % [int(s.cost), T.kind_label(s)]
-	if kind == "attack":
-		line2 += " · 배율 ×%.1f" % float(s.mult)
+	var line2 := "비용 %d · %s" % [int(s.cost), T.kind_label(s)] # 배율은 효과 글에 있어 뺌 (review_G G12)
 	if lv > 1:
 		line2 += " · Lv%d" % lv
 	T.text(self, Vector2(x, y), line2, 10, kcol)
 	y += 6
 	draw_line(Vector2(x, y), Vector2(x + DESC_W, y), Color(T.LINE, 0.35), 1.0)
 	y += 14
-	y += T.wrap(self, Vector2(x, y), String(TData.skill(sid).desc), DESC_W, 10, T.TEXT, 13.0)
+	var bf := T.body_fs()
+	var lh := T.body_lh()
+	y += T.wrap(self, Vector2(x, y), String(TData.skill(sid).desc), DESC_W, bf, T.TEXT, lh)
 	y += 4
 	# 효과를 항목으로 (수치가 한눈에, 강화 레벨 반영)
 	for e in s.get("effects", []):
@@ -864,9 +988,12 @@ func _draw_desc(sid: String, lv: int) -> void:
 		if t == "":
 			continue
 		draw_circle(Vector2(x + 3, y - 4), 1.6, Color(kcol, 0.9))
-		y += T.wrap(self, Vector2(x + 9, y), t, DESC_W - 9, 10, T.TEXT_SUB, 13.0, 2)
+		y += T.wrap(self, Vector2(x + 9, y), t, DESC_W - 9, bf, T.TEXT_SUB, lh, 2)
 	y += 4
-	if y < 280:
+	var gl := TData.gloss_for(String(TData.skill(sid).desc) + " " + String(s.get("name", "")))
+	if gl != "" and y < 276:
+		y += T.wrap(self, Vector2(x, y + 8), gl, DESC_W, 10, T.TEXT_OFF, 13.0, maxi(1, mini(3, int((292.0 - y) / 13.0)))) + 8.0 # 용어 풀이 한 줄 (review_F F08)
+	if dev and y < 280:
 		T.wrap(self, Vector2(x, y + 8), "참고 구조: " + String(s.get("ref", "")), DESC_W, 10, T.TEXT_OFF, 13.0, maxi(1, int((290.0 - y) / 13.0)))
 	# 공격이면 예상 피해 (짚 골렘 기준, 버프 없음)
 	if kind == "attack":
@@ -882,7 +1009,7 @@ func _draw_equip_desc(eid: String, lv: int) -> void:
 	var x := DESC_X
 	if eid == "":
 		T.text(self, Vector2(x, 56), "장비 없음", 15, T.TEXT) # 제목 기준선 +4 (위 테에 붙지 않게, L7)
-		T.wrap(self, Vector2(x, 80), "편성 카드의 ◀ ▶로 장비를 고릅니다. 한 장비는 파티에 한 명만 낄 수 있어, 다른 파티원이 낀 장비는 건너뜁니다.", DESC_W, 10, T.TEXT_SUB, 13.0)
+		T.wrap(self, Vector2(x, 80), "편성 카드의 장비 칸을 누르면 목록이 열립니다(◀ ▶로 하나씩도 됩니다). 한 장비는 파티에 한 명만 낄 수 있어, 다른 파티원이 낀 장비는 건너뜁니다.", DESC_W, 10, T.TEXT_SUB, 13.0)
 		return
 	T.text(self, Vector2(x, 56), String(TData.EQUIPS[eid].name), 15, T.GOLD)
 	T.text(self, Vector2(x + DESC_W, 55), "Lv%d" % lv, 10, T.GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -892,15 +1019,21 @@ func _draw_equip_desc(eid: String, lv: int) -> void:
 		var col := T.TEXT if l == lv else T.TEXT_OFF
 		T.text(self, Vector2(x, y), "Lv%d" % l, 10, T.GOLD if l == lv else T.TEXT_OFF)
 		y += T.wrap(self, Vector2(x + 28, y), String(e.desc), DESC_W - 28, 10, col, 13.0) + 4.0
-	T.wrap(self, Vector2(x, y + 10), "한 장비는 파티에 한 명만 (다른 파티원이 낀 장비는 ◀ ▶에서 건너뜀). 길게 누르면 강화 Lv 시험.", DESC_W, 10, T.TEXT_SUB, 13.0)
+	T.wrap(self, Vector2(x, y + 10), "한 장비는 파티에 한 명만 (다른 파티원이 낀 장비는 건너뜀). 편성 카드의 장비 칸을 누르면 목록. 길게 누르면 강화 Lv.", DESC_W, 10, T.TEXT_SUB, 13.0)
 
 
 ## 3단계: 전투 고르기 — 카드 3장 (종류·이름·웨이브별 적·약점·안내) + 출격
 func _draw_battles() -> void:
 	T.text(self, Vector2(12, 22), "전투 고르기", 15, T.TEXT)
-	T.text(self, Vector2(104, 21), "카드를 누르고 출격", 10, T.TEXT_SUB)
-	for i in BATTLE_IDS.size():
-		var bid := String(BATTLE_IDS[i])
+	T.text(self, Vector2(104, 21), "카드를 누르고 출격 · 길게 누르면 자세히", 10, T.TEXT_SUB)
+	var ids := battle_ids()
+	var rec := ""
+	for b in ids:
+		if not TSave.cleared.has(String(b)):
+			rec = String(b)
+			break
+	for i in ids.size():
+		var bid := String(ids[i])
 		var bd: Dictionary = TData.BATTLES[bid]
 		var r := _battle_rect(i)
 		var on := bid == battle_pick
@@ -940,7 +1073,30 @@ func _draw_battles() -> void:
 			draw_rect(Rect2(wx, y - 8, 11, 11), Color(T.INK, 0.9))
 			draw_rect(Rect2(wx + 0.5, y - 7.5, 10, 10), Color(T.WEAK, 0.9), false, 1.0)
 			T.element_icon(self, Vector2(wx + 5.5, y - 2.5), String(weak[k]), 4.2)
-		T.wrap(self, Vector2(r.position.x + 8, y + 17), String(BATTLE_NOTE.get(bid, "")), r.size.x - 16, 10, T.TEXT_SUB, 12.0, 2)
+		var info: Array = BATTLE_INFO.get(bid, [1, "", ""])
+		T.wrap(self, Vector2(r.position.x + 8, y + 17), String(info[2]), r.size.x - 16, 10, T.TEXT_SUB, 12.0, 2)
+		# 난이도 별 · 예상 시간 (review_G G09)
+		var sy := r.end.y - 9.0
+		T.text(self, Vector2(r.position.x + 8, sy + 4), "난이도", 10, T.TEXT_SUB)
+		for k in 3:
+			T.star(self, Vector2(r.position.x + 50 + 12 * k, sy), 4.5, T.GOLD if k < int(info[0]) else T.EMPTY)
+		T.text(self, Vector2(r.end.x - 8, sy + 4), String(info[1]), 10, T.TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+		# 깸 · 처음이면 여기 / 다음 추천 (review_G G06 — 진행 표시, 결과 화면의 기록이 아님)
+		var badge := ""
+		if TSave.cleared.has(bid):
+			badge = "깸"
+		elif bid == rec and ids.size() > 1:
+			badge = "처음이면 여기" if TSave.cleared.size() <= 1 and bid == "normal_01" else "다음 추천"
+		if badge != "":
+			var bw := T.width(badge, 10) + (20.0 if badge == "깸" else 10.0)
+			var br := Rect2(r.end.x - bw - 6.0, r.position.y + 8, bw, 15)
+			var bc := T.HP_ALLY if badge == "깸" else T.GOLD
+			T.panel(self, br, Color(T.INK, 0.95), bc, 1, 2)
+			if badge == "깸":
+				draw_polyline(PackedVector2Array([br.position + Vector2(5, 8), br.position + Vector2(8, 11), br.position + Vector2(13, 4)]), bc, 1.6)
+				T.text(self, Vector2(br.end.x - 5, br.position.y + 12), badge, 10, bc, HORIZONTAL_ALIGNMENT_RIGHT)
+			else:
+				T.text(self, Vector2(br.get_center().x, br.position.y + 12), badge, 10, bc, HORIZONTAL_ALIGNMENT_CENTER)
 	_button(BACK3_RECT, "← 편성", false)
 	_button(START1_RECT, "출격", true, 0.8 + 0.2 * sin(_t * 4.0))
 	_msg_line(Vector2(140, 320), 250, "")
@@ -1034,4 +1190,114 @@ func _draw_witch_desc(w: Dictionary) -> void:
 	var y := 90.0
 	y += T.wrap(self, Vector2(DESC_X, y), "마법 10개: 공격 %d · 보조 %d · 디버프 %d" % [n_atk, n_sup, n_deb], DESC_W, 10, T.TEXT, 13.0)
 	y += T.wrap(self, Vector2(DESC_X, y), "기본 공격 %s — %s" % [String(w.basic.name), String(w.basic.desc)], DESC_W, 10, T.TEXT, 13.0) + 8.0
-	T.wrap(self, Vector2(DESC_X, y), "마법 타일을 누르면 여기에 비용·종류·대상·효과·수치가 나옵니다. 한 번 더 누르면 장착합니다. 길게 누르면 강화 레벨(시험용)이 바뀝니다.", DESC_W, 10, T.TEXT_SUB, 13.0)
+	T.wrap(self, Vector2(DESC_X, y), "마법 타일을 누르면 여기에 비용·종류·대상·효과·수치가 나옵니다. 한 번 더 누르면 장착합니다. 길게 누르면 강화 레벨이 바뀝니다.", DESC_W, 10, T.TEXT_SUB, 13.0)
+
+
+## 명단을 길게 누르는 동안: 그 마녀 상세 (S-02 왼쪽·설명 상자와 같은 내용 — 능력치·속성·역할·대마법·패시브, review_G G10)
+func _draw_peek(ci: CanvasItem, wid: String) -> void:
+	var w: Dictionary = TData.WITCHES[wid]
+	var ecol: Color = TData.ELEMENT_COLOR.get(w.element, T.LINE)
+	var r := Rect2(16, 40, 376, 268)
+	T.panel(ci, r, Color(T.INK, 0.98), Color(ecol, 0.8), 1, 4)
+	var x := r.position.x + 12.0
+	T.text(ci, Vector2(x, r.position.y + 22), String(w.name), 15, T.TEXT)
+	T.text(ci, Vector2(r.end.x - 12, r.position.y + 21), String(w.title), 10, ecol, HORIZONTAL_ALIGNMENT_RIGHT)
+	var bf := T.body_fs()
+	var lh := T.body_lh()
+	var y := r.position.y + 42.0
+	var st := "공격 %s · 체력 %s · 속도 %d · 방어 %d%%" % [TData.fmt(int(w.atk)), TData.fmt(int(w.hp)), int(w.speed), int(round(float(w.def) * 100.0))]
+	y += T.wrap(ci, Vector2(x, y), st, r.size.x - 24, bf, T.TEXT, lh) + 4.0
+	var el := "속성 %s%s · 역할 %s" % [TData.ELEMENT_NAME.get(w.element, ""), " (모든 적에게 1.2배)" if bool(w.special) else "", TData.ROLE_NAME.get(String(w.get("role", "")), "")]
+	y += T.wrap(ci, Vector2(x, y), el, r.size.x - 24, bf, ecol, lh) + 6.0
+	var ult := TData.skill(String(w.get("ultimate", "")))
+	y += T.wrap(ci, Vector2(x, y), "대마법 %s — %s" % [String(ult.get("name", "")), String(ult.get("desc", ""))], r.size.x - 24, bf, T.GOLD, lh, 3) + 6.0
+	var pas: Dictionary = w.get("passive", {})
+	y += T.wrap(ci, Vector2(x, y), "패시브 %s — %s" % [String(pas.get("name", "")), String(pas.get("desc", ""))], r.size.x - 24, bf, T.TEXT_SUB, lh, 3) + 6.0
+	y += T.wrap(ci, Vector2(x, y), "기본 공격 %s — %s" % [String(w.basic.name), String(w.basic.desc)], r.size.x - 24, bf, T.TEXT, lh, 2) + 6.0
+	T.text(ci, Vector2(r.get_center().x, r.end.y - 10), "떼면 닫힘 · 짧게 누르면 이 자리에 넣기", 10, T.TEXT_OFF, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+# ── 장비 목록 판 (review_G G11 · review_F F11): 15칸 한눈에. 한 번 누르면 설명, 다시 누르면 낌. 다른 파티원이 낀 것은 흐림
+
+func _open_equip_list(slot: int) -> void:
+	_eq_slot = slot
+	_eq_pick = String(state[String(party()[slot])].equip)
+	Sfx.play(&"tn_select", -10.0)
+
+
+func _eq_cell(i: int) -> Rect2:
+	return Rect2(EQ_LIST.position.x + 12 + 134 * (i % 4), EQ_LIST.position.y + 34 + 44 * (i / 4), 128, 40)
+
+
+func _equip_list_press(p: Vector2) -> void:
+	var wid := String(party()[_eq_slot])
+	for i in TData.EQUIP_ORDER.size():
+		if _eq_cell(i).has_point(p):
+			var eid := String(TData.EQUIP_ORDER[i])
+			if TData.equip_taken(state, eid, wid):
+				_say("%s는 다른 파티원이 끼고 있습니다" % String(TData.EQUIPS[eid].name))
+				Sfx.play(&"tn_cancel", -10.0)
+				return
+			if _eq_pick == eid:
+				state[wid].equip = eid
+				var eq: Dictionary = TData.EQUIPS[eid]
+				_say("%s 장비: %s — %s" % [TData.WITCHES[wid].name, eq.name, eq.desc])
+				TSave.save_soon()
+				_eq_slot = -1
+				Sfx.play(&"tn_confirm", -8.0)
+			else:
+				_eq_pick = eid
+				Sfx.play(&"tn_select", -12.0)
+			return
+	if EQ_CLOSE.has_point(p) or not EQ_LIST.has_point(p):
+		_eq_slot = -1
+		Sfx.play(&"tn_cancel", -10.0)
+
+
+func _draw_equip_list(ci: CanvasItem) -> void:
+	var wid := String(party()[_eq_slot])
+	ci.draw_rect(Rect2(Vector2.ZERO, size), Color(T.INK, 0.55))
+	T.panel(ci, EQ_LIST, Color(T.PANEL, 0.98), Color(T.LINE, 0.9), 1, 4)
+	T.text(ci, EQ_LIST.position + Vector2(12, 22), "장비 — %s" % String(TData.WITCHES[wid].name), 15, T.TEXT)
+	T.text(ci, Vector2(EQ_LIST.end.x - 12, EQ_LIST.position.y + 21), "한 번 누르면 설명 · 다시 누르면 낌", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
+	var cur := String(state[wid].equip)
+	for i in TData.EQUIP_ORDER.size():
+		var eid := String(TData.EQUIP_ORDER[i])
+		var r := _eq_cell(i)
+		var taken := TData.equip_taken(state, eid, wid)
+		var on := eid == _eq_pick
+		T.panel(ci, r, Color(T.PANEL_HI, 1.0) if on else Color(T.INK, 0.75), T.TEXT if on else (T.GOLD if eid == cur else Color(T.LINE, 0.35)), 2 if on or eid == cur else 1, 3)
+		var nm := String(TData.EQUIPS[eid].name) if eid != "" else "없음"
+		var col := T.TEXT_OFF if taken else (T.GOLD if eid == cur else T.TEXT)
+		var ls := T.split_lines(nm, r.size.x - 10, 10)
+		for k in mini(ls.size(), 2):
+			T.text(ci, Vector2(r.position.x + 6, r.position.y + (16 if ls.size() > 1 else 24) + 12 * k), String(ls[k]), 10, col)
+		if taken:
+			for w2 in party():
+				if String(w2) != wid and String(state[String(w2)].equip) == eid and eid != "":
+					T.text(ci, Vector2(r.end.x - 4, r.end.y - 4), String(TData.WITCHES[String(w2)].name), 8, T.TEXT_OFF, HORIZONTAL_ALIGNMENT_RIGHT, 0)
+		elif eid == cur:
+			T.text(ci, Vector2(r.end.x - 4, r.end.y - 4), "낀 것", 8, T.GOLD, HORIZONTAL_ALIGNMENT_RIGHT, 0)
+	var e: Dictionary = TData.equip_at(_eq_pick, int(state[wid].get("equip_lv", 1)) if _eq_pick == cur else 1) if _eq_pick != "" else {}
+	var dy := EQ_LIST.position.y + 34 + 44 * 4 + 14.0
+	if _eq_pick == "":
+		T.text(ci, Vector2(EQ_LIST.position.x + 12, dy), "없음 — 장비를 끼지 않습니다", 10, T.TEXT_SUB)
+	else:
+		T.text(ci, Vector2(EQ_LIST.position.x + 12, dy), String(e.get("name", "")), 12, T.GOLD)
+		T.wrap(ci, Vector2(EQ_LIST.position.x + 12, dy + 16), String(e.get("desc", "")), 420, T.body_fs(), T.TEXT, T.body_lh(), 3)
+	_button(EQ_CLOSE, "닫기", true, 1.0, ci)
+
+
+## 편성 위 판(장비 목록·명단 상세)은 미리보기 그림(TActor)보다 위에 그려야 해서 마지막 자식 Control에 그린다
+func _draw_overlays(ci: CanvasItem) -> void:
+	if _peek != "":
+		_draw_peek(ci, _peek)
+	if _eq_slot >= 0:
+		_draw_equip_list(ci)
+
+
+class Overlay extends Control:
+	var setup: TSetup
+
+	func _draw() -> void:
+		setup._draw_overlays(self)

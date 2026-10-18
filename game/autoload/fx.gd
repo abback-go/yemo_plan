@@ -197,6 +197,8 @@ func shake(amplitude_t: float, duration := 0.22) -> void:
 
 
 func flash(color: Color, duration := 0.12) -> void:
+	if not GameState.settings.get("flash", true):
+		return # 설정 "번쩍임 끔" (광과민 — 턴제 설정 판, combat_proto.md §28.7)
 	if _flash_tween:
 		_flash_tween.kill()
 	_flash_rect.color = color

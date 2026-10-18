@@ -1,0 +1,5 @@
+{"scene": "res://proto/turn/turn_proto.tscn", "seed": 20261018, "turn_save": "fresh", "steps": [
+ [2, "shot", "f00_first_launch"],
+ [3, "attach", "../tools/test/turn_touch_bot.gd"],
+ [40000, "quit"]
+]}

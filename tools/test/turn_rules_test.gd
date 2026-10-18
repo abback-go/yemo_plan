@@ -22,6 +22,7 @@ func _process(_d: float) -> bool:
 	_number_tests()
 	_stage_b_tests()
 	_stage_e_tests()
+	_stage_f_tests()
 	print("RULES 통과 %d/%d%s" % [_pass, _pass + _fail, "" if _fail == 0 else " — 실패 %d" % _fail])
 	quit(1 if _fail > 0 else 0)
 	return true
@@ -965,3 +966,181 @@ func _stage_e_tests() -> void:
 	hp.credits = 7
 	var a7 := TAuto.pick(b, hp)
 	_ok("G09 하르페 크레딧 3 → 기본 공격 (흑백 참격·검기 두르기 안 씀) · 7 → 종막의 검", "%s %s" % [String(a.kind), String(a7.skill)], "basic ult_harpe")
+
+
+## 단계 F-1 (combat_proto.md §25.7): 차례 줄 미리보기(사용 뒤 · 다가오는 필살기) · 크리 확률·성공률 표시값 · 저장·불러오기 결정론 · 편성 파일 검증
+func _stage_f_tests() -> void:
+	# V17 박차 가하기(아군 게이지 +60%)를 고른 "사용 뒤" 줄 = 실제로 쓴 뒤의 줄 (review_F F05 규칙 B)
+	var b := TBattle.new()
+	b.setup(["astra", "ignis", "ember"], ["straw_golem", "ash_knight"], {}, 7)
+	b.fix_rand = 1.0
+	b.fix_crit = 0
+	b.fix_roll = 0.0
+	var u := b.next_actor()
+	while not u.is_witch() or u.id != "astra":
+		if u.is_witch():
+			b.basic_attack(u, b.enemies[0])
+		else:
+			b.enemy_action(u)
+		b.end_action(u)
+		u = b.next_actor()
+	u.credits = 7
+	var ig := _w(b, "ignis")
+	var q1 := b.preview_if(u, "spur", ig)
+	b.use_skill(u, "spur", ig)
+	b.end_action(u)
+	var q2: Array[TUnit] = [u]
+	q2.append_array(b.preview(7))
+	_ok("V17 사용 뒤 줄 = 쓴 뒤 줄 (박차 가하기 → 이그니스)", _names(q1), _names(q2))
+	# V18 성질: 시드 30개 × TAuto 행동 40번 — 마녀가 고를 때마다 preview_if == 실행 뒤 [그 마녀] + preview(7) (판정 성공 고정)
+	var bad := 0
+	var checks := 0
+	for sd in 30:
+		b = TBattle.new()
+		b.setup(["astra", "glacia", "hora"] if sd % 2 == 0 else ["tonan", "ember", "eska"], "normal_01", {}, 100 + sd)
+		b.fix_rand = 1.0
+		b.fix_crit = 0
+		b.fix_roll = 0.0
+		for k in 40:
+			if b.outcome() != "":
+				break
+			u = b.next_actor()
+			if u.stunned:
+				b.rest(u)
+			elif u.is_witch():
+				var a := TAuto.pick(b, u)
+				var sid := "basic" if String(a.kind) == "basic" else String(a.skill)
+				var qa := b.preview_if(u, sid, a.get("target"))
+				if sid == "basic":
+					b.basic_attack(u, a.get("target"))
+				else:
+					b.use_skill(u, sid, a.get("target"))
+				b.end_action(u)
+				var qb: Array[TUnit] = [u]
+				qb.append_array(b.preview(7))
+				checks += 1
+				if _names(qa) != _names(qb):
+					bad += 1
+				continue
+			else:
+				b.enemy_action(u)
+			b.end_action(u)
+	_ok("V18 사용 뒤 줄 성질 시험 (%d번 비교) — 어긋남" % checks, bad, 0)
+	# V19 재의 기사 차지 2/5 → 그 적의 앞으로 4번째 행동이 필살기 칸 · 실제로도 4번째 행동이 필살기 (F05 규칙 A)
+	b = _b(["ignis", "ember", "eska"], ["ash_knight"])
+	_tough(b)
+	var kn := b.enemies[0]
+	kn.max_hp = 1000000000
+	kn.hp = kn.max_hp
+	kn.charge = 2
+	b.decide_intent(kn)
+	var q := b.preview(24)
+	var fin := b.finisher_slots(q)
+	var nth := 0
+	var fin_nth := -1
+	for i in q.size():
+		if q[i] == kn:
+			nth += 1
+			if fin.has(i) and fin_nth < 0:
+				fin_nth = nth
+	var acts := 0
+	var real_nth := -1
+	for k in 60:
+		u = b.next_actor()
+		if u.is_witch():
+			b.basic_attack(u, kn)
+		else:
+			acts += 1
+			if String(u.intent().get("k", "")) == "finisher" and real_nth < 0:
+				real_nth = acts
+			b.enemy_action(u)
+		b.end_action(u)
+	_ok("V19 차지 2/5 → 필살기 칸 = 앞으로 4번째 행동 = 실제 필살기", "%d %d" % [fin_nth, real_nth], "4 4")
+	# V22 크리 확률 표시값 = 기본 10% + 태양의 창 선버프 40% (예상을 구해도 버프는 남지 않음, F06 b)
+	b = _b(["ignis"], ["straw_golem"])
+	var ig2 := _w(b, "ignis")
+	var t := _dummy(b, "none")
+	var info := b.est_info(ig2, t, "sun_spear")
+	_ok("V22 태양의 창 크리 확률 표시 0.5 · 버프 0개", "%s %d" % [str(snappedf(float(info.rate), 0.001)), ig2.buffs.size()], "0.5 0")
+	# V23 성공률 표시: 재의 왕(내성 30%)에 확률 100% 디버프 → 70% · 글라시아(패시브 +15%) → 85% (F06 c)
+	b = TBattle.new()
+	b.setup(["ignis", "glacia"], "boss_01", {}, 3)
+	var king := TUnit.make_enemy("ash_king", 0)
+	_ok("V23 성공률 재의 왕 70% · 글라시아 85%", "%d %d" % [int(round(b.success_rate(b.witches[0], king, {"rate": 1.0}) * 100.0)), int(round(b.success_rate(b.witches[1], king, {"rate": 1.0}) * 100.0))], "70 85")
+	# V25 저장·불러오기 결정론: 40번 행동한 뒤 마녀 차례 시작에서 저장 → 끊지 않은 전투의 다음 20번 = 불러온 전투의 20번 (F07)
+	var seq := func(bb: TBattle, n: int, from_saved: bool) -> String:
+		var lines: Array = []
+		for k in n:
+			if bb.outcome() != "":
+				break
+			var uu := bb.next_actor()
+			if uu.stunned:
+				bb.rest(uu)
+			elif uu.is_witch():
+				var aa := TAuto.pick(bb, uu)
+				if String(aa.kind) == "basic":
+					bb.basic_attack(uu, aa.get("target"))
+				else:
+					bb.use_skill(uu, String(aa.skill), aa.get("target"))
+			else:
+				bb.enemy_action(uu)
+			bb.end_action(uu)
+			if bb.outcome() == "wave":
+				bb.next_wave()
+		for w in bb.all_units():
+			lines.append("%s:%d:%d" % [w.id, w.hp, w.credits])
+		return "%s|%s" % [" ".join(lines), str(bb.log.slice(maxi(bb.log.size() - 12, 0)))]
+	b = TBattle.new()
+	b.setup(["harpe", "nerei", "astra"], "boss_01", {}, 4242)
+	var snap := {}
+	var done := 0
+	while done < 400:
+		u = b.next_actor()
+		if u.is_witch() and done >= 40 and snap.is_empty() and not u.stunned:
+			snap = b.to_dict()
+			# 저장한 차례를 이 전투에서도 이어서: 아래 seq가 next_actor를 다시 부르므로 resume 표시
+			b.resume = true
+			break
+		if u.stunned:
+			b.rest(u)
+		elif u.is_witch():
+			var a := TAuto.pick(b, u)
+			if String(a.kind) == "basic":
+				b.basic_attack(u, a.get("target"))
+			else:
+				b.use_skill(u, String(a.skill), a.get("target"))
+		else:
+			b.enemy_action(u)
+		b.end_action(u)
+		if b.outcome() == "wave":
+			b.next_wave()
+		done += 1
+	var text := var_to_str(snap)
+	var b2 := TBattle.from_dict(str_to_var(text))
+	var r1: String = seq.call(b, 20, false)
+	var r2: String = seq.call(b2, 20, true)
+	_ok("V25 저장 → 글 → 불러와 20번 = 끊지 않은 20번 (체력·크레딧·기록)", r1 == r2 and not snap.is_empty(), true)
+	# V26 데이터에서 빠진 id가 든 편성 파일 → 기본값으로 채움
+	var ps := TSave.parse_setup({"party": ["eska", "nope", "ignis"], "witch": {"eska": {"equipped": ["crack", "zzz", "crack"], "equip": "nothing", "equip_lv": 9, "skill_lv": {"crack": 3, "zzz": 2}}}, "battle_pick": "nope", "cleared": ["normal_01", "x"]})
+	var es: Dictionary = ps.state.eska
+	_ok("V26 모르는 마녀·마법·장비·전투를 버림 (파티 기본 · 장착 crack · 장비 없음 · Lv3 · 전투 기본 · 깸 normal_01)", "%s %s %s %d %s %s %s" % [str(ps.state.party), str(es.equipped), String(es.equip), int(es.equip_lv), str(es.skill_lv), String(ps.pick), str(TSave.cleared)],
+		"%s [\"crack\"]  3 { \"crack\": 3 } %s [\"normal_01\"]" % [str(TData.BATTLE.party), TData.BATTLE.battle])
+	TSave.cleared = []
+	# V27 끊긴 전투 파일: 쓰기 → 있음 → 읽기(같은 차례) → 지우기 → 없음
+	TSave.enabled = true
+	TSave.dir = "user://test_rules/"
+	TSave.save_battle(snap)
+	var had := TSave.has_battle()
+	var back := TSave.load_battle()
+	TSave.clear_battle()
+	_ok("V27 끊긴 전투 파일 쓰기·읽기·지우기", "%s %d %s" % [str(had), int(back.get("turn_no", -1)), str(TSave.has_battle())], "true %d false" % int(snap.turn_no))
+	# V28 용어 풀이: 글에 나온 첫 용어
+	_ok("V28 용어 풀이 첫 용어 (겹·특공 글 → 겹)", TData.gloss_for("화상 겹마다 특공").get_slice(" — ", 0), "겹")
+
+
+func _names(q: Array) -> String:
+	var out: Array = []
+	for x in q:
+		out.append((x as TUnit).name)
+	return ",".join(out)
+

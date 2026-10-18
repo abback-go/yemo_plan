@@ -422,3 +422,37 @@ func buff_icons() -> Array:
 	for k in order:
 		out.append(by[k])
 	return out
+
+
+# ── 저장 (전투 이어하기, combat_proto.md §28.4): 데이터(data·_eq)는 id로 다시 만들고 바뀌는 값만 담는다
+const SAVE_KEYS := ["hp", "max_hp", "atk", "speed", "def_rate", "element", "gauge", "credits", "buffs", "marks", "alive", "pattern", "intent_i", "intent_now",
+	"intent_src", "rule_pat", "charge", "bar_i", "stunned", "stun_guard", "guts_used", "inv_guard", "zero_after_turn", "pending_gauge", "last_k", "last_act",
+	"acted", "acts", "dealt", "weak", "resist", "passive"]
+
+
+func to_dict() -> Dictionary:
+	var d := {"id": id, "side": side, "slot": slot}
+	if is_witch():
+		d["setup"] = {"equipped": equipped.duplicate(), "equip": equip, "equip_lv": equip_lv, "skill_lv": skill_lv.duplicate()}
+	for k in SAVE_KEYS:
+		var v = get(k)
+		d[k] = v.duplicate(true) if (v is Array or v is Dictionary) else v
+	return d
+
+
+static func from_dict(d: Dictionary) -> TUnit:
+	var u: TUnit
+	if String(d.side) == "witch":
+		u = make_witch(String(d.id), d.setup, int(d.slot))
+	else:
+		u = make_enemy(String(d.id), int(d.slot))
+	for k in SAVE_KEYS:
+		if not d.has(k):
+			continue
+		var v = d[k]
+		if k == "buffs":
+			u.buffs.assign(v)
+		else:
+			u.set(k, v.duplicate(true) if (v is Array or v is Dictionary) else v)
+	return u
+

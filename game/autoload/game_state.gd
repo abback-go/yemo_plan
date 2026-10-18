@@ -36,7 +36,7 @@ var running := false
 var stats := {}
 var settings := {
 	"master": 0.9, "music": 0.75, "sfx": 0.85,
-	"fullscreen": false, "shake": true, "damage_numbers": true, "touch_scale": 1,
+	"fullscreen": false, "shake": true, "flash": true, "damage_numbers": true, "touch_scale": 1,
 	"difficulty": 0, ## 0 쉬움(초보자, 기본) · 1 보통 (docs/archive/sera/bible/balance.md 3절)
 }
 

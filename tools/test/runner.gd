@@ -29,6 +29,14 @@ func _initialize() -> void:
 	load("res://world/themes/backdrop_kit.gd").Ticker.hz = float(json.get("bg_hz", 0))
 	# 정적 배경 텍스처 굽기 (기본 켬). "bake_bg": false 면 예전처럼 명령을 직접 그림 — 구운 그림과 픽셀 비교용
 	load("res://world/themes/backdrop_kit.gd").BAKE = bool(json.get("bake_bg", true))
+	# 턴제 저장 (game/proto/turn/t_save.gd): "turn_save" off(기본 — 읽지도 쓰지도 않고 첫 실행 안내도 없음, 옛 시나리오 그대로) ·
+	# fresh(시험용 폴더 user://test_turn/를 비우고 시작 = 첫 실행) · keep(그 폴더를 그대로 — 이어하기 시험)
+	var ts_mode := String(json.get("turn_save", "off"))
+	var ts = load("res://proto/turn/t_save.gd")
+	ts.enabled = ts_mode != "off"
+	ts.dir = "user://test_turn/"
+	if ts_mode == "fresh":
+		ts.wipe()
 
 
 var _release_next: Array = []
