@@ -2,7 +2,7 @@ class_name BEska
 extends EEska
 ## 빗자루 검 손맛 데모의 에스카 (docs/eska-turn/README.md §0). 기술 이름·수치는 시험용.
 ## 두 모드를 버튼 하나(S · 터치 "모드")로 바꾸고, 바꾸는 순간 전환 공격이 나간다.
-##   마법 모드(빗자루): X 흑백 균열(양손에 흰 기운·검은 기운을 0.5초 모아 가장 가까운 적 자리에 흑백 균열 — 한 방이 큼) · A 낙성(EEska 그대로)
+##   마법 모드(빗자루): X 흑백 균열(양손에 흰 기운·검은 기운을 0.5초 모아 앞 범위(RIFT_ZONE) 전체를 흑백 균열로 가름 — 한 방이 큼, 모으는 동안 움직일 수 있음) · A 낙성(EEska 그대로)
 ##   검술 모드(검): X 3연격(대각선 내려베기 "\" → 올려베기 "/" → 큰 내려베기 + 잔영) · 공중 X 두 번 · A 마검술 「공간참」
 ##   마법 → 검: 검무(빗자루가 검으로 펼쳐지자마자 몸 둘레로 검을 세 바퀴 돌려 주변을 벤다)
 ##   검 → 마법: 접힘 파동(몸 둘레로 라벤더 파동)
@@ -19,17 +19,17 @@ const ARM := 7.0
 ## 휘두름 표. 각도(도)는 오른쪽을 보는 기준, 아래가 +. c = 호 중심(발 기준), lunge = 휘두르는 순간 앞으로 미끄러지는 빠르기
 ## "\" = rot +, 위-뒤 끝(180)에서 바깥으로 불룩하게(270) 아래-앞 끝(360)으로. "/" = rot −, 아래-뒤 끝(180)에서 앞-아래로 불룩하게(90) 위-앞 끝(0)으로
 const SWING := {
-	"s1": {"wu": 0.04, "sw": 0.05, "rec": 0.16, "a0": 175.0, "a1": 365.0, "r": 48.0, "w": 13.0, "sq": 0.3, "rot": 38.0,
-		"c": Vector2(14, -26), "dmg": 55, "lunge": 170.0, "hs": 0.05, "kick": 3.0, "cut": 72.0},
-	"s2": {"wu": 0.035, "sw": 0.05, "rec": 0.16, "a0": 185.0, "a1": -5.0, "r": 50.0, "w": 14.0, "sq": 0.3, "rot": -38.0,
-		"c": Vector2(14, -24), "dmg": 55, "lunge": 150.0, "hs": 0.05, "kick": 3.0, "cut": 72.0},
-	"s3": {"wu": 0.09, "sw": 0.06, "rec": 0.3, "a0": 172.0, "a1": 372.0, "r": 92.0, "w": 22.0, "sq": 0.3, "rot": 32.0,
-		"c": Vector2(22, -30), "dmg": 130, "lunge": 260.0, "hs": 0.09, "kick": 7.0, "cut": 120.0, "heavy": true, "scar": true, "echo": true},
-	"air1": {"wu": 0.035, "sw": 0.05, "rec": 0.14, "a0": 175.0, "a1": 365.0, "r": 44.0, "w": 13.0, "sq": 0.32, "rot": 40.0,
-		"c": Vector2(12, -24), "dmg": 55, "lunge": 60.0, "hs": 0.05, "kick": 3.0, "cut": 72.0},
-	"air2": {"wu": 0.035, "sw": 0.05, "rec": 0.18, "a0": 185.0, "a1": -5.0, "r": 46.0, "w": 14.0, "sq": 0.32, "rot": -40.0,
-		"c": Vector2(12, -22), "dmg": 55, "lunge": 60.0, "hs": 0.05, "kick": 3.0, "cut": 72.0},
-	"skill": {"wu": 0.14, "sw": 0.045, "rec": 0.32, "a0": 105.0, "a1": -100.0, "r": 150.0, "w": 26.0, "sq": 0.2, "rot": 0.0,
+	"s1": {"wu": 0.04, "sw": 0.05, "rec": 0.16, "a0": 175.0, "a1": 365.0, "r": 58.0, "w": 16.0, "sq": 0.3, "rot": 38.0,
+		"c": Vector2(16, -28), "dmg": 55, "lunge": 170.0, "hs": 0.05, "kick": 3.0, "cut": 80.0},
+	"s2": {"wu": 0.035, "sw": 0.05, "rec": 0.16, "a0": 185.0, "a1": -5.0, "r": 60.0, "w": 17.0, "sq": 0.3, "rot": -38.0,
+		"c": Vector2(16, -24), "dmg": 55, "lunge": 150.0, "hs": 0.05, "kick": 3.0, "cut": 80.0},
+	"s3": {"wu": 0.09, "sw": 0.06, "rec": 0.3, "a0": 172.0, "a1": 372.0, "r": 108.0, "w": 26.0, "sq": 0.3, "rot": 32.0,
+		"c": Vector2(26, -32), "dmg": 130, "lunge": 260.0, "hs": 0.09, "kick": 7.0, "cut": 130.0, "heavy": true, "scar": true, "echo": true},
+	"air1": {"wu": 0.035, "sw": 0.05, "rec": 0.14, "a0": 175.0, "a1": 365.0, "r": 52.0, "w": 16.0, "sq": 0.32, "rot": 40.0,
+		"c": Vector2(14, -26), "dmg": 55, "lunge": 60.0, "hs": 0.05, "kick": 3.0, "cut": 80.0},
+	"air2": {"wu": 0.035, "sw": 0.05, "rec": 0.18, "a0": 185.0, "a1": -5.0, "r": 55.0, "w": 17.0, "sq": 0.32, "rot": -40.0,
+		"c": Vector2(14, -22), "dmg": 55, "lunge": 60.0, "hs": 0.05, "kick": 3.0, "cut": 80.0},
+	"skill": {"wu": 0.14, "sw": 0.045, "rec": 0.32, "a0": 105.0, "a1": -100.0, "r": 165.0, "w": 30.0, "sq": 0.2, "rot": 0.0,
 		"c": Vector2(0, -22), "dmg": 110, "lunge": 120.0, "hs": 0.08, "kick": 6.0, "cut": 130.0, "heavy": true, "scar": true},
 }
 const COMBO := ["s1", "s2", "s3"]
@@ -57,12 +57,14 @@ const FOLD_T := 0.26 ## 접힘 파동 동작 시간
 const FOLD_FIRE := 0.06
 const FOLD_R := 66.0
 const FOLD_DMG := 40
-## 흑백 균열 (마법 기본): 누르면 양팔을 벌려 RIFT_FIRE초 모은 뒤 터진다. 누르고 있어도 다시 쏘지 않는다 (한 방씩)
+## 흑백 균열 (마법 기본): 누르면 양팔을 벌려 RIFT_FIRE초 모은 뒤 앞 범위(RIFT_ZONE) 전체가 갈라진다 — 겨누지 않고 범위 안은 모두 맞는다.
+## 모으는 동안 움직이고 뛸 수 있다(바라보는 쪽은 그대로 — 뒷걸음질). 누르고 있어도 다시 쏘지 않는다 (한 방씩)
 const RIFT_FIRE := 0.5
 const RIFT_END := 0.72
-const RIFT_RANGE := Vector2(300, 140) ## 앞쪽 가로·위아래로 이 안의 가장 가까운 표적
+const RIFT_ZONE := Rect2(26.0, -74.0, 184.0, 118.0) ## 몸 중심 기준, x는 바라보는 쪽으로
+const RIFT_ANG := -0.32 ## 큰 틈의 기울기 (앞쪽이 올라감)
+const RIFT_MOVE := 0.85 ## 모으는 동안 이동 빠르기 배수
 const RIFT_DMG := 240
-const RIFT_SPLASH := 34.0 ## 균열 둘레 이 안의 다른 표적도 절반 피해
 const FRONT_HAND := Vector2(12.5, -26.0) ## 균열을 모을 때 앞손 (팔을 앞으로 벌림)
 const BACK_HAND := Vector2(-11.0, -25.5) ## 뒷손 (팔을 뒤로 벌림 — BArt가 그린다)
 const MORPH_T := 0.07 ## 빗자루 ↔ 검 바뀌는 그림 시간
@@ -80,7 +82,7 @@ var skill_cd := 0.0
 var swings := 0 ## 휘두른 수 (시험용)
 var blade_hits := 0 ## 검이 맞힌 수 (시험용)
 var rifts := 0 ## 흑백 균열이 터진 수 (시험용)
-var last_target := Vector2.ZERO ## 마지막 흑백 균열 자리 (시험용)
+var last_target := Vector2.ZERO ## 마지막 흑백 균열 한가운데 (시험용)
 var _combo_i := 0
 var _combo_gap := 0.0
 var _air_n := 0
@@ -92,7 +94,6 @@ var _buf_mode := 0.0
 var _fired := false ## 접힘 파동·흑백 균열이 이번 동작에서 나갔나
 var _loop := -1 ## 검무: 지금 도는 바퀴 (-1 = 펼치는 중)
 var _loop_hit := false
-var _rift_target: Node2D
 var _charge: Node2D
 
 
@@ -122,11 +123,20 @@ func rift_charge() -> float:
 	return clampf(act_t / RIFT_FIRE, 0.0, 1.0) if act == "rift" and not _fired else -1.0
 
 
-## 흑백 균열이 겨눈 자리 (전역)
-func rift_aim() -> Vector2:
-	if is_instance_valid(_rift_target):
-		return _rift_target.center()
-	return last_target
+## 흑백 균열이 갈라질 범위 (전역)
+func rift_zone() -> Rect2:
+	var c := center()
+	var x0 := c.x + (RIFT_ZONE.position.x if facing > 0 else -(RIFT_ZONE.position.x + RIFT_ZONE.size.x))
+	return Rect2(x0, c.y + RIFT_ZONE.position.y, RIFT_ZONE.size.x, RIFT_ZONE.size.y)
+
+
+## 큰 틈이 열릴 선의 양 끝 (전역) — 모으기 그림과 터짐이 같이 쓴다
+func rift_line() -> PackedVector2Array:
+	var z := rift_zone()
+	var mid := Vector2(z.position.x + z.size.x * 0.5, z.position.y + z.size.y * 0.55)
+	var d := Vector2(cos(RIFT_ANG) * float(facing), sin(RIFT_ANG))
+	var hl := z.size.x * 0.5
+	return PackedVector2Array([mid - d * hl, mid + d * hl])
 
 
 # ═══════════════════════════════════════════════════════════
@@ -614,26 +624,11 @@ func _start_rift(dir_x: float) -> void:
 	act = "rift"
 	act_t = 0.0
 	_fired = false
-	_rift_target = _nearest_ahead()
-	last_target = rift_aim() if _rift_target != null else center() + Vector2(facing * 130.0, -4.0)
 	var ch := BFx.Charge.new()
 	ch.eska = self
 	PVfx.add(ch, Vector2.ZERO, false)
 	_charge = ch
 	Sfx.play(&"bl_charge", -4.0)
-
-
-func _nearest_ahead() -> Node2D:
-	var best: Node2D = null
-	var best_d := INF
-	for d: Node2D in ETarget.alive(get_tree()):
-		var dv: Vector2 = d.center() - center()
-		if dv.x * float(facing) < -6.0 or absf(dv.x) > RIFT_RANGE.x or absf(dv.y) > RIFT_RANGE.y:
-			continue
-		if dv.length() < best_d:
-			best_d = dv.length()
-			best = d
-	return best
 
 
 func _cancel_charge() -> void:
@@ -642,15 +637,13 @@ func _cancel_charge() -> void:
 	_charge = null
 
 
-func _rift(delta: float, _dir_x: float) -> void:
-	# 모으는 동안 제자리에 버틴다 (공중이면 거의 떠 있음)
-	velocity.x = move_toward(velocity.x, 0.0, 1800.0 * delta)
-	if is_on_floor():
-		_gravity(delta)
-	else:
-		velocity.y = move_toward(velocity.y, 12.0, 900.0 * delta)
-	if is_instance_valid(_rift_target):
-		last_target = _rift_target.center()
+func _rift(delta: float, dir_x: float) -> void:
+	# 모으는 동안도 움직이고 뛴다 — 바라보는 쪽은 그대로 (뒷걸음질하며 모을 수 있다)
+	var keep := facing
+	_run(delta, dir_x, RIFT_MOVE)
+	facing = keep
+	_try_jump(dir_x)
+	_gravity(delta)
 	if not _fired and act_t >= RIFT_FIRE:
 		_fired = true
 		_fire_rift()
@@ -664,13 +657,18 @@ func _rift(delta: float, _dir_x: float) -> void:
 		_start_actions(Input.get_axis("es_left", "es_right"))
 
 
-## 터짐: 겨눈 자리에 흑백 균열 — 섬광 · 흰 금과 검은 금이 엇갈려 갈라짐 · 흑백 파편 · 검은 연기. 한 방이 크다
+## 터짐: 앞 범위 전체가 흑백 균열로 갈라진다 — 섬광 · 흰 금과 검은 금이 엇갈려 갈라짐 · 흑백 파편 · 검은 연기. 범위 안은 모두 맞는다
 func _fire_rift() -> void:
 	_cancel_charge()
 	rifts += 1
-	var at := last_target
+	var line := rift_line()
+	var zone := rift_zone()
+	last_target = (line[0] + line[1]) * 0.5
 	var rf := BFx.Rift.new()
-	PVfx.add(rf, at, false)
+	rf.len = RIFT_ZONE.size.x
+	rf.ang = RIFT_ANG
+	rf.scale = Vector2(float(facing), 1.0)
+	PVfx.add(rf, last_target, false)
 	art.squash(Vector2(1.12, 0.9))
 	bart().snap_flash()
 	Sfx.play(&"bl_rift", -1.0)
@@ -680,10 +678,8 @@ func _fire_rift() -> void:
 	Fx.flash(Color(1, 1, 1, 0.22), 0.1)
 	PVfx.kick(Vector2(facing * 6.0, -2.0))
 	for d: Node2D in ETarget.alive(get_tree()):
-		if d == _rift_target:
+		if zone.intersects(d.hit_rect()):
 			deal(d, RIFT_DMG, true, center())
-		elif d.hit_rect().grow(RIFT_SPLASH).has_point(at):
-			deal(d, int(RIFT_DMG * 0.5), true, at)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -741,6 +737,6 @@ func _update_pose() -> void:
 			var c := clampf(act_t / RIFT_FIRE, 0.0, 1.0)
 			var open := 1.0 - pow(1.0 - minf(c * 3.0, 1.0), 3.0) # 양팔을 빠르게 벌림
 			hand_local = Vector2(3.0, -16.0).lerp(FRONT_HAND, open)
-			if _fired: # 터진 뒤: 앞손을 표적 쪽으로 쥐듯 내밈
+			if _fired: # 터진 뒤: 앞손을 앞으로 쥐듯 내밈
 				hand_local = FRONT_HAND + Vector2(1.5, 1.0)
 			blade_vec = Vector2.from_angle(2.5)
