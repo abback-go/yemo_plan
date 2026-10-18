@@ -5,11 +5,13 @@ extends Node2D
 
 const SCALE := 2.0 ## 마녀 코드 그림(키 40px)을 화면에서 이만큼 키움 (키 약 80px = 화면 22%, review_C §5.3)
 const ENEMY_SCALE := 1.8 ## 적 그림 배율 (× 데이터 size): 일반 약 90 · 강적 약 140 · 보스 약 160~175px
+const BIG_SHRINK := 0.95 ## 강적·보스 그림을 이만큼 줄여 머리 꼭대기가 적 카드(바닥 y 82) 밑에 들어가지 않게 (review_C2 M1)
 const DOWN_FADE := 0.25 ## 쓰러진 마녀는 이만큼 옅게 남아 되살릴 수 있음을 보여 준다
 
 var unit: TUnit
 var home := Vector2.ZERO
 var shown_hp := 1.0 ## 보이는 체력 비율 (천천히 따라감)
+var view_ratio := -1.0 ## ≥ 0이면 shown_hp가 실제 체력 대신 이 값을 따라감 (화면의 "보이는 값", THud.view_event)
 var eska: EEska
 var witch: TWitchArt
 var enemy: TEnemyArt
@@ -56,6 +58,8 @@ func setup(u: TUnit, at: Vector2) -> void:
 		enemy = TEnemyArt.new()
 		enemy.kind = TEnemyArt.kind_for(u.id, String(u.data.get("art", u.id))) # 재의 왕·시련의 거상은 전용 그림
 		sz = float(u.data.get("size", 1.0)) * ENEMY_SCALE / SCALE
+		if u.tier in ["elite", "boss"]:
+			sz *= BIG_SHRINK
 		add_child(enemy)
 		sh.hw = enemy.half_w() + 4.0
 	scale = Vector2(SCALE * sz, SCALE * sz)
@@ -86,7 +90,7 @@ func _process(delta: float) -> void:
 		witch.tick(delta)
 	elif enemy != null:
 		enemy.tick(delta)
-	shown_hp = move_toward(shown_hp, unit.hp_ratio(), dt * 1.6)
+	shown_hp = move_toward(shown_hp, view_ratio if view_ratio >= 0.0 else unit.hp_ratio(), dt * 1.6)
 	_lunge_v += (-_lunge * 160.0 - _lunge_v * 14.0) * dt
 	_lunge += _lunge_v * dt
 	var hop := 0.0

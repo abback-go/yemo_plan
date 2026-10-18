@@ -21,6 +21,7 @@ func _process(_d: float) -> bool:
 	_edge_tests()
 	_number_tests()
 	_stage_b_tests()
+	_stage_e_tests()
 	print("RULES 통과 %d/%d%s" % [_pass, _pass + _fail, "" if _fail == 0 else " — 실패 %d" % _fail])
 	quit(1 if _fail > 0 else 0)
 	return true
@@ -181,7 +182,7 @@ func _damage_tests() -> void:
 	g = _e(b, "straw_golem")
 	g.add_mark("burn", 3, 3)
 	var ev := b.use_skill(_w(b, "ignis"), "burst_fire", g)
-	_ok("D18 불씨 터뜨리기, 화상 3겹 (3.5 + 0.8×3)", _first(ev), 106200)
+	_ok("D18 불씨 터뜨리기, 화상 3겹 (3.5 + 0.6×3)", _first(ev), 95400)
 	_ok("T07 터뜨린 뒤 화상 없음 → 다음은 3.5배 그대로", "%d / %d" % [g.mark_n("burn"), b.estimate(_w(b, "ignis"), g, "burst_fire")], "0 / 63000")
 	b = _b(["ignis"], ["straw_golem"])
 	_e(b, "straw_golem").add_mark("burn", 3, 2)
@@ -554,13 +555,13 @@ func _scenario_tests() -> void:
 	var kg := _e(b, "ash_king")
 	kg.hp = 100000
 	rr = b.deal(kg, 500000)
-	_ok("T22 첫 줄 100,000에 500,000 → 넘친 400,000 버림 · 둘째 줄 · 다음 의도 해제", "%s %d %d %s" % [str(rr.broke), kg.bar_i, kg.hp, String(kg.intent().k)], "true 1 1200000 dispel")
+	_ok("T22 첫 줄 100,000에 500,000 → 넘친 400,000 버림 · 둘째 줄 · 다음 의도 해제", "%s %d %d %s" % [str(rr.broke), kg.bar_i, kg.hp, String(kg.intent().k)], "true 1 1500000 dispel")
 	# T23 종막의 검 2번째 히트에 줄이 깨짐
 	b = _b(["harpe"], ["ash_king"])
 	kg = _e(b, "ash_king")
 	kg.hp = 50000
 	ev = b.use_skill(_w(b, "harpe"), "ult_harpe", kg)
-	_ok("T23 종막의 검 (8배 6히트) 2번째에 브레이크 → 남은 4히트는 0", "%s %d %d" % [str(_hits(ev)), kg.bar_i, kg.hp], "[33600, 33600] 1 1200000")
+	_ok("T23 종막의 검 (8배 6히트) 2번째에 브레이크 → 남은 4히트는 0", "%s %d %d" % [str(_hits(ev)), kg.bar_i, kg.hp], "[33600, 33600] 1 1500000")
 	# T24 해제
 	b = _b(["ignis", "eska"], ["ash_king"], {"ignis": {"equip": "feather_charm"}})
 	ig = _w(b, "ignis")
@@ -780,7 +781,7 @@ func _stage_b_tests() -> void:
 	col.intent_now = TData.ENEMIES.trial_colossus.charge_act
 	var fin := _first(b.enemy_action(col))
 	col.intent_now = {"k": "attack", "mult": 1.0}
-	_ok("N06 시련의 일격 → 무적 하르페: 30,000 × 3.0 × 0.95 × 0.7 / 일반 공격은 무적", "%d %d" % [fin, _first(b.enemy_action(col))], "59850 0")
+	_ok("N06 시련의 일격 → 무적 하르페: 36,000 × 3.0 × 0.95 × 0.7 / 일반 공격은 무적", "%d %d" % [fin, _first(b.enemy_action(col))], "71820 0")
 	# N07 맞으며 쌓기: 파도 버티기 → 맞을 때마다 아군 전체 공격력 +8% (최대 5겹)
 	b = _b(["nerei", "harpe"], ["straw_golem"])
 	_tough(b)
@@ -879,4 +880,88 @@ func _stage_b_tests() -> void:
 	b.use_skill(_w(b, "ember"), "bellows", ig)
 	b.use_skill(_w(b, "astra"), "overcharge", ig)
 	b.fix_crit = 1
-	_ok("N17 대가 몰빵: 12,000 × 13 × 1.5 × 1.7 × 2.2 × 2.74 (보스 한 줄 120만의 2배)", _first(b.use_skill(ig, "ult_ignis", g)), 2397938)
+	_ok("N17 대가 몰빵: 12,000 × 13 × 1.5 × 1.7 × 2.2 × 2.74 (보스 한 줄 150만의 1.6배)", _first(b.use_skill(ig, "ult_ignis", g)), 2397938)
+
+
+
+## 단계 E (combat_proto.md §25.6): 예상 피해의 선버프 · 무적 내성 · 바뀐 수치 · 자동 선택의 대마법 모으기
+func _stage_e_tests() -> void:
+	# V20 종언 예상 = 실제 (선버프 공격력 +15%를 넣고 계산, review_F F06 a)
+	var b := _b(["eska"], ["straw_golem"])
+	var es := _w(b, "eska")
+	var t := _dummy(b, "none")
+	es.credits = 7
+	var est := b.estimate(es, t, "doom")
+	_ok("V20 종언 예상 = 실제 (선버프 포함)", "%d %d %d" % [est, _first(b.use_skill(es, "doom", t)), es.buffs.size()], "%d %d 1" % [est, est])
+	# V21 천둥의 창 크리 예상 = 크리 고정 실제 (선버프 크리 데미지 +50%), 예상을 구해도 버프는 남지 않음
+	b = _b(["fulgur"], ["straw_golem"])
+	var fu := _w(b, "fulgur")
+	t = _dummy(b, "none")
+	fu.credits = 7
+	var est_c := b.estimate(fu, t, "thunder_lance", true)
+	var nb := fu.buffs.size()
+	b.fix_crit = 1
+	_ok("V21 천둥의 창 크리 예상 = 실제 · 예상 뒤 버프 0개", "%d %d %d" % [est_c, _first(b.use_skill(fu, "thunder_lance", t)), nb], "%d %d 0" % [est_c, est_c])
+	# G01 무적 내성: 무적이 막은 마녀는 적 행동 2번 동안 무적이 다시 걸리지 않음 → 그 뒤 다시 걸림
+	b = _b(["eska"], ["ash_knight"])
+	_tough(b)
+	es = _w(b, "eska")
+	var k := _e(b, "ash_knight")
+	es.credits = 7
+	b.use_skill(es, "seal", null)
+	k.intent_now = {"k": "attack", "mult": 1.0}
+	var blocked := bool(b.enemy_action(k)[0].invincible)
+	b.end_action(k)
+	es.credits = 7
+	var ev := b.use_skill(es, "seal", null)
+	var guard1 := "inv_guard" in _kinds(ev)
+	k.intent_now = {"k": "attack", "mult": 1.0}
+	var hit2 := int(b.enemy_action(k)[0].dmg)
+	b.end_action(k)
+	k.intent_now = {"k": "buff", "v": 0.1, "dur": 1}
+	b.enemy_action(k)
+	b.end_action(k)
+	es.credits = 7
+	b.use_skill(es, "seal", null)
+	_ok("G01 무적 내성: 막음 → 다시 봉공 '무적 내성' → 맞음 → 적 행동 2번 뒤 다시 무적", "%s %s %s %s" % [str(blocked), str(guard1), str(hit2 > 0), str(es.is_invincible())], "true true true true")
+	# G02~G08 단계 E 수치
+	_ok("G02 봉공 4비용 (전체 무적 = 4, §15.3)", TData.cost_of("seal"), 4)
+	b = _b(["undine"], ["straw_golem"])
+	var un := _w(b, "undine")
+	t = _dummy(b, "fire")
+	un.credits = 7
+	b.use_skill(un, "ult_undine", t)
+	_ok("G03 심연 붕괴: 크레딧 7 → 0 + 환급 2", un.credits, 2)
+	b = _b(["ember", "ignis"], ["straw_golem"])
+	var ig := _w(b, "ignis")
+	ig.hp = 40000
+	b.use_skill(_w(b, "ember"), "blessing", null)
+	_ok("G04 불의 축복: 공격력 +30% · 체력 15% 회복 (40,000 → 52,000) · 크레딧 +0", "%s %d %d" % [str(snappedf(ig.cat_sum("atk"), 0.01)), ig.hp, ig.credits], "0.3 52000 0")
+	b = _b(["nerei", "ignis"], ["straw_golem"])
+	ig = _w(b, "ignis")
+	b.use_skill(_w(b, "nerei"), "current", null)
+	_ok("G05 밀려오는 조류: 받는 피해 −15% · 크레딧 +1 · 공격력 버프 없음", "%s %d %s" % [str(snappedf(ig.cat_sum("dmg_taken"), 0.01)), ig.credits, str(snappedf(ig.cat_sum("atk"), 0.01))], "-0.15 1 0.0")
+	_ok("G06 세계의 틈은 디버프 (적 전체에 해로운 효과)", String(TData.skill("gap").kind), "debuff")
+	b = _b(["glacia", "hora"], ["straw_golem"])
+	t = _dummy(b, "none")
+	b.use_skill(_w(b, "glacia"), "still_frost", t)
+	b.use_skill(_w(b, "hora"), "stopped_clock", t)
+	_ok("G07 멎는 서리 방어 다운 20% · 멈춘 시계 받는 최종 데미지 +15%", "%s %s" % [str(snappedf(t.cat_sum("def_down"), 0.01)), str(snappedf(t.cat_sum("final_taken"), 0.01))], "0.2 0.15")
+	b = _b(["glacia"], ["straw_golem"])
+	var gl := _w(b, "glacia")
+	t = _dummy(b, "fire")
+	gl.credits = 3
+	b.use_skill(gl, "rime", t)
+	var c1 := gl.credits
+	b.use_skill(gl, "rime", t)
+	_ok("G08 서리 내림: 빙결 없음 3→2 · 빙결 있음 2→2 (환급 +1)", "%d %d" % [c1, gl.credits], "2 2")
+	# G09 자동 선택: 공격 대마법이 있는 딜러는 1비용 공격으로 크레딧을 흘리지 않고 모은다 (review_E E0)
+	b = _b(["harpe"], ["straw_golem"])
+	var hp := _w(b, "harpe")
+	hp.equipped.assign(["bw_slash", "sword_ki", "heaven_split", "doom_slash"])
+	_dummy(b, "none")
+	hp.credits = 3
+	var a := TAuto.pick(b, hp)
+	hp.credits = 7
+	var a7 := TAuto.pick(b, hp)
+	_ok("G09 하르페 크레딧 3 → 기본 공격 (흑백 참격·검기 두르기 안 씀) · 7 → 종막의 검", "%s %s" % [String(a.kind), String(a7.skill)], "basic ult_harpe")

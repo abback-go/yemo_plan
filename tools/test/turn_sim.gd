@@ -3,6 +3,13 @@ extends SceneTree
 ##   cd game && godot --headless --script ../tools/test/turn_sim.gd -- [반복 수] [전투 id | builds [원형 id]]
 ##   전투 id(normal_01 · boss_01 · trial_01)를 주면 그 전투만 TAuto로 돌린다 (기본 파티 + 12명 무작위 파티).
 ##   builds: 빌드 원형 프리셋(BUILDS — 파티·장착·장비·TAuto.plan) × 전투 3개를 돌려 원형다움 지표를 찍는다 (combat_proto.md §15.9).
+##   [단계 E 측정 모드 — review_E_balance.md §4.2, combat_proto.md §27.3]
+##   roster [전투 id]   : 12명 중 3명 모든 조합 220파티 × 반복 수 (기본 장착·장비 없음) — 승률 분포·마녀별 출전/미출전 승률·네레이 없는 파티(회복 수단 있음/없음)
+##   style [전투 id]    : 속성 파티(불·물·번개·무상성·기본) — 속성 지표(한 방 몰림·마법이 준 크레딧·크리·차례·게이지 …)
+##   lock               : 무적 잠금 실험 (에스카 마력 샘 봉공 + 네레이 물의 장막, 나머지 기본 공격 · 재의 왕 1체) — 막힌 히트 비율
+##   suite              : 위 전부를 짧게 (원형 표·속도 비·220파티·속성 지표·잠금) — 문서 §27.3 표의 숫자
+##   bt 전투id           : 원형 8개 프리셋을 그 전투 하나로만 (승 · 행동 · 분)
+##   acts 원형id 전투id  : 그 원형 프리셋의 행동 내역 (마녀:마법별 횟수 · 판당 · 1회 평균 피해) — 느리고 빠른 까닭 찾기
 ## 출력: 전략별 승률·걸린 차례·마녀별 준 피해·최대 한 방·남은 체력, 스킬 효율표, 문서의 숫자 규모 확인,
 ##       전투별 승률·행동 수·시간 모형(전체 행동 × 1.3초 + 마녀 행동 × 3초, combat_proto.md §1.4)·대마법·기절·터뜨리기 횟수.
 
@@ -13,13 +20,13 @@ const BUILDS := {
 	"B1": {"name": "평타 크리", "party": ["fulgur", "astra", "nerei"], "plan": {"dealer": "fulgur"},
 		"state": {"fulgur": {"equipped": ["charge_up", "spark_bolt", "thunderbolt", "thunder_lance"], "equip": "mirror_shard"},
 			"astra": {"equipped": ["star_touch", "starlight", "rod", "spur"], "equip": "star_shard"},
-			"nerei": {"equipped": ["spring", "wave_hold", "current", "water_veil"], "equip": "iron_heart"}}},
+			"nerei": {"equipped": ["spring", "current", "water_veil", "high_tide"], "equip": "hourglass_charm"}}},
 	"B2": {"name": "대마법 연쇄", "party": ["undine", "nerei", "astra"], "plan": {"dealer": "undine", "ult_only": ["undine"], "battery": ["nerei", "astra"]},
 		"state": {"undine": {"equipped": ["water_lance", "return_tide", "glacier", "abyss_lance"], "equip": "kaleido"},
 			"nerei": {"equipped": ["high_tide", "droplet", "water_veil", "spring"], "equip": "notebook"},
 			"astra": {"equipped": ["lightning_share", "spur", "starlight", "rod"], "equip": "swift_boots"}}},
-	"B3": {"name": "버티며 쌓기", "party": ["nerei", "eska", "harpe"], "plan": {"dealer": "harpe"},
-		"state": {"nerei": {"equipped": ["wave_hold", "spring", "ocean_blessing", "sea_embrace"], "equip": "iron_heart"},
+	"B3": {"name": "버티며 쌓기", "party": ["nerei", "eska", "harpe"], "plan": {"dealer": "harpe", "guard": ["nerei", "eska"]},
+		"state": {"nerei": {"equipped": ["wave_hold", "spring", "ocean_blessing", "water_veil"], "equip": "iron_heart"},
 			"eska": {"equipped": ["gap", "seal", "cradle", "void_gate"], "equip": "hourglass_charm"},
 			"harpe": {"equipped": ["sword_ki", "heaven_split", "doom_slash", "return_cut"], "equip": "feather_charm"}}},
 	"B4": {"name": "징표 터뜨리기", "party": ["cinder", "ember", "ignis"], "plan": {"dealer": "ignis"},
@@ -29,7 +36,7 @@ const BUILDS := {
 	"B5": {"name": "차례 몰아주기", "party": ["harpe", "astra", "nerei"], "plan": {"dealer": "harpe", "push": ["astra"]},
 		"state": {"harpe": {"equipped": ["bw_slash", "heaven_split", "doom_slash", "sword_ki"], "equip": "star_shard"},
 			"astra": {"equipped": ["spur", "guide_bolt", "lightning_share", "starlight"], "equip": "swift_boots"},
-			"nerei": {"equipped": ["spring", "wave_hold", "current", "water_veil"], "equip": "iron_heart"}}},
+			"nerei": {"equipped": ["spring", "current", "water_veil", "high_tide"], "equip": "hourglass_charm"}}},
 	"B6": {"name": "무상성→속성 딜러", "party": ["eska", "ember", "nerei"], "plan": {"dealer": "eska"},
 		"state": {"eska": {"equipped": ["doom", "blackstar", "crack", "compress"], "equip": "black_cup"},
 			"ember": {"equipped": ["kindling", "bellows", "blessing", "god_descent"], "equip": "notebook"},
@@ -51,6 +58,22 @@ func _process(_d: float) -> bool:
 	_done = true
 	var args := OS.get_cmdline_user_args()
 	var runs := int(args[0]) if args.size() > 0 else 20
+	if args.size() > 2 and String(args[1]) == "bt":
+		for bid in BUILDS:
+			var st := _build_stat(String(bid), String(args[2]), runs)
+			print("  %s %s %s: %d/%d · %.1f행동 · %.1f분" % [bid, BUILDS[bid].name, String(args[2]), int(st.win), runs, float(st.w_avg), float(st.min)])
+		return true
+	if args.size() > 3 and String(args[1]) == "acts":
+		_mode_acts(String(args[2]), String(args[3]), runs)
+		return true
+	if args.size() > 1 and String(args[1]) in ["roster", "style", "lock", "suite"]:
+		var bt := String(args[2]) if args.size() > 2 else "normal_01"
+		match String(args[1]):
+			"roster": _mode_roster(bt, runs)
+			"style": _mode_style(bt, runs)
+			"lock": _mode_lock(runs)
+			"suite": _mode_suite(runs)
+		return true
 	if args.size() > 1 and String(args[1]) == "builds":
 		_conditions()
 		for bid in BUILDS:
@@ -167,7 +190,8 @@ func _run_one(strat: String, seed_v: int) -> Dictionary:
 func _play(b: TBattle, choose: Callable) -> Dictionary:
 	var r := {"witch_acts": 0, "all_acts": 0, "biggest": 0, "biggest_who": "", "downs": 0, "ults": 0, "stuns": 0, "bursts": 0, "breaks": 0, "resists": 0,
 		"dmg_basic": 0, "dmg_skill": 0, "dmg_ult": 0, "basic_hits": 0, "basic_crits": 0, "chain2": 0, "chain3": 0, "burst_n": 0, "charge_downs": 0,
-		"finishers": 0, "enemy_acts": 0, "enemy_rounds": 0.0, "stack_max": 0, "oneshots": 0, "acts": {}}
+		"finishers": 0, "enemy_acts": 0, "enemy_rounds": 0.0, "stack_max": 0, "oneshots": 0, "acts": {},
+		"basic_acts": 0, "cred_skill": 0, "w_hits": 0, "w_crits": 0, "ally_gauge": 0.0, "foe_gauge": 0.0, "act_dmg": [], "inv_hits": 0, "foe_hits": 0, "heals": 0}
 	var guard := 0
 	while guard < 1500:
 		var oc := b.outcome()
@@ -190,18 +214,37 @@ func _play(b: TBattle, choose: Callable) -> Dictionary:
 			var src := "basic" if String(a.sid) == "" else ("ult" if bool(TData.skill(String(a.sid)).get("ultimate", false)) else "skill")
 			if src == "ult":
 				r.ults = int(r.ults) + 1
+			if src == "basic":
+				r.basic_acts = int(r.basic_acts) + 1
+			var adm := 0
 			for e in ev:
 				if e.t == "hit" and e.src == u:
 					r["dmg_" + src] = int(r["dmg_" + src]) + int(e.dmg)
+					adm += int(e.dmg)
+					r.w_hits = int(r.w_hits) + 1
+					r.w_crits = int(r.w_crits) + (1 if bool(e.crit) else 0)
 					if src == "basic":
 						r.basic_hits = int(r.basic_hits) + 1
 						r.basic_crits = int(r.basic_crits) + (1 if bool(e.crit) else 0)
+				elif e.t == "credits" and src != "basic":
+					r.cred_skill = int(r.cred_skill) + int(e.v) # 마법이 준 크레딧 (기본 공격·차례 시작 +1 빼고)
+				elif e.t == "gauge" and e.tgt.is_witch():
+					r.ally_gauge = float(r.ally_gauge) + float(e.v)
+				elif e.t == "enemy_gauge":
+					r.foe_gauge = float(r.foe_gauge) + float(e.v)
+				elif e.t in ["heal", "revive"]:
+					r.heals = int(r.heals) + 1
+			(r.act_dmg as Array).append(adm)
 		else:
 			r.enemy_acts = int(r.enemy_acts) + 1
 			r.enemy_rounds = float(r.enemy_rounds) + 1.0 / float(b.alive_of(b.enemies).size()) # 적 1체당 행동 (적 수로 나눔)
 			if String(u.intent().get("k", "")) == "finisher":
 				r.finishers = int(r.finishers) + 1
 			ev = b.enemy_action(u)
+			for e in ev:
+				if e.t == "hit":
+					r.foe_hits = int(r.foe_hits) + 1
+					r.inv_hits = int(r.inv_hits) + (1 if bool(e.invincible) else 0)
 		for e in ev:
 			match String(e.t):
 				"hit":
@@ -507,7 +550,6 @@ func _conditions() -> void:
 	var es := _wu(b6, "eska")
 	es.passive = []
 	var ig6 := _wu(b6, "ignis")
-	es.add_buff({"cat": "atk", "v": 0.15, "dur": 1, "clock": "own"}) # 종언의 선버프 (예상 피해에는 선버프가 안 들어가므로 직접)
 	var est_plain := b6.estimate(es, b6.enemies[0], "doom")
 	b6.use_skill(_wu(b6, "ember"), "kindling", es)
 	var est_fire := b6.estimate(es, b6.enemies[0], "doom")
@@ -549,3 +591,263 @@ func _wu(b: TBattle, wid: String) -> TUnit:
 		if w.id == wid:
 			return w
 	return null
+
+
+# ═══════════════════════════════════════════════════════════
+# 단계 E 측정 모드 (review_E_balance.md §4.2 · combat_proto.md §27.3)
+# ═══════════════════════════════════════════════════════════
+
+## 12명 중 3명 모든 조합 (220)
+func _all_parties() -> Array:
+	var out: Array = []
+	var ro: Array = TData.ROSTER
+	for i in ro.size():
+		for j in range(i + 1, ro.size()):
+			for k in range(j + 1, ro.size()):
+				out.append([String(ro[i]), String(ro[j]), String(ro[k])])
+	return out
+
+
+## 기본 장착에 회복·되살림 마법이 있는 마녀인가
+func _healer(wid: String) -> bool:
+	for sid in TData.WITCHES[wid].default:
+		for e in TData.skill(String(sid)).get("effects", []):
+			if String(e.t) in ["heal", "revive"]:
+				return true
+	return false
+
+
+## TAuto 한 판 → _play 결과
+func _auto_game(party: Array, bt: String, state: Dictionary, seed_v: int, plan := {}) -> Dictionary:
+	TAuto.plan = plan
+	var b := TBattle.new()
+	b.setup(party, bt, state, seed_v)
+	var r := _play(b, func(u: TUnit) -> Dictionary: return _auto(b, u))
+	TAuto.plan = {}
+	return r
+
+
+func _minutes(w_acts: float, all_acts: float) -> float:
+	return (all_acts * 1.3 + w_acts * 3.0) / 60.0 # §1.4 시간 모형
+
+
+## 220파티 × runs: 승률 분포 · 마녀별 출전/미출전 승률 · 네레이 없는 파티 (회복 수단 있음/없음)
+func _mode_roster(bt: String, runs: int, quiet := false) -> Dictionary:
+	var parties := _all_parties()
+	var per := {}
+	for wid in TData.ROSTER:
+		per[wid] = {"in_n": 0, "in_w": 0, "out_n": 0, "out_w": 0}
+	var wins := 0
+	var games := 0
+	var w_acts := 0
+	var a_acts := 0
+	var full := 0
+	var zero := 0
+	var nn := {"n": 0, "w": 0}
+	var nh := {"n": 0, "w": 0}
+	var n0 := {"n": 0, "w": 0}
+	for pi in parties.size():
+		var p: Array = parties[pi]
+		var pw := 0
+		var heal := false
+		for wid in p:
+			heal = heal or (_healer(wid) and wid != "nerei")
+		for k in runs:
+			var r := _auto_game(p, bt, {}, 31000 + pi * 13 + k)
+			var win := bool(r.win)
+			games += 1
+			if win:
+				wins += 1
+				pw += 1
+				w_acts += int(r.witch_acts)
+				a_acts += int(r.all_acts)
+			for wid in TData.ROSTER:
+				var key := "in" if p.has(wid) else "out"
+				per[wid][key + "_n"] += 1
+				per[wid][key + "_w"] += 1 if win else 0
+			if not p.has("nerei"):
+				nn.n += 1
+				nn.w += 1 if win else 0
+				var g: Dictionary = nh if heal else n0
+				g.n += 1
+				g.w += 1 if win else 0
+		if pw == runs:
+			full += 1
+		elif pw == 0:
+			zero += 1
+	var wn := maxf(float(wins), 1.0)
+	var res := {"wins": wins, "games": games, "w_avg": float(w_acts) / wn, "min": _minutes(float(w_acts) / wn, float(a_acts) / wn), "full": full, "zero": zero,
+		"nn": nn, "nh": nh, "n0": n0, "per": per}
+	if quiet:
+		return res
+	print("=== 220파티 %s — %d판씩 (기본 장착·장비 없음, TAuto) ===" % [bt, runs])
+	print("  승 %d/%d (%d%%) · 파티 승률 0%% %d파티 · 100%% %d파티 · 그 사이 %d파티 · 승리 평균 마녀 행동 %.1f · %.1f분" % [wins, games, int(100.0 * wins / maxf(games, 1.0)), zero, full, parties.size() - zero - full, res.w_avg, res.min])
+	print("  네레이 없는 파티 %d/%d (%d%%) — 회복 수단 있음 %d/%d (%d%%) · 없음 %d/%d (%d%%)" % [nn.w, nn.n, int(100.0 * nn.w / maxf(nn.n, 1.0)), nh.w, nh.n, int(100.0 * nh.w / maxf(nh.n, 1.0)), n0.w, n0.n, int(100.0 * n0.w / maxf(n0.n, 1.0))])
+	print("  마녀별 (출전 승률 / 미출전 승률 / 차이 %p):")
+	for wid in TData.ROSTER:
+		var d: Dictionary = per[wid]
+		var a := 100.0 * float(d.in_w) / maxf(float(d.in_n), 1.0)
+		var o := 100.0 * float(d.out_w) / maxf(float(d.out_n), 1.0)
+		print("    %s: %.1f / %.1f / %+.1f" % [TData.WITCHES[wid].name, a, o, a - o])
+	return res
+
+
+const STYLE_PARTIES := {"불": ["ignis", "ember", "cinder"], "물": ["undine", "nerei", "glacia"], "번개": ["fulgur", "astra", "tonan"],
+	"무상성": ["eska", "hora", "harpe"], "기본": ["eska", "ignis", "ember"]}
+
+
+## 속성 파티별 지표 (review_E §2.5와 같은 칸)
+func _mode_style(bt: String, runs: int, quiet := false) -> Dictionary:
+	var out := {}
+	if not quiet:
+		print("=== 속성 지표 %s — %d판씩 (기본 장착·장비 없음) ===" % [bt, runs])
+		print("  파티: 승 · 승리 행동 · 기본 공격 비율 · 대마법/100행동 · 마법이 준 크레딧/100행동 · 크리 비율 · 히트/행동 · 마녀 행동/적 행동 · 상위 10% 행동 피해 몫 · 상위 1% 몫 · 행동당 피해 · 최대 한 방 · 최대 ÷ 행동당 · 터뜨리기/판(겹) · 아군 게이지 +%/행동 · 적 게이지 −%/행동")
+	for name in STYLE_PARTIES:
+		var agg := {"win": 0, "w_win": 0, "witch_acts": 0, "enemy_acts": 0, "basic_acts": 0, "ults": 0, "cred_skill": 0, "w_hits": 0, "w_crits": 0, "bursts": 0, "burst_n": 0, "ally_gauge": 0.0, "foe_gauge": 0.0, "biggest": 0, "dmg": 0}
+		var acts: Array = []
+		for i in runs:
+			var r := _auto_game(STYLE_PARTIES[name], bt, {}, 61000 + i)
+			if bool(r.win):
+				agg.win += 1
+				agg.w_win += int(r.witch_acts)
+			for k in ["witch_acts", "enemy_acts", "basic_acts", "ults", "cred_skill", "w_hits", "w_crits", "bursts", "burst_n"]:
+				agg[k] = int(agg[k]) + int(r[k])
+			agg.ally_gauge = float(agg.ally_gauge) + float(r.ally_gauge)
+			agg.foe_gauge = float(agg.foe_gauge) + float(r.foe_gauge)
+			agg.biggest = maxi(int(agg.biggest), int(r.biggest))
+			acts.append_array(r.act_dmg)
+		var tot := 0
+		for d in acts:
+			tot += int(d)
+		acts.sort()
+		acts.reverse()
+		var top := 0
+		var top1 := 0
+		for i in maxi(int(acts.size() / 10), 1):
+			if i < acts.size():
+				top += int(acts[i])
+				if i < maxi(int(acts.size() / 100), 1):
+					top1 += int(acts[i])
+		var wa := maxf(float(agg.witch_acts), 1.0)
+		var m := {"win": int(agg.win), "len": float(agg.w_win) / maxf(float(agg.win), 1.0), "basic": float(agg.basic_acts) / wa, "ult100": 100.0 * float(agg.ults) / wa,
+			"cred100": 100.0 * float(agg.cred_skill) / wa, "crit": float(agg.w_crits) / maxf(float(agg.w_hits), 1.0), "hits": float(agg.w_hits) / wa,
+			"tempo": float(agg.witch_acts) / maxf(float(agg.enemy_acts), 1.0), "top10": float(top) / maxf(float(tot), 1.0), "top1": float(top1) / maxf(float(tot), 1.0), "dpa": float(tot) / wa, "biggest": int(agg.biggest),
+			"bursts": float(agg.bursts) / runs, "burst_n": float(agg.burst_n) / maxf(float(agg.bursts), 1.0), "ally_g": 100.0 * float(agg.ally_gauge) / wa, "foe_g": 100.0 * float(agg.foe_gauge) / wa}
+		out[name] = m
+		if not quiet:
+			print("  %s: %d/%d · %.1f · %d%% · %.1f · %.1f · %d%% · %.2f · %.2f · %d%% · %d%% · %s · %s · %.1f배 · %.1f(%.1f) · %d%% · %d%%" % [name, m.win, runs, m.len, int(100.0 * m.basic), m.ult100, m.cred100, int(100.0 * m.crit), m.hits, m.tempo,
+				int(100.0 * m.top10), int(100.0 * m.top1), TData.fmt(int(m.dpa)), TData.fmt(m.biggest), float(m.biggest) / maxf(float(m.dpa), 1.0), m.bursts, m.burst_n, int(m.ally_g), int(m.foe_g)])
+	return out
+
+
+## 무적 잠금: 에스카(마력 샘) 봉공 + 네레이 물의 장막만, 나머지 기본 공격 · 재의 왕 1체. 장비 있음/없음
+func _mode_lock(runs: int, quiet := false) -> Dictionary:
+	var out := {}
+	for eq in ["mana_spring", ""]:
+		var state := {"eska": {"equipped": ["seal", "crack", "doom", "cradle"], "equip": eq}, "nerei": {"equipped": ["water_veil", "spring", "wave_hold", "current"]}}
+		var inv := 0
+		var hits := 0
+		var wins := 0
+		for i in runs:
+			var b := TBattle.new()
+			b.setup(["eska", "nerei", "ignis"], ["ash_king"], state, 41000 + i)
+			var r := _play(b, func(u: TUnit) -> Dictionary:
+				var en: TUnit = b.alive_of(b.enemies)[0]
+				if u.id == "eska" and b.can_use(u, "seal"):
+					return {"ev": b.use_skill(u, "seal", null), "sid": "seal"}
+				if u.id == "nerei" and b.can_use(u, "water_veil"):
+					var any_inv := false
+					for w in b.alive_of(b.witches):
+						any_inv = any_inv or w.is_invincible()
+					if not any_inv:
+						return {"ev": b.use_skill(u, "water_veil", null), "sid": "water_veil"}
+				return {"ev": b.basic_attack(u, en), "sid": ""})
+			inv += int(r.inv_hits)
+			hits += int(r.foe_hits)
+			wins += 1 if bool(r.win) else 0
+		var pct := 100.0 * float(inv) / maxf(float(hits), 1.0)
+		out[eq if eq != "" else "none"] = pct
+		if not quiet:
+			print("=== 무적 잠금 (봉공 + 물의 장막, 재의 왕 1체, %d판) 에스카 장비 %s: 재의 왕 히트 %d 중 무적 %d (%.0f%%) · 승 %d/%d" % [runs, eq if eq != "" else "없음", hits, inv, pct, wins, runs])
+	return out
+
+
+## 원형 하나 × 전투 하나 (프리셋만): 승 · 승리 평균 마녀 행동 · 분
+func _build_stat(bid: String, bt: String, runs: int) -> Dictionary:
+	var bd: Dictionary = BUILDS[bid]
+	var wins := 0
+	var w := 0
+	var a := 0
+	for i in runs:
+		var r := _auto_game(bd.party, bt, bd.state, 7000 + i, bd.plan)
+		if bool(r.win):
+			wins += 1
+			w += int(r.witch_acts)
+			a += int(r.all_acts)
+	var wn := maxf(float(wins), 1.0)
+	return {"win": wins, "w_avg": float(w) / wn, "min": _minutes(float(w) / wn, float(a) / wn)}
+
+
+## 문서 §27.3 표: 원형 8 × 전투 3 · 속도 비 · 기본 파티 · 220파티(1판) · 속성 지표 · 잠금
+func _mode_suite(runs: int) -> void:
+	print("=== 단계 E 측정 묶음 (원형 %d판씩) ===" % runs)
+	print("| 원형 | normal_01 | boss_01 | trial_01 |")
+	var spd := {"normal_01": [], "boss_01": []}
+	for bid in BUILDS:
+		var cells: Array = []
+		for bt in ["normal_01", "boss_01", "trial_01"]:
+			var st := _build_stat(String(bid), bt, runs)
+			cells.append("%d/%d · %.1f · %.1f분" % [int(st.win), runs, float(st.w_avg), float(st.min)] if int(st.win) > 0 else "%d/%d" % [int(st.win), runs])
+			if spd.has(bt) and int(st.win) > 0:
+				(spd[bt] as Array).append([float(st.w_avg), String(bid)])
+		print("| %s %s | %s |" % [bid, BUILDS[bid].name, " | ".join(cells)])
+	for bt in spd:
+		var l: Array = spd[bt]
+		l.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+		if not l.is_empty():
+			print("  %s 가장 빠름 %s %.1f / 가장 느린 승리 %s %.1f = %.2f배" % [bt, l[0][1], l[0][0], l[l.size() - 1][1], l[l.size() - 1][0], float(l[l.size() - 1][0]) / maxf(float(l[0][0]), 1.0)])
+	for bt in ["normal_01", "boss_01"]:
+		var n := runs * 3 if bt == "normal_01" else runs
+		var wins := 0
+		var w := 0
+		var a := 0
+		for i in n:
+			var r := _auto_game(TData.BATTLE.party, bt, {}, 9000 + i)
+			if bool(r.win):
+				wins += 1
+				w += int(r.witch_acts)
+				a += int(r.all_acts)
+		var wn := maxf(float(wins), 1.0)
+		print("  기본 파티 %s: 승 %d/%d · %.1f행동 · %.1f분" % [bt, wins, n, float(w) / wn, _minutes(float(w) / wn, float(a) / wn)])
+	for bt in ["normal_01", "boss_01"]:
+		_mode_roster(bt, 1)
+	for bt in ["normal_01", "boss_01"]:
+		_mode_style(bt, runs)
+	_mode_lock(runs)
+
+
+## 원형 프리셋의 행동 내역: 마녀:마법 → 판당 횟수 · 1회 평균 피해
+func _mode_acts(bid: String, bt: String, runs: int) -> void:
+	var bd: Dictionary = BUILDS[bid] if BUILDS.has(bid) else {"party": String(bid).split(","), "plan": {}, "state": {}} # 원형 id 대신 "eska,ignis,ember"처럼 파티를 주면 기본 장착
+	var tally := {}
+	var dmg := {}
+	var wins := 0
+	for i in runs:
+		TAuto.plan = bd.plan
+		var b := TBattle.new()
+		b.setup(bd.party, bt, bd.state, 7000 + i)
+		var r := _play(b, func(u: TUnit) -> Dictionary:
+			var a := _auto(b, u)
+			var key := "%s:%s" % [u.id, String(a.sid) if String(a.sid) != "" else "basic"]
+			tally[key] = int(tally.get(key, 0)) + 1
+			for e in a.ev:
+				if e.t == "hit" and e.src == u:
+					dmg[key] = int(dmg.get(key, 0)) + int(e.dmg)
+			return a)
+		wins += 1 if bool(r.win) else 0
+	TAuto.plan = {}
+	print("=== %s %s 행동 내역 (%d판, 승 %d) ===" % [bid, bt, runs, wins])
+	var keys := tally.keys()
+	keys.sort()
+	for k in keys:
+		print("  %s: 판당 %.1f번 · 1회 피해 %s · 판당 피해 %s" % [k, float(tally[k]) / runs, TData.fmt(int(dmg.get(k, 0)) / maxi(int(tally[k]), 1)), TData.fmt(int(dmg.get(k, 0)) / runs)])

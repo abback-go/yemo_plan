@@ -47,6 +47,7 @@ var boss := false
 var stunned := false ## 기절: 다음 차례를 쉰다 (§17.2)
 var stun_guard := false ## 기절로 쉰 뒤 다음 자기 차례가 끝날 때까지 기절에 걸리지 않음
 var guts_used := false ## 장비 근성을 썼나 (전투당 1번)
+var inv_guard := 0 ## 무적 내성 (§17.12): 무적이 공격을 막으면 3 → 적 행동이 끝날 때마다 −1. 0보다 크면 새 무적이 걸리지 않음 (= 막은 뒤 적 행동 2번 동안)
 var zero_after_turn := -1 ## 불의 신 강림의 대가: 이 차례 번호보다 뒤의 행동이 끝나면 크레딧 0
 var pending_gauge := 0.0 ## 자기 게이지 +N% — 행동이 끝나 0이 된 뒤 더한다
 var last_k := "" ## 적: 마지막으로 실행한 의도 종류
@@ -312,9 +313,10 @@ func on_own_acted() -> void:
 		marks.erase(k) # 겹째로 사라진다
 
 
-## 적이 행동을 마침 (마녀에게): enemy 시계 버프 −1
+## 적이 행동을 마침 (마녀에게): enemy 시계 버프 −1 · 무적 내성 −1
 func on_enemy_acted() -> void:
 	_tick("enemy")
+	inv_guard = maxi(inv_guard - 1, 0)
 
 
 func _tick(clock: String) -> void:
@@ -361,6 +363,7 @@ func take_damage(v: int) -> Dictionary:
 	marks.clear()
 	stunned = false
 	stun_guard = false
+	inv_guard = 0
 	gauge = 0.0
 	pending_gauge = 0.0
 	r.killed = true

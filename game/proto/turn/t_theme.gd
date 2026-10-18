@@ -184,6 +184,13 @@ static func credit_row(ci: CanvasItem, p: Vector2, n: int, gap := 10.0, half := 
 		diamond(ci, c, half, Color(GOLD, pulse) if k < n else EMPTY)
 
 
+## 예상 피해 한 줄 (전투 설명 띠·편성 설명 상자가 같이 씀, review_C2 L9): "예상 n · 크리 m" / 크리 확정이면 "예상 n (크리 확정)"
+static func est_text(est: int, est_c: int, head := "예상") -> String:
+	if est_c != est:
+		return "%s %s · 크리 %s" % [head, TData.fmt_short(est), TData.fmt_short(est_c)]
+	return "%s %s (크리 확정)" % [head, TData.fmt_short(est)]
+
+
 ## 공격·보조·디버프 색
 static func kind_col(kind: String) -> Color:
 	match kind:
@@ -270,7 +277,7 @@ static func mark_icon(ci: CanvasItem, c: Vector2, kind: String, t := 0.0) -> voi
 			ci.draw_line(c + Vector2(-1.5, 0.5), c + Vector2(1.5, 4), Color("#ffe08a"), 1.4)
 
 
-## 버프·디버프 아이콘 10×10 (p = 왼쪽 위): 먹 바탕 + 종류 테 + 작은 모양 + 오른쪽 아래 남은 수 (Galmuri7). n < 0이면 숫자 없음
+## 버프·디버프 아이콘 10×10 (p = 왼쪽 위): 먹 바탕 + 종류 테 + 작은 모양 + 오른쪽 아래 바깥 알약에 남은 수 (Galmuri7). n < 0이면 숫자 없음
 static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> void:
 	var cat := String(ic.get("cat", ""))
 	var v := float(ic.get("v", 0.0))
@@ -332,7 +339,15 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 	if bad:
 		ci.draw_colored_polygon(PackedVector2Array([p + Vector2(7, 0), p + Vector2(10, 0), p + Vector2(10, 3)]), DANGER)
 	if n >= 0:
-		text(ci, p + Vector2(11, 11), str(n), 8, TEXT, HORIZONTAL_ALIGNMENT_RIGHT, 2)
+		count_pill(ci, p, n)
+
+
+## 아이콘(10×10, p = 왼쪽 위) 오른쪽 아래 바깥의 먹 알약 + 숫자 (겹 수·남은 수) — 옆 아이콘·테에 닿지 않게 (review_C2 L1)
+static func count_pill(ci: CanvasItem, p: Vector2, n: int) -> void:
+	var s := str(n)
+	var w := maxf(width(s, 8) + 2.0, 6.0)
+	ci.draw_rect(Rect2(p + Vector2(8, 4), Vector2(w, 8)), Color(INK, 0.95))
+	text(ci, p + Vector2(8.0 + w * 0.5, 11), s, 8, TEXT, HORIZONTAL_ALIGNMENT_CENTER, 0)
 
 
 ## 버프 한 줄 글 (상세 판): "공격력 +50% · 2행동" / "공격력 +30% · 기본 공격 2번"

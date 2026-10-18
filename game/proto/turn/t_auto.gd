@@ -2,14 +2,20 @@ class_name TAuto
 extends RefCounted
 ## 마녀의 자동 선택 (시험·시연용 — 사람 대신 고른다). 장착한 마법을 "지금 새로 주는 것"으로 점수 매겨 가장 높은 것을 쓰고,
 ## 점수가 낮으면 기본 공격으로 크레딧을 모은다. tools/test/turn_sim.gd(밸런스)와 TStage(자동 플레이)가 같이 쓴다.
-## 크레딧 7이면 대마법, 5~6이면 큰 마법을 아껴 7로 모은다. 징표는 겹을 쌓고, 터뜨리기는 겹이 3 이상일 때, 기절은 위험한 의도 앞에서.
+## 크레딧 7이면 대마법, 5~6이면 큰 공격 마법을 아껴 7로 모은다. 징표는 겹을 쌓고, 터뜨리기는 겹이 3 이상일 때, 기절은 위험한 의도 앞에서.
+## 단계 E (review_E E0): 공격 대마법이 있는 마녀는 대마법을 모은다 (크레딧이 적어도 — 1비용 공격만 돌리다 7에 못 닿는 일을 막음) — 공격 마법은
+##   "값 − 실제 비용 × 대마법 크레딧당 값 ≥ 기본 공격 값 + 크레딧 1 × 대마법 크레딧당 값"일 때만 쓴다 (값 = 배율 × 맞는 적 수 × 크리 확정 1.4 × 이 공격만 특공,
+##   실제 비용 = 비용 − 조건이 맞는 환급). 징표가 없을 때의 징표 심기 · 3겹 이상 터뜨리기는 예외 · 게이지 점수 = v × 2.5 (딜러 게이지 < 60%) ·
+##   보조·디버프는 1.8부터 쓴다 · 3비용 이상 아끼기(×0.4)는 공격 마법에만.
 ## 단계 B: 횟수제 기본 공격 버프가 있으면 기본 공격 · 차지가 차면 차지 감소 · 관통 필살기 앞에선 무적 대신 받는 피해 감소.
 ## 빌드 원형 시험(tools/test/turn_sim.gd)은 plan으로 역할을 정해 준다 (비어 있으면 위 규칙만):
 ##   dealer: 딜러 id · ult_only: [대마법·기본 공격만 쓰는 id] · battery: [딜러에게 크레딧을 몰아주는 id — 자기 대마법은 안 씀]
 ##   push: [딜러 게이지를 올려 차례를 몰아주는 id]
 ##   trigger: {id: {skill, at}} — 딜러가 다음 차례에 at 크레딧이 되고 공격력 버프가 있을 때 그 마법을 딜러에게 (대가 몰빵의 마지막 신호)
+##   guard: [지키는 id] — 가장 큰 보호 마법(받는 피해 감소·무적·공격력 다운·되살림)의 비용을 남겨 두고, 위험한 의도·차지 가득 앞에서 쓴다 (버티기 원형, 단계 E)
 
-const USE_AT := 2.2 ## 이 점수 아래면 기본 공격
+const USE_AT := 2.2 ## 공격 마법: 이 점수 아래면 기본 공격
+const USE_AT_SUP := 1.8 ## 보조·디버프 마법의 기준 (review_E E0 ④)
 const DANGER := ["heavy", "aoe", "stun_attack", "finisher"] ## 미리 막을 만한 적 의도
 static var plan := {}
 
@@ -66,23 +72,98 @@ static func pick(b: TBattle, u: TUnit) -> Dictionary:
 			return {"kind": "basic", "skill": "basic", "target": en}
 	if _counting(u, "basic"):
 		return {"kind": "basic", "skill": "basic", "target": en} # 횟수제 기본 공격 버프가 남아 있으면 기본 공격
+	var guard_cost := 0
+	if _in("guard", u):
+		var gd := _guard_pick(b, u, en, dealer)
+		if not gd.is_empty():
+			return gd
+		for sid in u.equipped:
+			if _guards(sid):
+				guard_cost = maxi(guard_cost, TData.cost_of(sid))
+	# 공격 대마법을 모으는 중 (E0 ①): 기본 공격(+크레딧)보다 값이 낮은 공격 마법은 쓰지 않는다
+	var ult_pc := 0.0
+	var basic_v := float(u.data.basic.mult)
+	if ult != "" and not _in("battery", u) and String(TData.skill(ult).kind) == "attack":
+		var us := TData.skill(ult)
+		ult_pc = _attack_value(b, us, en) / float(maxi(TData.ULT_COST - _refund(us, en), 1))
 	var best_sid := ""
 	var best_tgt: TUnit = null
 	var best := 0.0
 	for sid in u.equipped:
 		if not b.can_use(u, sid):
 			continue
+		var sk := TData.skill(sid)
+		var atk := String(sk.kind) == "attack"
+		if guard_cost > 0 and not _guards(sid) and u.credits - int(sk.cost) < guard_cost and not _has(sk.get("effects", []), "taunt") and not _heals(sk.get("effects", [])):
+			continue # 지키는 마녀: 큰 보호 마법 비용은 남긴다 (도발·회복은 예외)
+		if ult_pc > 0.0 and String(sk.kind) == "support" and String(sk.target) == "self" and not _has_count(sk):
+			continue # 모으는 중엔 자기 강화(검기 두르기 등)에 크레딧을 쓰지 않는다 — 횟수제(다음 공격 1번·기본 공격 3번)는 대마법·기본 공격에 붙으므로 예외
+		if atk and ult_pc > 0.0 and not _save_exempt(sk, en):
+			var net := float(int(sk.cost) - _refund(sk, en))
+			if _attack_value(b, sk, en) - net * ult_pc < basic_v + float(TData.BASIC_BONUS) * ult_pc:
+				continue
 		var r := score(b, u, sid, en, dealer)
 		var sc := float(r.score)
-		if ult != "" and u.credits >= 5 and TData.cost_of(sid) >= 3 and not _in("battery", u):
-			sc *= 0.4 # 대마법까지 한두 차례 — 큰 마법은 아낀다
-		if sc > best:
-			best = sc
+		if atk and ult != "" and u.credits >= 5 and int(sk.cost) >= 3 and not _in("battery", u):
+			sc *= 0.4 # 대마법까지 한 차례 — 큰 공격 마법은 아낀다
+		var need := USE_AT if atk else USE_AT_SUP
+		if sc >= need and sc - need > best:
+			best = sc - need
 			best_sid = sid
 			best_tgt = r.tgt
-	if best_sid != "" and best >= USE_AT:
+	if best_sid != "":
 		return {"kind": "skill", "skill": best_sid, "target": best_tgt}
 	return {"kind": "basic", "skill": "basic", "target": en}
+
+
+## 공격 마법의 대략 값 (배율 × 맞는 적 수 × 크리 확정 1.4 × 이 공격만 특공 + 터뜨리기 겹) — 대마법 모으기 판단용
+static func _attack_value(b: TBattle, sk: Dictionary, en: TUnit) -> float:
+	var v := float(sk.get("mult", 0.0))
+	if String(sk.get("target", "")) == "enemies":
+		v *= float(maxi(b.alive_of(b.enemies).size(), 1))
+	for e in sk.get("effects", []):
+		match String(e.t):
+			"sure_crit":
+				v *= 1.4
+			"burst":
+				if en != null:
+					v += float(e.per) * float(en.mark_n(String(e.mark)))
+			"this_special":
+				if en != null and en.marks.has(String(e.mark)):
+					v *= 1.0 + float(e.v)
+	return v
+
+
+## 이 공격으로 자신에게 돌아오는 크레딧 (조건 없는 것 + 맞기 전 조건이 맞는 환급)
+static func _refund(sk: Dictionary, en: TUnit) -> int:
+	var n := 0
+	for e in sk.get("effects", []):
+		if String(e.t) == "credits" and String(e.get("who", "target")) == "self":
+			if not e.has("if_mark") or (en != null and en.marks.has(String(e.if_mark))):
+				n += int(e.v)
+	return n
+
+
+static func _has_count(sk: Dictionary) -> bool:
+	for e in sk.get("effects", []):
+		if e.has("count"):
+			return true
+	return false
+
+
+## 모으는 중에도 쓸 공격: 징표가 없을 때의 징표 심기 · 3겹 이상 터뜨리기
+static func _save_exempt(sk: Dictionary, en: TUnit) -> bool:
+	if en == null:
+		return false
+	for e in sk.get("effects", []):
+		match String(e.t):
+			"mark":
+				if String(e.get("who", "target")) == "target" and not en.marks.has(String(e.kind)):
+					return true
+			"burst":
+				if en.mark_n(String(e.mark)) >= 3:
+					return true
+	return false
 
 
 ## 이 마녀의 공격 속성이 약점인 적 → 불 약점(짚 골렘) → 체력이 가장 적은 적
@@ -225,8 +306,6 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 			s *= 1.6 if cost >= 3 else 0.3 # "다음 공격 마법 1번" 강화는 큰 공격에 쓴다
 		if u.credits >= 5 and cost >= 4:
 			s *= 1.6 # 모았으면 큰 것
-		elif cost >= 3 and u.credits < 5:
-			s *= 0.45 # 아직 모으는 중
 		s *= 1.0 + 0.4 * u.cat_sum("atk") # 버프를 받았으면 지금 때린다
 	elif kind == "debuff":
 		var fresh := 0.0
@@ -290,11 +369,13 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 					for w in b.alive_of(b.witches):
 						if w.hp_ratio() < 0.4:
 							fresh -= 1.0
-				"gauge": fresh += 0.5 if who != u and who.gauge < 400.0 else 0.1
+				"gauge": fresh += float(e.v) * 2.5 if who != u and who.gauge < 600.0 else 0.1 # 딜러 게이지 +60% = 딜러 0.6행동 (E0 ②)
 				"heal": fresh += 2.5 if low != null else 0.0
 				"revive":
 					fresh += (1.0 if pierce_coming(b) else 5.0) if dead != null else (2.0 if low != null else 0.0) # 관통 필살기 직전에 되살리면 바로 쓰러진다
-				"invincible": fresh += 0.2 if pierce_coming(b) else (1.6 if heavy_coming(b) else 0.2)
+				"invincible":
+					if _inv_open(b):
+						fresh += 0.2 if pierce_coming(b) else (1.6 if heavy_coming(b) else 0.2)
 				"taunt":
 					if String(e.get("who", "target")) == "self":
 						fresh += 0.0 if u.is_taunting() and u.has_buff("taunt") else 1.0
@@ -302,7 +383,7 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 						fresh += 1.0 if heavy_coming(b) and tank != null and not tank.is_taunting() else 0.0
 				"guts": fresh += 1.2 if low != null and not low.has_buff("guts") else 0.0
 				"extend_buffs": fresh += 0.8 if who.buffs.size() >= 2 else 0.1
-				"demerit_zero": fresh -= 0.5 if who.credits < 5 else 0.0
+				"demerit_zero": fresh += 1.0 if who.credits + 1 >= TData.ULT_COST else -3.0 # 대가(크레딧 0)는 받는 마녀가 바로 대마법을 쓸 수 있을 때만
 		s = 0.6 + 1.3 * fresh
 		if cost >= 4 and u.credits < 5:
 			s *= 0.6
@@ -315,6 +396,43 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 		else:
 			tgt = who
 	return {"score": s, "tgt": tgt}
+
+
+## 보호 마법인가 (받는 피해 감소 · 무적 · 공격력 다운 · 되살림)
+static func _guards(sid: String) -> bool:
+	for e in TData.skill(sid).get("effects", []):
+		var t := String(e.t)
+		if t in ["invincible", "revive"] or (t == "buff" and String(e.get("cat", "")) == "dmg_taken") or (t == "debuff" and String(e.get("cat", "")) == "atk_down"):
+			return true
+	return false
+
+
+## 지키는 마녀: 위험한 의도(강공격·전체·필살기)나 차지 가득 앞이면 쓸 수 있는 보호 마법 중 점수가 가장 높은 것
+static func _guard_pick(b: TBattle, u: TUnit, en: TUnit, dealer: TUnit) -> Dictionary:
+	if not heavy_coming(b):
+		return {}
+	var best := ""
+	var best_s := USE_AT_SUP
+	var best_t: TUnit = null
+	for sid in u.equipped:
+		if not _guards(sid) or not b.can_use(u, sid):
+			continue
+		var r := score(b, u, sid, en, dealer)
+		if float(r.score) > best_s:
+			best_s = float(r.score)
+			best = sid
+			best_t = r.tgt
+	if best == "":
+		return {}
+	return {"kind": "skill", "skill": best, "target": best_t}
+
+
+## 무적이 걸릴 마녀가 있나 (무적 내성 중이 아닌 살아 있는 마녀, §17.12)
+static func _inv_open(b: TBattle) -> bool:
+	for w in b.alive_of(b.witches):
+		if w.inv_guard <= 0:
+			return true
+	return false
 
 
 ## 맞을 사람으로 세울 마녀: 체력이 가장 많은 살아 있는 마녀

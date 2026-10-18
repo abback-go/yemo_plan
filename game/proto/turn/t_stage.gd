@@ -7,7 +7,7 @@ extends Node2D
 
 const ArenaScript := preload("res://proto/p_arena.gd")
 const WITCH_AT: Array[Vector2] = [Vector2(214, 288), Vector2(160, 258), Vector2(106, 228)] ## 앞 · 중 · 뒤 (대각선, 아래 띠 y 302 위)
-const ENEMY_AT: Array[Vector2] = [Vector2(440, 288), Vector2(506, 258), Vector2(572, 228)] ## 적 1명 = 가운데 · 2명 = 앞·뒤 (THud.pos_index)
+const ENEMY_AT: Array[Vector2] = [Vector2(424, 290), Vector2(507, 256), Vector2(590, 222)] ## 적 1명 = 가운데 · 2명 = 앞·뒤 (THud.pos_index). 간격 83 (review_C2 L11)
 
 var battle: TBattle
 var actors := {} ## TUnit → TActor
@@ -130,10 +130,11 @@ func _add_actor(u: TUnit, at: Vector2) -> void:
 	actors[u] = a
 
 
-## 지금 웨이브의 적을 세운다: 1명 = 가운데 · 2명 = 앞·뒤 · 3명 = 앞·중·뒤
+## 지금 웨이브의 적을 세운다: 1명 = 가운데(10px 아래 — 큰 보스 머리가 보스 카드 밑에 들어가지 않게) · 2명 = 앞·뒤 · 3명 = 앞·중·뒤
 func _add_enemies() -> void:
-	for i in battle.enemies.size():
-		_add_actor(battle.enemies[i], ENEMY_AT[THud.pos_index(battle.enemies.size(), i)])
+	var n := battle.enemies.size()
+	for i in n:
+		_add_actor(battle.enemies[i], ENEMY_AT[THud.pos_index(n, i)] + (Vector2(0, 10) if n == 1 else Vector2.ZERO))
 
 
 func _wait(sec: float) -> void:
@@ -179,9 +180,9 @@ func _run(token: int) -> void:
 				hud.close_wheel()
 			else:
 				action = await hud.chosen
-			a.set_turn(false)
 			if token != _run_id:
-				return
+				return # 철수·다시 시작으로 이 전투가 끝났다 (그림 a는 이미 지워졌을 수 있다 — 다음 전투의 고르기에 깨어나도 건드리지 않음)
+			a.set_turn(false)
 			stats.turns = int(stats.turns) + 1
 			await _perform_witch(a, action)
 		else:
@@ -283,6 +284,7 @@ func _perform_witch(a: TActor, action: Dictionary) -> void:
 			fx_id = "basic_eska"
 		elif el == "sword":
 			fx_id = "slash"
+		hud.hold_view()
 		ev = battle.basic_attack(u, tgt)
 		a.lunge()
 		a.pose("cast")
@@ -291,6 +293,7 @@ func _perform_witch(a: TActor, action: Dictionary) -> void:
 		var s := TData.skill(String(action.skill))
 		fx_id = String(s.fx)
 		big = int(s.cost) >= 4
+		hud.hold_view()
 		ev = battle.use_skill(u, String(action.skill), tgt)
 		if bool(s.get("ultimate", false)) and TFx.is_ult(String(action.skill)):
 			ult = String(action.skill)
@@ -312,6 +315,7 @@ func _perform_witch(a: TActor, action: Dictionary) -> void:
 		timing = TFx.play(fx_id, a, targets)
 	await _show_events(ev, targets, timing, "space" if el in ["space", "time", "sword"] else "fire")
 	_show_total(ev)
+	hud.release_view()
 	a.pose("idle")
 	hud.refresh()
 
@@ -334,6 +338,7 @@ func _perform_enemy(a: TActor) -> void:
 		a.pose("buff")
 		TFx.finisher_warn(a)
 		await _wait(0.35)
+	hud.hold_view()
 	var ev := battle.enemy_action(u)
 	hud.show_msg("%s — %s" % [u.name, battle.last_action], TTheme.DANGER)
 	a.pose("buff" if kind == "buff" else "attack")
@@ -365,6 +370,7 @@ func _perform_enemy(a: TActor) -> void:
 		TFx.after(0.3, func() -> void: TFx.dispel_fx(_alive_actors(battle.witches), lost, hud))
 	await _show_events(ev, targets, timing, "enemy")
 	await _wait(0.2)
+	hud.release_view()
 	a.set_acting(false)
 	a.pose("idle")
 	hud.refresh()
@@ -427,6 +433,7 @@ func _show_event(e: Dictionary, kind: String) -> void:
 	if tgt == null or not actors.has(tgt):
 		return
 	var ta: TActor = actors[tgt]
+	hud.view_event(e) # 화면의 보이는 값 (체력·징표·버프)을 이 사건이 뜨는 순간에 맞춤
 	match String(e.t):
 		"hit":
 			if bool(e.invincible):
@@ -479,6 +486,7 @@ func _show_event(e: Dictionary, kind: String) -> void:
 				var tw := create_tween()
 				tw.tween_interval(0.25)
 				tw.tween_callback(func() -> void:
+					hud.view_event({"t": "down", "tgt": tgt})
 					ta.set_down(true)
 					if not tgt.is_witch():
 						TFx.ash_dissolve(ta)
@@ -537,6 +545,8 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			hud.pop(tgt, "되살아남", "revive")
 		"invincible":
 			hud.pop(tgt, "무적", "buff")
+		"inv_guard":
+			hud.pop(tgt, "무적 내성", "status")
 		"enemy_buff":
 			hud.pop(tgt, "공격력 +%d%%" % int(round(float(e.v) * 100.0)), "debuff")
 		"demerit":
@@ -564,7 +574,7 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			hud.pop(tgt, "맞으며 쌓기", "buff")
 
 
-## 한 행동의 적 피해 합계 (히트가 2번 이상일 때, §21.12 [하면 좋음 G1])
+## 한 행동의 적 피해 합계 (히트가 2번 이상일 때, §21.12 [하면 좋음 G1]) — 행동 띠 끝에 금빛으로 (review_C2 L4)
 func _show_total(ev: Array) -> void:
 	var sum := 0
 	var n := 0
@@ -576,7 +586,7 @@ func _show_total(ev: Array) -> void:
 			if first == null:
 				first = e.tgt
 	if n >= 2 and first != null:
-		hud.pop(first, "합계 " + TData.fmt_short(sum), "total")
+		hud.show_total(sum)
 
 
 func _finish(oc: String, token: int) -> void:

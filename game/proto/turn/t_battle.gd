@@ -4,10 +4,10 @@ extends RefCounted
 ## 흐름: next_actor() → (기절이면 rest() / 마녀면 플레이어가 고름 / 적이면 enemy_action()) → end_action() → outcome()
 ##   outcome() == "wave"면 next_wave()로 다음 웨이브를 세운다 (combat_proto.md §6.3).
 ## 모든 변화는 사건(Dictionary) 목록으로 돌려주어 연출이 순서대로 보여 줄 수 있다.
-##   {"t":"hit", src, tgt, dmg, crit, weak, special, killed, guts, broke, invincible}  {"t":"buff"|"debuff", tgt, cat, v, dur}
+##   {"t":"hit", src, tgt, dmg, crit, weak, special, killed, guts, broke, invincible, hp, max_hp, bar_i(맞은 뒤 — 화면의 보이는 값)}  {"t":"buff"|"debuff", tgt, cat, v, dur}
 ##   {"t":"mark", tgt, kind, n}  {"t":"burst", tgt, kind, n}  {"t":"credits", tgt, v}  {"t":"gauge", tgt, v}  {"t":"heal", tgt, v}  {"t":"revive", tgt}
 ##   {"t":"invincible", tgt}  {"t":"zeroed", tgt}  {"t":"enemy_buff", tgt, v}  {"t":"resist", tgt}  {"t":"stun"|"immune"|"stun_resist", tgt}
-##   {"t":"taunt", tgt}  {"t":"guts_on", tgt}  {"t":"dispel", tgt}  {"t":"stun_skip", tgt}
+##   {"t":"taunt", tgt}  {"t":"guts_on", tgt}  {"t":"dispel", tgt}  {"t":"stun_skip", tgt}  [단계 E] {"t":"inv_guard", tgt} (무적 내성으로 무적이 안 걸림)
 ##   [단계 B] {"t":"chain", tgt, stage}  {"t":"charge_down", tgt, v}  {"t":"hp_cost", tgt, v}  {"t":"stack", tgt, n, v}  {"t":"hit_stack", tgt}
 ## 시험 훅 (tools/test/turn_rules_test.gd): fix_rand(피해 난수) · fix_crit(-1 판정 / 0 아님 / 1 크리) · fix_roll(디버프 성공 판정 난수)
 
@@ -244,6 +244,8 @@ func basic_attack(u: TUnit, tgt: TUnit) -> Array:
 	last_action = String(b.name)
 	u.last_act = "basic"
 	_pre = {}
+	if tgt == null:
+		return ev # 고를 적이 없음 (시험이 적을 직접 쓰러뜨린 때 등)
 	var hits := maxi(int(b.get("hits", 1)), 1)
 	var crit := false
 	for k in hits:
@@ -537,9 +539,13 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, _targets: Array) -> Array:
 					ev.append({"t": "revive", "tgt": r})
 		"invincible":
 			for r in recv:
-				if r.alive:
-					r.add_buff({"cat": "invincible", "v": 1.0, "dur": int(e.dur), "clock": "enemy", "name": "무적"})
-					ev.append({"t": "invincible", "tgt": r})
+				if not r.alive:
+					continue
+				if r.inv_guard > 0:
+					ev.append({"t": "inv_guard", "tgt": r}) # 무적 내성: 막은 뒤 적 행동 2번 동안 새 무적이 걸리지 않음 (§17.12)
+					continue
+				r.add_buff({"cat": "invincible", "v": 1.0, "dur": int(e.dur), "clock": "enemy", "name": "무적"})
+				ev.append({"t": "invincible", "tgt": r})
 		"demerit_zero":
 			for r in recv:
 				r.zero_after_turn = turn_no
@@ -943,7 +949,8 @@ func _hit(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: bool)
 	var res := deal(tgt, dmg)
 	src.dealt += dmg
 	log.append("%s → %s %s%s%s %s" % [src.name, tgt.name, TData.fmt(dmg), " 크리" if crit else "", " 약점" if tm.weak else "", "쓰러짐" if res.killed else ("브레이크" if res.broke else "")])
-	return {"t": "hit", "src": src, "tgt": tgt, "dmg": dmg, "crit": crit, "weak": tm.weak, "special": float(tm.special) > 0.0, "killed": res.killed, "guts": res.guts, "broke": res.broke, "invincible": false, "el": tm.el}
+	return {"t": "hit", "src": src, "tgt": tgt, "dmg": dmg, "crit": crit, "weak": tm.weak, "special": float(tm.special) > 0.0, "killed": res.killed, "guts": res.guts, "broke": res.broke, "invincible": false, "el": tm.el,
+		"hp": tgt.hp, "max_hp": tgt.max_hp, "bar_i": tgt.bar_i}
 
 
 ## 피해를 넣는다: 쓰러짐·근성·브레이크 처리까지 (시험에서 직접 부르기도 한다)
@@ -959,6 +966,7 @@ func deal(tgt: TUnit, dmg: int) -> Dictionary:
 func _enemy_hit(src: TUnit, tgt: TUnit, mult: float, pierce := false) -> Dictionary:
 	if tgt.is_invincible() and not pierce:
 		log.append("%s → %s 무적" % [src.name, tgt.name])
+		tgt.inv_guard = 3 # 무적 내성 (§17.12): 이 적 행동과 다음 적 행동 2번이 끝날 때까지
 		return {"t": "hit", "src": src, "tgt": tgt, "dmg": 0, "crit": false, "weak": false, "special": false, "killed": false, "guts": false, "broke": false, "invincible": true, "el": ""}
 	var atk_f := clampf(1.0 + src.cat_sum("atk") - src.cat_sum("atk_down"), 0.3, 4.0)
 	var aura := _aura(null, "dmg_taken") # 네레이: 살아 있는 동안 아군 전체
@@ -970,19 +978,28 @@ func _enemy_hit(src: TUnit, tgt: TUnit, mult: float, pierce := false) -> Diction
 	var dmg := maxi(int(round(float(src.atk) * mult * atk_f * (1.0 - tgt.def_rate) * maxf(taken, 0.2) * (TData.CRIT_MULT if crit else 1.0) * r)), 1)
 	var res := deal(tgt, dmg)
 	log.append("%s → %s %s%s%s" % [src.name, tgt.name, TData.fmt(dmg), " 크리" if crit else "", " 쓰러짐" if res.killed else (" 근성" if res.guts else "")])
-	return {"t": "hit", "src": src, "tgt": tgt, "dmg": dmg, "crit": crit, "weak": false, "special": false, "killed": res.killed, "guts": res.guts, "broke": false, "invincible": false, "el": ""}
+	return {"t": "hit", "src": src, "tgt": tgt, "dmg": dmg, "crit": crit, "weak": false, "special": false, "killed": res.killed, "guts": res.guts, "broke": false, "invincible": false, "el": "",
+		"hp": tgt.hp, "max_hp": tgt.max_hp, "bar_i": tgt.bar_i}
 
 
-## 예상 피해 (화면 안내용 §11.7: 난수 1.0, 크리 아님 — 크리 확정이면 크리, crit = true면 크리 값). 터뜨리기는 지금 겹으로
+## 예상 피해 (화면 안내용 §11.7: 난수 1.0, 크리 아님 — 크리 확정이면 크리, crit = true면 크리 값). 터뜨리기는 지금 겹으로.
+## 그 마법의 선버프(pre)는 실제처럼 공격 직전에 걸린 셈으로 넣고 계산한 뒤 뺀다 (use_skill과 같은 순서, 대마법은 연쇄 단계 수치로 — review_F F06 a)
 func estimate(src: TUnit, tgt: TUnit, skill_id: String, crit := false) -> int:
 	var mult := 1.0
 	var opts := {}
 	var is_skill := skill_id != ""
+	var pre_n := 0
 	if is_skill:
 		var s := skill_of(src, skill_id)
 		if s.get("kind", "") != "attack":
 			return 0
+		if bool(s.get("ultimate", false)) and chain_owner != null and chain_stage > 0:
+			s = TData.chain_scaled(s, mini(chain_stage + 1, 3))
 		mult = float(s.mult)
+		for e in s.get("effects", []):
+			if e.t == "buff" and bool(e.get("pre", false)):
+				_apply_buff(src, src, e)
+				pre_n += 1
 		for e in s.get("effects", []):
 			if e.t == "this_special":
 				opts["this_special"] = e
@@ -995,5 +1012,7 @@ func estimate(src: TUnit, tgt: TUnit, skill_id: String, crit := false) -> int:
 	else:
 		mult = float(src.data.basic.mult)
 	var tm := _terms(src, tgt, mult, opts, is_skill)
+	for k in pre_n:
+		src.buffs.pop_back() # 넣었던 선버프를 뺀다 (add_buff는 뒤에 붙인다)
 	var c := crit or bool(opts.get("sure_crit", false))
 	return maxi(int(round(float(tm.base) * (float(tm.crit_mult) if c else 1.0))), 1)
