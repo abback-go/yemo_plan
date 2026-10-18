@@ -27,7 +27,7 @@ const DESC_W := 242.0
 const START_RECT := Rect2(520, 322, 108, 30) ## 2단계 전투 시작
 const BACK_RECT := Rect2(152, 322, 80, 30) ## 2단계 편성으로
 const START1_RECT := Rect2(404, 300, 224, 32) ## 1단계 전투 시작
-const EQUIP_IDS := ["", "black_cup", "kaleido", "notebook"]
+const EQUIP_IDS := ["", "black_cup", "kaleido", "notebook", "swift_boots", "mana_spring", "ember_ring", "tide_ring", "storm_ring", "mirror_shard", "star_shard", "iron_heart", "hourglass_charm", "ash_charm"]
 const CARD_W := 122.0
 const CARD_H := 300.0
 const CARD_Y := 36.0
@@ -498,7 +498,7 @@ func _draw_detail() -> void:
 		draw_rect(r, Color(col, 0.9) if on else Color(INK, 0.7))
 		draw_rect(r, Color(PALE if on else DIM, 0.9 if on or cursor == -1 else 0.4), false, 1.0)
 		draw_string(_font, Vector2(r.position.x, r.position.y + 15), String(TData.WITCHES[twid].name), HORIZONTAL_ALIGNMENT_CENTER, int(r.size.x), 10, INK if on else PALE)
-	_text(Vector2(156, 24), "마법 장착 — 배운 마법 10개 중 5개 · 전투 시작", 11, Color(DIM, 0.9))
+	_text(Vector2(156, 24), "마법 장착 — 배운 마법 10개 중 %d개 · 전투 시작" % TData.EQUIP_MAX, 11, Color(DIM, 0.9))
 	# 왼쪽: 소개·능력치
 	_text(Vector2(73, 52), String(w.name), 14, PALE, HORIZONTAL_ALIGNMENT_CENTER, 0)
 	_text(Vector2(73, 66), String(w.title), 9, Color(ecol, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 0)

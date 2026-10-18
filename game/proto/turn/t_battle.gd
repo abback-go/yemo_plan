@@ -71,7 +71,7 @@ func next_actor() -> TUnit:
 	actor = best
 	turn_no += 1
 	if best.is_witch():
-		best.credits = mini(best.credits + 1, TData.CREDIT_MAX)
+		best.credits = mini(best.credits + 1 + int(best.equip_data().get("credits_per_turn", 0)), TData.CREDIT_MAX)
 	return best
 
 
@@ -172,7 +172,7 @@ func basic_attack(u: TUnit, tgt: TUnit) -> Array:
 	last_action = String(b.name)
 	ev.append(_hit(u, tgt, float(b.mult), {}, false))
 	if b.has("mark") and tgt.alive:
-		tgt.marks[b.mark] = maxi(int(tgt.marks.get(b.mark, 0)), int(b.get("mark_dur", 2)))
+		tgt.marks[b.mark] = maxi(int(tgt.marks.get(b.mark, 0)), int(b.get("mark_dur", 2)) + int(u.equip_data().get("mark_extra", 0)))
 		ev.append({"t": "mark", "tgt": tgt, "kind": b.mark})
 	u.credits = mini(u.credits + TData.BASIC_BONUS, TData.CREDIT_MAX)
 	ev.append({"t": "credits", "tgt": u, "v": TData.BASIC_BONUS})
@@ -267,7 +267,7 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, targets: Array[TUnit]) -> 
 		"mark":
 			for r in recv:
 				if r.alive:
-					r.marks[e.kind] = maxi(int(r.marks.get(e.kind, 0)), int(e.dur))
+					r.marks[e.kind] = maxi(int(r.marks.get(e.kind, 0)), int(e.dur) + int(u.equip_data().get("mark_extra", 0)))
 					ev.append({"t": "mark", "tgt": r, "kind": e.kind})
 		"credits":
 			for r in recv:
@@ -338,7 +338,10 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, targets: Array[TUnit]) -> 
 
 
 func _apply_buff(_u: TUnit, r: TUnit, e: Dictionary) -> Dictionary:
-	var b := {"cat": e.cat, "v": float(e.get("v", 0.0)), "dur": int(e.dur), "clock": "enemy" if e.cat in ["dmg_taken"] else "own", "name": TData.CAT_NAME.get(e.cat, e.cat)}
+	var dur := int(e.dur)
+	if not (e.cat in ["dmg_taken"]):
+		dur += int(r.equip_data().get("buff_extra", 0)) # 모래시계 펜던트
+	var b := {"cat": e.cat, "v": float(e.get("v", 0.0)), "dur": dur, "clock": "enemy" if e.cat in ["dmg_taken"] else "own", "name": TData.CAT_NAME.get(e.cat, e.cat)}
 	if e.has("mark"):
 		b["mark"] = e.mark
 	if e.has("el"):
@@ -401,21 +404,24 @@ func _hit(src: TUnit, tgt: TUnit, mult: float, opts: Dictionary, is_skill: bool)
 		weak = true
 	elif src.special and not src.has_element_buff():
 		elem = TData.SPECIAL
+	var eq := src.equip_data()
 	var atk_sum := src.cat_sum("atk")
-	var crit_rate := minf(TData.CRIT_BASE + src.cat_sum("crit_rate", tgt) + tgt.cat_sum("crit_taken"), 1.0)
+	var crit_rate := minf(TData.CRIT_BASE + src.cat_sum("crit_rate", tgt) + tgt.cat_sum("crit_taken") + float(eq.get("crit_rate", 0.0)), 1.0)
 	var crit := bool(opts.get("sure_crit", false)) or rng.randf() < crit_rate
 	var crit_mult := 1.0
 	if crit:
-		crit_mult = TData.CRIT_MULT + src.cat_sum("crit_dmg", tgt, el)
+		crit_mult = TData.CRIT_MULT + minf(src.cat_sum("crit_dmg", tgt, el) + float(eq.get("crit_dmg", 0.0)), float(TData.CAP.crit_dmg))
 	var special := src.cat_sum("special", tgt, el)
 	if opts.has("this_special"):
 		var ts: Dictionary = opts.this_special
 		if tgt.marks.has(ts.mark):
 			special += float(ts.v)
+	if not tgt.marks.is_empty():
+		special += float(eq.get("special", 0.0))
 	special = minf(special, float(TData.CAP.special))
-	var final_sum := src.cat_sum("final")
+	var final_sum := src.cat_sum("final") + float(eq.get("final", 0.0))
 	if is_skill:
-		final_sum += float(src.equip_data().get("skill_final", 0.0))
+		final_sum += float(eq.get("skill_final", 0.0))
 	final_sum = minf(final_sum, float(TData.CAP.final))
 	var def_v := 0.0 if opts.get("ignore_def", false) else tgt.def_rate
 	var def_f := clampf(1.0 - def_v + tgt.cat_sum("def_down"), TData.DEF_MIN, TData.DEF_MAX)
@@ -469,8 +475,11 @@ func estimate(src: TUnit, tgt: TUnit, skill_id: String) -> int:
 	var special := src.cat_sum("special", tgt, el)
 	if opts.has("this_special") and tgt.marks.has(opts.this_special.mark):
 		special += float(opts.this_special.v)
-	var final_sum := src.cat_sum("final") + (float(src.equip_data().get("skill_final", 0.0)) if is_skill else 0.0)
+	var eq := src.equip_data()
+	if not tgt.marks.is_empty():
+		special += float(eq.get("special", 0.0))
+	var final_sum := src.cat_sum("final") + float(eq.get("final", 0.0)) + (float(eq.get("skill_final", 0.0)) if is_skill else 0.0)
 	var def_v := 0.0 if opts.get("ignore_def", false) else tgt.def_rate
 	var def_f := clampf(1.0 - def_v + tgt.cat_sum("def_down"), TData.DEF_MIN, TData.DEF_MAX)
-	var crit_m := (TData.CRIT_MULT + src.cat_sum("crit_dmg", tgt, el)) if bool(opts.get("sure_crit", false)) else 1.0
+	var crit_m := (TData.CRIT_MULT + src.cat_sum("crit_dmg", tgt, el) + float(eq.get("crit_dmg", 0.0))) if bool(opts.get("sure_crit", false)) else 1.0
 	return int(round(float(src.atk) * mult * elem * (1.0 + src.cat_sum("atk")) * crit_m * (1.0 + minf(special, float(TData.CAP.special))) * (1.0 + minf(final_sum, float(TData.CAP.final))) * def_f))

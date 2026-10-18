@@ -54,6 +54,10 @@ static func make_witch(wid: String, setup: Dictionary, slot_i: int) -> TUnit:
 		u.equipped.append(String(s))
 	var eq: Dictionary = TData.EQUIPS.get(u.equip, {})
 	u.atk = int(round(float(u.base_atk) * (1.0 + float(eq.get("atk", 0.0)))))
+	u.max_hp = int(round(float(u.max_hp) * (1.0 + float(eq.get("hp", 0.0)))))
+	u.hp = u.max_hp
+	u.speed += int(eq.get("speed", 0))
+	u.gauge = TData.GAUGE_MAX * float(eq.get("start_gauge", 0.0))
 	u.credits = mini(int(eq.get("start_credits", 0)), TData.CREDIT_MAX)
 	return u
 
@@ -99,13 +103,19 @@ func equip_data() -> Dictionary:
 ## 지금 공격 속성 (속성 부여 버프가 있으면 그것 — 마지막에 건 것)
 func attack_element() -> String:
 	var el := element
+	var eq_el := String(equip_data().get("element", ""))
+	if eq_el != "":
+		el = eq_el
 	for b in buffs:
 		if b.cat == "element":
 			el = String(b.el)
 	return el
 
 
+## 속성 부여가 있나 (버프 또는 장비) — 있으면 무상성 1.2배 대신 그 속성의 약점 판정
 func has_element_buff() -> bool:
+	if String(equip_data().get("element", "")) != "":
+		return true
 	for b in buffs:
 		if b.cat == "element":
 			return true
