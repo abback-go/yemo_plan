@@ -535,6 +535,38 @@ func _build_eska() -> void:
 	_build_eska_magic()
 	_build_eska_potion()
 	_build_eska_boss()
+	_build_blade()
+
+
+# ─── 빗자루 검 손맛 데모 (proto/blade/) — 짧고 날카롭게 ─────
+func _build_blade() -> void:
+	_add_fast(&"bl_swish", [ # 가는 칼이 공기를 가르는 짧고 높은 '슉'
+		{wave = "noise", dur = 0.09, vol = 0.6, bp = 3000.0, bp1 = 8000.0, q = 0.25, attack = 0.003, decay = 2.6},
+		{wave = "noise", dur = 0.06, vol = 0.22, bp = 900.0, bp1 = 2200.0, q = 0.4, decay = 2.4},
+		{wave = "sine", f0 = 4200.0, f1 = 3800.0, dur = 0.08, vol = 0.03, tau = 0.03},
+	])
+	_add_fast(&"bl_swish_big", [ # 크게 휘두름: 넓게 쓸리는 바람 + 낮은 무게
+		{wave = "noise", dur = 0.17, vol = 0.65, bp = 1500.0, bp1 = 7000.0, q = 0.25, attack = 0.004, decay = 2.0},
+		{wave = "sine", f0 = 180.0, f1 = 70.0, dur = 0.15, vol = 0.28, tau = 0.05},
+		{wave = "sine", f0 = 3600.0, fm = 2.76, fm_i = 0.7, fm_i1 = 0.0, dur = 0.14, vol = 0.03, tau = 0.04, delay = 0.02},
+	])
+	_add_fast(&"bl_cut", [ # 벰: 마른 '딱' 갈라짐 + 짧은 무게 + 쇳빛 울림
+		{wave = "noise", dur = 0.035, vol = 0.75, bp = 5200.0, q = 0.3, decay = 3.0},
+		{wave = "noise", dur = 0.11, vol = 0.4, bp = 1300.0, bp1 = 420.0, q = 0.45, decay = 2.0},
+		{wave = "sine", f0 = 170.0, f1 = 60.0, dur = 0.1, vol = 0.42, tau = 0.035},
+		{wave = "sine", f0 = 2600.0, fm = 1.47, fm_i = 1.2, fm_i1 = 0.1, dur = 0.16, vol = 0.05, tau = 0.04},
+	])
+	_add_fast(&"bl_unfold", [ # 빗자루 → 검: 위로 차오르는 반짝임 + 칼이 뽑히는 쇳울림
+		{wave = "sine", f0 = 600.0, f1 = 2400.0, curve = "exp", dur = 0.12, vol = 0.12, decay = 1.4},
+		{wave = "noise", dur = 0.1, vol = 0.3, bp = 4200.0, q = 0.4, am = 60.0, am_depth = 0.6, decay = 2.0},
+		{wave = "sine", f0 = 3100.0, f1 = 2950.0, fm = 2.76, fm_i = 0.9, fm_i1 = 0.1, dur = 0.34, vol = 0.07, tau = 0.1, delay = 0.05},
+		{wave = "noise", dur = 0.08, vol = 0.45, bp = 2800.0, bp1 = 7400.0, q = 0.25, attack = 0.004, decay = 2.2, delay = 0.05},
+	])
+	_add_fast(&"bl_fold", [ # 검 → 빗자루: 내려앉는 반짝임 + 부드러운 바람
+		{wave = "sine", f0 = 2400.0, f1 = 520.0, curve = "exp", dur = 0.16, vol = 0.1, decay = 1.3},
+		{wave = "noise", dur = 0.2, vol = 0.4, bp = 600.0, bp1 = 1800.0, q = 0.4, attack = 0.02, decay = 1.5},
+		{wave = "sine", f0 = 220.0, f1 = 110.0, dur = 0.14, vol = 0.2, tau = 0.05, delay = 0.05},
+	])
 
 
 # ─── 에스카: 낙성·대마법 (e_magic_fx.gd 담당) ─────────────

@@ -2,7 +2,7 @@ extends Control
 ## 타이틀 (docs/archive/sera/chapter1.md 10절). 브라우저는 첫 입력 전 소리를 막으므로 "아무 키나"로 한 번 받은 뒤 메뉴를 연다.
 ## 메뉴: 이어하기(기록이 있으면) · 새로 시작 · 설정 · 전투 시제품(새 조작 훈련장, proto/) · 전투 연습장(v0.3 프로토타입)
 ## 홈 화면 웹앱(오프라인 캐시)에 새 버전이 받아져 있으면 맨 위에 "새 버전으로 업데이트"가 생긴다.
-## 웹 주소 뒤에 ?eska_tut 를 붙이면 에스카 튜토리얼, ?eska_boss 를 붙이면 검성 보스전, ?eska 를 붙이면 에스카 시제품, ?proto 를 붙이면 처음 한 번은 타이틀을 건너뛰고 전투 시제품으로 바로 들어간다 (Esc로 나오면 타이틀).
+## 웹 주소 뒤에 ?blade 를 붙이면 빗자루 검 손맛 데모, ?eska_tut 를 붙이면 에스카 튜토리얼, ?eska_boss 를 붙이면 검성 보스전, ?eska 를 붙이면 에스카 시제품, ?proto 를 붙이면 처음 한 번은 타이틀을 건너뛰고 전투 시제품으로 바로 들어간다 (Esc로 나오면 타이틀).
 
 const BG := preload("res://levels/background.gd")
 
@@ -27,7 +27,10 @@ func _ready() -> void:
 	if not _direct_done and OS.has_feature("web"):
 		_direct_done = true
 		var q: Variant = JavaScriptBridge.eval("window.location.search", true)
-		if q is String and String(q).contains("eska_tut"):
+		if q is String and String(q).contains("blade"):
+			_phase = 4
+			get_tree().change_scene_to_file.call_deferred("res://proto/blade/blade_demo.tscn")
+		elif q is String and String(q).contains("eska_tut"):
 			_phase = 4
 			get_tree().change_scene_to_file.call_deferred("res://proto/eska/eska_tutorial.tscn")
 		elif q is String and String(q).contains("eska_boss"):

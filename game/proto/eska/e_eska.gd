@@ -185,9 +185,14 @@ func _ready() -> void:
 	cs.shape = rs
 	cs.position = Vector2(0, -SIZE.y / 2)
 	add_child(cs)
-	art = EArt.new()
+	art = _make_art()
 	art.body = self
 	add_child(art)
+
+
+## 그림 노드 (하위 클래스가 다른 그림을 쓸 때 바꾼다 — 빗자루 검 데모 BArt)
+func _make_art() -> EArt:
+	return EArt.new()
 
 
 func center() -> Vector2:
