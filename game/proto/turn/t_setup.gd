@@ -1,10 +1,12 @@
 class_name TSetup
 extends Control
-## 편성 화면 — 두 단계 (2026-10-18 사용자 선택 "명단 → 상세").
-## 1단계 명단: 12명 초상 격자(4×3)에서 3명을 고른다(누른 순서 = 앞·중·뒤). "다음"으로 2단계.
-## 2단계 상세: 위에 파티원 탭 3개 · 왼쪽 큰 그림 + 능력치 · 가운데 배운 마법 10개 목록(눌러서 장착, 최대 5) ·
-##             오른쪽 큰 설명 상자(이름·비용·종류·대상·배율·효과·참고 구조 — 캐릭터별 스킬 설명을 알아보기 쉽게) · 아래 장비 4칸 · 전투 시작 / 명단으로.
-## 장착·파티 상태는 static state에 남아 전투 → 편성을 오가도 유지된다. 키보드: ←→↑↓ 고르기 · Z 장착/고르기 · S 다음/시작 · X 뒤로.
+## 편성 화면 — 두 단계 (2026-10-18 사용자 지시).
+## 1단계 편성: 왼쪽에 **세로로 긴 파티 카드 3장**(앞·중·뒤) — 큰 그림·이름·속성·능력치·**장비 고르기(◀ ▶)**·"마법 장착" 버튼.
+##             오른쪽에 12명 명단(작은 초상 4×3): 카드를 누르고 명단의 마녀를 누르면 그 자리에 들어간다(이미 파티에 있으면 자리를 맞바꿈). 전투 시작.
+## 2단계 마법: 위에 파티원 탭 3개 · 왼쪽 큰 그림 + 능력치 · 가운데 배운 마법 10개 목록(한 번 누르면 설명, 다시 누르면 장착, 최대 5) ·
+##             오른쪽 큰 설명 상자(이름·비용·종류·대상·배율·효과·항목별 수치·참고 구조·예상 피해) · 전투 시작 / 편성으로.
+## 장착·파티·장비는 static state에 남아 전투 → 편성을 오가도 유지된다.
+## 키보드 1단계: ←→ 카드 · ↑↓ 그 자리의 마녀 바꾸기 · X 장비 바꾸기 · Z 마법 장착 · S 전투 시작 · Esc 나가기.  2단계: ↑↓ 줄 · ←→ 탭 · Z 장착 · S 시작 · X 편성으로.
 
 signal start_pressed
 signal exit_pressed
@@ -22,24 +24,28 @@ const LIST_Y := 46.0
 const LIST_W := 226.0
 const DESC_X := 386.0
 const DESC_W := 242.0
-const EQUIP_Y := 276.0
-const START_RECT := Rect2(520, 322, 108, 30)
-const BACK_RECT := Rect2(152, 322, 80, 30)
-const NEXT_RECT := Rect2(520, 328, 108, 26)
+const START_RECT := Rect2(520, 322, 108, 30) ## 2단계 전투 시작
+const BACK_RECT := Rect2(152, 322, 80, 30) ## 2단계 편성으로
+const START1_RECT := Rect2(404, 300, 224, 32) ## 1단계 전투 시작
 const EQUIP_IDS := ["", "black_cup", "kaleido", "notebook"]
-const CARD_W := 150.0
-const CARD_H := 92.0
+const CARD_W := 122.0
+const CARD_H := 300.0
+const CARD_Y := 36.0
+const ROSTER_X := 404.0
+const ROSTER_Y := 40.0
 const SLOT_NAME := ["앞", "중", "뒤"]
 
 static var state := {} ## "party": [id, id, id] · 마녀 id → {"equipped": [id...], "equip": 장비 id}
 
-var step := 1 ## 1 명단 · 2 상세
+var step := 1 ## 1 편성(카드) · 2 마법
 var tab := 0 ## 2단계: 파티원 번호
-var cursor := 0 ## 2단계: -1 탭 · 0~9 마법 · 10 장비 · 11 시작 / 1단계: 0~11 명단 칸
+var cursor := 0 ## 2단계: -1 탭 · 0~9 마법 · 10 시작
+var active := 0 ## 1단계: 고른 카드(자리) 0~2
 var _font: Font
 var _t := 0.0
 var _preview: Node2D
-var _actors := {} ## 마녀 id → TActor
+var _actors := {} ## 마녀 id → TActor (명단의 작은 그림)
+var _big := {} ## 마녀 id → TActor (카드·상세의 큰 그림)
 var _msg := ""
 var _msg_t := 0.0
 
@@ -73,33 +79,46 @@ func _ready() -> void:
 	_preview = Node2D.new()
 	add_child(_preview)
 	for wid in TData.ROSTER:
-		var u := TUnit.make_witch(String(wid), state[wid], 0)
-		var a := TActor.new()
-		_preview.add_child(a)
-		a.setup(u, Vector2.ZERO)
-		a.z_index = 0
-		_actors[wid] = a
+		for big in [false, true]:
+			var u := TUnit.make_witch(String(wid), state[wid], 0)
+			var a := TActor.new()
+			_preview.add_child(a)
+			a.setup(u, Vector2.ZERO)
+			a.z_index = 0
+			if big:
+				_big[wid] = a
+			else:
+				_actors[wid] = a
 	_layout_actors()
 
 
-## 단계에 맞게 그림을 놓는다 (1단계: 카드마다 작게 · 2단계: 고른 파티원만 크게)
+## 단계에 맞게 그림을 놓는다 (1단계: 명단은 작게, 파티 3명은 카드에 크게 · 2단계: 고른 파티원만 아주 크게)
 func _layout_actors() -> void:
 	if _actors.is_empty():
 		return
+	var p: Array = party()
 	for i in TData.ROSTER.size():
 		var wid: String = TData.ROSTER[i]
 		var a: TActor = _actors[wid]
+		var b: TActor = _big[wid]
+		var slot := p.find(wid)
 		if step == 1:
-			var r := _card_rect(i)
+			var r := _roster_rect(i)
 			a.visible = true
-			a.home = r.position + Vector2(30, CARD_H - 6)
-			a.scale = Vector2(1.5, 1.5)
+			a.home = r.position + Vector2(r.size.x * 0.5, r.size.y - 14.0)
+			a.scale = Vector2(1.15, 1.15)
+			b.visible = slot >= 0
+			if slot >= 0:
+				var c := _card_rect(slot)
+				b.home = c.position + Vector2(c.size.x * 0.5, 196.0)
+				b.scale = Vector2(2.6, 2.6)
 		else:
-			var on := i < 0 or (party().size() > tab and String(party()[tab]) == wid)
-			a.visible = on
-			a.home = Vector2(76, 262)
-			a.scale = Vector2(3.0, 3.0)
+			a.visible = false
+			b.visible = slot == tab
+			b.home = Vector2(76, 262)
+			b.scale = Vector2(3.0, 3.0)
 		a.position = a.home
+		b.position = b.home
 	queue_redraw()
 
 
@@ -126,8 +145,26 @@ func _equipped() -> Array:
 	return state[_wid()].equipped
 
 
+## 1단계 파티 카드 (세로로 긴 직사각형) 자리 i = 앞·중·뒤
 func _card_rect(i: int) -> Rect2:
-	return Rect2(12 + 154 * (i % 4), 38 + 96 * (i / 4), CARD_W, CARD_H)
+	return Rect2(12 + 130 * i, CARD_Y, CARD_W, CARD_H)
+
+
+## 카드 안 장비 고르기 띠
+func _equip_chip(i: int) -> Rect2:
+	var c := _card_rect(i)
+	return Rect2(c.position.x + 6, c.position.y + 242, c.size.x - 12, 22)
+
+
+## 카드 안 "마법 장착" 버튼
+func _magic_btn(i: int) -> Rect2:
+	var c := _card_rect(i)
+	return Rect2(c.position.x + 6, c.position.y + 270, c.size.x - 12, 24)
+
+
+## 오른쪽 명단 칸 (12명, 4×3)
+func _roster_rect(i: int) -> Rect2:
+	return Rect2(ROSTER_X + 56 * (i % 4), ROSTER_Y + 74 * (i / 4), 52, 70)
 
 
 func _row_rect(i: int) -> Rect2:
@@ -136,10 +173,6 @@ func _row_rect(i: int) -> Rect2:
 
 func _tab_rect(i: int) -> Rect2:
 	return Rect2(12 + 46 * i, 8, 44, 22)
-
-
-func _equip_rect(i: int) -> Rect2:
-	return Rect2(LIST_X + 120.0 * float(i), EQUIP_Y, 114, 20)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -168,18 +201,18 @@ func _input(event: InputEvent) -> void:
 
 func _key_roster(event: InputEvent) -> void:
 	if event.is_action_pressed("es_right"):
-		cursor = (cursor + 1) % 12
+		active = (active + 1) % 3
 	elif event.is_action_pressed("es_left"):
-		cursor = (cursor + 11) % 12
-	elif event.is_action_pressed("es_down"):
-		cursor = (cursor + 4) % 12
-	elif event.is_action_pressed("es_up"):
-		cursor = (cursor + 8) % 12
+		active = (active + 2) % 3
+	elif event.is_action_pressed("es_down") or event.is_action_pressed("es_up"):
+		_cycle_slot(active, 1 if event.is_action_pressed("es_down") else -1)
+	elif event.is_action_pressed("es_attack"):
+		_cycle_equip(active, 1)
 	elif event.is_action_pressed("es_jump"):
-		_toggle_party(String(TData.ROSTER[cursor]))
+		_go_detail(active)
 	elif event.is_action_pressed("es_bind"):
-		_go_detail()
-	elif event.is_action_pressed("es_exit") or event.is_action_pressed("es_attack"):
+		_start()
+	elif event.is_action_pressed("es_exit"):
 		exit_pressed.emit()
 	else:
 		return
@@ -188,25 +221,18 @@ func _key_roster(event: InputEvent) -> void:
 
 func _key_detail(event: InputEvent) -> void:
 	if event.is_action_pressed("es_down"):
-		cursor = mini(cursor + 1, 11)
+		cursor = mini(cursor + 1, 10)
 	elif event.is_action_pressed("es_up"):
 		cursor = maxi(cursor - 1, -1)
 	elif event.is_action_pressed("es_right") or event.is_action_pressed("es_left"):
 		var d := 1 if event.is_action_pressed("es_right") else -1
-		if cursor == 10:
-			var i := EQUIP_IDS.find(String(state[_wid()].equip))
-			state[_wid()].equip = EQUIP_IDS[(i + d + EQUIP_IDS.size()) % EQUIP_IDS.size()]
-		else:
-			tab = (tab + d + party().size()) % party().size()
-			_layout_actors()
+		tab = (tab + d + party().size()) % party().size()
+		_layout_actors()
 	elif event.is_action_pressed("es_jump"):
-		if cursor == 11:
+		if cursor == 10:
 			_start()
 		elif cursor >= 0 and cursor <= 9:
 			_toggle(cursor)
-		elif cursor == 10:
-			var i := EQUIP_IDS.find(String(state[_wid()].equip))
-			state[_wid()].equip = EQUIP_IDS[(i + 1) % EQUIP_IDS.size()]
 		elif cursor == -1:
 			tab = (tab + 1) % party().size()
 			_layout_actors()
@@ -227,13 +253,27 @@ func _tap(p: Vector2) -> void:
 			exit_pressed.emit()
 		return
 	if step == 1:
-		for i in 12:
-			if _card_rect(i).has_point(p):
-				cursor = i
-				_toggle_party(String(TData.ROSTER[i]))
+		for i in 3:
+			var chip := _equip_chip(i)
+			if chip.has_point(p):
+				active = i
+				_cycle_equip(i, -1 if p.x < chip.position.x + 18.0 else 1)
 				return
-		if NEXT_RECT.has_point(p):
-			_go_detail()
+			if _magic_btn(i).has_point(p):
+				_go_detail(i)
+				return
+			if _card_rect(i).has_point(p):
+				if active != i:
+					active = i
+					Sfx.play(&"tn_select", -12.0)
+				queue_redraw()
+				return
+		for i in 12:
+			if _roster_rect(i).has_point(p):
+				_assign(active, String(TData.ROSTER[i]))
+				return
+		if START1_RECT.has_point(p):
+			_start()
 		return
 	for i in party().size():
 		if _tab_rect(i).has_point(p):
@@ -252,41 +292,52 @@ func _tap(p: Vector2) -> void:
 				Sfx.play(&"tn_select", -12.0)
 			queue_redraw()
 			return
-	for i in EQUIP_IDS.size():
-		if _equip_rect(i).has_point(p):
-			state[_wid()].equip = EQUIP_IDS[i]
-			cursor = 10
-			Sfx.play(&"tn_select", -10.0)
-			queue_redraw()
-			return
 	if START_RECT.has_point(p):
 		_start()
 	elif BACK_RECT.has_point(p):
 		_go_roster()
 
 
-func _toggle_party(wid: String) -> void:
+## 자리 slot에 마녀 wid를 넣는다 (이미 다른 자리에 있으면 둘을 맞바꿈)
+func _assign(slot: int, wid: String) -> void:
 	var p: Array = party()
-	if p.has(wid):
-		p.erase(wid)
-		Sfx.play(&"tn_cancel", -10.0)
-	else:
-		if p.size() >= 3:
-			_say("파티는 3명 — 한 명을 빼고 넣으세요")
-			Sfx.play(&"tn_cancel", -8.0)
+	var was := p.find(wid)
+	if was == slot:
+		_go_detail(slot) # 같은 마녀를 다시 누르면 마법 장착으로
+		return
+	if was >= 0:
+		p[was] = p[slot]
+	p[slot] = wid
+	Sfx.play(&"tn_select", -8.0)
+	_say("%s 자리: %s" % [SLOT_NAME[slot], TData.WITCHES[wid].name])
+	_layout_actors()
+
+
+## 자리 slot의 마녀를 명단 순서대로 다음/이전 (파티에 없는 마녀 중에서)
+func _cycle_slot(slot: int, d: int) -> void:
+	var p: Array = party()
+	var i := TData.ROSTER.find(p[slot])
+	for k in TData.ROSTER.size():
+		i = (i + d + TData.ROSTER.size()) % TData.ROSTER.size()
+		var wid := String(TData.ROSTER[i])
+		if not p.has(wid):
+			p[slot] = wid
+			_layout_actors()
 			return
-		p.append(wid)
-		Sfx.play(&"tn_select", -8.0)
+
+
+func _cycle_equip(slot: int, d: int) -> void:
+	var wid := String(party()[slot])
+	var i := EQUIP_IDS.find(String(state[wid].equip))
+	state[wid].equip = EQUIP_IDS[(i + d + EQUIP_IDS.size()) % EQUIP_IDS.size()]
+	Sfx.play(&"tn_select", -10.0)
+	_say("%s 장비: %s — %s" % [TData.WITCHES[wid].name, TData.EQUIPS[state[wid].equip].name, TData.EQUIPS[state[wid].equip].desc])
 	queue_redraw()
 
 
-func _go_detail() -> void:
-	if party().size() < 3:
-		_say("3명을 고르세요 (지금 %d명)" % party().size())
-		Sfx.play(&"tn_cancel", -8.0)
-		return
+func _go_detail(slot: int) -> void:
 	step = 2
-	tab = 0
+	tab = slot
 	cursor = 0
 	Sfx.play(&"tn_confirm", -8.0)
 	_layout_actors()
@@ -294,6 +345,7 @@ func _go_detail() -> void:
 
 func _go_roster() -> void:
 	step = 1
+	active = tab
 	cursor = 0
 	Sfx.play(&"tn_cancel", -10.0)
 	_layout_actors()
@@ -325,9 +377,6 @@ func _say(s: String) -> void:
 
 
 func _start() -> void:
-	if party().size() < 3:
-		_say("3명을 고르세요")
-		return
 	Sfx.play(&"tn_confirm", -4.0)
 	start_pressed.emit()
 
@@ -364,42 +413,72 @@ func _draw() -> void:
 
 func _draw_roster() -> void:
 	var p: Array = party()
-	_text(Vector2(12, 24), "편성 1/2 — 마녀 3명을 고르세요 (누른 순서 = 앞 · 중 · 뒤)", 12, PALE)
+	_text(Vector2(12, 24), "편성 — 카드를 누르고 오른쪽 명단에서 마녀를 고르세요 · 카드 안에서 장비 · 마법 장착", 11, PALE)
+	for i in 3:
+		_draw_card(i, String(p[i]), i == active)
+	# 오른쪽 명단
+	_text(Vector2(ROSTER_X, ROSTER_Y - 6), "명단 12명 — 누르면 %s 자리에" % SLOT_NAME[active], 9, Color(DIM, 0.95))
 	for i in 12:
 		var wid := String(TData.ROSTER[i])
 		var w: Dictionary = TData.WITCHES[wid]
-		var r := _card_rect(i)
-		var idx := p.find(wid)
-		var on := idx >= 0
+		var r := _roster_rect(i)
+		var slot := p.find(wid)
 		var ecol: Color = TData.ELEMENT_COLOR.get(w.element, LAV)
-		draw_rect(r, Color(LAV, 0.18) if on else Color(PANEL, 0.9))
-		draw_rect(r, Color(PALE, 0.95) if cursor == i else (Color(LAV, 0.7) if on else Color(ecol, 0.25)), false, 1.0)
-		draw_rect(Rect2(r.position, Vector2(3, r.size.y)), Color(ecol, 0.9)) # 왼쪽 속성 띠
-		# 이름·속성·역할·능력치 (그림은 _preview 노드가 카드 왼쪽에 그린다)
-		var tx := r.position.x + 62
-		_text(Vector2(tx, r.position.y + 18), String(w.name), 12, PALE)
-		_text(Vector2(tx, r.position.y + 32), "%s · %s" % [TData.ELEMENT_NAME.get(w.element, w.element), TData.ROLE_NAME.get(w.get("role", ""), "")], 9, Color(ecol, 1.0))
-		_text(Vector2(tx, r.position.y + 48), "공격 %s" % TData.fmt(int(w.atk)), 9, Color(PALE, 0.8))
-		_text(Vector2(tx, r.position.y + 60), "체력 %s" % TData.fmt(int(w.hp)), 9, Color(PALE, 0.8))
-		_text(Vector2(tx, r.position.y + 72), "속도 %d · 방어 %d%%" % [int(w.speed), int(round(float(w.def) * 100.0))], 9, Color(PALE, 0.8))
-		_text(Vector2(tx, r.position.y + 84), String(w.title).get_slice(" · ", 0), 8, Color(DIM, 0.9))
-		if on:
-			var b := r.position + Vector2(r.size.x - 16, 14)
-			draw_circle(b, 10.0, LAV)
-			draw_string(_font, b + Vector2(-10, 4), SLOT_NAME[idx], HORIZONTAL_ALIGNMENT_CENTER, 20, 10, INK)
-	# 아래: 파티 요약 + 다음
-	var ptxt := "파티: "
-	for i in p.size():
-		ptxt += "%s %s  " % [SLOT_NAME[i], TData.WITCHES[String(p[i])].name]
-	if p.is_empty():
-		ptxt += "(없음)"
-	_text(Vector2(12, 346), ptxt, 11, GOLD)
-	var ok := p.size() == 3
-	draw_rect(NEXT_RECT, Color(LAV, 0.85 if ok else 0.3))
-	draw_rect(NEXT_RECT, Color(PALE, 0.9 if ok else 0.4), false, 1.0)
-	draw_string(_font, Vector2(NEXT_RECT.position.x, NEXT_RECT.position.y + 18), "다음 → 마법 장착", HORIZONTAL_ALIGNMENT_CENTER, int(NEXT_RECT.size.x), 11, INK if ok else Color(PALE, 0.6))
+		draw_rect(r, Color(LAV, 0.2) if slot >= 0 else Color(PANEL, 0.9))
+		draw_rect(r, Color(LAV, 0.7) if slot >= 0 else Color(ecol, 0.3), false, 1.0)
+		draw_rect(Rect2(r.position, Vector2(r.size.x, 2)), Color(ecol, 0.9))
+		draw_string(_font, Vector2(r.position.x, r.position.y + r.size.y - 3), String(w.name), HORIZONTAL_ALIGNMENT_CENTER, int(r.size.x), 8, PALE if slot >= 0 else Color(PALE, 0.75))
+		if slot >= 0:
+			var b := r.position + Vector2(r.size.x - 9, 10)
+			draw_circle(b, 7.0, LAV)
+			draw_string(_font, b + Vector2(-7, 3.5), SLOT_NAME[slot], HORIZONTAL_ALIGNMENT_CENTER, 14, 8, INK)
+	# 전투 시작
+	var pulse := 0.8 + 0.2 * sin(_t * 4.0)
+	draw_rect(START1_RECT, Color(LAV, 0.75 * pulse))
+	draw_rect(START1_RECT, Color(PALE, 0.9), false, 1.0)
+	draw_string(_font, Vector2(START1_RECT.position.x, START1_RECT.position.y + 21), "전투 시작", HORIZONTAL_ALIGNMENT_CENTER, int(START1_RECT.size.x), 13, INK)
 	if _msg_t > 0.0:
-		_text(Vector2(320, 346), _msg, 10, Color(FIRE, minf(_msg_t, 1.0)), HORIZONTAL_ALIGNMENT_CENTER, 0)
+		draw_string(_font, Vector2(12, 352), _msg, HORIZONTAL_ALIGNMENT_LEFT, 616, 9, Color(GOLD, minf(_msg_t, 1.0)))
+	else:
+		_text(Vector2(ROSTER_X, 352), "적: 짚 골렘(불 약점) · 늪 두꺼비(번개 약점) · 재의 기사", 8, Color(DIM, 0.9))
+
+
+## 파티 카드 한 장: 자리 이름 · 이름 · 속성/역할 · (큰 그림은 _big 노드) · 능력치 · 장비 ◀ ▶ · 마법 장착
+func _draw_card(i: int, wid: String, on: bool) -> void:
+	var w: Dictionary = TData.WITCHES[wid]
+	var r := _card_rect(i)
+	var ecol: Color = TData.ELEMENT_COLOR.get(w.element, LAV)
+	draw_rect(r, Color(PANEL, 0.95))
+	draw_rect(Rect2(r.position, Vector2(r.size.x, 22)), Color(ecol, 0.35 if on else 0.18))
+	draw_rect(r, Color(PALE, 0.95) if on else Color(ecol, 0.45), false, 1.5 if on else 1.0)
+	draw_rect(Rect2(r.position, Vector2(3, r.size.y)), Color(ecol, 0.9))
+	# 머리: 자리 + 이름
+	draw_circle(r.position + Vector2(14, 11), 8.0, LAV if on else Color(LAV, 0.6))
+	draw_string(_font, r.position + Vector2(6, 15), SLOT_NAME[i], HORIZONTAL_ALIGNMENT_CENTER, 16, 9, INK)
+	_text(r.position + Vector2(28, 15), String(w.name), 12, PALE)
+	_text(r.position + Vector2(r.size.x * 0.5, 36), "%s · %s" % [TData.ELEMENT_NAME.get(w.element, w.element), TData.ROLE_NAME.get(w.get("role", ""), "")], 9, Color(ecol, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 0)
+	# 그림 뒤 빛 (속성 색)
+	draw_circle(r.position + Vector2(r.size.x * 0.5, 150), 34.0, Color(ecol, 0.08))
+	# 능력치
+	var eq: Dictionary = TData.EQUIPS.get(String(state[wid].equip), {})
+	var atk := int(round(float(w.atk) * (1.0 + float(eq.get("atk", 0.0)))))
+	var lines := ["공격 %s" % TData.fmt(atk), "체력 %s" % TData.fmt(int(w.hp)), "속도 %d · 방어 %d%%" % [int(w.speed), int(round(float(w.def) * 100.0))]]
+	for k in lines.size():
+		_text(r.position + Vector2(r.size.x * 0.5, 212 + 10 * k), lines[k], 8, Color(PALE, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 0)
+	# 장비 ◀ ▶
+	var chip := _equip_chip(i)
+	var has_eq := String(state[wid].equip) != ""
+	draw_rect(chip, Color(GOLD, 0.22) if has_eq else Color(INK, 0.6))
+	draw_rect(chip, Color(GOLD if has_eq else DIM, 0.8), false, 1.0)
+	draw_colored_polygon(PackedVector2Array([chip.position + Vector2(5, 11), chip.position + Vector2(12, 6), chip.position + Vector2(12, 16)]), Color(PALE, 0.9))
+	draw_colored_polygon(PackedVector2Array([chip.position + Vector2(chip.size.x - 5, 11), chip.position + Vector2(chip.size.x - 12, 6), chip.position + Vector2(chip.size.x - 12, 16)]), Color(PALE, 0.9))
+	draw_string(_font, Vector2(chip.position.x + 14, chip.position.y + 15), "장비 " + String(TData.EQUIPS[state[wid].equip].name), HORIZONTAL_ALIGNMENT_CENTER, int(chip.size.x - 28), 9, GOLD if has_eq else Color(PALE, 0.8))
+	# 마법 장착 버튼 (장착 수)
+	var mb := _magic_btn(i)
+	var eqd: Array = state[wid].equipped
+	draw_rect(mb, Color(LAV, 0.55 if on else 0.35))
+	draw_rect(mb, Color(PALE, 0.8), false, 1.0)
+	draw_string(_font, Vector2(mb.position.x, mb.position.y + 16), "마법 장착 %d/%d ▶" % [eqd.size(), TData.EQUIP_MAX], HORIZONTAL_ALIGNMENT_CENTER, int(mb.size.x), 10, INK if on else PALE)
 
 
 func _draw_detail() -> void:
@@ -409,8 +488,7 @@ func _draw_detail() -> void:
 	var ecol: Color = TData.ELEMENT_COLOR.get(w.element, LAV)
 	draw_rect(Rect2(0, 36, 146, 304), Color(PANEL, 0.9))
 	draw_rect(Rect2(LIST_X - 6, 36, LIST_W + 12, 236), Color(PANEL, 0.9))
-	draw_rect(Rect2(DESC_X - 6, 36, DESC_W + 12, 236), Color(PANEL, 0.9))
-	draw_rect(Rect2(LIST_X - 6, EQUIP_Y - 8, DESC_X + DESC_W + 6 - LIST_X + 6, 42), Color(PANEL, 0.9))
+	draw_rect(Rect2(DESC_X - 6, 36, DESC_W + 12, 280), Color(PANEL, 0.9))
 	# 탭 (파티원 3)
 	for i in p.size():
 		var r := _tab_rect(i)
@@ -420,7 +498,7 @@ func _draw_detail() -> void:
 		draw_rect(r, Color(col, 0.9) if on else Color(INK, 0.7))
 		draw_rect(r, Color(PALE if on else DIM, 0.9 if on or cursor == -1 else 0.4), false, 1.0)
 		draw_string(_font, Vector2(r.position.x, r.position.y + 15), String(TData.WITCHES[twid].name), HORIZONTAL_ALIGNMENT_CENTER, int(r.size.x), 10, INK if on else PALE)
-	_text(Vector2(156, 24), "편성 2/2 — 마법 5개 장착 · 장비 1개 · 전투 시작", 11, Color(DIM, 0.9))
+	_text(Vector2(156, 24), "마법 장착 — 배운 마법 10개 중 5개 · 전투 시작", 11, Color(DIM, 0.9))
 	# 왼쪽: 소개·능력치
 	_text(Vector2(73, 52), String(w.name), 14, PALE, HORIZONTAL_ALIGNMENT_CENTER, 0)
 	_text(Vector2(73, 66), String(w.title), 9, Color(ecol, 1.0), HORIZONTAL_ALIGNMENT_CENTER, 0)
@@ -463,32 +541,22 @@ func _draw_detail() -> void:
 	# 오른쪽: 큰 설명 상자
 	if cursor >= 0 and cursor < skills.size():
 		_draw_desc(TData.skill(String(skills[cursor])), String(skills[cursor]))
-	elif cursor == 10:
-		_draw_equip_desc(eq)
 	else:
 		_draw_witch_desc(w)
-	# 장비
-	_text(Vector2(LIST_X, EQUIP_Y - 1), "장비 (1개)", 9, Color(PALE, 0.9))
-	for i in EQUIP_IDS.size():
-		var r := _equip_rect(i)
-		var eid: String = EQUIP_IDS[i]
-		var on := String(state[wid].equip) == eid
-		draw_rect(r, Color(GOLD, 0.25) if on else Color(INK, 0.5))
-		draw_rect(r, Color(GOLD if on else DIM, 0.9 if on or cursor == 10 else 0.4), false, 1.0)
-		draw_string(_font, Vector2(r.position.x, r.position.y + 14), String(TData.EQUIPS[eid].name), HORIZONTAL_ALIGNMENT_CENTER, int(r.size.x), 10, PALE if on else Color(PALE, 0.7))
-	_text(Vector2(LIST_X, EQUIP_Y + 32), String(eq.get("desc", "장비 없음")), 8, Color(GOLD, 0.9))
+	# 장비는 편성 카드에서 고른다 — 여기선 보여 주기만
+	_text(Vector2(LIST_X, 290), "장비: %s — %s" % [String(TData.EQUIPS[state[wid].equip].name), String(eq.get("desc", "편성 카드에서 고릅니다"))], 8, Color(GOLD, 0.9))
 	# 버튼
 	draw_rect(BACK_RECT, Color(INK, 0.7))
 	draw_rect(BACK_RECT, Color(DIM, 0.8), false, 1.0)
-	draw_string(_font, Vector2(BACK_RECT.position.x, BACK_RECT.position.y + 20), "← 명단", HORIZONTAL_ALIGNMENT_CENTER, int(BACK_RECT.size.x), 11, PALE)
+	draw_string(_font, Vector2(BACK_RECT.position.x, BACK_RECT.position.y + 20), "← 편성", HORIZONTAL_ALIGNMENT_CENTER, int(BACK_RECT.size.x), 11, PALE)
 	var pulse := 0.8 + 0.2 * sin(_t * 4.0)
-	draw_rect(START_RECT, Color(LAV, 0.9 if cursor == 11 else 0.7 * pulse))
+	draw_rect(START_RECT, Color(LAV, 0.9 if cursor == 10 else 0.7 * pulse))
 	draw_rect(START_RECT, Color(PALE, 0.9), false, 1.0)
 	draw_string(_font, Vector2(START_RECT.position.x, START_RECT.position.y + 20), "전투 시작", HORIZONTAL_ALIGNMENT_CENTER, int(START_RECT.size.x), 13, INK)
 	if _msg_t > 0.0:
-		_text(Vector2(240, 348), _msg, 10, Color(FIRE, minf(_msg_t, 1.0)))
+		draw_string(_font, Vector2(240, 348), _msg, HORIZONTAL_ALIGNMENT_LEFT, 270, 9, Color(FIRE, minf(_msg_t, 1.0)))
 	else:
-		_text(Vector2(240, 348), "적: 짚 골렘(불 약점) · 늪 두꺼비(번개 약점) · 재의 기사", 8, Color(DIM, 0.9))
+		draw_string(_font, Vector2(240, 348), "적: 짚 골렘(불 약점) · 늪 두꺼비(번개 약점) · 재의 기사", HORIZONTAL_ALIGNMENT_LEFT, 270, 8, Color(DIM, 0.9))
 
 
 func _kind_label(s: Dictionary) -> String:
@@ -533,7 +601,7 @@ func _draw_desc(s: Dictionary, sid: String) -> void:
 		_text(Vector2(x + 10, y), t, 9, Color(PALE, 0.85))
 		y += 12
 	y += 4
-	if y < 236:
+	if y < 290:
 		draw_multiline_string(_font, Vector2(x, y + 10), "참고 구조: " + String(s.get("ref", "")), HORIZONTAL_ALIGNMENT_LEFT, DESC_W, 8, -1, Color(DIM, 0.9))
 	# 공격이면 예상 피해 (짚 골렘 기준, 버프 없음)
 	if kind == "attack":
@@ -541,7 +609,7 @@ func _draw_desc(s: Dictionary, sid: String) -> void:
 		var en := TUnit.make_enemy("straw_golem", 0)
 		var b := TBattle.new()
 		var est := b.estimate(u, en, sid)
-		_text(Vector2(x + DESC_W, 266), "짚 골렘에게 예상 %s" % TData.fmt(est), 9, Color(GOLD, 0.9), HORIZONTAL_ALIGNMENT_RIGHT, 0)
+		_text(Vector2(x + DESC_W, 308), "짚 골렘에게 예상 %s" % TData.fmt(est), 9, Color(GOLD, 0.9), HORIZONTAL_ALIGNMENT_RIGHT, 0)
 
 
 func _effect_line(e: Dictionary) -> String:
@@ -592,12 +660,6 @@ func _effect_line(e: Dictionary) -> String:
 				parts.append(_effect_line(e2))
 			return "크리면: " + " · ".join(parts)
 	return ""
-
-
-func _draw_equip_desc(eq: Dictionary) -> void:
-	_text(Vector2(DESC_X, 58), String(eq.get("name", "없음")), 15, GOLD)
-	draw_multiline_string(_font, Vector2(DESC_X, 84), String(eq.get("desc", "장비 없음")), HORIZONTAL_ALIGNMENT_LEFT, DESC_W, 11, -1, PALE)
-	draw_multiline_string(_font, Vector2(DESC_X, 130), "캐릭터당 장비 1개. FGO 개념예장 구조 참고 — 검은 잔은 화력과 위험을 맞바꾸고, 만화경은 시작부터 큰 마법, 수첩은 중간.", HORIZONTAL_ALIGNMENT_LEFT, DESC_W, 9, -1, Color(DIM, 0.95))
 
 
 func _draw_witch_desc(w: Dictionary) -> void:
