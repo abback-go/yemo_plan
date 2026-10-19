@@ -449,8 +449,9 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 			col = GOLD if cat in ["crit_rate", "crit_dmg"] else Color("#ffb08a")
 		"invincible", "dmg_taken":
 			col = Color("#8fd8ff") if not bad else DANGER
-		"guts", "regen": col = HEAL
-		"ult_dmg": col = GOLD
+		"guts", "regen", "max_hp": col = HEAL
+		"ult_dmg", "delay", "cost_down": col = GOLD
+		"debuff_block": col = GAUGE
 		"taunt": col = Color("#ff9a7a")
 		"dmg_cut": col = INTENT_COL.guard # 적의 방어 태세 (이로운 것 — 테 LINE 계열, review_H §2.2)
 		"cover": col = INTENT_COL.cover
@@ -514,6 +515,28 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 				ci.draw_line(c + Vector2(-3, 2.5 - 2.5 * k), c + Vector2(3, 2.5 - 2.5 * k), col, 1.0)
 		"dmg_cut", "cover", "seal":
 			intent_icon(ci, c, "guard" if cat == "dmg_cut" else cat, col)
+		# ── R5 지원 효과 넷 (review_M M1 화면) — 같은 10px 칸·1px 선 굵기
+		"max_hp": # 최대 체력: 작은 하트(왼쪽 아래) + 위 화살(오른쪽) — 근성(큰 하트)과 갈림
+			ci.draw_circle(c + Vector2(-2.6, 0.4), 1.2, col)
+			ci.draw_circle(c + Vector2(-0.6, 0.4), 1.2, col)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-4, 0.8), c + Vector2(0.8, 0.8), c + Vector2(-1.6, 3.6)]), col)
+			ci.draw_line(c + Vector2(2.8, 3.5), c + Vector2(2.8, -3.5), col, 1.2)
+			ci.draw_line(c + Vector2(1.2, -1.8), c + Vector2(2.8, -3.6), col, 1.0)
+			ci.draw_line(c + Vector2(4.4, -1.8), c + Vector2(2.8, -3.6), col, 1.0)
+		"debuff_block": # 약화 막기: 둥근 방패(테 + 가로 띠 + 가운데 징) — 남은 횟수는 알약
+			ci.draw_arc(c, 3.5, 0.0, TAU, 14, col, 1.2)
+			ci.draw_line(c + Vector2(-3.2, 0), c + Vector2(3.2, 0), Color(col, 0.7), 1.0)
+			ci.draw_circle(c, 1.1, col)
+		"delay": # 예약: 시계(테 + 바늘 둘) + 오른쪽 점선 화살 (다음 차례에)
+			ci.draw_arc(c + Vector2(-1.2, 0), 3.0, 0.0, TAU, 12, col, 1.0)
+			ci.draw_line(c + Vector2(-1.2, 0), c + Vector2(-1.2, -2.0), col, 1.0)
+			ci.draw_line(c + Vector2(-1.2, 0), c + Vector2(0.2, 0.6), col, 1.0)
+			ci.draw_rect(Rect2(c + Vector2(2.4, -2.6), Vector2(1, 1)), col)
+			ci.draw_rect(Rect2(c + Vector2(3.4, -1.4), Vector2(1, 1)), col)
+			ci.draw_rect(Rect2(c + Vector2(2.4, -0.2), Vector2(1, 1)), col)
+		"cost_down": # 비용 감소: 마름모(크레딧) + 아래 오른쪽 "−"
+			diamond(ci, c + Vector2(-1.0, -1.0), 2.6, col)
+			ci.draw_line(c + Vector2(0.8, 3.4), c + Vector2(4.2, 3.4), col, 1.4)
 		_:
 			ci.draw_circle(c, 1.5, col)
 	if bad:
@@ -543,8 +566,14 @@ static func buff_line(b: Dictionary) -> String:
 		"hit_stack": head = "맞으며 쌓기 +%d%%" % v
 		"dmg_cut": head = "방어 태세 받는 피해 −%d%%" % v
 		"cover": head = "막아서기 (단일 대상이 이 적만)"
+		# R5 (review_M M1 — 유닛 상세 줄)
+		"max_hp": head = "최대 체력 +%d%% (+%s)" % [v, TData.fmt_short(int(b.get("add", 0)))]
+		"debuff_block": return "약화 막기 %d번 · 적 행동 %d번" % [int(b.get("n", 0)), int(b.dur)]
+		"cost_down": return "비용 −%d · 다음 장착 마법 1번 (%d행동 안)" % [int(round(float(b.get("v", 0.0)))), int(b.dur)]
 		_:
-			if cat == "special" and String(b.get("mark", "")) != "":
+			if b.has("stack_src"):
+				nm = "쌓인 힘" # 맞으며 쌓기로 받은 공격력 겹 (R5 — 되돌려 베기가 세는 겹)
+			elif cat == "special" and String(b.get("mark", "")) != "":
 				nm = "%s 특공" % TData.MARK_NAME.get(String(b.mark), "")
 			elif String(b.get("mark", "")) != "":
 				nm = "%s 적 %s" % [TData.MARK_NAME.get(String(b.mark), ""), nm]

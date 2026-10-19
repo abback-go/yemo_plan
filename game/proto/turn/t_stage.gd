@@ -426,6 +426,13 @@ func _run(token: int) -> void:
 			return
 		hud.refresh()
 		var a: TActor = actors[u]
+		if not battle.turn_ev.is_empty():
+			# 예약 발동 (R5 — review_M M1): 차례가 열릴 때 "+2 (예약)"
+			for e in battle.turn_ev:
+				_show_event(e, "support")
+			await _wait(0.35)
+			if token != _run_id:
+				return
 		if u.stunned:
 			# 기절로 쉬는 차례 (§17.2): 행동 없음, 0.6초
 			battle.rest(u)
@@ -668,7 +675,7 @@ func _perform_enemy(a: TActor) -> void:
 	if targets.is_empty():
 		# 피해 없는 새 의도: 효과를 받은 쪽 (약화·봉인·흩기 = 마녀 · 재촉·부르기 = 적)
 		for e in ev:
-			if String(e.t) in ["weaken", "seal", "seal_resist", "credits", "charge_up", "gauge", "summon"] and actors.has(e.tgt) and not targets.has(actors[e.tgt]):
+			if String(e.t) in ["weaken", "seal", "seal_resist", "credits", "charge_up", "gauge", "summon", "block"] and actors.has(e.tgt) and not targets.has(actors[e.tgt]):
 				targets.append(actors[e.tgt])
 	if targets.is_empty():
 		targets.append(a)
@@ -894,7 +901,9 @@ func _show_event(e: Dictionary, kind: String) -> void:
 		"dispel":
 			hud.pop(tgt, "버프 해제", "debuff")
 		"credits":
-			if int(e.v) > 0:
+			if int(e.v) > 0 and bool(e.get("delay", false)):
+				hud.pop(tgt, "+%d (예약)" % int(e.v), "credit") # 예약 발동 (R5)
+			elif int(e.v) > 0:
 				hud.pop(tgt, "크레딧 +%d" % int(e.v), "credit")
 			elif int(e.v) < 0:
 				hud.pop(tgt, "크레딧 %d" % int(e.v), "zero") # 크레딧 흩기 (review_H §2.1)
@@ -960,6 +969,23 @@ func _show_event(e: Dictionary, kind: String) -> void:
 			hud.pop(tgt, "부름", "status")
 		"purge":
 			hud.pop(tgt, "징표 털기" + (" %d겹" % int(e.n) if int(e.n) > 0 else ""), "status")
+		# R5 지원 효과 넷 (review_M M1)
+		"max_hp":
+			hud.pop(tgt, "최대 체력 +%s" % TData.fmt_short(int(e.v)), "heal")
+		"block_on":
+			hud.pop(tgt, "약화 막기", "buff")
+		"block":
+			hud.pop(tgt, "막음", "block")
+			TFx.block_fx(ta)
+		"cleanse":
+			hud.pop(tgt, "정화 %d" % int(e.n), "heal")
+			Sfx.play(&"tn_dispel_glint", -8.0)
+		"delay_on":
+			hud.pop(tgt, "예약", "credit")
+		"delay_fire":
+			Sfx.play_pitch(&"tn_select", 1.25, -8.0)
+		"cost_down":
+			hud.pop(tgt, "비용 −%d" % int(e.v), "buff")
 		"self_ko":
 			var sa := ta
 			var tw3 := create_tween()

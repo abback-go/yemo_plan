@@ -3722,8 +3722,17 @@ static func resist_fx(a: TActor, immune: bool) -> void:
 	add(r, a.center() + Vector2(0, -6), true)
 
 
+## 약화 막음 (R5 — review_M M1): 둥근 방패 0.5초 (저항의 회색 육각과 다른 모양) + 저항 소리를 높게
+static func block_fx(a: TActor) -> void:
+	Sfx.play_pitch(&"tn_resist", 1.3, -6.0)
+	var r := ResistFlash.new()
+	r.block = true
+	add(r, a.center() + Vector2(0, -6), true)
+
+
 class ResistFlash extends PVfx.Base:
 	var immune := false
+	var block := false ## 약화 막음: 둥근 방패 (GAUGE 보랏빛) — 가로 띠 + 가운데 징
 
 	func _ready() -> void:
 		life = 0.5
@@ -3734,6 +3743,17 @@ class ResistFlash extends PVfx.Base:
 		var a := 1.0 - smoothstep(0.4, 1.0, x)
 		var g := 1.0 - pow(1.0 - minf(x * 3.0, 1.0), 2.0)
 		var col := Color(GOLD) if immune else Color("#cfd2e0")
+		if block:
+			col = Color("#c9b8ff")
+			var rr := 12.0 + 4.0 * g
+			pd.draw_arc(Vector2.ZERO, rr, 0.0, TAU, 24, Color(INK, 0.6 * a), 3.0)
+			pd.draw_arc(Vector2.ZERO, rr, 0.0, TAU, 24, Color(col, a), 1.6)
+			pd.draw_line(Vector2(-rr * 0.85, 0), Vector2(rr * 0.85, 0), Color(col, 0.7 * a), 1.2)
+			pd.draw_circle(Vector2.ZERO, 3.0, Color(col, a))
+			for i in 4:
+				var d := Vector2.from_angle(-PI * 0.75 + float(i) * 0.5)
+				pd.draw_line(d * (rr + 2.0 + 6.0 * g), d * (rr + 6.0 + 10.0 * g), Color(col, a), 1.2)
+			return
 		var pts := PackedVector2Array()
 		for i in 7:
 			var an := TAU * float(i) / 6.0 + PI / 6.0
