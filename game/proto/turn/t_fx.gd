@@ -2072,7 +2072,8 @@ class UltCutin extends Node2D:
 	const C := Vector2(320, 160) ## 띠 가운데
 	const BAND := Vector2(940, 90)
 	const FIG_SC := 3.0 ## 컷인 그림 배율 (검토 O §5: 4배 → 3배 — 모자 끝부터 가슴까지 띠 안에)
-	const FIG_FEET_Y := 150.0 ## SubViewport(높이 90) 안 발 자리: 모자 끝(로컬 −48 × 3 = −144) → y 6, 얼굴(−30) → y 60
+	const FIG_FEET_Y := 128.0 ## SubViewport(높이 90) 안 발 자리: 150 → 128 (R6 review_P D-5 — 얼굴이 띠 아래 끝에 걸리고 모자 챙만 보였다. 검토 P의 170은 재 보니 얼굴이 띠 밖으로 나가 반대로 올림). 얼굴 → 띠 가운데 높이, 모자 끝은 띠 위로 잘림
+	const FIG_X := 360.0 ## 그림 가로 자리 (340 → 360, 밀림 시작)
 	const SS := 2 ## 컷인 그림을 2배 해상도로 그려 줄여 씀 (웹 = GLES3라 2D MSAA가 없음 — 3배 다각형 가장자리 계단을 없앰, 검토 O §5)
 	var unit: TUnit
 	var title := ""
@@ -2145,7 +2146,7 @@ class UltCutin extends Node2D:
 			_band2.position = Vector2(lerpf(820.0, 0.0, 1.0 - pow(1.0 - a, 3.0)) - 820.0 * b * b, 0) # 반대쪽에서 들어옴
 			_band2.queue_redraw()
 		# 띠 안에서 천천히 밀림 — 눈이 띠 가운데에 오게 12px 내림 (review_D B6: 모자 챙 그늘에 얼굴이 묻혔다)
-		_fig.home = Vector2(340.0 - 40.0 * t / LIFE, FIG_FEET_Y)
+		_fig.home = Vector2(FIG_X - 40.0 * t / LIFE, FIG_FEET_Y)
 		_lab.position = Vector2(o * 1.15, 0)
 
 	func _process(delta: float) -> void:
@@ -2180,7 +2181,7 @@ class CutBand extends PDraw.Canvas:
 		pd.glow(Vector2(-150, -8), 90.0, Color(c.flame, 0.45), 0.0)
 		TFx.emblem(pd, cut.emblem_kind, Vector2(170, 0), 64.0, Color(c.hot, 0.16), t * 0.8)
 		# 머리 뒤 역광 — 모자 챙 아래 얼굴이 뜨게 (B6). 마녀 그림은 SubViewport에서 x ≈ 300~340
-		pd.glow(Vector2(-134, 12), 50.0, Color(c.hot, 0.35), 0.0) # 얼굴(SubViewport y 60) 뒤
+		pd.glow(Vector2(-114, -6), 50.0, Color(c.hot, 0.35), 0.0) # 얼굴(SubViewport y 약 39 · x 360 − 밀림) 뒤 (R6: 그림을 22px 올리고 20px 오른쪽으로)
 		for i in 16: # 속도선 (왼쪽으로 흐름)
 			var y := -40.0 + 80.0 * EVfx.hash01(i * 17 + 3)
 			var len := 60.0 + 110.0 * EVfx.hash01(i * 5 + 1)
@@ -2217,8 +2218,15 @@ class CutLabel extends Node2D:
 	func _draw() -> void:
 		var x := 262.0
 		var y := 168.0 # 띠 가운데 줄(−12°)을 따라 글을 놓는다
-		T.text(self, Vector2(x, y - 30), cut.unit.name if cut.unit != null else "", 12, Color(T.TEXT, 0.95))
-		T.text(self, Vector2(x, y), cut.title, 30, WHITE)
+		T.text(self, Vector2(x, y - 30), cut.unit.name if cut.unit != null else "", 15, T.GOLD) # 12 → 15 금 (R6 review_P D-5)
+		# 제목 두 겹 (R6 review_P D-5·§5 ⑤ — 흰 픽셀 글 한 겹이라 띠보다 약했다): 먹 그림자 (2, 2) · 속성 어두운 색 바깥 테 · 금 안쪽 테 · 흰 글
+		var f := T.font(30)
+		var tp := Vector2(x, y).round()
+		var dark: Color = (cut._c as Dictionary).get("dark", T.INK)
+		draw_string_outline(f, tp + Vector2(2, 2), cut.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, 8, Color(T.INK, 0.7))
+		draw_string_outline(f, tp, cut.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, 8, Color(dark.darkened(0.35), 1.0))
+		draw_string_outline(f, tp, cut.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, 3, T.GOLD)
+		draw_string(f, tp, cut.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, WHITE)
 		if cut.stage == 2:
 			T.text(self, Vector2(x + T.width(cut.title, 30) + 10.0, y - 2), "연쇄 2단계", 15, T.GOLD)
 		elif cut.stage >= 3: # 3단계: 띠 가운데 위 24px 금 도장 (0.4초 동안 1.3 → 1.0배)

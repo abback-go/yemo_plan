@@ -3,7 +3,8 @@
 //   주소 기본 http://localhost:8766/index.html?turn&probe  (probe = 게임이 window.eskaProbe()로 화면 상태·누를 자리를 알려 줌, t_stage.gd _on_probe)
 //   화면 기본 915x412@2.625 (20:9 갤럭시급) · 19.5:9 흉내는 844x390@3
 //   CPU 배수(예 3)를 주면 CDP Emulation.setCPUThrottlingRate로 프레임을 길게 — 느린 프레임에서 짧은 탭이 길게 누르기로 먹히는지 (review_K K-10)
-// 흐름: 첫 실행 안내 판 → "안내 끄기"(이 첫 탭을 뗄 때 전체 화면 요청 — R3 review_N N-02) → 전투 고르기 → 출격 → 마녀 차례마다 기본 공격 칸 두 번 → 적 카드 짧게 탭(80~150 ms) — 탭이 먹혔는지 센다
+// 흐름: 타이틀(R6) → 첫 탭(이 탭을 뗄 때 전체 화면 요청 — R3 review_N N-02 · 첫 실행이라 곧장 안내 전투) → "안내 끄기" → X → 철수 → 편성
+//       → 전투 고르기 → 출격 → 마녀 차례마다 기본 공격 칸 두 번 → 적 카드 짧게 탭(80~150 ms) — 탭이 먹혔는지 센다
 //       → 적 카드 길게 누름(상세) → X → 철수 확인 → 취소 → **세로로 돌림(세로 안내 · 전투 멈춤) → 가로로 되돌림 → 멈춤 판 탭**
 //       → 창 가려짐(visibilitychange) → localStorage 저장 → 새로고침 → 끊긴 전투 판
 //   세로 화면(예 412x915@2.625)으로 시작하면: 세로 안내 판이 뜨고 누름을 먹는지만 보고 끝낸다
@@ -59,8 +60,11 @@ if (H > W) {
 	await browser.close();
 	process.exit(0);
 }
-// 첫 실행 안내 → 안내 끄기 (이 탭을 뗄 때 전체 화면 요청)
-if (st.card) { const c = center(st.off); await tapAt(st, c[0], c[1]); await wait(600); }
+// 타이틀 → 첫 탭 (이 탭을 뗄 때 전체 화면 요청 · 첫 실행이면 곧장 안내 전투 — R6 review_P D-2)
+const title0 = st.guide_mode;
+await tapAt(st, 320, 220); await wait(800);
+st = await until(s => s.guide_mode !== 'title', 10000);
+console.log(`TITLE mode '${title0}' → '${st.guide_mode}' in_battle ${st.in_battle} phase '${st.phase}'`);
 st = await probe();
 console.log(`FS after-first-tap tried ${st.fs_tried} is ${st.fs_is} doc-fullscreen ${await fsDoc()} btn ${JSON.stringify(st.fs_btn)} view ${st.view.join('x')}`);
 if (await fsDoc()) {
@@ -79,6 +83,17 @@ if (st.fs_btn && st.fs_btn[2] > 0) {
 	console.log(`FS button tap → is ${s2.fs_is} doc-fullscreen ${await fsDoc()} setup_step ${before}→${s2.setup_step}`);
 	st = s2;
 }
+// 안내 전투: B1 판이 뜨면 "안내 끄기" → X → 철수 (오른쪽) → 편성 (안내 전투는 이어 하기 저장을 쓰지 않아 일반 전투로 시험)
+st = await until(s => s.card !== '' || !s.in_battle, 20000);
+await shot('t1b_intro');
+if (st.card) { const o = center(st.off); await tapAt(st, o[0], o[1]); await wait(500); }
+st = await until(s => s.in_battle && s.hud_state === 'wheel', 20000);
+if (st.in_battle) {
+	const xr = center(st.x_rect); await tapAt(st, xr[0], xr[1]); await wait(500);
+	st = await probe(); await tapAt(st, 368, 201); await wait(800);  // 철수 (오른쪽)
+}
+st = await until(s => s.setup_visible && s.guide_mode === '', 10000);
+console.log(`INTRO off → setup ${st.setup_visible} step ${st.setup_step} card '${st.card}'`);
 await shot('t2_setup');
 let c = center(st.start1);
 await tapAt(st, c[0], c[1]); await wait(800);             // 전투 고르기

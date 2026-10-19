@@ -290,7 +290,8 @@ static func diamond(ci, c: Vector2, half: float, col: Color) -> void:
 
 ## 크레딧 n/7 줄: 마름모 7개 (중심 간격 gap). 찬 칸 = 1px 밝은 테 + 금빛 (R3, review_N N-07 — 핵심 자원이 체력 숫자보다 안 보였다)
 ## 마름모 7칸 × 2~3겹을 삼각형 묶음 하나로 (R4 성능: 마름모마다 다각형 = 그리기 호출 1번이라 패널 셋 + 설명 띠에서 약 50번이었다)
-static func credit_row(ci: CanvasItem, p: Vector2, n: int, gap := 10.0, half := 3.5, pulse := 1.0) -> void:
+## flash = [lo, hi, 색, 반지름] — 칸 lo..hi−1 위에 번쩍 마름모를 같은 묶음에 (THud 크레딧 변화, R6 review_P D-4)
+static func credit_row(ci: CanvasItem, p: Vector2, n: int, gap := 10.0, half := 3.5, pulse := 1.0, flash: Array = []) -> void:
 	var v := PackedVector2Array()
 	var cs := PackedColorArray()
 	var idx := PackedInt32Array()
@@ -302,6 +303,8 @@ static func credit_row(ci: CanvasItem, p: Vector2, n: int, gap := 10.0, half := 
 			layers.append([half - 1.0, Color(GOLD, pulse)])
 		else:
 			layers.append([half, EMPTY])
+		if not flash.is_empty() and k >= int(flash[0]) and k < int(flash[1]):
+			layers.append([float(flash[3]), flash[2]])
 		for l: Array in layers:
 			var h: float = l[0]
 			var b := v.size()

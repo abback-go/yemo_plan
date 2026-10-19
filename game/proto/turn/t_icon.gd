@@ -360,6 +360,81 @@ static func draw(ci: Object, c: Vector2, icon: String, col: Color, r: float) -> 
 			_ln(ci, c, r, Vector2(-0.4, -0.4), Vector2(0.4, 0.4), col, w)
 
 
+## 장비 아이콘 15 (R6 review_P §5 ① — 장비 목록이 이름 글 상자뿐이었다). 마법 아이콘과 달리 장비마다 제 색(재질)으로 그린다.
+## 반지 셋은 같은 금 띠 + 속성 색 보석. 그림자는 호출 쪽. 쓰는 곳: TSetup 장비 목록 칸 왼쪽 (반지름 10 = 20px)
+static func equip(ci: Object, c: Vector2, id: String, r: float) -> void:
+	var w := maxf(1.0, r * 0.16)
+	match id:
+		"black_cup": # 검은 잔: 먹 잔 + 붉은 술 + 연보라 테
+			_poly(ci, c, r, [-0.7, -0.55, 0.7, -0.55, 0.42, 0.1, -0.42, 0.1], Color("#3a3048"))
+			_poly(ci, c, r, [-0.62, -0.5, 0.62, -0.5, 0.56, -0.36, -0.56, -0.36], Color("#ff4f6a"))
+			_ln(ci, c, r, Vector2(-0.72, -0.58), Vector2(0.72, -0.58), Color("#d8c8ff"), w)
+			_ln(ci, c, r, Vector2(0, 0.1), Vector2(0, 0.62), Color("#5a4c6a"), w * 1.4)
+			_poly(ci, c, r, [-0.45, 0.72, 0.45, 0.72, 0.3, 0.56, -0.3, 0.56], Color("#5a4c6a"))
+			_ln(ci, c, r, Vector2(-0.3, -0.3), Vector2(-0.18, -0.05), Color(1, 1, 1, 0.35), w * 0.8)
+		"kaleido": # 만화경: 기운 놋쇠 통 + 끝의 색유리 셋
+			_poly(ci, c, r, [-0.85, 0.45, -0.6, 0.72, 0.38, -0.2, 0.12, -0.47], Color("#b88a3a"))
+			_ln(ci, c, r, Vector2(-0.5, 0.2), Vector2(-0.25, 0.47), Color("#ffe08a"), w)
+			_dot(ci, c, r, Vector2(0.45, -0.5), 0.42, Color("#2a1e3d"))
+			_ring(ci, c, r, Vector2(0.45, -0.5), 0.42, Color("#ffe08a"), w)
+			_dot(ci, c, r, Vector2(0.32, -0.62), 0.13, Color("#ff7ad8"))
+			_dot(ci, c, r, Vector2(0.6, -0.55), 0.13, Color("#7ad8ff"))
+			_dot(ci, c, r, Vector2(0.42, -0.32), 0.13, Color("#ffcf4a"))
+		"notebook": # 마녀의 수첩: 가죽 표지 + 종이 끝 + 금 별
+			_poly(ci, c, r, [-0.5, -0.75, 0.62, -0.75, 0.62, 0.75, -0.5, 0.75], Color("#f0e6d0"))
+			_poly(ci, c, r, [-0.62, -0.82, 0.5, -0.82, 0.5, 0.68, -0.62, 0.68], Color("#8a4a2a"))
+			_ln(ci, c, r, Vector2(-0.45, -0.82), Vector2(-0.45, 0.68), Color("#5a2e18"), w)
+			_sparkle(ci, c, r, Vector2(0.04, -0.08), 0.32, Color("#ffe08a"))
+		"swift_boots": # 바람 신발: 장화 + 날개 + 바람 줄
+			_poly(ci, c, r, [-0.3, -0.75, 0.15, -0.75, 0.2, 0.25, 0.75, 0.42, 0.75, 0.72, -0.35, 0.72], Color("#6a8a5a"))
+			_ln(ci, c, r, Vector2(-0.35, 0.62), Vector2(0.75, 0.62), Color("#3a4a30"), w * 1.2)
+			_poly(ci, c, r, [0.15, -0.55, 0.62, -0.85, 0.5, -0.5, 0.75, -0.55, 0.2, -0.25], Color("#e6f0ff"))
+			_ln(ci, c, r, Vector2(-0.95, -0.2), Vector2(-0.5, -0.2), Color("#b9e8ff", 0.8), w * 0.8)
+			_ln(ci, c, r, Vector2(-0.95, 0.15), Vector2(-0.55, 0.15), Color("#b9e8ff", 0.8), w * 0.8)
+		"mana_spring": # 마력 샘: 보랏빛 물방울 + 물결 고리
+			_arc(ci, c, r, Vector2(0, 0.62), 0.75, PI * 0.1, PI * 0.9, Color("#9a7cff", 0.8), w)
+			_flame(ci, c, r, Vector2(0, -0.12), 0.62, Color("#9a7cff"))
+			_dot(ci, c, r, Vector2(0, 0.08), 0.32, Color("#c9b8ff"))
+			_dot(ci, c, r, Vector2(-0.12, -0.05), 0.1, Color(1, 1, 1, 0.8))
+		"ember_ring", "tide_ring", "storm_ring": # 속성 반지: 금 띠 + 보석
+			var gem: Color = {"ember_ring": Color("#ff7a3a"), "tide_ring": Color("#3fb0ff"), "storm_ring": Color("#ffdd4a")}[id]
+			_ring(ci, c, r, Vector2(0, 0.22), 0.52, Color("#a07a2a"), w * 2.0)
+			_ring(ci, c, r, Vector2(0, 0.22), 0.52, Color("#ffe08a"), w * 0.9)
+			_poly(ci, c, r, [0, -0.85, 0.36, -0.45, 0, -0.12, -0.36, -0.45], gem)
+			_poly(ci, c, r, [0, -0.85, 0.36, -0.45, 0, -0.45], gem.lightened(0.4))
+		"mirror_shard": # 거울 조각: 비스듬한 유리 조각 + 반짝
+			_poly(ci, c, r, [-0.45, -0.85, 0.55, -0.4, 0.3, 0.85, -0.6, 0.35], Color("#b9e0f0"))
+			_poly(ci, c, r, [-0.45, -0.85, 0.55, -0.4, -0.05, -0.15], Color("#eafcff"))
+			_ln(ci, c, r, Vector2(-0.6, 0.35), Vector2(0.3, 0.85), Color("#5a8aa0"), w)
+		"star_shard": # 별 조각: 금 별 + 흰 속
+			_poly(ci, c, r, _star(5, 0.95, 0.42, -PI * 0.5), Color("#ffcf4a"))
+			_poly(ci, c, r, _star(5, 0.45, 0.2, -PI * 0.5), Color("#fff6d6"))
+		"iron_heart": # 강철 심장: 회색 하트 + 징 + 윤기
+			_poly(ci, c, r, [0.0, 0.85, -0.85, -0.05, -0.75, -0.55, -0.4, -0.75, 0.0, -0.45, 0.4, -0.75, 0.75, -0.55, 0.85, -0.05], Color("#8a94a4"))
+			_poly(ci, c, r, [0.0, 0.85, 0.85, -0.05, 0.75, -0.55, 0.4, -0.75, 0.0, -0.45], Color("#5a6474"))
+			_dot(ci, c, r, Vector2(-0.45, -0.3), 0.1, Color("#d8e0ea"))
+			_dot(ci, c, r, Vector2(0.45, -0.3), 0.1, Color("#d8e0ea"))
+			_dot(ci, c, r, Vector2(0, 0.35), 0.1, Color("#d8e0ea"))
+		"hourglass_charm": # 모래시계 펜던트: 금 모래시계 + 고리
+			_ring(ci, c, r, Vector2(0, -0.88), 0.14, Color("#ffe08a"), w * 0.8)
+			draw(ci, c + Vector2(0, 0.1 * r), "hourglass", Color("#ffcf7a"), r * 0.82)
+		"ash_charm": # 재의 부적: 누런 종이 부적 + 붉은 표식 + 재 점
+			_poly(ci, c, r, [-0.42, -0.8, 0.42, -0.8, 0.42, 0.7, 0.0, 0.88, -0.42, 0.7], Color("#d8c8a8"))
+			_ln(ci, c, r, Vector2(0, -0.55), Vector2(0, 0.45), Color("#c0304a"), w * 1.2)
+			_ln(ci, c, r, Vector2(-0.25, -0.2), Vector2(0.25, -0.2), Color("#c0304a"), w * 1.2)
+			_ring(ci, c, r, Vector2(0, 0.18), 0.18, Color("#c0304a"), w * 0.8)
+			_dot(ci, c, r, Vector2(0.7, -0.5), 0.08, Color("#8a8090"))
+			_dot(ci, c, r, Vector2(0.62, 0.1), 0.06, Color("#8a8090"))
+		"feather_charm": # 깃털 부적: 흰 깃털 + 깃대
+			_poly(ci, c, r, [0.55, -0.85, 0.25, 0.1, -0.35, 0.65, -0.1, -0.05], Color("#f4f0ff"))
+			_poly(ci, c, r, [0.55, -0.85, -0.1, -0.05, -0.35, 0.65, -0.35, 0.1], Color("#c9c0dc"))
+			_ln(ci, c, r, Vector2(0.55, -0.85), Vector2(-0.6, 0.9), Color("#8a7fa3"), w)
+		_: # 없음: 점선 원
+			for k in 8:
+				var a := TAU * float(k) / 8.0
+				_arc(ci, c, r, Vector2.ZERO, 0.6, a, a + 0.42, Color("#8a7fa3"), w)
+
+
 # ── 공통 조각 ─────────────────────────────────────────────
 
 static func _ln(ci: Object, c: Vector2, r: float, a: Vector2, b: Vector2, col: Color, w: float) -> void:

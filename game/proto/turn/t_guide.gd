@@ -13,6 +13,7 @@ extends Control
 ## 판 자리는 강조 사각과 피할 사각(바퀴가 열려 있으면 바퀴 칸·그 차례 마녀 패널, card.avoid)을 모두 피한다 (review_I I-08)
 
 signal resume_chosen(yes: bool)
+signal title_done ## 타이틀을 눌러 뗌 (R6 review_P D-2)
 
 const T := preload("res://proto/turn/t_theme.gd")
 const PANEL_W := 300.0
@@ -50,13 +51,14 @@ const RESUME_NO := Rect2(326, 186, 112, 36)
 var stage: Node ## TStage
 var phase := "" ## 첫 실행 흐름의 지금 단계 ("" = 없음)
 var card := {} ## {id, title, body, holes: [Rect2], mode: "tap"|"pass"|"hint", finger, avoid: [Rect2]}
-var mode := "" ## "" · help · settings · resume · resume_confirm · pause
+var mode := "" ## "" · title · help · settings · resume · resume_confirm · pause
 var help_i := 0 ## 도움말에서 고른 용어
 var resume_info := ""
 var _t := 0.0
 var _pass_press := false ## 이번 누름을 아래 화면으로 넘겼나 (떼기도 넘긴다)
 var _card_t := 0.0 ## 판이 뜬 지 (뜨자마자 같은 손가락의 떼기로 닫히지 않게)
 var help_page := 0 ## 도움말 쪽 (0 · 1)
+var _title_t := 0.0 ## 타이틀이 뜬 지 (글이 0.4초에 걸쳐 떠오름)
 ## 폰 웹 전체 화면 · 가로 (R3, review_N N-02 = review_M N3): 첫 탭을 뗄 때 requestFullscreen → 되면 screen.orientation.lock('landscape') (실패는 조용히).
 ## 브라우저는 탭(touchend)에서 몇 초 동안 사용자 활성화를 주므로 Godot가 다음 프레임에 부르는 요청도 제스처 안이다. 데스크톱·이미 전체 화면(설치 앱)이면 아무것도 안 함
 var fs_web := false ## 웹 + 터치 폰 (window.eskaFS.mobile)
@@ -82,6 +84,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_card_t += delta
+	_title_t += delta
 	size = Vector2(640, 360) # 설계 화면 (review_K K-01)
 	TSave.tick(delta)
 	_fs_tick(delta)
@@ -159,10 +162,22 @@ func _fs_input(pos: Vector2, pressed: bool) -> bool:
 # 바깥에서 부르는 것
 # ═══════════════════════════════════════════════════════════
 
-## 첫 실행 안내를 처음부터 (편성 화면 A1)
+## 첫 실행 안내를 처음부터 (편성 화면 A1) — 설정의 "안내 다시 보기"
 func begin() -> void:
 	phase = "A1"
 	card = {}
+
+
+## 첫 실행: 타이틀 다음 곧장 안내 전투 B1부터 (R6 review_P D-2 — 처음 켠 사람에게 편성 화면이 먼저 뜨던 것). A1은 이긴 뒤 편성에서
+func begin_intro() -> void:
+	phase = "B1"
+	card = {}
+
+
+## 타이틀 한 장 (R6 review_P D-2)
+func open_title() -> void:
+	mode = "title"
+	_title_t = 0.0
 
 
 func active() -> bool:
@@ -228,7 +243,7 @@ func _close_card() -> void:
 	card = {}
 	TSave.mark(id)
 	if id == phase:
-		phase = String({"A1": "A3a", "B3": "B4", "B4": "B5", "B5": "B7", "C2": "C3", "C3": ""}.get(id, phase))
+		phase = String({"A1": "C1" if TSave.intro_done else "A3a", "B3": "B4", "B4": "B5", "B5": "B7", "C2": "C3", "C3": ""}.get(id, phase)) # 안내 전투를 이긴 뒤의 A1 → C1 (R6)
 		if id == "C3":
 			TSave.mark("first_done")
 	if id == "B5" and stage != null:
@@ -312,7 +327,7 @@ func _update_flow() -> void:
 			if hud.visible and hud.state == "banner" and hud.banner_text == "승리" and hud._banner_t > 0.5: # 승리 글이 그려진 뒤 (review_K K-24)
 				_keep("B7", "이겼습니다", "아무 데나 누르면 편성으로 갑니다. 이제 마법을 바꿔 나만의 빌드를 짜 봅니다.", [Rect2(T.left(), 138, T.view.x, 84)], "hint") # 어디를 눌러도 넘어감 (I-05)
 			elif setup.visible:
-				phase = "C1" if TSave.intro_done else "A3a" # 안내 전투에서 지면 다시 출격부터
+				phase = "A1" if TSave.intro_done else "A3a" # 이기면 편성 소개 A1 → C1 (R6: 첫 실행은 타이틀 → 안내 전투라 A1을 여기로) · 지면 다시 출격부터
 				card = {}
 		"C1":
 			if setup.visible and setup.step == 2:
@@ -373,7 +388,10 @@ func _input(event: InputEvent) -> void:
 		pressed = event.pressed
 		is_press = true
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if mode == "" and String(card.get("mode", "")) == "tap" and (event.is_action_pressed("es_jump") or event.is_action_pressed("es_attack")):
+		if mode == "title" and (event.is_action_pressed("es_jump") or event.is_action_pressed("es_attack")):
+			_close_title()
+			get_viewport().set_input_as_handled()
+		elif mode == "" and String(card.get("mode", "")) == "tap" and (event.is_action_pressed("es_jump") or event.is_action_pressed("es_attack")):
 			_close_card()
 			get_viewport().set_input_as_handled()
 		elif mode in ["help", "settings", "pause"] and (event.is_action_pressed("es_attack") or event.is_action_pressed("es_exit") or event.is_action_pressed("es_jump")):
@@ -383,6 +401,8 @@ func _input(event: InputEvent) -> void:
 	else:
 		return
 	if not pressed:
+		if mode == "title" and _title_t > 0.2:
+			_close_title() # 뗄 때 — 폰 웹 전체 화면 요청(_fs_input)과 같은 제스처
 		if not _pass_press:
 			get_viewport().set_input_as_handled()
 		_pass_press = false
@@ -413,6 +433,11 @@ func _input(event: InputEvent) -> void:
 	if _card_t > 0.15:
 		_close_card()
 	get_viewport().set_input_as_handled()
+
+
+func _close_title() -> void:
+	mode = ""
+	title_done.emit()
 
 
 func _modal_press(p: Vector2) -> void:
@@ -550,6 +575,7 @@ func _draw() -> void:
 	if not card.is_empty() and mode == "":
 		_draw_card()
 	match mode:
+		"title": _draw_title()
 		"help": _draw_help()
 		"settings": _draw_settings()
 		"resume", "resume_confirm": _draw_resume()
@@ -559,6 +585,31 @@ func _draw() -> void:
 		_draw_fs_btn(fb)
 	if portrait:
 		_draw_portrait()
+
+
+## 타이틀 (R6 review_P D-2 [제안]): 배경·파티 셋(TStage가 세움) 위에 가운데 먹 띠(위아래로 옅어짐) · "에스카" 30 금 + 먹 테 (320, 120) ·
+## "공간의 마녀" 12 보조 (320, 150) · 아래 "눌러서 시작" 12 (1초 숨쉬기, 320, 300). 글은 0.4초에 걸쳐 6px 떠오름
+func _draw_title() -> void:
+	var sc := T.screen()
+	var k := clampf(_title_t / 0.4, 0.0, 1.0)
+	var e := 1.0 - pow(1.0 - k, 3.0)
+	var band := PackedVector2Array([Vector2(sc.position.x, 78), Vector2(sc.end.x, 78), Vector2(sc.end.x, 120), Vector2(sc.position.x, 120)])
+	draw_polygon(band, PackedColorArray([Color(T.INK, 0.0), Color(T.INK, 0.0), Color(T.INK, 0.55 * e), Color(T.INK, 0.55 * e)]))
+	draw_rect(Rect2(sc.position.x, 120, sc.size.x, 38), Color(T.INK, 0.55 * e))
+	band = PackedVector2Array([Vector2(sc.position.x, 158), Vector2(sc.end.x, 158), Vector2(sc.end.x, 196), Vector2(sc.position.x, 196)])
+	draw_polygon(band, PackedColorArray([Color(T.INK, 0.55 * e), Color(T.INK, 0.55 * e), Color(T.INK, 0.0), Color(T.INK, 0.0)]))
+	var dy := 6.0 * (1.0 - e)
+	# 제목 두 겹 (컷인 제목과 같은 말 — 먹 그림자 · 어두운 금 바깥 테 · 금 글)
+	var f := T.font(30)
+	var tp := (Vector2(320 - f.get_string_size("에스카", HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x * 0.5, 134 + dy)).round()
+	draw_string_outline(f, tp + Vector2(2, 3), "에스카", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, 8, Color(T.INK, 0.8 * e))
+	draw_string_outline(f, tp, "에스카", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, 8, Color(Color("#4a3008"), e))
+	draw_string_outline(f, tp, "에스카", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, 3, Color(Color("#fff6d6"), e))
+	draw_string(f, tp, "에스카", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(T.GOLD, e))
+	draw_rect(Rect2(320 - 70, 143 + dy, 140, 1), Color(T.GOLD, 0.45 * e))
+	T.text(self, Vector2(320, 158 + dy), "공간의 마녀", 12, Color(T.TEXT_SUB, e), HORIZONTAL_ALIGNMENT_CENTER)
+	var br := 0.55 + 0.45 * (0.5 + 0.5 * sin(_t * TAU))
+	T.text(self, Vector2(320, 300), "눌러서 시작", 12, Color(T.TEXT, br * e), HORIZONTAL_ALIGNMENT_CENTER)
 
 
 ## 다시 들어가는 버튼: 먹 원 + 네 모서리 꺾쇠 (전체 화면 기호)

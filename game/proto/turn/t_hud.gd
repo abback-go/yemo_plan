@@ -46,6 +46,9 @@ const WHEEL_A0 := -122.0 ## 첫 칸(기본 공격) 각도 (도)
 const WHEEL_A1 := -4.0 ## 끝 칸(대마법) 각도
 const SLOT_R := 17.0
 const ULT_R := 19.0
+const PORTRAIT_SC := 2.4 ## 아군 패널 초상 배율 (R6 review_P D-5: 1.4 → 2.4)
+const PORTRAIT_FEET := Vector2(20, 84) ## 초상 칸(40×48) 안 발 자리 — 칸 밖 아래 (머리~가슴만 보임)
+const ICON_K := 0.62 ## 칸 아이콘 반지름 = 칸 반지름 × 이것 (R6 review_P D-1: 0.5 → 0.62 — 일반 10.5 · 대마법 11.8)
 const HOLD := 0.4 ## 길게 누르기 (상세)
 const HOLD_MS := 400
 const CONFIRM := Rect2(220, 135, 200, 90)
@@ -86,6 +89,10 @@ var msg := ""
 var msg_t := 0.0
 var msg_col := T.LINE
 var msg_total := "" ## 행동 띠 끝의 금빛 합계 (review_C2 L4)
+var _cr_seen := {} ## TUnit → 패널이 마지막으로 본 크레딧 (R6 review_P D-4: 크레딧 변화는 패널에서만)
+var _cr_fx := {} ## TUnit → {t, d, lo, hi, tag} 바뀐 칸 번쩍 0.4초 · "+n" 0.8초
+var _cr_tag := {} ## TUnit → 다음 크레딧 변화에 붙일 말 ("예약")
+var _msg_live := false ## msg가 지금 차례 바퀴가 열린 뒤에 뜬 안내인가 (R6 review_P D-3)
 var numbers: Array = [] ## [{p, text, kind, age, dir, weak, key}]
 var confirm_open := false ## 철수 확인 판
 var battle_name := ""
@@ -137,6 +144,8 @@ func bind(b: TBattle, a: Dictionary) -> void:
 	_wave_t = 0.0
 	_wave_no = 0
 	battle_name = String(TData.BATTLES.get(b.battle_id, {}).get("name", ""))
+	_cr_seen.clear()
+	_cr_fx.clear()
 	_build_portraits()
 	refresh()
 
@@ -187,6 +196,7 @@ func _process(delta: float) -> void:
 		n.age = float(n.age) + delta
 		n.last = float(n.get("last", 0.0)) + delta
 	numbers = numbers.filter(func(n: Dictionary) -> bool: return float(n.age) < 1.1)
+	_credit_watch(delta)
 	if actor != null and _wheel_on():
 		_dim_others(true)
 	_layout_portraits()
@@ -208,6 +218,8 @@ func open_wheel(a: TActor) -> void:
 	_layout_portraits()
 	Sfx.play(&"tn_turn", -8.0)
 	_after = {}
+	_msg_live = false
+	msg_t = minf(msg_t, 1.2) # 지난 행동 글은 바퀴가 열린 뒤 1.2초만 (띠 아래 작은 줄, R6 D-3)
 	if hint_once != "":
 		show_msg(hint_once, T.GOLD)
 		hint_once = ""
@@ -228,6 +240,7 @@ func close_wheel() -> void:
 func show_msg(s: String, col := T.LINE) -> void:
 	msg = s
 	msg_t = 1.6
+	_msg_live = actor != null and _wheel_on() # 이 차례의 안내인가 (바퀴가 열린 뒤) — 아니면 지난 행동 (R6 D-3)
 	msg_col = col
 	msg_total = ""
 
@@ -309,19 +322,19 @@ func pop(u: TUnit, text: String, kind := "dmg", weak := false, value := 0) -> vo
 		if last.is_empty() and u.is_witch():
 			# 마녀 머리 위 체력·게이지 막대 오른쪽 (review_D B8: 막대 위에 겹쳤다)
 			var top := to_screen(a.head()).round()
-			p = Vector2(top.x + 24.0 + T.width(text, 12) * 0.5, top.y - 1.0 - 14.0 * float(k % 3))
+			p = Vector2(top.x + 24.0 + T.width(text, 12) * 0.5, top.y - 1.0 - 14.0 * float(k % 2))
 		elif last.is_empty():
-			p = _num_base(a) + Vector2(0, -16 - 14 * (k % 3))
+			p = _num_base(a) + Vector2(0, -16 - 14 * (k % 2))
 		else:
-			p = Vector2((last.p as Vector2).x, (last.p as Vector2).y - float(_num_fs(last)) - 6.0 - 14.0 * float(k % 3))
+			p = Vector2((last.p as Vector2).x, (last.p as Vector2).y - float(_num_fs(last)) - 6.0 - 14.0 * float(k % 2))
 		if not u.is_witch() and p.y - 12.0 - 18.0 < _head_min():
 			# 키 큰 적·보스: 적 카드에 닿으면 머리 옆 바깥(오른쪽)으로 비켜 카드 밑에서 (review_K K-05 — "기절 — 쉼"·"면역"이 카드 위에 찍혔다)
-			p = _beside(a, text, 12, k % 3)
+			p = _beside(a, text, 12, k % 2) # 유닛 글은 두 줄까지 (R6 review_P D-4)
 			dir = 0.0
 	elif not u.is_witch():
 		# 적에게 붙은 버프·디버프·징표 글 (review_K K-06): 주인 머리 위 두 줄까지 · 넘치면 "디버프 n"으로 합침 ·
 		# 같은 글이 다른 적에게도 곧바로 붙으면(광역) 적마다 쓰지 않고 "적 전체: …" 한 줄로
-		if _foe_band(u, text, kind):
+		if _band(u, text, kind, "band", 2):
 			return
 		var mine: Array = []
 		for n: Dictionary in numbers:
@@ -339,11 +352,24 @@ func pop(u: TUnit, text: String, kind := "dmg", weak := false, value := 0) -> vo
 		if p.y - 12.0 < _head_min():
 			p = _beside(a, text, 10, mine.size())
 	elif u.is_witch():
-		p = Vector2(_panel_rect(u.slot).get_center().x, PANEL_Y - 4.0) + Vector2(0, -12.0 * float(k % 2))
-		age = -0.35 * float(k / 2) # 한 패널에 두 줄씩, 나머지는 늦춰서
+		# 같은 글이 마녀 셋 이상에게 곧바로 붙으면(아군 전체 지원) 패널마다 쓰지 않고 "아군 전체: …" 한 줄로 (R6 review_P D-4 — 패널 위가 글로 덮였다)
+		if _band(u, text, kind, "aband", 3):
+			return
+		# 한 패널에 두 줄까지 — 셋째부터는 둘째 줄을 "… 외 n"으로 (R6 D-4: 예전엔 늦춰서 세 줄째를 띄웠다)
+		var mine: Array = []
+		for n: Dictionary in numbers:
+			if String(n.key) == key and float(n.age) < 0.8:
+				mine.append(n)
+		if mine.size() >= 2:
+			var n2: Dictionary = mine[mine.size() - 1]
+			n2.merged = int(n2.get("merged", 0)) + 1
+			n2.text = "%s 외 %d" % [String(n2.get("base", n2.text)), int(n2.merged)]
+			n2.age = minf(float(n2.age), HOLD_AGE)
+			return
+		p = Vector2(_panel_rect(u.slot).get_center().x, PANEL_Y - 4.0) + Vector2(0, -12.0 * float(mine.size()))
 	else:
 		pass
-	numbers.append({"p": p, "text": text, "kind": kind, "age": age, "dir": dir, "weak": weak, "key": key,
+	numbers.append({"p": p, "text": text, "base": text, "kind": kind, "age": age, "dir": dir, "weak": weak, "key": key,
 		"val": value, "hits": 1, "last": 0.0, "crit": kind == "crit", "foe": not u.is_witch()})
 	if numbers.size() > 48:
 		numbers.pop_front()
@@ -359,35 +385,91 @@ func _beside(a: TActor, text: String, fs: int, line: int) -> Vector2:
 	return Vector2(x, _head_min() + 14.0 + 13.0 * float(line))
 
 
-## 광역 글 합치기: 같은 글이 0.25초 안에 다른 적에게 떴으면 그 글을 지우고 적 진영 위 "적 전체: …" 한 줄에 모은다. 모았으면 true
-func _foe_band(u: TUnit, text: String, kind: String) -> bool:
+## 크레딧이 바뀐 마녀를 찾아 패널 번쩍을 건다 (기본 +1 · 마법 · 예약 · 대가 0 · 흩기 모두 — 머리 위·패널 위 글은 띄우지 않음)
+func _credit_watch(delta: float) -> void:
+	for k in _cr_fx.keys():
+		_cr_fx[k].t = float(_cr_fx[k].t) - delta
+		if float(_cr_fx[k].t) <= 0.0:
+			_cr_fx.erase(k)
+	if battle == null:
+		return
+	for w in battle.witches:
+		var c := w.credits
+		if _cr_seen.has(w) and int(_cr_seen[w]) != c:
+			var was := int(_cr_seen[w])
+			var tag := ""
+			if _cr_tag.has(w) and _t - float(_cr_tag[w][1]) < 0.5:
+				tag = String(_cr_tag[w][0])
+			_cr_tag.erase(w)
+			_cr_fx[w] = {"t": 0.8, "d": c - was, "lo": mini(was, c), "hi": maxi(was, c), "tag": tag}
+		_cr_seen[w] = c
+
+
+## 크레딧 변화 글에 붙일 말 (예약 발동 "+2 예약"): 막 바뀌었으면 그 글에, 아니면 0.5초 안의 다음 변화에
+func credit_tag(u: TUnit, tag: String) -> void:
+	if _cr_fx.has(u) and float(_cr_fx[u].t) > 0.4:
+		_cr_fx[u].tag = tag
+	else:
+		_cr_tag[u] = [tag, _t]
+
+
+## 패널 크레딧 줄: 바뀐 칸만 0.4초 번쩍 (늘면 흰 금 · 줄면 붉게) — T.credit_row의 flash 인자 [lo, hi, 색, 반지름] (없으면 [])
+func _credit_flash(w: TUnit, half: float) -> Array:
+	if not _cr_fx.has(w):
+		return []
+	var f: Dictionary = _cr_fx[w]
+	var age := 0.8 - float(f.t)
+	if age >= 0.4:
+		return []
+	var k := 1.0 - age / 0.4
+	return [int(f.lo), int(f.hi), Color(Color("#fff6d6") if int(f.d) > 0 else T.DANGER, 0.85 * k), half + 2.0 * k]
+
+
+## 패널 "n/7" 오른쪽 "+n"(금) · "−n"(붉게) 0.8초 — 예약 발동이면 "+2 예약"
+func _credit_label(w: TUnit, tx: float, y: float) -> void:
+	if not _cr_fx.has(w):
+		return
+	var f: Dictionary = _cr_fx[w]
+	var up := int(f.d) > 0
+	var lab := ("+%d" % int(f.d) if up else "−%d" % -int(f.d)) + (" " + String(f.tag) if String(f.tag) != "" else "")
+	# "n/7"과 같은 12px · 테두리 없이 (같은 글꼴·같은 글자 그림이라 "n/7" 글과 한 묶음 — 검토 P의 9px·테두리는 그리기 호출 +2~3)
+	T.text(self, Vector2(tx + 4.0, y), lab, 12, Color(T.GOLD if up else Color("#ff8a9a"), minf(float(f.t) / 0.25, 1.0)), HORIZONTAL_ALIGNMENT_LEFT, 0)
+
+
+## 광역 글 합치기: 같은 글이 0.25초 안에 다른 유닛(같은 편)에게 떴고 이것으로 need명째면 그 글들을 지우고 한 줄 띠에 모은다. 모았으면 true
+## bkey "band" = 적 (적 카드 바로 밑 "적 전체: …", review_K K-06 — 둘부터) · "aband" = 아군 (필드 가운데 위 (320, 96) "아군 전체: …", R6 review_P D-4 — 셋부터)
+func _band(u: TUnit, text: String, kind: String, bkey: String, need: int) -> bool:
 	var band: Dictionary = {}
 	for n: Dictionary in numbers:
-		if String(n.key) == "band" and float(n.age) < 0.4:
+		if String(n.key) == bkey and float(n.age) < 0.4:
 			band = n
 	if not band.is_empty() and (band.parts as Array).has(text):
 		return true
-	var other: Dictionary = {}
+	var others: Array = []
+	var me := "%d:txt" % u.get_instance_id()
 	for n: Dictionary in numbers:
-		if String(n.text) == text and String(n.key).ends_with(":txt") and String(n.key) != "%d:txt" % u.get_instance_id() and float(n.age) < 0.25:
-			other = n
-	if other.is_empty():
+		if String(n.get("base", n.text)) == text and String(n.key).ends_with(":txt") and String(n.key) != me and float(n.age) < 0.25 and bool(n.get("foe", false)) != u.is_witch():
+			others.append(n)
+	if others.size() + 1 < need:
 		return false
-	if not other.is_empty():
-		numbers.erase(other)
+	for n: Dictionary in others:
+		numbers.erase(n)
 	if band.is_empty():
-		var xs := 0.0
-		var cnt := 0
-		for e in battle.alive_of(battle.enemies):
-			if actors.has(e):
-				xs += to_screen((actors[e] as TActor).center()).x
-				cnt += 1
-		# 적 카드 바로 밑 줄 (피해 숫자는 그 아래 — 겹치지 않게)
-		band = {"p": Vector2(xs / float(maxi(cnt, 1)), _head_min() + 1.0), "text": "", "kind": kind, "age": 0.0, "dir": 0.0, "weak": false, "key": "band",
-			"val": 0, "hits": 1, "last": 0.0, "crit": false, "parts": []}
+		var at := Vector2(320, 96)
+		if bkey == "band":
+			var xs := 0.0
+			var cnt := 0
+			for e in battle.alive_of(battle.enemies):
+				if actors.has(e):
+					xs += to_screen((actors[e] as TActor).center()).x
+					cnt += 1
+			at = Vector2(xs / float(maxi(cnt, 1)), _head_min() + 1.0) # 적 카드 바로 밑 줄 (피해 숫자는 그 아래 — 겹치지 않게)
+		band = {"p": at, "text": "", "kind": kind, "age": 0.0, "dir": 0.0, "weak": false, "key": bkey,
+			"val": 0, "hits": 1, "last": 0.0, "crit": false, "parts": [], "foe": bkey == "band"}
 		numbers.append(band)
 	(band.parts as Array).append(text)
-	band.text = "적 전체: " + " · ".join(band.parts)
+	band.text = ("적 전체: " if bkey == "band" else "아군 전체: ") + " · ".join(band.parts)
+	band.base = band.text
 	band.age = minf(float(band.age), HOLD_AGE)
 	return true
 
@@ -1112,8 +1194,9 @@ func _build_portraits() -> void:
 		add_child(p)
 		var a := TActor.new()
 		p.add_child(a)
-		a.setup(w, Vector2(20, 54))
-		a.scale = Vector2(1.4, 1.4)
+		# 머리~가슴 흉상 (R6 review_P D-5): 1.4배 전신이라 얼굴이 6px였다 → 2.4배, 발을 칸 밖 (20, 96)에 — 얼굴(발 위 약 30)이 칸 y 24 근처, 모자 끝은 잘림
+		a.setup(w, PORTRAIT_FEET)
+		a.scale = Vector2(PORTRAIT_SC, PORTRAIT_SC)
 		a.z_index = 0
 		_portraits[w] = p
 
@@ -1160,11 +1243,28 @@ class PanelBack extends Control:
 
 
 class PortraitBox extends Control:
+	const T := preload("res://proto/turn/t_theme.gd")
 	var col := Color.WHITE
 
+	## 바탕: 먹 + 속성 색 방사(얼굴 자리 0.25 → 가장자리 0) — 단색 바탕이었다 (R6 review_P §5 ④)
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(col, 0.18))
-		draw_rect(Rect2(0, size.y - 14, size.x, 14), Color(col, 0.10))
+		# 바탕 사각 + 방사 + 아래 띠를 삼각형 묶음 하나로 (그리기 호출 1 — 예전 사각 둘과 같은 수)
+		var ink := Color(T.INK, 0.9)
+		var base := ink.lerp(col, 0.1)
+		var pts := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(0, size.y),
+			Vector2(0, size.y - 10), Vector2(size.x, size.y - 10)])
+		var cols := PackedColorArray([ink, ink, base, base, ink.lerp(col, 0.08), ink.lerp(col, 0.08)])
+		var idx := PackedInt32Array([0, 1, 5, 0, 5, 4, 4, 5, 2, 4, 2, 3])
+		var c := Vector2(size.x * 0.5, 22.0)
+		var n := 20
+		var o := pts.size()
+		pts.append(c)
+		cols.append(Color(col, 0.25))
+		for i in n:
+			pts.append(c + Vector2.from_angle(TAU * float(i) / float(n)) * Vector2(30.0, 34.0))
+			cols.append(Color(col, 0.0))
+			idx.append_array(PackedInt32Array([o, o + 1 + i, o + 1 + (i + 1) % n]))
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, pts, cols)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -1375,23 +1475,43 @@ func _after_queue() -> Dictionary:
 ## 행동 띠 (왼쪽 위 (6, 32, 300, 18)): 지금 행동 이름·안내
 ## 아군 대상 고르기 중엔 그 안내 한 줄 ("공허의 요람 → 아군 1 · 패널이나 마녀를 누르세요", review_C2 H1 ②)
 func _draw_action_strip() -> void:
-	if _ally_pick() and sel >= 0 and sel < slots.size():
-		var s: Dictionary = slots[sel]
-		var hint := "%s → %s · %s" % [String(s.name), T.TARGET_NAME.get(String(s.target), "아군 1"), "패널이나 마녀를 누르세요" if _touch_seen else "←→ 대상 · Z 확인"]
-		var hw := minf(T.width(hint, 12) + 22.0, 300.0)
-		var hr := Rect2(_act_strip().position, Vector2(hw, ACT_STRIP.size.y))
-		draw_rect(hr, Color(T.INK, 0.85))
-		draw_rect(Rect2(hr.position, Vector2(2, hr.size.y)), T.GOLD)
-		T.text(self, hr.position + Vector2(10, 14), T.clip(hint, 12, 280), 12, T.TEXT)
-		return
-	if (msg_t <= 0.0 or msg == "") and state == "wheel" and sel < 0 and actor != null:
-		# 칸을 고르기 전: 아군 패널을 그대로 두고 안내는 여기 (review_G G07)
-		var hint := "%s의 차례 — %s" % [actor.unit.name, "칸을 눌러 마법 고르기" if _touch_seen or not _keys_seen else "←→ 고르기 · Z 확인"]
-		var hw := minf(T.width(hint, 12) + 22.0, 300.0)
+	if _wheel_on() and actor != null:
+		# 바퀴가 열려 있으면 띠는 늘 "{마녀}의 차례 — …" (R6 review_P D-3: 지난 적 행동 "늪 두꺼비 — 공격"이 남아 차례와 엇갈렸다).
+		# 이 차례에 뜬 안내(크레딧 모자람·봉인·길게 누르기)는 "—" 뒤에, 바퀴가 열리기 전의 지난 행동은 띠 아래 작은 글 한 줄로 1.2초만
+		var touch := _touch_seen or not _keys_seen
+		var tail := ""
+		var tcol := T.TEXT
+		if msg_t > 0.0 and msg != "" and _msg_live:
+			tail = msg
+			tcol = msg_col if msg_col in [T.DANGER, T.GOLD] else T.TEXT
+		elif _ally_pick() and sel >= 0 and sel < slots.size():
+			tail = "%s → %s" % [String(slots[sel].name), "패널이나 마녀를 누르세요" if touch else "←→ 대상 · Z 확인"]
+		elif state == "target":
+			tail = "적을 눌러 대상 고르기" if touch else "←→ 대상 · Z 확인"
+		elif sel >= 0:
+			tail = "한 번 더 누르면 사용" if touch else "Z 사용 · X 뒤로"
+		else:
+			tail = "칸을 눌러 마법 고르기" if touch else "←→ 고르기 · Z 확인"
+		var head := "%s의 차례 — " % actor.unit.name
+		var tw := minf(T.width(tail, 12), 280.0 - T.width(head, 12))
+		var hw := minf(T.width(head, 12) + tw + 22.0, 300.0)
 		var hr := Rect2(_act_strip().position, Vector2(hw, ACT_STRIP.size.y))
 		draw_rect(hr, Color(T.INK, 0.85))
 		draw_rect(Rect2(hr.position, Vector2(2, hr.size.y)), TData.ELEMENT_COLOR.get(actor.unit.element, T.GOLD))
-		T.text(self, hr.position + Vector2(10, 14), T.clip(hint, 12, 280), 12, T.TEXT)
+		if tcol == T.TEXT:
+			T.text(self, hr.position + Vector2(10, 14), head + T.clip(tail, 12, tw), 12, T.TEXT) # 한 번에 (그리기 호출 — 글 둘이면 테·글이 번갈아 묶음이 갈림)
+		else:
+			T.text(self, hr.position + Vector2(10, 14), head, 12, T.TEXT)
+			T.text(self, hr.position + Vector2(10 + T.width(head, 12), 14), T.clip(tail, 12, tw), 12, tcol)
+		if msg_t > 0.0 and msg != "" and not _msg_live:
+			var past := T.clip(msg, 8, 280)
+			var pr := Rect2(hr.position + Vector2(6, ACT_STRIP.size.y + 2), Vector2(T.width(past, 8) + 4.0, float(T.eff(8)) + 2.0))
+			var hit := false
+			for i in slots.size(): # 뒤 마녀의 위쪽 칸을 덮으면 그리지 않음 (지난 행동은 그 행동 동안 이미 띠에 1.6초 떴다)
+				if not bool(slots[i].empty) and pr.intersects(slot_rect(i)):
+					hit = true
+			if not hit:
+				T.text(self, pr.position + Vector2(2, float(T.eff(8))), past, 8, Color(T.TEXT_SUB, 0.7 * minf(msg_t / 0.3, 1.0)))
 		return
 	if msg_t <= 0.0 or msg == "":
 		return
@@ -1854,11 +1974,10 @@ func _draw_panels() -> void:
 		# 크레딧 7칸: 마름모 8px · 간격 11 · "n/7" 12px (R3, review_N N-07 — 지름 7px라 체력 숫자보다 안 보였다. FGO §21.3 NP 줄 = HP와 같은 위계)
 		var full := w.credits >= TData.CREDIT_MAX
 		var pulse := 0.8 + 0.2 * sin(_t * 5.0) if full else 1.0
-		T.credit_row(self, Vector2(X + 54, Y + 36), w.credits, 11.0, 4.0, pulse)
-		if full:
-			T.text(self, Vector2(X + 135, Y + 41), "대마법", 12, Color(T.GOLD, pulse))
-		else:
-			T.text(self, Vector2(X + 135, Y + 41), "%d/%d" % [w.credits, TData.CREDIT_MAX], 12, T.TEXT)
+		T.credit_row(self, Vector2(X + 54, Y + 36), w.credits, 11.0, 4.0, pulse, _credit_flash(w, 4.0)) # 번쩍은 같은 묶음에 (그리기 호출 그대로)
+		var clab := "대마법" if full else "%d/%d" % [w.credits, TData.CREDIT_MAX]
+		T.text(self, Vector2(X + 135, Y + 41), clab, 12, Color(T.GOLD, pulse) if full else T.TEXT)
+		_credit_label(w, X + 135 + T.width(clab, 12), Y + 41)
 		# 버프 아이콘 (최대 6 + "+n") — 장비 도발·장비 근성도 아이콘으로
 		var icons: Array = vicons(w).duplicate()
 		if bool(w.equip_data().get("taunt", false)) and not w.has_buff("taunt"):
@@ -1929,7 +2048,17 @@ func _draw_wheel() -> void:
 			pd.glow(p, r + 10.0, Color(ecol, 0.35), 0.0)
 		# 원판: 먹 바탕 + 속성 색 방사(가운데 0.55 → 끝 0.22) + 왼쪽 위 윤기 + 안쪽 그림자
 		pd.draw_circle(p, r, T.INK)
-		pd.glow(p, r, Color(disc, 0.55 if can or full else 0.35), 0.4)
+		pd.glow(p, r, Color(disc, 0.7 if can or full else 0.35), 0.4) # 쓸 수 있는 칸 0.55 → 0.7 (R6 review_P D-1: 속성 색이 살게)
+		if ult and not full and u.credits > 0:
+			# 모으는 대마법 칸: 크레딧 비율만큼 아래에서 위로 속성 색이 차오름 (R6 review_P §5 ③ — 어두운 원 + 흐린 해였다)
+			var lv := clampf(float(u.credits) / float(TData.ULT_COST), 0.0, 1.0)
+			var h0 := r - 2.0 * r * lv # 차오른 물높이 (중심 기준 y)
+			var a_l := asin(clampf(h0 / r, -1.0, 1.0))
+			var seg := PackedVector2Array()
+			for k in 13:
+				var aa := lerpf(a_l, PI - a_l, float(k) / 12.0)
+				seg.append(p + Vector2(cos(aa), sin(aa)) * (r - 0.5))
+			pd.convex(seg, Color(ecol, 0.3))
 		pd.glow(p + Vector2(-r * 0.28, -r * 0.32), r * 0.5, Color(1, 1, 1, 0.10 if can or full else 0.04), 0.0)
 		pd.ring_grad(p, Vector2(r * 0.66, r * 0.66), Vector2(r, r), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.5), 24)
 		# 금속 테
@@ -1951,13 +2080,14 @@ func _draw_wheel() -> void:
 			pd.draw_arc(p, r + 1.0, 0.0, TAU, 32, T.TEXT, 2.0)
 		# 아이콘 (그림자 1px + 흰빛)
 		var ic := String(s.icon)
-		var icol := ecol.lightened(0.65) if can or full else Color(T.TEXT_OFF, 0.5)
+		# 못 쓰는 칸도 무슨 마법인지 보이게: 속성 기운이 남은 회색 알파 0.85 (R6 review_P D-1 — TEXT_OFF 0.5라 회색 원판 위에서 사라졌다)
+		var icol := ecol.lightened(0.65) if can or full else Color(ecol.lightened(0.45).lerp(Color("#9a94a8"), 0.55), 0.85)
 		if ult and full:
 			icol = Color("#fff2c0")
 		elif ult:
-			icol = Color(T.GOLD, 0.5)
-		TIcon.draw(pd, p + Vector2(0.8, 1.0), ic, Color(T.INK, 0.8), r * 0.5)
-		TIcon.draw(pd, p, ic, icol, r * 0.5)
+			icol = Color(T.GOLD, 0.75)
+		TIcon.draw(pd, p + Vector2(0.8, 1.0), ic, Color(T.INK, 0.8), r * ICON_K)
+		TIcon.draw(pd, p, ic, icol, r * ICON_K)
 		# 비용 보석 (오른쪽 아래)
 		var bc := p + Vector2(r * 0.74, r * 0.74)
 		if ult:
@@ -1969,6 +2099,13 @@ func _draw_wheel() -> void:
 		else:
 			var cut := int(s.cost) < int(s.get("base_cost", s.cost)) # 비용 감소 중 (R5): 보석 GAUGE + 줄어든 숫자
 			_gem(pd, bc, 6.5, (T.GAUGE if cut else T.GOLD) if can else Color("#5a5468"), labels, str(int(s.cost)), T.INK if can else Color("#ff9aa8"))
+			var short := int(s.cost) - u.credits
+			if not can and short > 0 and not bool(s.get("sealed", false)):
+				# 모자란 크레딧 (R6 review_P D-1 — 얼마 더 모아야 하나): 먹 알약 위 붉은 "−n" (알약은 칸 묶음에 — 글 테두리를 따로 그리면 그리기 호출이 늘었다)
+				var sp := p + Vector2(-r * 0.42, r * 0.55 + 4.0)
+				var sw := T.width_px("−%d" % short, 8) * 0.5 + 2.0
+				pd.draw_rect(Rect2(sp.x - sw, sp.y - 7.0, sw * 2.0, 8.0), Color(T.INK, 0.85))
+				labels.append([sp, "−%d" % short, T.DANGER])
 		if bool(s.get("sealed", false)):
 			pd.draw_circle(p, r - 1.0, Color(T.INK, 0.6)) # 봉인 (review_H §2.2): 어둡게 + 자물쇠
 			pd.draw_circle(p, 7.0, Color(T.INK, 0.95))
@@ -2214,7 +2351,7 @@ func _draw_numbers() -> void:
 		var s := 1.0 + 0.25 * pop
 		draw_set_transform(q, 0.0, Vector2(s, s))
 		var c := Color(col.lerp(Color.WHITE, pop * 0.6), a)
-		if String(n.key) == "band": # 적 전체 띠: 먹 바탕
+		if String(n.key) in ["band", "aband"]: # 적 전체·아군 전체 띠: 먹 바탕
 			var bw := T.width(String(n.text), fs) + 10.0
 			draw_rect(Rect2(-bw * 0.5, -float(fs) - 1.0, bw, float(fs) + 4.0), Color(T.INK, 0.8 * a))
 		if kind == "big" and age < 0.2:

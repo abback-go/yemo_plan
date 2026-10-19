@@ -1062,8 +1062,10 @@ func _paint_volt() -> void:
 
 # ── 잿빛 시종: 회색 웅크린 작은 기사(대검 없음) + 가슴 불씨 — 차지가 찰수록 불씨가 커지고 가득이면 몸이 붉게 깜빡(자폭 예고)
 func _paint_servant() -> void:
-	var plate := Color("#8a8090")
-	var plate_dk := Color("#5a5262")
+	# 판 색을 회랑 바닥보다 어둡게 (R6 review_P §5 ② — 밝은 회색 한 덩어리라 배경에 "붙여 넣은" 느낌이었다). 검토 P 안 #6e6678 · #423c4c는
+	# 공통 명암 셰이더(lift)를 지나면 그대로 밝아 한 단계 더 내림
+	var plate := Color("#5a5466")
+	var plate_dk := Color("#36303e")
 	var hot := charge_k >= 0.99
 	var blink := 0.5 + 0.5 * sin(_t * 12.0)
 	if hot:
@@ -1079,8 +1081,11 @@ func _paint_servant() -> void:
 	for i in 4: # 꼬리 끝 재 조각
 		var f := fmod(_t * 0.6 + float(i) * 0.25, 1.0)
 		pd.draw_rect(Rect2(Vector2(24.0 + f * 10.0, -26.0 - f * 8.0 + float(i) * 2.0), Vector2(1.2, 1.2)), Color("#9a8a9a", 0.7 * (1.0 - f)))
-	for x: float in [-4.0, 4.0]:
-		pd.outlined(PackedVector2Array([Vector2(x - 3, -14), Vector2(x + 3, -14), Vector2(x + 3.4, -1), Vector2(x - 3.4, -1)]), plate_dk, OUT, 0.8)
+	for x: float in [-4.0, 4.0]: # 다리: 가는 사다리꼴 (R6 — 사각 기둥이었다)
+		pd.outlined(PackedVector2Array([Vector2(x - 2.6, -14), Vector2(x + 2.6, -14), Vector2(x + 1.6, -1), Vector2(x - 1.6, -1)]), plate_dk, OUT, 0.8)
+	for i in 3: # 발밑 재 날림 3점
+		var f := fmod(_t * 0.5 + float(i) / 3.0, 1.0)
+		pd.draw_circle(Vector2(-7.0 + 7.0 * float(i) + f * 3.0, -1.0 - f * 4.0), 1.1 * (1.0 - f) + 0.3, Color("#9a8a9a", 0.6 * (1.0 - f)))
 	# 웅크린 몸 (앞으로 기울어진 둥근 등)
 	var body := PackedVector2Array([Vector2(-11, -24), Vector2(-6, -36), Vector2(4, -38), Vector2(11, -30), Vector2(10, -14), Vector2(-9, -13)])
 	pd.outlined(body, plate, OUT, 0.9)
@@ -1089,6 +1094,7 @@ func _paint_servant() -> void:
 	for sp: Array in [[Vector2(-5, -35), Vector2(-9, -42), Vector2(-1, -37)], [Vector2(3, -37), Vector2(4, -45), Vector2(8, -35)]]:
 		pd.outlined(PackedVector2Array(sp), plate_dk, OUT, 0.7)
 	pd.draw_polyline(PackedVector2Array([Vector2(-6, -36.6), Vector2(4, -38.6), Vector2(11.6, -30), Vector2(10.6, -15)]), Color("#ffb08a", 0.55), 0.8)
+	pd.draw_polyline(PackedVector2Array([Vector2(-5.5, -37.4), Vector2(4, -39.4), Vector2(9.5, -34)]), Color("#d8c8b8", 0.5), 1.0) # 등 위 재 테 빛 (R6)
 	for k in 3: # 등의 갈라진 틈 (속불)
 		var c0 := Vector2(2.0 + float(k) * 2.5, -33.0 + float(k) * 5.0)
 		pd.draw_line(c0, c0 + Vector2(2.2, 2.6), Color(EMBER, 0.55 + 0.25 * sin(_t * 3.0 + float(k))), 0.9)
@@ -1101,6 +1107,7 @@ func _paint_servant() -> void:
 	# 머리 (작은 투구, 몸 앞쪽 아래로)
 	var h := Vector2(-9, -36)
 	pd.outlined(PackedVector2Array([h + Vector2(-5, -4), h + Vector2(4, -6), h + Vector2(6, 2), h + Vector2(-4, 5)]), plate_dk, OUT, 0.8)
+	pd.glow(h + Vector2(-2.5, -0.8), 3.0, Color(EMBER, 0.55), 0.0) # 눈 불빛 번짐 (R6)
 	pd.draw_line(h + Vector2(-5, -0.5), h + Vector2(0, -1), Color(EMBER, 0.9), 1.2)
 	# 팔 (늘어뜨림)
 	pd.draw_line(Vector2(-6, -30), Vector2(-13, -16), plate_dk, 2.6)
@@ -1113,11 +1120,20 @@ func _paint_lantern() -> void:
 	var robe_dk := Color("#3a2e2c")
 	var lamp := Color("#ffcf7a")
 	var atk := 1.0 if pose == "attack" else 0.0
-	pd.outlined(PackedVector2Array([Vector2(-7, -46), Vector2(7, -46), Vector2(12, -1), Vector2(-12, -1)]), robe, OUT, 1.0)
-	pd.draw_colored_polygon(PackedVector2Array([Vector2(2, -46), Vector2(7, -46), Vector2(12, -1), Vector2(5, -1)]), robe_dk)
-	for k in 4: # 해진 옷자락 끝
-		var x := -11.0 + 6.0 * float(k)
-		pd.draw_colored_polygon(PackedVector2Array([Vector2(x, -1), Vector2(x + 3, 2.0 + sin(_t * 2.0 + float(k))), Vector2(x + 6, -1)]), robe_dk)
+	# 두건 아래 어깨 + 넓어지는 옷 + 옷자락 3갈래 (R6 review_P §5 ② — 원뿔 하나였다)
+	var sw := [sin(_t * 2.0) * 0.8, sin(_t * 2.0 + 1.3) * 0.8, sin(_t * 2.0 + 2.6) * 0.8]
+	var body := PackedVector2Array([Vector2(-5, -46), Vector2(5, -46), Vector2(11.5, -41), Vector2(12, -36), Vector2(9.5, -25), Vector2(11.5, -1),
+		Vector2(8.0 + sw[2], 3.0), Vector2(4.0, -1.5), Vector2(0.0 + sw[1], 3.0), Vector2(-4.0, -1.5), Vector2(-8.0 + sw[0], 3.0), Vector2(-11.5, -1),
+		Vector2(-9.5, -25), Vector2(-12, -36), Vector2(-11.5, -41)])
+	pd.outlined(body, robe, OUT, 1.0)
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(3, -46), Vector2(5, -46), Vector2(11.5, -41), Vector2(12, -36), Vector2(9.5, -25), Vector2(11.5, -1), Vector2(8.0 + sw[2], 3.0), Vector2(5.0, -1)]), robe_dk)
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(-1.4, -40), Vector2(1.4, -40), Vector2(2.0, -2), Vector2(-2.0, -2)]), Color(0, 0, 0, 0.35)) # 앞자락 가운데 세로 그늘
+	pd.outlined(PackedVector2Array([Vector2(8, -41), Vector2(12.5, -38), Vector2(13, -27), Vector2(9, -27)]), robe_dk, OUT, 0.7) # 늘어뜨린 오른 소매
+	pd.outlined(PackedVector2Array([Vector2(-7, -47), Vector2(7, -47), Vector2(12.5, -40.5), Vector2(9, -35.5), Vector2(0, -34), Vector2(-9, -35.5), Vector2(-12.5, -40.5)]), robe.lightened(0.08), OUT, 0.8) # 어깨 망토
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(3, -47), Vector2(7, -47), Vector2(12.5, -40.5), Vector2(9, -35.5), Vector2(4, -34.8)]), Color(robe_dk, 0.8))
+	pd.draw_line(Vector2(-9.5, -25.5), Vector2(9.5, -25.5), Color("#2a2018"), 1.2) # 허리 끈
+	pd.draw_line(Vector2(-1.0, -25.5), Vector2(-2.0, -18), Color("#2a2018"), 0.8)
+	pd.draw_polyline(PackedVector2Array([Vector2(-5, -46.5), Vector2(-12, -41), Vector2(-12.6, -36), Vector2(-10.1, -25), Vector2(-12.1, -1.5)]), Color(lamp, 0.45), 1.0) # 등불 빛이 비추는 왼쪽 테 빛
 	# 두건 (깊은 그늘 + 눈 빛 하나)
 	var h := Vector2(-1, -52)
 	pd.outlined(PackedVector2Array([h + Vector2(-7, 7), h + Vector2(-6, -3), h + Vector2(1, -11), h + Vector2(7, -3), h + Vector2(8, 7)]), robe_dk, OUT, 0.9)

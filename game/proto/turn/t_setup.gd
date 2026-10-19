@@ -932,11 +932,11 @@ func _draw_card(i: int, wid: String, on: bool) -> void:
 		draw_colored_polygon(PackedVector2Array([c + Vector2(dx, 0), c + Vector2(-dx, -5), c + Vector2(-dx, 5)]), T.TEXT)
 	var nr := _equip_name_rect(i)
 	T.panel(self, nr, Color(T.GOLD, 0.16) if has_eq else Color(T.INK, 0.6), Color(T.GOLD, 0.6) if has_eq else Color(T.TEXT_OFF, 0.5), 1, 2)
-	T.text(self, Vector2(nr.get_center().x, nr.position.y + 10), "장비", 8, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER, 0)
+	T.text(self, Vector2(nr.get_center().x, nr.position.y + (12.0 if T.big else 10.0)), "장비", 8, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER, 0) # 큰 글자(10px)면 2px 내려 칸 윗변에 걸리지 않게 (R6 review_P K-04)
 	var en := String(TData.EQUIPS[state[wid].equip].name) + (" Ⅱ" if lv == 2 else (" Ⅲ" if lv == 3 else "")) if has_eq else "없음"
 	var ecl := T.GOLD if has_eq else T.TEXT_SUB
 	if T.width(en, 10) <= nr.size.x - 2.0:
-		T.text(self, Vector2(nr.get_center().x, nr.position.y + 25), en, 10, ecl, HORIZONTAL_ALIGNMENT_CENTER)
+		T.text(self, Vector2(nr.get_center().x, nr.position.y + (27.0 if T.big else 25.0)), en, 10, ecl, HORIZONTAL_ALIGNMENT_CENTER)
 	else: # 이름이 길면 작은 글자 두 줄 (모래시계 / 펜던트)
 		var el := T.split_lines(en, nr.size.x - 2.0, 8)
 		for k in mini(el.size(), 2):
@@ -1137,7 +1137,7 @@ func _draw_desc(sid: String, lv: int) -> void:
 	var fit := String(TData.skill(sid).get("fit", ""))
 	if fit != "": # 그 조건·파티에서만 사는 칸 (R2 — 같은 속성 파티 측정에선 0인 마법, combat_proto.md §27.11)
 		y += 3
-		y += T.wrap(self, Vector2(x, y), "어울림: " + fit, DESC_W, 10, T.HEAL, 13.0 if not T.big else 15.0, 2)
+		y += T.wrap(self, Vector2(x, y), "어울림: " + fit, DESC_W, 10, T.HEAL, 13.0 if not T.big else 15.0, 3 if T.big else 2) # 큰 글자면 세 줄 (R6 — R5 되돌려 베기 어울림이 "…다음"으로 잘렸다)
 	y += 4
 	var gl := TData.gloss_for(String(TData.skill(sid).desc) + " " + String(s.get("name", "")), TSave.terms_seen)
 	if gl != "" and y < 276:
@@ -1557,18 +1557,32 @@ func _draw_equip_list(ci: CanvasItem) -> void:
 		var r := _eq_cell(i)
 		var taken := TData.equip_taken(state, eid, wid)
 		var on := eid == _eq_pick
-		T.panel(ci, r, Color(T.PANEL_HI, 1.0) if on else Color(T.INK, 0.75), T.TEXT if on else (T.GOLD if eid == cur else Color(T.LINE, 0.35)), 2 if on or eid == cur else 1, 3)
-		var nm := String(TData.EQUIPS[eid].name) if eid != "" else "없음"
+		# 칸 (R6 review_P §5 ①): 왼쪽 장비 아이콘 20px · 이름 10 · 효과 한 줄 10 (Lv1 short — 검토 P의 8px는 한글이 뭉개져 10). 대가가 붙은 장비(받는 피해 + · 공격력 −)는 테 붉은 1px ·
+		# 장착 중 = 금테 2px + 오른쪽 위 "장착" · 다른 파티원이 낀 것 = 흐림 + 효과 줄 자리에 "누가 끼고 있음"
+		var eq: Dictionary = TData.EQUIPS[eid]
+		var cost := float(eq.get("dmg_taken", 0.0)) > 0.0 or float(eq.get("atk", 0.0)) < 0.0
+		var edge := T.TEXT if on else (T.GOLD if eid == cur else (Color(T.DANGER, 0.7) if cost else Color(T.LINE, 0.35)))
+		T.panel(ci, r, Color(T.PANEL_HI, 1.0) if on else Color(T.INK, 0.75), edge, 2 if on or eid == cur else 1, 3)
+		var ic := r.position + Vector2(15, 20)
+		ci.draw_circle(ic, 12.0, Color(T.INK, 0.9) if not taken else Color(T.INK, 0.6))
+		TIcon.equip(ci, ic, eid, 9.5)
+		if taken:
+			ci.draw_circle(ic, 12.0, Color(T.INK, 0.55)) # 다른 파티원 것: 아이콘 흐림
+		var nm := String(eq.name) if eid != "" else "없음"
 		var col := T.TEXT_OFF if taken else (T.GOLD if eid == cur else T.TEXT)
-		var ls := T.split_lines(nm, r.size.x - 10, 10)
-		for k in mini(ls.size(), 2):
-			T.text(ci, Vector2(r.position.x + 6, r.position.y + (16 if ls.size() > 1 else 24) + 12 * k), String(ls[k]), 10, col)
+		var nx := r.position.x + 30.0
+		var nw := r.end.x - 4.0 - nx - (T.width("장착", 10) + 4.0 if eid == cur and not taken else 0.0)
+		T.text(ci, Vector2(nx, r.position.y + 17), T.clip(nm, 10, nw), 10, col)
+		var line := String(eq.get("short", ""))
+		var lcol := T.TEXT_SUB
 		if taken:
 			for w2 in party():
 				if String(w2) != wid and String(state[String(w2)].equip) == eid and eid != "":
-					T.text(ci, Vector2(r.end.x - 4, r.end.y - 4), String(TData.WITCHES[String(w2)].name), 10, T.TEXT_OFF, HORIZONTAL_ALIGNMENT_RIGHT)
+					line = "%s 착용 중" % String(TData.WITCHES[String(w2)].name)
+			lcol = T.TEXT_OFF
 		elif eid == cur:
-			T.text(ci, Vector2(r.end.x - 4, r.end.y - 4), "장착", 10, T.GOLD, HORIZONTAL_ALIGNMENT_RIGHT) # 8px "낀 것"은 "찐 것"처럼 찍혔다 (review_I I-09)
+			T.text(ci, Vector2(r.end.x - 4, r.position.y + 17), "장착", 10, T.GOLD, HORIZONTAL_ALIGNMENT_RIGHT) # 8px "낀 것"은 "찐 것"처럼 찍혔다 (review_I I-09)
+		T.text(ci, Vector2(nx, r.position.y + 32), T.clip(line, 10, r.end.x - 4.0 - nx), 10, lcol) # 10px — 8px 한글은 "받는 버므"처럼 찍혔다
 	var e: Dictionary = TData.equip_at(_eq_pick, int(state[wid].get("equip_lv", 1)) if _eq_pick == cur else 1) if _eq_pick != "" else {}
 	var dy := EQ_LIST.position.y + 34 + 44 * 4 + 14.0
 	if _eq_pick == "":

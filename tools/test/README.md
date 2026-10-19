@@ -21,7 +21,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 ```
 
 시나리오 JSON: `{"scene": "res://world/world.tscn", "room": 방ID, "spawn": 등장 위치, "flags": [미리 세울 플래그], "steps": [[프레임, 명령, 인자...], ...]}`
-턴제 저장 `"turn_save"`: `off`(기본 — 턴제 저장을 읽지도 쓰지도 않고 첫 실행 안내도 없음) · `fresh`(시험 폴더 `user://test_turn/`을 비우고 시작 = 첫 실행) · `keep`(그 폴더 그대로).
+턴제 저장 `"turn_save"`: `off`(기본 — 턴제 저장을 읽지도 쓰지도 않고 첫 실행 안내도 타이틀(R6)도 없음 — 곧장 편성) · `fresh`(시험 폴더 `user://test_turn/`을 비우고 시작 = 첫 실행 — 타이틀부터, 누르면 안내 전투) · `keep`(그 폴더 그대로).
 
 | 명령 | 뜻 |
 |---|---|
@@ -79,12 +79,12 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `turn_ui_wheel.json` | 턴제 화면(단계 C): 뒤·중·앞 마녀 바퀴(w0_back·w5·w6·w7_front) · 칸 고름 · 대상 고르기 · **적·마녀 상세(0.4초 누름)** · 대마법 칸 · 피해 숫자(n0~n3) · 철수 확인 판(x0) · 승리 → 편성(x1·x2) |
 | `turn_ui_boss.json` | 보스 전투: 웨이브 1(같은 적 A/B·번호 배지) · 웨이브 배너 · 웨이브 2(앞·뒤 자리) · 재의 왕 보스 카드(차지 가득·줄 2/3·징표 겹) · 기절 별·도발 아이콘 · 보스 상세 · 패배 배너 → 편성으로 (k00~k10) |
 | `turn_ui_trial.json` | 전투 고르기에서 시련 → 시련의 거상 필살기 무적 관통 표시 · 상세 (t00~t04) |
-| `turn_ui_setup.json` | 전투 고르기 카드 3장 · 편성의 고른 전투 줄 · 마법 장착 탭 3 · 장착 최대 안내 · 장비 설명 (s00~s10) |
-| `turn_firstplay.json` | 단계 F-1: 저장 없는 첫 실행(`"turn_save": "fresh"`)에서 **터치만으로** 안내 A1~A3 → 안내 전투 B1~B7 → C1~C3 → 일반 전투 시작. 봇 `turn_touch_bot.gd`(안내 판 누름·강조 칸 누름·바퀴는 `TAuto.pick` 칸 → 다시 → 대상). 판마다 스크린샷 `g_<id>`, 끝 "FIRSTPLAY done …" |
+| `turn_ui_setup.json` | 전투 고르기 카드 3장 · 편성의 고른 전투 줄 · 마법 장착 탭 3 · 장착 최대 안내 · 장비 목록(아이콘 · 효과 줄)·설명 (s00~s10). 누름은 설계 좌표 `dtouch`라 `--resolution 800x360`에서도 같은 화면 (R6) |
+| `turn_firstplay.json` | 단계 F-1: 저장 없는 첫 실행(`"turn_save": "fresh"`)에서 **터치만으로** 타이틀(R6 `f00_title`) → 곧장 안내 전투 B1~B7 → 편성 A1 → C1~C3 → 일반 전투 시작. 봇 `turn_touch_bot.gd`(안내 판 누름·강조 칸 누름·바퀴는 `TAuto.pick` 칸 → 다시 → 대상). 판마다 스크린샷 `g_<id>`, 끝 "FIRSTPLAY done …" |
 | `turn_enemies.json` | 단계 F-2: 새 일반 전투 다섯 첫 화면 + 적마다 상세(길게 누름) · 세 빛의 인형 줄 1~3 · 둥지어미 줄 1~2 · 새 의도 알약 9 · 방어 태세·막아서기·봉인·약화 표시 · 봉인 바퀴 · 막아서기 대상 · 의도 연출 `ev_*`(시험 훅 `TStage.demo_enemy`·`demo_basic`·`demo_down`) |
 | `turn_big.json` | 단계 F-3: 큰 글자를 켠 채(첫 프레임 `guide._settings_press`) 바퀴·설명 띠·적/마녀 상세·도움말(33칸)·전투 중 설정·패배 배너·S-02 탭·설명 상자 (review_I I-10) |
 | `turn_backdrops.json` | 단계 F-3: 전투·웨이브 배경 테마 10(들판·불길·호수·뇌운·회랑·서고·시련·인형·둥지·재의 왕) + 웨이브가 바뀌는 순간 덮개 (`combat_proto.md` §22.7) |
-| `turn_save.json` | 단계 F-1: 안내 끄기 → 편성 바꿈·장비 목록·명단 상세 → 출격 → 창 가려짐(멈춤) → 다시 켬(`test_relaunch`) → 끊긴 전투 판 → 이어 하기 → 다시 켬 → 버리기 → 설정·도움말. `test_files()`로 파일·편성 출력 |
+| `turn_save.json` | 단계 F-1: 타이틀(R6) → 첫 실행 안내 전투에서 안내 끄기 → 철수 → 편성 바꿈·장비 목록·명단 상세 → 출격 → 창 가려짐(멈춤) → 다시 켬(`test_relaunch`) → 끊긴 전투 판 → 이어 하기 → 다시 켬 → 버리기 → 설정·도움말. `test_files()`로 파일·편성 출력 |
 | `turn_auto.json` · `turn_auto2.json` · `turn_boss.json` · `turn_trial.json` · `turn_fx.json` | 자동 전투(일반·보스·시련)와 마법 연출 35종. 편성 → 전투 고르기 → 출격은 "전투 시작" 자리를 두 번 누른다 |
 | `turn_ult.json` | 대마법 12개 연출 — 마녀마다 컷인(a)·문장 고리(b)·효과(c)·맞음(d) 4장 + 연쇄 3단계 2개 + `perf()`(그리기 호출·입자·연출 노드)와 기존 큰 마법 4개 비교 (단계 D) |
 | `turn_events.json` | 웨이브 전환(걸어 들어옴·보스 착지) · 재의 왕 줄 1~3 모습 · 크리 · 브레이크 · 기절 · 해제 · 근성 · 도발 · 저항/면역 · 관통 필살기 · 시련의 거상 줄 1~3 (단계 D, `demo_wave`·`demo_event`) |
@@ -121,8 +121,8 @@ node ../tools/test/web_turn.mjs /tmp/out "" 915x356@2.625                   # �
 node ../tools/test/web_turn.mjs /tmp/out "" 412x915@2.625                   # 세로로 시작 (R3) — 세로 안내 판만 보고 끝
 ```
 주소 기본 `index.html?turn&probe` — `probe`가 있으면 게임이 `window.eskaProbe()`를 열어 화면 상태와 누를 자리(설계 좌표)를 `window.eskaState`(JSON)로 알려 준다(`TStage._on_probe`). 시험은 그것을 CSS 좌표로 바꿔 누른다.
-흐름: 첫 실행 판 → 안내 끄기(**이 첫 탭을 뗄 때 전체 화면 요청** — R3 review_N N-02) → 전투 고르기 → 출격 → 마녀 차례마다 기본 공격 칸 두 번 + **적 카드를 80~150 ms 탭**(먹혔는지 셈) → 적 카드 길게 누름(상세) → X → 철수 확인 → 취소 → **세로로 돌림(창 크기를 W↔H) → 가로로 되돌림 → 멈춤 판 탭** → 창 가려짐 → `localStorage` 저장 → 새로고침 → 끊긴 전투 판.
-통과: `SCREEN … used 100.0%` · `FS web true` · `FS after-first-tap tried true` · `TAPS ok n/n` · `CONFIRM open true` · `ROTATE portrait true pause true … → back false mode 'pause'` · `SAVED localStorage bytes` > 0 · `RESUME panel resume` · `CONSOLE errors 0`.
+흐름: 타이틀(R6) → 첫 탭(**이 탭을 뗄 때 전체 화면 요청** — R3 review_N N-02 · 첫 실행이라 곧장 안내 전투) → 안내 끄기 → X → 철수 → 전투 고르기 → 출격 → 마녀 차례마다 기본 공격 칸 두 번 + **적 카드를 80~150 ms 탭**(먹혔는지 셈) → 적 카드 길게 누름(상세) → X → 철수 확인 → 취소 → **세로로 돌림(창 크기를 W↔H) → 가로로 되돌림 → 멈춤 판 탭** → 창 가려짐 → `localStorage` 저장 → 새로고침 → 끊긴 전투 판.
+통과: `SCREEN … used 100.0%` · `FS web true` · `TITLE mode 'title' → '' in_battle true phase 'B1'` · `FS after-first-tap tried true` · `INTRO off → setup true` · `TAPS ok n/n` · `CONFIRM open true` · `ROTATE portrait true pause true … → back false mode 'pause'` · `SAVED localStorage bytes` > 0 · `RESUME panel resume` · `CONSOLE errors 0`.
 - 헤드리스 Chromium은 요청을 받아 주어 `doc-fullscreen true`가 된다(폰 실기와 다를 수 있음). 전체 화면이 아니고 오른쪽에 640 바깥 자리가 40px 이상이면 다시 들어가는 버튼(`fs_btn`)을 눌러 본다(`FS button tap`).
 - 세로로 시작(`412x915`): `PORTRAIT start true after-tap true setup_step 1→1`(세로 안내 판이 누름을 먹음) · 스크린샷 `p1_portrait`.
 

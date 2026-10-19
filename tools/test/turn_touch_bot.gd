@@ -46,6 +46,9 @@ func _process(delta: float) -> void:
 		return
 	_cool = THINK
 	# 1) 모달
+	if g.mode == "title": # 타이틀 (R6) — 첫 실행이면 곧장 안내 전투
+		_tap(Vector2(320, 220))
+		return
 	if g.mode == "resume":
 		_tap(TGuide.RESUME_YES.get_center())
 		return

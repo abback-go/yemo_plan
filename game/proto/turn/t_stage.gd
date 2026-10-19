@@ -40,6 +40,7 @@ var _page_cb: JavaScriptObject ## 웹: 문서 visibilitychange·pagehide를 받�
 var _froze := false ## 판 때문에 시간을 멈췄나
 var _scale_was := [] ## 들어오기 전 창 배율 [aspect, stretch] — 나갈 때 되돌림 (세라·실시간판은 정수 배율 그대로)
 var _probe_cb: JavaScriptObject ## 웹 시험(주소에 probe): window.eskaProbe() → window.eskaState (tools/test/web_turn.mjs)
+var _title_actors: Array = [] ## 타이틀에 서 있는 파티 셋 (R6)
 var _setup_theme := "" ## 편성 화면 뒤 배경 테마 (넓은 화면 양옆 띠에 비침 — 고른 전투의 첫 웨이브, R3 review_N N-05)
 
 
@@ -112,6 +113,7 @@ func _ready() -> void:
 	guide.stage = self
 	_guide_layer.add_child(guide)
 	guide.resume_chosen.connect(_on_resume_chosen)
+	guide.title_done.connect(_on_title_done)
 	setup.guide = guide
 	hud.help_tapped.connect(guide.open_help)
 	hud.visible = false
@@ -139,10 +141,50 @@ func _ready() -> void:
 			if (bd.waves as Array).size() > 1:
 				info += " · 웨이브 %d/%d" % [int(d.wave_i) + 1, (bd.waves as Array).size()]
 			guide.ask_resume(info + " · 차례 %d" % int(d.turn_no))
-	if guide.mode == "" and not TSave.tips_off and not TSave.intro_done:
-		if TSave.first_run():
-			TSave.hold = true # 안내를 끝내거나 끌 때 처음 저장 (review_G §5.2)
+	var first := guide.mode == "" and not TSave.tips_off and not TSave.intro_done
+	if first and TSave.first_run():
+		TSave.hold = true # 안내를 끝내거나 끌 때 처음 저장 (review_G §5.2)
+	if guide.mode == "" and TSave.enabled:
+		_show_title() # 타이틀 한 장 (R6 review_P D-2) — 이어 하기 판이 있으면 그 판이 먼저 (타이틀 없음)
+	elif first:
 		guide.begin()
+
+
+## 타이틀 (R6 review_P D-2 [제안]): 고른 전투의 배경 + 파티 셋이 서 있고 가운데 "에스카". 누르면(이 탭을 뗄 때 폰 웹 전체 화면 요청 — TGuide._fs_input)
+## 첫 실행(안내를 끝내지도 끄지도 않음)이면 곧장 안내 전투, 아니면 편성. 시험 저장 "off"(TSave.enabled 거짓)면 타이틀 없이 편성 (옛 시나리오 그대로)
+func _show_title() -> void:
+	TSetup.ensure_state()
+	setup.visible = false
+	guide.open_title()
+	_bg.set_theme(battle_theme(TSetup.battle_pick, 0), true)
+	_setup_theme = ""
+	var pools: Array = []
+	var ids := TSetup.party()
+	for i in mini(ids.size(), WITCH_AT.size()):
+		var u := TUnit.make_witch(String(ids[i]), TSetup.state[String(ids[i])], i)
+		var a := TActor.new()
+		units_node.add_child(a)
+		a.setup(u, WITCH_AT[i])
+		a.z_index = 1 + int((WITCH_AT[i].y - 218.0) / 25.0)
+		_title_actors.append(a)
+		pools.append([WITCH_AT[i], TData.ELEMENT_COLOR.get(u.element, Color("#b9a2ff"))])
+	_bg.set_pools(pools)
+
+
+func _on_title_done() -> void:
+	for a: TActor in _title_actors:
+		a.queue_free()
+	_title_actors.clear()
+	_bg.set_pools([])
+	if not TSave.tips_off and not TSave.intro_done:
+		# 첫 실행: 편성·전투 고르기를 건너뛰고 안내 전투부터 (편성 안내 A1은 이긴 뒤 C1 앞에서)
+		guide.begin_intro()
+		TSetup.battle_pick = "intro_01"
+		battle_id = "intro_01"
+		start_battle()
+	else:
+		setup.visible = true
+	Sfx.play(&"tn_confirm", -8.0)
 
 
 func _process(_delta: float) -> void:
@@ -471,9 +513,7 @@ func _run(token: int) -> void:
 		var ev := battle.end_action(u)
 		var regen := false
 		for e in ev:
-			if e.t == "zeroed":
-				hud.pop(e.tgt, "크레딧 0", "zero")
-			elif e.t == "heal" and int(e.v) > 0:
+			if e.t == "heal" and int(e.v) > 0: # 대가로 크레딧 0(zeroed)은 패널 "−n" 번쩍 (R6 D-4)
 				hud.pop(e.tgt, "+" + TData.fmt_short(int(e.v)), "heal") # 지속 회복 (F-4)
 				regen = true
 		hud.refresh()
@@ -901,13 +941,11 @@ func _show_event(e: Dictionary, kind: String) -> void:
 		"dispel":
 			hud.pop(tgt, "버프 해제", "debuff")
 		"credits":
+			# 크레딧 변화는 아군 패널에서만 (R6 review_P D-4 — "크레딧 +1"이 마녀마다 떠 화면 아래가 글로 덮였다): THud._credit_watch가 바뀐 칸을 번쩍이고 "+n"
 			if int(e.v) > 0 and bool(e.get("delay", false)):
-				hud.pop(tgt, "+%d (예약)" % int(e.v), "credit") # 예약 발동 (R5)
-			elif int(e.v) > 0:
-				hud.pop(tgt, "크레딧 +%d" % int(e.v), "credit")
+				hud.credit_tag(tgt, "예약") # 예약 발동 (R5) → 패널 "+2 예약"
 			elif int(e.v) < 0:
-				hud.pop(tgt, "크레딧 %d" % int(e.v), "zero") # 크레딧 흩기 (review_H §2.1)
-				TFx.intent_sign(ta, "scatter")
+				TFx.intent_sign(ta, "scatter") # 크레딧 흩기 (review_H §2.1) → 패널 "−n"
 		"gauge":
 			if float(e.v) > 0.0:
 				hud.pop(tgt, "게이지 +%d%%" % int(round(float(e.v) * 100.0)), "buff")
