@@ -991,8 +991,20 @@ func chain_rect() -> Rect2:
 	if battle.chain_stage <= 0:
 		return Rect2(cx - 120, 6, 120, 19)
 	var lab := TData.chain_label(battle.chain_stage)
-	var w := T.width(lab, 10) + 10.0
-	return Rect2(cx - w - 2.0, 6, w + 4.0, 19)
+	var px := _chain_px(cx, lab)
+	var w := (T.width_px(lab, 10) if px else T.width(lab, 10)) + 10.0
+	var h := _chain_h(px)
+	return Rect2(cx - w - 2.0, 15.5 - h * 0.5 - 2.0, w + 4.0, h + 4.0)
+
+
+## 연쇄 칩 높이 = 글자 높이 + 5 (큰 글자에서 글이 테에 붙던 것, R2 — review_L §4.3)
+func _chain_h(px := false) -> float:
+	return (10.0 if px else float(T.eff(10))) + 5.0
+
+
+## 큰 글자에서 칩이 차례 줄 끝(+4)에 닿으면 칩 글만 10px 그대로 (R2 — 웨이브 글이 길면 왼쪽으로 밀려 "다음 →"에 닿았다)
+func _chain_px(cx: float, lab: String) -> bool:
+	return T.big and cx - T.width(lab, 10) - 10.0 < _queue_rect(QUEUE_N - 1).end.x + 4.0
 
 
 ## 위 띠 오른쪽 글: 웨이브 n/m (한 웨이브면 전투 이름). 연쇄 칩은 그 앞 "차례 n · "까지 비켜 선다
@@ -1159,12 +1171,18 @@ func _draw_top() -> void:
 	if battle.chain_owner != null and battle.chain_stage > 0 and state != "banner" and _wave_t <= 0.0: # 승패·웨이브 배너가 열리면 숨김 (L5 · K-17)
 		var cx := _wave_x() - _top_w(wl) - 8.0
 		var lab := TData.chain_label(battle.chain_stage)
-		var w := T.width(lab, 10) + 10.0
+		var px := _chain_px(cx, lab)
+		var w := (T.width_px(lab, 10) if px else T.width(lab, 10)) + 10.0
 		var br := 0.5 + 0.5 * sin(_t * TAU / 0.6) if ult_t > 0.0 else 0.0 # 대마법 동안 0.6초 주기로 숨쉼
+		var ch := _chain_h(px)
+		var cy := 15.5 - ch * 0.5
 		if br > 0.0:
-			draw_rect(Rect2(cx - w - 2.0, 6, w + 4.0, 19), Color(T.GOLD, 0.25 * br))
-		T.panel(self, Rect2(cx - w, 8, w, 15), Color(T.INK, 0.9).lerp(Color(T.GOLD, 0.9), 0.25 * br), Color(T.GOLD, 0.8 + 0.2 * br), 1, 3)
-		T.text(self, Vector2(cx - w * 0.5, 20), lab, 10, T.GOLD.lerp(Color.WHITE, 0.5 * br), HORIZONTAL_ALIGNMENT_CENTER)
+			draw_rect(Rect2(cx - w - 2.0, cy - 2.0, w + 4.0, ch + 4.0), Color(T.GOLD, 0.25 * br))
+		T.panel(self, Rect2(cx - w, cy, w, ch), Color(T.INK, 0.9).lerp(Color(T.GOLD, 0.9), 0.25 * br), Color(T.GOLD, 0.8 + 0.2 * br), 1, 3)
+		if px:
+			T.text_px(self, Vector2(cx - w * 0.5, cy + ch - 3.0), lab, 10, T.GOLD.lerp(Color.WHITE, 0.5 * br), HORIZONTAL_ALIGNMENT_CENTER)
+		else:
+			T.text(self, Vector2(cx - w * 0.5, cy + ch - 3.0), lab, 10, T.GOLD.lerp(Color.WHITE, 0.5 * br), HORIZONTAL_ALIGNMENT_CENTER)
 	# 도움말 ?
 	var hc := _help_c()
 	draw_circle(hc, 12.0, Color(T.INK, 0.6))
@@ -2038,8 +2056,8 @@ func _draw_numbers() -> void:
 		var hits := int(n.get("hits", 1))
 		var rise := 18.0 * (1.0 - pow(1.0 - minf(age / 0.5, 1.0), 2.0)) * float(n.dir)
 		var a := 1.0 - clampf((age - 0.6) / 0.5, 0.0, 1.0)
-		if kind in BODY_KINDS and (n.p as Vector2).distance_to(wc) < WHEEL_R + 24.0:
-			a *= 0.35 # 바퀴가 열린 동안 바퀴 위의 지난 숫자는 흐리게 (review_G G08)
+		if kind in BODY_KINDS and kind != "heal" and (n.p as Vector2).distance_to(wc) < WHEEL_R + 24.0:
+			a *= 0.35 # 바퀴가 열린 동안 바퀴 위의 지난 숫자는 흐리게 (review_G G08) — 회복 숫자는 빼고 (R2: 지속 회복이 다음 마녀 바퀴 밑에서 흐려졌다)
 		var pop := 1.0 - clampf(minf(age, float(n.get("last", age))) / 0.12, 0.0, 1.0) # 합칠 때마다 다시 툭 커짐
 		var q: Vector2 = (n.p as Vector2) + Vector2(0, rise)
 		if bool(n.get("foe", false)) and kind in BODY_KINDS:

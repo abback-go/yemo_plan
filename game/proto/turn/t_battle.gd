@@ -549,6 +549,11 @@ func _apply_effect(u: TUnit, t: TUnit, e: Dictionary, _targets: Array) -> Array:
 				if r.stun_immune and int(e.get("else_charge", 0)) > 0 and r.charge_max > 0:
 					ev.append_array(_charge_down(u, r, {"v": int(e.else_charge), "rate": e.get("rate", 1.0)})) # 뇌격: 기절 면역(보스)이면 대신 차지 −n (F-4)
 					continue
+				if r.stun_immune and e.has("else_debuff"):
+					var ed: Dictionary = (e.else_debuff as Dictionary).duplicate()
+					ed["t"] = "debuff"
+					ev.append_array(_apply_effect(u, r, ed, [r])) # 뇌격: 기절 면역(보스)이면 대신 디버프 (R2 — 판정은 디버프와 같음)
+					continue
 				ev.append_array(_try_stun(r))
 		"taunt":
 			for r in recv:

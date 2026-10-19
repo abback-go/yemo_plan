@@ -1100,11 +1100,15 @@ func _draw_desc(sid: String, lv: int) -> void:
 	y += 4
 	# 효과를 항목으로 (수치가 한눈에, 강화 레벨 반영)
 	for e in s.get("effects", []):
-		var t := _effect_line(e)
+		var t := _effect_line(e, String(s.target) == "self")
 		if t == "":
 			continue
 		draw_circle(Vector2(x + 3, y - 4), 1.6, Color(kcol, 0.9))
 		y += T.wrap(self, Vector2(x + 9, y), t, DESC_W - 9, bf, T.TEXT_SUB, lh, 2)
+	var fit := String(TData.skill(sid).get("fit", ""))
+	if fit != "": # 그 조건·파티에서만 사는 칸 (R2 — 같은 속성 파티 측정에선 0인 마법, combat_proto.md §27.11)
+		y += 3
+		y += T.wrap(self, Vector2(x, y), "어울림: " + fit, DESC_W, 10, T.HEAL, 13.0 if not T.big else 15.0, 2)
 	y += 4
 	var gl := TData.gloss_for(String(TData.skill(sid).desc) + " " + String(s.get("name", "")), TSave.terms_seen)
 	if gl != "" and y < 276:
@@ -1296,12 +1300,19 @@ func _wave_weak(wave: Array) -> Array:
 	return out
 
 
-func _effect_line(e: Dictionary) -> String:
+## self_skill = 자신에게 거는 마법 (who가 비어도 자기 버프). 설명 글과 같은 말을 하게 (R2 — review_L §3.1 E1~E4)
+func _effect_line(e: Dictionary, self_skill := false) -> String:
 	var who: String = {"target": "", "self": "자신: ", "allies": "아군 전체: ", "enemies": "적 전체: ", "others": "다른 적: ", "other_allies": "다른 아군: ", "dead_allies": "쓰러진 아군: "}.get(String(e.get("who", "target")), "")
 	var dur := " (행동 %d번)" % int(e.dur) if e.has("dur") else ""
 	match String(e.t):
 		"buff":
 			var cat := String(e.cat)
+			if cat in ["dmg_taken", "invincible", "taunt", "guts"] and e.has("dur"):
+				dur = " (적 행동 %d번)" % int(e.dur) # 적 시계 버프 (TBattle._apply_buff clock enemy)
+			elif (String(e.get("who", "")) == "self" or self_skill) and not bool(e.get("pre", false)) and int(e.get("dur", 0)) > 1:
+				dur = " (다음 행동 %d번)" % (int(e.dur) - 1) # 자기 버프는 건 행동이 끝날 때 하나 닳음 (TUnit._tick)
+			if cat == "ult_dmg":
+				dur = " (공격 대마법 피해에만%s)" % dur.replace(" (", ", ").replace(")", "")
 			if cat == "element":
 				return who + "%s 속성 부여%s" % [TData.ELEMENT_NAME.get(e.get("el", ""), ""), dur]
 			var nm: String = TData.CAT_NAME.get(cat, cat)
@@ -1321,7 +1332,13 @@ func _effect_line(e: Dictionary) -> String:
 				dn = ("%s 1겹마다 %s" if bool(e.get("per_mark", false)) else "%s 적 %s") % [TData.MARK_NAME.get(String(e.mark), ""), dn]
 			return who + "%s %d%% (적 행동 %d번)" % [dn, int(round(float(e.v) * 100.0)), int(e.dur)]
 		"mark":
-			return who + "%s %d겹 (적 행동 %d번)" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.get("n", 1)), int(e.dur)]
+			var mp := ""
+			for p in TData.WITCHES[_wid()].get("passive", {}).get("effects", []):
+				if String(p.t) == "mark_plus" and String(p.kind) == String(e.kind):
+					mp = ", 패시브로 %d겹" % (int(e.get("n", 1)) + int(p.n))
+			if e.has("if_mark"): # 불의 고리: 맞기 전 화상이 있던 적만 (V67)
+				who = "%s%s 적만: " % ["적 전체 중 " if who == "적 전체: " else "", TData.MARK_NAME.get(String(e.if_mark), "")]
+			return who + "%s %d겹 (적 행동 %d번%s)" % [TData.MARK_NAME.get(e.kind, e.kind), int(e.get("n", 1)), int(e.dur), mp]
 		"this_special":
 			if e.has("trait"):
 				return "%s 적에게 이 공격만 특공 +%d%%" % [TData.TRAIT_NAME.get(e.trait, ""), int(round(float(e.v) * 100.0))]
@@ -1332,8 +1349,8 @@ func _effect_line(e: Dictionary) -> String:
 			if String(e.get("per_mark", "")) != "":
 				return "%d번 + %s 겹마다 1번 더 나눠 맞힘" % [int(e.n), TData.MARK_NAME.get(String(e.per_mark), "")]
 			return "%d번으로 나눠 맞힘" % int(e.n)
-		"hp_bonus": return "적 체력이 %d%% 넘게 남았을수록 이 공격만 최대 +%d%%" % [int(round(float(e.get("at", 0.5)) * 100.0)), int(round(float(e.v) * 100.0))]
-		"regen": return who + "지속 회복 %d%% (행동마다, 행동 %d번)" % [int(round(float(e.pct) * 100.0)), int(e.dur)]
+		"hp_bonus": return "적 체력 가득이면 이 공격만 +%d%% (%d%% 이하면 0, 보스는 지금 줄)" % [int(round(float(e.v) * 100.0)), int(round(float(e.get("at", 0.5)) * 100.0))]
+		"regen": return who + "지속 회복: 행동을 마칠 때마다 %d%% 회복 (%d번)" % [int(round(float(e.pct) * 100.0)), int(e.dur)]
 		"credits":
 			return ("%s 적이면 " % TData.MARK_NAME.get(e.if_mark, "") if e.has("if_mark") else "") + who + "크레딧 +%d" % int(e.v)
 		"crit_gauge": return "크리 1번마다 자신 게이지 +%d%%" % int(round(float(e.v) * 100.0))
@@ -1347,10 +1364,20 @@ func _effect_line(e: Dictionary) -> String:
 		"hit_stack": return "맞을 때마다 %s공격력 +%d%% (최대 %d겹)" % ["아군 전체 " if String(e.get("to", "self")) == "allies" else "", int(round(float(e.v) * 100.0)), int(e.get("max", 5))]
 		"taunt": return who + "도발 (적 행동 %d번)" % int(e.dur)
 		"guts": return who + "근성 1회 (적 행동 %d번 안)" % int(e.dur)
-		"stun": return ("%s 적이면 " % TData.MARK_NAME.get(e.if_mark, "") if e.has("if_mark") else "") + who + "기절" + (" (보스면 차지 −%d)" % int(e.else_charge) if e.has("else_charge") else "")
+		"stun":
+			var alt := ""
+			if e.has("else_charge"):
+				alt = " (보스면 차지 −%d)" % int(e.else_charge)
+			elif e.has("else_debuff"):
+				var ed: Dictionary = e.else_debuff
+				alt = " (보스면 %s +%d%%, 적 행동 %d번)" % [TData.CAT_NAME.get(String(ed.cat), String(ed.cat)), int(round(float(ed.v) * 100.0)), int(ed.dur)]
+			return ("%s 적이면 " % TData.MARK_NAME.get(e.if_mark, "") if e.has("if_mark") else "") + who + "기절" + alt
 		"gauge": return who + "행동 게이지 +%d%%" % int(round(float(e.v) * 100.0))
 		"heal": return who + "체력 %d%% 회복" % int(round(float(e.pct) * 100.0))
-		"revive": return "되살림 %d%% (살아 있으면 회복)" % int(round(float(e.pct) * 100.0))
+		"revive":
+			if String(e.get("who", "")) == "dead_allies":
+				return "쓰러진 아군: 체력 %d%%로 되살림" % int(round(float(e.pct) * 100.0)) # 산 아군은 이 효과로 회복되지 않음
+			return who + "되살림 %d%% (살아 있으면 회복)" % int(round(float(e.pct) * 100.0))
 		"invincible": return who + "무적 (다음 적 행동 %d번)" % int(e.dur)
 		"demerit_zero": return "대가: 그 행동 뒤 크레딧 0"
 		"enemy_gauge":

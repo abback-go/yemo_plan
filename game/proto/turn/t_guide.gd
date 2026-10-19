@@ -19,7 +19,7 @@ const PANEL_W := 300.0
 const OFF_W := 60.0 ## "안내 끄기" 터치 목표 60×24
 const OFF_H := 24.0
 const HELP := Rect2(40, 34, 560, 296)
-const HELP_CELL := Vector2(78, 20) ## 4열 × 9줄 (용어 33 — review_I I-16)
+const HELP_CELL := Vector2(78, 19) ## 4열 × 10줄 (용어 37 — review_I I-16 · R2 새 용어 넷)
 const HELP_COLS := 4
 const HELP_RESET := Rect2(52, 290, 136, 32)
 const HELP_SET := Rect2(196, 290, 136, 32) ## 전투 중에도 설정을 연다 (review_I I-12)
@@ -561,7 +561,7 @@ static func _subtract(rects: Array, hole: Rect2) -> Array:
 
 
 func _help_cell(i: int) -> Rect2:
-	return Rect2(HELP.position.x + 10 + (HELP_CELL.x + 3) * float(i % HELP_COLS), HELP.position.y + 32 + (HELP_CELL.y + 4) * float(i / HELP_COLS), HELP_CELL.x, HELP_CELL.y)
+	return Rect2(HELP.position.x + 10 + (HELP_CELL.x + 3) * float(i % HELP_COLS), HELP.position.y + 32 + (HELP_CELL.y + 3) * float(i / HELP_COLS), HELP_CELL.x, HELP_CELL.y)
 
 
 func _draw_help() -> void:
@@ -573,7 +573,11 @@ func _draw_help() -> void:
 		var r := _help_cell(i)
 		var on := i == help_i
 		T.panel(self, r, Color(T.PANEL_HI, 1.0) if on else Color(T.INK, 0.7), T.GOLD if on else Color(T.LINE, 0.4), 2 if on else 1, 3)
-		T.text(self, r.get_center() + Vector2(0, 4), String(TData.GLOSSARY[i][0]), 10, T.GOLD if on else T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		var nm := String(TData.GLOSSARY[i][0])
+		if T.width(nm, 10) > HELP_CELL.x - 4.0:
+			T.text_px(self, r.get_center() + Vector2(0, 4), nm, 10, T.GOLD if on else T.TEXT, HORIZONTAL_ALIGNMENT_CENTER) # 큰 글자에서 칸을 넘는 긴 용어("받는 크리 데미지")는 10px 그대로 (R2)
+		else:
+			T.text(self, r.get_center() + Vector2(0, 4), nm, 10, T.GOLD if on else T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	var x := HELP.position.x + 10 + (HELP_CELL.x + 3) * float(HELP_COLS) + 8.0
 	var w := HELP.end.x - x - 12.0
 	draw_rect(Rect2(x - 6, HELP.position.y + 32, 1, 244), Color(T.LINE, 0.3))

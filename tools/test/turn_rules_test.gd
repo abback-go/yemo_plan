@@ -841,7 +841,7 @@ func _stage_b_tests() -> void:
 	t = _dummy(b, "fire")
 	t.add_mark("frost", 3, 3)
 	_ok("N13 빙하 붕괴 → 빙결 3겹이어도 이 공격만 특공 +30% 그대로 (F-4: 쇄빙 일격은 겹 비례로 바뀌어 V69)", _first(b.use_skill(_w(b, "undine"), "glacier", t)), 107640)
-	_ok("V69 쇄빙 일격 → 빙결 3겹: 배율 4.3 + 0.6 × 3, 겹 남음 (F-4)", "%d %d" % [_first(b.use_skill(_w(b, "undine"), "ice_break", t)), t.mark_n("frost")], "109800 3")
+	_ok("V69 쇄빙 일격 → 빙결 3겹: 배율 4.3 + 0.3 × 3, 겹 남음 (F-4 · R2 겹당 0.6 → 0.3)", "%d %d" % [_first(b.use_skill(_w(b, "undine"), "ice_break", t)), t.mark_n("frost")], "93600 3")
 	# N14 번개: 크리 히트 1번마다 자신 게이지 +5% (벼락 내리꽂기 4히트 모두 크리)
 	b = _b(["fulgur"], ["straw_golem"])
 	fu = _w(b, "fulgur")
@@ -851,7 +851,7 @@ func _stage_b_tests() -> void:
 	b.use_skill(fu, "thunderbolt", b.enemies[0])
 	b.end_action(fu)
 	_ok("N14 벼락 내리꽂기 4크리 → 행동 뒤 게이지 200", int(fu.gauge), 200)
-	# N15 겹 비례 버프 (F-4 불의 숨결: 자신 다음 공격 마법 1번 크리 확정 + 화상 1겹마다 크리 데미지 +15%) · 토난 패시브 (감전 적 크리 데미지 +30%, 아군 전체)
+	# N15 겹 비례 버프 (F-4 불의 숨결: 자신 다음 공격 마법 1번 크리 확률 +50% (R2 — 확정 +90%였음) + 화상 1겹마다 크리 데미지 +15%) · 토난 패시브 (감전 적 크리 데미지 +30%, 아군 전체)
 	#   화상 3겹 + 기본 공격(불씨 튀김) 1겹 = 4겹 → 불씨 찌르기 2.0배 × 12,000 × 1.5 = 36,000 × 크리 (1.5 + 0.6) = 75,600 — 기본 공격엔 닳지 않고(크리 아님 18,000) 공격 마법 뒤 사라짐
 	b = _b(["ignis", "ember"], ["straw_golem"])
 	g = _e(b, "straw_golem")
@@ -861,19 +861,21 @@ func _stage_b_tests() -> void:
 	b.end_action(ign)
 	g.add_mark("burn", 3, 3)
 	_until(b, ign)
+	b.fix_crit = 0
 	var bb0 := _first(b.basic_attack(ign, g))
 	b.end_action(ign)
 	_until(b, ign)
 	ign.credits = 7
-	b.fix_crit = -1
+	var bcr := snappedf(ign.cat_sum("crit_rate", g, "fire"), 0.01) # 크리 확률 +50% (기본 10%와 합쳐 60%)
+	b.fix_crit = 1
 	var bf3 := _first(b.use_skill(ign, "spark", g))
 	b.end_action(ign)
-	bf3 = bf3 if bb0 == 18000 and not ign.has_skill_buff("breath_of_fire") else -bf3
+	bf3 = bf3 if bb0 == 18000 and bcr == 0.5 and not ign.has_skill_buff("breath_of_fire") else -bf3
 	b = _b(["tonan", "ignis"], ["straw_golem"])
 	_w(b, "tonan").passive = TData.WITCHES.tonan.passive.effects
 	_e(b, "straw_golem").add_mark("shock", 3, 1)
 	b.fix_crit = 1
-	_ok("N15 불의 숨결 4겹 → 불씨 찌르기 확정 크리 36,000 × 2.1 · 토난 피뢰 표식 크리 18,000 × 1.8", "%d %d" % [bf3, _first(b.basic_attack(_w(b, "ignis"), _e(b, "straw_golem")))], "75600 32400")
+	_ok("N15 불의 숨결(크리 확률 +50%) 4겹 → 불씨 찌르기 크리 36,000 × 2.1 · 토난 피뢰 표식 크리 18,000 × 1.8", "%d %d" % [bf3, _first(b.basic_attack(_w(b, "ignis"), _e(b, "straw_golem")))], "75600 32400")
 	# N16 네레이 패시브: 도발 중 받는 피해 −10% 더 (아군 전체 −10%와 합쳐 −20%)
 	b = _b(["nerei"], ["straw_golem"])
 	_tough(b)
@@ -1454,6 +1456,7 @@ func _stage_f2_tests() -> void:
 	_ok("V52 데이터 판: 지금 판 읽힘 · 판 없음/모르는 적/모르는 마법 버림", " ".join(got), "true false false false")
 	_f3_tests()
 	_f4_tests()
+	_r2_tests()
 
 
 ## 단계 F-3 (combat_proto.md §25.9): 특성 특공 · 갈라지는 빛 · 흩날리는 재 · 진 이유 글
@@ -1567,7 +1570,7 @@ func _f4_tests() -> void:
 	t = _dummy(b, "none")
 	t.add_mark("shock", 3, 3)
 	_ok("V63 낙뢰 심판 감전 3겹 → 6히트", _hits(b.use_skill(_w(b, "fulgur"), "lightning_strike", t)).size(), 6)
-	# V64 뇌격: 감전 보스(기절 면역)면 대신 차지 −1 · 감전 강적은 기절
+	# V64 뇌격: 감전 보스(기절 면역)면 대신 받는 크리 확률 +20% (적 행동 2번 — R2: 차지 −1은 물·시간 독점) · 차지는 그대로 · 감전 강적은 기절
 	b = _b(["tonan"], ["ash_king"])
 	b.fix_roll = 0.0
 	var ak := b.enemies[0]
@@ -1577,13 +1580,13 @@ func _f4_tests() -> void:
 	var b2 := _b(["tonan"], ["ash_knight"])
 	b2.enemies[0].add_mark("shock", 3, 1)
 	b2.use_skill(_w(b2, "tonan"), "volt", b2.enemies[0])
-	_ok("V64 뇌격: 보스 차지 3 → 2 · 강적 기절", "%d %s" % [ak.charge, str(b2.enemies[0].stunned)], "2 true")
-	# V65 글라시아 패시브 (P4·정체성): 게이지를 깎은 적 → 받는 최종 데미지 +15% (적 행동 2번)
+	_ok("V64 뇌격: 보스 받는 크리 확률 · 차지 3 그대로 · 강적 기절 (R2)", "%.2f %d %s" % [ak.cat_sum("crit_taken", ak), ak.charge, str(b2.enemies[0].stunned)], "0.20 3 true")
+	# V65 글라시아 패시브 (P4·정체성): 게이지를 깎은 적 → 방어 다운 15% (적 행동 2번 — R2: 받는 최종 데미지는 공간 "틈"의 몫)
 	b = _b(["glacia"], ["straw_golem"])
 	_w(b, "glacia").passive = TData.WITCHES.glacia.passive.effects
 	var gl := b.enemies[0]
 	b.use_skill(_w(b, "glacia"), "rime", gl)
-	_ok("V65 서리 장인: 서리 내림(게이지 −10%) → 받는 최종 데미지", "%.2f" % gl.cat_sum("final_taken", gl), "0.15")
+	_ok("V65 서리 장인: 서리 내림(게이지 −10%) → 방어 다운 · 받는 최종 데미지 없음 (R2)", "%.2f %.2f" % [gl.cat_sum("def_down", gl), gl.cat_sum("final_taken", gl)], "0.15 0.00")
 	# V66 TAuto 큰 한 방 대상 (총괄 결정 ①): 체력 10만 짚 골렘 대신 가득 찬 짚 골렘에 태양의 창
 	b = _b(["ignis"], ["straw_golem", "straw_golem"])
 	b.enemies[0].hp = 100000
@@ -1606,3 +1609,47 @@ func _f4_tests() -> void:
 		b.use_skill(_w(b, "undine"), "abyss_lance", b.enemies[0])
 		got.append(str(b.enemies[0].charge))
 	_ok("V68 심해의 창: 빙결 재의 왕 차지 3 → 2 · 빙결 없으면 3", " ".join(got), "2 3")
+
+
+## R2 (review_L — 설명 글 = 실제 효과 · 새 용어 풀이 · 속성 독점, combat_proto.md §25.12)
+func _r2_tests() -> void:
+	print("── R2")
+	# V70 아스트라 게이지 (설명 글 D1~D3): 거는 게이지 +10% · 보조 마법을 받은 아군 +10% → 박차 80 · 길잡이 60 · 번개 나눔 50%
+	var got: Array = []
+	for sid in ["spur", "guide_bolt", "lightning_share"]:
+		var b := _b(["astra", "ignis"], ["straw_golem"])
+		var ast := _w(b, "astra")
+		ast.passive = TData.WITCHES.astra.passive.effects
+		ast.credits = 7
+		var ig := _w(b, "ignis")
+		ig.gauge = 0.0
+		b.use_skill(ast, sid, ig)
+		got.append(str(int(round(ig.gauge / 10.0))))
+	_ok("V70 아스트라 패시브로 게이지: 박차 · 번개 길잡이 · 번개 나눔 (%)", " ".join(got), "80 60 50")
+	# V71 잉걸불 그을음: 방어 다운은 때릴 때의 화상 겹 — 터뜨리면 0 (설명 글 D4)
+	var b := _b(["cinder", "ignis"], ["straw_golem"])
+	var g := _e(b, "straw_golem")
+	g.add_mark("burn", 3, 5)
+	b.use_skill(_w(b, "cinder"), "embers_left", g)
+	var dd0 := g.cat_sum("def_down", g)
+	_w(b, "ignis").credits = 7
+	b.use_skill(_w(b, "ignis"), "burst_fire", g)
+	_ok("V71 잉걸불 그을음 5겹 → 터뜨린 뒤 방어 다운", "%.2f %.2f" % [dd0, g.cat_sum("def_down", g)], "0.30 0.00")
+	# V72 얼음 벽 → 적 셋 게이지 −20% → 글라시아 패시브로 셋 모두 방어 다운 15% ("어울림: 적이 셋 이상", 속성 독점 R2)
+	b = _b(["glacia"], ["straw_golem", "swamp_toad", "ash_knight"])
+	b.fix_roll = 0.0
+	_w(b, "glacia").passive = TData.WITCHES.glacia.passive.effects
+	for e in b.enemies:
+		e.gauge = 500.0
+	b.use_skill(_w(b, "glacia"), "ice_wall", null)
+	got = []
+	for e in b.enemies:
+		got.append("%.2f" % e.cat_sum("def_down", e))
+	_ok("V72 얼음 벽 → 적 셋 방어 다운 (글라시아 패시브)", " ".join(got), "0.15 0.15 0.15")
+	# V73 용어 풀이 줄: 같은 자리면 긴 용어 · 기초 용어(크레딧)는 다른 용어가 없을 때만 · 별칭 "체력이 가득" (review_L §4.1)
+	got = []
+	for t in ["아군 1: 크레딧 +2 + 대마법 위력 +30%", "아군 1: 크레딧 +2", "적 체력이 가득이면 이 공격만 +50%", "지속 회복: 그 아군이 행동을 마칠 때마다", "적 1: 받는 크리 데미지 +12% × 감전 겹"]:
+		got.append(TData.gloss_for(t).get_slice(" — ", 0))
+	_ok("V73 풀이 줄 용어", " · ".join(got), "대마법 위력 · 크레딧 · 체력 비례 · 지속 회복 · 받는 크리 데미지")
+	# V74 연쇄 칩 글 (review_L §4.3): "→" = 다음 대마법에 붙는 값
+	_ok("V74 연쇄 칩 1 · 3단계", "%s | %s" % [TData.chain_label(1), TData.chain_label(3)], "연쇄 1 → 다음 효과 ×1.25 · 피해 ×1.15 | 연쇄 3 (최대) 효과 ×1.5 · 피해 ×1.3")

@@ -12,8 +12,11 @@ extends SceneTree
 ##   acts 원형id 전투id  : 그 원형 프리셋의 행동 내역 (마녀:마법별 횟수 · 판당 · 1회 평균 피해) — 느리고 빠른 까닭 찾기
 ##   e2                 : 밸런스 후속 E2 목표 셋만 빠르게 — 원형별 딜러 마법 몫 · 기본 파티 보스 분 · 회복 없는 파티 일반 승률 (combat_proto.md §27.3)
 ##   [단계 F-4 — review_J_skills.md §8 · combat_proto.md §27.9]
-##   combo [조합 id …]  : 이름 붙은 3인 조합 13 (COMBOS) × boss_01 손 규칙·TAuto + 시련 — 분 · 연쇄 · 넘친 피해 · B7 대비 배수
-##   loadout [마녀 id …]: 그 마녀의 장착 210가지 × boss_01 (같은 속성 파티 · "마녀@a,b,c"면 그 파티) — 최고·기본 순위·10% 안 수·상위 20 마법 횟수
+##   combo [조합 id …] [@전투] : 이름 붙은 3인 조합 13 (COMBOS) × boss_01(또는 @boss_02 등 — 기준 B7도 그 전투) 손 규칙·TAuto + 시련 — 분 · 연쇄 · 넘친 피해 · B7 대비 배수
+##   loadout [마녀 id …] [#전투]: 그 마녀의 장착 210가지 × boss_01(또는 #전투) (같은 속성 파티 · "마녀@a,b,c"면 그 파티) — 최고·기본 순위·10% 안 수·상위 20 마법 횟수
+##   [R2 — review_M_gaps2.md F15 · combat_proto.md §25.5 · §27.11]
+##   builds save        : 기준선 tools/test/baseline_turn.json 쓰기 — 원형 8 × 전투 11(H_BATTLES) 칸마다 승 · 승리 평균 마녀 행동 · 분 · 마법 사용률(장착 마법 ÷ 마녀 행동) · 대마법률 + 전투마다 원형 속도 비
+##   builds compare     : 기준선과 지금을 같은 시드로 비교해 10% 넘게 바뀐 칸만 찍음 (승률 ±10%p · 행동 ±10% · 마법 사용률 ±10%p · 속도 비 ±10%) — 수치를 바꾼 뒤 원형 표가 어떻게 움직였나
 ##   [단계 F-2 — review_H_enemies.md §8 · combat_proto.md §27.7]
 ##   h [전투 id …]      : 전투 10개(+안내) × 원형 8 + 비교 파티 3(X3 세 속성 · AX 광역 번개 · D0 기본 파티) — 승·분 표 · B1~B8 평균 · 보스 속도 비 ·
 ##                        속성 맞춤 배수(일반 = normal_01, 보스 = boss_01 대비) · K1′(받는 피해 ÷ 파티 최대 체력) · 웨이브 ①② 받은 피해 ÷ 파티 체력(규칙 3) ·
@@ -103,6 +106,9 @@ func _process(_d: float) -> bool:
 			"style": _mode_style(bt, runs)
 			"lock": _mode_lock(runs)
 			"suite": _mode_suite(runs)
+		return true
+	if args.size() > 2 and String(args[1]) == "builds" and String(args[2]) in ["save", "compare"]:
+		_mode_baseline(runs, String(args[2]) == "save")
 		return true
 	if args.size() > 1 and String(args[1]) == "builds":
 		_conditions()
@@ -1291,8 +1297,13 @@ func _combo_stat(cid: String, bt: String, runs: int, hand: bool) -> Dictionary:
 
 ## combo [조합 id …]: 13 조합 × boss_01 (손 규칙 · TAuto) + 시련 (TAuto). 기준 = 가장 느린 승리 원형 B7 보스 — 2배보다 빠르면 너무 강함 (review_J §2.1)
 func _mode_combo(runs: int, only: Array) -> void:
-	var b7 := _build_stat("B7", "boss_01", runs)
-	print("=== 조합 13 (%d판씩, 시드 7000+, boss_01 — 기준 B7 %.1f분, 2배 경계 %.1f분) ===" % [runs, float(b7.min), float(b7.min) / 2.0])
+	var bt := "boss_01" # "@boss_02"처럼 주면 그 보스로 (기준 B7도 같은 보스 — R2: 2배 경계를 보스 셋으로, review_L §5.2)
+	for o in only.duplicate():
+		if String(o).begins_with("@"):
+			bt = String(o).substr(1)
+			only.erase(o)
+	var b7 := _build_stat("B7", bt, runs)
+	print("=== 조합 13 (%d판씩, 시드 7000+, %s — 기준 B7 %.1f분, 2배 경계 %.1f분) ===" % [runs, bt, float(b7.min), float(b7.min) / 2.0])
 	print("| # | 조합 | 손 규칙 (분 · 대마법 · 연쇄2 · 연쇄3 · 넘침 · 최대 한 방 · 딜러 행동/적 1체) | TAuto (승 · 분 · 연쇄3 · 넘침 · 필살기 맞음) | 시련 TAuto | B7 대비 |")
 	for cid in COMBOS:
 		if not only.is_empty() and not only.has(cid):
@@ -1301,11 +1312,11 @@ func _mode_combo(runs: int, only: Array) -> void:
 		var hs := "—"
 		var fastest := INF
 		if not bool(cd.get("auto_only", false)):
-			var h := _combo_stat(String(cid), "boss_01", runs, true)
+			var h := _combo_stat(String(cid), bt, runs, true)
 			hs = ("%d/%d · " % [int(h.win), runs] if int(h.win) < runs else "") + "%.1f분 · %.1f · %.1f · %.1f · %d%% · %s · %.2f" % [float(h.min), float(h.ults), float(h.chain2), float(h.chain3), int(round(100.0 * float(h.over))), TData.fmt(int(h.biggest)), float(h.tempo)]
 			if int(h.win) > 0:
 				fastest = float(h.min)
-		var a := _combo_stat(String(cid), "boss_01", runs, false)
+		var a := _combo_stat(String(cid), bt, runs, false)
 		if int(a.win) > 0:
 			fastest = minf(fastest, float(a.min))
 		var t := _combo_stat(String(cid), "trial_01", runs, false)
@@ -1317,7 +1328,12 @@ func _mode_combo(runs: int, only: Array) -> void:
 ## 장착 측정 (review_J §1.1): 마녀 wid의 장착 4개를 모든 조합(10C4 = 210)으로 바꿔 STYLE_PARTIES의 같은 속성 파티(동료 기본 장착, 장비 없음)에서 boss_01 runs판씩.
 ## 출력: 최고 조합·분 · 기본 장착 순위·분 · 최고와 10% 안 조합 수 · 상위 20에 든 마법 횟수 · 상위 5
 func _mode_loadout(runs: int, only: Array) -> void:
-	print("=== 장착 210가지 (boss_01 %d판씩, 동료 = 같은 속성 파티 기본 장착, 장비 없음) ===" % runs)
+	var bt := "boss_01" # "#normal_swarm"처럼 주면 그 전투로 (R2: 그 조건에서만 사는 칸을 재려고 — combat_proto.md §27.11)
+	for o in only.duplicate():
+		if String(o).begins_with("#"):
+			bt = String(o).substr(1)
+			only.erase(o)
+	print("=== 장착 210가지 (%s %d판씩, 동료 = 같은 속성 파티 기본 장착, 장비 없음) ===" % [bt, runs])
 	var over := {} ## "마녀@a,b,c" = 그 마녀를 다른 파티에서 (장착 고민이 파티에 따라 다른지)
 	for o in only:
 		if String(o).contains("@"):
@@ -1342,7 +1358,7 @@ func _mode_loadout(runs: int, only: Array) -> void:
 						var w := 0
 						var al := 0
 						for i in runs:
-							var r := _auto_game(party, "boss_01", {wid: {"equipped": eq}}, 52000 + i)
+							var r := _auto_game(party, bt, {wid: {"equipped": eq}}, 52000 + i)
 							if bool(r.win):
 								wins += 1
 								w += int(r.witch_acts)
@@ -1383,3 +1399,100 @@ func _mode_loadout(runs: int, only: Array) -> void:
 		print("%s (%s): 최고 %.1f분 · 기본 %d위 %.1f분 (%+d%%) · 10%% 안 %d가지" % [TData.WITCHES[wid].name, "·".join(party), best, def_rank, def_min, int(round(100.0 * (def_min / best - 1.0))), within])
 		print("   상위 20 횟수: " + " · ".join(fl))
 		print("   상위 5: " + " | ".join(top))
+
+
+# ═══════════════════════════════════════════════════════════
+# R2 밸런스 기준선 (review_M_gaps2.md F15 · combat_proto.md §25.5 · §27.11)
+# ═══════════════════════════════════════════════════════════
+
+const BASELINE := "../tools/test/baseline_turn.json" ## res:// = game/ 기준
+
+## 원형 하나 × 전투 하나: 승 · 승리 평균 마녀 행동 · 분 · 마법 사용률 · 대마법률 (모든 판의 마녀 행동 기준)
+func _base_stat(bd: Dictionary, bt: String, runs: int) -> Dictionary:
+	var wins := 0
+	var w := 0
+	var a := 0
+	var acts := 0
+	var basic := 0
+	var ults := 0
+	for i in runs:
+		var r := _auto_game(bd.party, bt, bd.state, 7000 + i, bd.plan)
+		acts += int(r.witch_acts)
+		basic += int(r.basic_acts)
+		ults += int(r.ults)
+		if bool(r.win):
+			wins += 1
+			w += int(r.witch_acts)
+			a += int(r.all_acts)
+	var wn := maxf(float(wins), 1.0)
+	var an := maxf(float(acts), 1.0)
+	return {"win": wins, "acts": snappedf(float(w) / wn, 0.1), "min": snappedf(_minutes(float(w) / wn, float(a) / wn), 0.1),
+		"skill": snappedf(float(acts - basic - ults) / an, 0.001), "ult": snappedf(float(ults) / an, 0.001)}
+
+
+func _baseline_now(runs: int) -> Dictionary:
+	var cells := {}
+	var speed := {}
+	for bt in H_BATTLES:
+		var fast := INF
+		var slow := 0.0
+		for bid in BUILDS:
+			var st := _base_stat(BUILDS[bid], String(bt), runs)
+			if not cells.has(bid):
+				cells[bid] = {}
+			cells[bid][bt] = st
+			if int(st.win) > 0:
+				fast = minf(fast, float(st.acts))
+				slow = maxf(slow, float(st.acts))
+		speed[bt] = snappedf(slow / maxf(fast, 1.0), 0.01) if fast < INF else 0.0
+	return {"data_ver": TData.DATA_VER, "runs": runs, "seed": 7000, "cells": cells, "speed": speed}
+
+
+## builds save | compare
+func _mode_baseline(runs: int, save: bool) -> void:
+	var path := ProjectSettings.globalize_path("res://").path_join(BASELINE).simplify_path()
+	var now := _baseline_now(runs)
+	if save:
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_string(JSON.stringify(now, "\t", false) + "\n")
+		f.close()
+		print("=== 기준선 저장: %s (원형 %d × 전투 %d, %d판씩, DATA_VER %d) ===" % [path, BUILDS.size(), H_BATTLES.size(), runs, TData.DATA_VER])
+		for bt in H_BATTLES:
+			var row: Array = []
+			for bid in BUILDS:
+				var c: Dictionary = now.cells[bid][bt]
+				row.append("%s %d/%d·%.1f·%d%%" % [bid, int(c.win), runs, float(c.acts), int(round(100.0 * float(c.skill)))])
+			print("  %s (속도 비 %.2f): %s" % [bt, float(now.speed[bt]), " | ".join(row)])
+		return
+	if not FileAccess.file_exists(path):
+		print("기준선 없음: %s — 먼저 builds save" % path)
+		return
+	var old: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
+	print("=== 기준선 비교 (지금 %d판 · 기준선 %d판, DATA_VER %d → %d) — 10%% 넘게 바뀐 칸만 ===" % [runs, int(old.runs), int(old.data_ver), TData.DATA_VER])
+	var n := 0
+	for bt in H_BATTLES:
+		for bid in BUILDS:
+			var o: Dictionary = old.cells.get(bid, {}).get(bt, {})
+			var c: Dictionary = now.cells[bid][bt]
+			if o.is_empty():
+				print("  %s %s: 기준선에 없음" % [bid, bt])
+				n += 1
+				continue
+			var parts: Array = []
+			var ow := float(o.win) / maxf(float(old.runs), 1.0)
+			var cw := float(c.win) / float(runs)
+			if absf(cw - ow) > 0.10:
+				parts.append("승 %d%% → %d%%" % [int(round(100.0 * ow)), int(round(100.0 * cw))])
+			if float(o.acts) > 0.0 and float(c.acts) > 0.0 and absf(float(c.acts) / float(o.acts) - 1.0) > 0.10:
+				parts.append("행동 %.1f → %.1f (%+d%%)" % [float(o.acts), float(c.acts), int(round(100.0 * (float(c.acts) / float(o.acts) - 1.0)))])
+			if absf(float(c.skill) - float(o.skill)) > 0.10:
+				parts.append("마법 사용률 %d%% → %d%%" % [int(round(100.0 * float(o.skill))), int(round(100.0 * float(c.skill)))])
+			if not parts.is_empty():
+				print("  %s %s %s: %s" % [bid, BUILDS[bid].name, bt, " · ".join(parts)])
+				n += 1
+		var os := float(old.speed.get(bt, 0.0))
+		var cs := float(now.speed[bt])
+		if os > 0.0 and absf(cs / os - 1.0) > 0.10:
+			print("  %s 속도 비 %.2f → %.2f" % [bt, os, cs])
+			n += 1
+	print("바뀐 칸 %d (원형 %d × 전투 %d + 속도 비 %d)" % [n, BUILDS.size(), H_BATTLES.size(), H_BATTLES.size()])

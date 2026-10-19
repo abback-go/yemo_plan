@@ -419,9 +419,13 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 			ci.draw_line(c + Vector2(2.5, 0.5), c + Vector2(0, 3), col, 1.2)
 		"crit_rate", "crit_taken", "crit_down":
 			star(ci, c, 3.6, col)
-		"crit_dmg", "crit_dmg_taken":
+		"crit_dmg":
 			star(ci, c + Vector2(-0.5, -0.5), 3.2, col)
 			ci.draw_rect(Rect2(c + Vector2(2, 2), Vector2(1.5, 1.5)), col)
+		"crit_dmg_taken": # 받는 크리 데미지: 작은 별 + 아래 가로줄 둘 (피해 배수) — 받는 크리 확률(별 하나)과 10px에서 갈림 (R2, review_L §4.2)
+			star(ci, c + Vector2(0, -1.6), 2.6, col)
+			ci.draw_line(c + Vector2(-3, 2.0), c + Vector2(3, 2.0), col, 1.0)
+			ci.draw_line(c + Vector2(-3, 3.8), c + Vector2(3, 3.8), col, 1.0)
 		"regen": # 지속 회복 (F-4): 작은 십자 + 아래 물결
 			ci.draw_line(c + Vector2(0, -3.5), c + Vector2(0, 1.5), col, 1.4)
 			ci.draw_line(c + Vector2(-2.5, -1), c + Vector2(2.5, -1), col, 1.4)

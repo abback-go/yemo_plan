@@ -437,12 +437,18 @@ func _run(token: int) -> void:
 		if token != _run_id:
 			return
 		var ev := battle.end_action(u)
+		var regen := false
 		for e in ev:
 			if e.t == "zeroed":
 				hud.pop(e.tgt, "크레딧 0", "zero")
 			elif e.t == "heal" and int(e.v) > 0:
 				hud.pop(e.tgt, "+" + TData.fmt_short(int(e.v)), "heal") # 지속 회복 (F-4)
+				regen = true
 		hud.refresh()
+		if regen:
+			await _wait(0.3) # 지속 회복 숫자를 다음 바퀴가 열리기 전에 보인다 (R2 — 같은 프레임에 바퀴가 열려 가렸다, review_L §4.4)
+			if token != _run_id:
+				return
 		var oc := battle.outcome()
 		if oc == "wave":
 			_wave_new = true

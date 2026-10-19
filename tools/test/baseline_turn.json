@@ -1,0 +1,652 @@
+{
+	"data_ver": 6,
+	"runs": 20,
+	"seed": 7000,
+	"cells": {
+		"B1": {
+			"intro_01": {
+				"win": 20,
+				"acts": 14.0,
+				"min": 1.1,
+				"skill": 0.5,
+				"ult": 0.071
+			},
+			"normal_01": {
+				"win": 20,
+				"acts": 71.0,
+				"min": 5.8,
+				"skill": 0.372,
+				"ult": 0.108
+			},
+			"normal_fire": {
+				"win": 20,
+				"acts": 69.3,
+				"min": 5.6,
+				"skill": 0.338,
+				"ult": 0.121
+			},
+			"normal_water": {
+				"win": 20,
+				"acts": 64.0,
+				"min": 5.5,
+				"skill": 0.377,
+				"ult": 0.107
+			},
+			"normal_bolt": {
+				"win": 20,
+				"acts": 78.5,
+				"min": 6.4,
+				"skill": 0.349,
+				"ult": 0.118
+			},
+			"normal_swarm": {
+				"win": 20,
+				"acts": 63.3,
+				"min": 5.3,
+				"skill": 0.358,
+				"ult": 0.109
+			},
+			"normal_rift": {
+				"win": 20,
+				"acts": 89.1,
+				"min": 7.2,
+				"skill": 0.367,
+				"ult": 0.107
+			},
+			"boss_01": {
+				"win": 20,
+				"acts": 246.9,
+				"min": 19.5,
+				"skill": 0.413,
+				"ult": 0.099
+			},
+			"boss_02": {
+				"win": 20,
+				"acts": 206.5,
+				"min": 16.3,
+				"skill": 0.375,
+				"ult": 0.11
+			},
+			"boss_03": {
+				"win": 20,
+				"acts": 170.8,
+				"min": 13.7,
+				"skill": 0.363,
+				"ult": 0.114
+			},
+			"trial_01": {
+				"win": 0,
+				"acts": 0.0,
+				"min": 0.0,
+				"skill": 0.626,
+				"ult": 0.015
+			}
+		},
+		"B2": {
+			"intro_01": {
+				"win": 20,
+				"acts": 12.1,
+				"min": 0.9,
+				"skill": 0.465,
+				"ult": 0.166
+			},
+			"normal_01": {
+				"win": 20,
+				"acts": 65.5,
+				"min": 5.6,
+				"skill": 0.367,
+				"ult": 0.149
+			},
+			"normal_fire": {
+				"win": 20,
+				"acts": 47.1,
+				"min": 3.9,
+				"skill": 0.364,
+				"ult": 0.148
+			},
+			"normal_water": {
+				"win": 20,
+				"acts": 69.8,
+				"min": 6.1,
+				"skill": 0.366,
+				"ult": 0.149
+			},
+			"normal_bolt": {
+				"win": 20,
+				"acts": 71.5,
+				"min": 5.8,
+				"skill": 0.367,
+				"ult": 0.148
+			},
+			"normal_swarm": {
+				"win": 20,
+				"acts": 62.0,
+				"min": 5.1,
+				"skill": 0.365,
+				"ult": 0.152
+			},
+			"normal_rift": {
+				"win": 20,
+				"acts": 83.8,
+				"min": 6.9,
+				"skill": 0.331,
+				"ult": 0.133
+			},
+			"boss_01": {
+				"win": 20,
+				"acts": 197.7,
+				"min": 16.0,
+				"skill": 0.365,
+				"ult": 0.147
+			},
+			"boss_02": {
+				"win": 20,
+				"acts": 184.8,
+				"min": 14.7,
+				"skill": 0.364,
+				"ult": 0.145
+			},
+			"boss_03": {
+				"win": 20,
+				"acts": 218.6,
+				"min": 17.3,
+				"skill": 0.366,
+				"ult": 0.144
+			},
+			"trial_01": {
+				"win": 0,
+				"acts": 0.0,
+				"min": 0.0,
+				"skill": 0.647,
+				"ult": 0.008
+			}
+		},
+		"B3": {
+			"intro_01": {
+				"win": 20,
+				"acts": 15.0,
+				"min": 1.2,
+				"skill": 0.733,
+				"ult": 0.0
+			},
+			"normal_01": {
+				"win": 20,
+				"acts": 79.2,
+				"min": 6.6,
+				"skill": 0.575,
+				"ult": 0.042
+			},
+			"normal_fire": {
+				"win": 20,
+				"acts": 79.0,
+				"min": 6.5,
+				"skill": 0.593,
+				"ult": 0.026
+			},
+			"normal_water": {
+				"win": 20,
+				"acts": 86.7,
+				"min": 7.4,
+				"skill": 0.57,
+				"ult": 0.04
+			},
+			"normal_bolt": {
+				"win": 20,
+				"acts": 89.3,
+				"min": 7.1,
+				"skill": 0.537,
+				"ult": 0.061
+			},
+			"normal_swarm": {
+				"win": 20,
+				"acts": 61.3,
+				"min": 5.0,
+				"skill": 0.529,
+				"ult": 0.06
+			},
+			"normal_rift": {
+				"win": 20,
+				"acts": 97.2,
+				"min": 8.0,
+				"skill": 0.593,
+				"ult": 0.038
+			},
+			"boss_01": {
+				"win": 20,
+				"acts": 280.9,
+				"min": 22.0,
+				"skill": 0.538,
+				"ult": 0.069
+			},
+			"boss_02": {
+				"win": 20,
+				"acts": 283.4,
+				"min": 22.1,
+				"skill": 0.536,
+				"ult": 0.064
+			},
+			"boss_03": {
+				"win": 20,
+				"acts": 263.6,
+				"min": 20.7,
+				"skill": 0.54,
+				"ult": 0.069
+			},
+			"trial_01": {
+				"win": 18,
+				"acts": 139.8,
+				"min": 10.7,
+				"skill": 0.549,
+				"ult": 0.058
+			}
+		},
+		"B4": {
+			"intro_01": {
+				"win": 20,
+				"acts": 14.5,
+				"min": 1.2,
+				"skill": 0.648,
+				"ult": 0.069
+			},
+			"normal_01": {
+				"win": 20,
+				"acts": 37.8,
+				"min": 3.3,
+				"skill": 0.614,
+				"ult": 0.007
+			},
+			"normal_fire": {
+				"win": 20,
+				"acts": 48.2,
+				"min": 4.0,
+				"skill": 0.594,
+				"ult": 0.01
+			},
+			"normal_water": {
+				"win": 20,
+				"acts": 42.7,
+				"min": 3.8,
+				"skill": 0.607,
+				"ult": 0.016
+			},
+			"normal_bolt": {
+				"win": 20,
+				"acts": 28.6,
+				"min": 2.4,
+				"skill": 0.576,
+				"ult": 0.019
+			},
+			"normal_swarm": {
+				"win": 20,
+				"acts": 44.5,
+				"min": 3.9,
+				"skill": 0.637,
+				"ult": 0.009
+			},
+			"normal_rift": {
+				"win": 20,
+				"acts": 41.5,
+				"min": 3.4,
+				"skill": 0.598,
+				"ult": 0.024
+			},
+			"boss_01": {
+				"win": 20,
+				"acts": 162.4,
+				"min": 13.1,
+				"skill": 0.58,
+				"ult": 0.017
+			},
+			"boss_02": {
+				"win": 20,
+				"acts": 146.8,
+				"min": 11.7,
+				"skill": 0.578,
+				"ult": 0.019
+			},
+			"boss_03": {
+				"win": 20,
+				"acts": 173.8,
+				"min": 14.1,
+				"skill": 0.593,
+				"ult": 0.018
+			},
+			"trial_01": {
+				"win": 0,
+				"acts": 0.0,
+				"min": 0.0,
+				"skill": 0.605,
+				"ult": 0.0
+			}
+		},
+		"B5": {
+			"intro_01": {
+				"win": 20,
+				"acts": 14.2,
+				"min": 1.1,
+				"skill": 0.587,
+				"ult": 0.049
+			},
+			"normal_01": {
+				"win": 20,
+				"acts": 62.3,
+				"min": 5.3,
+				"skill": 0.457,
+				"ult": 0.064
+			},
+			"normal_fire": {
+				"win": 20,
+				"acts": 62.2,
+				"min": 5.0,
+				"skill": 0.447,
+				"ult": 0.059
+			},
+			"normal_water": {
+				"win": 20,
+				"acts": 63.8,
+				"min": 5.5,
+				"skill": 0.452,
+				"ult": 0.061
+			},
+			"normal_bolt": {
+				"win": 20,
+				"acts": 58.2,
+				"min": 4.8,
+				"skill": 0.428,
+				"ult": 0.076
+			},
+			"normal_swarm": {
+				"win": 20,
+				"acts": 54.0,
+				"min": 4.5,
+				"skill": 0.479,
+				"ult": 0.044
+			},
+			"normal_rift": {
+				"win": 20,
+				"acts": 60.8,
+				"min": 5.1,
+				"skill": 0.495,
+				"ult": 0.048
+			},
+			"boss_01": {
+				"win": 20,
+				"acts": 192.8,
+				"min": 15.4,
+				"skill": 0.448,
+				"ult": 0.069
+			},
+			"boss_02": {
+				"win": 20,
+				"acts": 186.6,
+				"min": 14.7,
+				"skill": 0.441,
+				"ult": 0.073
+			},
+			"boss_03": {
+				"win": 20,
+				"acts": 197.3,
+				"min": 15.7,
+				"skill": 0.44,
+				"ult": 0.065
+			},
+			"trial_01": {
+				"win": 0,
+				"acts": 0.0,
+				"min": 0.0,
+				"skill": 0.644,
+				"ult": 0.009
+			}
+		},
+		"B6": {
+			"intro_01": {
+				"win": 20,
+				"acts": 6.2,
+				"min": 0.5,
+				"skill": 0.645,
+				"ult": 0.161
+			},
+			"normal_01": {
+				"win": 20,
+				"acts": 46.3,
+				"min": 4.0,
+				"skill": 0.495,
+				"ult": 0.046
+			},
+			"normal_fire": {
+				"win": 20,
+				"acts": 46.0,
+				"min": 3.9,
+				"skill": 0.49,
+				"ult": 0.064
+			},
+			"normal_water": {
+				"win": 20,
+				"acts": 47.8,
+				"min": 4.2,
+				"skill": 0.453,
+				"ult": 0.072
+			},
+			"normal_bolt": {
+				"win": 20,
+				"acts": 44.8,
+				"min": 3.7,
+				"skill": 0.604,
+				"ult": 0.027
+			},
+			"normal_swarm": {
+				"win": 20,
+				"acts": 36.8,
+				"min": 3.1,
+				"skill": 0.463,
+				"ult": 0.035
+			},
+			"normal_rift": {
+				"win": 20,
+				"acts": 56.5,
+				"min": 4.8,
+				"skill": 0.475,
+				"ult": 0.057
+			},
+			"boss_01": {
+				"win": 20,
+				"acts": 227.6,
+				"min": 18.1,
+				"skill": 0.588,
+				"ult": 0.009
+			},
+			"boss_02": {
+				"win": 20,
+				"acts": 206.4,
+				"min": 16.4,
+				"skill": 0.554,
+				"ult": 0.031
+			},
+			"boss_03": {
+				"win": 20,
+				"acts": 207.4,
+				"min": 16.5,
+				"skill": 0.565,
+				"ult": 0.028
+			},
+			"trial_01": {
+				"win": 17,
+				"acts": 103.7,
+				"min": 8.1,
+				"skill": 0.599,
+				"ult": 0.0
+			}
+		},
+		"B7": {
+			"intro_01": {
+				"win": 20,
+				"acts": 14.6,
+				"min": 1.1,
+				"skill": 0.777,
+				"ult": 0.003
+			},
+			"normal_01": {
+				"win": 20,
+				"acts": 96.2,
+				"min": 8.3,
+				"skill": 0.627,
+				"ult": 0.014
+			},
+			"normal_fire": {
+				"win": 20,
+				"acts": 71.8,
+				"min": 5.8,
+				"skill": 0.598,
+				"ult": 0.019
+			},
+			"normal_water": {
+				"win": 20,
+				"acts": 98.0,
+				"min": 8.5,
+				"skill": 0.63,
+				"ult": 0.02
+			},
+			"normal_bolt": {
+				"win": 20,
+				"acts": 92.5,
+				"min": 7.4,
+				"skill": 0.525,
+				"ult": 0.043
+			},
+			"normal_swarm": {
+				"win": 20,
+				"acts": 81.3,
+				"min": 6.6,
+				"skill": 0.652,
+				"ult": 0.028
+			},
+			"normal_rift": {
+				"win": 20,
+				"acts": 99.2,
+				"min": 8.0,
+				"skill": 0.577,
+				"ult": 0.026
+			},
+			"boss_01": {
+				"win": 20,
+				"acts": 253.1,
+				"min": 20.3,
+				"skill": 0.573,
+				"ult": 0.027
+			},
+			"boss_02": {
+				"win": 20,
+				"acts": 247.7,
+				"min": 19.5,
+				"skill": 0.542,
+				"ult": 0.035
+			},
+			"boss_03": {
+				"win": 20,
+				"acts": 327.3,
+				"min": 26.1,
+				"skill": 0.594,
+				"ult": 0.023
+			},
+			"trial_01": {
+				"win": 0,
+				"acts": 0.0,
+				"min": 0.0,
+				"skill": 0.615,
+				"ult": 0.003
+			}
+		},
+		"B8": {
+			"intro_01": {
+				"win": 20,
+				"acts": 14.0,
+				"min": 1.1,
+				"skill": 0.357,
+				"ult": 0.143
+			},
+			"normal_01": {
+				"win": 20,
+				"acts": 52.7,
+				"min": 4.5,
+				"skill": 0.37,
+				"ult": 0.062
+			},
+			"normal_fire": {
+				"win": 20,
+				"acts": 44.8,
+				"min": 3.7,
+				"skill": 0.371,
+				"ult": 0.07
+			},
+			"normal_water": {
+				"win": 20,
+				"acts": 61.2,
+				"min": 5.4,
+				"skill": 0.371,
+				"ult": 0.059
+			},
+			"normal_bolt": {
+				"win": 20,
+				"acts": 44.5,
+				"min": 3.7,
+				"skill": 0.3,
+				"ult": 0.106
+			},
+			"normal_swarm": {
+				"win": 20,
+				"acts": 53.9,
+				"min": 4.6,
+				"skill": 0.364,
+				"ult": 0.071
+			},
+			"normal_rift": {
+				"win": 20,
+				"acts": 59.4,
+				"min": 5.0,
+				"skill": 0.333,
+				"ult": 0.066
+			},
+			"boss_01": {
+				"win": 20,
+				"acts": 147.4,
+				"min": 11.8,
+				"skill": 0.363,
+				"ult": 0.056
+			},
+			"boss_02": {
+				"win": 20,
+				"acts": 137.3,
+				"min": 10.9,
+				"skill": 0.355,
+				"ult": 0.064
+			},
+			"boss_03": {
+				"win": 20,
+				"acts": 164.8,
+				"min": 13.2,
+				"skill": 0.362,
+				"ult": 0.057
+			},
+			"trial_01": {
+				"win": 0,
+				"acts": 0.0,
+				"min": 0.0,
+				"skill": 0.368,
+				"ult": 0.077
+			}
+		}
+	},
+	"speed": {
+		"intro_01": 2.42,
+		"normal_01": 2.54,
+		"normal_fire": 1.76,
+		"normal_water": 2.3,
+		"normal_bolt": 3.23,
+		"normal_swarm": 2.21,
+		"normal_rift": 2.39,
+		"boss_01": 1.91,
+		"boss_02": 2.06,
+		"boss_03": 1.99,
+		"trial_01": 1.35
+	}
+}

@@ -504,6 +504,8 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 						s *= 1.6
 					elif en.stun_immune and e.has("else_charge") and charge_target(b) == en and (not e.has("if_mark") or en.marks.has(e.if_mark)):
 						s *= 1.6 # 뇌격: 보스면 차지 −1 (F-4)
+					elif en.stun_immune and e.has("else_debuff") and (not e.has("if_mark") or en.marks.has(e.if_mark)) and not en.has_buff(String(e.else_debuff.cat)):
+						s *= 1.3 # 뇌격: 보스면 받는 크리 확률 (R2)
 		if _counting(u, "skill"):
 			s *= 1.6 if cost >= 3 else 0.3 # "다음 공격 마법 1번" 강화는 큰 공격에 쓴다
 		if u.credits >= 5 and cost >= 4:
