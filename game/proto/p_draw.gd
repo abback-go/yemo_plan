@@ -12,6 +12,7 @@ var c := PackedColorArray()
 var idx := PackedInt32Array()
 var xf := Transform2D.IDENTITY
 var _id := true
+var seg_k := 1.0 ## 원·빛무리 꼭짓점 수 배율 — 그림을 크게 키워 쓸 때(턴제 대마법 컷인 3배) 곡선이 각지지 않게 (기본 1 = 전과 같음)
 var _sc := PackedColorArray() ## 색 채우기용 임시
 
 static var _unit := {} ## 꼭짓점 수 → 단위 원 점들
@@ -190,9 +191,9 @@ func draw_circle(center: Vector2, radius: float, col: Color, filled := true, wid
 	if radius <= 0.05 or col.a <= 0.003:
 		return
 	if not filled:
-		draw_arc(center, radius, 0.0, TAU, segs(radius) + 1, col, width)
+		draw_arc(center, radius, 0.0, TAU, segs(radius * seg_k) + 1, col, width)
 		return
-	var n := segs(radius)
+	var n := segs(radius * seg_k)
 	var m := Transform2D(0.0, Vector2(radius, radius), 0.0, center)
 	if not _id:
 		m = xf * m
@@ -207,7 +208,7 @@ func draw_circle(center: Vector2, radius: float, col: Color, filled := true, wid
 func glow(center: Vector2, radius: float, col: Color, edge_a := 0.0) -> void:
 	if radius <= 0.05 or col.a <= 0.003:
 		return
-	var n := segs(radius)
+	var n := segs(radius * seg_k)
 	var m := Transform2D(0.0, Vector2(radius, radius), 0.0, center)
 	if not _id:
 		m = xf * m

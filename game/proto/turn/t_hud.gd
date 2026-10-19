@@ -36,9 +36,16 @@ const X_C := Vector2(620, 15) ## 640 화면 자리 — 넓은 화면은 오른�
 const X_RECT := Rect2(600, 0, 40, 36) ## 누르는 자리 (그림은 반지름 12 원) — 터치 목표 36 (R3, review_N N-03). 적 카드 위 4px와 겹치는 곳은 X가 먼저
 const HELP_C := Vector2(582, 15) ## 도움말 "?" (review_G G05 — X 왼쪽)
 const HELP_RECT := Rect2(564, 0, 36, 36) ## 누르는 자리 36×36 (R3 N-03) — X 왼쪽 끝(600)에 붙음, 겹치지 않음
-const WHEEL_R := 78.0
-const SLOT_R := 20.0
-const ULT_R := 22.0
+## 바퀴 (검토 O §4 · N-01): 몸 가운데 위쪽 반원(R 78) → 가슴(발 −50)을 중심으로 머리 위에서 적 쪽으로 펼친 부채 (−122° → −4°, R 110).
+## 옆 마녀(간격 62·30)는 왼쪽 위·오른쪽 아래에 서므로 그 방향을 비우면 칸이 옆 마녀를 덮지 않는다
+## (칸 원판 + 테 2px가 덮는 이웃 마녀 실루엣 픽셀: 기본 파티 3명 합 4,580 → 6, 칸 사이 틈 2.2 → 5.0px — 측정 review_O_art.md §4).
+## 왼쪽 위 = 기본 공격 → 오른쪽(적 쪽) = 대마법. 칸 지름 34(대마법 38) · 누름 판정은 r + 6 (지름 46·50 — 터치 목표 36 이상)
+const WHEEL_R := 110.0
+const WHEEL_OY := -50.0 ## 바퀴 중심 = 발 + (0, −50) (마녀 배율 2 기준 가슴)
+const WHEEL_A0 := -122.0 ## 첫 칸(기본 공격) 각도 (도)
+const WHEEL_A1 := -4.0 ## 끝 칸(대마법) 각도
+const SLOT_R := 17.0
+const ULT_R := 19.0
 const HOLD := 0.4 ## 길게 누르기 (상세)
 const HOLD_MS := 400
 const CONFIRM := Rect2(220, 135, 200, 90)
@@ -830,7 +837,7 @@ func _build_slots() -> void:
 	ids.append(String(u.data.get("ultimate", "")))
 	var n := ids.size()
 	for i in n:
-		var ang := lerpf(-PI, 0.0, float(i) / float(n - 1))
+		var ang := deg_to_rad(lerpf(WHEEL_A0, WHEEL_A1, float(i) / float(n - 1)))
 		var pos := c + Vector2(cos(ang), sin(ang)) * WHEEL_R
 		var sid: String = ids[i]
 		if sid == "basic":
@@ -844,7 +851,7 @@ func _build_slots() -> void:
 
 
 func _wheel_center() -> Vector2:
-	return to_screen(actor.center())
+	return to_screen(actor.feet()) + Vector2(0, WHEEL_OY)
 
 
 ## 바퀴가 열린 동안 다른 마녀는 흐리게 (고르는 마녀가 또렷이). 아군 대상 고르기면 대상 후보는 또렷이 (review_C2 H1 ③)
@@ -1861,14 +1868,23 @@ func _draw_panels() -> void:
 			draw_colored_polygon(PackedVector2Array([Vector2(mx - 5, Y - 6), Vector2(mx + 5, Y - 6), Vector2(mx, Y - 1)]), T.GOLD)
 
 
-## 스킬 바퀴: 위쪽 반원, 칸 6개 고정. 칸 = 먹 원 + 종류 테 + 아이콘(속성 색) + 비용 배지. 대마법 칸은 금빛 + 남은 수 / 숨쉬기 + 연쇄 단계
+## 스킬 바퀴: 칸 6개 고정 (검토 O §4 — 칸 재질). 칸 = 바닥 그림자 · 속성 색 방사 원판(가운데 진하고 끝 옅게) · 안쪽 그림자 ·
+## 종류 색 금속 테 2px(왼쪽 위 밝음 → 오른쪽 아래 어두움) · 흰빛 아이콘 + 그림자 · 비용 보석(금 = 쓸 수 있음 · 회색 + 붉은 숫자 = 모자람 · 보랏빛 = +1).
+## 대마법 칸은 금 금속 테 3px + 모이는 호 / 가득이면 테를 도는 빛. 누를 수 없음 = 원판 회색 · 테 회색 · 아이콘 흐림.
+## 원판·테·아이콘·보석은 PDraw 하나로 모아 그리기 호출 1번 (글자만 따로).
+var _wpd := PDraw.new()
+
 func _draw_wheel() -> void:
 	if actor == null:
 		return
+	var pd := _wpd
 	var c := _wheel_center()
-	draw_arc(c, WHEEL_R, -PI - 0.15, 0.15, 40, Color(T.LINE, 0.25), 1.0)
+	var a0 := deg_to_rad(WHEEL_A0) - 0.12
+	var a1 := deg_to_rad(WHEEL_A1) + 0.12
+	pd.draw_arc(c, WHEEL_R, a0, a1, 40, Color(T.LINE, 0.18), 1.0) # 부채 안내 호
 	var u := actor.unit
 	var ecol: Color = TData.ELEMENT_COLOR.get(String(u.data.get("element", "")), T.LINE)
+	var labels: Array = [] ## [자리, 글, 색] — 보석 숫자는 flush 뒤에
 	for i in slots.size():
 		var s: Dictionary = slots[i]
 		var p: Vector2 = s.pos
@@ -1876,61 +1892,83 @@ func _draw_wheel() -> void:
 		var ult := bool(s.get("ult", false))
 		var r := _slot_r(i) + (3.0 if on else 0.0)
 		if state == "target" and not on:
-			# 대상 고르기 중엔 고른 칸만 — 다른 칸은 옅은 테만 남겨 그 밑의 마녀·적이 보이고 눌리게 (review_K K-07: 흐린 칸이 대상 마녀를 덮었다)
+			# 대상 고르기 중엔 고른 칸만 — 다른 칸은 옅은 테만 남겨 그 밑의 마녀·적이 보이고 눌리게 (review_K K-07)
 			if not bool(s.empty):
-				draw_arc(p, r, 0.0, TAU, 24, Color(T.TEXT_OFF, 0.25), 1.0)
+				pd.draw_arc(p, r, 0.0, TAU, 24, Color(T.TEXT_OFF, 0.25), 1.0)
 			continue
 		if bool(s.empty):
-			draw_arc(p, r - 2.0, 0.0, TAU, 24, Color(T.TEXT_OFF, 0.35), 1.0)
+			pd.draw_arc(p, r - 2.0, 0.0, TAU, 24, Color(T.TEXT_OFF, 0.35), 1.0)
 			continue
-		var can := bool(s.can)
-		draw_circle(p, r + 1.5, Color(T.INK, 0.95))
-		draw_circle(p, r, Color(T.PANEL_HI if on else T.INK, 0.95))
+		var can := bool(s.can) and not bool(s.get("sealed", false))
+		var full := ult and u.credits >= TData.ULT_COST
+		var disc := ecol if can or full else Color("#6a6478")
+		# 바닥 그림자 · 고른 칸 빛무리
+		pd.glow(p + Vector2(0, 2.5), r + 5.0, Color(0, 0, 0, 0.55), 0.0)
+		if on:
+			pd.glow(p, r + 10.0, Color(ecol, 0.35), 0.0)
+		# 원판: 먹 바탕 + 속성 색 방사(가운데 0.55 → 끝 0.22) + 왼쪽 위 윤기 + 안쪽 그림자
+		pd.draw_circle(p, r, T.INK)
+		pd.glow(p, r, Color(disc, 0.55 if can or full else 0.35), 0.4)
+		pd.glow(p + Vector2(-r * 0.28, -r * 0.32), r * 0.5, Color(1, 1, 1, 0.10 if can or full else 0.04), 0.0)
+		pd.ring_grad(p, Vector2(r * 0.66, r * 0.66), Vector2(r, r), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.5), 24)
+		# 금속 테
 		if ult:
-			var full := u.credits >= TData.ULT_COST
+			_ring_lit(pd, p, r, r + 3.0, Color("#fff2b8"), Color("#8a5a14") if full else Color("#5a4420"))
 			if full:
-				var br := 0.6 + 0.4 * (0.5 + 0.5 * sin(_t * 4.0))
-				draw_arc(p, r, 0.0, TAU, 32, Color(T.GOLD, br), 2.0)
-				draw_arc(p, r + 3.0, 0.0, TAU, 32, Color(T.GOLD, 0.5), 1.0)
-				var ph := fmod(_t, 0.8) / 0.8
-				draw_arc(p, r + 3.0 + ph * 10.0, 0.0, TAU, 32, Color(T.GOLD, 0.5 * (1.0 - ph)), 1.0)
+				var ph := _t * 2.4
+				pd.draw_arc(p, r + 1.5, ph, ph + 1.1, 10, Color(1, 1, 0.85, 0.9), 2.0) # 테를 도는 빛
+				var pl := fmod(_t, 0.8) / 0.8
+				pd.draw_arc(p, r + 4.0 + pl * 10.0, 0.0, TAU, 32, Color(T.GOLD, 0.5 * (1.0 - pl)), 1.0)
 			else:
-				# 모이는 중: 둘레에 진행 호 (크레딧/7, 12시부터 시계 방향) + 배지 "n/7" (review_C2 M3)
-				draw_arc(p, r, 0.0, TAU, 32, Color(T.GOLD, 0.25), 2.0)
 				var k := clampf(float(u.credits) / float(TData.ULT_COST), 0.0, 1.0)
-				if k > 0.0:
-					draw_arc(p, r, -PI * 0.5, -PI * 0.5 + TAU * k, 32, T.GOLD, 2.0)
-			TIcon.draw(self, p, String(s.icon), Color(T.GOLD if full else ecol, 1.0 if full else 0.45), r * 0.5)
+				if k > 0.0: # 모이는 호 (12시부터 시계 방향, review_C2 M3)
+					pd.draw_arc(p, r + 1.5, -PI * 0.5, -PI * 0.5 + TAU * k, 32, T.GOLD, 2.0)
+		else:
+			var kc := T.kind_col(String(s.kind)) if can else Color("#5a5566")
+			_ring_lit(pd, p, r, r + 2.5, kc.lightened(0.35), kc.darkened(0.3))
+		if on:
+			pd.draw_arc(p, r + 1.0, 0.0, TAU, 32, T.TEXT, 2.0)
+		# 아이콘 (그림자 1px + 흰빛)
+		var ic := String(s.icon)
+		var icol := ecol.lightened(0.65) if can or full else Color(T.TEXT_OFF, 0.5)
+		if ult and full:
+			icol = Color("#fff2c0")
+		elif ult:
+			icol = Color(T.GOLD, 0.5)
+		TIcon.draw(pd, p + Vector2(0.8, 1.0), ic, Color(T.INK, 0.8), r * 0.5)
+		TIcon.draw(pd, p, ic, icol, r * 0.5)
+		# 비용 보석 (오른쪽 아래)
+		var bc := p + Vector2(r * 0.74, r * 0.74)
+		if ult:
 			if not full:
 				var lab := "%d/%d" % [u.credits, TData.ULT_COST]
-				var bw := T.width(lab, 8) + 6.0
-				var bc := p + Vector2(14, 14)
-				T.panel(self, Rect2(bc - Vector2(bw * 0.5, 5), Vector2(bw, 10)), Color(T.INK, 0.95), Color(T.GOLD, 0.8), 1, 2)
-				T.text(self, bc + Vector2(0, 3), lab, 8, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER, 0)
-			var nxt := mini(battle.chain_stage + 1, 3) if (battle.chain_owner != null and battle.chain_stage > 0) else 1
-			if nxt >= 2 and full: # 쓸 수 있을 때만 "연쇄 n" (review_G G17)
-				var lab := "연쇄 %d" % nxt
-				var lw := T.width(lab, 10) + 8.0
-				var lr := Rect2(p.x - lw * 0.5, p.y + r + 4.0, lw, 13)
-				T.panel(self, lr, Color(T.INK, 0.95), T.GOLD, 1, 2)
-				T.text(self, Vector2(p.x, lr.position.y + 11), lab, 10, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+				_gem(pd, bc, T.width(lab, 8) * 0.5 + 4.0, Color("#c9a24a"), labels, lab, T.INK)
+		elif String(s.id) == "basic":
+			_gem(pd, bc, 8.0, T.GAUGE, labels, "+1", T.INK)
 		else:
-			var ring := T.kind_col(String(s.kind)) if can else T.TEXT_OFF
-			draw_arc(p, r, 0.0, TAU, 28, Color(ring, 1.0 if can else 0.6), 2.0 if on else 1.5)
-			TIcon.draw(self, p, String(s.icon), Color(ecol, 1.0 if can else 0.4), r * 0.5)
-			if String(s.id) == "basic":
-				T.cost_badge(self, p + Vector2(14, 14), "+1", "gain")
-			else:
-				T.cost_badge(self, p + Vector2(14, 14), str(int(s.cost)), "ok" if can else "short")
+			_gem(pd, bc, 6.5, T.GOLD if can else Color("#5a5468"), labels, str(int(s.cost)), T.INK if can else Color("#ff9aa8"))
 		if bool(s.get("sealed", false)):
-			# 봉인 (review_H §2.2): 칸을 어둡게 + 자물쇠 + 테 TEXT_OFF
-			draw_circle(p, r - 1.0, Color(T.INK, 0.6))
-			draw_arc(p, r, 0.0, TAU, 28, T.TEXT_OFF, 1.5)
-			draw_circle(p, 7.0, Color(T.INK, 0.95))
-			T.intent_icon(self, p, "seal", T.DANGER)
-		if on:
-			draw_arc(p, r, 0.0, TAU, 32, T.TEXT, 2.0)
-	# 고른 칸 이름 꼬리표: 모든 칸 다음에, 바퀴 중심 → 칸 방향 바깥쪽 (이웃 칸을 덮지 않게, review_C2 M2). 화면 밖이면 생략 (설명 띠 1줄에 이름이 있음)
+			pd.draw_circle(p, r - 1.0, Color(T.INK, 0.6)) # 봉인 (review_H §2.2): 어둡게 + 자물쇠
+			pd.draw_circle(p, 7.0, Color(T.INK, 0.95))
+	pd.flush(self)
+	for lb: Array in labels:
+		T.text_px(self, lb[0], lb[1], 8, lb[2], HORIZONTAL_ALIGNMENT_CENTER, 0)
+	for i in slots.size():
+		var s: Dictionary = slots[i]
+		if bool(s.get("sealed", false)) and not (state == "target" and i != sel):
+			T.intent_icon(self, s.pos, "seal", T.DANGER)
+	# 대마법 "연쇄 n" (쓸 수 있을 때만, review_G G17)
+	if not slots.is_empty() and bool(slots[slots.size() - 1].get("ult", false)) and u.credits >= TData.ULT_COST and not (state == "target" and sel != slots.size() - 1):
+		var nxt := mini(battle.chain_stage + 1, 3) if (battle.chain_owner != null and battle.chain_stage > 0) else 1
+		if nxt >= 2:
+			var p: Vector2 = slots[slots.size() - 1].pos
+			var r := _slot_r(slots.size() - 1)
+			var lab := "연쇄 %d" % nxt
+			var lw := T.width(lab, 10) + 8.0
+			var lr := Rect2(p.x - lw * 0.5, p.y + r + 4.0, lw, 13)
+			T.panel(self, lr, Color(T.INK, 0.95), T.GOLD, 1, 2)
+			T.text(self, Vector2(p.x, lr.position.y + 11), lab, 10, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	# 고른 칸 이름 꼬리표: 바퀴 중심 → 칸 방향 바깥쪽 (review_C2 M2). 화면 밖이면 생략
 	if sel >= 0 and sel < slots.size() and not bool(slots[sel].empty):
 		var s: Dictionary = slots[sel]
 		var p: Vector2 = s.pos
@@ -1947,6 +1985,30 @@ func _draw_wheel() -> void:
 		if nr.position.x >= T.left() + 2.0 and nr.end.x <= T.right() - 2.0 and nr.position.y >= 32.0:
 			T.panel(self, nr, Color(T.INK, 0.95), Color(T.TEXT, 0.6), 1, 2)
 			T.text(self, Vector2(nr.get_center().x, nr.position.y + 11), nm, 10, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+## 금속 테: r0~r1 고리, 왼쪽 위(−135°) hi → 오른쪽 아래 lo (빛이 위에서 오는 칸 테두리)
+func _ring_lit(pd: PDraw, p: Vector2, r0: float, r1: float, hi: Color, lo: Color) -> void:
+	var n := 28
+	for i in n:
+		var aa := TAU * float(i) / float(n)
+		var ab := TAU * float(i + 1) / float(n)
+		var ka := 0.5 + 0.5 * cos(aa + PI * 0.75)
+		var kb := 0.5 + 0.5 * cos(ab + PI * 0.75)
+		var da := Vector2(cos(aa), sin(aa))
+		var db := Vector2(cos(ab), sin(ab))
+		pd.convex_colors(PackedVector2Array([p + da * r1, p + db * r1, p + db * r0, p + da * r0]), PackedColorArray([lo.lerp(hi, ka), lo.lerp(hi, kb), lo.lerp(hi, kb), lo.lerp(hi, ka)]))
+
+
+## 비용 보석: 가로로 긴 팔각 (위 반 밝은 면 · 아래 반 어두운 면 · 먹 테 · 왼쪽 위 반짝) — 숫자는 labels에 모아 flush 뒤에
+func _gem(pd: PDraw, c: Vector2, hw: float, col: Color, labels: Array, lab: String, fg: Color) -> void:
+	var h := 5.5
+	var o := PackedVector2Array([c + Vector2(-hw - 1.2, 0), c + Vector2(-hw + 2.2, -h - 1.2), c + Vector2(hw - 2.2, -h - 1.2), c + Vector2(hw + 1.2, 0), c + Vector2(hw - 2.2, h + 1.2), c + Vector2(-hw + 2.2, h + 1.2)])
+	pd.convex(o, T.INK)
+	pd.convex(PackedVector2Array([c + Vector2(-hw, 0), c + Vector2(-hw + 3.0, -h), c + Vector2(hw - 3.0, -h), c + Vector2(hw, 0)]), col.lightened(0.25))
+	pd.convex(PackedVector2Array([c + Vector2(-hw, 0), c + Vector2(hw, 0), c + Vector2(hw - 3.0, h), c + Vector2(-hw + 3.0, h)]), col.darkened(0.18))
+	pd.draw_rect(Rect2(c + Vector2(-hw + 3.0, -h + 1.0), Vector2(2.0, 1.0)), Color(1, 1, 1, 0.7))
+	labels.append([c + Vector2(0, 3), lab, fg])
 
 
 ## 설명 띠 (아래 띠 자리 (4, 302, 632, 56)): 1줄 이름·비용·종류 / 예상 피해(크리 값) · 2줄 효과 · 3줄 크레딧·대상 / 안내
@@ -2080,8 +2142,17 @@ func _draw_targets() -> void:
 		draw_set_transform(Vector2.ZERO)
 
 
+## 바퀴 칸 가까이 (부채가 넓어져 중심 거리 대신 칸마다 잼)
+func _near_slot(p: Vector2, pad: float) -> bool:
+	if not _wheel_on() or actor == null:
+		return false
+	for i in slots.size():
+		if p.distance_to(slots[i].pos) < _slot_r(i) + pad:
+			return true
+	return false
+
+
 func _draw_numbers() -> void:
-	var wc := _wheel_center() if _wheel_on() and actor != null else Vector2(-999, -999)
 	for n: Dictionary in numbers:
 		var age := float(n.age)
 		if age < 0.0:
@@ -2093,7 +2164,7 @@ func _draw_numbers() -> void:
 		var hits := int(n.get("hits", 1))
 		var rise := 18.0 * (1.0 - pow(1.0 - minf(age / 0.5, 1.0), 2.0)) * float(n.dir)
 		var a := 1.0 - clampf((age - 0.6) / 0.5, 0.0, 1.0)
-		if kind in BODY_KINDS and kind != "heal" and (n.p as Vector2).distance_to(wc) < WHEEL_R + 24.0:
+		if kind in BODY_KINDS and kind != "heal" and _near_slot(n.p as Vector2, 24.0):
 			a *= 0.35 # 바퀴가 열린 동안 바퀴 위의 지난 숫자는 흐리게 (review_G G08) — 회복 숫자는 빼고 (R2: 지속 회복이 다음 마녀 바퀴 밑에서 흐려졌다)
 		var pop := 1.0 - clampf(minf(age, float(n.get("last", age))) / 0.12, 0.0, 1.0) # 합칠 때마다 다시 툭 커짐
 		var q: Vector2 = (n.p as Vector2) + Vector2(0, rise)

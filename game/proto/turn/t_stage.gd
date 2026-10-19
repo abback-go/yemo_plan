@@ -351,6 +351,10 @@ func _begin_battle() -> void:
 		_add_actor(battle.witches[i], WITCH_AT[i])
 	_add_enemies()
 	_bg.set_theme(_wave_theme(), true)
+	var pools: Array = []
+	for i in battle.witches.size():
+		pools.append([WITCH_AT[i], TData.ELEMENT_COLOR.get((battle.witches[i] as TUnit).element, Color("#b9a2ff"))])
+	_bg.set_pools(pools) # 마녀 발밑 빛 원 (검토 O §3)
 	_bg_tint(true)
 	hud.bind(battle, actors)
 	stats = {"turns": 0, "biggest": 0}

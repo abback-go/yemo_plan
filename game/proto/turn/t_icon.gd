@@ -13,7 +13,7 @@ const NAMES := ["strike", "crack", "gate", "dash", "shield", "rift", "converge",
 	"slash", "cut_curve", "slash2", "cut_h", "aura", "cut_v", "fan", "slash_doom", "slash_x"]
 
 
-static func draw(ci: CanvasItem, c: Vector2, icon: String, col: Color, r: float) -> void:
+static func draw(ci: Object, c: Vector2, icon: String, col: Color, r: float) -> void:
 	var w := maxf(1.0, r * 0.2)
 	var soft := Color(col, 0.55)
 	match icon:
@@ -362,49 +362,49 @@ static func draw(ci: CanvasItem, c: Vector2, icon: String, col: Color, r: float)
 
 # ── 공통 조각 ─────────────────────────────────────────────
 
-static func _ln(ci: CanvasItem, c: Vector2, r: float, a: Vector2, b: Vector2, col: Color, w: float) -> void:
+static func _ln(ci: Object, c: Vector2, r: float, a: Vector2, b: Vector2, col: Color, w: float) -> void:
 	ci.draw_line(c + a * r, c + b * r, col, w)
 
 
 ## 짝수 개의 float(x, y, x, y …)로 꺾은선
-static func _pl(ci: CanvasItem, c: Vector2, r: float, xy: Array, col: Color, w: float) -> void:
+static func _pl(ci: Object, c: Vector2, r: float, xy: Array, col: Color, w: float) -> void:
 	var p := PackedVector2Array()
 	for i in range(0, xy.size() - 1, 2):
 		p.append(c + Vector2(float(xy[i]), float(xy[i + 1])) * r)
 	ci.draw_polyline(p, col, w)
 
 
-static func _poly(ci: CanvasItem, c: Vector2, r: float, xy: Array, col: Color) -> void:
+static func _poly(ci: Object, c: Vector2, r: float, xy: Array, col: Color) -> void:
 	var p := PackedVector2Array()
 	for i in range(0, xy.size() - 1, 2):
 		p.append(c + Vector2(float(xy[i]), float(xy[i + 1])) * r)
 	ci.draw_colored_polygon(p, col)
 
 
-static func _dot(ci: CanvasItem, c: Vector2, r: float, o: Vector2, rad: float, col: Color) -> void:
+static func _dot(ci: Object, c: Vector2, r: float, o: Vector2, rad: float, col: Color) -> void:
 	ci.draw_circle(c + o * r, rad * r, col)
 
 
-static func _ring(ci: CanvasItem, c: Vector2, r: float, o: Vector2, rad: float, col: Color, w: float) -> void:
+static func _ring(ci: Object, c: Vector2, r: float, o: Vector2, rad: float, col: Color, w: float) -> void:
 	ci.draw_arc(c + o * r, rad * r, 0.0, TAU, 28, col, w)
 
 
-static func _arc(ci: CanvasItem, c: Vector2, r: float, o: Vector2, rad: float, a0: float, a1: float, col: Color, w: float) -> void:
+static func _arc(ci: Object, c: Vector2, r: float, o: Vector2, rad: float, a0: float, a1: float, col: Color, w: float) -> void:
 	ci.draw_arc(c + o * r, rad * r, a0, a1, 18, col, w)
 
 
-static func _rect(ci: CanvasItem, c: Vector2, r: float, rc: Rect2, col: Color, w: float) -> void:
+static func _rect(ci: Object, c: Vector2, r: float, rc: Rect2, col: Color, w: float) -> void:
 	ci.draw_rect(Rect2(c + rc.position * r, rc.size * r), col, false, w)
 
 
 ## 화살촉: tip 쪽으로 향하는 작은 삼각형 (at = 밑변 가운데, dir = 방향)
-static func _head(ci: CanvasItem, c: Vector2, r: float, at: Vector2, dir: Vector2, s: float, col: Color) -> void:
+static func _head(ci: Object, c: Vector2, r: float, at: Vector2, dir: Vector2, s: float, col: Color) -> void:
 	var n := dir.orthogonal() * s * 0.7
 	_poly(ci, c, r, [at.x + dir.x * s, at.y + dir.y * s, at.x + n.x, at.y + n.y, at.x - n.x, at.y - n.y], col)
 
 
 ## 둥근 화살 (a0 → a1, 끝에 화살촉)
-static func _arc_arrow(ci: CanvasItem, c: Vector2, r: float, rad: float, a0: float, a1: float, col: Color, w: float) -> void:
+static func _arc_arrow(ci: Object, c: Vector2, r: float, rad: float, a0: float, a1: float, col: Color, w: float) -> void:
 	ci.draw_arc(c, rad * r, a0, a1, 20, col, w)
 	var end := Vector2(cos(a1), sin(a1)) * rad
 	var dir := Vector2(-sin(a1), cos(a1)) * (1.0 if a1 > a0 else -1.0)
@@ -412,13 +412,13 @@ static func _arc_arrow(ci: CanvasItem, c: Vector2, r: float, rad: float, a0: flo
 
 
 ## 베인 자국: a→b 로 가늘어지는 마름모 띠 (가운데 두께 t)
-static func _cut(ci: CanvasItem, c: Vector2, r: float, a: Vector2, b: Vector2, col: Color, t: float) -> void:
+static func _cut(ci: Object, c: Vector2, r: float, a: Vector2, b: Vector2, col: Color, t: float) -> void:
 	var m := (a + b) * 0.5
 	var n := (b - a).normalized().orthogonal() * t
 	_poly(ci, c, r, [a.x, a.y, m.x + n.x, m.y + n.y, b.x, b.y, m.x - n.x, m.y - n.y], col)
 
 
-static func _flame(ci: CanvasItem, c: Vector2, r: float, o: Vector2, s: float, col: Color) -> void:
+static func _flame(ci: Object, c: Vector2, r: float, o: Vector2, s: float, col: Color) -> void:
 	var base := [0.0, -1.0, 0.45, -0.35, 0.3, 0.15, 0.55, 0.55, 0.0, 1.0, -0.55, 0.55, -0.3, 0.15, -0.45, -0.35]
 	var pts: Array = []
 	for i in range(0, base.size(), 2):
@@ -427,7 +427,7 @@ static func _flame(ci: CanvasItem, c: Vector2, r: float, o: Vector2, s: float, c
 	_poly(ci, c, r, pts, col)
 
 
-static func _sparkle(ci: CanvasItem, c: Vector2, r: float, o: Vector2, s: float, col: Color) -> void:
+static func _sparkle(ci: Object, c: Vector2, r: float, o: Vector2, s: float, col: Color) -> void:
 	var base := [0.0, -1.0, 0.22, -0.22, 1.0, 0.0, 0.22, 0.22, 0.0, 1.0, -0.22, 0.22, -1.0, 0.0, -0.22, -0.22]
 	var pts: Array = []
 	for i in range(0, base.size(), 2):
@@ -471,7 +471,7 @@ static func _bolt_pts(s: float, dy: float) -> Array:
 	return pts
 
 
-static func _descent(ci: CanvasItem, c: Vector2, r: float, col: Color, w: float, sg: float) -> void:
+static func _descent(ci: Object, c: Vector2, r: float, col: Color, w: float, sg: float) -> void:
 	_ln(ci, c, r, Vector2(-0.6, -0.92 * sg), Vector2(-0.3, -0.35 * sg), Color(col, 0.55), w * 0.8)
 	_ln(ci, c, r, Vector2(0.0, -0.98 * sg), Vector2(0.0, -0.3 * sg), Color(col, 0.55), w * 0.8)
 	_ln(ci, c, r, Vector2(0.6, -0.92 * sg), Vector2(0.3, -0.35 * sg), Color(col, 0.55), w * 0.8)
@@ -479,7 +479,7 @@ static func _descent(ci: CanvasItem, c: Vector2, r: float, col: Color, w: float,
 	_poly(ci, c, r, [-0.5, 0.35 * sg, 0.5, 0.35 * sg, 0.0, 0.92 * sg], col)
 
 
-static func _clock(ci: CanvasItem, c: Vector2, r: float, col: Color, soft: Color, w: float) -> void:
+static func _clock(ci: Object, c: Vector2, r: float, col: Color, soft: Color, w: float) -> void:
 	_dot(ci, c, r, Vector2.ZERO, 0.85, Color(col, 0.18))
 	_ring(ci, c, r, Vector2.ZERO, 0.85, col, w)
 	_ln(ci, c, r, Vector2(0, 0), Vector2(0, -0.58), col, w)

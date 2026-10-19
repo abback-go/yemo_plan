@@ -2071,6 +2071,9 @@ class UltCutin extends Node2D:
 	const ANG2 := 8.0 ## 연쇄 3단계의 둘째 띠
 	const C := Vector2(320, 160) ## 띠 가운데
 	const BAND := Vector2(940, 90)
+	const FIG_SC := 3.0 ## 컷인 그림 배율 (검토 O §5: 4배 → 3배 — 모자 끝부터 가슴까지 띠 안에)
+	const FIG_FEET_Y := 150.0 ## SubViewport(높이 90) 안 발 자리: 모자 끝(로컬 −48 × 3 = −144) → y 6, 얼굴(−30) → y 60
+	const SS := 2 ## 컷인 그림을 2배 해상도로 그려 줄여 씀 (웹 = GLES3라 2D MSAA가 없음 — 3배 다각형 가장자리 계단을 없앰, 검토 O §5)
 	var unit: TUnit
 	var title := ""
 	var emblem_kind := "rift"
@@ -2087,18 +2090,22 @@ class UltCutin extends Node2D:
 
 	func _ready() -> void:
 		_vp = SubViewport.new()
-		_vp.size = Vector2i(BAND)
+		_vp.size = Vector2i(BAND) * SS
 		_vp.transparent_bg = true
 		_vp.disable_3d = true
 		_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		add_child(_vp)
+		_vp.canvas_transform = Transform2D(0.0, Vector2(SS, SS), 0.0, Vector2.ZERO) # 트리에 넣은 뒤 (캔버스가 생긴 다음)
 		_fig = TActor.new()
 		_fig.deco = false
 		_vp.add_child(_fig)
 		_fig.setup(unit, Vector2(320, 160))
-		_fig.scale = Vector2(4, 4)
+		_fig.scale = Vector2(FIG_SC, FIG_SC)
 		_fig.z_index = 0
 		_fig.pose("cast_big")
+		var art: PDraw.Canvas = _fig.witch if _fig.witch != null else (_fig.eska.art if _fig.eska != null else null)
+		if art != null:
+			art.pd.seg_k = FIG_SC * SS # 원·빛무리를 6배 꼭짓점으로 다시 그림 (작은 원이 9각형으로 보이던 것)
 		_rot = Node2D.new()
 		_rot.rotation = deg_to_rad(ANG)
 		_rot.position = C
@@ -2106,6 +2113,7 @@ class UltCutin extends Node2D:
 		_band = CutBand.new()
 		_band.cut = self
 		_band.tex = _vp.get_texture()
+		_band.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR # 2배 그림을 줄이고 −12° 돌린 띠 — 가장 가까운 픽셀이면 가장자리가 계단 (검토 O §5)
 		_rot.add_child(_band)
 		if stage >= 3: # 3단계: 반대로 기운 둘째 띠 (+8°, 0.05초 늦게) — 첫 띠 뒤에
 			_rot2 = Node2D.new()
@@ -2137,7 +2145,7 @@ class UltCutin extends Node2D:
 			_band2.position = Vector2(lerpf(820.0, 0.0, 1.0 - pow(1.0 - a, 3.0)) - 820.0 * b * b, 0) # 반대쪽에서 들어옴
 			_band2.queue_redraw()
 		# 띠 안에서 천천히 밀림 — 눈이 띠 가운데에 오게 12px 내림 (review_D B6: 모자 챙 그늘에 얼굴이 묻혔다)
-		_fig.home = Vector2(340.0 - 40.0 * t / LIFE, 172.0)
+		_fig.home = Vector2(340.0 - 40.0 * t / LIFE, FIG_FEET_Y)
 		_lab.position = Vector2(o * 1.15, 0)
 
 	func _process(delta: float) -> void:
@@ -2172,7 +2180,7 @@ class CutBand extends PDraw.Canvas:
 		pd.glow(Vector2(-150, -8), 90.0, Color(c.flame, 0.45), 0.0)
 		TFx.emblem(pd, cut.emblem_kind, Vector2(170, 0), 64.0, Color(c.hot, 0.16), t * 0.8)
 		# 머리 뒤 역광 — 모자 챙 아래 얼굴이 뜨게 (B6). 마녀 그림은 SubViewport에서 x ≈ 300~340
-		pd.glow(Vector2(-150 + 6.0, -6), 50.0, Color(c.hot, 0.35), 0.0)
+		pd.glow(Vector2(-134, 12), 50.0, Color(c.hot, 0.35), 0.0) # 얼굴(SubViewport y 60) 뒤
 		for i in 16: # 속도선 (왼쪽으로 흐름)
 			var y := -40.0 + 80.0 * EVfx.hash01(i * 17 + 3)
 			var len := 60.0 + 110.0 * EVfx.hash01(i * 5 + 1)

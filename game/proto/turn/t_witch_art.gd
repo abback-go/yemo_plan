@@ -15,6 +15,35 @@ const RIM_LIGHT := Color(0.9, 0.86, 1.0, 0.5) ## 테두리 빛 (review_C §8.1 �
 const RIM_OFFS: Array[Vector2] = [Vector2(-0.5, -0.5), Vector2(0.5, 0.5)] ## 로컬 px (마녀 배율 2 → 화면 1px)
 static var _rim_shader: Shader
 static var _rim_mats := {} ## 색 → 재질
+static var _shade_shader: Shader
+static var _shade_mats := {} ## 키 → 재질
+const RIM_OFFS_LIT: Array[Vector2] = [Vector2(-0.9, -0.9), Vector2(0.9, 0.9)] ## 차례인 마녀: 테두리 빛 2px · 속성 색 (검토 O §3)
+## 검토 O §2·§3: 그림 전체 명암을 셰이더 하나로 (CPU 0 · 그리기 호출 그대로). 원점 = 발, 위 = −y.
+## h = 그림 키 · hw = 반폭 · lift = 위 1/2을 흰빛 쪽으로 · drop = 아래 1/2을 어둡게 · side = 달 반대쪽(away 부호) 어둡게 ·
+## black = 어두운 색(밝기 0.35 아래)만 달빛 색으로 들어 올림 — 밤 배경에서 검정·남색 옷이 묻히지 않게. 알파 0.85 아래(빛무리·그림자)는 그대로
+const SHADE_SHADER := """
+shader_type canvas_item;
+uniform float h = 40.0;
+uniform float hw = 12.0;
+uniform float lift = 0.12;
+uniform float drop = 0.28;
+uniform float side = 0.10;
+uniform float away = 1.0;
+uniform float black = 0.0;
+uniform vec3 black_tint = vec3(0.55, 0.5, 0.85);
+varying vec2 lp;
+void vertex() { lp = VERTEX; }
+void fragment() {
+	float solid = step(0.85, COLOR.a);
+	float k = clamp(-lp.y / h, 0.0, 1.0);
+	vec3 c = COLOR.rgb;
+	float luma = dot(c, vec3(0.299, 0.587, 0.114));
+	c += black_tint * black * (1.0 - smoothstep(0.0, 0.35, luma)) * solid;
+	c = mix(c, vec3(1.0), smoothstep(0.5, 1.0, k) * lift * solid);
+	c *= 1.0 - ((1.0 - smoothstep(0.0, 0.5, k)) * drop + smoothstep(0.0, hw, lp.x * away) * side) * solid;
+	COLOR.rgb = c;
+}
+"""
 
 const STYLE := {
 	"ignis": {"hat": "point_fwd", "brim": "burnt", "hair": "spiky", "back": "braid", "front": "lock", "outfit": "coat", "prop": "glove"},
@@ -95,6 +124,7 @@ var _kneel := 0.0 ## 쓰러짐 무릎 자세 (0~1)
 var _blink := 0.0
 var _rim_ci := RID()
 var _rng := RandomNumberGenerator.new() ## 눈 깜빡임 (전역 난수를 건드리지 않게)
+var lit := false ## 차례인 마녀 (TActor.set_turn) — 테두리 빛이 속성 색 2px
 
 
 func _ready() -> void:
@@ -102,6 +132,7 @@ func _ready() -> void:
 	for k in PAL.get(kind, PAL.ember):
 		_p[k] = Color(String(PAL.get(kind, PAL.ember)[k]))
 	_rim_ci = rim_make(self, RIM_LIGHT)
+	material = shade_mat(44.0, 11.0, 0.12, 0.16, 0.06, -1.0, 0.16) # 달(화면 가운데 위)이 마녀의 오른쪽 위 — 왼쪽(뒤)이 그늘
 
 
 func _notification(what: int) -> void:
@@ -111,12 +142,22 @@ func _notification(what: int) -> void:
 
 func _draw() -> void:
 	_paint()
-	rim_paint(_rim_ci, pd, RIM_OFFS if fade >= 0.99 else []) # 옅어지는 중엔 끔 (흰 실루엣이 비침)
+	rim_paint(_rim_ci, pd, (RIM_OFFS_LIT if lit else RIM_OFFS) if fade >= 0.99 else []) # 옅어지는 중엔 끔 (흰 실루엣이 비침)
 	pd.flush(self)
 
 
 ## 테두리 빛 그림 자리 (EArt와 같은 방법 — 몸 뒤에 한 색으로). 적 그림(TEnemyArt)도 같이 쓴다
-static func rim_make(ci: CanvasItem, col: Color) -> RID:
+static func rim_make(ci: CanvasItem, col: Color, shaded := true) -> RID:
+	var rid := RenderingServer.canvas_item_create()
+	RenderingServer.canvas_item_set_parent(rid, ci.get_canvas_item())
+	RenderingServer.canvas_item_set_draw_behind_parent(rid, true)
+	if shaded:
+		rim_set(rid, col)
+	return rid
+
+
+## 테두리 빛 색 바꾸기 (차례인 마녀 = 속성 색 — 검토 O §3). 색마다 재질 하나를 나눠 씀
+static func rim_set(rid: RID, col: Color) -> void:
 	if _rim_shader == null:
 		_rim_shader = Shader.new()
 		# 턴제만: 알파를 0/1로 자르지 않고 그대로 곱함 — 부모(HUD 초상)가 옅어질 때 테두리만 흰 유령으로 남던 것 (review_D A4)
@@ -127,11 +168,53 @@ static func rim_make(ci: CanvasItem, col: Color) -> RID:
 		mat.shader = _rim_shader
 		mat.set_shader_parameter("rim", col)
 		_rim_mats[col] = mat
-	var rid := RenderingServer.canvas_item_create()
-	RenderingServer.canvas_item_set_parent(rid, ci.get_canvas_item())
-	RenderingServer.canvas_item_set_draw_behind_parent(rid, true)
 	RenderingServer.canvas_item_set_material(rid, mat.get_rid())
-	return rid
+
+
+## 명암 재질 (SHADE_SHADER) — 같은 값이면 하나를 나눠 씀
+static func shade_mat(h: float, hw: float, lift: float, drop: float, side: float, away: float, black := 0.0) -> ShaderMaterial:
+	var key := "%.1f|%.1f|%.2f|%.2f|%.2f|%.0f|%.2f" % [h, hw, lift, drop, side, away, black]
+	var mat: ShaderMaterial = _shade_mats.get(key)
+	if mat == null:
+		if _shade_shader == null:
+			_shade_shader = Shader.new()
+			_shade_shader.code = SHADE_SHADER
+		mat = ShaderMaterial.new()
+		mat.shader = _shade_shader
+		for kv: Array in [["h", h], ["hw", hw], ["lift", lift], ["drop", drop], ["side", side], ["away", away], ["black", black]]:
+			mat.set_shader_parameter(kv[0], kv[1])
+		_shade_mats[key] = mat
+	return mat
+
+
+## 방향마다 색이 다른 테두리 (적 — 검토 O §2): 재질 없는 rid에 offs[i]만큼 밀어 cols[i] 한 색으로. 그리기 명령 수 = offs 수 (전과 같이 2)
+static func rim_paint_cols(rid: RID, pd: PDraw, offs: Array, cols: Array) -> void:
+	if not rid.is_valid():
+		return
+	RenderingServer.canvas_item_clear(rid)
+	var n := pd.idx.size()
+	if n == 0 or offs.is_empty():
+		return
+	var cs := pd.c
+	var keep := PackedInt32Array()
+	keep.resize(n)
+	var k := 0
+	var idx := pd.idx
+	for i in range(0, n, 3):
+		if cs[idx[i]].a >= EArt.RIM_SOLID and cs[idx[i + 1]].a >= EArt.RIM_SOLID and cs[idx[i + 2]].a >= EArt.RIM_SOLID:
+			keep[k] = idx[i]
+			keep[k + 1] = idx[i + 1]
+			keep[k + 2] = idx[i + 2]
+			k += 3
+	if k == 0:
+		return
+	keep.resize(k)
+	var fill := PackedColorArray()
+	fill.resize(cs.size())
+	for j in offs.size():
+		fill.fill(cols[j])
+		RenderingServer.canvas_item_add_set_transform(rid, Transform2D(0.0, offs[j]))
+		RenderingServer.canvas_item_add_triangle_array(rid, keep, pd.v, fill)
 
 
 ## 모은 그림 중 진한 삼각형(세 꼭짓점 알파 EArt.RIM_SOLID 이상)만 골라 offs만큼 밀어 rid에 그린다 (pd.flush 전에)

@@ -13,7 +13,8 @@ const OUT := Color("#0a090e")
 const EMBER := Color("#ff7a2a")
 const EMBER_PALE := Color("#ffd9a0")
 const RIM_LIGHT := Color(0.85, 0.82, 1.0, 0.38) ## 테두리 빛 (마녀와 같은 방법, 조금 옅게)
-const RIM_OFFS: Array[Vector2] = [Vector2(-0.5, -0.5), Vector2(0.5, 0.5)]
+const RIM_OFFS: Array[Vector2] = [Vector2(0.7, 0.8), Vector2(-0.6, -0.6)] ## 검토 O §2: 오른쪽 아래 = 어두운 외곽선 · 왼쪽 위(달 쪽) = 테 빛 (그리기 명령 2개 그대로)
+const RIM_COLS: Array[Color] = [Color(0.04, 0.035, 0.055, 0.95), Color(0.93, 0.9, 1.0, 0.6)]
 const OWN_ART := ["ash_king", "trial_colossus"] ## 데이터의 art 대신 id로 그리는 전용 그림
 ## 그림 크기 (원점 = 발밑, 그림 단위 — TActor가 데이터 size × 1.8배): kind → [키, 반폭]
 const DIMS := {"straw_golem": [50.0, 13.0], "swamp_toad": [30.0, 26.0], "ash_knight": [60.0, 16.0], "ash_king": [60.0, 19.0], "trial_colossus": [62.0, 22.0],
@@ -54,7 +55,8 @@ static func kind_for(id: String, art: String) -> String:
 
 func _ready() -> void:
 	_rng.seed = hash(kind)
-	_rim_ci = TWitchArt.rim_make(self, RIM_LIGHT)
+	_rim_ci = TWitchArt.rim_make(self, RIM_LIGHT, false)
+	material = TWitchArt.shade_mat(height(), half_w(), 0.18, 0.30, 0.14, 1.0) # 위 빛 · 아래 그림자 · 달 반대(오른쪽) 그늘 — 마녀와 같은 셰이더
 
 
 func _notification(what: int) -> void:
@@ -64,7 +66,7 @@ func _notification(what: int) -> void:
 
 func _draw() -> void:
 	_paint()
-	TWitchArt.rim_paint(_rim_ci, pd, RIM_OFFS if fade >= 0.99 else []) # 옅어지는 중엔 테두리 빛이 비쳐 흰 실루엣이 되므로 끔
+	TWitchArt.rim_paint_cols(_rim_ci, pd, RIM_OFFS if fade >= 0.99 else [], RIM_COLS) # 옅어지는 중엔 테두리 빛이 비쳐 흰 실루엣이 되므로 끔
 	pd.flush(self)
 
 
@@ -213,6 +215,7 @@ func _paint() -> void:
 		return
 	pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.24))
 	pd.glow(Vector2.ZERO, half_w() * 0.9, Color(0, 0, 0, 0.5), 0.0)
+	pd.glow(Vector2(0, 1.0), half_w() * 0.55, Color(0, 0, 0, 0.6), 0.0) # 접지 그림자 (발이 땅에 붙게 — 검토 O §2)
 	pd.draw_set_transform(Vector2.ZERO)
 	match kind:
 		"straw_golem": _paint_golem()
@@ -284,6 +287,9 @@ func _paint_golem() -> void:
 	# 몸통 (큰 짚단, 밧줄 두 줄)
 	var torso := PackedVector2Array([Vector2(-11 + sway, -40), Vector2(11 + sway, -40), Vector2(12.5, -24), Vector2(10, -13), Vector2(-10, -13), Vector2(-12.5, -24)])
 	_straw(torso, Color("#c9a85c"), 7, 3)
+	# 명암 3단 (검토 O §2): 왼쪽 위 빛 · 오른쪽(달 반대) 그늘 — 결 위에 옅게 덮음
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(-11 + sway, -40), Vector2(-5 + sway, -40), Vector2(-6.5, -13), Vector2(-10, -13), Vector2(-12.5, -24)]), Color("#f2dc9a", 0.22))
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(5 + sway, -40), Vector2(11 + sway, -40), Vector2(12.5, -24), Vector2(10, -13), Vector2(4, -13)]), Color("#6b4a1e", 0.38))
 	for y: float in [-33.0, -20.0]:
 		pd.draw_line(Vector2(-12.6 + sway * 0.5, y), Vector2(12.6 + sway * 0.5, y + 0.8), Color("#6b3f1f"), 2.2)
 		pd.draw_line(Vector2(-12.0 + sway * 0.5, y - 0.6), Vector2(12.0 + sway * 0.5, y + 0.2), Color("#9a6a3a"), 0.6)
@@ -307,18 +313,30 @@ func _paint_golem() -> void:
 	for i in 4: # 팔 끝 풀린 짚
 		var e := Vector2(-18 - lift * 0.6 + float(i) * 1.6, -16.5 - lift)
 		pd.draw_line(e, e + Vector2(-1.5 + float(i) * 0.8, 3.0), Color("#8a6a2e"), 0.8)
-	# 머리: 자루 (목 밧줄)
+	# 머리: 자루 (목 밧줄) — 아래가 불룩한 천 자루 + 위로 묶어 올린 두 귀 (검토 O §2: 상자 머리 → 자루)
 	var hc := Vector2(sway * 1.4, -48)
-	var head := PackedVector2Array([hc + Vector2(-7, -7), hc + Vector2(-3, -10), hc + Vector2(4, -10), hc + Vector2(7.5, -6), hc + Vector2(7, 6), hc + Vector2(-7, 6)])
+	var head := PackedVector2Array([hc + Vector2(-6.5, -8), hc + Vector2(-3.5, -10.5), hc + Vector2(0, -8.8), hc + Vector2(3.5, -10.5), hc + Vector2(7, -7.5),
+		hc + Vector2(8.4, -1.5), hc + Vector2(7.8, 4.2), hc + Vector2(5, 6.8), hc + Vector2(-5, 6.8), hc + Vector2(-7.8, 4.2), hc + Vector2(-8.6, -1.5)])
 	pd.outlined(head, Color("#a6894a"), OUT, 0.8)
-	pd.draw_line(hc + Vector2(-5.5, -7), hc + Vector2(-2, 5), Color("#8a6a2e"), 0.6)
-	pd.draw_line(hc + Vector2(-7, 6.5), hc + Vector2(7, 7), Color("#6b3f1f"), 2.0)
-	pd.draw_line(hc + Vector2(-3, -10), hc + Vector2(-1, -14), Color("#8a6a2e"), 1.6) # 자루 매듭 끝
-	pd.draw_line(hc + Vector2(4, -10), hc + Vector2(6, -13), Color("#8a6a2e"), 1.6)
+	pd.draw_colored_polygon(PackedVector2Array([hc + Vector2(3.0, -9.6), hc + Vector2(7, -7.5), hc + Vector2(8.4, -1.5), hc + Vector2(7.8, 4.2), hc + Vector2(5, 6.8), hc + Vector2(2.4, 6.8), hc + Vector2(4.2, -0.5)]), Color("#7c6232")) # 그늘
+	pd.draw_colored_polygon(PackedVector2Array([hc + Vector2(-6.5, -8), hc + Vector2(-3.5, -10.5), hc + Vector2(-2.2, -6.5), hc + Vector2(-4.5, -1.5), hc + Vector2(-8.6, -1.5)]), Color("#c4a762")) # 빛
+	for j in 4: # 성긴 천 결 (가로 점선)
+		for i in 5:
+			pd.draw_rect(Rect2(hc + Vector2(-6.5 + float(i) * 3.0 + float(j % 2) * 1.5, -6.0 + float(j) * 3.4), Vector2(1.0, 0.6)), Color("#6b4f22", 0.45))
+	pd.draw_line(hc + Vector2(-5.5, -7), hc + Vector2(-2, 5), Color("#8a6a2e"), 0.6) # 솔기 + 바늘땀
+	for k in 4:
+		var q := hc + Vector2(-5.5, -7).lerp(Vector2(-2, 5), (float(k) + 0.5) / 4.0)
+		pd.draw_line(q + Vector2(-1.2, -0.3), q + Vector2(1.2, 0.3), Color("#e8d8a8", 0.8), 0.6)
+	pd.draw_line(hc + Vector2(-7.4, 6.5), hc + Vector2(7.4, 7), Color("#6b3f1f"), 2.0) # 목 밧줄
+	pd.draw_line(hc + Vector2(-7.0, 5.9), hc + Vector2(7.0, 6.4), Color("#9a6a3a"), 0.6)
+	for k in 3: # 묶은 두 귀 끝 (풀린 짚)
+		pd.draw_line(hc + Vector2(-3.5, -10.5), hc + Vector2(-5.0 + float(k) * 1.5, -14.0 + absf(float(k) - 1.0)), Color("#8a6a2e"), 0.9)
+		pd.draw_line(hc + Vector2(3.5, -10.5), hc + Vector2(2.5 + float(k) * 1.6, -13.5 + absf(float(k) - 1.0)), Color("#8a6a2e"), 0.9)
 	# 눈구멍 둘 (어둡고 깊음, 안에서 아주 옅은 불씨)
 	for ex: float in [-4.0, 2.0]:
 		var e := hc + Vector2(ex, -2)
 		pd.draw_colored_polygon(PackedVector2Array([e + Vector2(-2, -1.5), e + Vector2(2.4, -2), e + Vector2(2, 1.5), e + Vector2(-2.2, 1.2)]), OUT)
+		pd.glow(e + Vector2(0.1, 0.1), 2.6, Color(EMBER, 0.25 + 0.15 * sin(_t * 3.0 + ex)), 0.0)
 		pd.draw_rect(Rect2(e + Vector2(-0.4, -0.3), Vector2(1.0, 0.8)), Color(EMBER, 0.5 + 0.3 * sin(_t * 3.0 + ex)))
 	pd.draw_line(hc + Vector2(-3, 3), hc + Vector2(3, 3.4), OUT, 0.8) # 꿰맨 입
 
@@ -337,11 +355,30 @@ func _paint_toad() -> void:
 	pd.draw_set_transform(Vector2(0, -8.0), 0.0, Vector2(1.0, 0.45))
 	pd.glow(Vector2.ZERO, 20.0, Color("#b8c48a"), 0.0)
 	pd.draw_set_transform(Vector2.ZERO)
-	# 등의 검은 점·사마귀
-	for spec: Array in [[-10, -22, 3.0], [-2, -25, 2.4], [8, -22, 3.2], [14, -17, 2.0], [-16, -16, 2.0], [3, -19, 1.6]]:
+	# 명암 (검토 O §2): 아래 가장자리 그늘 띠 · 등 위 달빛 테 — 원 덩어리가 둥근 몸으로 읽히게
+	var ry0 := 14.0 + atk * 2.0
+	var lo_o := PackedVector2Array()
+	var lo_i := PackedVector2Array()
+	for i in 13:
+		var a := lerpf(0.15, PI - 0.15, float(i) / 12.0)
+		var rx := 24.0 + 1.5 * sin(a * 3.0)
+		lo_o.append(Vector2(cos(a) * (rx - 0.6), -14.0 + sin(a) * ry0 * 1.15 - 0.6))
+		lo_i.append(Vector2(cos(a) * (rx - 4.0), -14.0 + sin(a) * ry0 * 0.62))
+	pd.strip(lo_o, lo_i, Color("#2e3c18", 0.55))
+	var top_l := PackedVector2Array()
+	for i in 9:
+		var a := lerpf(PI * 1.08, PI * 1.62, float(i) / 8.0)
+		var rx := 24.0 + 1.5 * sin(a * 3.0)
+		top_l.append(Vector2(cos(a) * (rx - 1.4), -14.0 + sin(a) * (ry0 - 1.4)))
+	pd.draw_polyline(top_l, Color("#c8dc8a", 0.7), 1.0)
+	# 등의 검은 점·사마귀 (크기 3단)
+	for spec: Array in [[-10, -22, 3.0], [-2, -25, 2.4], [8, -22, 3.2], [14, -17, 2.0], [-16, -16, 2.0], [3, -19, 1.6], [-6, -18, 1.0], [11, -26, 1.1], [18, -22, 0.9], [-13, -21, 0.9]]:
 		var c := Vector2(spec[0], spec[1])
+		pd.draw_circle(c, float(spec[2]) + 0.5, Color("#3a4c1e"))
 		pd.draw_circle(c, float(spec[2]), Color("#4b6128"))
 		pd.draw_circle(c + Vector2(-0.6, -0.6), float(spec[2]) * 0.45, Color("#88a34a"))
+	for g: Vector2 in [Vector2(-4, -26.5), Vector2(6, -25), Vector2(-12, -23.5)]: # 젖은 살갗 반짝
+		pd.draw_rect(Rect2(g, Vector2(1.2, 0.8)), Color(1, 1, 0.9, 0.7))
 	# 목주머니 (숨 쉴 때 부풂, 공격 때 크게)
 	var sac := Vector2(-19.0, -8.0)
 	var sr := 4.5 + 2.5 * br + atk * 4.0
@@ -390,17 +427,23 @@ func _paint_knight() -> void:
 	for x: float in [-5.0, 4.0]:
 		pd.outlined(PackedVector2Array([Vector2(x - 3.4, -22), Vector2(x + 3.4, -22), Vector2(x + 3.0, -2), Vector2(x - 3.0, -2)]), plate, OUT, 0.8)
 		pd.draw_line(Vector2(x - 1.6, -20), Vector2(x - 1.4, -4), plate_hi, 0.8)
+		pd.draw_line(Vector2(x + 2.0, -21), Vector2(x + 1.8, -3), plate_dk, 1.4) # 정강이 그늘
 		pd.outlined(PackedVector2Array([Vector2(x - 4.2, -2.5), Vector2(x + 4.6, -2.5), Vector2(x + 5.4, 0.5), Vector2(x - 4.4, 0.5)]), plate_dk, OUT, 0.8) # 발
 		pd.draw_line(Vector2(x - 3.2, -12), Vector2(x + 3.2, -12), plate_dk, 1.2) # 무릎 이음
 	# 허리·몸통 (가슴판에 균열)
 	var torso := PackedVector2Array([Vector2(-10, -48), Vector2(10, -48), Vector2(11.5, -36), Vector2(8, -22), Vector2(-8, -22), Vector2(-11.5, -36)])
 	pd.outlined(torso, plate, OUT, 0.9)
 	pd.draw_colored_polygon(PackedVector2Array([Vector2(-10, -48), Vector2(-2, -48), Vector2(-3, -24), Vector2(-8, -22), Vector2(-11.5, -36)]), plate_hi)
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(5, -48), Vector2(10, -48), Vector2(11.5, -36), Vector2(8, -22), Vector2(4, -22)]), Color(plate_dk, 0.75)) # 오른쪽 그늘 (검토 O §2: 판 3단)
 	pd.draw_line(Vector2(-9, -34), Vector2(9, -34), plate_dk, 1.4)
 	pd.draw_line(Vector2(-8, -26), Vector2(8, -26), plate_dk, 1.0)
+	pd.draw_line(Vector2(-9, -33.0), Vector2(5, -33.0), Color("#a8a1b4", 0.7), 0.6) # 판 경계 아래 1px 밝은 선 (윗판이 겹쳐 보이게)
+	pd.draw_line(Vector2(-8, -25.0), Vector2(4, -25.0), Color("#a8a1b4", 0.6), 0.6)
+	pd.draw_line(Vector2(-9.6, -47.4), Vector2(4, -47.4), Color("#b8b1c4", 0.8), 0.6) # 가슴판 윗모서리
 	# 균열 (불씨가 비침) — 버프 때 환해진다
 	var ca := 0.55 + 0.45 * pulse + fl
 	pd.glow(Vector2(-1, -38), 9.0 + 10.0 * fl, Color(EMBER, 0.25 * ca), 0.0)
+	pd.glow(Vector2(-1, -36), 4.0 + 4.0 * fl, Color(EMBER_PALE, 0.3 * minf(ca, 1.0)), 0.0) # 틈에서 번지는 속불
 	for seg: Array in [[Vector2(-2, -46), Vector2(0, -40), Vector2(-3, -34), Vector2(1, -28)], [Vector2(3, -42), Vector2(5, -37), Vector2(3, -33)], [Vector2(-6, -31), Vector2(-4, -27)]]:
 		for i in range(1, seg.size()):
 			pd.draw_line(seg[i - 1], seg[i], Color(ember, minf(ca, 1.0)), 1.2 + fl)
@@ -415,7 +458,9 @@ func _paint_knight() -> void:
 	var helm := PackedVector2Array([hc + Vector2(-6, -8), hc + Vector2(-2, -12), hc + Vector2(3, -12), hc + Vector2(6.5, -7), hc + Vector2(6.5, 5), hc + Vector2(3, 8), hc + Vector2(-5, 8), hc + Vector2(-7, 2)])
 	pd.outlined(helm, plate, OUT, 0.9)
 	pd.draw_colored_polygon(PackedVector2Array([hc + Vector2(-6, -8), hc + Vector2(-2, -12), hc + Vector2(-2, 7), hc + Vector2(-5, 8), hc + Vector2(-7, 2)]), plate_hi)
+	pd.draw_colored_polygon(PackedVector2Array([hc + Vector2(3, -12), hc + Vector2(6.5, -7), hc + Vector2(6.5, 5), hc + Vector2(3, 8), hc + Vector2(1.5, 8)]), Color(plate_dk, 0.75)) # 투구 그늘
 	pd.draw_line(hc + Vector2(-6.5, 0), hc + Vector2(6.5, 0), plate_dk, 1.0)
+	pd.draw_line(hc + Vector2(-5.6, -8.2), hc + Vector2(-2, -11.4), Color("#b8b1c4", 0.8), 0.6) # 투구 윗모서리 빛
 	pd.glow(hc + Vector2(-2, -2), 5.0 + 4.0 * fl, Color(EMBER, 0.4 * ca), 0.0)
 	pd.draw_line(hc + Vector2(-7, -2.5), hc + Vector2(-1, -2.0), Color(ember, minf(ca, 1.0)), 1.4) # 눈구멍 빛
 	pd.draw_line(hc + Vector2(-6.5, -2.5), hc + Vector2(-2, -2.1), EMBER_PALE, 0.5)

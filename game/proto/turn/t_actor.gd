@@ -46,6 +46,7 @@ func setup(u: TUnit, at: Vector2) -> void:
 			eska.set_process(false)
 			eska.art.stand = true
 			eska.art.rim_on = true
+			eska.art.material = TWitchArt.shade_mat(44.0, 11.0, 0.12, 0.16, 0.06, -1.0, 0.16) # 마녀 11명과 같은 명암 (검토 O §3)
 		else:
 			witch = TWitchArt.new()
 			witch.kind = u.id
@@ -206,6 +207,16 @@ func walk_in(dist: float, dur := 0.4) -> void:
 
 func set_turn(on: bool) -> void:
 	turn_on = on
+	# 차례인 마녀 강조 (검토 O §3): 테두리 빛을 속성 색 2px로 — 밤 배경에서 누구 차례인지 그림만으로 읽힘
+	var col := Color(Color(TData.ELEMENT_COLOR.get(unit.element, TWitchArt.RIM_LIGHT)).lightened(0.35), 0.95)
+	if witch != null:
+		witch.lit = on
+		TWitchArt.rim_set(witch._rim_ci, col if on else TWitchArt.RIM_LIGHT)
+	elif eska != null and eska.art._rim_ci.is_valid():
+		if on:
+			TWitchArt.rim_set(eska.art._rim_ci, col)
+		else:
+			RenderingServer.canvas_item_set_material(eska.art._rim_ci, EArt._rim_mat.get_rid())
 
 
 func set_acting(on: bool) -> void:
