@@ -21,6 +21,9 @@ extends RefCounted
 ##   ③ 크레딧 흩기·봉인 알약이 보이면 모으지 않고 씀 ④ 징표 털기가 보이면 1겹부터 터뜨리기 ⑥ 맞는 적이 셋 이상이면 광역 공격 마법은 모으기·횟수제 기본 공격보다 먼저
 ## 단계 F-3 (combat_proto.md §27.8 — 무리 판단): 적 셋 이상이고 광역 공격 마법을 장착했으면 ⑦ 단일 공격 대마법 차례에 크레딧당 값이 더 큰 광역 공격 마법을 먼저
 ##   ⑧ 한 명에게 거는 징표 디버프 점수 ×0.3 (크레딧을 광역에) · 특성 특공(this_special trait)은 TBattle.special_hits로
+## R5 (review_M M1·M2 — combat_proto.md §27.14): 비용은 TBattle.cost_now(비용 감소 반영) · 최대 체력 = 받는 피해 감소와 같은 때 · 정화 = 나쁜 효과·봉인이 걸린 아군 수 ·
+##   약화 막기 = 약화·봉인·흩기·기절 공격 알약이 보일 때 · 예약 크레딧 = 받는 마녀가 다음 차례에 대마법을 쓸 때(넘치지 않음)도 값 · 비용 감소 = 받는 마녀의 3비용 이상 장착 마법 ·
+##   조건 비례(scale)는 값·점수에 곱함 — 자기 체력 비례 마법엔 "체력 45% 아래 대가 ×0.3"을 빼고, 쌓인 힘 4겹 이상이면 되돌려 베기 점수 ×1.3 (종언참 앞 준비)
 
 const USE_AT := 2.2 ## 공격 마법: 이 점수 아래면 기본 공격
 const USE_AT_SUP := 1.8 ## 보조·디버프 마법의 기준 (review_E E0 ④)
@@ -172,14 +175,14 @@ static func _pick(b: TBattle, u: TUnit) -> Dictionary:
 			continue
 		var sk := TData.skill(sid)
 		var atk := String(sk.kind) == "attack"
-		if guard_cost > 0 and not _guards(sid) and u.credits - int(sk.cost) < guard_cost and not _has(sk.get("effects", []), "taunt") and not _heals(sk.get("effects", [])):
+		if guard_cost > 0 and not _guards(sid) and u.credits - TBattle.cost_now(u, sid) < guard_cost and not _has(sk.get("effects", []), "taunt") and not _heals(sk.get("effects", [])):
 			continue # 지키는 마녀: 큰 보호 마법 비용은 남긴다 (도발·회복은 예외)
 		if ult_pc > 0.0 and String(sk.kind) == "support" and String(sk.target) == "self" and not _has_count(sk):
 			continue # 모으는 중엔 자기 강화(검기 두르기 등)에 크레딧을 쓰지 않는다 — 횟수제(다음 공격 1번·기본 공격 3번)는 대마법·기본 공격에 붙으므로 예외
 		if atk and int(sk.cost) >= 3 and _guarded(en) and String(sk.target) != "enemies" and not spend and not _danger(b):
 			continue # ② 방어 태세 중인 적 하나: 큰 단일 공격은 미룬다
 		if atk and ult_pc > 0.0 and not _save_exempt(sk, en):
-			var net := float(int(sk.cost) - _refund(sk, en))
+			var net := float(TBattle.cost_now(u, sid) - _refund(sk, en))
 			if _attack_value(b, sk, en, u) - net * ult_pc < basic_v + float(TData.BASIC_BONUS) * ult_pc:
 				continue
 		var r := score(b, u, sid, en, dealer)
@@ -233,6 +236,8 @@ static func _attack_value(b: TBattle, sk: Dictionary, en: TUnit, u: TUnit = null
 					v *= 1.0 + float(e.v)
 			"hp_bonus": # 체력 비례 (F-4)
 				v *= 1.0 + TBattle.hp_bonus_of(e, en)
+			"scale": # 조건 비례 (R5)
+				v *= 1.0 + TBattle.scale_of(e, u)
 	if bool(sk.get("ultimate", false)) and u != null:
 		v *= 1.0 + u.cat_sum("ult_dmg") # 대마법 위력 버프 (F-4)
 	return v
@@ -361,25 +366,44 @@ static func enemy_for(b: TBattle, u: TUnit = null) -> TUnit:
 
 ## 배터리: 크레딧을 주는 마법으로 딜러가 다음 차례에 대마법을 쓸 수 있게 되면 (또는 연쇄 중이면) 준다
 static func _feed(b: TBattle, u: TUnit, dealer: TUnit) -> Dictionary:
-	if dealer == null or not dealer.alive or dealer == u or dealer.credits >= TData.ULT_COST:
+	if dealer == null or not dealer.alive or dealer == u:
 		return {}
 	var best := ""
 	var best_g := 0
+	var late := "" ## 예약 크레딧 마법 (R5): 딜러가 대마법을 쓸 차례에 걸어도 넘치지 않음 — 대마법 뒤 차례에 들어온다
+	var late_g := 0
 	for sid in u.equipped:
 		if not b.can_use(u, sid):
 			continue
 		var sk := TData.skill(sid)
 		if String(sk.target) not in ["ally", "ally_any"]:
 			continue
+		var dg := _delay_credits(sk)
+		if dg > late_g:
+			late = sid
+			late_g = dg
 		for e in sk.get("effects", []):
 			if String(e.t) == "credits" and String(e.get("who", "target")) == "target" and int(e.v) > best_g:
 				best = sid
 				best_g = int(e.v)
-	if best == "":
+	if late != "" and dealer.delayed.is_empty() and (b.chain_stage > 0 or dealer.credits + 1 >= TData.ULT_COST):
+		return {"kind": "skill", "skill": late, "target": dealer}
+	if best == "" or dealer.credits >= TData.ULT_COST:
 		return {}
 	if b.chain_stage > 0 or dealer.credits + best_g + 1 >= TData.ULT_COST:
 		return {"kind": "skill", "skill": best, "target": dealer}
 	return {}
+
+
+## 예약으로 들어오는 크레딧 합 (R5)
+static func _delay_credits(sk: Dictionary) -> int:
+	var n := 0
+	for e in sk.get("effects", []):
+		if String(e.t) == "delay":
+			for e2 in e.get("effects", []):
+				if String(e2.get("t", "")) == "credits":
+					n += int(e2.v)
+	return n
 
 
 ## 지키는 효과가 있는 마법인가 (무적·받는 피해 감소·회복·되살림)
@@ -494,8 +518,12 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 				"hp_bonus":
 					s *= 1.0 + TBattle.hp_bonus_of(e, en) # 체력이 많은 적일수록 (F-4)
 				"hp_cost":
-					if u.hp_ratio() < 0.45:
-						s *= 0.3
+					if u.hp_ratio() < 0.45 and not _scales(effects, "self_hp_low"):
+						s *= 0.3 # 체력이 낮으면 대가 마법을 아낌 — 자기 체력 비례(피 끓는 일격)는 낮을수록 세므로 뺌 (R5)
+				"scale": # 조건 비례 (R5 — review_M M2)
+					s *= 1.0 + TBattle.scale_of(e, u)
+					if String(e.get("by", "")) == "stack" and u.stack_n() >= 4:
+						s *= 1.3 # 쌓인 힘 4겹 이상: 되돌려 베기 → 다음 차례 종언참 (크리 데미지 준비)
 				"credits":
 					if not e.has("if_mark") or en.marks.has(e.if_mark):
 						s *= 1.0 + 0.25 * float(e.v)
@@ -590,6 +618,30 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 					else:
 						fresh += 0.7
 				"hit_stack": fresh += 0.0 if u.has_buff("hit_stack") else 1.6
+				# ── R5 지원 효과 넷 (review_M M1)
+				"max_hp": # 최대 체력: 받는 피해 감소와 같은 때 (관통 필살기 앞이 가장 큼 — 무적이 안 통함)
+					if not who.has_buff("max_hp"):
+						fresh += (2.0 if pierce_coming(b) else 1.0) if heavy_coming(b) else 0.2
+				"cleanse": # 정화: 나쁜 효과·봉인이 걸린 아군마다
+					for w in b.alive_of(b.witches):
+						if w.sealed > 0 or w.good_buffs() < w.buffs.size():
+							fresh += 1.2
+				"debuff_block": # 약화 막기: 약화·봉인·흩기·기절 공격 알약이 보이고 아직 막기가 없으면
+					if _weaken_coming(b) and who.blocks_left() <= 0:
+						fresh += 1.2
+				"delay": # 예약 크레딧: 받는 마녀가 다음 차례에 대마법을 쓰면(넘침 없음) 큰 값
+					var dg := 0
+					for e2 in e.get("effects", []):
+						if String(e2.get("t", "")) == "credits":
+							dg += int(e2.v)
+					if dg > 0 and who != u and who.delayed.is_empty():
+						fresh += 2.0 if who.credits + 1 >= TData.ULT_COST or who.credits + 1 + dg >= TData.ULT_COST else 0.7
+				"cost_down": # 비용 감소: 받는 마녀에게 3비용 이상 장착 마법이 있으면
+					var big := 0
+					for sid2 in who.equipped:
+						if String(TData.skill(sid2).get("kind", "")) == "attack":
+							big = maxi(big, TData.cost_of(sid2))
+					fresh += 0.6 if big >= 3 and who.cost_cut() <= 0 else 0.0
 				"hp_cost":
 					for w in b.alive_of(b.witches):
 						if w.hp_ratio() < 0.4:
@@ -612,6 +664,8 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 		s = 0.6 + 1.3 * fresh
 		if cost >= 4 and u.credits < 5:
 			s *= 0.6
+		if target == "ally" and bool(sk.get("no_self", false)) and who == u:
+			s = 0.0 # 자신 제외 마법을 받을 아군이 자신뿐 (R5 — 초침 밀기)
 		if target == "ally_any" and dead != null:
 			tgt = dead
 		elif target == "ally" and _has(effects, "taunt") and tank != null:
@@ -621,6 +675,22 @@ static func score(b: TBattle, u: TUnit, sid: String, en: TUnit, dealer: TUnit) -
 		else:
 			tgt = who
 	return {"score": s, "tgt": tgt}
+
+
+## 그 by의 조건 비례(scale)가 있나 (R5)
+static func _scales(effects: Array, by: String) -> bool:
+	for e in effects:
+		if String(e.get("t", "")) == "scale" and String(e.get("by", "")) == by:
+			return true
+	return false
+
+
+## 약화·봉인·크레딧 흩기·기절 공격 알약이 보이는 적이 있나 (R5 — 약화 막기를 걸 때)
+static func _weaken_coming(b: TBattle) -> bool:
+	for e in b.alive_of(b.enemies):
+		if String(e.intent().get("k", "")) in ["weaken", "seal", "scatter", "stun_attack"]:
+			return true
+	return false
 
 
 ## 속성 부여를 걸 가치: 이미 그 속성이 아니고, 적 약점이 그 속성이거나(지금 속성은 약점이 아님) 받은 징표 특공이 그 속성의 겹을 곱하게 될 때 (F-4 P1)

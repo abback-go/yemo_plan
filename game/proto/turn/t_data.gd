@@ -57,6 +57,14 @@ extends RefCounted
 ##   mark·enemy_charge ... if_mark            — 맞기 전 대상에게 그 징표가 있었을 때만
 ##   stun ... else_charge n                   — 기절 면역(보스)이면 대신 차지 −n
 ##   stun ... else_debuff {cat v dur}         — 기절 면역(보스)이면 대신 그 디버프 (성공 판정, 뇌격 — R2: 차지 감소는 물·시간 독점이라 번개 몫 크리로)
+##   [R5 2026-10-19, combat_proto.md 2.5 — review_M M1 지원 효과 넷 · M2 조건 비례]
+##   max_hp who v dur           — 최대 체력 +기본×v (지금 체력도 +, 적 행동 dur번, 끝나거나 해제되면 새 최대로 자름, 합 상한 CAP.max_hp)
+##   debuff_block who count dur — 적의 약화·봉인·기절·흩기를 count번 막음 (피해는 그대로, 적 행동 dur번 안)
+##   cleanse who                — 적이 건 나쁜 효과(bad)·봉인을 지움 (이로운 버프·적 버프는 그대로)
+##   delay who effects          — 예약: 받은 마녀의 다음 자기 차례 시작(쉼 포함)에 effects (credits·gauge·buff만 — 크레딧은 [확정 12-1 A]의 "마법" 출처)
+##   cost_down who v dur        — 다음 장착 마법 1번 비용 −v (대마법·기본 공격 제외, 0 아래 안 감, 그 마녀 행동 dur번 안 — 강화로 안 오름)
+##   scale by v [max]           — 이 공격만 따로 곱함: by self_hp_low = × (1 + v × (1 − 자기 체력 비율, 맞히기 전)) · stack = × (1 + min(v × 쌓인 힘 겹, max))
+##   마법 "no_self": true       — 단일 아군 대상에서 자신을 뺌 (크레딧을 주는 마법 §15.3 "자기 자신은 받지 않는다")
 ## 패시브(WITCHES[id].passive.effects, §15.6) — 버프가 아니라 해제되지 않는다:
 ##   stat cat v [mark]        — 상시 보정 (mark가 있으면 대상에게 그 징표가 있을 때만, 겹을 곱하지 않음)
 ##   aura cat v               — 이 마녀가 살아 있는 동안 아군 전체에 (지금은 dmg_taken만)
@@ -78,7 +86,8 @@ extends RefCounted
 
 ## 데이터 판: 적·마법·전투 데이터(id·패턴·의도 종류)를 바꿀 때 올린다. 끊긴 전투 파일에 적고, 판이 다르면 이어 하기를 버린다 (review_I I-03)
 ##   1 = 1.7까지 · 2 = 단계 F-2 (적 14·보스 3·전투 10, 의도 9종) · 3 = F-3 (특성 특공 마법 3 · 세 빛의 인형 태세·줄 · 흩날리는 재) · 4 = F-4 (마법·대마법·패시브 품질 — 새 효과 종류) · 5 = R1 (마법 7개 수치) · 6 = R2 (물 겹 특공·쇄빙 일격·속성 독점 셋·신더 기본 장착 — review_L) · 7 = R3 (불씨 나눔 비용 5 · 네레이 기본 장착)
-const DATA_VER := 7
+##   8 = R5 (지원 효과 넷 · 조건 비례 — 얼음 벽·밀려오는 조류·초침 밀기·한 번 더·피 끓는 일격·되돌려 베기, review_M M1·M2)
+const DATA_VER := 8
 const GAUGE_MAX := 1000.0
 const CREDIT_MAX := 7
 const BASIC_BONUS := 1 ## 기본 공격을 쓰면 더 주는 크레딧
@@ -89,7 +98,7 @@ const CRIT_MULT := 1.5
 const WEAK := 1.5
 const SPECIAL := 1.2
 const CAP := {"atk": 3.0, "crit_dmg": 3.0, "special": 2.0, "final": 1.0, "def_down": 0.5, "atk_down": 0.5, "dmg_taken": 1.0, "crit_rate": 0.9, "crit_taken": 0.5, "crit_down": 0.5, "final_taken": 0.5, "dmg_cut": 0.7,
-	"crit_dmg_taken": 0.6, "ult_dmg": 1.0, "regen": 0.5}
+	"crit_dmg_taken": 0.6, "ult_dmg": 1.0, "regen": 0.5, "max_hp": 0.5}
 ## 징표 → 그 징표의 속성 (특공이 겹을 곱하는 공격 속성, F-4 P1)
 const MARK_EL := {"burn": "fire", "frost": "water", "shock": "bolt"}
 const ENEMY_CRIT_BASE := 0.05 ## 적의 크리 확률 (크리 다운 디버프의 대상)
@@ -99,7 +108,7 @@ const SKILL_LV := [1.00, 1.15, 1.30] ## 마법 강화 Lv1~3 수치 배수 (§4.4
 const RESIST := {"normal": 0.0, "elite": 0.1, "boss": 0.3} ## 적 등급별 디버프 내성 (§16.5)
 const TIER_NAME := {"normal": "일반", "elite": "강적", "boss": "보스"}
 ## 강화로 오르는 효과 칸 (t → 키). 비용·지속·크레딧 +N·겹 수·히트 수·크리 확정·방어 무시·기절·도발·근성·터뜨리기는 그대로 (§4.4)
-const LV_SCALE := {"buff": "v", "debuff": "v", "gauge": "v", "enemy_gauge": "v", "this_special": "v", "heal": "pct", "revive": "pct", "crit_gauge": "v", "hit_stack": "v", "regen": "pct", "hp_bonus": "v"}
+const LV_SCALE := {"buff": "v", "debuff": "v", "gauge": "v", "enemy_gauge": "v", "this_special": "v", "heal": "pct", "revive": "pct", "crit_gauge": "v", "hit_stack": "v", "regen": "pct", "hp_bonus": "v", "max_hp": "v", "scale": "v"}
 ## 대마법 연쇄 (§13.6): 단계 1·2·3의 부가 효과 배수 (크레딧·겹 수·지속은 그대로). 칸은 LV_SCALE + 터뜨리기 per
 const CHAIN_MULT := [1.00, 1.25, 1.50]
 ## 공격 대마법의 배율(mult)은 단계 1·2·3에 ×1.15·×1.3 (F-4 P2 — 공격 대마법도 연쇄 끝에 둘 이유)
@@ -115,7 +124,8 @@ const MARK_NAME := {"burn": "화상", "frost": "빙결", "shock": "감전"}
 const CAT_NAME := {"atk": "공격력", "crit_dmg": "크리 데미지", "crit_rate": "크리 확률", "special": "특공", "final": "최종 데미지",
 	"dmg_taken": "받는 피해", "element": "속성 부여", "def_down": "방어 다운", "atk_down": "공격력 다운", "invincible": "무적",
 	"crit_taken": "받는 크리 확률", "crit_down": "크리 확률 다운", "taunt": "도발", "guts": "근성", "final_taken": "받는 최종 데미지", "hit_stack": "맞으며 쌓기",
-	"dmg_cut": "방어 태세", "cover": "막아서기", "crit_dmg_taken": "받는 크리 데미지", "ult_dmg": "대마법 위력", "regen": "지속 회복"}
+	"dmg_cut": "방어 태세", "cover": "막아서기", "crit_dmg_taken": "받는 크리 데미지", "ult_dmg": "대마법 위력", "regen": "지속 회복",
+	"max_hp": "최대 체력", "debuff_block": "약화 막기", "cost_down": "비용 감소", "delay": "예약"}
 const ROLE_NAME := {"dealer": "딜러", "buffer": "버퍼", "caster": "술사", "special": "범용"}
 const ELEMENT_COLOR := {"fire": Color("#ff8a3a"), "water": Color("#5ec8ff"), "bolt": Color("#ffe34a"), "space": Color("#b9a2ff"), "time": Color("#f2d27a"), "sword": Color("#f2eff7")}
 ## 편성 명단 순서 (속성별 딜러·버퍼·술사 → 무상성)
@@ -286,8 +296,8 @@ const SKILLS := {
 		"effects": [{"t": "mark", "kind": "burn", "dur": 3}],
 		"desc": "2.0배 피해 + 화상 1겹 (적 행동 3번)", "ref": "징표 심기"},
 	"blood_strike": {"name": "피 끓는 일격", "cost": 2, "kind": "attack", "target": "enemy", "mult": 3.0, "fx": "meteor", "icon": "brand",
-		"effects": [{"t": "hp_cost", "who": "self", "pct": 0.10}],
-		"desc": "3.0배 피해. 대가: 자신 체력 −10% (쓰러지지 않음)", "ref": "버스터식 몰아치기 — 자원 대신 체력을 낸다 (코얀스카야 S1의 체력 대가)"},
+		"effects": [{"t": "scale", "by": "self_hp_low", "v": 0.60}, {"t": "hp_cost", "who": "self", "pct": 0.10}],
+		"desc": "3.0배 피해 + 자기 체력이 낮을수록 강해짐 (최대 +60%, 맞히기 전 체력). 대가: 자신 체력 −10% (쓰러지지 않음)", "ref": "버스터식 몰아치기 — 자원 대신 체력을 낸다 (코얀스카야 S1의 체력 대가) + 자기 체력이 낮을수록 (역기획서 §13.6 구조, R5 review_M M2)"},
 	"focus": {"name": "열기 응축", "cost": 2, "kind": "support", "target": "self", "fx": "focus", "icon": "focus",
 		"effects": [{"t": "buff", "who": "self", "cat": "atk", "v": 0.80, "dur": 4, "count": 1, "on": "skill"}],
 		"desc": "자신: 다음 공격 마법 1번 공격력 +80% (기본 공격·보조 마법엔 닳지 않음, 행동 3번 안에)", "ref": "초인 오리온 S1의 1행동 거대 자기 강화 — 횟수제라 보조 마법에 닳지 않음"},
@@ -431,8 +441,9 @@ const SKILLS := {
 		"effects": [{"t": "taunt", "who": "self", "dur": 3}, {"t": "hit_stack", "who": "self", "v": 0.08, "max": 5, "dur": 5, "stack_dur": 6, "to": "allies"}],
 		"desc": "자신: 도발 (적 행동 3번) + 적 행동 5번 동안 맞을 때마다 아군 전체 공격력 +8% 한 겹 (최대 5겹, 겹마다 행동 6번)", "ref": "가레스 S2(맞을 때마다 쌓임) + 마슈 도발 — 버틴 시간이 파티 피해로"},
 	"current": {"name": "밀려오는 조류", "cost": 3, "kind": "support", "target": "allies", "fx": "blessing", "icon": "up",
-		"effects": [{"t": "buff", "who": "allies", "cat": "dmg_taken", "v": -0.15, "dur": 2}, {"t": "credits", "who": "allies", "v": 1}],
-		"desc": "아군 전체: 받는 피해 −15% (적 행동 2번) + 크레딧 +1", "ref": "캐스토리아 S1의 전체 충전 — 물은 보호 + 크레딧 (불의 축복과 같던 공격력 +30%는 뺌, 단계 E E6)"},
+		"effects": [{"t": "buff", "who": "allies", "cat": "dmg_taken", "v": -0.15, "dur": 2}, {"t": "credits", "who": "allies", "v": 1}, {"t": "cleanse", "who": "allies"}, {"t": "debuff_block", "who": "allies", "count": 1, "dur": 3}],
+		"desc": "아군 전체: 받는 피해 −15% (적 행동 2번) + 크레딧 +1 + 정화 (나쁜 효과·봉인 지움) + 약화 막기 1번 (적 행동 3번 안)", "ref": "캐스토리아 S1의 전체 충전 — 물은 보호 + 크레딧 (불의 축복과 같던 공격력 +30%는 뺌, 단계 E E6) + 약화 해제·약화 무효 (역기획서 §16.4·§16.8 구조, R5 review_M M1 — 적 약화 9종의 짝)",
+		"fit": "적이 약화·봉인·크레딧 흩기를 거는 전투(안개 호수·불길의 골짜기·뇌운 고개·틈새 서고)"},
 	"high_tide": {"name": "밀물", "cost": 3, "kind": "support", "target": "ally", "fx": "share_ember", "icon": "tide",
 		"effects": [{"t": "credits", "v": 2}, {"t": "buff", "cat": "atk", "v": 0.30, "dur": 3}, {"t": "buff", "cat": "ult_dmg", "v": 0.20, "dur": 3}],
 		"desc": "아군 1: 크레딧 +2 + 공격력 +30% · 대마법 위력 +20% (대마법 위력은 공격 대마법 피해에만, 행동 3번)", "ref": "캐스토리아 S2 — 단일 충전 + 버프 (교환비 0.67) + 보구 위력 몫 (F-4)"},
@@ -460,8 +471,8 @@ const SKILLS := {
 		"effects": [{"t": "mark", "who": "enemies", "kind": "frost", "dur": 3}, {"t": "debuff", "who": "enemies", "cat": "def_down", "v": 0.15, "dur": 3}],
 		"desc": "적 전체: 빙결 1겹 (적 행동 3번) + 방어 다운 15% (적 행동 3번)", "ref": "스카디 S2의 광역 방어 다운 + 징표"},
 	"ice_wall": {"name": "얼음 벽", "cost": 3, "kind": "support", "target": "allies", "fx": "fire_wall", "icon": "wall",
-		"effects": [{"t": "buff", "who": "allies", "cat": "dmg_taken", "v": -0.40, "dur": 2}, {"t": "enemy_gauge", "who": "enemies", "v": 0.20}],
-		"desc": "아군 전체: 받는 피해 −40% (적 행동 2번) + 적 전체 게이지 −20%", "ref": "보호 + 지연 (R2: 게이지를 깎은 적 모두 패시브 방어 다운 — 무리에게 광역 방어 다운)",
+		"effects": [{"t": "max_hp", "who": "allies", "v": 0.30, "dur": 3}, {"t": "buff", "who": "allies", "cat": "dmg_taken", "v": -0.25, "dur": 2}, {"t": "enemy_gauge", "who": "enemies", "v": 0.20}],
+		"desc": "아군 전체: 최대 체력 +30% (지금 체력도, 적 행동 3번) + 받는 피해 −25% (적 행동 2번) + 적 전체 게이지 −20%", "ref": "보호 + 지연 (R2: 게이지를 깎은 적 모두 패시브 방어 다운 — 무리에게 광역 방어 다운) · R5: 받는 피해 −40% → 최대 체력 +30% + −25% (역기획서 §17.10 구조 — 한 번은 버티는 벽, review_M M1)",
 		"fit": "아주 아픈 전투(시련)·적이 셋 이상인 전투 — 깎인 적 모두 패시브로 방어 다운 15%"},
 	"still_frost": {"name": "멎는 서리", "cost": 3, "kind": "debuff", "target": "enemy", "fx": "hex", "icon": "ring",
 		"effects": [{"t": "enemy_charge", "v": 1}, {"t": "mark", "kind": "frost", "dur": 3}, {"t": "debuff", "cat": "def_down", "v": 0.20, "dur": 3}],
@@ -576,8 +587,9 @@ const SKILLS := {
 		"desc": "아군 전체: 감전 특공 1겹마다 +20% (번개 공격만 겹을 곱함) + 크리 확률 +20% (행동 3번) + 크레딧 +1", "ref": "전체 버프 겹치기"},
 
 	# ── 호라: 시간 · 버퍼 (공격 2 + 보조 6 + 디버프 2) — 순서·지속·차지
-	"second_hand": {"name": "초침 밀기", "cost": 1, "kind": "support", "target": "ally", "fx": "leap", "icon": "clock_fwd",
-		"effects": [{"t": "gauge", "v": 0.20}], "desc": "아군 1: 행동 게이지 +20%", "ref": "작은 배터리"},
+	"second_hand": {"name": "초침 밀기", "cost": 2, "kind": "support", "target": "ally", "no_self": true, "fx": "leap", "icon": "clock_fwd",
+		"effects": [{"t": "gauge", "v": 0.20}, {"t": "delay", "effects": [{"t": "credits", "v": 2}]}],
+		"desc": "아군 1 (자신 제외): 행동 게이지 +20% + 예약: 그 아군의 다음 차례 시작에 크레딧 +2 (넘치지 않게 대마법 전에 걸어 둠)", "ref": "작은 배터리 → R5: 지연 발동 (역기획서 §16.5 구조, review_M M1) — 비용 1 → 2 (교환비 +2/2 = 1.0, §15.3)"},
 	"stopped_clock": {"name": "멈춘 시계", "cost": 2, "kind": "debuff", "target": "enemy", "fx": "hex", "icon": "clock",
 		"effects": [{"t": "enemy_charge", "v": 1}, {"t": "enemy_gauge", "v": 0.20}, {"t": "debuff", "cat": "final_taken", "v": 0.20, "dur": 3}],
 		"desc": "적 1: 차지 −1 (가득 차 보이던 필살기는 거둬짐) + 게이지 −20% + 받는 최종 데미지 +20% (적 행동 3번)", "ref": "제갈공명 보구의 차지 감소 + 피해 쪽 부품 (보스 성공률 70%, 단계 E E4)"},
@@ -594,7 +606,8 @@ const SKILLS := {
 		"effects": [{"t": "extend_buffs", "v": 2}, {"t": "buff", "cat": "final", "v": 0.20, "dur": 2}],
 		"desc": "아군 1: 버프 지속 +2 + 최종 데미지 +20% (행동 2번)", "ref": "지속 연장"},
 	"once_more": {"name": "한 번 더", "cost": 4, "kind": "support", "target": "ally", "fx": "void_gate", "icon": "cycle",
-		"effects": [{"t": "gauge", "v": 1.00}], "desc": "아군 1: 행동 게이지 +100% (바로 다시 행동)", "ref": "차례 당기기 (크레딧 +1은 뺌 — 차례 시작 +1이 이미 붙는다)"},
+		"effects": [{"t": "gauge", "v": 1.00}, {"t": "cost_down", "v": 2, "dur": 2}], "desc": "아군 1: 행동 게이지 +100% (바로 다시 행동) + 다음 장착 마법 1번 비용 −2 (그 아군 행동 2번 안, 대마법 제외)",
+		"ref": "차례 당기기 (크레딧 +1은 뺌 — 차례 시작 +1이 이미 붙는다) · R5: 비용 감소 (역기획서 §15.2 쿨타임 단축의 자리 → 크레딧 비용, review_M M1 — 크레딧이 아니라 대마법을 채우지 않음)"},
 	"time_stop": {"name": "시간 정지", "cost": 4, "kind": "debuff", "target": "enemies", "fx": "gap", "icon": "lock",
 		"effects": [{"t": "enemy_gauge", "who": "enemies", "v": 0.30}, {"t": "debuff", "who": "enemies", "cat": "def_down", "v": 0.20, "dur": 2}],
 		"desc": "적 전체: 게이지 −30% + 방어 다운 20% (적 행동 2번)", "ref": "광역 지연 + 디버프"},
@@ -608,7 +621,9 @@ const SKILLS := {
 	"bw_slash": {"name": "흑백 참격", "cost": 1, "kind": "attack", "target": "enemy", "mult": 2.0, "fx": "slash", "icon": "slash",
 		"effects": [{"t": "multi", "n": 2}], "desc": "2.0배 피해를 2번으로 나눠 (각 1.0배)", "ref": "다단 히트"},
 	"return_cut": {"name": "되돌려 베기", "cost": 2, "kind": "attack", "target": "enemy", "mult": 2.5, "fx": "slash", "icon": "cut_curve",
-		"effects": [{"t": "buff", "who": "self", "cat": "crit_dmg", "v": 0.30, "dur": 3}], "desc": "2.5배 피해 + 자신 크리 데미지 +30% (다음 행동 2번)", "ref": "공격 뒤 자기 강화 (F-4: 크리 확률은 크리 확정 마법에 0이라 크리 데미지로 — 일섬·종언참·종막의 검 앞에)"},
+		"effects": [{"t": "scale", "by": "stack", "v": 0.20, "max": 1.0}, {"t": "buff", "who": "self", "cat": "crit_dmg", "v": 0.30, "dur": 3}],
+		"desc": "2.5배 피해 + 쌓인 힘 1겹마다 +20% (최대 +100%, 겹은 남음) + 자신 크리 데미지 +30% (다음 행동 2번)", "ref": "공격 뒤 자기 강화 (F-4: 크리 확률은 크리 확정 마법에 0이라 크리 데미지로 — 일섬·종언참·종막의 검 앞에) · R5: 쌓인 겹 수 비례 (역기획서 §13.6 구조, review_M M2 — 버티며 쌓기의 마무리)",
+		"fit": "네레이 파도 버티기(맞으며 쌓기)와 같이 — 쌓인 힘 4겹 이상에서 쓰고 다음 차례 종언참"},
 	"sword_dance": {"name": "검무", "cost": 2, "kind": "attack", "target": "enemies", "mult": 1.4, "fx": "slash_all", "icon": "slash2",
 		"effects": [{"t": "multi", "n": 2}, {"t": "buff", "who": "self", "cat": "crit_dmg", "v": 0.40, "dur": 4, "count": 1, "on": "skill"}],
 		"desc": "적 전체 1.4배 피해를 2번으로 나눠 (각 0.7배) + 자신 다음 공격 마법 1번 크리 데미지 +40% (행동 3번 안에)", "ref": "싼 광역 다단 + 다음 한 방 준비 (F-4: 졸개를 쓸며 보스 한 방을 키우는 연결 칸)"},
@@ -852,7 +867,7 @@ const BATTLES := {
 const BATTLE_ORDER := ["normal_01", "normal_fire", "normal_water", "normal_bolt", "normal_swarm", "normal_rift", "boss_01", "boss_02", "boss_03", "trial_01"]
 
 ## 용어 풀이 (combat_proto.md §2 · §28.6): 도움말 판(? 버튼)과 상세·설명 상자 맨 아래 한 줄이 같이 쓴다. 순서 = 도움말 목록 순서.
-## [용어, 풀이, 화면에서 어디에 보이나] (review_I I-16 — 22 → 32개, 셋째 칸은 도움말 풀이 아래 한 줄)
+## [용어, 풀이, 화면에서 어디에 보이나] (review_I I-16 — 22 → 32개, 셋째 칸은 도움말 풀이 아래 한 줄 · R5 +6 = 43 — 도움말 3쪽)
 const GLOSSARY := [
 	["크레딧", "마녀마다 따로 모으는 마력(◆ 7칸). 차례마다 +1, 기본 공격은 +1 더. 마법을 쓰면 그 비용만큼 줄어든다", "아군 패널의 마름모 7칸 · 바퀴 칸의 숫자 배지(비용)"],
 	["대마법", "크레딧 7을 모두 써서 쓰는 큰 마법. 바퀴 끝 금빛 칸. 쓰고 나면 0부터 다시 모은다. \"대마법 위력\" 버프(크레딧을 주는 마법에 붙음)는 대마법 피해에만 따로 곱해진다", "바퀴 끝 금빛 칸 · 진행 호 n/7"],
@@ -891,9 +906,15 @@ const GLOSSARY := [
 	["대마법 위력", "그 마녀의 공격 대마법 피해에만 따로 곱한다(행동 n번 안). 보조 대마법(회복·버프)에는 붙지 않는다", "아군 패널 금빛 마름모 아이콘"],
 	["받는 크리 데미지", "그 적을 때리는 아군의 크리 피해 배수에 더한다. 크리 데미지 상한(+300%)과 따로 최대 +60%", "적 카드 빨간 별 + 아래 두 줄 아이콘 (두 줄 없는 별은 받는 크리 확률)"],
 	["체력 비례", "적 체력이 가득일수록 세지는 공격. 절반 이하면 보너스 0. 보스는 지금 줄 기준이라 줄이 깨지면 다시 가득", "마법 설명 \"적 체력이 가득이면\""],
+	["최대 체력", "최대 체력과 지금 체력이 함께 오른다(적 행동 n번). 끝나거나 해제되면 원래 최대로 돌아가고, 넘는 체력은 잘린다. 회복의 %는 늘어난 최대 기준", "아군 패널 하트+화살 아이콘 · 초록 체력 숫자 · 막대 위 금빛 눈금(원래 최대)"],
+	["약화 막기", "적이 거는 약화·봉인·기절·크레딧 흩기를 정해진 횟수만큼 막는다. 피해는 그대로 받는다", "아군 패널 둥근 방패 아이콘 + 남은 횟수 · 머리 위 \"막음\""],
+	["정화", "적이 건 나쁜 효과(약화)와 봉인을 지운다. 이로운 버프는 그대로", "마법 설명 \"정화\" · 패널 위 \"정화 n\""],
+	["예약", "걸어 둔 효과가 받은 마녀의 다음 차례가 시작될 때 들어온다. 대마법 전에 크레딧을 걸어도 7에서 넘치지 않는다", "아군 패널 시계+점선 화살 아이콘 · 차례 시작 \"+n (예약)\""],
+	["비용 감소", "다음 장착 마법 1번의 비용이 줄어든다(0 아래로는 안 감). 대마법·기본 공격은 그대로. 쓰면 사라진다", "바퀴 칸 보랏빛 비용 보석 · 설명 띠 \"5 → 3\""],
+	["쌓인 힘", "맞으며 쌓기로 받은 공격력 겹(출처마다 최대 5). 되돌려 베기처럼 겹 수만큼 세지는 공격이 있다", "아군 패널 공격력 아이콘 · 설명 띠 \"쌓인 힘 n · ×…\""],
 ]
 ## 글 속 다른 말 → 용어 (화상·빙결·감전 → 징표 · 갑각 등 특성 이름 → 특성, review_I I-14)
-const GLOSS_ALIAS := {"화상": "징표", "빙결": "징표", "감전": "징표", "갑각": "특성", "영체": "특성", "짐승": "특성", "인형": "특성", "체력 대가": "대가", "무적 관통": "관통", "체력이 가득": "체력 비례"}
+const GLOSS_ALIAS := {"화상": "징표", "빙결": "징표", "감전": "징표", "갑각": "특성", "영체": "특성", "짐승": "특성", "인형": "특성", "체력 대가": "대가", "무적 관통": "관통", "체력이 가득": "체력 비례", "비용 −": "비용 감소"}
 ## 풀이 줄에서 맨 나중에 고르는 기초 용어 (R2 — 늘 "크레딧"만 풀던 것, review_L §4.1)
 const GLOSS_LAST := ["크레딧"]
 

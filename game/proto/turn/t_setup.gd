@@ -1426,6 +1426,20 @@ func _effect_line(e: Dictionary, self_skill := false) -> String:
 			for e2 in e.effects:
 				parts.append(_effect_line(e2))
 			return "크리면: " + " · ".join(parts)
+		# R5 (review_M M1 · M2) — 설명 글과 같은 말
+		"max_hp": return who + "최대 체력 +%d%% (지금 체력도, 적 행동 %d번 — 끝나면 원래 최대로)" % [int(round(float(e.v) * 100.0)), int(e.dur)]
+		"debuff_block": return who + "약화 막기 %d번 (적 행동 %d번 안)" % [int(e.get("count", 1)), int(e.dur)]
+		"cleanse": return who + "정화 (나쁜 효과·봉인 지움)"
+		"cost_down": return who + "다음 장착 마법 1번 비용 −%d (행동 %d번 안, 대마법 제외)" % [int(e.v), int(e.dur)]
+		"delay":
+			var parts: Array = []
+			for e2 in e.get("effects", []):
+				parts.append(_effect_line(e2))
+			return who + "예약: 다음 자기 차례 시작에 " + " · ".join(parts)
+		"scale":
+			if String(e.get("by", "")) == "stack":
+				return "쌓인 힘 1겹마다 이 공격만 +%d%% (최대 +%d%%, 겹은 남음)" % [int(round(float(e.v) * 100.0)), int(round(float(e.get("max", 1.0)) * 100.0))]
+			return "자기 체력이 낮을수록 이 공격만 강해짐 (최대 +%d%%, 맞히기 전 체력)" % int(round(float(e.v) * 100.0))
 	return ""
 
 

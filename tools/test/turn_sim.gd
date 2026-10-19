@@ -9,10 +9,10 @@ extends SceneTree
 ##   lock               : 무적 잠금 실험 (에스카 마력 샘 봉공 + 네레이 물의 장막, 나머지 기본 공격 · 재의 왕 1체) — 막힌 히트 비율
 ##   suite              : 위 전부를 짧게 (원형 표·속도 비·220파티·속성 지표·잠금) — 문서 §27.3 표의 숫자
 ##   bt 전투id [원형id …] : 원형 8개(또는 고른 원형) 프리셋을 그 전투 하나로만 (승 · 행동 · 분)
-##   acts 원형id 전투id  : 그 원형 프리셋의 행동 내역 (마녀:마법별 횟수 · 판당 · 1회 평균 피해) — 느리고 빠른 까닭 찾기
+##   acts 원형id 전투id  : 그 원형 프리셋(R5: 조합 id = TAuto · 조합 id + h = 손 규칙)의 행동 내역 (마녀:마법별 횟수 · 판당 · 1회 평균 피해) — 느리고 빠른 까닭 찾기
 ##   e2                 : 밸런스 후속 E2 목표 셋만 빠르게 — 원형별 딜러 마법 몫 · 기본 파티 보스 분 · 회복 없는 파티 일반 승률 (combat_proto.md §27.3)
 ##   [단계 F-4 — review_J_skills.md §8 · combat_proto.md §27.9]
-##   combo [조합 id …] [@전투] : 이름 붙은 3인 조합 13 (COMBOS) × boss_01(또는 @boss_02 등 — 기준 B7도 그 전투) 손 규칙·TAuto + 시련 — 분 · 연쇄 · 넘친 피해 · B7 대비 배수
+##   combo [조합 id …] [@전투] : 이름 붙은 3인 조합 17 (COMBOS — R5에 C14~C17) × boss_01(또는 @boss_02 등 — 기준 B7도 그 전투) 손 규칙·TAuto + 시련 — 분 · 연쇄 · 넘친 피해 · B7 대비 배수
 ##   loadout [마녀 id …] [#전투]: 그 마녀의 장착 210가지 × boss_01(또는 #전투) (같은 속성 파티 · "마녀@a,b,c"면 그 파티) — 최고·기본 순위·10% 안 수·상위 20 마법 횟수
 ##   [R2 — review_M_gaps2.md F15 · combat_proto.md §25.5 · §27.11]
 ##   builds save        : 기준선 tools/test/baseline_turn.json 쓰기 — 원형 8 × 전투 11(H_BATTLES) 칸마다 승 · 승리 평균 마녀 행동 · 분 · 마법 사용률(장착 마법 ÷ 마녀 행동) · 대마법률 + 전투마다 원형 속도 비
@@ -952,6 +952,11 @@ func _mode_e2(runs: int) -> void:
 ## 원형 프리셋의 행동 내역: 마녀:마법 → 판당 횟수 · 1회 평균 피해
 func _mode_acts(bid: String, bt: String, runs: int) -> void:
 	var bd: Dictionary = BUILDS[bid] if BUILDS.has(bid) else (COMPARE[bid] if COMPARE.has(bid) else {"party": String(bid).split(","), "plan": {}, "state": {}}) # 원형·비교 파티 id 대신 "eska,ignis,ember"처럼 파티를 주면 기본 장착
+	var hand := false ## R5: 조합 id(C16) = TAuto · 끝에 h(C16h) = 손 규칙
+	var cid := bid.trim_suffix("h") if bid.ends_with("h") and COMBOS.has(bid.trim_suffix("h")) else bid
+	if COMBOS.has(cid):
+		bd = COMBOS[cid]
+		hand = cid != bid
 	var tally := {}
 	var dmg := {}
 	var wins := 0
@@ -960,7 +965,12 @@ func _mode_acts(bid: String, bt: String, runs: int) -> void:
 		var b := TBattle.new()
 		b.setup(bd.party, bt, bd.state, 7000 + i)
 		var r := _play(b, func(u: TUnit) -> Dictionary:
-			var a := _auto(b, u)
+			var a: Dictionary
+			var hr = (bd.get("hand", {}) as Dictionary).get(u.id, [])
+			if hand and not (hr is String):
+				a = _hand(b, u, hr, String(bd.dealer))
+			else:
+				a = _auto(b, u)
 			var key := "%s:%s" % [u.id, String(a.sid) if String(a.sid) != "" else "basic"]
 			tally[key] = int(tally.get(key, 0)) + 1
 			for e in a.ev:
@@ -1073,10 +1083,11 @@ func _mode_h(runs: int, only: Array) -> void:
 # 단계 F-4 측정 (review_J_skills.md §1.1 · §2 · §8 — 검토자 측정 스크립트를 여기로 옮김, combat_proto.md §27.9)
 # ═══════════════════════════════════════════════════════════
 
-## 이름 붙은 3인 조합 13 (review_J §2.2). hand = 손 규칙(마녀마다 위에서부터 처음 맞는 것, 없으면 대마법 → 기본 공격), plan = TAuto 판의 plan.
+## 이름 붙은 3인 조합 17 (review_J §2.2 · R5 C14~C17). hand = 손 규칙(마녀마다 위에서부터 처음 맞는 것, 없으면 대마법 → 기본 공격), plan = TAuto 판의 plan.
 ## 손 규칙 한 줄 = {s: 마법 id("ULT" = 자기 대마법), to: foe|dealer|self|low|dead, if: {조건}}
 ##   조건: miss(대상에 그 마법 버프 없음 — 값 없이 true) · mark_lt [징표, n](적 겹 < n) · cr_ge n(자기 크레딧 ≥ n) · dcr_lt n · dcr_ge n(딜러 크레딧) · hurt x(아군 체력 < x)
 ##         danger(위험한 의도) · foes_ge n · chain_ge n · chain_lt n · no_debuff 종류(적에게 없음) · dbuff 종류(딜러가 그 종류 버프를 받음) · weak_el 속성(적 약점이 그 속성)
+##         [R5] hp_lt x · hp_ge x(자기 체력 < x · ≥ x) · cr_lt n(자기 크레딧 < n) · dhp_lt x(딜러 체력 < x) · stack_ge n(자기 쌓인 힘 겹 ≥ n) · sbuff id / no_sbuff id(자기에게 그 마법 버프가 있음 / 없음) · no_delay(딜러에게 예약이 없음)
 const COMBOS := {
 	"C1": {"name": "물 수문", "party": ["undine", "ember", "astra"], "dealer": "undine", "plan": {"dealer": "undine", "ult_only": ["undine"], "battery": ["ember", "astra"]},
 		"state": {"undine": {"equip": "kaleido"}, "ember": {"equipped": ["tinder", "share_ember", "blessing", "flame_breath"], "equip": "notebook"},
@@ -1164,6 +1175,29 @@ const COMBOS := {
 		"hand": {"harpe": [{"s": "ULT", "to": "foe"}, {"s": "doom_slash", "to": "foe"}, {"s": "heaven_split", "to": "foe"}],
 			"ember": [{"s": "blessing", "to": "self", "if": {"hurt": 0.5}}, {"s": "bellows", "to": "dealer", "if": {"miss": true}}, {"s": "crown", "to": "dealer", "if": {"miss": true}}, {"s": "share_ember", "to": "dealer", "if": {"dcr_lt": 4}}],
 			"cinder": [{"s": "ember_wind", "to": "foe", "if": {"foes_ge": 2, "mark_lt": ["burn", 2]}}, {"s": "kindle_up", "to": "foe", "if": {"mark_lt": ["burn", 4]}}, {"s": "ash_oath", "to": "self", "if": {"miss": true}}]}},
+	# ── R5 (review_M M1 · M2 — combat_proto.md §15.10 · §27.14): 새 효과가 사는 조합 넷
+	"C14": {"name": "얼음 갑옷", "party": ["nerei", "glacia", "harpe"], "dealer": "harpe", "plan": {"dealer": "harpe", "guard": ["nerei", "glacia"]}, "auto_only": true, # 탱커가 받고 딜러는 한 번은 버틴다 (얼음 벽 최대 체력)
+		"state": {"nerei": {"equipped": ["wave_hold", "spring", "ocean_blessing", "water_veil"], "equip": "iron_heart"},
+			"glacia": {"equipped": ["ice_wall", "still_frost", "rime", "deep_freeze"], "equip": "swift_boots"}, "harpe": {"equip": "feather_charm"}}},
+	"C15": {"name": "예약된 물결", "party": ["undine", "nerei", "hora"], "dealer": "undine", "plan": {"dealer": "undine", "ult_only": ["undine"], "battery": ["nerei", "hora"]}, # 예약 크레딧은 대마법 전에 걸어도 넘치지 않음
+		"state": {"undine": {"equip": "kaleido"}, "nerei": {"equipped": ["high_tide", "frost_breath", "spring", "water_veil"], "equip": "notebook"},
+			"hora": {"equipped": ["second_hand", "time_haste", "hourglass", "rewind"]}},
+		"hand": {"undine": [{"s": "ULT", "to": "foe"}],
+			"nerei": [{"s": "spring", "to": "low", "if": {"hurt": 0.45}}, {"s": "frost_breath", "to": "dealer", "if": {"miss": true}}, {"s": "high_tide", "to": "dealer", "if": {"dcr_lt": 5}}],
+			"hora": [{"s": "rewind", "to": "low", "if": {"hurt": 0.4}}, {"s": "second_hand", "to": "dealer", "if": {"dcr_ge": 4, "no_delay": true}}, {"s": "time_haste", "to": "self", "if": {"dcr_lt": 5}}]}},
+	"C16": {"name": "타는 심지", "party": ["ignis", "ember", "cinder"], "dealer": "ignis", "plan": {"dealer": "ignis"}, # 체력을 연료로 한 방 (피 끓는 일격 — 손 규칙, TAuto는 대가 점수 규칙으로 덜 고름)
+		"state": {"ignis": {"equipped": ["spark", "blood_strike", "blaze", "sun_spear"]}, "ember": {"equipped": ["bellows", "crown", "blessing", "tinder"]}},
+		"hand": {"ignis": [{"s": "ULT", "to": "foe"}, {"s": "blood_strike", "to": "foe", "if": {"hp_lt": 0.5, "hp_ge": 0.3, "cr_lt": 5}}, {"s": "sun_spear", "to": "foe", "if": {"dbuff": "atk"}}, {"s": "blaze", "to": "foe", "if": {"cr_ge": 4, "hp_ge": 0.5}},
+				{"s": "spark", "to": "foe", "if": {"mark_lt": ["burn", 1]}}],
+			"ember": "auto",
+			"cinder": "auto"}},
+	"C17": {"name": "버틴 검", "party": ["nerei", "hora", "harpe"], "dealer": "harpe", "plan": {"dealer": "harpe", "guard": ["nerei"], "push": ["hora"]}, # 버틴 만큼 쌓고 → 되돌려 베기 → 종언참 (B3 plan과 같음)
+		"state": {"nerei": {"equipped": ["wave_hold", "spring", "ocean_blessing", "water_veil"], "equip": "iron_heart"},
+			"hora": {"equipped": ["rewind", "turn_back", "stopped_clock", "time_haste"], "equip": "hourglass_charm"},
+			"harpe": {"equipped": ["return_cut", "doom_slash", "flash_cut", "heaven_split"], "equip": "feather_charm"}},
+		"hand": {"harpe": [{"s": "ULT", "to": "foe"}, {"s": "doom_slash", "to": "foe", "if": {"cr_ge": 5, "sbuff": "return_cut"}}, {"s": "return_cut", "to": "foe", "if": {"stack_ge": 4, "no_sbuff": "return_cut"}},
+				{"s": "doom_slash", "to": "foe", "if": {"cr_ge": 6}}, {"s": "heaven_split", "to": "foe", "if": {"cr_ge": 5}}],
+			"nerei": "auto", "hora": "auto"}},
 }
 
 
@@ -1220,6 +1254,9 @@ func _hand_ok(b: TBattle, u: TUnit, sid: String, tgt: TUnit, en: TUnit, dealer: 
 			"cr_ge":
 				if u.credits < int(v):
 					return false
+			"cr_lt":
+				if u.credits >= int(v):
+					return false
 			"dcr_lt":
 				if dealer.credits >= int(v):
 					return false
@@ -1255,6 +1292,28 @@ func _hand_ok(b: TBattle, u: TUnit, sid: String, tgt: TUnit, en: TUnit, dealer: 
 					return false
 			"not_el":
 				if dealer.attack_element() == String(v):
+					return false
+			# R5
+			"hp_lt":
+				if u.hp_ratio() >= float(v):
+					return false
+			"hp_ge":
+				if u.hp_ratio() < float(v):
+					return false
+			"dhp_lt":
+				if dealer.hp_ratio() >= float(v):
+					return false
+			"stack_ge":
+				if u.stack_n() < int(v):
+					return false
+			"sbuff":
+				if not u.has_skill_buff(String(v)):
+					return false
+			"no_sbuff":
+				if u.has_skill_buff(String(v)):
+					return false
+			"no_delay":
+				if not dealer.delayed.is_empty():
 					return false
 	return true
 
@@ -1303,7 +1362,7 @@ func _mode_combo(runs: int, only: Array) -> void:
 			bt = String(o).substr(1)
 			only.erase(o)
 	var b7 := _build_stat("B7", bt, runs)
-	print("=== 조합 13 (%d판씩, 시드 7000+, %s — 기준 B7 %.1f분, 2배 경계 %.1f분) ===" % [runs, bt, float(b7.min), float(b7.min) / 2.0])
+	print("=== 조합 17 (%d판씩, 시드 7000+, %s — 기준 B7 %.1f분, 2배 경계 %.1f분) ===" % [runs, bt, float(b7.min), float(b7.min) / 2.0])
 	print("| # | 조합 | 손 규칙 (분 · 대마법 · 연쇄2 · 연쇄3 · 넘침 · 최대 한 방 · 딜러 행동/적 1체) | TAuto (승 · 분 · 연쇄3 · 넘침 · 필살기 맞음) | 시련 TAuto | B7 대비 |")
 	for cid in COMBOS:
 		if not only.is_empty() and not only.has(cid):

@@ -63,7 +63,7 @@ const NUM_MIN_Y := 118.0 ## 피해 숫자 시작 y의 가장 위 (18px 떠올라
 const NUM_STYLE := {"dmg": [12, Color("#fff3e0")], "crit": [24, Color("#ffe08a")], "weak": [15, Color("#ffb04a")], "big": [24, Color("#fff3e0")],
 	"hurt": [15, Color("#ff8a9a")], "heal": [12, Color("#b8f0a0")], "revive": [12, Color("#e6dcff")], "total": [12, Color("#ffe08a")],
 	"status": [12, Color("#cfcfe0")], "break": [15, Color("#ffe08a")], "buff": [10, Color("#d9ccff")], "debuff": [10, Color("#c9b8c8")],
-	"credit": [10, Color("#ffe08a")], "zero": [10, Color("#ff4f6a")], "mark": [10, Color("#ffb08a")]}
+	"credit": [10, Color("#ffe08a")], "zero": [10, Color("#ff4f6a")], "mark": [10, Color("#ffb08a")], "block": [10, Color("#c9b8ff")]} # block = 약화 막음 (R5, GAUGE)
 const BODY_KINDS := ["dmg", "crit", "weak", "big", "hurt", "heal", "revive", "total"]
 const MERGE_KINDS := ["dmg", "crit", "weak", "big", "hurt"] ## 다단을 하나로 합치는 피해 숫자
 const MERGE := 0.45 ## 같은 대상이 이 안에 또 맞으면 숫자를 더함 (대마법 다단 간격 0.09초 · 광역 히트 사이)
@@ -276,7 +276,7 @@ func pop(u: TUnit, text: String, kind := "dmg", weak := false, value := 0) -> vo
 	if u == null or not actors.has(u):
 		return
 	var a: TActor = actors[u]
-	var key := "%d:%s" % [u.get_instance_id(), "body" if kind in BODY_KINDS else ("st" if kind in ["status", "break"] else "txt")]
+	var key := "%d:%s" % [u.get_instance_id(), "body" if kind in BODY_KINDS else ("st" if kind in ["status", "break", "block"] else "txt")]
 	if value > 0 and kind in MERGE_KINDS:
 		for n: Dictionary in numbers:
 			if String(n.key) == key and int(n.get("val", 0)) > 0 and float(n.last) < MERGE and String(n.kind) in MERGE_KINDS:
@@ -303,7 +303,7 @@ func pop(u: TUnit, text: String, kind := "dmg", weak := false, value := 0) -> vo
 		p = _avoid_numbers(p, text, fs0)
 		var hw := T.width(text, fs0) * 0.5 + 18.0 # 화면 밖으로 잘리지 않게 (오른쪽 끝 적 · "n타" 꼬리표 몫)
 		p.x = clampf(p.x, T.left() + hw, T.right() - hw)
-	elif kind in ["status", "break"]:
+	elif kind in ["status", "break", "block"]:
 		# 상태 글은 그 몸의 마지막 숫자 칸 위에서 (숫자와 겹치지 않게)
 		var last := _last_number(u)
 		if last.is_empty() and u.is_witch():
@@ -499,6 +499,14 @@ func view_event(e: Dictionary) -> void:
 			v.hp = mini(int(v.hp) + int(e.v), int(v.max_hp))
 		"hp_cost":
 			v.hp = maxi(int(v.hp) - int(e.v), 1)
+		"max_hp": # 최대 체력 (R5): 최대·지금 체력 + 더한 값
+			v.max_hp = int(v.max_hp) + int(e.v)
+			v.hp = int(v.hp) + int(e.v)
+			v.icons = u.buff_icons()
+		"dispel", "cleanse": # 지운 버프가 최대 체력이면 최대가 되돌아감 (R5)
+			v.hp = u.hp
+			v.max_hp = u.max_hp
+			v.icons = u.buff_icons()
 		"revive":
 			_view[u] = _snap(u)
 		"down":
@@ -846,7 +854,8 @@ func _build_slots() -> void:
 			slots.append({"id": "", "name": "", "cost": 0, "can": false, "pos": pos, "kind": "", "target": "", "icon": "", "empty": true, "ult": i == n - 1})
 		else:
 			var s := TData.skill(sid)
-			slots.append({"id": sid, "name": String(s.name), "cost": int(s.cost), "can": battle.can_use(u, sid), "pos": pos, "kind": String(s.kind), "target": String(s.target),
+			var cn := TBattle.cost_now(u, sid) # 비용 감소 반영 (R5)
+			slots.append({"id": sid, "name": String(s.name), "cost": cn, "base_cost": int(s.cost), "can": battle.can_use(u, sid), "pos": pos, "kind": String(s.kind), "target": String(s.target),
 				"icon": String(s.get("icon", "strike")), "empty": false, "ult": bool(s.get("ultimate", false)), "sealed": battle.sealed_out(u, sid)})
 
 
@@ -1837,7 +1846,11 @@ func _draw_panels() -> void:
 		var a: TActor = actors.get(w)
 		draw_rect(Rect2(hr.position, Vector2(hr.size.x * (a.shown_hp if a != null else vratio(w)), hr.size.y)), Color(hcol, 0.45))
 		draw_rect(Rect2(hr.position, Vector2(hr.size.x * vratio(w), hr.size.y)), hcol)
-		T.text(self, Vector2(X + r.size.x - 4.0, Y + 28), TData.fmt_short(vhp(w)), 10, T.TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+		var boosted := vmax(w) > w.base_max_hp # 최대 체력 버프 중 (R5): 숫자 HEAL색 · 막대 위 기본 최대 자리에 1px GOLD 눈금
+		if boosted:
+			var tx := hr.position.x + roundf(hr.size.x * float(w.base_max_hp) / float(vmax(w)))
+			draw_rect(Rect2(tx, hr.position.y - 2.0, 1, hr.size.y + 4.0), T.GOLD)
+		T.text(self, Vector2(X + r.size.x - 4.0, Y + 28), TData.fmt_short(vhp(w)), 10, T.HEAL if boosted else T.TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
 		# 크레딧 7칸: 마름모 8px · 간격 11 · "n/7" 12px (R3, review_N N-07 — 지름 7px라 체력 숫자보다 안 보였다. FGO §21.3 NP 줄 = HP와 같은 위계)
 		var full := w.credits >= TData.CREDIT_MAX
 		var pulse := 0.8 + 0.2 * sin(_t * 5.0) if full else 1.0
@@ -1852,6 +1865,8 @@ func _draw_panels() -> void:
 			icons.append({"cat": "taunt", "dur": -1})
 		if float(w.equip_data().get("guts_once", 0.0)) > 0.0 and not w.guts_used:
 			icons.append({"cat": "guts", "dur": -1})
+		if not w.delayed.is_empty():
+			icons.append({"cat": "delay", "dur": w.delayed.size() if w.delayed.size() > 1 else -1}) # 예약 (R5): 시계 + 점선 화살
 		if w.sealed > 0:
 			icons.push_front({"cat": "seal", "dur": -1}) # 봉인 (적이 건 나쁜 효과 — 빨간 테, review_H §2.2)
 		for k in mini(icons.size(), 6):
@@ -1952,7 +1967,8 @@ func _draw_wheel() -> void:
 		elif String(s.id) == "basic":
 			_gem(pd, bc, 8.0, T.GAUGE, labels, "+1", T.INK)
 		else:
-			_gem(pd, bc, 6.5, T.GOLD if can else Color("#5a5468"), labels, str(int(s.cost)), T.INK if can else Color("#ff9aa8"))
+			var cut := int(s.cost) < int(s.get("base_cost", s.cost)) # 비용 감소 중 (R5): 보석 GAUGE + 줄어든 숫자
+			_gem(pd, bc, 6.5, (T.GAUGE if cut else T.GOLD) if can else Color("#5a5468"), labels, str(int(s.cost)), T.INK if can else Color("#ff9aa8"))
 		if bool(s.get("sealed", false)):
 			pd.draw_circle(p, r - 1.0, Color(T.INK, 0.6)) # 봉인 (review_H §2.2): 어둡게 + 자물쇠
 			pd.draw_circle(p, 7.0, Color(T.INK, 0.95))
@@ -2043,8 +2059,14 @@ func _draw_strip() -> void:
 		if sid == "basic":
 			T.text(self, Vector2(cx, 318), "크레딧 +1 · 공격 · 적 1", 10, T.GOLD)
 		else:
-			T.cost_badge(self, Vector2(cx + 6, 314), str(int(s.cost)), "ok" if can else "short")
-			T.text(self, Vector2(cx + 16, 318), T.kind_label(TData.skill(sid)), 10, T.TEXT_SUB)
+			var cut := int(s.cost) < int(s.get("base_cost", s.cost))
+			T.cost_badge(self, Vector2(cx + 6, 314), str(int(s.cost)), ("gain" if cut else "ok") if can else "short")
+			var kx := cx + 16.0
+			if cut: # 비용 감소 (R5): 배지 오른쪽 "5 → 3"
+				var cl := "%d → %d" % [int(s.base_cost), int(s.cost)]
+				T.text(self, Vector2(kx, 318), cl, 10, T.GAUGE)
+				kx += T.width(cl, 10) + 6.0
+			T.text(self, Vector2(kx, 318), T.kind_label(TData.skill(sid)), 10, T.TEXT_SUB)
 		# 예상 피해 (대상을 고르면 그 대상, 아니면 첫 적) [확정 21-2 B] — 크리 값 함께
 		var est_tgt: TUnit = null
 		if state == "target" and not targets.is_empty() and not (targets[tsel] as TActor).unit.is_witch():
@@ -2057,9 +2079,12 @@ func _draw_strip() -> void:
 		if String(s.kind) == "attack" and est_tgt != null:
 			var info := battle.est_info(u, est_tgt, "" if sid == "basic" else sid)
 			right = T.est_text(int(info.est), int(info.crit), "예상", -1.0 if bool(info.sure) else float(info.rate)) # 크리 확률 (review_F F06 b)
-			for e in (TData.skill(sid).get("effects", []) if sid != "basic" else []):
+			for e in (battle.skill_of(u, sid).get("effects", []) if sid != "basic" else []): # 강화 레벨 수치 (조건 비례 배수가 예상과 같게)
 				if String(e.t) == "this_special" and e.has("trait") and TBattle.special_hits(e, est_tgt):
 					tag = "%s 특공" % TData.TRAIT_NAME.get(String(e.trait), "") # 특성 특공이 붙는 대상 (review_F F02 화면 — WEAK 꼬리표)
+				elif String(e.t) == "scale": # 조건 비례 (R5 — review_M M2): "체력 40% · ×1.36" / "쌓인 힘 5 · ×2.0"
+					var k := 1.0 + TBattle.scale_of(e, u)
+					tag = ("체력 %d%%" % int(round(u.hp_ratio() * 100.0)) if String(e.get("by", "")) == "self_hp_low" else "쌓인 힘 %d" % u.stack_n()) + " · ×%s" % _x(k)
 		var sr := _success_text(u, sid, est_tgt)
 		if sr != "":
 			right = sr if right == "" else right + " · " + sr
@@ -2106,6 +2131,12 @@ func _draw_strip() -> void:
 			T.text(self, Vector2(cx0 + 9 * 7 + T.width(own, 10) + 12, 351), " · ".join(mates), 10, T.TEXT_SUB)
 	if hint != "":
 		T.text(self, Vector2(STRIP.end.x - 8, 351), hint, 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
+
+
+## 배수 글 (×1.36 · ×2.0 — 끝 0은 한 자리만)
+static func _x(k: float) -> String:
+	var t := "%.2f" % k
+	return t.trim_suffix("0") if t.ends_with("0") else t
 
 
 ## 판정이 있는 칸의 성공률 글 (review_F F06 c): 디버프·게이지 감소·게이지 0·차지 감소 → "성공률 70%"(100%면 없음) · 기절 → 보스 "면역" / 기절 내성 중 "기절 내성"
@@ -2237,6 +2268,15 @@ func _draw_detail(u: TUnit) -> void:
 			st.append("장비 근성 %s" % ("씀" if u.guts_used else "남음"))
 		if not st.is_empty():
 			lines.append([" · ".join(st), T.STUN, 1])
+		for d in u.delayed: # 예약 (R5): "예약: 다음 차례 크레딧 +2"
+			var parts: Array = []
+			for e in d.get("effects", []):
+				match String(e.t):
+					"credits": parts.append("크레딧 +%d" % int(e.v))
+					"gauge": parts.append("게이지 +%d%%" % int(round(float(e.v) * 100.0)))
+					_: parts.append("%s +%d%%" % [TData.CAT_NAME.get(String(e.get("cat", "")), "버프"), int(round(float(e.get("v", 0.0)) * 100.0))])
+			lines.append(["예약: 다음 차례 " + " · ".join(parts), T.GOLD, 1])
+			gsrc += "예약 "
 		var full: Array = []
 		for ic in u.buff_icons():
 			if _capped(ic):
