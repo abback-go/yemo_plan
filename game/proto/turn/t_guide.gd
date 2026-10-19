@@ -48,7 +48,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_card_t += delta
-	size = get_viewport_rect().size
+	size = Vector2(640, 360) # 설계 화면 (review_K K-01)
 	TSave.tick(delta)
 	_update_flow()
 	queue_redraw()
@@ -112,7 +112,7 @@ func pause() -> void:
 func _show(id: String, title: String, body: String, holes: Array, m: String, finger := false, avoid: Array = []) -> void:
 	var clipped: Array = []
 	for h: Rect2 in holes:
-		var c := h.intersection(Rect2(Vector2(1, 1), get_viewport_rect().size - Vector2(2, 2))) # 화면 밖으로 나간 강조는 화면 안으로 (B1 칸이 x 0에서 잘리던 것, I-18)
+		var c := h.intersection(T.screen().grow(-1.0)) # 화면 밖으로 나간 강조는 화면 안으로 (B1 칸이 x 0에서 잘리던 것, I-18)
 		clipped.append(c if c.has_area() else h)
 	card = {"id": id, "title": title, "body": body, "holes": clipped, "mode": m, "finger": finger, "avoid": avoid}
 	_card_t = 0.0
@@ -203,12 +203,12 @@ func _update_flow() -> void:
 					for i in hud.slots.size():
 						if not bool(hud.slots[i].empty) and bool(hud.slots[i].can) and i > 0 and not bool(hud.slots[i].ult):
 							holes.append(hud.slot_rect(i))
-					_show("B3", "크레딧이 모였습니다", "크레딧은 차례마다 1씩 모입니다. 숫자가 금빛인 칸은 지금 쓸 수 있고, 빨간 칸은 아직 모자랍니다.", holes, "tap")
+					_show("B3", "크레딧이 모였습니다", "크레딧은 차례마다 1씩 모입니다. 숫자 배지가 금빛인 칸은 지금 쓸 수 있고, 회색(빨간 숫자)은 아직 모자랍니다.", holes, "tap")
 				else:
 					_show("B5", "차례 줄", "맨 왼쪽이 지금 차례, 오른쪽으로 갈수록 나중입니다. 칸을 누르면 누구인지 빛납니다.", [hud.queue_box()], "tap")
 		"B7":
-			if hud.visible and hud.state == "banner" and hud.banner_text == "승리":
-				_keep("B7", "이겼습니다", "아무 데나 누르면 편성으로 갑니다. 이제 마법을 바꿔 나만의 빌드를 짜 봅니다.", [Rect2(0, 138, 640, 84)], "hint") # 어디를 눌러도 넘어감 (I-05)
+			if hud.visible and hud.state == "banner" and hud.banner_text == "승리" and hud._banner_t > 0.5: # 승리 글이 그려진 뒤 (review_K K-24)
+				_keep("B7", "이겼습니다", "아무 데나 누르면 편성으로 갑니다. 이제 마법을 바꿔 나만의 빌드를 짜 봅니다.", [Rect2(T.left(), 138, T.view.x, 84)], "hint") # 어디를 눌러도 넘어감 (I-05)
 			elif setup.visible:
 				phase = "C1" if TSave.intro_done else "A3a" # 안내 전투에서 지면 다시 출격부터
 				card = {}
@@ -254,11 +254,11 @@ func _input(event: InputEvent) -> void:
 	var pressed := false
 	var is_press := false
 	if event is InputEventScreenTouch:
-		pos = event.position
+		pos = event.position - T.ofs # 설계 좌표 (넓은 화면, review_K K-01)
 		pressed = event.pressed
 		is_press = true
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.device != InputEvent.DEVICE_ID_EMULATION:
-		pos = event.position
+		pos = event.position - T.ofs
 		pressed = event.pressed
 		is_press = true
 	elif event is InputEventKey and event.pressed and not event.echo:
@@ -336,11 +336,11 @@ func _modal_press(p: Vector2) -> void:
 			elif RESUME_NO.has_point(p):
 				mode = "resume_confirm"
 				Sfx.play(&"tn_select", -10.0)
-		"resume_confirm":
-			if RESUME_YES.has_point(p):
+		"resume_confirm": # 왼쪽 = 취소(안전) · 오른쪽 = 버리기(빨강) — 모든 확인 판과 같게 (review_K K-16)
+			if RESUME_NO.has_point(p):
 				mode = ""
 				resume_chosen.emit(false)
-			elif RESUME_NO.has_point(p):
+			elif RESUME_YES.has_point(p):
 				mode = "resume"
 				Sfx.play(&"tn_cancel", -10.0)
 
@@ -432,7 +432,7 @@ func _draw() -> void:
 ## 덮개(INK 0.6 · hint 0.35, 강조 사각만 뚫림) · 강조 금테(1.2초 숨쉬기 — 바퀴 칸은 원) · 판 (제목 12 · 본문 10/12 · 안내 끄기) · 손가락 ▼ (판 위에)
 func _draw_card() -> void:
 	var holes: Array = card.holes
-	var dim: Array = [Rect2(Vector2.ZERO, size)]
+	var dim: Array = [T.screen()]
 	for h: Rect2 in holes:
 		dim = _subtract(dim, h)
 	for r: Rect2 in dim:
@@ -565,7 +565,7 @@ func _help_cell(i: int) -> Rect2:
 
 
 func _draw_help() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(T.INK, 0.55))
+	draw_rect(T.screen(), Color(T.INK, 0.55))
 	T.panel(self, HELP, Color(T.PANEL, 0.98), Color(T.LINE, 0.9), 1, 4)
 	T.text(self, HELP.position + Vector2(12, 22), "도움말 — 용어", 15, T.TEXT)
 	T.text(self, HELP.end - Vector2(12, HELP.size.y - 21), "눌러서 풀이", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -595,7 +595,7 @@ func _btn(r: Rect2, label: String, main: bool) -> void:
 
 
 func _draw_settings() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(T.INK, 0.55))
+	draw_rect(T.screen(), Color(T.INK, 0.55))
 	T.panel(self, SET, Color(T.PANEL, 0.98), Color(T.LINE, 0.9), 1, 4)
 	T.text(self, SET.position + Vector2(12, 22), "설정", 15, T.TEXT)
 	var gs := GameState
@@ -630,7 +630,7 @@ func _draw_settings() -> void:
 
 
 func _draw_resume() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(T.INK, 0.7))
+	draw_rect(T.screen(), Color(T.INK, 0.7))
 	T.panel(self, RESUME, Color(T.PANEL, 0.98), Color(T.GOLD, 0.8), 1, 4)
 	var cx := RESUME.get_center().x
 	if mode == "resume":
@@ -642,13 +642,13 @@ func _draw_resume() -> void:
 	else:
 		T.text(self, Vector2(cx, RESUME.position.y + 30), "끊긴 전투를 버릴까요?", 12, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 		T.text(self, Vector2(cx, RESUME.position.y + 50), "되돌릴 수 없습니다", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER)
-		T.panel(self, RESUME_YES, Color(T.DANGER, 0.85), Color(T.TEXT, 0.8), 1, 3)
-		T.text(self, RESUME_YES.get_center() + Vector2(0, 5), "버리기", 12, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-		_btn(RESUME_NO, "취소", false)
+		_btn(RESUME_YES, "취소", false)
+		T.panel(self, RESUME_NO, Color(T.DANGER, 0.85), Color(T.TEXT, 0.8), 1, 3)
+		T.text(self, RESUME_NO.get_center() + Vector2(0, 5), "버리기", 12, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _draw_pause() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(T.INK, 0.6))
+	draw_rect(T.screen(), Color(T.INK, 0.6))
 	var r := Rect2(220, 140, 200, 72)
 	T.panel(self, r, Color(T.PANEL, 0.98), Color(T.LINE, 0.9), 1, 4)
 	T.text(self, Vector2(320, 172), "멈춤", 15, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)

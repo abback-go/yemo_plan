@@ -1,8 +1,8 @@
 {"scene": "res://proto/turn/turn_proto.tscn", "seed": 20261018, "steps": [
- [10, "eval", "set_party([\"nerei\", \"eska\", \"harpe\"])"],
+ [10, "eval", "set_party([\"nerei\", \"hora\", \"harpe\"])"],
  [20, "eval", "set_auto(true)"],
  [24, "touch", 0, 516, 316], [25, "untouch", 0, 516, 316],
- [28, "touch", 0, 532, 160], [29, "untouch", 0, 532, 160],
+ [28, "touch", 0, 265, 47], [29, "untouch", 0, 265, 47],
  [34, "shot", "t00_pick_trial"],
  [36, "touch", 0, 516, 316], [37, "untouch", 0, 516, 316],
  [120, "shot", "t01_trial"],

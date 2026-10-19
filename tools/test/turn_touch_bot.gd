@@ -119,6 +119,7 @@ var _last := Vector2.ZERO
 
 
 func _tap(p: Vector2) -> void:
+	p += TTheme.ofs # 설계 좌표 → 화면 (넓은 화면, review_K K-01)
 	var ev := InputEventScreenTouch.new()
 	ev.index = 0
 	ev.pressed = true

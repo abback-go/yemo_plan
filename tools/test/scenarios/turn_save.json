@@ -42,7 +42,7 @@
  [1320, "eval", "test_files()"],
  [1322, "touch", 0, 382, 204], [1323, "untouch", 0, 382, 204],
  [1326, "shot", "s08_discard_confirm"],
- [1330, "touch", 0, 258, 204], [1331, "untouch", 0, 258, 204],
+ [1330, "touch", 0, 382, 204], [1331, "untouch", 0, 382, 204],
  [1336, "eval", "test_files()"],
  [1338, "shot", "s09_after_discard"],
  [1342, "touch", 0, 624, 16], [1343, "untouch", 0, 624, 16],

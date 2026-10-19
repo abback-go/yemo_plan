@@ -151,14 +151,16 @@ func _process(delta: float) -> void:
 		var p: Vector2 = a[0]
 		var wob := Vector2(sin(_t * 1.3 + float(a[3])) * 6.0, 0.0) if kind in ["ash", "page", "dust"] else Vector2(sin(_t * 2.0 + float(a[3])) * 8.0, 0.0)
 		p += ((a[1] as Vector2) + wob) * delta
-		if p.x < -8.0:
-			p = Vector2(648.0, _rng.randf_range(0, 360))
-		elif p.x > 648.0:
-			p.x = -8.0
+		var dl := TTheme.left() - 8.0 # 넓은 화면 끝까지 (review_K K-01)
+		var dr := TTheme.right() + 8.0
+		if p.x < dl:
+			p = Vector2(dr, _rng.randf_range(0, 360))
+		elif p.x > dr:
+			p.x = dl
 		if p.y < -8.0:
-			p = Vector2(_rng.randf_range(0, 640), 368.0)
+			p = Vector2(_rng.randf_range(dl, dr), 368.0)
 		elif p.y > 368.0:
-			p = Vector2(_rng.randf_range(0, 700), -8.0)
+			p = Vector2(_rng.randf_range(dl, dr + 60.0), -8.0)
 		a[0] = p
 	_acc += delta
 	if _acc >= 1.0 / 20.0:
@@ -174,9 +176,16 @@ func _paint() -> void:
 	var motif := String(_p.get("motif", "ruins"))
 	var sky: Array = _p.sky
 	var interior := motif in ["corridor"]
+	# 넓은 화면 (review_K K-01): 640×360 그림은 가운데 그대로, 하늘·땅·길·안개·띠만 화면 끝(L·R)까지 늘린다 (위아래 B·U도)
+	var L := TTheme.left()
+	var R := TTheme.right()
+	var U := -TTheme.ofs.y
+	var B := 360.0 + TTheme.ofs.y
 	# 하늘 (실내면 천장)
-	pd.rect_grad(Rect2(0, 0, 640, 150), sky[0], sky[1])
-	pd.rect_grad(Rect2(0, 150, 640, 60), sky[1], sky[2])
+	if U < 0.0:
+		pd.draw_rect(Rect2(L, U, R - L, -U), sky[0])
+	pd.rect_grad(Rect2(L, 0, R - L, 150), sky[0], sky[1])
+	pd.rect_grad(Rect2(L, 150, R - L, 60), sky[1], sky[2])
 	# 별
 	var r := RandomNumberGenerator.new()
 	r.seed = 3
@@ -184,6 +193,8 @@ func _paint() -> void:
 	if sb > 0.0:
 		for i in 70:
 			var p := Vector2(r.randf_range(0, 640), r.randf_range(0, 170))
+			if L < 0.0 and i % 2 == 1: # 넓은 화면: 별 절반은 늘어난 하늘에도
+				p.x = lerpf(L, R, p.x / 640.0)
 			var tw := 0.5 + 0.5 * sin(_t * r.randf_range(1.0, 3.0) + r.randf() * TAU)
 			pd.draw_rect(Rect2(p, Vector2(1, 1)), Color(1, 1, 1, minf((0.25 + 0.5 * tw * (1.0 - p.y / 200.0)) * sb, 1.0)))
 	match motif:
@@ -214,21 +225,22 @@ func _paint() -> void:
 		pd.draw_colored_polygon(PackedVector2Array([Vector2(286, 0), Vector2(314, 0), Vector2(380, 300), Vector2(220, 300)]), Color("#c8c8ff", 0.05))
 	# 먼 산등성이 (가장 먼 층) — 실내는 없음
 	if not interior:
-		var ridge := PackedVector2Array([Vector2(0, 210), Vector2(0, 182)])
+		var ridge := PackedVector2Array([Vector2(L, 210), Vector2(L, 182)])
 		var rough := 2.2 if motif == "peaks" else 1.0
-		for i in 17:
+		var i0 := floori(L / 40.0)
+		for i in range(i0, ceili(R / 40.0) + 1):
 			var x := 40.0 * float(i)
 			ridge.append(Vector2(x, 180.0 + 9.0 * rough * sin(float(i) * 1.3) + 5.0 * rough * sin(float(i) * 3.1) - (14.0 if motif == "peaks" and i % 4 == 1 else 0.0)))
-		ridge.append(Vector2(640, 184))
-		ridge.append(Vector2(640, 210))
+		ridge.append(Vector2(R, 184))
+		ridge.append(Vector2(R, 210))
 		pd.draw_colored_polygon(ridge, Color(_c("ridge"), 0.85))
 	# 지평선 불빛 (재의 왕·불길)
 	if _p.has("horizon"):
-		pd.rect_grad(Rect2(0, 158, 640, 44), Color(_c("horizon"), 0.0), Color(_c("horizon"), float(_p.get("hz", 0.22))))
+		pd.rect_grad(Rect2(L, 158, R - L, 44), Color(_c("horizon"), 0.0), Color(_c("horizon"), float(_p.get("hz", 0.22))))
 	# 지평선 안개 (천천히 흐르는 띠 둘)
 	var fk := float(_p.get("fog_k", 1.0))
 	var fog := _c("fog")
-	pd.rect_grad(Rect2(0, 170, 640, 40), Color(fog, 0.0), Color(fog, minf(0.35 * fk, 0.7)))
+	pd.rect_grad(Rect2(L, 170, R - L, 40), Color(fog, 0.0), Color(fog, minf(0.35 * fk, 0.7)))
 	for i in 2:
 		var fx := fposmod(_t * (6.0 + 4.0 * float(i)) + 300.0 * float(i), 900.0) - 130.0
 		pd.draw_set_transform(Vector2(fx, 200.0 + 6.0 * float(i)), 0.0, Vector2(1.0, 0.18))
@@ -245,12 +257,15 @@ func _paint() -> void:
 		"arena": _arena_back()
 	# 땅: 지평선 아래 (깊이: 위가 어둡고 아래가 밝음)
 	var gr: Array = _p.ground
-	pd.rect_grad(Rect2(0, RIDGE_Y, 640, 154), gr[0], gr[1])
-	pd.draw_line(Vector2(0, RIDGE_Y), Vector2(640, RIDGE_Y), Color(fog, 0.5), 1.0)
+	pd.rect_grad(Rect2(L, RIDGE_Y, R - L, 154), gr[0], gr[1])
+	if B > 360.0:
+		pd.draw_rect(Rect2(L, 360, R - L, B - 360.0), gr[1])
+	pd.draw_line(Vector2(L, RIDGE_Y), Vector2(R, RIDGE_Y), Color(fog, 0.5), 1.0)
 	if motif == "lake":
 		_lake()
 	# 비스듬한 길 (왼쪽 아래 → 오른쪽 위)
-	pd.draw_colored_polygon(PackedVector2Array([Vector2(0, 360), Vector2(150, 360), Vector2(640, 232), Vector2(640, 214), Vector2(560, 212)]), _c("path"))
+	# 길은 같은 기울기로 화면 끝까지 (오른쪽 위로 이어짐)
+	pd.draw_colored_polygon(PackedVector2Array([Vector2(minf(L, 0.0), B), Vector2(150, 360), Vector2(R, 232 - (R - 640.0) * 0.26), Vector2(R, 214 + (R - 640.0) * 0.025), Vector2(560, 212)]), _c("path"))
 	pd.draw_colored_polygon(PackedVector2Array([Vector2(40, 360), Vector2(110, 360), Vector2(600, 236), Vector2(580, 226)]), Color(_c("lit"), 0.6))
 	if motif in ["corridor", "arena", "library"]:
 		_floor_tiles(motif)
@@ -258,11 +273,11 @@ func _paint() -> void:
 		# 길 가장자리 결 (대각선 줄 몇 개 — 원근)
 		for i in 7:
 			var f := float(i) / 6.0
-			pd.draw_line(Vector2(lerpf(-40, 180, f), 360), Vector2(640, lerpf(226, 290, f)), Color(_c("lit"), 0.18 + 0.1 * (1.0 - f)), 1.0)
+			pd.draw_line(Vector2(lerpf(-40, 180, f), 360), Vector2(R, lerpf(226, 290, f) - (R - 640.0) * 0.2), Color(_c("lit"), 0.18 + 0.1 * (1.0 - f)), 1.0)
 	# 가로 띠 (바닥 층을 읽히게)
 	for i in 5:
 		var y := lerpf(215, 352, pow(float(i) / 4.0, 1.3))
-		pd.draw_line(Vector2(0, y), Vector2(640, y + 2), Color(gr[0], 0.5), 1.0)
+		pd.draw_line(Vector2(L, y), Vector2(R, y + 2), Color(gr[0], 0.5), 1.0)
 	if motif == "lava":
 		_lava_cracks()
 	# 바위·풀 (실내·서고는 돌 부스러기만)
@@ -270,6 +285,8 @@ func _paint() -> void:
 	var grass := _c("grass")
 	for i in 26:
 		var p := Vector2(r.randf_range(0, 640), r.randf_range(214, 356))
+		if L < 0.0 and i % 3 == 2:
+			p.x = lerpf(L, R, p.x / 640.0)
 		var depth := (p.y - RIDGE_Y) / 154.0
 		var s := 1.0 + depth * 1.6
 		if i % 3 == 0 or interior or motif in ["library", "arena"]:
@@ -296,27 +313,31 @@ func _paint() -> void:
 		pd.draw_set_transform(Vector2(fx, 222.0 + 10.0 * float(i)), 0.0, Vector2(1.0, 0.14))
 		pd.glow(Vector2.ZERO, 200.0, Color(1, 1, 1, 0.06 * fk), 0.0)
 		pd.draw_set_transform(Vector2.ZERO)
-	pd.rect_grad(Rect2(0, 200, 640, 20), Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.035))
-	pd.rect_grad(Rect2(0, 220, 640, 20), Color(1, 1, 1, 0.035), Color(1, 1, 1, 0.0))
+	pd.rect_grad(Rect2(L, 200, R - L, 20), Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.035))
+	pd.rect_grad(Rect2(L, 220, R - L, 20), Color(1, 1, 1, 0.035), Color(1, 1, 1, 0.0))
 	if motif == "corridor":
 		_lanterns()
 	# 아군 쪽 왼편 키 라이트 (적 쪽 차가운 빛과 온도를 나눔)
 	pd.glow(Vector2(40, 330), 240.0, Color(_c("key"), 0.08), 0.0)
 	# 앞쪽 바위 테두리 (아래 모서리 — 화면 앞 층, 아래 띠 뒤라 그림을 가리지 않음)
 	var near: Color = _c("ridge").darkened(0.35)
-	pd.draw_colored_polygon(PackedVector2Array([Vector2(0, 360), Vector2(0, 286), Vector2(18, 290), Vector2(34, 302), Vector2(52, 300), Vector2(70, 312), Vector2(76, 360)]), near)
-	pd.draw_colored_polygon(PackedVector2Array([Vector2(640, 360), Vector2(640, 280), Vector2(622, 286), Vector2(606, 298), Vector2(590, 296), Vector2(574, 310), Vector2(566, 360)]), near)
-	pd.draw_line(Vector2(0, 286), Vector2(18, 290), Color(_c("lit"), 0.8), 1.0)
-	pd.draw_line(Vector2(640, 280), Vector2(622, 286), Color(_c("lit"), 0.8), 1.0)
+	# (화면 끝에 붙임 — 넓은 화면이면 L·R 쪽으로)
+	var nl := Vector2(L, 0)
+	var nr := Vector2(R - 640.0, 0)
+	pd.draw_colored_polygon(PackedVector2Array([nl + Vector2(0, B), nl + Vector2(0, 286), nl + Vector2(18, 290), nl + Vector2(34, 302), nl + Vector2(52, 300), nl + Vector2(70, 312), nl + Vector2(76, B)]), near)
+	pd.draw_colored_polygon(PackedVector2Array([nr + Vector2(640, B), nr + Vector2(640, 280), nr + Vector2(622, 286), nr + Vector2(606, 298), nr + Vector2(590, 296), nr + Vector2(574, 310), nr + Vector2(566, B)]), near)
+	pd.draw_line(nl + Vector2(0, 286), nl + Vector2(18, 290), Color(_c("lit"), 0.8), 1.0)
+	pd.draw_line(nr + Vector2(640, 280), nr + Vector2(622, 286), Color(_c("lit"), 0.8), 1.0)
 	_dust_draw()
 	if motif == "peaks" and _bolt > 0.0:
 		_lightning()
 	# 가장자리 어둡게 + 아래 띠(아군 패널) 뒤를 더 어둡게 — 패널이 바탕과 섞이지 않게
-	pd.ring_grad(Vector2(320, 180), Vector2(300, 170), Vector2(520, 330), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.6), 40)
-	pd.rect_grad(Rect2(0, 290, 640, 12), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.35))
-	pd.draw_rect(Rect2(0, 302, 640, 58), Color(0, 0, 0, 0.35))
+	var wk := (R - L) / 640.0
+	pd.ring_grad(Vector2(320, 180), Vector2(300 * wk, 170), Vector2(520 * wk, 330), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.6), 40)
+	pd.rect_grad(Rect2(L, 290, R - L, 12), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.35))
+	pd.draw_rect(Rect2(L, 302, R - L, B - 302.0), Color(0, 0, 0, 0.35))
 	if _veil > 0.0:
-		pd.draw_rect(Rect2(0, 0, 640, 360), Color(0, 0, 0, 0.85 * _veil)) # 테마가 바뀌는 순간
+		pd.draw_rect(Rect2(L, U, R - L, B - U), Color(0, 0, 0, 0.85 * _veil)) # 테마가 바뀌는 순간
 
 
 # ── 먼 실루엣 ───────────────────────────────────────────────
@@ -383,7 +404,7 @@ func _clouds() -> void:
 ## 번개: 구름에서 지평선으로 꺾인 줄기 + 하늘이 잠깐 밝아짐 (화면 번쩍임 끔이면 밝아짐을 1/3로)
 func _lightning() -> void:
 	var fl := 1.0 if bool(GameState.settings.get("flash", true)) else 0.33
-	pd.draw_rect(Rect2(0, 0, 640, 206), Color("#c8d0ff", 0.12 * _bolt * fl))
+	pd.draw_rect(Rect2(TTheme.left(), -TTheme.ofs.y, TTheme.view.x, 206 + TTheme.ofs.y), Color("#c8d0ff", 0.12 * _bolt * fl))
 	var r := RandomNumberGenerator.new()
 	r.seed = int(_bolt_x)
 	var p := Vector2(_bolt_x, 40)
@@ -449,9 +470,11 @@ func _corridor_back() -> void:
 	var far := _c("far")
 	var stone: Color = (_p.ground as Array)[1]
 	# 뒤 벽
-	pd.rect_grad(Rect2(0, 90, 640, RIDGE_Y - 90), Color(stone.darkened(0.4), 0.9), Color(stone.darkened(0.2), 0.95))
-	# 아치 (기둥 사이 둥근 천장)
-	for i in 6:
+	pd.rect_grad(Rect2(TTheme.left(), 90, TTheme.view.x, RIDGE_Y - 90), Color(stone.darkened(0.4), 0.9), Color(stone.darkened(0.2), 0.95))
+	# 아치 (기둥 사이 둥근 천장) — 넓은 화면이면 끝까지 되풀이
+	var i0 := floori((TTheme.left() + 20.0) / 120.0) - 1
+	var i1 := ceili((TTheme.right() + 20.0) / 120.0) + 1
+	for i in range(mini(i0, 0), maxi(i1, 6)):
 		var x0 := -20.0 + 120.0 * float(i)
 		var pts := PackedVector2Array()
 		for k in 13:
@@ -459,19 +482,19 @@ func _corridor_back() -> void:
 			pts.append(Vector2(x0 + 60.0 + cos(a) * 52.0, 96.0 + sin(a) * 40.0))
 		pd.draw_polyline(pts, Color(stone.lightened(0.08), 0.9), 3.0)
 	# 기둥
-	for i in 7:
+	for i in range(mini(i0, 0), maxi(i1, 7)):
 		var x := -20.0 + 120.0 * float(i)
 		pd.draw_rect(Rect2(x - 9, 40, 18, RIDGE_Y - 40), far)
 		pd.draw_rect(Rect2(x - 12, 40, 24, 8), stone.lightened(0.05))
 		pd.draw_rect(Rect2(x - 12, RIDGE_Y - 8, 24, 8), stone.lightened(0.05))
 		pd.draw_line(Vector2(x - 4, 50), Vector2(x - 4, RIDGE_Y - 10), Color(_c("lit"), 0.35), 1.0)
 	# 천장 그늘
-	pd.rect_grad(Rect2(0, 0, 640, 60), Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.0))
+	pd.rect_grad(Rect2(TTheme.left(), 0, TTheme.view.x, 60), Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.0))
 
 
 ## 등불 회랑: 기둥 사이 매달린 등불 (흔들림 + 따뜻한 빛무리)
 func _lanterns() -> void:
-	for i in 6:
+	for i in range(mini(floori((TTheme.left() - 40.0) / 120.0), 0), maxi(ceili((TTheme.right() - 40.0) / 120.0), 6)):
 		var x := 40.0 + 120.0 * float(i)
 		var sw := sin(_t * 1.4 + float(i) * 1.3) * 0.12
 		var top := Vector2(x, 44)
@@ -523,7 +546,7 @@ func _lava_cracks() -> void:
 func _lake() -> void:
 	var w0 := RIDGE_Y
 	var w1 := 236.0
-	pd.rect_grad(Rect2(0, w0, 640, w1 - w0), Color("#1a3a5a", 0.85), Color("#10263a", 0.85))
+	pd.rect_grad(Rect2(TTheme.left(), w0, TTheme.view.x, w1 - w0), Color("#1a3a5a", 0.85), Color("#10263a", 0.85))
 	var mc: Vector2 = _p.get("mpos", Vector2(300, 96))
 	for i in 8:
 		var y := w0 + 3.0 + 3.6 * float(i)
@@ -533,7 +556,7 @@ func _lake() -> void:
 		var x := fposmod(64.0 * float(i) + _t * 8.0, 680.0) - 20.0
 		var y := w0 + 6.0 + 22.0 * float(i % 3) / 2.0
 		pd.draw_line(Vector2(x, y), Vector2(x + 18, y), Color("#6a9ac8", 0.25), 1.0)
-	pd.draw_line(Vector2(0, w1), Vector2(640, w1), Color("#4a6a88", 0.4), 1.0)
+	pd.draw_line(Vector2(TTheme.left(), w1), Vector2(TTheme.right(), w1), Color("#4a6a88", 0.4), 1.0)
 
 
 ## 잿빛 둥지: 마른 가지 큰 실루엣 + 오른쪽 둥지 언덕

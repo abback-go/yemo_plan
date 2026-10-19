@@ -316,3 +316,39 @@ class FootRing extends PDraw.Canvas:
 				var ph := fmod(t * 0.9 + float(i) * 0.25, 1.0)
 				var p := Vector2(cos(float(i) * 1.7) * r * 0.8, sin(float(i) * 1.7) * r * 0.25 - ph * 16.0)
 				pd.draw_rect(Rect2(p, Vector2(0.8, 0.8)), Color(col, (1.0 - ph) * 0.9))
+
+
+## 그림 한 장 찍어 두기 (review_K K-13 차례 칩 얼굴 · K-18 편성 명단): px 크기 SubViewport에 이 유닛을 몇 프레임 그린 뒤 멈춰 텍스처로 쓴다.
+## 매 프레임 움직이는 TActor 대신 정지 그림 — 편성 명단 12칸이 그리기 호출을 가장 많이 먹었다. feet = 발 자리(SubViewport 안), sc = 그림 배율
+class Snap extends SubViewport:
+	const FRAMES := 6 ## 그림이 첫 프레임에 다 그려지지 않아 몇 프레임 그린 뒤 멈춤
+	var actor: TActor
+	var _left := FRAMES
+
+	static func make(parent: Node, u: TUnit, px: Vector2i, sc: float, feet: Vector2) -> Snap:
+		var s := Snap.new()
+		s.size = px
+		s.transparent_bg = true
+		s.disable_3d = true
+		s.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+		s.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		parent.add_child(s)
+		var a := TActor.new()
+		a.deco = false
+		s.add_child(a)
+		a.setup(u, feet)
+		a.scale = Vector2(sc, sc)
+		a.z_index = 0
+		s.actor = a
+		return s
+
+	## 그림을 다시 찍는다 (마녀 그림이 바뀔 때)
+	func again() -> void:
+		_left = FRAMES
+		render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+	func _process(_d: float) -> void:
+		if _left > 0:
+			_left -= 1
+			if _left == 0:
+				render_target_update_mode = SubViewport.UPDATE_DISABLED

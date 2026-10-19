@@ -19,6 +19,7 @@
  [228, "untouch", 0, 214, 250],
  [230, "eval", "hud.actor.unit.set('credits', 7)"],
  [231, "eval", "hud._build_slots()"],
+ [231, "eval", "hud.set('state', 'wheel')"],
  [232, "eval", "hud._tap(hud.slots[5].pos)"],
  [236, "shot", "w4_ult"],
  [240, "eval", "hud.open_wheel(actors[battle.witches[1]])"],

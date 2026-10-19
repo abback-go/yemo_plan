@@ -961,7 +961,7 @@ class AshStorm extends PVfx.Base:
 	func _paint() -> void:
 		var x := k()
 		var a := sin(minf(x * 1.3, 1.0) * PI)
-		pd.rect_grad(Rect2(0, 0, 640, 360), Color(_c.dark, 0.0), Color(_c.dark, 0.35 * a))
+		pd.rect_grad(TTheme.screen(), Color(_c.dark, 0.0), Color(_c.dark, 0.35 * a))
 		for b: Array in _bits:
 			var p: Vector2 = (b[0] as Vector2) - Vector2(float(b[1]) * t, sin(t * 3.0 + float(b[0].y)) * 10.0)
 			if p.x < -10.0:
@@ -1039,7 +1039,7 @@ class SunSpear extends PVfx.Base:
 		var drop := clampf((t - 0.5) / 0.1, 0.0, 1.0)
 		var after := clampf((t - 0.6) / 0.9, 0.0, 1.0)
 		# 하늘이 따뜻해짐
-		pd.rect_grad(Rect2(0, 0, 640, 200), Color(_c.gold, 0.22 * charge * (1.0 - after)), Color(_c.gold, 0.0))
+		pd.rect_grad(Rect2(TTheme.left(), -TTheme.ofs.y, TTheme.view.x, 200 + TTheme.ofs.y), Color(_c.gold, 0.22 * charge * (1.0 - after)), Color(_c.gold, 0.0))
 		var tip := _top.lerp(to, drop)
 		var tail := tip + Vector2(0, -90.0 - 60.0 * charge) * (1.0 - after)
 		if after < 1.0:
@@ -1893,6 +1893,7 @@ static func ui_layer() -> CanvasLayer:
 		l = CanvasLayer.new()
 		l.name = "UltLayer"
 		l.layer = 25
+		l.offset = TTheme.ofs # 넓은 화면: 설계 화면 자리 (review_K K-01)
 		sc.add_child(l)
 	return l
 
@@ -2001,12 +2002,12 @@ class UltDim extends PVfx.Base:
 
 	func _paint() -> void:
 		var a := smoothstep(0.0, TFx.ULT_DIM, t) * (1.0 - smoothstep(TFx.ULT_TOTAL - 0.35, TFx.ULT_TOTAL, t))
-		pd.draw_rect(Rect2(-80, -80, 800, 520), Color(Color(INK).lerp(_c.dark, 0.35), (0.78 if mono else 0.64) * a))
+		pd.draw_rect(TTheme.screen().grow(80.0), Color(Color(INK).lerp(_c.dark, 0.35), (0.78 if mono else 0.64) * a))
 		var edge: Color = Color(GOLD, 0.0) if stage < 2 else Color(GOLD, (0.16 if stage == 2 else 0.35) * a) # 3단계는 화면 가장자리 금빛 고리 진하게 (B3)
 		if mono:
-			pd.rect_grad(Rect2(-80, -80, 800, 140), Color(WHITE, 0.10 * a), Color(WHITE, 0.0))
+			pd.rect_grad(Rect2(TTheme.left() - 80.0, -80 - TTheme.ofs.y, TTheme.view.x + 160.0, 140), Color(WHITE, 0.10 * a), Color(WHITE, 0.0))
 		else:
-			pd.rect_grad(Rect2(-80, 300, 800, 140), Color(_c.deep, 0.0), Color(_c.deep, 0.28 * a))
+			pd.rect_grad(Rect2(TTheme.left() - 80.0, 300, TTheme.view.x + 160.0, 140 + TTheme.ofs.y), Color(_c.deep, 0.0), Color(_c.deep, 0.28 * a))
 		if edge.a > 0.0:
 			pd.ring_grad(Vector2(320, 180), Vector2(260, 140), Vector2(420, 280), Color(edge, 0.0), edge, 32)
 		if is_instance_valid(caster):
@@ -2273,7 +2274,7 @@ class SunCollapse extends UltBase:
 		var R := 30.0 * s * form * (1.0 - 0.6 * fall)
 		var p := _sky.lerp(_to, fall * fall)
 		# 하늘이 달아오름
-		pd.rect_grad(Rect2(0, 0, 640, 220), Color(_c.flame, 0.28 * form * (1.0 - smoothstep(HIT, 1.1, t))), Color(_c.flame, 0.0))
+		pd.rect_grad(Rect2(TTheme.left(), -TTheme.ofs.y, TTheme.view.x, 220 + TTheme.ofs.y), Color(_c.flame, 0.28 * form * (1.0 - smoothstep(HIT, 1.1, t))), Color(_c.flame, 0.0))
 		if t < HIT:
 			if fall > 0.0:
 				pd.line2(_sky, p, Color(_c.flame, 0.0), Color(_c.hot, 0.9), 2.0, R * 1.6)
@@ -2327,7 +2328,7 @@ class Phoenix extends UltBase:
 				continue
 			var ta := a as TActor
 			var slot := int(ta.unit.slot)
-			var cell := Vector2(THud.PANEL_X0 + THud.PANEL_STEP * float(2 - slot) + 89.0, THud.PANEL_Y + 32.0) # 패널의 크레딧 칸 가운데 (화면)
+			var cell := THud.panel_at(slot).position + Vector2(89.0, 32.0) + TTheme.ofs # 패널의 크레딧 칸 가운데 (화면 — 넓은 화면은 설계 자리 + ofs)
 			_sparks.append([ta.head(), inv * cell])
 
 	func _center() -> Vector2:
@@ -2871,7 +2872,7 @@ class ThunderHammer extends UltBase:
 
 	func _paint() -> void:
 		var dark := smoothstep(0.0, 0.2, t) * (1.0 - smoothstep(0.9, 1.25, t))
-		pd.rect_grad(Rect2(0, 0, 640, 200), Color(_c.dark, 0.55 * dark), Color(_c.dark, 0.0))
+		pd.rect_grad(Rect2(TTheme.left(), -TTheme.ofs.y, TTheme.view.x, 200 + TTheme.ofs.y), Color(_c.dark, 0.55 * dark), Color(_c.dark, 0.0))
 		var form := 1.0 - pow(1.0 - smoothstep(0.0, 0.28, t), 2.0)
 		var a := 1.0 - smoothstep(0.85, 1.15, t)
 		# 휘두름 호 잔상: 1~4타마다 다른 각도 (흰 → 금 → 투명)
@@ -3158,7 +3159,7 @@ class WorldEnd extends UltBase:
 		var open := 1.0 - pow(1.0 - smoothstep(0.0, 0.3, t), 2.0)
 		var a := 1.0 - smoothstep(1.05, 1.4, t)
 		# 어두워진 하늘 + 검은 별 (review_D B5: 예전엔 화면이 밝은 라벤더로 씻겨 숫자 대비가 무너졌다 — 이제 먹빛으로 가라앉음)
-		pd.rect_grad(Rect2(0, 0, 640, 300), Color(INK, 0.4 * open * a), Color(INK, 0.06 * a))
+		pd.rect_grad(Rect2(TTheme.left(), -TTheme.ofs.y, TTheme.view.x, 300 + TTheme.ofs.y), Color(INK, 0.4 * open * a), Color(INK, 0.06 * a))
 		var R := 34.0 * s * open
 		pd.glow(_c0, R * 2.6, Color(WHITE, 0.55 * a), 0.0)
 		pd.draw_circle(_c0, R + 2.0, Color(WHITE, a))
@@ -3350,8 +3351,8 @@ static func break_fx(a: TActor, bar_rect: Rect2, hud: CanvasItem) -> void:
 		var sh := BarShatter.new()
 		sh.bar = bar_rect
 		var ct := (hud as CanvasItem).get_viewport().get_canvas_transform()
-		sh.at = ct * a.center()
-		sh.left = (ct * (a.center() - Vector2(a.half_w(), 0))).x
+		sh.at = ct * a.center() - TTheme.ofs # HUD 층 설계 좌표 (넓은 화면, review_K K-01)
+		sh.left = (ct * (a.center() - Vector2(a.half_w(), 0))).x - TTheme.ofs.x
 		hud.add_child(sh)
 
 
@@ -3438,7 +3439,7 @@ class BarShatter extends PDraw.Canvas:
 		var sc := 1.0 + 0.4 * (1.0 - clampf(t / 0.12, 0.0, 1.0))
 		# 보스 몸 왼쪽 끝 바깥 빈 들판 (review_D A3: 고정 −92는 넓은 보스의 몸 가운데로 들어가 피해 숫자와 겹쳤다) — 좌우 금선 40px
 		var w := T.width("브레이크", 30)
-		var cx := clampf(minf(left, at.x - 40.0) - w * 0.5 - 10.0, w * 0.5 + 46.0, 640.0 - w * 0.5 - 46.0)
+		var cx := clampf(minf(left, at.x - 40.0) - w * 0.5 - 10.0, TTheme.left() + w * 0.5 + 46.0, TTheme.right() - w * 0.5 - 46.0)
 		var c := Vector2(cx, at.y + 4.0)
 		draw_set_transform(c, 0.0, Vector2(sc, sc))
 		T.text(self, Vector2.ZERO, "브레이크", 30, Color(T.GOLD, a), HORIZONTAL_ALIGNMENT_CENTER)

@@ -47,6 +47,35 @@ static var _fonts := {}
 static var _box: StyleBoxFlat
 static var big := false ## 큰 글자 (설정, review_F F12 · review_I I-10): 모든 글 8 → 10px · 10 → 12px (본문 함수 body_fs와 같이). 칸 크기가 정해진 글(비용 배지·겹 수 알약·차례 칸)은 text_px로 그대로
 static var _px := false ## text_px가 그리는 중 (큰 글자를 따르지 않음)
+## 넓은 화면 (review_K K-01): 창은 높이 360 기준으로 꽉 채우고(배율 소수 · 화면비 확장) 640×360 설계 화면을 가운데에 둔다.
+## view = 보이는 논리 크기(20:9 폰이면 약 800×360) · ofs = 설계 화면 (0, 0)의 화면 자리. 턴제 캔버스 층은 모두 ofs만큼 옮겨 그리고,
+## 입력은 event.position − ofs로 설계 좌표에 맞춘다. 화면 끝에 붙일 것(위 띠·X·패널)은 left()·right()로.
+static var ofs := Vector2.ZERO
+static var view := Vector2(640, 360)
+
+
+## 보이는 화면 전체 (설계 좌표 — 넓은 화면이면 x < 0 · x > 640까지)
+static func screen() -> Rect2:
+	return Rect2(-ofs, view)
+
+
+static func left() -> float:
+	return -ofs.x
+
+
+static func right() -> float:
+	return 640.0 + ofs.x
+
+
+## 창 크기에서 view·ofs를 다시 잰다 (TStage가 매 프레임). 바뀌었으면 true
+static func sync_view(vp: Viewport) -> bool:
+	var v := vp.get_visible_rect().size.round()
+	var o := ((v - Vector2(640, 360)) * 0.5).floor()
+	if v == view and o == ofs:
+		return false
+	view = v
+	ofs = o
+	return true
 
 
 ## 본문 글자 크기 (큰 글자면 12)
@@ -207,9 +236,9 @@ static func cost_badge(ci: CanvasItem, c: Vector2, label: String, mode := "ok") 
 	var bg := GOLD
 	var fg := INK
 	match mode:
-		"short":
-			bg = DANGER
-			fg = TEXT
+		"short": # 모자람: 회색 바탕 + 빨간 숫자 — 빨간 바탕은 필살기·강공격 경고에만 (review_K K-21)
+			bg = EMPTY
+			fg = Color("#ff8a9a")
 		"gain":
 			bg = GAUGE
 	var r := 6.0 if label.length() <= 1 else 7.0

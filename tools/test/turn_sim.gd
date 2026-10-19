@@ -8,7 +8,7 @@ extends SceneTree
 ##   style [전투 id]    : 속성 파티(불·물·번개·무상성·기본) — 속성 지표(한 방 몰림·마법이 준 크레딧·크리·차례·게이지 …)
 ##   lock               : 무적 잠금 실험 (에스카 마력 샘 봉공 + 네레이 물의 장막, 나머지 기본 공격 · 재의 왕 1체) — 막힌 히트 비율
 ##   suite              : 위 전부를 짧게 (원형 표·속도 비·220파티·속성 지표·잠금) — 문서 §27.3 표의 숫자
-##   bt 전투id           : 원형 8개 프리셋을 그 전투 하나로만 (승 · 행동 · 분)
+##   bt 전투id [원형id …] : 원형 8개(또는 고른 원형) 프리셋을 그 전투 하나로만 (승 · 행동 · 분)
 ##   acts 원형id 전투id  : 그 원형 프리셋의 행동 내역 (마녀:마법별 횟수 · 판당 · 1회 평균 피해) — 느리고 빠른 까닭 찾기
 ##   e2                 : 밸런스 후속 E2 목표 셋만 빠르게 — 원형별 딜러 마법 몫 · 기본 파티 보스 분 · 회복 없는 파티 일반 승률 (combat_proto.md §27.3)
 ##   [단계 F-4 — review_J_skills.md §8 · combat_proto.md §27.9]
@@ -33,10 +33,12 @@ const BUILDS := {
 		"state": {"undine": {"equipped": ["water_lance", "return_tide", "glacier", "abyss_lance"], "equip": "kaleido"},
 			"nerei": {"equipped": ["high_tide", "droplet", "water_veil", "spring"], "equip": "notebook"},
 			"astra": {"equipped": ["lightning_share", "spur", "starlight", "rod"], "equip": "swift_boots"}}},
-	"B3": {"name": "버티며 쌓기", "party": ["nerei", "eska", "harpe"], "plan": {"dealer": "harpe", "guard": ["nerei", "eska"]},
+	# B3 = 조합 C5 "수행자의 벽" 파티·장착 (총괄 결정 §27.10 ① — 예전 네레이·에스카·하르페는 시련에서 B6보다 못 깼다).
+	# plan만 C5와 다름: 지키기는 네레이(강철 심장) 혼자 · 호라는 딜러 차례를 당김 — 둘 다 지키면 보스가 25.9분으로 느려 보스 속도 비 2.2 (bt 측정)
+	"B3": {"name": "버티며 쌓기", "party": ["nerei", "hora", "harpe"], "plan": {"dealer": "harpe", "guard": ["nerei"], "push": ["hora"]},
 		"state": {"nerei": {"equipped": ["wave_hold", "spring", "ocean_blessing", "water_veil"], "equip": "iron_heart"},
-			"eska": {"equipped": ["gap", "seal", "cradle", "void_gate"], "equip": "hourglass_charm"},
-			"harpe": {"equipped": ["sword_ki", "heaven_split", "doom_slash", "return_cut"], "equip": "feather_charm"}}},
+			"hora": {"equipped": ["rewind", "turn_back", "stopped_clock", "time_haste"], "equip": "hourglass_charm"},
+			"harpe": {"equip": "feather_charm"}}},
 	"B4": {"name": "징표 터뜨리기", "party": ["cinder", "ember", "ignis"], "plan": {"dealer": "ignis"},
 		"state": {"cinder": {"equipped": ["kindle_up", "ash_dust", "ash_spread", "ash_heap"], "equip": "ash_charm"},
 			"ember": {"equipped": ["bellows", "crown", "blessing", "tinder"], "equip": "notebook"},
@@ -68,6 +70,8 @@ func _process(_d: float) -> bool:
 	var runs := int(args[0]) if args.size() > 0 else 20
 	if args.size() > 2 and String(args[1]) == "bt":
 		for bid in BUILDS:
+			if args.size() > 3 and not args.slice(3).has(String(bid)):
+				continue # bt 전투id 원형id … — 그 원형만
 			var st := _build_stat(String(bid), String(args[2]), runs)
 			print("  %s %s %s: %d/%d · %.1f행동 · %.1f분" % [bid, BUILDS[bid].name, String(args[2]), int(st.win), runs, float(st.w_avg), float(st.min)])
 		return true
@@ -631,7 +635,7 @@ func _conditions() -> void:
 	print("B6 짚 골렘: 에스카 종언(4, 선버프 +15%%) 무상성 %s → 화염 부여 %s · 이그니스 태양의 창(5) %s → 턴당 에스카/이그니스 크리 없이 %d%% · 크리 기대 %d%%" % [TData.fmt(est_plain), TData.fmt(est_fire), TData.fmt(est_ig),
 		int(round(100.0 * turn_es / turn_ig)), int(round(100.0 * turn_es_c / turn_ig_c))])
 	# B3: 시련의 일격 (단일 3.0배, 무적 관통) — 도발이 없으면 하르페가 맞아 쓰러지고, 강철 심장 네레이가 받으면 버틴다
-	var b3 := _cb(["nerei", "eska", "harpe"], ["trial_colossus"], {"nerei": {"equip": "iron_heart"}})
+	var b3 := _cb(["nerei", "hora", "harpe"], ["trial_colossus"], {"nerei": {"equip": "iron_heart"}})
 	var hp3 := _wu(b3, "harpe")
 	var ne3 := _wu(b3, "nerei")
 	ne3.passive = TData.WITCHES.nerei.passive.effects

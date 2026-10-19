@@ -1,6 +1,6 @@
 {"scene": "res://proto/turn/turn_proto.tscn", "seed": 20261018, "steps": [
  [10, "eval", "set_battle(\"trial_01\")"],
- [12, "eval", "set_party([\"nerei\", \"eska\", \"harpe\"])"],
+ [12, "eval", "set_party([\"nerei\", \"hora\", \"harpe\"])"],
  [20, "eval", "set_auto(true)"],
  [24, "touch", 0, 516, 316], [25, "untouch", 0, 516, 316],
  [30, "touch", 0, 516, 316], [31, "untouch", 0, 516, 316],

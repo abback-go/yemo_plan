@@ -288,6 +288,16 @@ func _paint_golem() -> void:
 		pd.draw_line(Vector2(-12.6 + sway * 0.5, y), Vector2(12.6 + sway * 0.5, y + 0.8), Color("#6b3f1f"), 2.2)
 		pd.draw_line(Vector2(-12.0 + sway * 0.5, y - 0.6), Vector2(12.0 + sway * 0.5, y + 0.2), Color("#9a6a3a"), 0.6)
 	pd.draw_rect(Rect2(Vector2(-13.5, -34.5), Vector2(2.4, 3.0)), Color("#6b3f1f")) # 매듭
+	for y: float in [-31.0, -18.0]: # 밧줄 아래 그림자 (짚이 조여 패인 결)
+		pd.draw_line(Vector2(-12.0 + sway * 0.5, y + 0.4), Vector2(12.0 + sway * 0.5, y + 1.2), Color("#7a5a2a", 0.6), 1.2)
+	# 몸통 가장자리로 삐친 짚 끝 (review_K K-20: 상자 몸 → 짚단 실루엣)
+	for i in 7:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var y := -38.0 + float(i) * 3.6
+		var x0 := side * (11.5 + (1.0 if y > -30.0 and y < -18.0 else 0.0)) + sway * 0.5
+		pd.draw_line(Vector2(x0, y), Vector2(x0 + side * (2.5 + float(i % 3)), y - 1.5 + float(i % 2) * 2.5), Color("#d8bc72"), 0.8)
+	for i in 5: # 어깨 위 짚 끝
+		pd.draw_line(Vector2(-8.0 + float(i) * 4.0 + sway, -40), Vector2(-9.0 + float(i) * 4.5 + sway, -42.5 - float(i % 2)), Color("#d8bc72"), 0.8)
 	# 팔 (앞팔은 공격 때 들린다)
 	var arm_back := PackedVector2Array([Vector2(8, -37), Vector2(13, -36), Vector2(16, -18), Vector2(11, -17)])
 	_straw(arm_back, Color("#b08c48"), 3, 21)
@@ -418,7 +428,7 @@ func _paint_knight() -> void:
 	pd.draw_line(sh, el, plate, 3.6)
 	pd.draw_line(el, hand, plate, 3.2)
 	pd.draw_circle(hand, 2.4, plate_dk)
-	var sdir := Vector2(0, 1).lerp(Vector2(-0.6, -0.8).normalized(), atk).normalized()
+	var sdir := Vector2(0, 1).lerp(Vector2(-0.9, -0.45).normalized(), atk).normalized() # 들어 올린 칼끝이 투구 위(적 카드)까지 오르지 않게 눕힘 (review_K K-26)
 	var guard := hand + sdir * 2.0
 	var tip := guard + sdir * 34.0
 	pd.draw_line(hand - sdir * 5.0, guard, Color("#2a2430"), 2.6) # 자루
@@ -989,12 +999,30 @@ func _paint_servant() -> void:
 	var blink := 0.5 + 0.5 * sin(_t * 12.0)
 	if hot:
 		plate = plate.lerp(Color("#d04a3a"), 0.45 * blink)
+	# 재 날림 꼬리 (등 뒤로 흩어지는 재 — review_K K-20: 회색 상자 하나처럼 보였다)
+	for i in 3:
+		var ph := float(i) * 0.9
+		var pts := PackedVector2Array()
+		for k in 7:
+			var f := float(k) / 6.0
+			pts.append(Vector2(9.0 + f * 16.0, -30.0 + f * 6.0 + sin(_t * 2.2 + ph + f * 4.0) * (1.0 + 2.5 * f) - float(i) * 3.0))
+		pd.draw_polyline(pts, Color("#6a6070", 0.55 - 0.15 * float(i)), 2.4 - 0.6 * float(i))
+	for i in 4: # 꼬리 끝 재 조각
+		var f := fmod(_t * 0.6 + float(i) * 0.25, 1.0)
+		pd.draw_rect(Rect2(Vector2(24.0 + f * 10.0, -26.0 - f * 8.0 + float(i) * 2.0), Vector2(1.2, 1.2)), Color("#9a8a9a", 0.7 * (1.0 - f)))
 	for x: float in [-4.0, 4.0]:
 		pd.outlined(PackedVector2Array([Vector2(x - 3, -14), Vector2(x + 3, -14), Vector2(x + 3.4, -1), Vector2(x - 3.4, -1)]), plate_dk, OUT, 0.8)
 	# 웅크린 몸 (앞으로 기울어진 둥근 등)
 	var body := PackedVector2Array([Vector2(-11, -24), Vector2(-6, -36), Vector2(4, -38), Vector2(11, -30), Vector2(10, -14), Vector2(-9, -13)])
 	pd.outlined(body, plate, OUT, 0.9)
 	pd.draw_colored_polygon(PackedVector2Array([Vector2(-6, -36), Vector2(4, -38), Vector2(6, -33), Vector2(-4, -31)]), plate.lightened(0.15))
+	# 어깨 실루엣 (뾰족한 견갑 둘) + 등 테 조명 (D2 기준 — 바탕과 몸을 떼어 냄)
+	for sp: Array in [[Vector2(-5, -35), Vector2(-9, -42), Vector2(-1, -37)], [Vector2(3, -37), Vector2(4, -45), Vector2(8, -35)]]:
+		pd.outlined(PackedVector2Array(sp), plate_dk, OUT, 0.7)
+	pd.draw_polyline(PackedVector2Array([Vector2(-6, -36.6), Vector2(4, -38.6), Vector2(11.6, -30), Vector2(10.6, -15)]), Color("#ffb08a", 0.55), 0.8)
+	for k in 3: # 등의 갈라진 틈 (속불)
+		var c0 := Vector2(2.0 + float(k) * 2.5, -33.0 + float(k) * 5.0)
+		pd.draw_line(c0, c0 + Vector2(2.2, 2.6), Color(EMBER, 0.55 + 0.25 * sin(_t * 3.0 + float(k))), 0.9)
 	# 가슴 불씨
 	var ec := Vector2(-3, -24)
 	var er := 2.0 + 4.0 * charge_k

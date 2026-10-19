@@ -9,6 +9,9 @@ extends Node2D
 const ArenaScript := preload("res://proto/p_arena.gd")
 const WITCH_AT: Array[Vector2] = [Vector2(222, 288), Vector2(160, 258), Vector2(98, 228)] ## 앞 · 중 · 뒤 (대각선, 아래 띠 y 302 위) — 간격 62 (review_D C1: 54면 모자 챙이 겹쳤다)
 const ENEMY_AT: Array[Vector2] = [Vector2(424, 290), Vector2(507, 256), Vector2(590, 222)] ## 적 1명 = 가운데 · 2명 = 앞·뒤 (THud.pos_index). 간격 83 (review_C2 L11)
+## 보스 + 졸개 웨이브 (잿빛 둥지어미, review_K K-09): 보스는 뒤 오른쪽 · 졸개는 보스 몸 바깥 왼쪽 앞·뒤 — 졸개가 보스 머리·가시를 가리던 것
+const BOSS_MIX_AT := Vector2(554, 254)
+const MINION_AT: Array[Vector2] = [Vector2(440, 300), Vector2(386, 234)]
 
 var battle: TBattle
 var actors := {} ## TUnit → TActor
@@ -34,14 +37,22 @@ var _why := {}
 var _flags := {} ## 처음 일어난 일 안내용 (broke · resist)
 var turn_only := false ## 웹 주소가 ?turn (턴제만) — 설정의 "타이틀로"(옛 실시간판)를 숨김 (review_I I-21)
 var _page_cb: JavaScriptObject ## 웹: 문서 visibilitychange·pagehide를 받는 콜백 (review_I I-01 — 지우지 않게 붙잡아 둔다)
+var _froze := false ## 판 때문에 시간을 멈췄나
+var _scale_was := [] ## 들어오기 전 창 배율 [aspect, stretch] — 나갈 때 되돌림 (세라·실시간판은 정수 배율 그대로)
+var _probe_cb: JavaScriptObject ## 웹 시험(주소에 probe): window.eskaProbe() → window.eskaState (tools/test/web_turn.mjs)
 
 
 func _exit_tree() -> void:
 	TTheme.release()
+	if not _scale_was.is_empty():
+		var win := get_tree().root
+		win.content_scale_aspect = _scale_was[0]
+		win.content_scale_stretch = _scale_was[1]
 	if _page_cb != null:
 		JavaScriptBridge.get_interface("document").removeEventListener("visibilitychange", _page_cb)
 		JavaScriptBridge.get_interface("window").removeEventListener("pagehide", _page_cb)
 		_page_cb = null
+	_probe_cb = null
 
 
 func _ready() -> void:
@@ -55,6 +66,13 @@ func _ready() -> void:
 	Engine.time_scale = 1.0
 	get_tree().paused = false
 	Fx.reset()
+	# 폰 가로 화면을 꽉 채운다 (review_K K-01): 정수 배율 + 고정 화면비는 20:9 폰에서 좌우 20%를 검은 띠로 버렸다.
+	# 높이 360 기준 소수 배율 + 화면비 확장 → 넓은 화면은 논리 폭이 늘고(20:9 ≈ 800), 640×360 설계 화면은 가운데(TTheme.ofs)
+	var win := get_tree().root
+	_scale_was = [win.content_scale_aspect, win.content_scale_stretch]
+	win.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	win.content_scale_stretch = Window.CONTENT_SCALE_STRETCH_FRACTIONAL
+	TTheme.sync_view(get_viewport())
 	var bg := TBackdrop.new()
 	add_child(bg)
 	_bg = bg
@@ -96,7 +114,8 @@ func _ready() -> void:
 	setup.guide = guide
 	hud.help_tapped.connect(guide.open_help)
 	hud.visible = false
-	Music.play("boss")
+	_place_layers()
+	Music.stop(0.3) # 다른 게임(세라 실시간판)의 곡이 턴제 내내 돌던 것 — 전투 음악은 아직 [확정 22-2 A] (review_K K-02 · 총괄 결정 ③)
 	if OS.has_feature("web"):
 		var q: Variant = JavaScriptBridge.eval("window.location.search", true)
 		TSetup.dev = q is String and String(q).contains("dev")
@@ -105,6 +124,9 @@ func _ready() -> void:
 		_page_cb = JavaScriptBridge.create_callback(_on_page_event)
 		JavaScriptBridge.get_interface("document").addEventListener("visibilitychange", _page_cb)
 		JavaScriptBridge.get_interface("window").addEventListener("pagehide", _page_cb)
+		if q is String and String(q).contains("probe"):
+			_probe_cb = JavaScriptBridge.create_callback(_on_probe)
+			JavaScriptBridge.get_interface("window").eskaProbe = _probe_cb
 	setup.back_to_roster()
 	if TSave.has_battle():
 		var d := TSave.load_battle()
@@ -120,6 +142,26 @@ func _ready() -> void:
 		if TSave.first_run():
 			TSave.hold = true # 안내를 끝내거나 끌 때 처음 저장 (review_G §5.2)
 		guide.begin()
+
+
+func _process(_delta: float) -> void:
+	if TTheme.sync_view(get_viewport()):
+		_place_layers()
+	# 철수 확인·도움말·설정·멈춤 판이 열려 있으면 전투 시간을 멈춘다 — 판 뒤에서 숫자·웨이브 전환이 흘렀다 (review_K K-22)
+	var modal := _in_battle and (hud.confirm_open or guide.mode in ["help", "settings", "pause"])
+	if modal:
+		Engine.time_scale = 0.0
+		_froze = true
+	elif _froze:
+		_froze = false
+		Engine.time_scale = 1.0
+
+
+## 턴제 캔버스 층(HUD·대마법 연출·편성·안내)을 설계 화면 자리(TTheme.ofs)로 — 카메라(320, 180)가 전장을 가운데에 두는 것과 같은 자리
+func _place_layers() -> void:
+	for l: CanvasLayer in [_hud_layer, _setup_layer, _guide_layer, get_node_or_null("UltLayer")]:
+		if l != null:
+			l.offset = TTheme.ofs
 
 
 func _exit() -> void:
@@ -190,6 +232,33 @@ func _hidden() -> void:
 		if not _snap.is_empty() and battle_id != "intro_01":
 			TSave.save_battle(_snap)
 		guide.pause()
+
+
+## 웹 시험용 상태 (window.eskaState, JSON): 화면 배율·설계 화면 자리(ofs)·지금 화면·누를 자리(설계 좌표). web_turn.mjs가 CSS 좌표로 바꿔 누른다
+func _on_probe(_args: Array) -> void:
+	var xf := get_tree().root.get_final_transform()
+	var d := {"scale": xf.x.x, "origin": [xf.origin.x, xf.origin.y], "ofs": [TTheme.ofs.x, TTheme.ofs.y], "view": [TTheme.view.x, TTheme.view.y],
+		"in_battle": _in_battle, "hud_state": hud.state, "sel": hud.sel, "setup_step": setup.step, "setup_visible": setup.visible,
+		"guide_mode": guide.mode, "phase": guide.phase, "card": String(guide.card.get("id", "")), "last_press": hud.last_press,
+		"turn": battle.turn_no if battle != null else 0, "banner": hud.banner_text, "confirm": hud.confirm_open}
+	var r2a := func(r: Rect2) -> Array: return [r.position.x, r.position.y, r.size.x, r.size.y]
+	d["off"] = r2a.call(guide._off_rect())
+	d["start1"] = r2a.call(TSetup.START1_RECT)
+	if _in_battle and battle != null:
+		var slots: Array = []
+		for i in hud.slots.size():
+			slots.append(r2a.call(hud.slot_rect(i)))
+		d["slots"] = slots
+		var cards: Array = []
+		for e in battle.enemies:
+			cards.append(r2a.call(hud._card_rect(e)) if e.alive else [])
+		d["cards"] = cards
+		var bodies: Array = []
+		for e in battle.enemies:
+			bodies.append(r2a.call(hud.body_rect(actors[e])) if e.alive and actors.has(e) else [])
+		d["bodies"] = bodies
+		d["x_rect"] = r2a.call(hud.x_rect())
+	JavaScriptBridge.get_interface("window").eskaState = JSON.stringify(d)
 
 
 func wheel_ready() -> bool:
@@ -290,9 +359,18 @@ func _add_actor(u: TUnit, at: Vector2) -> void:
 
 ## 지금 웨이브의 적을 세운다: 1명 = 가운데(10px 아래 — 큰 보스 머리가 보스 카드 밑에 들어가지 않게) · 2명 = 앞·뒤 · 3명 = 앞·중·뒤
 func _add_enemies() -> void:
-	var n := battle.enemies.size()
-	for i in n:
-		_add_actor(battle.enemies[i], ENEMY_AT[THud.pos_index(n, i)] + (Vector2(0, 10) if n == 1 else Vector2.ZERO))
+	for i in battle.enemies.size():
+		_add_actor(battle.enemies[i], enemy_spot(battle.enemies, i))
+
+
+## 적 i가 서는 자리: 보스와 졸개가 같이 있으면 BOSS_MIX_AT·MINION_AT, 아니면 ENEMY_AT[pos_index] (1명이면 10px 아래)
+static func enemy_spot(es: Array, i: int) -> Vector2:
+	var n := es.size()
+	if THud.boss_mix(es):
+		if (es[i] as TUnit).boss:
+			return BOSS_MIX_AT
+		return MINION_AT[clampi(THud.minion_index(es, i), 0, MINION_AT.size() - 1)]
+	return ENEMY_AT[THud.pos_index(n, i)] + (Vector2(0, 10) if n == 1 else Vector2.ZERO)
 
 
 func _wait(sec: float) -> void:
@@ -309,8 +387,10 @@ func _run(token: int) -> void:
 	await _wait(0.5)
 	Sfx.play(&"tn_bless", -10.0)
 	if not battle.resume:
-		hud.show_msg("전투 시작")
-	await _wait(0.6)
+		var bd: Dictionary = TData.BATTLES.get(battle_id, {})
+		var nm := String(bd.get("name", ""))
+		hud.start_banner(nm.substr(nm.find(" — ") + 3) if nm.find(" — ") >= 0 else nm, "웨이브 1/%d" % battle.wave_count() if battle.wave_count() > 1 else "")
+	await _wait(0.8 if not battle.resume else 0.6)
 	while token == _run_id and is_inside_tree():
 		while (hud.confirm_open or guide.busy()) and token == _run_id: # 철수 확인 판 · 안내 판 · 도움말 · 멈춤 동안 차례 사이에서 멈춤
 			await _wait(0.1)
@@ -594,8 +674,7 @@ func _summon_actor(e: Dictionary) -> void:
 		(actors[old] as TActor).queue_free()
 		actors.erase(old)
 	var nu: TUnit = e.tgt
-	var n := battle.enemies.size()
-	_add_actor(nu, ENEMY_AT[THud.pos_index(n, int(e.slot))] + (Vector2(0, 10) if n == 1 else Vector2.ZERO))
+	_add_actor(nu, enemy_spot(battle.enemies, int(e.slot)))
 	var na: TActor = actors[nu]
 	na.walk_in(70.0, 0.35)
 	TFx.walk_dust(na.feet() + Vector2(70, 0))
@@ -1028,6 +1107,11 @@ func _common_tips() -> void:
 
 func set_auto(v: bool) -> void:
 	auto = v
+	# 바퀴가 이미 열려 고르기를 기다리는 중이면 그 차례도 자동으로 (예전엔 그 마녀 차례가 영원히 기다렸다 — review_K T-6)
+	if v and _in_battle and hud.state in ["wheel", "target"] and hud.actor != null:
+		var act := _auto_pick(hud.actor)
+		hud.close_wheel()
+		hud.chosen.emit(act)
 
 
 ## 시험용: 전투 데이터를 바꾼다 (normal_01 · boss_01 · trial_01) — 편성의 전투 고르기에서 고른 것과 같다

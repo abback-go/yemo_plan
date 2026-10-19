@@ -39,8 +39,10 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `status` / `worldinfo` / `logv` / `enemies` / `flags` 표시 | 상태 출력 |
 | `shot` 이름 | 스크린샷 PNG |
 | `touch`/`untouch` 번호 x y · `drag` 번호 x y | 손가락 누름·뗌·끌기 (화면 좌표 640×360, 번호 = 손가락 index) |
+| `dtouch`/`duntouch` 번호 x y | 턴제 설계 좌표(640×360 화면 기준) 누름·뗌 — 넓은 화면(`--resolution 780x360` 등)이면 `TTheme.ofs`를 더해 같은 자리를 누른다 |
 | `touchinfo` | 터치 조작 상태 (터치 모드·표시 여부·눌린 동작·조이스틱 방향) |
 | `setting` 키 값 · `potions` 개수 | 설정 값 지정(저장된 설정이 시험에 끼어들지 않게) · 물약 수 |
+| `perf` 이름 | 프레임 시간·그리기 호출·물체·노드 (월드가 아닌 장면이면 `room=` 생략 — 턴제에서 쓸 수 있음) |
 | `quit` | 종료 |
 
 ## 시나리오 (scenarios/)
@@ -87,6 +89,10 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `turn_ult.json` | 대마법 12개 연출 — 마녀마다 컷인(a)·문장 고리(b)·효과(c)·맞음(d) 4장 + 연쇄 3단계 2개 + `perf()`(그리기 호출·입자·연출 노드)와 기존 큰 마법 4개 비교 (단계 D) |
 | `turn_events.json` | 웨이브 전환(걸어 들어옴·보스 착지) · 재의 왕 줄 1~3 모습 · 크리 · 브레이크 · 기절 · 해제 · 근성 · 도발 · 저항/면역 · 관통 필살기 · 시련의 거상 줄 1~3 (단계 D, `demo_wave`·`demo_event`) |
 
+| `turn_wide.json` | 넓은 화면(review_K K-01): 편성 S-01·S-02·S-03 · 바퀴 · 대상 · 적 상세 · 자동 전투 · 철수 확인 · 웨이브 배너 · 도움말 · 승리. `--resolution 780x360`(19.5:9) · `800x360`(20:9) · `640x360`으로 같은 시나리오를 돌린다 (`dtouch` 사용) |
+
+- 시나리오 파일이 없으면 실행기는 `SCENARIO not found`를 찍고 바로 끝난다(종료 코드 1).
+- 턴제는 창 화면비를 넓히는 배율(높이 360 기준 소수 배율 + 화면비 확장)을 쓴다 — `--resolution 800x360`이면 스크린샷도 800×360이고 640×360 설계 화면은 가운데(`TTheme.ofs` = (80, 0))에 있다.
 - 출력 폴더는 실행기가 만들지 않는다 — 먼저 `mkdir -p /tmp/out`을 해 두지 않으면 `Can't save PNG` 오류가 난다.
 
 ## 웹 빌드 연기 시험
@@ -95,6 +101,18 @@ $G --headless --export-release "Web" /tmp/web/index.html
 (cd /tmp/web && python3 -m http.server 8766 &)
 node ../tools/test/web_smoke.mjs /tmp/out    # 타이틀 → 새로 시작 → 안내 → 지도 → 일시정지, 콘솔 로그 출력
 ```
+
+## 턴제 웹 연기 시험 (폰 흉내)
+```bash
+$G --headless --export-release "Web" /tmp/web/index.html
+(cd /tmp/web && python3 -m http.server 8766 &)
+node ../tools/test/web_turn.mjs /tmp/out                                   # 20:9 (CSS 915×412, 비율 2.625)
+node ../tools/test/web_turn.mjs /tmp/out "" 844x390@3                       # 19.5:9
+node ../tools/test/web_turn.mjs /tmp/out "" 915x412@2.625 3                 # CPU 3배 느리게 (느린 프레임에서 짧은 탭)
+```
+주소 기본 `index.html?turn&probe` — `probe`가 있으면 게임이 `window.eskaProbe()`를 열어 화면 상태와 누를 자리(설계 좌표)를 `window.eskaState`(JSON)로 알려 준다(`TStage._on_probe`). 시험은 그것을 CSS 좌표로 바꿔 누른다.
+흐름: 첫 실행 판 → 안내 끄기 → 전투 고르기 → 출격 → 마녀 차례마다 기본 공격 칸 두 번 + **적 카드를 80~150 ms 탭**(먹혔는지 셈) → 적 카드 길게 누름(상세) → X → 철수 확인 → 취소 → 창 가려짐 → `localStorage` 저장 → 새로고침 → 끊긴 전투 판.
+통과: `SCREEN … used 100.0%` · `TAPS ok n/n` · `CONFIRM open true` · `SAVED localStorage bytes` > 0 · `RESUME panel resume` · `CONSOLE errors 0`.
 
 ## 모바일(터치·오프라인) 웹 시험
 ```bash

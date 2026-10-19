@@ -16,6 +16,10 @@ func _initialize() -> void:
 	outdir = args[1]
 	var sc = load("res://../../tmp_scenarios.gd") if false else null
 	var f := FileAccess.open(scenario, FileAccess.READ)
+	if f == null: # 시나리오 파일이 없으면 바로 끝냄 (예전엔 null에서 멈춰 끝나지 않았다 — review_K T-4)
+		printerr("SCENARIO not found: ", scenario)
+		quit(1)
+		return
 	var json = JSON.parse_string(f.get_as_text())
 	scene_path = json.scene
 	steps = json.steps
@@ -102,6 +106,8 @@ var _world_flags: Array = []
 
 
 func _process(_d: float) -> bool:
+	if scene_path == "":
+		return true # 시나리오를 못 읽음 (_initialize에서 quit(1))
 	if not _loaded:
 		_loaded = true
 		# FRAME_CLOCK=1: 히트스톱 등 시간 효과를 프레임 수로 재서 바쁜 컴퓨터에서도 결과가 같게 (Fx.frame_clock)
@@ -243,12 +249,15 @@ func _process(_d: float) -> bool:
 				ev.pressed = true
 				Input.parse_input_event(ev)
 				_release_next.append(s[2])
-			"touch", "untouch":
+			"touch", "untouch", "dtouch", "duntouch":
 				# [frame, "touch"|"untouch", index, x, y] — 화면 좌표(640×360 창)로 손가락 누름/뗌
+				# dtouch·duntouch = 턴제 설계 좌표 (넓은 화면이면 TTheme.ofs를 더함 — 640 화면과 같은 시나리오를 19.5:9·20:9에서)
 				var te := InputEventScreenTouch.new()
 				te.index = int(s[2])
 				te.position = Vector2(float(s[3]), float(s[4]))
-				te.pressed = s[1] == "touch"
+				if String(s[1]).begins_with("d"):
+					te.position += TTheme.ofs
+				te.pressed = s[1] in ["touch", "dtouch"]
 				Input.parse_input_event(te)
 			"drag":
 				var de := InputEventScreenDrag.new()
@@ -429,7 +438,7 @@ func _process(_d: float) -> bool:
 					n.draw.connect(func() -> void: _dc_n += 1)
 			"perf":
 				# [frame, "perf", 이름] — 프레임 시간·그리기 호출·노드 수
-				print("PERF ", s[2], " fps=", Engine.get_frames_per_second(), " process_ms=", snappedf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.01), " physics_ms=", snappedf(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, 0.01), " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objects=", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " nodes=", Performance.get_monitor(Performance.OBJECT_NODE_COUNT), " room=", get_first_node_in_group("world").room.data.id)
+				print("PERF ", s[2], " fps=", Engine.get_frames_per_second(), " process_ms=", snappedf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.01), " physics_ms=", snappedf(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, 0.01), " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objects=", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " nodes=", Performance.get_monitor(Performance.OBJECT_NODE_COUNT), _room_tag())
 			"bghz":
 				# [frame, "bghz", Hz] — 배경 움직임 다시 그리기 상한 바꾸기 (0 = 매 프레임)
 				load("res://world/themes/backdrop_kit.gd").Ticker.hz = float(s[2])
@@ -437,7 +446,7 @@ func _process(_d: float) -> bool:
 				# [frame, "bgperf", 이름] — 직전 bgperf 이후 배경(정적·동적 부분) 그리기 계측 (world/themes/backdrop_kit.gd Stats)
 				var st = load("res://world/themes/backdrop_kit.gd").Stats
 				var nf: int = maxi(frame - _bg_f0, 1)
-				print("BGPERF ", s[2], " frames=", nf, " anim_draw_us_per_frame=", snappedf(float(st.anim_us) / nf, 0.1), " anim_items_per_frame=", snappedf(float(st.anim_n) / nf, 0.1), " anim_draws_per_frame=", snappedf(float(st.anim_draws) / nf, 0.01), " static_draw_us=", st.static_us, " static_cmds_drawn=", st.static_n, " recorded_static=", st.static_cmds, " recorded_anim=", st.anim_items, " room=", get_first_node_in_group("world").room.data.id)
+				print("BGPERF ", s[2], " frames=", nf, " anim_draw_us_per_frame=", snappedf(float(st.anim_us) / nf, 0.1), " anim_items_per_frame=", snappedf(float(st.anim_n) / nf, 0.1), " anim_draws_per_frame=", snappedf(float(st.anim_draws) / nf, 0.01), " static_draw_us=", st.static_us, " static_cmds_drawn=", st.static_n, " recorded_static=", st.static_cmds, " recorded_anim=", st.anim_items, _room_tag())
 				st.reset()
 				_bg_f0 = frame
 			"attach":
@@ -463,3 +472,11 @@ func _process(_d: float) -> bool:
 					current_scene.free() # 창을 닫을 때처럼 장면을 먼저 풀어 _exit_tree가 돈다 (정적 캐시 정리가 돌아 종료 누수 경고가 실제 앱과 같게 — review_D §8.1)
 				return true
 	return false
+
+
+## perf·bgperf 줄 끝의 방 id — 월드가 아닌 장면(턴제 등)이면 생략 (review_K T-3: null에서 SCRIPT ERROR)
+func _room_tag() -> String:
+	var w := get_first_node_in_group("world")
+	if w == null or w.get("room") == null:
+		return ""
+	return " room=" + String(w.room.data.id)
