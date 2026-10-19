@@ -1457,6 +1457,7 @@ func _stage_f2_tests() -> void:
 	_f3_tests()
 	_f4_tests()
 	_r2_tests()
+	_r5_tests()
 
 
 ## 단계 F-3 (combat_proto.md §25.9): 특성 특공 · 갈라지는 빛 · 흩날리는 재 · 진 이유 글
@@ -1653,3 +1654,174 @@ func _r2_tests() -> void:
 	_ok("V73 풀이 줄 용어", " · ".join(got), "대마법 위력 · 크레딧 · 체력 비례 · 지속 회복 · 받는 크리 데미지")
 	# V74 연쇄 칩 글 (review_L §4.3): "→" = 다음 대마법에 붙는 값
 	_ok("V74 연쇄 칩 1 · 3단계", "%s | %s" % [TData.chain_label(1), TData.chain_label(3)], "연쇄 1 → 다음 효과 ×1.25 · 피해 ×1.15 | 연쇄 3 (최대) 효과 ×1.5 · 피해 ×1.3")
+
+
+# ═══════════════════════════════════════════════════════════
+# R5 (review_M M1 V70~V76 → V75~V81 · M2 V77~V79 → V82~V84 — V70~V74는 R2가 먼저 씀, combat_proto.md §25.15)
+# ═══════════════════════════════════════════════════════════
+
+func _r5_tests() -> void:
+	print("── R5")
+	# V75 얼음 벽 최대 체력: 하르페 75,000 → 97,500/97,500 · 적 행동 3번 뒤 75,000/75,000 · 도중에 60,000이면 끝날 때 60,000/75,000
+	var b := _b(["glacia", "harpe"], ["straw_golem"])
+	var gl := _w(b, "glacia")
+	var hp := _w(b, "harpe")
+	gl.credits = 7
+	b.use_skill(gl, "ice_wall", null)
+	var got: Array = ["%d/%d" % [hp.hp, hp.max_hp]]
+	for k in 3:
+		hp.on_enemy_acted()
+	got.append("%d/%d" % [hp.hp, hp.max_hp])
+	gl.credits = 7
+	b.use_skill(gl, "ice_wall", null)
+	hp.hp = 60000
+	for k in 3:
+		hp.on_enemy_acted()
+	got.append("%d/%d" % [hp.hp, hp.max_hp])
+	_ok("V75 얼음 벽 최대 체력 +30% · 끝남 · 맞은 뒤 끝남", " ".join(got), "97500/97500 75000/75000 60000/75000")
+	# V76 시련의 일격(난수 1.05 · 무적 관통 · 3.0배) → 얼음 벽 하르페(네레이 없음): 36,000 × 3.0 × 0.95 × 0.75 × 1.05 = 80,798 → 남은 16,702
+	b = _b(["glacia", "harpe"], "trial_01")
+	gl = _w(b, "glacia")
+	hp = _w(b, "harpe")
+	var col := _e(b, "trial_colossus")
+	gl.credits = 7
+	b.use_skill(gl, "ice_wall", null)
+	b.fix_rand = 1.05
+	var h := b._enemy_hit(col, hp, 3.0, true)
+	_ok("V76 시련의 일격 → 얼음 벽 하르페: 쓰러짐 · 남은 체력", "%s %d" % [str(bool(h.killed)), hp.hp], "false 16702")
+	# V77 해파리 공격력 다운이 걸린 운디네 → 밀려오는 조류: 나쁜 효과 0 · 크레딧 +1 · 전에 받은 이로운 버프(공격력) 그대로
+	b = _b(["nerei", "undine"], ["mist_jelly"])
+	var ne := _w(b, "nerei")
+	var un := _w(b, "undine")
+	un.add_buff({"cat": "atk", "v": 0.30, "dur": 3, "clock": "own", "name": "공격력"})
+	b._weaken(un, {"cat": "atk_down", "v": 0.15, "dur": 2})
+	var bad0 := un.buffs.size() - un.good_buffs()
+	var cr0 := un.credits
+	ne.credits = 7
+	b.use_skill(ne, "current", null)
+	_ok("V77 밀려오는 조류 정화: 나쁜 효과 전·뒤 · 크레딧 · 공격력 버프", "%d %d %+d %s" % [bad0, un.buffs.size() - un.good_buffs(), un.credits - cr0, str(un.has_buff("atk"))], "1 0 +1 true")
+	# V78 조류 뒤 그림자 서기 흩기 두 번: 첫 번 막음 · 크레딧 그대로 / 둘째 −2
+	b = _b(["nerei", "undine"], ["shade_scribe"])
+	ne = _w(b, "nerei")
+	un = _w(b, "undine")
+	var sc := _e(b, "shade_scribe")
+	ne.credits = 7
+	b.use_skill(ne, "current", null)
+	un.credits = 6
+	var ev1 := _act(b, sc, {"k": "scatter", "v": 2})
+	var c1 := un.credits
+	_act(b, sc, {"k": "scatter", "v": 2})
+	_ok("V78 약화 막기 1번: 첫 흩기 사건 · 크레딧 / 둘째 흩기 크레딧", "%s %d %d" % [str(_kinds(ev1).has("block")), c1, un.credits], "true 6 4")
+	# V79 호라 초침 밀기 → 운디네(7) → 운디네 대마법: 걸 때 7 그대로 · 대마법 뒤 2 (환급) · 다음 차례 시작 5 (+1 + 예약 +2)
+	b = _b(["hora", "undine"], ["straw_golem"])
+	var ho := _w(b, "hora")
+	un = _w(b, "undine")
+	ho.credits = 7
+	un.credits = 7
+	b.use_skill(ho, "second_hand", un)
+	var c_on := un.credits
+	b.use_skill(un, "ult_undine", _e(b, "straw_golem"))
+	var c_ult := un.credits
+	for u in b.all_units():
+		u.gauge = 0.0
+	un.gauge = TData.GAUGE_MAX
+	var nx := b.next_actor()
+	_ok("V79 예약 크레딧: 걸 때 · 대마법 뒤 · 다음 차례 시작 · 발동 사건 · 자신 제외", "%d %d %d %s %s" % [c_on, c_ult, un.credits if nx == un else -1, str(_kinds(b.turn_ev).has("delay_fire")), str(b.valid_targets(ho, "second_hand").has(ho))],
+		"7 2 5 true false")
+	# V80 한 번 더 → 하르페: 종언참 비용 3 · 대마법 7 · 크레딧 3으로 씀 → 0 · 다시 5 / 행동 2번 안 쓰면 사라짐
+	b = _b(["hora", "harpe"], ["straw_golem"])
+	ho = _w(b, "hora")
+	hp = _w(b, "harpe")
+	ho.credits = 7
+	b.use_skill(ho, "once_more", hp)
+	got = ["%d %d" % [TBattle.cost_now(hp, "doom_slash"), TBattle.cost_now(hp, "ult_harpe")]]
+	hp.credits = 3
+	got.append(str(b.can_use(hp, "doom_slash")))
+	b.use_skill(hp, "doom_slash", _e(b, "straw_golem"))
+	got.append("%d %d" % [hp.credits, TBattle.cost_now(hp, "doom_slash")])
+	ho.credits = 7
+	b.use_skill(ho, "once_more", hp)
+	hp.on_own_acted()
+	var mid := TBattle.cost_now(hp, "doom_slash")
+	hp.on_own_acted()
+	got.append("%d %d" % [mid, TBattle.cost_now(hp, "doom_slash")])
+	_ok("V80 비용 감소: 종언참 · 대마법 / 크레딧 3으로 / 쓴 뒤 크레딧 · 비용 / 행동 1 · 2번 뒤", " | ".join(got), "3 7 | true | 0 5 | 3 5")
+	# V81 V75·V79·V80 상태에서 저장 → 불러오기: 최대 체력 · 예약 · 비용 감소 그대로, 끝나면 최대 체력이 되돌아감
+	b = _b(["glacia", "harpe", "hora"], ["straw_golem"])
+	gl = _w(b, "glacia")
+	hp = _w(b, "harpe")
+	ho = _w(b, "hora")
+	gl.credits = 7
+	b.use_skill(gl, "ice_wall", null)
+	ho.credits = 7
+	b.use_skill(ho, "second_hand", hp)
+	ho.credits = 7
+	b.use_skill(ho, "once_more", hp)
+	var c2 := TBattle.from_dict(b.to_dict())
+	var h2 := c2.unit_by_key(b.unit_key(hp))
+	var a := "%d/%d %d %d" % [hp.hp, hp.max_hp, hp.delayed.size(), TBattle.cost_now(hp, "doom_slash")]
+	var a2 := "%d/%d %d %d" % [h2.hp, h2.max_hp, h2.delayed.size(), TBattle.cost_now(h2, "doom_slash")]
+	for k in 3:
+		h2.on_enemy_acted()
+	_ok("V81 저장 → 불러오기 (최대 체력 · 예약 수 · 종언참 비용) · 불러온 뒤 끝남", "%s | %s | %d" % [a, a2, h2.max_hp], "97500/97500 1 3 | 97500/97500 1 3 | 75000")
+	# V82 이그니스 체력 40% → 피 끓는 일격 (난수 1.0): 예상 = 실제 = 기본 × 3.0 × 1.36 · 맞힌 뒤 체력 30%
+	b = _b(["ignis"], ["straw_golem"])
+	var t := _dummy(b, "none")
+	var ig := _w(b, "ignis")
+	ig.hp = int(round(float(ig.max_hp) * 0.40))
+	var base0 := float(b._terms(ig, t, 3.0, {}, true).base)
+	var est := b.estimate(ig, t, "blood_strike")
+	ig.credits = 7
+	var dmg := _first(b.use_skill(ig, "blood_strike", t))
+	_ok("V82 피 끓는 일격 체력 40%: 예상 = 실제 · 배수 · 맞힌 뒤 체력 %", "%s %.2f %d" % [str(est == dmg), float(dmg) / base0, int(round(ig.hp_ratio() * 100.0))], "true 1.36 30")
+	# V83 하르페 쌓인 힘 → 되돌려 베기: 0겹 ×1.0 · 파도 버티기 네레이가 7번 맞아도 5겹(출처당 최대) · ×2.0 · 겹은 그대로
+	b = _b(["nerei", "harpe"], ["straw_golem"])
+	t = _dummy(b, "none")
+	ne = _w(b, "nerei")
+	hp = _w(b, "harpe")
+	var r0 := float(_first(b.use_skill(hp, "return_cut", t))) / float(b._terms(hp, t, 2.5, {}, true).base)
+	ne.credits = 7
+	b.use_skill(ne, "wave_hold", null)
+	for k in 7:
+		b._on_hit_stack(ne)
+	var n0 := hp.stack_n()
+	var base5 := float(b._terms(hp, t, 2.5, {}, true).base)
+	var d5 := _first(b.use_skill(hp, "return_cut", t))
+	_ok("V83 되돌려 베기: 0겹 배수 · 겹 수 · 5겹 배수 · 쓴 뒤 겹 수", "%.2f %d %.2f %d" % [r0, n0, float(d5) / base5, hp.stack_n()], "1.00 5 2.00 5")
+	# V84 같은 상태에서 est_info · TAuto._attack_value · 실제 피해가 같은 곱 (×2.0)
+	var info := b.est_info(hp, t, "return_cut")
+	var av := TAuto._attack_value(b, TData.skill("return_cut"), t, hp) / 2.5
+	_ok("V84 조건 비례 곱: 예상 · 자동 선택 값 · 실제", "%.2f %.2f %.2f" % [float(info.est) / base5, av, float(_first(b.use_skill(hp, "return_cut", t))) / base5], "2.00 2.00 2.00")
+	# V85 약화 막기가 막는 넷 (봉인 · 약화 · 기절 공격의 기절 — 피해는 그대로) + 정화가 봉인을 풂
+	b = _b(["nerei", "undine"], ["shade_scribe"])
+	_tough(b)
+	ne = _w(b, "nerei")
+	un = _w(b, "undine")
+	sc = _e(b, "shade_scribe")
+	b.fix_roll = 0.0
+	got = []
+	for it in [{"k": "seal"}, {"k": "weaken", "cat": "atk_down", "v": 0.15, "dur": 2}, {"k": "stun_attack", "mult": 1.0}]:
+		for w in b.witches:
+			w.buffs.clear()
+			w.sealed = 0
+			w.seal_guard = false
+			w.stun_guard = false
+		ne.credits = 7
+		b.use_skill(ne, "current", null)
+		un.add_buff({"cat": "taunt", "v": 1.0, "dur": 9, "clock": "enemy", "name": "도발"}) # 단일 대상이 운디네로
+		var hp0 := un.hp
+		var evb := _act(b, sc, it)
+		got.append("%s%s" % [str(_kinds(evb).has("block")), "·피해" if un.hp < hp0 else ""])
+	un.sealed = 1
+	ne.credits = 7
+	b.use_skill(ne, "current", null)
+	got.append("봉인 %d" % un.sealed)
+	_ok("V85 약화 막기: 봉인 · 약화 · 기절 공격 / 정화 뒤 봉인", " ".join(got), "true true true·피해 봉인 0")
+	# V86 적의 해제가 최대 체력 버프를 지우면 최대가 되돌아감 (지금 체력은 새 최대로 자름)
+	b = _b(["glacia", "harpe"], ["straw_golem"])
+	gl = _w(b, "glacia")
+	hp = _w(b, "harpe")
+	gl.credits = 7
+	b.use_skill(gl, "ice_wall", null)
+	_act(b, _e(b, "straw_golem"), {"k": "dispel"})
+	_ok("V86 해제 → 최대 체력 되돌림", "%d/%d" % [hp.hp, hp.max_hp], "75000/75000")

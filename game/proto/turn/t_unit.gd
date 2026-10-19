@@ -8,6 +8,7 @@ extends RefCounted
 ##   clock enemy = 적이 행동을 마칠 때마다 dur −1 (무적 · 받는 피해 감소 · 도발 · 근성처럼 "다음 적 공격"을 막는 것)
 ## 징표: marks[kind] = {n: 겹 1~5, dur: 남은 행동 수} (combat_proto.md §17.1)
 ## [단계 F-2] 적이 마녀에게 건 나쁜 효과(약화)는 버프 목록에 bad = true — 보스 해제가 남긴다 (review_H §2.1). 적의 자기 보호: dmg_cut(방어 태세) · cover(막아서기)
+## [R5 — review_M M1] max_hp {v, add(실제로 더한 최대 체력)} · debuff_block {n(남은 막기 수)} · cost_down {v(줄일 비용)} — 버프 칸. 예약(delay)은 버프가 아니라 delayed 목록
 
 var id := ""
 var name := ""
@@ -65,6 +66,9 @@ var leader := false ## 우두머리: 쓰러지면 같은 웨이브의 나머지�
 var summon_cap := 0 ## 이 적이 한 웨이브에 부를 수 있는 수
 var sealed := 0 ## 마녀 봉인: 1 = 장착 마법·대마법 못 씀 · 2 = 대마법만 못 씀. 다음 자기 차례가 끝나면 풀림
 var seal_guard := false ## 봉인이 풀린 뒤 그다음 자기 차례가 끝날 때까지 봉인되지 않음
+# ── R5 (review_M M1)
+var base_max_hp := 1 ## 장비를 반영한 기본 최대 체력 (최대 체력 버프의 기준 · 상한)
+var delayed: Array = [] ## 예약: [{effects}] — 다음 자기 차례가 시작될 때 실행 (TBattle.next_actor)
 var _eq := {}
 
 
@@ -93,6 +97,7 @@ static func make_witch(wid: String, setup: Dictionary, slot_i: int) -> TUnit:
 	var eq := u._eq
 	u.atk = int(round(float(u.base_atk) * (1.0 + float(eq.get("atk", 0.0)))))
 	u.max_hp = int(round(float(u.max_hp) * (1.0 + float(eq.get("hp", 0.0)))))
+	u.base_max_hp = u.max_hp
 	u.hp = u.max_hp
 	u.speed += int(eq.get("speed", 0))
 	u.gauge = TData.GAUGE_MAX * float(eq.get("start_gauge", 0.0))
@@ -113,6 +118,7 @@ static func make_enemy(eid: String, slot_i: int, over := {}) -> TUnit:
 	u.atk = u.base_atk
 	u.bars = d.get("bars", [])
 	u.max_hp = int(u.bars[0]) if not u.bars.is_empty() else int(over.get("hp", d.get("hp", 1)))
+	u.base_max_hp = u.max_hp
 	u.hp = u.max_hp
 	u.speed = int(d.speed)
 	u.def_rate = float(d.def)
@@ -369,9 +375,71 @@ func _tick(clock: String) -> void:
 		if b.get("clock", "own") == clock:
 			b.dur = int(b.dur) - 1
 			if int(b.dur) <= 0:
+				_buff_gone(b)
 				continue
 		keep.append(b)
 	buffs = keep
+
+
+## 버프를 거른다 (keep이 true인 것만 남김) — 사라지는 최대 체력 버프는 최대 체력을 되돌린다 (적의 해제 · 정화). 지운 수
+func drop_buffs(keep: Callable) -> int:
+	var out: Array[Dictionary] = []
+	var n := 0
+	for b in buffs:
+		if keep.call(b):
+			out.append(b)
+		else:
+			_buff_gone(b)
+			n += 1
+	buffs = out
+	return n
+
+
+## 버프 하나가 사라짐: 최대 체력 버프면 더했던 만큼 최대에서 빼고 지금 체력을 새 최대로 자른다 (1 아래로 안 감, R5 §17.13)
+func _buff_gone(b: Dictionary) -> void:
+	if String(b.get("cat", "")) == "max_hp" and int(b.get("add", 0)) > 0:
+		max_hp = maxi(max_hp - int(b.add), 1)
+		if alive:
+			hp = clampi(hp, 1, max_hp)
+
+
+## 최대 체력 +기본 × v (지금 체력도 같은 만큼 +). 합 상한 기본 × CAP.max_hp — 넘는 몫은 버림. 더한 값
+func gain_max_hp(v: float) -> int:
+	var now := 0
+	for b in buffs:
+		if String(b.get("cat", "")) == "max_hp":
+			now += int(b.get("add", 0))
+	var add := clampi(int(round(float(base_max_hp) * v)), 0, maxi(int(round(float(base_max_hp) * float(TData.CAP.max_hp))) - now, 0))
+	max_hp += add
+	hp += add
+	return add
+
+
+## 이 공격에 붙는 쌓인 힘 겹 수 (맞으며 쌓기로 받은 공격력 겹 — stack_src가 있는 버프, §17.11)
+func stack_n() -> int:
+	var n := 0
+	for b in buffs:
+		if b.has("stack_src"):
+			n += 1
+	return n
+
+
+## 다음 장착 마법에서 줄어드는 비용 (비용 감소 버프 합)
+func cost_cut() -> int:
+	var n := 0
+	for b in buffs:
+		if String(b.get("cat", "")) == "cost_down":
+			n += int(round(float(b.get("v", 0.0))))
+	return n
+
+
+## 남은 약화 막기 수
+func blocks_left() -> int:
+	var n := 0
+	for b in buffs:
+		if String(b.get("cat", "")) == "debuff_block":
+			n += int(b.get("n", 0))
+	return n
 
 
 ## own 시계 버프 전부 지속 +v (시간의 마녀)
@@ -403,7 +471,10 @@ func take_damage(v: int) -> Dictionary:
 		r.guts = true
 		return r
 	alive = false
+	for b in buffs:
+		_buff_gone(b) # 최대 체력 버프는 되돌림 (되살림이 기본 최대 기준이 되게)
 	buffs.clear()
+	delayed.clear()
 	marks.clear()
 	stunned = false
 	stun_guard = false
@@ -465,7 +536,7 @@ func buff_icons() -> Array:
 			by[key] = {"cat": b.cat, "v": 0.0, "dur": 0, "el": b.get("el", ""), "mark": b.get("mark", "")}
 			order.append(key)
 		by[key].v = float(by[key].v) + float(b.get("v", 0.0))
-		by[key].dur = maxi(int(by[key].dur), int(b.count) if b.has("count") else int(b.dur)) # 횟수제는 남은 횟수
+		by[key].dur = maxi(int(by[key].dur), int(b.count) if b.has("count") else (int(b.get("n", 0)) if b.cat == "debuff_block" else int(b.dur))) # 횟수제·약화 막기는 남은 횟수
 	var out: Array = []
 	for k in order:
 		out.append(by[k])
@@ -475,7 +546,7 @@ func buff_icons() -> Array:
 # ── 저장 (전투 이어하기, combat_proto.md §28.4): 데이터(data·_eq)는 id로 다시 만들고 바뀌는 값만 담는다
 const SAVE_KEYS := ["hp", "max_hp", "atk", "speed", "def_rate", "element", "gauge", "credits", "buffs", "marks", "alive", "pattern", "intent_i", "intent_now",
 	"intent_src", "rule_pat", "charge", "bar_i", "stunned", "stun_guard", "guts_used", "inv_guard", "zero_after_turn", "pending_gauge", "last_k", "last_act",
-	"acted", "acts", "dealt", "weak", "resist", "passive", "sealed", "seal_guard"]
+	"acted", "acts", "dealt", "weak", "resist", "passive", "sealed", "seal_guard", "delayed"]
 
 
 func to_dict() -> Dictionary:
