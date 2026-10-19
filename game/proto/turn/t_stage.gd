@@ -40,6 +40,7 @@ var _page_cb: JavaScriptObject ## 웹: 문서 visibilitychange·pagehide를 받�
 var _froze := false ## 판 때문에 시간을 멈췄나
 var _scale_was := [] ## 들어오기 전 창 배율 [aspect, stretch] — 나갈 때 되돌림 (세라·실시간판은 정수 배율 그대로)
 var _probe_cb: JavaScriptObject ## 웹 시험(주소에 probe): window.eskaProbe() → window.eskaState (tools/test/web_turn.mjs)
+var _setup_theme := "" ## 편성 화면 뒤 배경 테마 (넓은 화면 양옆 띠에 비침 — 고른 전투의 첫 웨이브, R3 review_N N-05)
 
 
 func _exit_tree() -> void:
@@ -147,6 +148,13 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if TTheme.sync_view(get_viewport()):
 		_place_layers()
+	if not _in_battle and setup.visible:
+		var th := battle_theme(TSetup.battle_pick, 0)
+		if th != _setup_theme:
+			_bg.set_theme(th, _setup_theme == "")
+			_setup_theme = th
+	elif _in_battle:
+		_setup_theme = ""
 	# 철수 확인·도움말·설정·멈춤 판이 열려 있으면 전투 시간을 멈춘다 — 판 뒤에서 숫자·웨이브 전환이 흘렀다 (review_K K-22)
 	var modal := _in_battle and (hud.confirm_open or guide.mode in ["help", "settings", "pause"])
 	if modal:
@@ -243,6 +251,11 @@ func _on_probe(_args: Array) -> void:
 		"turn": battle.turn_no if battle != null else 0, "banner": hud.banner_text, "confirm": hud.confirm_open}
 	var r2a := func(r: Rect2) -> Array: return [r.position.x, r.position.y, r.size.x, r.size.y]
 	d["off"] = r2a.call(guide._off_rect())
+	d["portrait"] = guide.portrait # 폰 웹 전체 화면·세로 안내 (R3, review_N N-02)
+	d["fs_web"] = guide.fs_web
+	d["fs_tried"] = guide.fs_tried
+	d["fs_is"] = guide.fs_is
+	d["fs_btn"] = r2a.call(guide.fs_btn())
 	d["start1"] = r2a.call(TSetup.START1_RECT)
 	if _in_battle and battle != null:
 		var slots: Array = []
@@ -354,6 +367,13 @@ func _add_actor(u: TUnit, at: Vector2) -> void:
 	units_node.add_child(a)
 	a.setup(u, at)
 	a.z_index = 1 + int((at.y - 218.0) / 25.0) # 앞(아래)이 위에 그려짐 (1~3)
+	if not u.is_witch():
+		# 키 큰 적(뒤 칸 재의 기사)은 머리 꼭대기가 적 카드 밑 + 18(HEAD_MIN_Y + 8)보다 위면 그만큼 내려 세움, 24px까지 — 투구를 카드가 덮고
+		# 대상 고르기의 머리 위 의도 아이콘이 투구 위에 겹쳤다 (R3, review_N N-06 [제안]). 카드는 위 띠 밑 한 줄 고정이라 옮길 자리가 없다
+		var dy := clampf(THud.HEAD_MIN_Y + 8.0 - a.head().y, 0.0, 24.0)
+		if dy > 0.0:
+			a.home.y += dy
+			a.position.y += dy
 	actors[u] = a
 
 
@@ -499,10 +519,15 @@ func _wave_change(token: int) -> void:
 
 ## 지금 웨이브의 배경 테마 (TData.BATTLES의 bgs[웨이브] → bg → field)
 func _wave_theme() -> String:
-	var bd: Dictionary = TData.BATTLES.get(battle_id, {})
+	return battle_theme(battle_id, battle.wave_i if battle != null else 0)
+
+
+## 전투 bid의 웨이브 wi 배경 테마 (bgs[wi] → bg → field) — 편성 화면 뒤 배경도 이것으로
+static func battle_theme(bid: String, wi: int) -> String:
+	var bd: Dictionary = TData.BATTLES.get(bid, {})
 	var bgs: Array = bd.get("bgs", [])
-	if battle != null and battle.wave_i < bgs.size():
-		return String(bgs[battle.wave_i])
+	if wi < bgs.size():
+		return String(bgs[wi])
 	return String(bd.get("bg", "field"))
 
 

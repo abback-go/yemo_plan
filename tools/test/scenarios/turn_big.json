@@ -1,5 +1,5 @@
 {"scene": "res://proto/turn/turn_proto.tscn", "seed": 20261018, "steps": [
- [3, "eval", "guide._settings_press(Vector2(430, 196))"],
+ [3, "eval", "guide._settings_press(guide._set_btn(3, false).get_center())"],
  [6, "shot", "big00_setup"],
  [8, "touch", 0, 516, 316], [9, "untouch", 0, 516, 316],
  [14, "shot", "big01_battles"],

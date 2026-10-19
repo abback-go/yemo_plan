@@ -1,7 +1,7 @@
 class_name TSave
 extends RefCounted
 ## 턴제 저장 (combat_proto.md §28.4 · review_F_gaps.md F07 · review_G_firstplay.md §5.2). 파일 셋, 모두 user:// 아래:
-##   turn_setup.json  편성 {ver, party, witch: {id: {equipped, equip, equip_lv, skill_lv}}, battle_pick, cleared, intro_done, big_text}
+##   turn_setup.json  편성 {ver, party, witch: {id: {equipped, equip, equip_lv, skill_lv}}, battle_pick, cleared, intro_done, big_text, full_screen}
 ##                    — 이 파일이 없으면 "첫 실행"(안내 A부부터). 안내를 끝내거나 끄면 처음 쓴다(안내 중에는 hold로 쓰지 않음)
 ##   turn_tips.json   본 안내 {ver, seen: {id: true}, off}
 ##   turn_battle.var  끊긴 전투 — TBattle.to_dict()를 var_to_str로 (JSON은 정수를 실수로 바꿔 규칙 엔진의 int 비교가 틀어짐)
@@ -24,6 +24,7 @@ static var hold := false ## 첫 실행 안내(A·B부) 중엔 편성을 쓰지 �
 static var cleared: Array = [] ## 깬 전투 id
 static var intro_done := false ## 안내 전투를 이겼거나 안내를 껐다
 static var big_text := false ## 큰 글자 (설정)
+static var full_screen := true ## 폰 웹 전체 화면 (설정, R3 review_N N-02 — 첫 탭에 전체 화면 + 가로 고정)
 static var tips := {} ## 본 안내 id → true
 static var tips_off := false ## "안내 끄기"
 static var terms_seen := {} ## 도움말에서 연 용어 → true (상세·설명 상자의 용어 풀이 한 줄이 건너뜀 — 이번 실행 동안만, review_I I-14)
@@ -68,6 +69,8 @@ static func load_all() -> void:
 		if bool(t.get("big_text", false)) and loaded.is_empty():
 			big_text = true # 편성 파일이 아직 없음(안내 중 새로고침) — 큰 글자는 안내 기록에서 (I-17)
 			TTheme.big = true
+		if loaded.is_empty():
+			full_screen = bool(t.get("full_screen", true))
 
 
 ## 편성 사전을 검증한다 → {state, pick} (review_F F07 규칙 1 — 데이터에서 빠진 마녀·마법·장비·전투는 버리고 기본값). 깬 전투·안내·큰 글자는 여기 static에
@@ -113,6 +116,7 @@ static func parse_setup(d: Dictionary) -> Dictionary:
 	intro_done = bool(d.get("intro_done", false))
 	big_text = bool(d.get("big_text", false))
 	TTheme.big = big_text
+	full_screen = bool(d.get("full_screen", true))
 	return {"state": state, "pick": bp if TData.BATTLES.has(bp) else String(TData.BATTLE.battle)}
 
 
@@ -126,7 +130,7 @@ static func setup_dict() -> Dictionary:
 		var s: Dictionary = st[wid]
 		wd[wid] = {"equipped": (s.equipped as Array).duplicate(), "equip": String(s.equip), "equip_lv": int(s.get("equip_lv", 1)), "skill_lv": (s.get("skill_lv", {}) as Dictionary).duplicate()}
 	return {"ver": VER, "party": (st.party as Array).duplicate(), "witch": wd, "battle_pick": String(cur.pick),
-		"cleared": cleared.duplicate(), "intro_done": intro_done, "big_text": big_text}
+		"cleared": cleared.duplicate(), "intro_done": intro_done, "big_text": big_text, "full_screen": full_screen}
 
 
 static func save_setup() -> void:
@@ -192,7 +196,7 @@ static func reset_tips() -> void:
 
 static func _save_tips() -> void:
 	if enabled:
-		_write(TIPS_FILE, JSON.stringify({"ver": VER, "seen": tips, "off": tips_off, "big_text": big_text}))
+		_write(TIPS_FILE, JSON.stringify({"ver": VER, "seen": tips, "off": tips_off, "big_text": big_text, "full_screen": full_screen}))
 
 
 ## 설정(큰 글자)이 바뀜 — 안내 중(hold)엔 편성 파일을 안 쓰므로 안내 기록에도 적는다 (review_I I-17)
@@ -298,6 +302,7 @@ static func wipe() -> void:
 	intro_done = false
 	cleared = []
 	big_text = false
+	full_screen = true
 
 
 static func _read_json(file: String):

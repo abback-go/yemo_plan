@@ -3,9 +3,12 @@
 //   주소 기본 http://localhost:8766/index.html?turn&probe  (probe = 게임이 window.eskaProbe()로 화면 상태·누를 자리를 알려 줌, t_stage.gd _on_probe)
 //   화면 기본 915x412@2.625 (20:9 갤럭시급) · 19.5:9 흉내는 844x390@3
 //   CPU 배수(예 3)를 주면 CDP Emulation.setCPUThrottlingRate로 프레임을 길게 — 느린 프레임에서 짧은 탭이 길게 누르기로 먹히는지 (review_K K-10)
-// 흐름: 첫 실행 안내 판 → "안내 끄기" → 전투 고르기 → 출격 → 마녀 차례마다 기본 공격 칸 두 번 → 적 카드 짧게 탭(80~150 ms) — 탭이 먹혔는지 센다
-//       → 적 카드 길게 누름(상세) → X → 철수 확인 → 취소 → 창 가려짐(visibilitychange) → localStorage 저장 → 새로고침 → 끊긴 전투 판
-// 출력: 화면 배율·띠, 탭 결과, 콘솔 오류·경고 수. 통과 기준: "TAPS ok n/n" · "CONSOLE errors 0" · "RESUME panel resume"
+// 흐름: 첫 실행 안내 판 → "안내 끄기"(이 첫 탭을 뗄 때 전체 화면 요청 — R3 review_N N-02) → 전투 고르기 → 출격 → 마녀 차례마다 기본 공격 칸 두 번 → 적 카드 짧게 탭(80~150 ms) — 탭이 먹혔는지 센다
+//       → 적 카드 길게 누름(상세) → X → 철수 확인 → 취소 → **세로로 돌림(세로 안내 · 전투 멈춤) → 가로로 되돌림 → 멈춤 판 탭**
+//       → 창 가려짐(visibilitychange) → localStorage 저장 → 새로고침 → 끊긴 전투 판
+//   세로 화면(예 412x915@2.625)으로 시작하면: 세로 안내 판이 뜨고 누름을 먹는지만 보고 끝낸다
+//   주소 막대 흉내(915x356@2.625): 전체 화면이 안 되면(헤드리스) 다시 들어가는 버튼이 보이는지 · 누르면 요청하는지
+// 출력: 화면 배율·띠, 탭 결과, 콘솔 오류·경고 수. 통과 기준: "TAPS ok n/n" · "CONSOLE errors 0" · "RESUME panel resume" · "ROTATE portrait true pause true → back false"
 // playwright 경로는 환경마다 다름 (예: /opt/node22/lib/node_modules/playwright/index.mjs)
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 const out = process.argv[2] || '/tmp/web_turn';
@@ -42,9 +45,33 @@ st = await probe();
 const usedW = (640 + 2 * st.ofs[0]) * st.scale, usedH = (360 + 2 * st.ofs[1]) * st.scale;
 console.log(`SCREEN css ${W}x${H}@${DPR} canvas ${canvasBox.cw}x${canvasBox.ch} scale ${st.scale.toFixed(3)} view ${st.view.join('x')} ofs ${st.ofs.join(',')} origin ${st.origin.map(v => v.toFixed(1)).join(',')} used ${(100 * usedW / canvasBox.cw).toFixed(1)}% x ${(100 * usedH / canvasBox.ch).toFixed(1)}%`);
 await shot('t1_first');
-// 첫 실행 안내 → 안내 끄기
+const fsDoc = async () => page.evaluate(() => !!document.fullscreenElement);
+console.log(`FS web ${st.fs_web} tried ${st.fs_tried} is ${st.fs_is} portrait ${st.portrait}`);
+if (H > W) {
+	// 세로로 시작: 세로 안내 판 · 누름을 먹음 (편성 단계가 그대로)
+	await tapAt(st, 320, 180); await wait(600);
+	const s2 = await probe();
+	await shot('p1_portrait');
+	console.log(`PORTRAIT start ${st.portrait} after-tap ${s2.portrait} setup_step ${st.setup_step}→${s2.setup_step} card '${st.card}'→'${s2.card}' doc-fullscreen ${await fsDoc()}`);
+	const errs0 = logs.filter(l => l.startsWith('error') || l.startsWith('pageerror'));
+	console.log(`CONSOLE errors ${errs0.length} warnings ${logs.filter(l => l.startsWith('warning')).length} lines ${logs.length}`);
+	for (const l of logs) console.log('  ' + l.slice(0, 300));
+	await browser.close();
+	process.exit(0);
+}
+// 첫 실행 안내 → 안내 끄기 (이 탭을 뗄 때 전체 화면 요청)
 if (st.card) { const c = center(st.off); await tapAt(st, c[0], c[1]); await wait(600); }
 st = await probe();
+console.log(`FS after-first-tap tried ${st.fs_tried} is ${st.fs_is} doc-fullscreen ${await fsDoc()} btn ${JSON.stringify(st.fs_btn)} view ${st.view.join('x')}`);
+if (st.fs_btn && st.fs_btn[2] > 0) {
+	await shot('t2b_fs_button');
+	const b = center(st.fs_btn);
+	const before = st.setup_step;
+	await tapAt(st, b[0], b[1]); await wait(600);
+	const s2 = await probe();
+	console.log(`FS button tap → is ${s2.fs_is} doc-fullscreen ${await fsDoc()} setup_step ${before}→${s2.setup_step}`);
+	st = s2;
+}
 await shot('t2_setup');
 let c = center(st.start1);
 await tapAt(st, c[0], c[1]); await wait(800);             // 전투 고르기
@@ -95,6 +122,17 @@ await shot('t8_confirm');
 st = await probe();
 console.log('CONFIRM open', st.confirm);
 await tapAt(st, 270, 200); await wait(400);                // 취소 (왼쪽)
+// 세로로 돌림 → 세로 안내 + 전투 멈춤 → 가로로 되돌림 → 멈춤 판을 눌러 계속 (R3, review_N N-02)
+st = await until(s => s.in_battle && s.hud_state === 'wheel', 30000);
+await page.setViewportSize({ width: H, height: W }); await wait(900);
+const sp = await probe();
+await shot('t8b_rotated');
+await page.setViewportSize({ width: W, height: H }); await wait(900);
+const sb = await probe();
+await shot('t8c_back');
+console.log(`ROTATE portrait ${sp.portrait} pause ${sp.guide_mode === 'pause'} view ${sp.view.join('x')} → back ${sb.portrait} mode '${sb.guide_mode}'`);
+canvasBox = await page.evaluate(() => { const c = document.querySelector('canvas'); const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, cw: c.width, ch: c.height }; });
+if (sb.guide_mode === 'pause') { await tapAt(sb, 320, 180); await wait(500); }
 // 창 가려짐 → 저장 → 새로고침 → 끊긴 전투 판
 st = await until(s => s.in_battle && s.hud_state === 'wheel', 30000);
 await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });

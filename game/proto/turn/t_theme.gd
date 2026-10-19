@@ -252,12 +252,16 @@ static func diamond(ci, c: Vector2, half: float, col: Color) -> void:
 	ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -half), c + Vector2(half, 0), c + Vector2(0, half), c + Vector2(-half, 0)]), col)
 
 
-## 크레딧 n/7 줄: 마름모 7개 (중심 간격 gap)
+## 크레딧 n/7 줄: 마름모 7개 (중심 간격 gap). 찬 칸 = 1px 밝은 테 + 금빛 (R3, review_N N-07 — 핵심 자원이 체력 숫자보다 안 보였다)
 static func credit_row(ci: CanvasItem, p: Vector2, n: int, gap := 10.0, half := 3.5, pulse := 1.0) -> void:
 	for k in TData.CREDIT_MAX:
 		var c := p + Vector2(gap * float(k), 0)
 		diamond(ci, c, half + 1.0, Color(INK, 0.95))
-		diamond(ci, c, half, Color(GOLD, pulse) if k < n else EMPTY)
+		if k < n:
+			diamond(ci, c, half, Color("#fff6d6", pulse))
+			diamond(ci, c, half - 1.0, Color(GOLD, pulse))
+		else:
+			diamond(ci, c, half, EMPTY)
 
 
 ## 예상 피해 한 줄 (전투 설명 띠·편성 설명 상자가 같이 씀, review_C2 L9): "예상 n · 크리 m" / 크리 확정이면 "예상 n (크리 확정)"
@@ -430,9 +434,11 @@ static func buff_icon(ci: CanvasItem, p: Vector2, ic: Dictionary, n := -1) -> vo
 			ci.draw_line(c + Vector2(0, -3.5), c + Vector2(0, 1.5), col, 1.4)
 			ci.draw_line(c + Vector2(-2.5, -1), c + Vector2(2.5, -1), col, 1.4)
 			ci.draw_line(c + Vector2(-3, 3), c + Vector2(3, 3), col, 1.0)
-		"ult_dmg": # 대마법 위력 (F-4): 채운 마름모 + 위 점
-			diamond(ci, c + Vector2(0, 0.5), 3.0, col)
-			ci.draw_rect(Rect2(c + Vector2(-0.75, -4), Vector2(1.5, 1.5)), col)
+		"ult_dmg": # 대마법 위력 (F-4): 금빛 빈 원 + 안쪽 위 화살표 — 바퀴 끝 대마법 칸(금빛 원)과 같은 모양. 예전 채운 마름모는 바로 옆 크레딧 칸과 같았다 (R3, review_L §4.2)
+			ci.draw_arc(c, 3.8, 0.0, TAU, 14, col, 1.0)
+			ci.draw_line(c + Vector2(0, 2.2), c + Vector2(0, -2.2), col, 1.2)
+			ci.draw_line(c + Vector2(-1.8, -0.4), c + Vector2(0, -2.4), col, 1.2)
+			ci.draw_line(c + Vector2(1.8, -0.4), c + Vector2(0, -2.4), col, 1.2)
 		"special":
 			ci.draw_arc(c, 3.0, 0.0, TAU, 12, col, 1.0)
 			ci.draw_rect(Rect2(c - Vector2(0.75, 0.75), Vector2(1.5, 1.5)), col)

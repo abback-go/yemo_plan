@@ -30,5 +30,13 @@
  [490, "eval", "battle.deal(battle.enemies[2], 99999999)"],
  [700, "shot", "wd11_win"],
  [700, "eval", "status()"],
- [710, "quit"]
+ [702, "eval", "guide.set('test_phone', true)"],
+ [703, "eval", "guide.set('fs_tried', true)"],
+ [706, "eval", "guide.fs_btn()"],
+ [706, "shot", "wd12_fs_button"],
+ [708, "eval", "guide.open_settings()"],
+ [710, "shot", "wd13_settings_fs"],
+ [712, "eval", "guide.set('mode', '')"],
+ [714, "eval", "guide.set('test_phone', false)"],
+ [720, "quit"]
 ]}

@@ -89,7 +89,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" $G --rendering-driver opengl3 --fixed-fps
 | `turn_ult.json` | 대마법 12개 연출 — 마녀마다 컷인(a)·문장 고리(b)·효과(c)·맞음(d) 4장 + 연쇄 3단계 2개 + `perf()`(그리기 호출·입자·연출 노드)와 기존 큰 마법 4개 비교 (단계 D) |
 | `turn_events.json` | 웨이브 전환(걸어 들어옴·보스 착지) · 재의 왕 줄 1~3 모습 · 크리 · 브레이크 · 기절 · 해제 · 근성 · 도발 · 저항/면역 · 관통 필살기 · 시련의 거상 줄 1~3 (단계 D, `demo_wave`·`demo_event`) |
 
-| `turn_wide.json` | 넓은 화면(review_K K-01): 편성 S-01·S-02·S-03 · 바퀴 · 대상 · 적 상세 · 자동 전투 · 철수 확인 · 웨이브 배너 · 도움말 · 승리. `--resolution 780x360`(19.5:9) · `800x360`(20:9) · `640x360`으로 같은 시나리오를 돌린다 (`dtouch` 사용) |
+| `turn_wide.json` | 넓은 화면(review_K K-01): 편성 S-01·S-02·S-03 · 바퀴 · 대상 · 적 상세 · 자동 전투 · 철수 확인 · 웨이브 배너 · 도움말 · 승리 · (R3) 폰 웹 흉내(`guide.test_phone`)에서 전체 화면이 풀렸을 때 다시 들어가는 버튼 `wd12_fs_button`(오른쪽 끝 · 640 화면엔 자리가 없어 안 보임) · 설정 "전체 화면" 줄 `wd13_settings_fs`. `--resolution 780x360`(19.5:9) · `800x360`(20:9) · `640x360`으로 같은 시나리오를 돌린다 (`dtouch` 사용) |
 | `turn_r2.json` | R2(review_L): 편성 설명 상자 17장(불의 고리·잉걸불·장송의 불·잔잔한 수면·쇄빙 일격·얼음 벽·겨울의 맹세·뇌격·과전류·박차·번개 나눔·불쏘시개·불의 숨결·태양의 창·샘물 붓기·서리 숨결·검기 두르기 — 효과 점 목록·"어울림"·용어 풀이 줄) · 도움말 새 용어 · 큰 글자 설명 상자·도움말 · 전투 큰 글자 연쇄 칩 + 받는 크리 데미지/확률 아이콘 + 지속 회복 숫자(기본 공격 뒤 다음 바퀴가 열려도 또렷한지) · 가장 긴 위 띠 글의 연쇄 칩 · 보통 글자 연쇄 칩 1·3단계 (r00~r30) |
 
 - 시나리오 파일이 없으면 실행기는 `SCENARIO not found`를 찍고 바로 끝난다(종료 코드 1).
@@ -117,10 +117,14 @@ $G --headless --export-release "Web" /tmp/web/index.html
 node ../tools/test/web_turn.mjs /tmp/out                                   # 20:9 (CSS 915×412, 비율 2.625)
 node ../tools/test/web_turn.mjs /tmp/out "" 844x390@3                       # 19.5:9
 node ../tools/test/web_turn.mjs /tmp/out "" 915x412@2.625 3                 # CPU 3배 느리게 (느린 프레임에서 짧은 탭)
+node ../tools/test/web_turn.mjs /tmp/out "" 915x356@2.625                   # 주소 막대가 보이는 가로 (R3)
+node ../tools/test/web_turn.mjs /tmp/out "" 412x915@2.625                   # 세로로 시작 (R3) — 세로 안내 판만 보고 끝
 ```
 주소 기본 `index.html?turn&probe` — `probe`가 있으면 게임이 `window.eskaProbe()`를 열어 화면 상태와 누를 자리(설계 좌표)를 `window.eskaState`(JSON)로 알려 준다(`TStage._on_probe`). 시험은 그것을 CSS 좌표로 바꿔 누른다.
-흐름: 첫 실행 판 → 안내 끄기 → 전투 고르기 → 출격 → 마녀 차례마다 기본 공격 칸 두 번 + **적 카드를 80~150 ms 탭**(먹혔는지 셈) → 적 카드 길게 누름(상세) → X → 철수 확인 → 취소 → 창 가려짐 → `localStorage` 저장 → 새로고침 → 끊긴 전투 판.
-통과: `SCREEN … used 100.0%` · `TAPS ok n/n` · `CONFIRM open true` · `SAVED localStorage bytes` > 0 · `RESUME panel resume` · `CONSOLE errors 0`.
+흐름: 첫 실행 판 → 안내 끄기(**이 첫 탭을 뗄 때 전체 화면 요청** — R3 review_N N-02) → 전투 고르기 → 출격 → 마녀 차례마다 기본 공격 칸 두 번 + **적 카드를 80~150 ms 탭**(먹혔는지 셈) → 적 카드 길게 누름(상세) → X → 철수 확인 → 취소 → **세로로 돌림(창 크기를 W↔H) → 가로로 되돌림 → 멈춤 판 탭** → 창 가려짐 → `localStorage` 저장 → 새로고침 → 끊긴 전투 판.
+통과: `SCREEN … used 100.0%` · `FS web true` · `FS after-first-tap tried true` · `TAPS ok n/n` · `CONFIRM open true` · `ROTATE portrait true pause true … → back false mode 'pause'` · `SAVED localStorage bytes` > 0 · `RESUME panel resume` · `CONSOLE errors 0`.
+- 헤드리스 Chromium은 요청을 받아 주어 `doc-fullscreen true`가 된다(폰 실기와 다를 수 있음). 전체 화면이 아니고 오른쪽에 640 바깥 자리가 40px 이상이면 다시 들어가는 버튼(`fs_btn`)을 눌러 본다(`FS button tap`).
+- 세로로 시작(`412x915`): `PORTRAIT start true after-tap true setup_step 1→1`(세로 안내 판이 누름을 먹음) · 스크린샷 `p1_portrait`.
 
 ## 모바일(터치·오프라인) 웹 시험
 ```bash

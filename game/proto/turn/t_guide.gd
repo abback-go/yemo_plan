@@ -19,12 +19,30 @@ const PANEL_W := 300.0
 const OFF_W := 60.0 ## "안내 끄기" 터치 목표 60×24
 const OFF_H := 24.0
 const HELP := Rect2(40, 34, 560, 296)
-const HELP_CELL := Vector2(78, 19) ## 4열 × 10줄 (용어 37 — review_I I-16 · R2 새 용어 넷)
+const HELP_CELL := Vector2(78, 36) ## 4열 × 5줄 쪽 둘 (용어 37) — 칸 높이 19 → 36: 손가락으로 고를 수 없었다 (R3, review_N N-03)
 const HELP_COLS := 4
-const HELP_RESET := Rect2(52, 290, 136, 32)
-const HELP_SET := Rect2(196, 290, 136, 32) ## 전투 중에도 설정을 연다 (review_I I-12)
-const HELP_CLOSE := Rect2(452, 290, 136, 32)
-const SET := Rect2(150, 30, 340, 300)
+const HELP_PER := 20 ## 한 쪽 칸 수
+const HELP_RESET := Rect2(52, 288, 136, 36)
+const HELP_SET := Rect2(196, 288, 136, 36) ## 전투 중에도 설정을 연다 (review_I I-12)
+const HELP_CLOSE := Rect2(452, 288, 136, 36)
+const HELP_PREV := Rect2(338, 288, 36, 36) ## 쪽 넘김 ◀ ▶ (R3 N-03)
+const HELP_NEXT := Rect2(410, 288, 36, 36)
+const SET := Rect2(150, 8, 340, 344) ## 줄 7개 × 36 (R3 — 줄 높이 32 → 36 · "전체 화면" 줄 더함)
+const FS_JS := """(function(){ if (window.eskaFS) return;
+ var d = document, el = d.documentElement, mm = function(q){ return !!(window.matchMedia && window.matchMedia(q).matches); };
+ var mobile = mm('(pointer: coarse)') || ((navigator.maxTouchPoints || 0) > 0 && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent));
+ window.eskaFS = {
+  mobile: mobile, app: mm('(display-mode: fullscreen)') || mm('(display-mode: standalone)'),
+  can: !!(el.requestFullscreen || el.webkitRequestFullscreen),
+  is: function(){ return !!(d.fullscreenElement || d.webkitFullscreenElement) || this.app; },
+  req: function(){ try {
+    var lock = function(){ try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function(){}); } catch (e) {} };
+    var p = el.requestFullscreen ? el.requestFullscreen({navigationUI: 'hide'}) : (el.webkitRequestFullscreen ? el.webkitRequestFullscreen() : null);
+    if (p && p.then) p.then(lock).catch(function(){}); else lock();
+   } catch (e) {} },
+  exit: function(){ try { if ((d.fullscreenElement || d.webkitFullscreenElement) && d.exitFullscreen) d.exitFullscreen().catch(function(){}); } catch (e) {} }
+ };
+})();"""
 const RESUME := Rect2(190, 104, 260, 132)
 const RESUME_YES := Rect2(202, 186, 112, 36)
 const RESUME_NO := Rect2(326, 186, 112, 36)
@@ -38,11 +56,26 @@ var resume_info := ""
 var _t := 0.0
 var _pass_press := false ## 이번 누름을 아래 화면으로 넘겼나 (떼기도 넘긴다)
 var _card_t := 0.0 ## 판이 뜬 지 (뜨자마자 같은 손가락의 떼기로 닫히지 않게)
+var help_page := 0 ## 도움말 쪽 (0 · 1)
+## 폰 웹 전체 화면 · 가로 (R3, review_N N-02 = review_M N3): 첫 탭을 뗄 때 requestFullscreen → 되면 screen.orientation.lock('landscape') (실패는 조용히).
+## 브라우저는 탭(touchend)에서 몇 초 동안 사용자 활성화를 주므로 Godot가 다음 프레임에 부르는 요청도 제스처 안이다. 데스크톱·이미 전체 화면(설치 앱)이면 아무것도 안 함
+var fs_web := false ## 웹 + 터치 폰 (window.eskaFS.mobile)
+var fs_tried := false ## 첫 탭 요청을 했나 (이번 실행에 한 번 — 풀린 뒤엔 다시 들어가는 버튼으로만)
+var fs_is := false ## 지금 전체 화면인가 (0.5초마다 물음)
+var _fs_poll := 0.0
+var _fs_down := false ## 다시 들어가는 버튼을 누르는 중
+var portrait := false ## 세로로 듦 → 안내 판 + 전투 멈춤 (폰 웹만)
+var test_phone := false ## 시험용: 폰 웹처럼 (데스크톱에서 세로 안내·다시 들어가는 버튼 그림 확인)
+var test_fs := false ## 시험용: test_phone에서 전체 화면인 척
 
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(FS_JS)
+		fs_web = bool(JavaScriptBridge.eval("!!(window.eskaFS && window.eskaFS.mobile && window.eskaFS.can)", true))
+		fs_is = _fs_query()
 
 
 func _process(delta: float) -> void:
@@ -50,8 +83,70 @@ func _process(delta: float) -> void:
 	_card_t += delta
 	size = Vector2(640, 360) # 설계 화면 (review_K K-01)
 	TSave.tick(delta)
+	_fs_tick(delta)
 	_update_flow()
 	queue_redraw()
+
+
+# ═══════════════════════════════════════════════════════════
+# 폰 웹 전체 화면 · 가로 고정 · 세로 안내 (R3, review_N N-02)
+# ═══════════════════════════════════════════════════════════
+
+func _phone() -> bool:
+	return fs_web or test_phone
+
+
+func _fs_query() -> bool:
+	if test_phone:
+		return test_fs
+	if not fs_web:
+		return false
+	return bool(JavaScriptBridge.eval("window.eskaFS.is()", true))
+
+
+func _fs_request() -> void:
+	if fs_web:
+		JavaScriptBridge.eval("window.eskaFS.req()")
+
+
+## 0.5초마다 전체 화면인지 묻고, 세로인지 본다 (세로로 들면 전투는 창이 가려질 때와 같게 저장·멈춤)
+func _fs_tick(delta: float) -> void:
+	_fs_poll -= delta
+	if _fs_poll <= 0.0:
+		_fs_poll = 0.5
+		fs_is = _fs_query()
+	var por := _phone() and T.view.y > T.view.x
+	if por and not portrait and stage != null and bool(stage._in_battle):
+		stage._hidden()
+		pause()
+	portrait = por
+
+
+## 전체 화면이 풀린 뒤 다시 들어가는 작은 버튼 (화면 오른쪽 끝 · 위 띠 밑) — 오른쪽에 640 바깥 자리가 40px 이상일 때만 (없으면 설정 줄로)
+func fs_btn() -> Rect2:
+	if not _phone() or not TSave.full_screen or not fs_tried or fs_is or portrait or mode != "" or T.ofs.x < 40.0:
+		return Rect2()
+	return Rect2(T.right() - 40.0, 34, 36, 36)
+
+
+## 모든 누름·뗌을 먼저 본다: 세로면 먹음 · 다시 들어가는 버튼 · 첫 뗌에 전체 화면 요청. 처리했으면 true
+func _fs_input(pos: Vector2, pressed: bool) -> bool:
+	if portrait:
+		return true
+	var b := fs_btn()
+	if pressed:
+		_fs_down = b.has_area() and b.has_point(pos)
+		return _fs_down
+	if _fs_down:
+		_fs_down = false
+		if b.has_point(pos):
+			_fs_request()
+			Sfx.play(&"tn_select", -10.0)
+		return true
+	if _phone() and TSave.full_screen and not fs_tried and not fs_is:
+		fs_tried = true
+		_fs_request() # 첫 탭 — 그 탭은 아래 화면도 그대로 받는다
+	return false
 
 
 # ═══════════════════════════════════════════════════════════
@@ -89,6 +184,7 @@ func tip(id: String, title: String, body: String, holes: Array) -> bool:
 
 func open_help() -> void:
 	mode = "help"
+	help_page = clampi(help_i / HELP_PER, 0, _help_pages() - 1)
 	Sfx.play(&"tn_select", -10.0)
 
 
@@ -222,7 +318,7 @@ func _update_flow() -> void:
 		"C2":
 			if setup.visible and setup.step == 2 and card.is_empty():
 				# 강조는 타일 묶음만 — 설명 상자까지 뚫으면 판이 갈 자리가 없어 설명 글 위에 겹쳤다 (I-08). 판은 설명 상자를 피해 왼쪽 아래로
-				_show("C2", "마법 바꾸기", "한 번 누르면 설명, 다시 누르면 장착·해제. 4개까지이고 대마법(금빛 줄)은 바꿀 수 없습니다.", [Rect2(150, 38, 232, 166)], "tap", false, [TSetup.DESC])
+				_show("C2", "마법 바꾸기", "한 번 누르면 설명, 다시 누르면 장착·해제. 4개까지이고 대마법(금빛 줄)은 바꿀 수 없습니다.", [Rect2(150, 38, 232, 192)], "tap", false, [TSetup.DESC])
 		"C3":
 			if setup.visible and setup.step == 2 and card.is_empty():
 				_show("C3", "장비", "장비 줄을 누르면 목록이 열립니다. 마녀마다 하나 — 강한 만큼 대가가 붙은 것도 있습니다.", [TSetup.EQUIP_ROW.grow(2)], "tap")
@@ -248,7 +344,16 @@ func _keep(id: String, title: String, body: String, holes: Array, m := "pass") -
 # ═══════════════════════════════════════════════════════════
 
 func _input(event: InputEvent) -> void:
-	if not visible or (card.is_empty() and mode == ""):
+	if not visible:
+		return
+	if (event is InputEventScreenTouch or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.device != InputEvent.DEVICE_ID_EMULATION)) \
+			and _fs_input(event.position - T.ofs, event.pressed):
+		get_viewport().set_input_as_handled()
+		return
+	if portrait and event is InputEventKey:
+		get_viewport().set_input_as_handled()
+		return
+	if card.is_empty() and mode == "":
 		return
 	var pos := Vector2.ZERO
 	var pressed := false
@@ -310,6 +415,10 @@ func _modal_press(p: Vector2) -> void:
 			mode = ""
 			Sfx.play(&"tn_confirm", -10.0)
 		"help":
+			if HELP_PREV.has_point(p) or HELP_NEXT.has_point(p):
+				help_page = clampi(help_page + (1 if HELP_NEXT.has_point(p) else -1), 0, _help_pages() - 1)
+				Sfx.play(&"tn_select", -12.0)
+				return
 			for i in TData.GLOSSARY.size():
 				if _help_cell(i).has_point(p):
 					help_i = i
@@ -349,18 +458,19 @@ func _modal_press(p: Vector2) -> void:
 # 설정 (review_F F12 · review_G G18): 효과음 · 흔들림 · 번쩍임 · 큰 글자 · 안내 다시 보기 · 도움말 · 타이틀로
 # ═══════════════════════════════════════════════════════════
 
+## 설정 줄 i (0 효과음 · 1 흔들림 · 2 번쩍임 · 3 큰 글자 · 4 전체 화면 · 5 안내 다시 보기/도움말 · 6 타이틀로/닫기) — 높이 36 (R3 N-03)
 func _set_row(i: int) -> Rect2:
-	return Rect2(SET.position.x + 12, SET.position.y + 36 + 38 * i, SET.size.x - 24, 32)
+	return Rect2(SET.position.x + 12, SET.position.y + 32 + 38 * i, SET.size.x - 24, 36)
 
 
 func _set_btn(i: int, right: bool) -> Rect2:
 	var r := _set_row(i)
-	return Rect2(r.end.x - (44.0 if right else 168.0), r.position.y, 44, 32) if i == 0 else Rect2(r.end.x - 96.0, r.position.y, 96, 32)
+	return Rect2(r.end.x - (44.0 if right else 168.0), r.position.y, 44, 36) if i == 0 else Rect2(r.end.x - 96.0, r.position.y, 96, 36)
 
 
 func _set_half(i: int, right: bool) -> Rect2:
 	var r := _set_row(i)
-	return Rect2(r.position.x + (r.size.x * 0.5 + 4.0 if right else 0.0), r.position.y, r.size.x * 0.5 - 4.0, 32)
+	return Rect2(r.position.x + (r.size.x * 0.5 + 4.0 if right else 0.0), r.position.y, r.size.x * 0.5 - 4.0, 36)
 
 
 ## 전투 중인가 (도움말·설정의 "안내 다시 보기"·"타이틀로"를 숨김 — review_I I-12)
@@ -393,17 +503,28 @@ func _settings_press(p: Vector2) -> void:
 		T.big = TSave.big_text
 		TSave.save_setup()
 		TSave.save_tips() # 안내 중(hold)에도 남게 — 편성 파일은 안내가 끝나야 쓴다 (review_I I-17)
-	elif _set_half(4, false).has_point(p) and not _battle_on():
+	elif _set_btn(4, false).has_point(p):
+		# 전체 화면 (폰 웹): 켜면 바로 요청(이 누름이 제스처) · 끄면 나감. 데스크톱은 값만 바뀜 (R3, review_N N-02)
+		TSave.full_screen = not TSave.full_screen
+		TSave.save_setup()
+		TSave.save_tips()
+		if TSave.full_screen and _phone() and not fs_is:
+			fs_tried = true
+			_fs_request()
+		elif not TSave.full_screen and fs_web:
+			JavaScriptBridge.eval("window.eskaFS.exit()")
+	elif _set_half(5, false).has_point(p) and not _battle_on():
 		TSave.reset_tips()
 		mode = ""
 		begin()
-	elif _set_half(4, true).has_point(p):
+	elif _set_half(5, true).has_point(p):
 		mode = "help"
-	elif _set_half(5, false).has_point(p) and _title_btn():
+		help_page = clampi(help_i / HELP_PER, 0, _help_pages() - 1)
+	elif _set_half(6, false).has_point(p) and _title_btn():
 		mode = ""
 		if stage != null:
 			stage._exit()
-	elif _set_half(5, true).has_point(p) or not SET.has_point(p):
+	elif _set_half(6, true).has_point(p) or not SET.has_point(p):
 		mode = ""
 	else:
 		return
@@ -427,6 +548,46 @@ func _draw() -> void:
 		"settings": _draw_settings()
 		"resume", "resume_confirm": _draw_resume()
 		"pause": _draw_pause()
+	var fb := fs_btn()
+	if fb.has_area():
+		_draw_fs_btn(fb)
+	if portrait:
+		_draw_portrait()
+
+
+## 다시 들어가는 버튼: 먹 원 + 네 모서리 꺾쇠 (전체 화면 기호)
+func _draw_fs_btn(r: Rect2) -> void:
+	var c := r.get_center()
+	draw_circle(c, 14.0, Color(T.INK, 0.75))
+	draw_arc(c, 14.0, 0.0, TAU, 24, Color(T.LINE, 0.7), 1.0)
+	var col := Color(T.TEXT, 0.9)
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			var k := c + Vector2(6.0 * sx, 6.0 * sy)
+			draw_line(k, k - Vector2(4.0 * sx, 0), col, 1.6)
+			draw_line(k, k - Vector2(0, 4.0 * sy), col, 1.6)
+
+
+## 세로 안내: 화면 전체 먹 + 폰이 가로로 눕는 그림 + "가로로 돌려 주세요" 15px (세로 화면은 지원하지 않는다 — §21.16)
+func _draw_portrait() -> void:
+	draw_rect(T.screen(), Color(T.BG, 0.98))
+	# 세로 화면은 폭이 640 설계 폭이라 글이 작다 → 판 가운데를 기준으로 2배 (픽셀 글꼴은 정수 배율로)
+	var z := 2.0 if T.view.y > T.view.x else 1.0
+	draw_set_transform(Vector2(320, 180) * (1.0 - z), 0.0, Vector2(z, z))
+	var c := Vector2(320, 150)
+	var k := 0.5 - 0.5 * cos(fmod(_t, 2.4) / 1.2 * PI) if fmod(_t, 2.4) < 1.2 else 1.0 # 1.2초 동안 눕고 1.2초 쉼
+	var ang := -PI * 0.5 * k
+	var xf := Transform2D(ang, c)
+	var pts := PackedVector2Array()
+	for v: Vector2 in [Vector2(-15, -26), Vector2(15, -26), Vector2(15, 26), Vector2(-15, 26), Vector2(-15, -26)]:
+		pts.append(xf * v)
+	draw_polyline(pts, T.TEXT, 2.0)
+	draw_circle(xf * Vector2(0, 21), 2.0, T.TEXT)
+	draw_arc(c, 40.0, -PI * 0.5, -PI * 0.5 - PI * 0.5 * k, 16, Color(T.GOLD, 0.8), 1.6)
+	T.text(self, Vector2(320, 214), "가로로 돌려 주세요", 15, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	var sub := "세로 화면은 지원하지 않습니다" + (" · 전투는 멈춤" if stage != null and bool(stage._in_battle) else "")
+	T.text(self, Vector2(320, 234), sub, 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER)
+	draw_set_transform(Vector2.ZERO)
 
 
 ## 덮개(INK 0.6 · hint 0.35, 강조 사각만 뚫림) · 강조 금테(1.2초 숨쉬기 — 바퀴 칸은 원) · 판 (제목 12 · 본문 10/12 · 안내 끄기) · 손가락 ▼ (판 위에)
@@ -560,8 +721,22 @@ static func _subtract(rects: Array, hole: Rect2) -> Array:
 	return out
 
 
+## 도움말 용어 칸 i — 지금 쪽(help_page)에 없으면 빈 사각
 func _help_cell(i: int) -> Rect2:
-	return Rect2(HELP.position.x + 10 + (HELP_CELL.x + 3) * float(i % HELP_COLS), HELP.position.y + 32 + (HELP_CELL.y + 3) * float(i / HELP_COLS), HELP_CELL.x, HELP_CELL.y)
+	var j := i - help_page * HELP_PER
+	if j < 0 or j >= HELP_PER:
+		return Rect2()
+	return Rect2(HELP.position.x + 10 + (HELP_CELL.x + 3) * float(j % HELP_COLS), HELP.position.y + 32 + (HELP_CELL.y + 2) * float(j / HELP_COLS), HELP_CELL.x, HELP_CELL.y)
+
+
+func _help_pages() -> int:
+	return maxi(ceili(float(TData.GLOSSARY.size()) / float(HELP_PER)), 1)
+
+
+## 시험용: 용어 i가 있는 쪽으로 넘기고 그 칸 자리
+func help_cell_at(i: int) -> Rect2:
+	help_page = clampi(i / HELP_PER, 0, _help_pages() - 1)
+	return _help_cell(i)
 
 
 func _draw_help() -> void:
@@ -569,7 +744,7 @@ func _draw_help() -> void:
 	T.panel(self, HELP, Color(T.PANEL, 0.98), Color(T.LINE, 0.9), 1, 4)
 	T.text(self, HELP.position + Vector2(12, 22), "도움말 — 용어", 15, T.TEXT)
 	T.text(self, HELP.end - Vector2(12, HELP.size.y - 21), "눌러서 풀이", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
-	for i in TData.GLOSSARY.size():
+	for i in range(help_page * HELP_PER, mini((help_page + 1) * HELP_PER, TData.GLOSSARY.size())):
 		var r := _help_cell(i)
 		var on := i == help_i
 		T.panel(self, r, Color(T.PANEL_HI, 1.0) if on else Color(T.INK, 0.7), T.GOLD if on else Color(T.LINE, 0.4), 2 if on else 1, 3)
@@ -591,6 +766,10 @@ func _draw_help() -> void:
 		_btn(HELP_RESET, "안내 다시 보기", false)
 	_btn(HELP_SET, "설정", false)
 	_btn(HELP_CLOSE, "닫기", true)
+	if _help_pages() > 1:
+		_btn(HELP_PREV, "◀", false)
+		_btn(HELP_NEXT, "▶", false)
+		T.text(self, Vector2((HELP_PREV.end.x + HELP_NEXT.position.x) * 0.5, HELP_PREV.position.y + 23), "%d/%d" % [help_page + 1, _help_pages()], 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func _btn(r: Rect2, label: String, main: bool) -> void:
@@ -604,31 +783,34 @@ func _draw_settings() -> void:
 	T.text(self, SET.position + Vector2(12, 22), "설정", 15, T.TEXT)
 	var gs := GameState
 	var rows := [["효과음", ""], ["화면 흔들림", "켬" if bool(gs.settings.get("shake", true)) else "끔"], ["화면 번쩍임", "켬" if bool(gs.settings.get("flash", true)) else "끔"],
-		["큰 글자", "켬" if TSave.big_text else "끔"]]
+		["큰 글자", "켬" if TSave.big_text else "끔"], ["전체 화면", "켬" if TSave.full_screen else "끔"]]
 	for i in rows.size():
 		var r := _set_row(i)
-		if i == 2:
-			# "번쩍임 (광과민) 켬"이 광과민 모드 켬으로 읽혔다 → 이름 "화면 번쩍임" + 보조 글 (review_I I-11)
-			T.text(self, r.position + Vector2(0, 14), String(rows[i][0]), 12, T.TEXT)
-			T.text(self, r.position + Vector2(0, 28), "빛에 민감하면 끄세요", 10, T.TEXT_SUB)
+		if i == 2 or i == 4:
+			# "번쩍임 (광과민) 켬"이 광과민 모드 켬으로 읽혔다 → 이름 "화면 번쩍임" + 보조 글 (review_I I-11) · 전체 화면은 폰 웹에서만 뜻이 있음 (R3 N-02)
+			var sub := "빛에 민감하면 끄세요"
+			if i == 4:
+				sub = "폰 웹 가로 — 첫 터치에 꽉 채움" if _phone() else "폰 웹에서만 (이 화면은 해당 없음)"
+			T.text(self, r.position + Vector2(0, 16), String(rows[i][0]), 12, T.TEXT)
+			T.text(self, r.position + Vector2(0, 31), sub, 10, T.TEXT_SUB)
 		else:
-			T.text(self, r.position + Vector2(0, 20), String(rows[i][0]), 12, T.TEXT)
+			T.text(self, r.position + Vector2(0, 23), String(rows[i][0]), 12, T.TEXT)
 		if i == 0:
 			var lv := clampi(int(round(float(gs.settings.sfx) * 5.0)), 0, 5)
 			_btn(_set_btn(0, false), "−", false)
 			_btn(_set_btn(0, true), "+", false)
 			for k in 5:
-				var c := Rect2(_set_btn(0, false).end.x + 6 + 13 * k, r.position.y + 11, 10, 10)
+				var c := Rect2(_set_btn(0, false).end.x + 6 + 13 * k, r.position.y + 13, 10, 10)
 				draw_rect(c, T.GOLD if k < lv else T.EMPTY)
 		else:
 			var on := String(rows[i][1]) == "켬"
 			_btn(_set_btn(i, false), String(rows[i][1]), on)
 	if not _battle_on():
-		_btn(_set_half(4, false), "안내 다시 보기", false)
-	_btn(_set_half(4, true), "도움말 (용어)", false)
+		_btn(_set_half(5, false), "안내 다시 보기", false)
+	_btn(_set_half(5, true), "도움말 (용어)", false)
 	if _title_btn():
-		_btn(_set_half(5, false), "타이틀로", false)
-	_btn(_set_half(5, true), "닫기", true)
+		_btn(_set_half(6, false), "타이틀로", false)
+	_btn(_set_half(6, true), "닫기", true)
 	if not TSave.persistent():
 		T.text(self, Vector2(SET.get_center().x, SET.end.y - 8), "이 브라우저에서는 저장되지 않습니다", 10, T.TEXT_OFF, HORIZONTAL_ALIGNMENT_CENTER)
 

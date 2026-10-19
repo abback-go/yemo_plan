@@ -33,19 +33,19 @@ const PANEL_W := 208.0
 const PANEL_H := 56.0
 const STRIP := Rect2(4, 302, 632, 56) ## 640 화면의 설명 띠 — 넓은 화면은 _strip_rect가 화면 폭으로
 const X_C := Vector2(620, 15) ## 640 화면 자리 — 넓은 화면은 오른쪽 끝에 붙임 (_x_c · review_K K-01)
-const X_RECT := Rect2(600, 0, 40, 32)
+const X_RECT := Rect2(600, 0, 40, 36) ## 누르는 자리 (그림은 반지름 12 원) — 터치 목표 36 (R3, review_N N-03). 적 카드 위 4px와 겹치는 곳은 X가 먼저
 const HELP_C := Vector2(582, 15) ## 도움말 "?" (review_G G05 — X 왼쪽)
-const HELP_RECT := Rect2(566, 0, 32, 32)
+const HELP_RECT := Rect2(564, 0, 36, 36) ## 누르는 자리 36×36 (R3 N-03) — X 왼쪽 끝(600)에 붙음, 겹치지 않음
 const WHEEL_R := 78.0
 const SLOT_R := 20.0
 const ULT_R := 22.0
 const HOLD := 0.4 ## 길게 누르기 (상세)
 const HOLD_MS := 400
 const CONFIRM := Rect2(220, 135, 200, 90)
-const CONFIRM_NO := Rect2(228, 184, 88, 34) ## 터치 목표 34px 이상 (review_C2 M8)
-const CONFIRM_YES := Rect2(324, 184, 88, 34)
-const LOSE_RETRY := Rect2(194, 214, 120, 34) ## 패배 배너가 진 이유 네 줄만큼 높아져 아래로 (review_G G03 · review_I I-02 이유 두 줄)
-const LOSE_SETUP := Rect2(326, 214, 120, 34)
+const CONFIRM_NO := Rect2(228, 183, 88, 36) ## 터치 목표 36px 이상 (review_C2 M8 · R3 review_N N-03)
+const CONFIRM_YES := Rect2(324, 183, 88, 36)
+const LOSE_RETRY := Rect2(194, 213, 120, 36) ## 패배 배너가 진 이유 네 줄만큼 높아져 아래로 (review_G G03 · review_I I-02 이유 두 줄)
+const LOSE_SETUP := Rect2(326, 213, 120, 36)
 const LOSE_H := 150.0
 const DETAIL_W := 232.0
 const DETAIL_Y := 86.0 ## 상세 판 위 끝 — 적 카드(y 32~82)를 덮지 않게 (review_C2 M7)
@@ -246,6 +246,7 @@ func clear_banner() -> void:
 
 ## 웨이브 배너 (1.0초 뒤 저절로 닫힘, 누르기 없음) → 위 띠의 웨이브 글이 0.4초 금빛
 func wave_banner(i: int, n: int) -> void:
+	i = mini(i, n) # 시험 훅과 본 흐름이 겹쳐도 n/n까지 (R3, review_N N-14)
 	_wave_txt = "웨이브 %d/%d" % [i, n]
 	_wave_sub = ""
 	_wave_len = 1.0
@@ -306,7 +307,7 @@ func pop(u: TUnit, text: String, kind := "dmg", weak := false, value := 0) -> vo
 			p = _num_base(a) + Vector2(0, -16 - 14 * (k % 3))
 		else:
 			p = Vector2((last.p as Vector2).x, (last.p as Vector2).y - float(_num_fs(last)) - 6.0 - 14.0 * float(k % 3))
-		if not u.is_witch() and p.y - 12.0 - 18.0 < HEAD_MIN_Y:
+		if not u.is_witch() and p.y - 12.0 - 18.0 < _head_min():
 			# 키 큰 적·보스: 적 카드에 닿으면 머리 옆 바깥(오른쪽)으로 비켜 카드 밑에서 (review_K K-05 — "기절 — 쉼"·"면역"이 카드 위에 찍혔다)
 			p = _beside(a, text, 12, k % 3)
 			dir = 0.0
@@ -328,7 +329,7 @@ func pop(u: TUnit, text: String, kind := "dmg", weak := false, value := 0) -> vo
 		var top := to_screen(a.head()).round()
 		p = Vector2(to_screen(a.center()).x, top.y - 4.0 - 13.0 * float(mine.size()))
 		dir = 0.0
-		if p.y - 12.0 < HEAD_MIN_Y:
+		if p.y - 12.0 < _head_min():
 			p = _beside(a, text, 10, mine.size())
 	elif u.is_witch():
 		p = Vector2(_panel_rect(u.slot).get_center().x, PANEL_Y - 4.0) + Vector2(0, -12.0 * float(k % 2))
@@ -348,7 +349,7 @@ func _beside(a: TActor, text: String, fs: int, line: int) -> Vector2:
 	var x := c.x + a.half_w() + 6.0 + w * 0.5
 	if x + w * 0.5 > T.right() - 4.0:
 		x = c.x - a.half_w() - 6.0 - w * 0.5
-	return Vector2(x, HEAD_MIN_Y + 14.0 + 13.0 * float(line))
+	return Vector2(x, _head_min() + 14.0 + 13.0 * float(line))
 
 
 ## 광역 글 합치기: 같은 글이 0.25초 안에 다른 적에게 떴으면 그 글을 지우고 적 진영 위 "적 전체: …" 한 줄에 모은다. 모았으면 true
@@ -375,7 +376,7 @@ func _foe_band(u: TUnit, text: String, kind: String) -> bool:
 				xs += to_screen((actors[e] as TActor).center()).x
 				cnt += 1
 		# 적 카드 바로 밑 줄 (피해 숫자는 그 아래 — 겹치지 않게)
-		band = {"p": Vector2(xs / float(maxi(cnt, 1)), HEAD_MIN_Y + 1.0), "text": "", "kind": kind, "age": 0.0, "dir": 0.0, "weak": false, "key": "band",
+		band = {"p": Vector2(xs / float(maxi(cnt, 1)), _head_min() + 1.0), "text": "", "kind": kind, "age": 0.0, "dir": 0.0, "weak": false, "key": "band",
 			"val": 0, "hits": 1, "last": 0.0, "crit": false, "parts": []}
 		numbers.append(band)
 	(band.parts as Array).append(text)
@@ -397,7 +398,7 @@ func _num_fs(n: Dictionary) -> int:
 ## 피해 숫자의 시작점: 머리 꼭대기 아래 14px, 몸 가운데 + 6 (적 카드 밑보다 위로는 안 감)
 func _num_base(a: TActor) -> Vector2:
 	var top := to_screen(a.head())
-	return Vector2(to_screen(a.center()).x + 6.0, maxf(top.y + 14.0, NUM_MIN_Y))
+	return Vector2(to_screen(a.center()).x + 6.0, maxf(top.y + 14.0, _num_min()))
 
 
 ## 살아 있는 다른 숫자 칸과 겹치면 글자 높이 + 2px씩 위로 (위가 막히면 처음부터 아래로) 최대 STACK_MAX칸, 넘치면 가로로 비킴
@@ -405,7 +406,7 @@ func _num_base(a: TActor) -> Vector2:
 func _avoid_numbers(p: Vector2, text: String, fs: int) -> Vector2:
 	var w := T.width(text, fs) + 8.0 # 다단으로 커지는 몫
 	var step := float(fs) + 2.0
-	var dy := -step if p.y - step * float(STACK_MAX) >= NUM_MIN_Y else step
+	var dy := -step if p.y - step * float(STACK_MAX) >= _num_min() else step
 	var base := p
 	for tries in STACK_MAX * 2 + 1:
 		if not _number_hit(p, w, fs):
@@ -796,7 +797,7 @@ func _unit_at(p: Vector2) -> TUnit:
 			if _panel_rect(w.slot).has_point(p):
 				return w
 	for i in _queue.size():
-		if _queue_rect(i).grow(2).has_point(p):
+		if _queue_hit(i).has_point(p):
 			return _queue[i]
 	var a := _actor_at(p)
 	return a.unit if a != null else null
@@ -966,14 +967,14 @@ func _card_rect(u: TUnit) -> Rect2:
 	if battle == null:
 		return Rect2()
 	if _boss_card_on():
-		return BOSS_CARD
+		return Rect2(BOSS_CARD.position, Vector2(BOSS_CARD.size.x, _card_h()))
 	if boss_mix(battle.enemies):
 		if u.boss:
-			return Rect2(CARD_X0, CARD_Y, CARD_W * 2.0 + CARD_STEP - CARD_W, CARD_H)
+			return Rect2(CARD_X0, CARD_Y, CARD_W * 2.0 + CARD_STEP - CARD_W, _card_h())
 		var j := minion_index(battle.enemies, battle.enemies.find(u))
 		return Rect2(CARD_X0 + CARD_STEP * 2.0, CARD_Y + 26.0 * float(mini(j, 1)), CARD_W, 24.0)
 	var i := pos_index(battle.enemies.size(), battle.enemies.find(u))
-	return Rect2(CARD_X0 + CARD_STEP * float(i), CARD_Y, CARD_W, CARD_H)
+	return Rect2(CARD_X0 + CARD_STEP * float(i), CARD_Y, CARD_W, _card_h())
 
 
 ## 차례 칸: 왼쪽에 "지금" 꼬리표 자리(22px)를 두고 지금(24) → 다음 7(18) (review_G G19)
@@ -982,6 +983,27 @@ func _queue_rect(i: int) -> Rect2:
 	if i == 0:
 		return Rect2(x0 + 26, 3, 24, 24)
 	return Rect2(x0 + 56 + 21 * (i - 1), 6, 18, 18)
+
+
+## 적 카드 높이 · 머리 위 표시와 피해 숫자의 가장 위 — 큰 글자면 8px 더 (R3, review_N N-04: 12px 의도 알약의 아래 테가 이름 줄을 지나고 체력 숫자가 차지 칸을 덮었다)
+func _card_h() -> float:
+	return CARD_H + (8.0 if T.big else 0.0)
+
+
+func _head_min() -> float:
+	return HEAD_MIN_Y + (8.0 if T.big else 0.0)
+
+
+func _num_min() -> float:
+	return NUM_MIN_Y + (8.0 if T.big else 0.0)
+
+
+## 차례 칸을 누르는 자리: 칸 간격(21)을 다 쓰고 위 띠 높이(0~31)까지 — 다음 칸 18px가 손가락보다 작았다 (R3, review_N N-15). 옆 칸과 겹치지 않음
+func _queue_hit(i: int) -> Rect2:
+	var r := _queue_rect(i)
+	if i == 0:
+		return Rect2(r.position.x - 2.0, 0, r.size.x + 4.0, 31)
+	return Rect2(r.position.x - 1.5, 0, 21, 31)
 
 
 ## 위 띠의 연쇄 칩 자리 (안내 D5 강조) — _draw_top과 같은 셈
@@ -1010,7 +1032,7 @@ func _chain_px(cx: float, lab: String) -> bool:
 ## 위 띠 오른쪽 글: 웨이브 n/m (한 웨이브면 전투 이름). 연쇄 칩은 그 앞 "차례 n · "까지 비켜 선다
 func _top_label() -> String:
 	if battle.wave_count() > 1:
-		return "웨이브 %d/%d" % [maxi(battle.wave_i + 1, _wave_no), battle.wave_count()]
+		return "웨이브 %d/%d" % [mini(maxi(battle.wave_i + 1, _wave_no), battle.wave_count()), battle.wave_count()] # 시험 훅 demo_wave가 본 흐름과 겹쳐도 n/n 넘지 않게 (R3, review_N N-14)
 	return battle_name
 
 
@@ -1391,7 +1413,7 @@ func _draw_heads() -> void:
 				T.buff_icon(self, Vector2(top.x + 23, top.y - 11), {"cat": "taunt"})
 			if unit.stunned:
 				if not unit.is_witch():
-					top.y = maxf(top.y, HEAD_MIN_Y + 15.0)
+					top.y = maxf(top.y, _head_min() + 15.0)
 				for k in 3:
 					var ang := _t * TAU / 0.8 + float(k) * TAU / 3.0
 					T.star(self, Vector2(top.x, top.y - 28) + Vector2(cos(ang) * 8.0, sin(ang) * 3.0), 2.8, T.STUN)
@@ -1411,7 +1433,7 @@ func _draw_heads() -> void:
 				T.buff_icon(self, Vector2(x + w + 3, y - 2), {"cat": "taunt"})
 		else:
 			# 의도 아이콘·게이지는 적 카드 밑(y ≥ 92)에서 — 키 큰 적도 가려지지 않게 (review_C2 M1)
-			top.y = maxf(top.y, HEAD_MIN_Y + 15.0)
+			top.y = maxf(top.y, _head_min() + 15.0)
 			var y := top.y - 6.0
 			draw_rect(Rect2(x - 1, y - 1, w + 2, 4), Color(T.INK, 0.85))
 			draw_rect(Rect2(x, y, w * clampf(unit.gauge / TData.GAUGE_MAX, 0.0, 1.0), 2), Color(T.GAUGE, 0.95 if cur else 0.7))
@@ -1604,38 +1626,51 @@ func _draw_card(e: TUnit) -> void:
 	var r := _card_rect(e)
 	var X := r.position.x
 	var Y := r.position.y
+	# 큰 글자면 카드 58: 이름 줄·약점·체력 막대 3px · 체력 숫자 줄 6px 아래 (R3, review_N N-04 — 12px 알약 아래 테가 이름 글자 위를 지났다)
+	var d1 := 3.0 if T.big else 0.0
+	var d2 := 6.0 if T.big else 0.0
 	_card_frame(e, r)
 	var pw := _intent_pill(e, Vector2(X + 3, Y + 3))
 	# 이름 · 약점 · 줄 수
 	var nm := T.clip(e.name + _dup_suffix(e), 10, 70)
-	T.text(self, Vector2(X + 4, Y + 28), nm, 10, T.GOLD if e.boss else T.TEXT) # 졸개와 같은 웨이브의 보스는 일반 카드에 금빛 이름 (둥지어미)
+	T.text(self, Vector2(X + 4, Y + 28 + d1), nm, 10, T.GOLD if e.boss else T.TEXT) # 졸개와 같은 웨이브의 보스는 일반 카드에 금빛 이름 (둥지어미)
 	var wx := X + 86.0
 	for el in e.weak:
-		draw_rect(Rect2(wx, Y + 18, 11, 11), Color(T.INK, 0.9))
-		draw_rect(Rect2(wx + 0.5, Y + 18.5, 10, 10), Color(T.WEAK, 0.9), false, 1.0)
-		T.element_icon(self, Vector2(wx + 5.5, Y + 23.5), String(el), 4.2)
+		draw_rect(Rect2(wx, Y + 18 + d1, 11, 11), Color(T.INK, 0.9))
+		draw_rect(Rect2(wx + 0.5, Y + 18.5 + d1, 10, 10), Color(T.WEAK, 0.9), false, 1.0)
+		T.element_icon(self, Vector2(wx + 5.5, Y + 23.5 + d1), String(el), 4.2)
 		wx -= 13.0
+	var hp_s := TData.fmt_short(vhp(e))
+	var hp_end := X + 4.0 + T.width(hp_s, 10) + 3.0
+	# 체력 숫자가 차지 칸에 닿으면(큰 글자 "1,200,000") 차지 칸을 위 줄 오른쪽(알약 옆)으로, 징표·디버프 아이콘을 체력 숫자 줄로 바꿔 놓는다 (N-04)
+	var top_charge := e.charge_max > 0 and hp_end > X + 96.0 - 7.0 * float(e.charge_max)
 	if e.charge_max > 0:
 		# 차지는 체력 숫자 줄 오른쪽 꺾쇠 + 이름표 "차지"(가득이면 빨간 "필살기") 10px — 체력 숫자 옆에 자리가 없으면(1,200,000) 이름 줄 오른쪽(약점 칸 앞)에.
 		# 예전 알약 옆 자리는 알약 + 꺾쇠 5칸이면 자리가 없어 이름표가 안 그려졌다 (review_I I-04 · G16). 징표·디버프 아이콘은 알약 오른쪽 위 줄로
-		_charge_cells(e, X + 96.0, Y + 39.0, 6.0, 8.0, 7.0)
+		var cy := Y + 5.0 if top_charge else Y + 39.0 + d2
+		_charge_cells(e, X + 96.0, cy, 6.0, 8.0, 7.0)
 		var full := e.charge >= e.charge_max
 		var lab := "필살기" if full else "차지"
 		var lcol := T.DANGER if full else T.TEXT_SUB
 		var lx := X + 96.0 - 7.0 * float(e.charge_max) - 3.0
-		if lx - T.width(lab, 10) >= X + 4.0 + T.width(TData.fmt_short(vhp(e)), 10) + 4.0:
-			T.text(self, Vector2(lx, Y + 47), lab, 10, lcol, HORIZONTAL_ALIGNMENT_RIGHT)
+		if top_charge:
+			if lx - T.width(lab, 10) >= X + 3.0 + pw + 3.0:
+				T.text(self, Vector2(lx, Y + 13), lab, 10, lcol, HORIZONTAL_ALIGNMENT_RIGHT)
+			elif wx + 10.0 - T.width(lab, 10) >= X + 4.0 + T.width(nm, 10) + 4.0:
+				T.text(self, Vector2(wx + 10.0, Y + 28 + d1), lab, 10, lcol, HORIZONTAL_ALIGNMENT_RIGHT)
+		elif lx - T.width(lab, 10) >= hp_end + 1.0:
+			T.text(self, Vector2(lx, Y + 47 + d2), lab, 10, lcol, HORIZONTAL_ALIGNMENT_RIGHT)
 		elif wx + 10.0 - T.width(lab, 10) >= X + 4.0 + T.width(nm, 10) + 4.0:
-			T.text(self, Vector2(wx + 10.0, Y + 28), lab, 10, lcol, HORIZONTAL_ALIGNMENT_RIGHT)
+			T.text(self, Vector2(wx + 10.0, Y + 28 + d1), lab, 10, lcol, HORIZONTAL_ALIGNMENT_RIGHT)
 	if e.bars.size() > 1:
-		T.text(self, Vector2(wx + 10, Y + 28), "×%d" % maxi(e.bars.size() - vbar(e), 1), 8, T.GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
-	_hp_bar(e, Rect2(X + 4, Y + 31, 92, 5))
-	_est_overlay(e, Rect2(X + 4, Y + 31, 92, 5), r)
-	T.text(self, Vector2(X + 4, Y + 47), TData.fmt_short(vhp(e)), 10, T.TEXT)
-	if e.charge_max > 0:
+		T.text(self, Vector2(wx + 10, Y + 28 + d1), "×%d" % maxi(e.bars.size() - vbar(e), 1), 8, T.GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	_hp_bar(e, Rect2(X + 4, Y + 31 + d1, 92, 5))
+	_est_overlay(e, Rect2(X + 4, Y + 31 + d1, 92, 5), r)
+	T.text(self, Vector2(X + 4, Y + 47 + d2), hp_s, 10, T.TEXT)
+	if e.charge_max > 0 and not top_charge:
 		_foe_icons(e, X + 96.0, Y + 4.0, clampi(int((93.0 - pw - 6.0) / 15.0), 0, 3))
 	else:
-		_foe_icons(e, X + 96.0, Y + 37.0, 3 if TData.fmt_short(vhp(e)).length() <= 7 else 2)
+		_foe_icons(e, X + 96.0, Y + 37.0 + d2, clampi(int((X + 96.0 - hp_end - 2.0) / 15.0), 0, 3))
 
 
 ## 졸개 반 높이 카드 (100×24): 의도 아이콘 · 이름 · 체력 막대 · 징표/디버프 둘
@@ -1665,35 +1700,37 @@ func _draw_boss_card(e: TUnit) -> void:
 	var X := r.position.x
 	var Y := r.position.y
 	var R := X + r.size.x - 4.0 # 오른쪽 안쪽 끝 (보스 카드 308 · 졸개와 같이 있으면 204)
+	var d1 := 3.0 if T.big else 0.0 # 큰 글자면 카드 58 (일반 카드와 같게 — R3 N-04)
+	var d2 := 6.0 if T.big else 0.0
 	_card_frame(e, r)
 	_intent_pill(e, Vector2(X + 3, Y + 3))
 	_charge_cells(e, R, Y + 4.0, 8.0, 10.0, 11.0)
 	if e.charge_max > 0:
 		T.text(self, Vector2(R - 11.0 * e.charge_max - 4.0, Y + 13), "차지", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
 	# 이름 (금빛) · 약점
-	T.text(self, Vector2(X + 4, Y + 29), e.name, 12, T.GOLD)
+	T.text(self, Vector2(X + 4, Y + 29 + d1), e.name, 12, T.GOLD)
 	var nx := X + 10.0 + T.width(e.name, 12)
 	if e.weak.is_empty():
-		T.text(self, Vector2(nx, Y + 28), "약점 없음", 10, T.TEXT_OFF)
+		T.text(self, Vector2(nx, Y + 28 + d1), "약점 없음", 10, T.TEXT_OFF)
 	else:
-		T.text(self, Vector2(nx, Y + 28), "약점", 10, T.TEXT_SUB)
+		T.text(self, Vector2(nx, Y + 28 + d1), "약점", 10, T.TEXT_SUB)
 		var wx := nx + T.width("약점", 10) + 3.0
 		for el in e.weak:
-			draw_rect(Rect2(wx, Y + 18, 11, 11), Color(T.INK, 0.9))
-			draw_rect(Rect2(wx + 0.5, Y + 18.5, 10, 10), Color(T.WEAK, 0.9), false, 1.0)
-			T.element_icon(self, Vector2(wx + 5.5, Y + 23.5), String(el), 4.2)
+			draw_rect(Rect2(wx, Y + 18 + d1, 11, 11), Color(T.INK, 0.9))
+			draw_rect(Rect2(wx + 0.5, Y + 18.5 + d1, 10, 10), Color(T.WEAK, 0.9), false, 1.0)
+			T.element_icon(self, Vector2(wx + 5.5, Y + 23.5 + d1), String(el), 4.2)
 			wx += 13.0
 		# 줄마다 약점이 바뀌는 보스 (review_H §6.1): "▶ 다음 줄 약점" (다음 줄은 TEXT_SUB로 흐리게)
 		var ph: Array = e.data.get("phases", [])
 		for k in range(vbar(e) + 1, ph.size()):
 			if not (ph[k] as Dictionary).has("weak"):
 				continue
-			T.text(self, Vector2(wx + 1, Y + 28), "▶", 8, T.TEXT_SUB)
+			T.text(self, Vector2(wx + 1, Y + 28 + d1), "▶", 8, T.TEXT_SUB)
 			wx += 10.0
 			for el in ph[k].weak:
-				draw_rect(Rect2(wx, Y + 19, 9, 9), Color(T.INK, 0.9))
-				draw_rect(Rect2(wx + 0.5, Y + 19.5, 8, 8), Color(T.TEXT_SUB, 0.7), false, 1.0)
-				T.element_icon(self, Vector2(wx + 4.5, Y + 23.5), String(el), 3.4, 0.6)
+				draw_rect(Rect2(wx, Y + 19 + d1, 9, 9), Color(T.INK, 0.9))
+				draw_rect(Rect2(wx + 0.5, Y + 19.5 + d1, 8, 8), Color(T.TEXT_SUB, 0.7), false, 1.0)
+				T.element_icon(self, Vector2(wx + 4.5, Y + 23.5 + d1), String(el), 3.4, 0.6)
 				wx += 11.0
 	# 남은 줄: 칸 (깬 줄 = 빈 칸, 남은 줄 = 금빛) + "줄 2/3"
 	if e.bars.size() > 1:
@@ -1701,12 +1738,12 @@ func _draw_boss_card(e: TUnit) -> void:
 		var bi := vbar(e)
 		for k in n:
 			var cx := R - float(n - k) * 11.0
-			draw_rect(Rect2(cx, Y + 21, 9, 5), T.GOLD if k >= bi else T.EMPTY)
-		T.text(self, Vector2(R - float(n) * 11.0 - 4.0, Y + 28), "줄 %d/%d" % [bi + 1, n], 10, T.TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
-	_hp_bar(e, Rect2(X + 4, Y + 32, r.size.x - 8.0, 6))
-	_est_overlay(e, Rect2(X + 4, Y + 32, r.size.x - 8.0, 6), r)
-	T.text(self, Vector2(X + 4, Y + 48), "%s / %s" % [TData.fmt_short(vhp(e)), TData.fmt_short(vmax(e))], 10, T.TEXT)
-	_foe_icons(e, R, Y + 39.0, 8 if r.size.x > 250.0 else 5)
+			draw_rect(Rect2(cx, Y + 21 + d1, 9, 5), T.GOLD if k >= bi else T.EMPTY)
+		T.text(self, Vector2(R - float(n) * 11.0 - 4.0, Y + 28 + d1), "줄 %d/%d" % [bi + 1, n], 10, T.TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+	_hp_bar(e, Rect2(X + 4, Y + 32 + d1, r.size.x - 8.0, 6))
+	_est_overlay(e, Rect2(X + 4, Y + 32 + d1, r.size.x - 8.0, 6), r)
+	T.text(self, Vector2(X + 4, Y + 48 + d2), "%s / %s" % [TData.fmt_short(vhp(e)), TData.fmt_short(vmax(e))], 10, T.TEXT)
+	_foe_icons(e, R, Y + 39.0 + d2, 8 if r.size.x > 250.0 else 5)
 
 
 ## 조건 버프가 지금 붙는가 (review_F F06 e, §16.6 FGO 조건 불충족 어둡게): 기준 = 대상 고르기 중이면 고른 적, 아니면 첫 적 ·
@@ -1788,14 +1825,14 @@ func _draw_panels() -> void:
 		draw_rect(Rect2(hr.position, Vector2(hr.size.x * (a.shown_hp if a != null else vratio(w)), hr.size.y)), Color(hcol, 0.45))
 		draw_rect(Rect2(hr.position, Vector2(hr.size.x * vratio(w), hr.size.y)), hcol)
 		T.text(self, Vector2(X + r.size.x - 4.0, Y + 28), TData.fmt_short(vhp(w)), 10, T.TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
-		# 크레딧 7칸
+		# 크레딧 7칸: 마름모 8px · 간격 11 · "n/7" 12px (R3, review_N N-07 — 지름 7px라 체력 숫자보다 안 보였다. FGO §21.3 NP 줄 = HP와 같은 위계)
 		var full := w.credits >= TData.CREDIT_MAX
-		var pulse := 0.85 + 0.15 * sin(_t * 5.0) if full else 1.0
-		T.credit_row(self, Vector2(X + 54, Y + 36), w.credits, 10.0, 3.5, pulse)
+		var pulse := 0.8 + 0.2 * sin(_t * 5.0) if full else 1.0
+		T.credit_row(self, Vector2(X + 54, Y + 36), w.credits, 11.0, 4.0, pulse)
 		if full:
-			T.text(self, Vector2(X + 124, Y + 40), "대마법", 10, Color(T.GOLD, pulse))
+			T.text(self, Vector2(X + 135, Y + 41), "대마법", 12, Color(T.GOLD, pulse))
 		else:
-			T.text(self, Vector2(X + 124, Y + 40), "%d/%d" % [w.credits, TData.CREDIT_MAX], 10, T.TEXT_SUB)
+			T.text(self, Vector2(X + 135, Y + 41), "%d/%d" % [w.credits, TData.CREDIT_MAX], 12, T.TEXT)
 		# 버프 아이콘 (최대 6 + "+n") — 장비 도발·장비 근성도 아이콘으로
 		var icons: Array = vicons(w).duplicate()
 		if bool(w.equip_data().get("taunt", false)) and not w.has_buff("taunt"):
@@ -2031,9 +2068,9 @@ func _draw_targets() -> void:
 		var a: TActor = targets[i]
 		var on := i == tsel
 		var top := to_screen(a.head()) + Vector2(0, -22 + sin(_t * 6.0) * 2.0)
-		if not a.unit.is_witch() and top.y < HEAD_MIN_Y + 2.0:
+		if not a.unit.is_witch() and top.y < _head_min() + 2.0:
 			# 키 큰 적: 의도 아이콘(y 92 둘레)을 피해 그 오른쪽에서 (카드 테가 금빛으로 같이 알림)
-			top = Vector2(top.x + 20.0, HEAD_MIN_Y + 6.0 + sin(_t * 6.0) * 2.0)
+			top = Vector2(top.x + 20.0, _head_min() + 6.0 + sin(_t * 6.0) * 2.0)
 		var col := Color(T.GOLD if on else T.TEXT, 1.0 if on else 0.6)
 		draw_colored_polygon(PackedVector2Array([top + Vector2(-7, -10), top + Vector2(7, -10), top]), Color(T.INK, 0.9))
 		draw_colored_polygon(PackedVector2Array([top + Vector2(-5, -9), top + Vector2(5, -9), top + Vector2(0, -2)]), col)
@@ -2062,7 +2099,7 @@ func _draw_numbers() -> void:
 		var q: Vector2 = (n.p as Vector2) + Vector2(0, rise)
 		if bool(n.get("foe", false)) and kind in BODY_KINDS:
 			# 떠오르는 큰 숫자도 적 카드(아래 끝 82)에 닿지 않게 (review_K K-05 — 1,500,000·19,423이 카드에 찍혔다)
-			q.y = maxf(q.y, HEAD_MIN_Y + 3.0 + float(fs) + (12.0 if bool(n.weak) else 0.0))
+			q.y = maxf(q.y, _head_min() + 3.0 + float(fs) + (12.0 if bool(n.weak) else 0.0))
 		elif not (kind in BODY_KINDS):
 			var hw := T.width(String(n.text), fs) * 0.5 + 2.0
 			q.x = clampf(q.x, T.left() + hw, T.right() - hw)
@@ -2212,26 +2249,63 @@ func _draw_detail(u: TUnit) -> void:
 
 
 ## left = 남은 시간 (닫히는 배너만): 마지막 0.2초에 높이 84 → 0, 글 알파 1 → 0 (review_D C4: 끝에 툭 사라졌다)
-func _draw_banner_box(title: String, sub: String, col: Color, t: float, left := 99.0, full_h := 84.0) -> void:
+func _draw_banner_box(title: String, sub: String, col: Color, t: float, left := 99.0, full_h := 84.0, line_col := Color(1, 1, 1, 0.85), sparks := false) -> void:
 	var k := clampf(t / 0.35, 0.0, 1.0)
-	var e := (1.0 - pow(1.0 - k, 3.0)) * clampf(left / 0.2, 0.0, 1.0)
-	col = Color(col, col.a * clampf(left / 0.2, 0.0, 1.0))
+	var fade := clampf(left / 0.2, 0.0, 1.0)
+	var e := (1.0 - pow(1.0 - k, 3.0)) * fade
+	var ta := clampf((t - 0.1) / 0.2, 0.0, 1.0) * fade # 글은 0.1초부터 알파 0 → 1 (R3, review_N N-08 — 띠가 다 열린 0.35초 뒤에 툭 떠서 1.0초 배너 중 0.65초만 보였다)
+	col = Color(col, col.a * ta)
 	var h := full_h * e
 	var cy := 180.0
-	draw_rect(Rect2(T.left(), cy - h * 0.5, T.view.x, h), Color(T.INK, 0.86 * e))
-	draw_rect(Rect2(T.left(), cy - h * 0.5, T.view.x, 1), Color(T.LINE, 0.8 * e))
-	draw_rect(Rect2(T.left(), cy + h * 0.5 - 1, T.view.x, 1), Color(T.LINE, 0.8 * e))
-	if k >= 1.0:
-		T.text(self, Vector2(320.0, cy + 8.0 if full_h <= 84.0 else cy - full_h * 0.5 + 38.0), title, 30, col, HORIZONTAL_ALIGNMENT_CENTER)
+	var x0 := T.left()
+	var w := T.view.x
+	if h >= 1.0:
+		# 띠 = 세로 그라데이션(가운데 0.92 → 위아래 끝 0.7) + 위아래 2px 선 (승리 금 · 웨이브 흰빛 · 패배 빨강) — 먹 띠 + 1px 선이 평평했다 (N-09)
+		var top := cy - h * 0.5
+		var edge := Color(T.INK, 0.7 * e)
+		var mid := Color(T.INK, 0.92 * e)
+		draw_polygon(PackedVector2Array([Vector2(x0, top), Vector2(x0 + w, top), Vector2(x0 + w, cy), Vector2(x0, cy)]), PackedColorArray([edge, edge, mid, mid]))
+		draw_polygon(PackedVector2Array([Vector2(x0, cy), Vector2(x0 + w, cy), Vector2(x0 + w, cy + h * 0.5), Vector2(x0, cy + h * 0.5)]), PackedColorArray([mid, mid, edge, edge]))
+		var lc := Color(line_col, line_col.a * e)
+		draw_rect(Rect2(x0, top, w, 2), lc)
+		draw_rect(Rect2(x0, cy + h * 0.5 - 2.0, w, 2), lc)
+	if ta > 0.0:
+		var ty := cy + 8.0 if full_h <= 84.0 else cy - full_h * 0.5 + 38.0
+		T.text(self, Vector2(320.0, ty), title, 30, col, HORIZONTAL_ALIGNMENT_CENTER)
 		if sub != "":
-			T.text(self, Vector2(320.0, cy + 30), sub, 10, Color(T.TEXT, 0.9), HORIZONTAL_ALIGNMENT_CENTER)
+			T.text(self, Vector2(320.0, cy + 30), sub, 10, Color(T.TEXT, 0.9 * ta), HORIZONTAL_ALIGNMENT_CENTER)
+		if sparks:
+			_banner_sparks(T.width(title, 30), ty - 10.0, t)
+
+
+## 승리 띠 양옆 금 불티 12개 (0.15~0.75초) — 제목 양옆에서 바깥·위로 튀어 사라짐. 결과 화면은 만들지 않음 [확정 20-1 A] (R3, review_N N-09)
+func _banner_sparks(tw: float, y: float, t: float) -> void:
+	var u := t - 0.15
+	if u < 0.0 or u > 0.6:
+		return
+	for i in 12:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var r1 := fposmod(sin(float(i) * 12.9898) * 43758.5453, 1.0)
+		var r2 := fposmod(sin(float(i) * 78.233) * 12543.531, 1.0)
+		var d := u - 0.04 * float(i / 2) # 둘씩 조금씩 늦게
+		if d < 0.0:
+			continue
+		var p0 := Vector2(320.0 + side * (tw * 0.5 + 6.0 + 18.0 * r1), y + 16.0 * r2 - 8.0)
+		var v := Vector2(side * (50.0 + 70.0 * r2), -(40.0 + 60.0 * r1))
+		var p := p0 + v * d + Vector2(0, 90.0) * d * d
+		var a := clampf(1.0 - d / 0.45, 0.0, 1.0)
+		if a <= 0.0:
+			continue
+		T.diamond(self, p, 2.5 * a + 0.8, Color(T.GOLD, a))
+		draw_rect(Rect2(p - Vector2(0.5, 0.5), Vector2(1, 1)), Color(1, 1, 1, a))
 
 
 func _draw_banner() -> void:
 	var win := banner_text == "승리"
 	var lose := banner_text == "패배"
 	# 아래 글은 깜빡임 없이 0.5초 뒤 고정 (review_K K-28 — 1초마다 깜빡여 읽기 전에 사라졌다)
-	_draw_banner_box(banner_text, "" if lose or _banner_t < 0.5 else banner_sub, T.GOLD if win else T.DANGER, _banner_t, 99.0, LOSE_H if lose else 84.0)
+	_draw_banner_box(banner_text, "" if lose or _banner_t < 0.5 else banner_sub, T.GOLD if win else T.DANGER, _banner_t, 99.0, LOSE_H if lose else 84.0,
+		Color(T.GOLD, 0.9) if win else Color(T.DANGER, 0.85), win)
 	if lose and _banner_t > 0.35:
 		# 진 이유 (review_G G03 · review_F F13): 줄마다 10px
 		var lh := 15.0 if T.big else 13.0 # 큰 글자면 12px · 줄 간격 15 (review_I I-10)

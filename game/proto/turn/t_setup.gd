@@ -17,11 +17,11 @@ signal exit_pressed
 const T := preload("res://proto/turn/t_theme.gd")
 const START1_RECT := Rect2(404, 300, 224, 32) ## S-01 전투 고르기 · S-03 출격 (같은 자리)
 const PICK_RECT := Rect2(404, 264, 224, 30) ## S-01 고른 전투 줄
-const START_RECT := Rect2(520, 322, 108, 30) ## S-02 전투 고르기
-const BACK_RECT := Rect2(152, 322, 80, 30) ## S-02 편성으로
+const START_RECT := Rect2(520, 318, 108, 36) ## S-02 전투 고르기 (터치 목표 36 — R3, review_N N-03)
+const BACK_RECT := Rect2(152, 318, 80, 36) ## S-02 편성으로
 const BACK3_RECT := Rect2(12, 300, 120, 32) ## S-03 편성으로
-const ULT_ROW := Rect2(152, 207, 228, 30) ## S-02 대마법 줄
-const EQUIP_ROW := Rect2(152, 242, 228, 28) ## S-02 장비 줄
+const ULT_ROW := Rect2(152, 234, 228, 36) ## S-02 대마법 줄 (타일 5줄 y 40~228 밑 — R3 N-03)
+const EQUIP_ROW := Rect2(152, 276, 228, 36) ## S-02 장비 줄
 const DESC := Rect2(380, 36, 254, 280) ## S-02 설명 상자
 const DESC_X := 388.0
 const DESC_W := 238.0
@@ -220,21 +220,21 @@ func _card_rect(i: int) -> Rect2:
 	return Rect2(12 + 130 * (2 - i), CARD_Y, CARD_W, CARD_H)
 
 
-## 카드 안 장비 ◀ ▶ 버튼 (32×36 — 터치 목표, review_C2 M8)과 이름 칸
+## 카드 안 장비 ◀ ▶ 버튼 (36×36 — 터치 목표, review_C2 M8 · R3 review_N N-03)과 이름 칸 (폭 42)
 func _equip_btn(i: int, right: bool) -> Rect2:
 	var c := _card_rect(i)
-	return Rect2(c.position.x + (c.size.x - 36.0 if right else 4.0), c.position.y + 218, 32, 36)
+	return Rect2(c.position.x + (c.size.x - 38.0 if right else 2.0), c.position.y + 218, 36, 36)
 
 
 func _equip_name_rect(i: int) -> Rect2:
 	var c := _card_rect(i)
-	return Rect2(c.position.x + 38, c.position.y + 218, c.size.x - 76, 36)
+	return Rect2(c.position.x + 40, c.position.y + 218, c.size.x - 80, 36)
 
 
 ## 카드 안 "마법 장착" 버튼 (장착 4개 아이콘, 위에 "장착 마법" 꼬리표)
 func _magic_btn(i: int) -> Rect2:
 	var c := _card_rect(i)
-	return Rect2(c.position.x + 6, c.position.y + 265, c.size.x - 12, 32)
+	return Rect2(c.position.x + 6, c.position.y + 262, c.size.x - 12, 36) # 높이 36 (R3 N-03) — 카드 아래 끝(300) 안
 
 
 ## 오른쪽 명단 칸 (12명, 4×3)
@@ -244,23 +244,28 @@ func _roster_rect(i: int) -> Rect2:
 
 ## 2단계 마법 타일 (2열 × 5줄)
 func _tile_rect(i: int) -> Rect2:
-	return Rect2(152 + 116 * (i % 2), 40 + 33 * (i / 2), 112, 30)
+	return Rect2(152 + 116 * (i % 2), 40 + 38 * (i / 2), 112, 36) # 112×36 · 줄 간격 38 (R3, review_N N-03 — 30px는 웹 20:9에서 CSS 34px)
 
 
 ## 탭 (자리 i): 왼→오 = 뒤·중·앞 — S-01 카드·전투 패널과 같은 순서 (review_G G14)
 func _tab_rect(i: int) -> Rect2:
-	return Rect2(8 + 68 * (2 - i), 4, 64, 28)
+	return Rect2(8 + 68 * (2 - i), 2, 64, 32) # 위 끝이라 그림은 32 — 누르는 자리는 _tab_hit (36)
+
+
+## 탭을 누르는 자리: 그림(32)보다 위아래 2px 넓게 36 — 바로 밑 타일(40~)·상자(36~)와 겹치지 않음 (R3 N-03)
+func _tab_hit(i: int) -> Rect2:
+	return _tab_rect(i).grow_individual(0, 2, 0, 2)
 
 
 ## 3단계 목록 i번째 줄 (지금 탭에 보이는 전투 중). 탭이 있으면 탭 아래부터
 func _battle_rect(i: int) -> Rect2:
-	var y0 := 36.0 if battle_ids().size() == 1 else 66.0
+	var y0 := 36.0 if battle_ids().size() == 1 else 69.0 # 탭(30~66) 밑 — 여섯 줄이면 끝 300 = "편성으로" 위 끝 (R3 N-03)
 	return Rect2(12, y0 + (ROW3_H + 3.0) * float(i), 312, ROW3_H)
 
 
 ## 3단계 탭 i (일반 · 보스 · 시련)
 func _tab3_rect(i: int) -> Rect2:
-	return Rect2(12 + 102 * i, 32, 98, 30)
+	return Rect2(12 + 102 * i, 30, 98, 36) # 98×36 (R3, review_N N-03)
 
 
 ## 전투 고르기에 보이는 전투: 첫 실행 안내 중엔 안내 전투 한 줄 (진행 안내일 뿐 잠금 아님 — 안내를 끄면 처음부터 전부, review_G §4.3 A3)
@@ -392,15 +397,18 @@ func _press_down(p: Vector2) -> void:
 	if _eq_slot >= 0:
 		_equip_list_press(p)
 		return
-	if step == 1 and p.distance_to(_gear_c()) < 16.0:
+	# 톱니·?·X는 지름 36으로 (R3, review_N N-03) — 톱니와 ?는 중심이 34 떨어져 가까운 쪽이 받음 (겹치지 않게)
+	var dg := p.distance_to(_gear_c())
+	var dh := p.distance_to(_help_c())
+	if step == 1 and dg < 18.0 and dg <= dh:
 		if guide != null:
 			guide.open_settings()
 		return
-	if step == 1 and p.distance_to(_help_c()) < 16.0:
+	if step == 1 and dh < 18.0:
 		if guide != null:
 			guide.open_help()
 		return
-	if step != 1 and p.distance_to(_x_c()) < 16.0:
+	if step != 1 and p.distance_to(_x_c()) < 18.0:
 		_go_roster()
 		return
 	if step == 1:
@@ -554,7 +562,7 @@ func _tap_now(p: Vector2) -> void:
 			_go_roster()
 		return
 	for i in party().size():
-		if _tab_rect(i).has_point(p):
+		if _tab_hit(i).has_point(p):
 			tab = i
 			cursor = -1
 			_msg_t = 0.0 # 앞 탭의 안내 글을 남기지 않음 (review_G G23)
@@ -778,7 +786,7 @@ func _msg_line(p: Vector2, w: float, fallback: String) -> void:
 
 
 func _draw() -> void:
-	draw_rect(T.screen(), Color(T.BG, 0.97))
+	_draw_back()
 	match step:
 		1: _draw_roster()
 		2: _draw_detail()
@@ -786,6 +794,28 @@ func _draw() -> void:
 	_x_button()
 	if _over != null:
 		_over.queue_redraw()
+
+
+## 바탕: 640 설계 화면은 먹 0.97 · 넓은 화면의 양옆 띠는 고른 전투의 배경(TStage가 TBackdrop 테마를 맞춤)이 0.4쯤 비치고 바깥 끝으로 갈수록 어둡게
+## (R3, review_N N-05 [제안] — 양옆 80px가 빈 먹색이라 640 판이 화면 가운데 떠 보였다)
+func _draw_back() -> void:
+	var scr := T.screen()
+	if T.ofs.x < 1.0:
+		draw_rect(scr, Color(T.BG, 0.97))
+		return
+	draw_rect(Rect2(0, scr.position.y, 640, scr.size.y), Color(T.BG, 0.97))
+	var y0 := scr.position.y
+	var y1 := scr.end.y
+	var inner := Color(T.BG, 0.6)
+	var outer := Color(T.INK, 0.94)
+	for side in [-1.0, 1.0]:
+		var xi := 0.0 if side < 0.0 else 640.0
+		var xo := T.left() if side < 0.0 else T.right()
+		draw_polygon(PackedVector2Array([Vector2(xi, y0), Vector2(xo, y0), Vector2(xo, y1), Vector2(xi, y1)]), PackedColorArray([inner, outer, outer, inner]))
+		var sx := xi + (-8.0 if side < 0.0 else 0.0) # 판 가장자리 그림자 8px
+		draw_polygon(PackedVector2Array([Vector2(sx, y0), Vector2(sx + 8.0, y0), Vector2(sx + 8.0, y1), Vector2(sx, y1)]),
+			PackedColorArray([Color(T.INK, 0.0 if side < 0.0 else 0.5), Color(T.INK, 0.5 if side < 0.0 else 0.0), Color(T.INK, 0.5 if side < 0.0 else 0.0), Color(T.INK, 0.0 if side < 0.0 else 0.5)]))
+		draw_rect(Rect2(xi - (1.0 if side < 0.0 else 0.0), y0, 1, y1 - y0), Color(T.LINE, 0.18))
 
 
 func _draw_roster() -> void:
@@ -916,7 +946,7 @@ func _draw_card(i: int, wid: String, on: bool) -> void:
 	var eqd: Array = state[wid].equipped
 	T.panel(self, mb, Color(T.LINE, 0.3 if on else 0.18), Color(T.TEXT, 0.7), 1, 3)
 	for k in TData.EQUIP_MAX:
-		var cc := mb.position + Vector2(13 + 24 * k, 15)
+		var cc := mb.position + Vector2(13 + 24 * k, 17)
 		if k < eqd.size():
 			var sk := TData.skill(String(eqd[k]))
 			draw_circle(cc, 9.0, Color(T.INK, 0.95))
@@ -925,7 +955,7 @@ func _draw_card(i: int, wid: String, on: bool) -> void:
 			T.cost_badge(self, cc + Vector2(7, 8), str(int(sk.cost)))
 		else:
 			draw_arc(cc, 8.0, 0.0, TAU, 16, Color(T.TEXT_OFF, 0.5), 1.0)
-	draw_colored_polygon(PackedVector2Array([mb.end - Vector2(10, 22), mb.end - Vector2(4, 17), mb.end - Vector2(10, 12)]), T.TEXT)
+	draw_colored_polygon(PackedVector2Array([mb.end - Vector2(10, 23), mb.end - Vector2(4, 18), mb.end - Vector2(10, 13)]), T.TEXT)
 
 
 func _draw_detail() -> void:
@@ -1006,49 +1036,48 @@ func _draw_detail() -> void:
 		if on:
 			# 장착 번호: 타일 왼쪽 금빛 띠(10px) 안의 먹 숫자 — 오른쪽 위 비용 배지(금빛 원)와 모양을 갈라 놓음 (review_C2 M4)
 			draw_rect(Rect2(r.position.x + 1, r.position.y + 1, 10, r.size.y - 2), T.GOLD)
-			T.text(self, Vector2(r.position.x + 6, r.position.y + 19), str(equipped.find(sid) + 1), 10, T.INK, HORIZONTAL_ALIGNMENT_CENTER, 0)
+			T.text(self, Vector2(r.position.x + 6, r.position.y + 22), str(equipped.find(sid) + 1), 10, T.INK, HORIZONTAL_ALIGNMENT_CENTER, 0)
 		else:
 			draw_rect(Rect2(r.position.x + 2, r.position.y + 3, 2, r.size.y - 6), T.kind_col(String(s.kind)))
-		TIcon.draw(self, r.position + Vector2(21, 15), String(s.get("icon", "strike")), ecol if (on or cur) else Color(ecol, 0.7), 7.5)
+		TIcon.draw(self, r.position + Vector2(21, 18), String(s.get("icon", "strike")), ecol if (on or cur) else Color(ecol, 0.7), 7.5)
 		var tcol := T.TEXT if (on or cur) else T.TEXT_SUB
 		if T.big and T.width(String(s.name), 10) > 63.0: # 큰 글자면 두 줄 (review_K K-04 — "공허의 …"로 잘렸다)
-			T.wrap(self, r.position + Vector2(33, 13), String(s.name), 63, 10, tcol, 12.0, 2)
+			T.wrap(self, r.position + Vector2(33, 16), String(s.name), 63, 10, tcol, 13.0, 2)
 		else:
-			T.text(self, r.position + Vector2(33, 19), T.clip(String(s.name), 10, 63), 10, tcol)
+			T.text(self, r.position + Vector2(33, 22), T.clip(String(s.name), 10, 63), 10, tcol)
 		T.cost_badge(self, r.position + Vector2(104, 9), str(int(s.cost)))
 		var sl := int(slv.get(sid, 1))
 		if sl > 1:
 			T.text(self, r.end - Vector2(3, 3), "Lv%d" % sl, 8, T.GOLD, HORIZONTAL_ALIGNMENT_RIGHT, 2)
 		if held:
-			draw_arc(r.position + Vector2(21, 15), 12.0, -PI * 0.5, -PI * 0.5 + TAU * clampf(float(_press.t) / HOLD, 0.0, 1.0), 24, T.GOLD, 2.0)
+			draw_arc(r.position + Vector2(21, 18), 12.0, -PI * 0.5, -PI * 0.5 + TAU * clampf(float(_press.t) / HOLD, 0.0, 1.0), 24, T.GOLD, 2.0)
 	# 대마법 줄 (장착 칸 아님 — 누르면 설명)
 	var uid := String(w.get("ultimate", ""))
 	var ult := TData.skill(uid)
 	T.panel(self, ULT_ROW, Color(T.GOLD, 0.12), T.TEXT if cursor == 10 else Color(T.GOLD, 0.8), 2 if cursor == 10 else 1, 3)
-	TIcon.draw(self, ULT_ROW.position + Vector2(17, 15), String(ult.get("icon", "burst")), T.GOLD, 7.5)
+	TIcon.draw(self, ULT_ROW.position + Vector2(17, 18), String(ult.get("icon", "burst")), T.GOLD, 7.5)
 	var ul := "대마법  " + String(ult.get("name", ""))
-	T.text(self, ULT_ROW.position + Vector2(30, 19), ul, 10, T.GOLD)
+	T.text(self, ULT_ROW.position + Vector2(30, 22), ul, 10, T.GOLD)
 	var ur := "크레딧 7 · 바퀴 끝 칸"
 	if T.width(ul, 10) + T.width(ur, 10) + 46.0 > ULT_ROW.size.x:
 		ur = "크레딧 7" # 이름이 길면 줄여서 (review_G G13 — "불새의 축복크레딧 7"처럼 붙었다)
 	if T.width(ul, 10) + T.width(ur, 10) + 46.0 <= ULT_ROW.size.x:
-		T.text(self, ULT_ROW.end - Vector2(8, 11), ur, 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
+		T.text(self, ULT_ROW.end - Vector2(8, 14), ur, 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
 	# 장비 줄 (길게 누르면 강화 Lv)
 	var has_eq := String(state[wid].equip) != ""
 	var eheld := not _press.is_empty() and String(_press.what) == "equip"
 	T.panel(self, EQUIP_ROW, Color(T.INK, 0.6), T.TEXT if cursor == 11 else Color(T.GOLD, 0.5), 2 if cursor == 11 else 1, 3)
-	draw_circle(EQUIP_ROW.position + Vector2(14, 14), 6.0, Color(T.INK, 0.9))
-	draw_arc(EQUIP_ROW.position + Vector2(14, 14), 6.0, 0.0, TAU, 16, T.GOLD if has_eq else T.TEXT_OFF, 1.5)
+	draw_circle(EQUIP_ROW.position + Vector2(14, 18), 6.0, Color(T.INK, 0.9))
+	draw_arc(EQUIP_ROW.position + Vector2(14, 18), 6.0, 0.0, TAU, 16, T.GOLD if has_eq else T.TEXT_OFF, 1.5)
 	if eheld:
-		draw_arc(EQUIP_ROW.position + Vector2(14, 14), 10.0, -PI * 0.5, -PI * 0.5 + TAU * clampf(float(_press.t) / HOLD, 0.0, 1.0), 24, T.GOLD, 2.0)
+		draw_arc(EQUIP_ROW.position + Vector2(14, 18), 10.0, -PI * 0.5, -PI * 0.5 + TAU * clampf(float(_press.t) / HOLD, 0.0, 1.0), 24, T.GOLD, 2.0)
 	var etxt := "장비 %s%s — %s" % [String(eq.get("name", "없음")), " Lv%d" % lv if lv > 1 and has_eq else "", String(eq.get("desc", ""))] if has_eq else "장비 없음 — 눌러서 고릅니다"
 	# 두 줄까지 (review_K K-15 — 장비 설명이 "(…"로 잘렸다)
 	var el := T.split_lines(etxt, EQUIP_ROW.size.x - 32, 10)
 	if el.size() <= 1:
-		T.text(self, EQUIP_ROW.position + Vector2(26, 18), etxt, 10, T.GOLD if has_eq else T.TEXT_SUB)
+		T.text(self, EQUIP_ROW.position + Vector2(26, 22), etxt, 10, T.GOLD if has_eq else T.TEXT_SUB)
 	else:
-		T.wrap(self, EQUIP_ROW.position + Vector2(26, 12), etxt, EQUIP_ROW.size.x - 32, 10, T.GOLD if has_eq else T.TEXT_SUB, 11.0, 2)
-	T.wrap(self, Vector2(152, 286), "마법·장비를 길게 누르면 강화 Lv", 222, 10, T.TEXT_OFF, 12.0, 2)
+		T.wrap(self, EQUIP_ROW.position + Vector2(26, 15), etxt, EQUIP_ROW.size.x - 32, 10, T.GOLD if has_eq else T.TEXT_SUB, 13.0 if T.big else 12.0, 2)
 	# 오른쪽: 큰 설명 상자
 	if cursor >= 0 and cursor < skills.size():
 		_draw_desc(String(skills[cursor]), int(slv.get(String(skills[cursor]), 1)))
@@ -1063,7 +1092,7 @@ func _draw_detail() -> void:
 	# 버튼
 	_button(BACK_RECT, "← 편성", false)
 	_button(START_RECT, "전투 고르기", true, 0.8 + 0.2 * sin(_t * 4.0))
-	_msg_line(Vector2(240, 342), 272, "")
+	_msg_line(Vector2(240, 340), 272, "마법·장비를 길게 누르면 강화 Lv") # 안내 글은 아래 버튼 사이로 (타일·줄이 36px로 커져 자리가 없어짐 — R3 N-03)
 
 
 ## 큰 설명 상자: 이름 + 비용 / 종류 · 대상 · 배율 / 효과 / 항목별 수치(강화 반영) / 참고 구조 / 예상 피해
@@ -1431,24 +1460,38 @@ func _draw_witch_desc(w: Dictionary) -> void:
 func _draw_peek(ci: CanvasItem, wid: String) -> void:
 	var w: Dictionary = TData.WITCHES[wid]
 	var ecol: Color = TData.ELEMENT_COLOR.get(w.element, T.LINE)
-	var r := Rect2(16, 40, 376, 268)
+	var bf := T.body_fs()
+	var lh := T.body_lh()
+	var tw := 376.0 - 24.0 - 60.0 # 오른쪽 위 그림 칸(52 + 여백)만큼 좁게
+	var ult := TData.skill(String(w.get("ultimate", "")))
+	var pas: Dictionary = w.get("passive", {})
+	var rows := [
+		["공격 %s · 체력 %s · 속도 %d · 방어 %d%%" % [TData.fmt(int(w.atk)), TData.fmt(int(w.hp)), int(w.speed), int(round(float(w.def) * 100.0))], T.TEXT, 0, 4.0],
+		["속성 %s%s · 역할 %s" % [TData.ELEMENT_NAME.get(w.element, ""), " (모든 적에게 1.2배)" if bool(w.special) else "", TData.ROLE_NAME.get(String(w.get("role", "")), "")], ecol, 0, 6.0],
+		["대마법 %s — %s" % [String(ult.get("name", "")), String(ult.get("desc", ""))], T.GOLD, 3, 6.0],
+		["패시브 %s — %s" % [String(pas.get("name", "")), String(pas.get("desc", ""))], T.TEXT_SUB, 3, 6.0],
+		["기본 공격 %s — %s" % [String(w.basic.name), String(w.basic.desc)], T.TEXT, 2, 6.0]]
+	# 판 높이를 글에 맞춤 (R3, review_N N-12 — 아래 절반이 비어 있었다). 그림 칸(72)보다 낮아지지 않게
+	var body := 0.0
+	for row: Array in rows:
+		var n := T.split_lines(String(row[0]), tw, bf).size()
+		if int(row[2]) > 0:
+			n = mini(n, int(row[2]))
+		body += lh * float(n) + float(row[3])
+	var r := Rect2(16, 40, 376, clampf(42.0 + body + 20.0, 124.0, 268.0))
 	T.panel(ci, r, Color(T.INK, 0.98), Color(ecol, 0.8), 1, 4)
 	var x := r.position.x + 12.0
 	T.text(ci, Vector2(x, r.position.y + 22), String(w.name), 15, T.TEXT)
-	T.text(ci, Vector2(r.end.x - 12, r.position.y + 21), String(w.title), 10, ecol, HORIZONTAL_ALIGNMENT_RIGHT)
-	var bf := T.body_fs()
-	var lh := T.body_lh()
+	T.text(ci, Vector2(x + T.width(String(w.name), 15) + 8.0, r.position.y + 21), String(w.title), 10, ecol)
+	# 오른쪽 위 마녀 정지 그림 52×72 (명단 칸과 같은 TActor.Snap)
+	var pic := Rect2(r.end.x - 64.0, r.position.y + 8.0, 52, 72)
+	T.panel(ci, pic, Color(ecol, 0.12), Color(ecol, 0.5), 1, 3)
+	if _actors.has(wid):
+		ci.draw_texture((_actors[wid] as SubViewport).get_texture(), pic.position)
 	var y := r.position.y + 42.0
-	var st := "공격 %s · 체력 %s · 속도 %d · 방어 %d%%" % [TData.fmt(int(w.atk)), TData.fmt(int(w.hp)), int(w.speed), int(round(float(w.def) * 100.0))]
-	y += T.wrap(ci, Vector2(x, y), st, r.size.x - 24, bf, T.TEXT, lh) + 4.0
-	var el := "속성 %s%s · 역할 %s" % [TData.ELEMENT_NAME.get(w.element, ""), " (모든 적에게 1.2배)" if bool(w.special) else "", TData.ROLE_NAME.get(String(w.get("role", "")), "")]
-	y += T.wrap(ci, Vector2(x, y), el, r.size.x - 24, bf, ecol, lh) + 6.0
-	var ult := TData.skill(String(w.get("ultimate", "")))
-	y += T.wrap(ci, Vector2(x, y), "대마법 %s — %s" % [String(ult.get("name", "")), String(ult.get("desc", ""))], r.size.x - 24, bf, T.GOLD, lh, 3) + 6.0
-	var pas: Dictionary = w.get("passive", {})
-	y += T.wrap(ci, Vector2(x, y), "패시브 %s — %s" % [String(pas.get("name", "")), String(pas.get("desc", ""))], r.size.x - 24, bf, T.TEXT_SUB, lh, 3) + 6.0
-	y += T.wrap(ci, Vector2(x, y), "기본 공격 %s — %s" % [String(w.basic.name), String(w.basic.desc)], r.size.x - 24, bf, T.TEXT, lh, 2) + 6.0
-	T.text(ci, Vector2(r.get_center().x, r.end.y - 10), "떼면 닫힘 · 짧게 누르면 이 자리에 넣기", 10, T.TEXT_OFF, HORIZONTAL_ALIGNMENT_CENTER)
+	for row: Array in rows:
+		y += T.wrap(ci, Vector2(x, y), String(row[0]), tw, bf, row[1], lh, int(row[2])) + float(row[3])
+	T.text(ci, Vector2(r.get_center().x, r.end.y - 8), "떼면 닫힘 · 짧게 누르면 이 자리에 넣기", 10, T.TEXT_OFF, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 # ── 장비 목록 판 (review_G G11 · review_F F11): 15칸 한눈에. 한 번 누르면 설명, 다시 누르면 낌. 다른 파티원이 낀 것은 흐림
