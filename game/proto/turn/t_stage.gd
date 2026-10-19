@@ -372,9 +372,10 @@ func _add_actor(u: TUnit, at: Vector2) -> void:
 	a.setup(u, at)
 	a.z_index = 1 + int((at.y - 218.0) / 25.0) # 앞(아래)이 위에 그려짐 (1~3)
 	if not u.is_witch():
-		# 키 큰 적(뒤 칸 재의 기사)은 머리 꼭대기가 적 카드 밑 + 18(HEAD_MIN_Y + 8)보다 위면 그만큼 내려 세움, 24px까지 — 투구를 카드가 덮고
-		# 대상 고르기의 머리 위 의도 아이콘이 투구 위에 겹쳤다 (R3, review_N N-06 [제안]). 카드는 위 띠 밑 한 줄 고정이라 옮길 자리가 없다
-		var dy := clampf(THud.HEAD_MIN_Y + 8.0 - a.head().y, 0.0, 24.0)
+		# 키 큰 적(뒤 칸 재의 기사)은 머리 꼭대기가 적 카드 밑 + 18(HEAD_MIN_Y + 8)보다 위면 그만큼 내려 세움 — 투구를 카드가 덮고
+		# 대상 고르기의 머리 위 의도 아이콘이 투구 위에 겹쳤다 (R3, review_N N-06 [제안]). 카드는 위 띠 밑 한 줄 고정이라 옮길 자리가 없다.
+		# R4: DIMS 키를 실제 투구 꼭대기에 맞추며 상한 24 → 48 · 큰 글자면 카드가 8px 길어 그만큼 더 (뒤 칸 재의 기사 222 → 262 · 큰 글자 270)
+		var dy := clampf(THud.HEAD_MIN_Y + (8.0 if TTheme.big else 0.0) + 8.0 - a.head().y, 0.0, 48.0)
 		if dy > 0.0:
 			a.home.y += dy
 			a.position.y += dy

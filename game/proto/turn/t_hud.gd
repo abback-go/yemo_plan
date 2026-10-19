@@ -1137,7 +1137,10 @@ func _draw_panel_backs(ci: CanvasItem) -> void:
 			fill = Color(T.PANEL_HI, 0.95) if on else fill
 			border = T.GOLD if on else Color(T.TEXT, 0.85)
 			bw = 2 if on else 1
-		T.panel(ci, r, fill, border, bw, 3)
+		if bw >= 2:
+			T.panel(ci, r, fill, border, bw, 3)
+		else:
+			T.panel_lit(ci, r, fill, border) # 입체 테 (R4 N-10) — 금테 2px는 그대로
 
 
 class PanelBack extends Control:
@@ -1488,7 +1491,10 @@ func _card_frame(e: TUnit, r: Rect2) -> void:
 		bw = 2
 	elif tgt_on:
 		border = Color(T.TEXT, 0.8)
-	T.panel(self, r, fill, border, bw, 3)
+	if bw >= 2:
+		T.panel(self, r, fill, border, bw, 3)
+	else:
+		T.panel_lit(self, r, fill, border) # 입체 테 (R4 N-10)
 
 
 ## 의도 알약 (종류만 [확정 §0-9]). 기절이면 "기절". 필살기·강공격은 숨쉬기. 무적 관통이면 뒤에 관통 표시
@@ -2018,7 +2024,7 @@ func _draw_strip() -> void:
 	var u := actor.unit
 	var ecol: Color = TData.ELEMENT_COLOR.get(u.element, T.LINE)
 	var STRIP := _strip_rect()
-	T.panel(self, STRIP, Color(T.PANEL, 0.94), Color(ecol, 0.8), 1, 3)
+	T.panel_lit(self, STRIP, Color(T.PANEL, 0.94), Color(ecol, 0.8)) # 입체 테 (R4 N-10)
 	var X := STRIP.position.x + 8.0
 	var hint := ""
 	if sel < 0 or sel >= slots.size():
@@ -2306,7 +2312,7 @@ func _draw_detail(u: TUnit) -> void:
 		h += lh * float(mini(T.split_lines(String(ln[0]), dw - 16.0, bf).size(), int(ln[2]))) + 1.0
 	var dh := 360.0 - DETAIL_Y - 4.0 # 내용만큼 (화면 아래 끝까지) — 예전 180 상한에 글이 잘렸다 (review_K K-15)
 	var r := Rect2(T.left() + 16.0, DETAIL_Y, dw, minf(h, dh)) if not u.is_witch() else Rect2(T.right() - 16.0 - dw, DETAIL_Y, dw, minf(h, dh))
-	T.panel(self, r, Color(T.INK, 1.0), Color(T.LINE, 0.8), 1, 4)
+	T.panel_lit(self, r, Color(T.PANEL, 1.0), Color(T.LINE, 0.8)) # 입체 테 (R4 N-10) — 바탕 INK → PANEL (먹 테가 보이게)
 	var X := r.position.x + 8.0
 	var y := r.position.y + 16.0
 	T.text(self, Vector2(X, y), title, 12, title_col)

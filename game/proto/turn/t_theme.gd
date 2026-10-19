@@ -231,6 +231,42 @@ static func panel(ci: CanvasItem, r: Rect2, fill: Color, border := Color(0, 0, 0
 	_box.draw(ci.get_canvas_item(), r)
 
 
+## 입체 테 판 (R4 — review_N N-10 · 검토 O 바퀴 칸의 금속 테·안쪽 그림자와 같은 말): 바깥 1px 테는 왼쪽 위 밝게 → 오른쪽 아래 어둡게
+## (모서리 1px 깎음) + 안쪽 1px 먹 테 + 바탕은 위가 조금 밝고 아래로 어두워짐. 삼각형 묶음 하나라 panel()과 같은 그리기 명령 1개.
+## 금테 2px(지금 차례·고른 것)는 panel() 그대로 쓴다
+static func panel_lit(ci: CanvasItem, r: Rect2, fill: Color, border: Color) -> void:
+	var x0 := r.position.x
+	var y0 := r.position.y
+	var x1 := r.end.x
+	var y1 := r.end.y
+	var hi := Color(border.lightened(0.5), minf(border.a + 0.35, 1.0))
+	var lo := Color(border.darkened(0.6), maxf(border.a, 0.7))
+	var ink := Color(INK, 0.9 * maxf(fill.a, border.a))
+	var ft := Color(fill.lightened(0.05), fill.a)
+	var fb := Color(fill.darkened(0.3), fill.a)
+	# 사각형 [x0, y0, x1, y1, 왼위 색, 오른위 색, 오른아래 색, 왼아래 색]
+	var qs: Array = [
+		[x0 + 2, y0 + 2, x1 - 2, y1 - 2, ft, ft, fb, fb], # 바탕 (세로 그라데이션 — 안쪽 그림자)
+		[x0 + 1, y0 + 1, x1 - 1, y0 + 2, ink, ink, ink, ink], # 안쪽 먹 테 1px
+		[x0 + 1, y1 - 2, x1 - 1, y1 - 1, ink, ink, ink, ink],
+		[x0 + 1, y0 + 2, x0 + 2, y1 - 2, ink, ink, ink, ink],
+		[x1 - 2, y0 + 2, x1 - 1, y1 - 2, ink, ink, ink, ink],
+		# 바깥 금속 테 1px: 위·왼 = 밝음 → 오른쪽 위·왼쪽 아래 = 테 색 → 아래·오른 = 어두움 (모서리 픽셀은 비움)
+		[x0 + 1, y0, x1 - 1, y0 + 1, hi, border, border, hi],
+		[x0, y0 + 1, x0 + 1, y1 - 1, hi, hi, border, border],
+		[x0 + 1, y1 - 1, x1 - 1, y1, border, lo, lo, border],
+		[x1 - 1, y0 + 1, x1, y1 - 1, border, border, lo, lo]]
+	var v := PackedVector2Array()
+	var c := PackedColorArray()
+	var idx := PackedInt32Array()
+	for q: Array in qs:
+		var n := v.size()
+		v.append_array(PackedVector2Array([Vector2(q[0], q[1]), Vector2(q[2], q[1]), Vector2(q[2], q[3]), Vector2(q[0], q[3])]))
+		c.append_array(PackedColorArray([q[4], q[5], q[6], q[7]]))
+		idx.append_array(PackedInt32Array([n, n + 1, n + 2, n, n + 2, n + 3]))
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), idx, v, c)
+
+
 ## 비용 배지: 원 반지름 6 + 숫자 (쓸 수 있음 GOLD 바탕 · 모자람 DANGER 바탕 · 기본 공격 "+1"은 GAUGE 바탕)
 static func cost_badge(ci: CanvasItem, c: Vector2, label: String, mode := "ok") -> void:
 	var bg := GOLD
@@ -253,15 +289,26 @@ static func diamond(ci, c: Vector2, half: float, col: Color) -> void:
 
 
 ## 크레딧 n/7 줄: 마름모 7개 (중심 간격 gap). 찬 칸 = 1px 밝은 테 + 금빛 (R3, review_N N-07 — 핵심 자원이 체력 숫자보다 안 보였다)
+## 마름모 7칸 × 2~3겹을 삼각형 묶음 하나로 (R4 성능: 마름모마다 다각형 = 그리기 호출 1번이라 패널 셋 + 설명 띠에서 약 50번이었다)
 static func credit_row(ci: CanvasItem, p: Vector2, n: int, gap := 10.0, half := 3.5, pulse := 1.0) -> void:
+	var v := PackedVector2Array()
+	var cs := PackedColorArray()
+	var idx := PackedInt32Array()
 	for k in TData.CREDIT_MAX:
 		var c := p + Vector2(gap * float(k), 0)
-		diamond(ci, c, half + 1.0, Color(INK, 0.95))
+		var layers: Array = [[half + 1.0, Color(INK, 0.95)]]
 		if k < n:
-			diamond(ci, c, half, Color("#fff6d6", pulse))
-			diamond(ci, c, half - 1.0, Color(GOLD, pulse))
+			layers.append([half, Color("#fff6d6", pulse)])
+			layers.append([half - 1.0, Color(GOLD, pulse)])
 		else:
-			diamond(ci, c, half, EMPTY)
+			layers.append([half, EMPTY])
+		for l: Array in layers:
+			var h: float = l[0]
+			var b := v.size()
+			v.append_array(PackedVector2Array([c + Vector2(0, -h), c + Vector2(h, 0), c + Vector2(0, h), c + Vector2(-h, 0)]))
+			cs.append_array(PackedColorArray([l[1], l[1], l[1], l[1]]))
+			idx.append_array(PackedInt32Array([b, b + 1, b + 2, b, b + 2, b + 3]))
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), idx, v, cs)
 
 
 ## 예상 피해 한 줄 (전투 설명 띠·편성 설명 상자가 같이 씀, review_C2 L9): "예상 n · 크리 m" / 크리 확정이면 "예상 n (크리 확정)"
