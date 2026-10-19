@@ -63,6 +63,13 @@ if (H > W) {
 if (st.card) { const c = center(st.off); await tapAt(st, c[0], c[1]); await wait(600); }
 st = await probe();
 console.log(`FS after-first-tap tried ${st.fs_tried} is ${st.fs_is} doc-fullscreen ${await fsDoc()} btn ${JSON.stringify(st.fs_btn)} view ${st.view.join('x')}`);
+if (await fsDoc()) {
+	// 사용자가 전체 화면을 나간 것처럼 → 다시 들어가는 버튼이 떠야 함 (다음 탭에 저절로 다시 요청하지 않음)
+	await page.evaluate(() => document.exitFullscreen().catch(() => {})); await wait(1200);
+	canvasBox = await page.evaluate(() => { const c = document.querySelector('canvas'); const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, cw: c.width, ch: c.height }; });
+	st = await probe();
+	console.log(`FS exited is ${st.fs_is} doc-fullscreen ${await fsDoc()} btn ${JSON.stringify(st.fs_btn)}`);
+}
 if (st.fs_btn && st.fs_btn[2] > 0) {
 	await shot('t2b_fs_button');
 	const b = center(st.fs_btn);

@@ -64,6 +64,7 @@ var fs_tried := false ## 첫 탭 요청을 했나 (이번 실행에 한 번 — 
 var fs_is := false ## 지금 전체 화면인가 (0.5초마다 물음)
 var _fs_poll := 0.0
 var _fs_down := false ## 다시 들어가는 버튼을 누르는 중
+var _fs_hold := 0.0 ## 요청한 뒤 이만큼은 버튼을 숨김 (전체 화면이 되기까지 — 버튼이 잠깐 깜빡이던 것)
 var portrait := false ## 세로로 듦 → 안내 판 + 전투 멈춤 (폰 웹만)
 var test_phone := false ## 시험용: 폰 웹처럼 (데스크톱에서 세로 안내·다시 들어가는 버튼 그림 확인)
 var test_fs := false ## 시험용: test_phone에서 전체 화면인 척
@@ -105,12 +106,15 @@ func _fs_query() -> bool:
 
 
 func _fs_request() -> void:
+	_fs_hold = 1.5
+	_fs_poll = 0.3
 	if fs_web:
 		JavaScriptBridge.eval("window.eskaFS.req()")
 
 
 ## 0.5초마다 전체 화면인지 묻고, 세로인지 본다 (세로로 들면 전투는 창이 가려질 때와 같게 저장·멈춤)
 func _fs_tick(delta: float) -> void:
+	_fs_hold = maxf(_fs_hold - delta, 0.0)
 	_fs_poll -= delta
 	if _fs_poll <= 0.0:
 		_fs_poll = 0.5
@@ -124,13 +128,18 @@ func _fs_tick(delta: float) -> void:
 
 ## 전체 화면이 풀린 뒤 다시 들어가는 작은 버튼 (화면 오른쪽 끝 · 위 띠 밑) — 오른쪽에 640 바깥 자리가 40px 이상일 때만 (없으면 설정 줄로)
 func fs_btn() -> Rect2:
-	if not _phone() or not TSave.full_screen or not fs_tried or fs_is or portrait or mode != "" or T.ofs.x < 40.0:
+	if not _phone() or not TSave.full_screen or not fs_tried or fs_is or _fs_hold > 0.0 or portrait or mode != "" or T.ofs.x < 40.0:
 		return Rect2()
 	return Rect2(T.right() - 40.0, 34, 36, 36)
 
 
-## 모든 누름·뗌을 먼저 본다: 세로면 먹음 · 다시 들어가는 버튼 · 첫 뗌에 전체 화면 요청. 처리했으면 true
+## 모든 누름·뗌을 먼저 본다: 첫 뗌에 전체 화면 요청(세로여도 — 되면 가로로 잠겨 돌아감) · 세로면 먹음 · 다시 들어가는 버튼. 처리했으면 true
 func _fs_input(pos: Vector2, pressed: bool) -> bool:
+	if not pressed and _phone() and TSave.full_screen and not fs_tried and not fs_is:
+		fs_tried = true
+		_fs_request() # 첫 탭 — 그 탭은 아래 화면도 그대로 받는다 (세로면 아래 화면은 안 받음)
+		if not portrait:
+			return false
 	if portrait:
 		return true
 	var b := fs_btn()
@@ -143,9 +152,6 @@ func _fs_input(pos: Vector2, pressed: bool) -> bool:
 			_fs_request()
 			Sfx.play(&"tn_select", -10.0)
 		return true
-	if _phone() and TSave.full_screen and not fs_tried and not fs_is:
-		fs_tried = true
-		_fs_request() # 첫 탭 — 그 탭은 아래 화면도 그대로 받는다
 	return false
 
 
