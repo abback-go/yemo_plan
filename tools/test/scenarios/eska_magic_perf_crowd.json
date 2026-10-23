@@ -1,0 +1,19 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(300, 300))"],
+[10, "eval", "dummy.set('position', Vector2(480, 300))"],
+[12, "eval", "spawn_foe('colossus', 420, 300)"],
+[14, "eval", "spawn_foe('runner', 560, 300)"],
+[40, "eval", "get_node('MagicCast').big_hp()"],
+[45, "eval", "perf()"],
+[50, "eval", "get_node('MagicCast').cast('meteor')"],
+[80, "eval", "perf()"], [95, "eval", "perf()"], [110, "eval", "perf()"], [125, "eval", "perf()"], [140, "eval", "perf()"], [155, "eval", "perf()"], [170, "eval", "perf()"],
+[150, "eval", "bench(100)"], [126, "eval", "get_node('MagicCast').fx_nodes()"], [280, "eval", "get_node('MagicCast').fx_nodes()"],
+[240, "eval", "get_node('MagicCast').big_hp()"],
+[250, "tap", "es_skill"],
+[262, "eval", "perf()"], [270, "eval", "perf()"], [278, "eval", "perf()"], [286, "eval", "perf()"], [300, "eval", "perf()"], [320, "eval", "perf()"],
+[279, "eval", "bench(100)"],
+[400, "eval", "perf()"],
+[410, "quit"]
+]}

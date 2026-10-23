@@ -1,0 +1,22 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_st_ruin",
+  "spawn": "start",
+  "flags": ["ab_neoul"],
+  "steps": [
+    [2, "godmode"],
+    [3, "auto", true],
+    [10, "tp", 18, 18],
+    [120, "shot", "props_ruin_a"],
+    [121, "tp", 58, 18],
+    [180, "shot", "props_ruin_b"],
+    [190, "go", "dev_st_fest", "start"],
+    [200, "tp", 22, 18],
+    [300, "shot", "props_fest_a"],
+    [301, "tp", 62, 18],
+    [360, "shot", "props_fest_b"],
+    [370, "go", "dev_st_tower", "mid"],
+    [470, "shot", "props_tower"],
+    [471, "quit"]
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "s_sealroom",
+  "spawn": "up",
+  "flags": ["p_intro_done", "t_escaped", "s_woke", "ab_neoul", "ab_fox_mode", "ab_storm", "ab_double_jump", "ab_fox_window", "seal_open", "agwi_met", "met_astrid", "teach_폭주 게이지"],
+  "steps": [
+    [2, "godmode"],
+    [3, "auto", true],
+    [20, "tp", 8, 18],
+    [150, "status", "start"],
+    [151, "tp", 20, 18],
+    [152, "face", 1],
+    [153, "press", "attack"],
+    [750, "status", "t10s"],
+    [1350, "status", "t20s"],
+    [1950, "status", "t30s"],
+    [2550, "status", "t40s"],
+    [3150, "status", "t50s"],
+    [3151, "release", "attack"],
+    [3160, "quit"]
+  ]
+}

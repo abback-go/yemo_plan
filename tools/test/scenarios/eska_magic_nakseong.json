@@ -1,0 +1,20 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(400, 300))"],
+[20, "eval", "get_node('MagicCast').big_hp()"],
+[30, "eval", "get_node('MagicCast').cast('nakseong')"],
+[32, "shot", "n01"], [36, "shot", "n02"], [40, "shot", "n03"], [45, "shot", "n04"], [50, "shot", "n05"], [51, "eval", "bench(200)"], [56, "shot", "n06"], [64, "shot", "n07"], [72, "shot", "n08"],
+[110, "eval", "get_node('MagicCast').lost()"],
+[115, "eval", "get_node('MagicCast').big_hp()"],
+[120, "press", "es_jump"], [130, "release", "es_jump"],
+[136, "eval", "get_node('MagicCast').cast('nakseong')"],
+[140, "eval", "eska.global_position.y"],
+[150, "shot", "n09_air"], [160, "shot", "n10_air"],
+[210, "eval", "get_node('MagicCast').lost()"],
+[215, "eval", "get_node('MagicCast').big_hp()"],
+[220, "eval", "get_node('MagicCast').cast('nakseong', 0.5, 1.35)"],
+[300, "eval", "get_node('MagicCast').lost()"],
+[310, "eval", "perf()"],
+[320, "quit"]
+]}

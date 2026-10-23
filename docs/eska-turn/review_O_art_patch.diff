@@ -1,0 +1,1345 @@
+diff --git a/game/proto/p_draw.gd b/game/proto/p_draw.gd
+index ea047d3..6f4e2be 100644
+--- a/game/proto/p_draw.gd
++++ b/game/proto/p_draw.gd
+@@ -12,6 +12,7 @@ var c := PackedColorArray()
+ var idx := PackedInt32Array()
+ var xf := Transform2D.IDENTITY
+ var _id := true
++var seg_k := 1.0 ## 원·빛무리 꼭짓점 수 배율 — 그림을 크게 키워 쓸 때(턴제 대마법 컷인 3배) 곡선이 각지지 않게 (기본 1 = 전과 같음)
+ var _sc := PackedColorArray() ## 색 채우기용 임시
+ 
+ static var _unit := {} ## 꼭짓점 수 → 단위 원 점들
+@@ -190,9 +191,9 @@ func draw_circle(center: Vector2, radius: float, col: Color, filled := true, wid
+ 	if radius <= 0.05 or col.a <= 0.003:
+ 		return
+ 	if not filled:
+-		draw_arc(center, radius, 0.0, TAU, segs(radius) + 1, col, width)
++		draw_arc(center, radius, 0.0, TAU, segs(radius * seg_k) + 1, col, width)
+ 		return
+-	var n := segs(radius)
++	var n := segs(radius * seg_k)
+ 	var m := Transform2D(0.0, Vector2(radius, radius), 0.0, center)
+ 	if not _id:
+ 		m = xf * m
+@@ -207,7 +208,7 @@ func draw_circle(center: Vector2, radius: float, col: Color, filled := true, wid
+ func glow(center: Vector2, radius: float, col: Color, edge_a := 0.0) -> void:
+ 	if radius <= 0.05 or col.a <= 0.003:
+ 		return
+-	var n := segs(radius)
++	var n := segs(radius * seg_k)
+ 	var m := Transform2D(0.0, Vector2(radius, radius), 0.0, center)
+ 	if not _id:
+ 		m = xf * m
+diff --git a/game/proto/turn/t_actor.gd b/game/proto/turn/t_actor.gd
+index 7df25dd..be8d92a 100644
+--- a/game/proto/turn/t_actor.gd
++++ b/game/proto/turn/t_actor.gd
+@@ -46,6 +46,7 @@ func setup(u: TUnit, at: Vector2) -> void:
+ 			eska.set_process(false)
+ 			eska.art.stand = true
+ 			eska.art.rim_on = true
++			eska.art.material = TWitchArt.shade_mat(44.0, 11.0, 0.12, 0.16, 0.06, -1.0, 0.16) # 마녀 11명과 같은 명암 (검토 O §3)
+ 		else:
+ 			witch = TWitchArt.new()
+ 			witch.kind = u.id
+@@ -206,6 +207,16 @@ func walk_in(dist: float, dur := 0.4) -> void:
+ 
+ func set_turn(on: bool) -> void:
+ 	turn_on = on
++	# 차례인 마녀 강조 (검토 O §3): 테두리 빛을 속성 색 2px로 — 밤 배경에서 누구 차례인지 그림만으로 읽힘
++	var col := Color(Color(TData.ELEMENT_COLOR.get(unit.element, TWitchArt.RIM_LIGHT)).lightened(0.35), 0.95)
++	if witch != null:
++		witch.lit = on
++		TWitchArt.rim_set(witch._rim_ci, col if on else TWitchArt.RIM_LIGHT)
++	elif eska != null and eska.art._rim_ci.is_valid():
++		if on:
++			TWitchArt.rim_set(eska.art._rim_ci, col)
++		else:
++			RenderingServer.canvas_item_set_material(eska.art._rim_ci, EArt._rim_mat.get_rid())
+ 
+ 
+ func set_acting(on: bool) -> void:
+diff --git a/game/proto/turn/t_backdrop.gd b/game/proto/turn/t_backdrop.gd
+index 7293231..36e3fa8 100644
+--- a/game/proto/turn/t_backdrop.gd
++++ b/game/proto/turn/t_backdrop.gd
+@@ -79,6 +79,13 @@ func set_boss(on: bool, instant := false) -> void:
+ 	set_theme("ash_sky" if on else "field", instant)
+ 
+ 
++## 마녀 발밑 빛 원 (검토 O §3): [[발 자리, 속성 색], …] — 정적 층에 그림 (전투 시작 때 한 번)
++var _pools: Array = []
++func set_pools(pools: Array) -> void:
++	_pools = pools
++	_st_key = ""
++
++
+ ## prism 테마의 달 색 (세 빛의 인형 지금 줄의 속성 색 — review_H §7.2 [제안])
+ func set_tint(col: Color, instant := false) -> void:
+ 	_tint_to = col
+@@ -172,81 +179,114 @@ func _c(k: String) -> Color:
+ 	return _p.get(k, THEMES.field.get(k, Color.BLACK))
+ 
+ 
++## 검토 O §1: 움직이지 않는 층(하늘·먼 산·숲·땅 결·풀·바위)은 테마·화면 크기가 바뀔 때 한 번만 그려 꼭짓점 배열을 기억해 두고,
++## 매 프레임(20Hz)엔 그 배열을 맨 앞에 붙인 뒤 움직이는 것(별·달·구름·안개·재·등불·번개·어둡게)만 위에 그린다.
++## 정적 층이 맨 앞이라 번호를 옮길 필요가 없다(idx 그대로). 그리기 호출은 전과 같이 1번.
++var _st_key := ""
++var _st_v := PackedVector2Array()
++var _st_c := PackedColorArray()
++var _st_i := PackedInt32Array()
++
++
+ func _paint() -> void:
+-	var motif := String(_p.get("motif", "ruins"))
+-	var sky: Array = _p.sky
+-	var interior := motif in ["corridor"]
+-	# 넓은 화면 (review_K K-01): 640×360 그림은 가운데 그대로, 하늘·땅·길·안개·띠만 화면 끝(L·R)까지 늘린다 (위아래 B·U도)
+ 	var L := TTheme.left()
+ 	var R := TTheme.right()
+ 	var U := -TTheme.ofs.y
+ 	var B := 360.0 + TTheme.ofs.y
+-	# 하늘 (실내면 천장)
++	var key := "%s|%d|%d|%d" % [theme, int(L), int(R), int(B)]
++	if key != _st_key:
++		_st_key = key
++		pd.clear()
++		_paint_static(L, R, U, B)
++		_st_v = pd.v.duplicate()
++		_st_c = pd.c.duplicate()
++		_st_i = pd.idx.duplicate()
++	else:
++		pd.v.append_array(_st_v)
++		pd.c.append_array(_st_c)
++		pd.idx.append_array(_st_i)
++	_paint_dynamic(L, R, U, B)
++
++
++## 움직이지 않는 층 (뒤 → 앞): 하늘 4단 · 지평선 대기 빛 · 먼 산(하늘색에 55% 섞음) · 대기 안개 · 가운데 능선 + 숲(25%) · 테마 실루엣 ·
++## 땅 + 지평선 그림자 띠 · 길 · 땅 결 12줄 · 흙 알갱이 · 바위·풀 · 빛 웅덩이 · 덤불 · 키 라이트 · 가까운 풀(화면 아래 끝) · 앞 바위
++func _paint_static(L: float, R: float, U: float, B: float) -> void:
++	var motif := String(_p.get("motif", "ruins"))
++	var sky: Array = _p.sky
++	var interior := motif in ["corridor"]
++	var outdoor := not motif in ["corridor", "library"]
++	var s0: Color = sky[0]
++	var s1: Color = sky[1]
++	var s2: Color = sky[2]
++	var hz := s1.lerp(s2, 0.7)
++	# 하늘 4단 (위 · 가운데 · 지평선 위 · 지평선) — 2단 그라데이션의 띠 경계가 안 보이게
+ 	if U < 0.0:
+-		pd.draw_rect(Rect2(L, U, R - L, -U), sky[0])
+-	pd.rect_grad(Rect2(L, 0, R - L, 150), sky[0], sky[1])
+-	pd.rect_grad(Rect2(L, 150, R - L, 60), sky[1], sky[2])
+-	# 별
+-	var r := RandomNumberGenerator.new()
+-	r.seed = 3
+-	var sb := float(_p.get("stars", 1.0))
+-	if sb > 0.0:
+-		for i in 70:
+-			var p := Vector2(r.randf_range(0, 640), r.randf_range(0, 170))
+-			if L < 0.0 and i % 2 == 1: # 넓은 화면: 별 절반은 늘어난 하늘에도
+-				p.x = lerpf(L, R, p.x / 640.0)
+-			var tw := 0.5 + 0.5 * sin(_t * r.randf_range(1.0, 3.0) + r.randf() * TAU)
+-			pd.draw_rect(Rect2(p, Vector2(1, 1)), Color(1, 1, 1, minf((0.25 + 0.5 * tw * (1.0 - p.y / 200.0)) * sb, 1.0)))
+-	match motif:
+-		"prism": _aurora()
+-		"library": _rift_sky()
+-		"peaks": _clouds()
+-	# 달 (가운데 빈 하늘 — 오른쪽 위는 적 카드 자리) + 번짐
++		pd.draw_rect(Rect2(L, U, R - L, -U), s0)
++	pd.rect_grad(Rect2(L, 0, R - L, 100), s0, s1)
++	pd.rect_grad(Rect2(L, 100, R - L, 70), s1, hz)
++	pd.rect_grad(Rect2(L, 170, R - L, RIDGE_Y - 170.0), hz, s2.lightened(0.06))
++	pd.rect_grad(Rect2(L, 132, R - L, RIDGE_Y - 132.0), Color(s2.lightened(0.3), 0.0), Color(s2.lightened(0.3), 0.18)) # 지평선 대기 빛
++	if motif == "arena":
++		pd.draw_colored_polygon(PackedVector2Array([Vector2(286, 0), Vector2(314, 0), Vector2(380, 300), Vector2(220, 300)]), Color("#c8c8ff", 0.05)) # 찬 빛 기둥
++	if motif == "library":
++		_rift_lines(0.8)
+ 	var moon := _c("moon")
+-	if motif == "prism":
+-		moon = moon.lerp(_tint, 0.7)
+-	if moon.a > 0.0 and float(_p.get("mr", 0.0)) > 0.0:
++	if moon.a > 0.0 and float(_p.get("mr", 0.0)) > 0.0 and motif != "lake":
+ 		var mc: Vector2 = _p.get("mpos", Vector2(300, 108))
+-		var mr := float(_p.mr)
+-		var ma := float(_p.get("moon_a", 1.0))
+-		pd.glow(mc, mr * 2.6, Color(moon, 0.16 * ma + (0.08 if motif == "lava" else 0.0)), 0.0)
+-		if motif == "lava":
+-			pd.glow(mc, mr * 4.0, Color(moon, 0.08), 0.0) # 붉은 해 아지랑이
+-		pd.draw_circle(mc, mr, Color(moon, ma))
+-		if motif in ["ruins", "prism", "arena", "nest"]:
+-			var crater := moon.darkened(0.08)
+-			pd.draw_circle(mc + Vector2(-5, -3) * mr / 22.0, 3.5 * mr / 22.0, Color(crater, ma))
+-			pd.draw_circle(mc + Vector2(7, 6) * mr / 22.0, 2.5 * mr / 22.0, Color(crater, ma))
+-			pd.draw_circle(mc + Vector2(-8, 8) * mr / 22.0, 2.0 * mr / 22.0, Color(crater, ma))
+-		if motif != "lake":
+-			pd.draw_colored_polygon(PackedVector2Array([mc + Vector2(-10, 10), mc + Vector2(10, 10), Vector2(420, 300), Vector2(250, 300)]), Color(moon, 0.035 * ma)) # 달빛 줄기
+-	if motif == "arena":
+-		# 찬 빛 기둥 (위에서 가운데로)
+-		pd.draw_colored_polygon(PackedVector2Array([Vector2(286, 0), Vector2(314, 0), Vector2(380, 300), Vector2(220, 300)]), Color("#c8c8ff", 0.05))
+-	# 먼 산등성이 (가장 먼 층) — 실내는 없음
++		pd.draw_colored_polygon(PackedVector2Array([mc + Vector2(-10, 10), mc + Vector2(10, 10), Vector2(420, 300), Vector2(250, 300)]), Color(moon, 0.035 * float(_p.get("moon_a", 1.0)))) # 달빛 줄기
++	var ridge := _c("ridge")
++	# 먼 산 (가장 먼 층 — 하늘색에 55% 섞여 흐림, 달 쪽 사면에 옅은 달빛 선)
++	if outdoor:
++		var far1 := ridge.lerp(s2, 0.55)
++		var top := PackedVector2Array()
++		var x := floorf(L / 12.0) * 12.0
++		while x <= R + 12.0:
++			var h := 24.0 + 16.0 * sin(x * 0.012 + 1.3) + 14.0 * (1.0 - absf(sin(x * 0.029 + 0.7))) + 4.0 * sin(x * 0.11)
++			if motif == "peaks":
++				h += 10.0
++			top.append(Vector2(x, RIDGE_Y - 4.0 - h))
++			x += 12.0
++		var poly := top.duplicate()
++		poly.append(Vector2(top[top.size() - 1].x, RIDGE_Y + 2.0))
++		poly.append(Vector2(top[0].x, RIDGE_Y + 2.0))
++		pd.draw_colored_polygon(poly, far1)
++		for i in top.size() - 1:
++			if top[i + 1].y < top[i].y: # 오르막(왼쪽 = 달 쪽을 보는 사면)
++				pd.draw_line(top[i], top[i + 1], Color(moon if moon.a > 0.0 else s2.lightened(0.4), 0.12), 1.0)
++		pd.rect_grad(Rect2(L, 160, R - L, RIDGE_Y - 160.0), Color(s2, 0.0), Color(s2, 0.45)) # 먼 산 발치 대기
++	# 가운데 능선 + 숲 (하늘색 22% — 기존 산등성이를 한 겹 앞으로)
+ 	if not interior:
+-		var ridge := PackedVector2Array([Vector2(L, 210), Vector2(L, 182)])
++		var mid := ridge.lerp(s2, 0.22)
+ 		var rough := 2.2 if motif == "peaks" else 1.0
++		var rp := PackedVector2Array([Vector2(L, 210), Vector2(L, 186)])
+ 		var i0 := floori(L / 40.0)
+ 		for i in range(i0, ceili(R / 40.0) + 1):
+-			var x := 40.0 * float(i)
+-			ridge.append(Vector2(x, 180.0 + 9.0 * rough * sin(float(i) * 1.3) + 5.0 * rough * sin(float(i) * 3.1) - (14.0 if motif == "peaks" and i % 4 == 1 else 0.0)))
+-		ridge.append(Vector2(R, 184))
+-		ridge.append(Vector2(R, 210))
+-		pd.draw_colored_polygon(ridge, Color(_c("ridge"), 0.85))
++			var xx := 40.0 * float(i)
++			rp.append(Vector2(xx, 184.0 + 7.0 * rough * sin(float(i) * 1.3) + 4.0 * rough * sin(float(i) * 3.1) - (14.0 if motif == "peaks" and i % 4 == 1 else 0.0)))
++		rp.append(Vector2(R, 188))
++		rp.append(Vector2(R, 210))
++		pd.draw_colored_polygon(rp, mid)
++		if outdoor and motif != "lake" and motif != "peaks":
++			# 능선 위 나무 끝 (침엽 · 높이 6~13, 그림자 쪽 조금 어둡게) — 숲 띠
++			var tx := floorf(L / 7.0) * 7.0
++			while tx <= R:
++				var hh := EVfx.hash01(int(tx) * 7 + 3)
++				if hh > 0.18:
++					var base_y := _ridge_y(tx, rough, motif)
++					var th := 5.0 + 8.0 * hh
++					var tw := 2.6 + 1.6 * EVfx.hash01(int(tx) * 13 + 1)
++					pd.draw_colored_polygon(PackedVector2Array([Vector2(tx - tw, base_y + 2.0), Vector2(tx, base_y - th), Vector2(tx + tw, base_y + 2.0)]), mid)
++					pd.draw_line(Vector2(tx, base_y - th), Vector2(tx - tw * 0.7, base_y - th * 0.3), Color(moon if moon.a > 0.0 else s2.lightened(0.4), 0.08), 1.0)
++				tx += 7.0
++		pd.rect_grad(Rect2(L, 186, R - L, 22), Color(_c("fog"), 0.0), Color(_c("fog"), 0.30)) # 숲 발치 안개
+ 	# 지평선 불빛 (재의 왕·불길)
+ 	if _p.has("horizon"):
+ 		pd.rect_grad(Rect2(L, 158, R - L, 44), Color(_c("horizon"), 0.0), Color(_c("horizon"), float(_p.get("hz", 0.22))))
+-	# 지평선 안개 (천천히 흐르는 띠 둘)
++	# 지평선 안개
+ 	var fk := float(_p.get("fog_k", 1.0))
+ 	var fog := _c("fog")
+ 	pd.rect_grad(Rect2(L, 170, R - L, 40), Color(fog, 0.0), Color(fog, minf(0.35 * fk, 0.7)))
+-	for i in 2:
+-		var fx := fposmod(_t * (6.0 + 4.0 * float(i)) + 300.0 * float(i), 900.0) - 130.0
+-		pd.draw_set_transform(Vector2(fx, 200.0 + 6.0 * float(i)), 0.0, Vector2(1.0, 0.18))
+-		pd.glow(Vector2.ZERO, 130.0, Color(fog, 0.22 * fk), 0.0)
+-		pd.draw_set_transform(Vector2.ZERO)
+-	# 먼 실루엣 (테마마다)
++	# 가까운 실루엣 (테마마다 — 가장 어두운 층)
+ 	match motif:
+ 		"ruins", "prism", "lava": _ruins(motif)
+ 		"lake": _far_trees()
+@@ -255,32 +295,41 @@ func _paint() -> void:
+ 		"library": _shelves()
+ 		"nest": _nest_back()
+ 		"arena": _arena_back()
+-	# 땅: 지평선 아래 (깊이: 위가 어둡고 아래가 밝음)
++	# 땅
+ 	var gr: Array = _p.ground
+ 	pd.rect_grad(Rect2(L, RIDGE_Y, R - L, 154), gr[0], gr[1])
+ 	if B > 360.0:
+ 		pd.draw_rect(Rect2(L, 360, R - L, B - 360.0), gr[1])
+ 	pd.draw_line(Vector2(L, RIDGE_Y), Vector2(R, RIDGE_Y), Color(fog, 0.5), 1.0)
+ 	if motif == "lake":
+-		_lake()
+-	# 비스듬한 길 (왼쪽 아래 → 오른쪽 위)
+-	# 길은 같은 기울기로 화면 끝까지 (오른쪽 위로 이어짐)
++		_lake_base()
++	pd.rect_grad(Rect2(L, RIDGE_Y + 1.0, R - L, 16), Color(0, 0, 0, 0.30), Color(0, 0, 0, 0.0)) # 지평선 그림자 띠 (능선이 드리운 어둠)
++	# 비스듬한 길
+ 	pd.draw_colored_polygon(PackedVector2Array([Vector2(minf(L, 0.0), B), Vector2(150, 360), Vector2(R, 232 - (R - 640.0) * 0.26), Vector2(R, 214 + (R - 640.0) * 0.025), Vector2(560, 212)]), _c("path"))
+ 	pd.draw_colored_polygon(PackedVector2Array([Vector2(40, 360), Vector2(110, 360), Vector2(600, 236), Vector2(580, 226)]), Color(_c("lit"), 0.6))
+ 	if motif in ["corridor", "arena", "library"]:
+ 		_floor_tiles(motif)
+ 	else:
+-		# 길 가장자리 결 (대각선 줄 몇 개 — 원근)
+ 		for i in 7:
+ 			var f := float(i) / 6.0
+ 			pd.draw_line(Vector2(lerpf(-40, 180, f), 360), Vector2(R, lerpf(226, 290, f) - (R - 640.0) * 0.2), Color(_c("lit"), 0.18 + 0.1 * (1.0 - f)), 1.0)
+-	# 가로 띠 (바닥 층을 읽히게)
+-	for i in 5:
+-		var y := lerpf(215, 352, pow(float(i) / 4.0, 1.3))
+-		pd.draw_line(Vector2(L, y), Vector2(R, y + 2), Color(gr[0], 0.5), 1.0)
++	# 땅 결 12줄 (원근 — 멀수록 촘촘, 밝은 결·어두운 결 번갈아)
++	for i in 12:
++		var y := RIDGE_Y + 3.0 + 148.0 * pow(float(i + 1) / 12.0, 1.7)
++		var col := Color((gr[1] as Color).lightened(0.16), 0.16) if i % 2 == 0 else Color((gr[0] as Color).darkened(0.35), 0.30)
++		pd.draw_line(Vector2(L, y), Vector2(R, y + 1.5), col, 1.0)
++	# 흙 알갱이 (앞으로 갈수록 크고 많음) — 단색 땅의 평면을 깸
++	var r := RandomNumberGenerator.new()
++	r.seed = 29
++	for i in 90:
++		var d := pow(r.randf(), 0.6)
++		var p := Vector2(lerpf(L, R, r.randf()), RIDGE_Y + 8.0 + 90.0 * d)
++		var s := 1.0 + floorf(d * 1.9)
++		var light := i % 3 != 0
++		pd.draw_rect(Rect2(p, Vector2(s, maxf(s - 1.0, 1.0))), Color((gr[1] as Color).lightened(0.22), 0.30) if light else Color((gr[0] as Color).darkened(0.4), 0.45))
+ 	if motif == "lava":
+-		_lava_cracks()
+-	# 바위·풀 (실내·서고는 돌 부스러기만)
++		pass # 용암 금은 움직이는 층
++	# 바위·풀 (흔들림은 0.6px라 정적으로)
+ 	r.seed = 11
+ 	var grass := _c("grass")
+ 	for i in 26:
+@@ -292,52 +341,190 @@ func _paint() -> void:
+ 		if i % 3 == 0 or interior or motif in ["library", "arena"]:
+ 			pd.draw_colored_polygon(PackedVector2Array([p + Vector2(-3 * s, 0), p + Vector2(-1 * s, -2.4 * s), p + Vector2(2.4 * s, -1.6 * s), p + Vector2(3.2 * s, 0)]), gr[1].lightened(0.12))
+ 			pd.draw_line(p + Vector2(-1 * s, -2.4 * s), p + Vector2(2.4 * s, -1.6 * s), gr[1].lightened(0.25), 0.8)
++			pd.draw_line(p + Vector2(-2.6 * s, 0.6), p + Vector2(3.4 * s, 0.6), Color(0, 0, 0, 0.35), 1.0) # 바위 밑 그림자
+ 		else:
+-			var tall := 1.6 if motif == "lake" else 1.0 # 호수: 갈대
++			var tall := 1.6 if motif == "lake" else 1.0
+ 			for j in 4:
+ 				var b := p + Vector2((float(j) - 1.5) * 1.6 * s, 0)
+-				pd.draw_line(b, b + Vector2(r.randf_range(-1.5, 1.5) * s + sin(_t * 1.5 + p.x) * 0.6, -r.randf_range(3.0, 6.0) * s * tall), grass, 0.9)
+-	# 양 진영 아래 빛 웅덩이 — 그림이 바닥에서 떠오르게 (마녀 쪽 · 적 쪽, review_C §8.3)
++				pd.draw_line(b, b + Vector2(r.randf_range(-1.5, 1.5) * s, -r.randf_range(3.0, 6.0) * s * tall), grass, 0.9)
++	# 양 진영 아래 빛 웅덩이
+ 	pd.draw_set_transform(Vector2(160, 262), 0.0, Vector2(1.0, 0.35))
+ 	pd.glow(Vector2.ZERO, 130.0, Color(_c("pa"), 0.35), 0.0)
+ 	pd.glow(Vector2.ZERO, 120.0, Color("#b9a2ff", 0.10), 0.0)
+ 	pd.draw_set_transform(Vector2(506, 262), 0.0, Vector2(1.0, 0.35))
+ 	pd.glow(Vector2.ZERO, 130.0, Color("#3a4a4a", 0.30), 0.0)
+ 	pd.glow(Vector2.ZERO, 120.0, Color(_c("pf"), 0.08), 0.0)
++	for pl: Array in _pools: # 마녀 발밑 빛 원 — 속성 색 + 달빛 (검토 O §3)
++		pd.draw_set_transform(pl[0] as Vector2, 0.0, Vector2(1.0, 0.3))
++		pd.glow(Vector2.ZERO, 34.0, Color(pl[1] as Color, 0.24), 0.0)
++		pd.glow(Vector2.ZERO, 18.0, Color(_c("moon") if _c("moon").a > 0.0 else Color("#e6dcff"), 0.10), 0.0)
+ 	pd.draw_set_transform(Vector2.ZERO)
+ 	if motif in ["ruins", "prism", "lava", "lake", "peaks", "nest"]:
+ 		_bushes(grass)
+-	# 캐릭터 허리 높이 옅은 안개 띠 (y 200~240) — 짙은 옷의 실루엣을 땅에서 뗌
+-	for i in 2:
+-		var fx := fposmod(_t * (5.0 + 3.0 * float(i)) + 420.0 * float(i), 1000.0) - 180.0
+-		pd.draw_set_transform(Vector2(fx, 222.0 + 10.0 * float(i)), 0.0, Vector2(1.0, 0.14))
+-		pd.glow(Vector2.ZERO, 200.0, Color(1, 1, 1, 0.06 * fk), 0.0)
+-		pd.draw_set_transform(Vector2.ZERO)
+ 	pd.rect_grad(Rect2(L, 200, R - L, 20), Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.035))
+ 	pd.rect_grad(Rect2(L, 220, R - L, 20), Color(1, 1, 1, 0.035), Color(1, 1, 1, 0.0))
+-	if motif == "corridor":
+-		_lanterns()
+-	# 아군 쪽 왼편 키 라이트 (적 쪽 차가운 빛과 온도를 나눔)
+-	pd.glow(Vector2(40, 330), 240.0, Color(_c("key"), 0.08), 0.0)
+-	# 앞쪽 바위 테두리 (아래 모서리 — 화면 앞 층, 아래 띠 뒤라 그림을 가리지 않음)
+-	var near: Color = _c("ridge").darkened(0.35)
+-	# (화면 끝에 붙임 — 넓은 화면이면 L·R 쪽으로)
++	pd.glow(Vector2(40, 330), 240.0, Color(_c("key"), 0.08), 0.0) # 아군 쪽 키 라이트
++	_near_grass(L, R, motif)
++	# 앞쪽 바위 테두리
++	var near: Color = ridge.darkened(0.35)
+ 	var nl := Vector2(L, 0)
+ 	var nr := Vector2(R - 640.0, 0)
+ 	pd.draw_colored_polygon(PackedVector2Array([nl + Vector2(0, B), nl + Vector2(0, 286), nl + Vector2(18, 290), nl + Vector2(34, 302), nl + Vector2(52, 300), nl + Vector2(70, 312), nl + Vector2(76, B)]), near)
+ 	pd.draw_colored_polygon(PackedVector2Array([nr + Vector2(640, B), nr + Vector2(640, 280), nr + Vector2(622, 286), nr + Vector2(606, 298), nr + Vector2(590, 296), nr + Vector2(574, 310), nr + Vector2(566, B)]), near)
+ 	pd.draw_line(nl + Vector2(0, 286), nl + Vector2(18, 290), Color(_c("lit"), 0.8), 1.0)
+ 	pd.draw_line(nr + Vector2(640, 280), nr + Vector2(622, 286), Color(_c("lit"), 0.8), 1.0)
++
++
++## 가운데 능선의 높이 (숲 나무를 능선 위에 세우려고 _paint_static과 같은 식)
++func _ridge_y(x: float, rough: float, motif: String) -> float:
++	var f := x / 40.0
++	var i := floori(f)
++	var a := 184.0 + 7.0 * rough * sin(float(i) * 1.3) + 4.0 * rough * sin(float(i) * 3.1) - (14.0 if motif == "peaks" and posmod(i, 4) == 1 else 0.0)
++	var b := 184.0 + 7.0 * rough * sin(float(i + 1) * 1.3) + 4.0 * rough * sin(float(i + 1) * 3.1) - (14.0 if motif == "peaks" and posmod(i + 1, 4) == 1 else 0.0)
++	return lerpf(a, b, f - float(i))
++
++
++## 가까운 풀 (화면 아래 끝 — 아래 패널 위로 끝만 보임): 어두운 실루엣 잎 + 달 쪽 가장자리 옅은 빛. 실내는 돌 부스러기
++func _near_grass(L: float, R: float, motif: String) -> void:
++	var gr: Array = _p.ground
++	var dark := (gr[0] as Color).darkened(0.5)
++	var moon := _c("moon")
++	var lit := Color(moon if moon.a > 0.0 else _c("key"), 0.28)
++	var spots := [[L + 6.0, 300.0, 1.0], [L + 44.0, 304.0, 0.8], [L + 96.0, 303.0, 0.7], [300.0, 304.0, 0.7], [346.0, 303.0, 0.6], [R - 92.0, 302.0, 0.8], [R - 46.0, 300.0, 1.0], [R - 10.0, 304.0, 0.9]]
++	for k in spots.size():
++		var sp: Array = spots[k]
++		var b0 := Vector2(float(sp[0]), float(sp[1]))
++		var sc := float(sp[2])
++		pd.draw_set_transform(b0, 0.0, Vector2(1.0, 0.3))
++		pd.glow(Vector2.ZERO, 16.0 * sc, Color(0, 0, 0, 0.45), 0.0)
++		pd.draw_set_transform(Vector2.ZERO)
++		if motif in ["corridor", "library", "arena"]:
++			for j in 3:
++				var q := b0 + Vector2((float(j) - 1.0) * 7.0 * sc, -float(j % 2) * 2.0)
++				var s := (4.0 + 2.0 * float(j % 2)) * sc
++				pd.draw_colored_polygon(PackedVector2Array([q + Vector2(-s, 0), q + Vector2(-s * 0.5, -s * 0.8), q + Vector2(s * 0.6, -s * 0.7), q + Vector2(s, 0)]), dark.lightened(0.08))
++				pd.draw_line(q + Vector2(-s * 0.5, -s * 0.8), q + Vector2(s * 0.6, -s * 0.7), lit, 1.0)
++			continue
++		for j in 7:
++			var h := (10.0 + 10.0 * EVfx.hash01(k * 31 + j * 7)) * sc
++			var lean := (EVfx.hash01(k * 17 + j * 3) - 0.5) * 10.0 * sc + (float(j) - 3.0) * 1.2
++			var base := b0 + Vector2((float(j) - 3.0) * 2.6 * sc, 0)
++			var tip := base + Vector2(lean, -h)
++			pd.line2(base, tip, dark, dark, 2.4 * sc, 0.5)
++			pd.line2(base + Vector2(-0.8, -h * 0.3), tip, Color(lit, 0.0), lit, 0.9, 0.4) # 달 쪽 가장자리
++
++
++## 움직이는 층: 별(반짝임) · 달(달무리) · 구름 띠 · 테마 하늘(번개 구름·오로라·틈) · 흐르는 안개 · 물결 · 용암 · 등불 · 떠다니는 것 · 번개 · 가장자리 어둡게 · 덮개
++func _paint_dynamic(L: float, R: float, U: float, B: float) -> void:
++	var motif := String(_p.get("motif", "ruins"))
++	var r := RandomNumberGenerator.new()
++	r.seed = 3
++	var sb := float(_p.get("stars", 1.0))
++	var moon := _c("moon")
++	if motif == "prism":
++		moon = moon.lerp(_tint, 0.7)
++	var mc: Vector2 = _p.get("mpos", Vector2(300, 108))
++	var mr := float(_p.get("mr", 0.0))
++	var has_moon := moon.a > 0.0 and mr > 0.0
++	# 별 — 정적 층(산·책장·기둥) 위에 그려지므로 그 꼭대기보다 위에만
++	var ymax := {"arena": 86.0, "library": 118.0, "peaks": 104.0}.get(motif, 140.0) as float
++	if sb > 0.0:
++		for i in 70:
++			var p := Vector2(r.randf_range(0, 640), r.randf_range(0, 170))
++			if L < 0.0 and i % 2 == 1:
++				p.x = lerpf(L, R, p.x / 640.0)
++			var tw := 0.5 + 0.5 * sin(_t * r.randf_range(1.0, 3.0) + r.randf() * TAU)
++			if p.y > ymax or (has_moon and p.distance_to(mc) < mr + 3.0):
++				continue
++			var a := minf((0.25 + 0.5 * tw * (1.0 - p.y / 200.0)) * sb, 1.0)
++			pd.draw_rect(Rect2(p, Vector2(1, 1)), Color(1, 1, 1, a))
++			if i % 11 == 0: # 큰 별 (십자 반짝임)
++				pd.draw_rect(Rect2(p + Vector2(-1, 0), Vector2(3, 1)), Color(1, 1, 1, a * 0.45))
++				pd.draw_rect(Rect2(p + Vector2(0, -1), Vector2(1, 3)), Color(1, 1, 1, a * 0.45))
++	match motif:
++		"prism": _aurora()
++		"library": _rift_glow()
++		"peaks": _clouds()
++	# 달 + 달무리 (둥근 빛무리 · 얇은 고리 · 그늘진 반달 · 테두리 빛)
++	if has_moon:
++		var ma := float(_p.get("moon_a", 1.0))
++		pd.glow(mc, mr * 6.0, Color(moon, 0.05 * ma), 0.0)
++		pd.glow(mc, mr * 2.6, Color(moon, 0.16 * ma + (0.08 if motif == "lava" else 0.0)), 0.0)
++		if motif == "lava":
++			pd.glow(mc, mr * 4.0, Color(moon, 0.08), 0.0)
++		else:
++			pd.ring_grad(mc, Vector2(mr * 1.9, mr * 1.9), Vector2(mr * 2.15, mr * 2.15), Color(moon, 0.0), Color(moon, 0.10 * ma), 36)
++			pd.ring_grad(mc, Vector2(mr * 2.15, mr * 2.15), Vector2(mr * 2.6, mr * 2.6), Color(moon, 0.10 * ma), Color(moon, 0.0), 36)
++		pd.draw_circle(mc, mr, Color(moon.darkened(0.16), ma))
++		pd.draw_circle(mc + Vector2(-0.10, -0.08) * mr, mr * 0.9, Color(moon, ma))
++		if motif in ["ruins", "prism", "arena", "nest"]:
++			var crater := Color(moon.darkened(0.10), 0.7 * ma)
++			pd.draw_circle(mc + Vector2(-5, -3) * mr / 22.0, 3.5 * mr / 22.0, crater)
++			pd.draw_circle(mc + Vector2(7, 6) * mr / 22.0, 2.5 * mr / 22.0, crater)
++			pd.draw_circle(mc + Vector2(-8, 8) * mr / 22.0, 2.0 * mr / 22.0, crater)
++		pd.draw_arc(mc, mr - 0.5, PI * 1.05, PI * 1.6, 10, Color(1, 1, 1, 0.5 * ma), 1.0)
++	# 구름 띠 (바깥 테마 — 달 가까운 아래 가장자리가 빛남, 천천히 흐름)
++	if not motif in ["corridor", "library", "peaks"]:
++		var ccol: Color = (_p.sky[1] as Color).lerp(_c("fog"), 0.35).darkened(0.12)
++		var edge := moon if has_moon else _c("horizon") if _p.has("horizon") else _c("fog")
++		for b in 3:
++			var by := [62.0, 86.0, 128.0][b] as float
++			var ln := [300.0, 220.0, 380.0][b] as float
++			var x0 := fposmod(([40.0, 400.0, -60.0][b] as float) + ln + 100.0 - L + _t * (2.0 + 1.5 * float(b)), (R - L) + ln + 200.0) + L - ln - 100.0 # 처음엔 셋 다 화면 안 (왼쪽 · 달 오른쪽 · 아래 길게)
++			_cloud_band(Vector2(x0, by), ln, 9.0 + 3.0 * float(b), ccol, edge, mc, b)
++	# 흐르는 안개 (지평선 둘 · 허리 높이 둘)
++	var fk := float(_p.get("fog_k", 1.0))
++	var fog := _c("fog")
++	for i in 2:
++		var fx := fposmod(_t * (6.0 + 4.0 * float(i)) + 300.0 * float(i), 900.0) - 130.0
++		pd.draw_set_transform(Vector2(fx, 200.0 + 6.0 * float(i)), 0.0, Vector2(1.0, 0.18))
++		pd.glow(Vector2.ZERO, 130.0, Color(fog, 0.22 * fk), 0.0)
++	for i in 2:
++		var fx := fposmod(_t * (5.0 + 3.0 * float(i)) + 420.0 * float(i), 1000.0) - 180.0
++		pd.draw_set_transform(Vector2(fx, 222.0 + 10.0 * float(i)), 0.0, Vector2(1.0, 0.14))
++		pd.glow(Vector2.ZERO, 200.0, Color(1, 1, 1, 0.06 * fk), 0.0)
++	pd.draw_set_transform(Vector2.ZERO)
++	match motif:
++		"lake": _lake_ripples()
++		"lava": _lava_cracks()
++		"prism": _prism_shards()
++		"peaks": _peak_glints()
++		"corridor": _lanterns()
+ 	_dust_draw()
+ 	if motif == "peaks" and _bolt > 0.0:
+ 		_lightning()
+-	# 가장자리 어둡게 + 아래 띠(아군 패널) 뒤를 더 어둡게 — 패널이 바탕과 섞이지 않게
+ 	var wk := (R - L) / 640.0
+ 	pd.ring_grad(Vector2(320, 180), Vector2(300 * wk, 170), Vector2(520 * wk, 330), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.6), 40)
+ 	pd.rect_grad(Rect2(L, 290, R - L, 12), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.35))
+ 	pd.draw_rect(Rect2(L, 302, R - L, B - 302.0), Color(0, 0, 0, 0.35))
+ 	if _veil > 0.0:
+-		pd.draw_rect(Rect2(L, U, R - L, B - U), Color(0, 0, 0, 0.85 * _veil)) # 테마가 바뀌는 순간
++		pd.draw_rect(Rect2(L, U, R - L, B - U), Color(0, 0, 0, 0.85 * _veil))
++
++
++## 구름 띠 하나: 위는 뭉게(혹 5~8개), 아래는 거의 평평 · 아래 가장자리가 달(또는 지평선 불빛) 가까울수록 밝게
++func _cloud_band(at: Vector2, ln: float, th: float, col: Color, edge: Color, mc: Vector2, seed_i: int) -> void:
++	var n := int(ln / 16.0) + 1
++	var top := PackedVector2Array()
++	var bot := PackedVector2Array()
++	for i in n + 1:
++		var f := float(i) / float(n)
++		var x := at.x + ln * f
++		var taper := sin(f * PI)
++		var bump := (0.55 + 0.45 * absf(sin(float(i) * 1.9 + float(seed_i) * 2.3))) * th * 1.6
++		top.append(Vector2(x, at.y - bump * taper))
++		bot.append(Vector2(x, at.y + th * 0.35 * taper))
++	var mid := PackedVector2Array()
++	for i in top.size():
++		mid.append(top[i].lerp(bot[i], 0.45))
++	pd.strip(top, bot, Color(col, 0.62))
++	pd.strip(mid, bot, Color(col.darkened(0.18), 0.5)) # 아래 절반 그늘 (2단)
++	for i in n:
++		var k := clampf(1.0 - absf(bot[i].x - mc.x) / 260.0, 0.0, 1.0)
++		var k2 := clampf(1.0 - absf(top[i].x - mc.x) / 200.0, 0.0, 1.0)
++		if k > 0.02:
++			pd.line2(bot[i], bot[i + 1], Color(edge, 0.45 * k), Color(edge, 0.45 * k), 1.0)
++		if k2 > 0.02:
++			pd.line2(top[i], top[i + 1], Color(edge, 0.22 * k2), Color(edge, 0.22 * k2), 1.0)
+ 
+ 
+ # ── 먼 실루엣 ───────────────────────────────────────────────
+@@ -354,18 +541,20 @@ func _ruins(motif: String) -> void:
+ 		pd.draw_line(Vector2(x + 1, 208 - h * 0.6), Vector2(x - 7, 208 - h * 0.9), far, 1.4)
+ 		pd.draw_line(Vector2(x + 1, 208 - h * 0.75), Vector2(x + 8, 208 - h), far, 1.4)
+ 		pd.draw_line(Vector2(x, 208 - h * 0.4), Vector2(x - 5, 208 - h * 0.5), far, 1.0)
+-	if motif == "prism":
+-		# 떠 있는 빛 조각 셋 (세 속성 색) — 천천히 돈다
+-		for i in 3:
+-			var col: Color = [Color("#5ec8ff"), Color("#ffe34a"), Color("#ff8a3a")][i]
+-			var c := Vector2(170.0 + 150.0 * float(i), 150.0 + 8.0 * sin(_t * 0.8 + float(i) * 2.1))
+-			var a := _t * 0.6 + float(i)
+-			var pts := PackedVector2Array()
+-			for k in 4:
+-				var ang := a + float(k) * PI * 0.5
+-				pts.append(c + Vector2(cos(ang) * (5.0 if k % 2 == 0 else 3.0), sin(ang) * (9.0 if k % 2 == 0 else 3.5)))
+-			pd.glow(c, 16.0, Color(col, 0.18), 0.0)
+-			pd.draw_colored_polygon(pts, Color(col, 0.8))
++
++
++## 세 빛의 인형: 떠 있는 빛 조각 셋 (세 속성 색) — 천천히 돈다 (움직이는 층)
++func _prism_shards() -> void:
++	for i in 3:
++		var col: Color = [Color("#5ec8ff"), Color("#ffe34a"), Color("#ff8a3a")][i]
++		var c := Vector2(170.0 + 150.0 * float(i), 150.0 + 8.0 * sin(_t * 0.8 + float(i) * 2.1))
++		var a := _t * 0.6 + float(i)
++		var pts := PackedVector2Array()
++		for k in 4:
++			var ang := a + float(k) * PI * 0.5
++			pts.append(c + Vector2(cos(ang) * (5.0 if k % 2 == 0 else 3.0), sin(ang) * (9.0 if k % 2 == 0 else 3.5)))
++		pd.glow(c, 16.0, Color(col, 0.18), 0.0)
++		pd.draw_colored_polygon(pts, Color(col, 0.8))
+ 
+ 
+ ## 호수: 맞은편 기슭의 침엽수 줄
+@@ -383,6 +572,10 @@ func _peaks() -> void:
+ 	var far := _c("far")
+ 	pd.draw_colored_polygon(PackedVector2Array([Vector2(0, 208), Vector2(0, 130), Vector2(22, 112), Vector2(46, 140), Vector2(70, 120), Vector2(104, 170), Vector2(130, 208)]), far)
+ 	pd.draw_colored_polygon(PackedVector2Array([Vector2(520, 208), Vector2(556, 150), Vector2(574, 160), Vector2(600, 118), Vector2(624, 136), Vector2(640, 128), Vector2(640, 208)]), far)
++
++
++## 뇌운 고개: 봉우리 능선의 빛 (번개 때 밝아짐 — 움직이는 층)
++func _peak_glints() -> void:
+ 	pd.draw_line(Vector2(22, 112), Vector2(46, 140), Color(_c("lit"), 0.5 + 0.5 * _bolt), 1.0)
+ 	pd.draw_line(Vector2(600, 118), Vector2(624, 136), Color(_c("lit"), 0.5 + 0.5 * _bolt), 1.0)
+ 
+@@ -432,10 +625,15 @@ func _aurora() -> void:
+ 
+ 
+ ## 틈새 서고: 하늘에 갈라진 보랏빛 틈 (숨쉬듯 밝아짐)
+-func _rift_sky() -> void:
++func _rift_glow() -> void:
+ 	var br := 0.7 + 0.3 * sin(_t * 1.6)
+-	var pts := PackedVector2Array([Vector2(260, 30), Vector2(282, 58), Vector2(270, 80), Vector2(298, 108), Vector2(290, 132), Vector2(318, 150)])
+ 	pd.glow(Vector2(290, 92), 90.0, Color("#b9a2ff", 0.10 * br), 0.0)
++	pd.glow(Vector2(290, 92), 30.0, Color("#e8dcff", 0.10 * br), 0.0)
++
++
++## 틈새 서고: 틈의 갈라진 줄 (정적 층 — 숨쉬기는 _rift_glow)
++func _rift_lines(br: float) -> void:
++	var pts := PackedVector2Array([Vector2(260, 30), Vector2(282, 58), Vector2(270, 80), Vector2(298, 108), Vector2(290, 132), Vector2(318, 150)])
+ 	for i in pts.size() - 1:
+ 		pd.line2(pts[i], pts[i + 1], Color("#e8dcff", 0.9 * br), Color("#e8dcff", 0.9 * br), 2.2, 1.6)
+ 		pd.line2(pts[i], pts[i + 1], Color("#b9a2ff", 0.35 * br), Color("#b9a2ff", 0.35 * br), 6.0, 5.0)
+@@ -543,10 +741,14 @@ func _lava_cracks() -> void:
+ 
+ 
+ ## 안개 호수: 지평선 아래 물 띠 + 달 그림자 + 물결 줄
+-func _lake() -> void:
++func _lake_base() -> void:
++	pd.rect_grad(Rect2(TTheme.left(), RIDGE_Y, TTheme.view.x, 236.0 - RIDGE_Y), Color("#1a3a5a", 0.85), Color("#10263a", 0.85))
++	pd.draw_line(Vector2(TTheme.left(), 236.0), Vector2(TTheme.right(), 236.0), Color("#4a6a88", 0.4), 1.0)
++
++
++## 안개 호수: 달 그림자 · 물결 줄 (움직이는 층)
++func _lake_ripples() -> void:
+ 	var w0 := RIDGE_Y
+-	var w1 := 236.0
+-	pd.rect_grad(Rect2(TTheme.left(), w0, TTheme.view.x, w1 - w0), Color("#1a3a5a", 0.85), Color("#10263a", 0.85))
+ 	var mc: Vector2 = _p.get("mpos", Vector2(300, 96))
+ 	for i in 8:
+ 		var y := w0 + 3.0 + 3.6 * float(i)
+@@ -556,7 +758,6 @@ func _lake() -> void:
+ 		var x := fposmod(64.0 * float(i) + _t * 8.0, 680.0) - 20.0
+ 		var y := w0 + 6.0 + 22.0 * float(i % 3) / 2.0
+ 		pd.draw_line(Vector2(x, y), Vector2(x + 18, y), Color("#6a9ac8", 0.25), 1.0)
+-	pd.draw_line(Vector2(TTheme.left(), w1), Vector2(TTheme.right(), w1), Color("#4a6a88", 0.4), 1.0)
+ 
+ 
+ ## 잿빛 둥지: 마른 가지 큰 실루엣 + 오른쪽 둥지 언덕
+diff --git a/game/proto/turn/t_enemy_art.gd b/game/proto/turn/t_enemy_art.gd
+index 1c28ec8..92d3951 100644
+--- a/game/proto/turn/t_enemy_art.gd
++++ b/game/proto/turn/t_enemy_art.gd
+@@ -13,7 +13,8 @@ const OUT := Color("#0a090e")
+ const EMBER := Color("#ff7a2a")
+ const EMBER_PALE := Color("#ffd9a0")
+ const RIM_LIGHT := Color(0.85, 0.82, 1.0, 0.38) ## 테두리 빛 (마녀와 같은 방법, 조금 옅게)
+-const RIM_OFFS: Array[Vector2] = [Vector2(-0.5, -0.5), Vector2(0.5, 0.5)]
++const RIM_OFFS: Array[Vector2] = [Vector2(0.7, 0.8), Vector2(-0.6, -0.6)] ## 검토 O §2: 오른쪽 아래 = 어두운 외곽선 · 왼쪽 위(달 쪽) = 테 빛 (그리기 명령 2개 그대로)
++const RIM_COLS: Array[Color] = [Color(0.04, 0.035, 0.055, 0.95), Color(0.93, 0.9, 1.0, 0.6)]
+ const OWN_ART := ["ash_king", "trial_colossus"] ## 데이터의 art 대신 id로 그리는 전용 그림
+ ## 그림 크기 (원점 = 발밑, 그림 단위 — TActor가 데이터 size × 1.8배): kind → [키, 반폭]
+ const DIMS := {"straw_golem": [50.0, 13.0], "swamp_toad": [30.0, 26.0], "ash_knight": [60.0, 16.0], "ash_king": [60.0, 19.0], "trial_colossus": [62.0, 22.0],
+@@ -54,7 +55,8 @@ static func kind_for(id: String, art: String) -> String:
+ 
+ func _ready() -> void:
+ 	_rng.seed = hash(kind)
+-	_rim_ci = TWitchArt.rim_make(self, RIM_LIGHT)
++	_rim_ci = TWitchArt.rim_make(self, RIM_LIGHT, false)
++	material = TWitchArt.shade_mat(height(), half_w(), 0.18, 0.30, 0.14, 1.0) # 위 빛 · 아래 그림자 · 달 반대(오른쪽) 그늘 — 마녀와 같은 셰이더
+ 
+ 
+ func _notification(what: int) -> void:
+@@ -64,7 +66,7 @@ func _notification(what: int) -> void:
+ 
+ func _draw() -> void:
+ 	_paint()
+-	TWitchArt.rim_paint(_rim_ci, pd, RIM_OFFS if fade >= 0.99 else []) # 옅어지는 중엔 테두리 빛이 비쳐 흰 실루엣이 되므로 끔
++	TWitchArt.rim_paint_cols(_rim_ci, pd, RIM_OFFS if fade >= 0.99 else [], RIM_COLS) # 옅어지는 중엔 테두리 빛이 비쳐 흰 실루엣이 되므로 끔
+ 	pd.flush(self)
+ 
+ 
+@@ -213,6 +215,7 @@ func _paint() -> void:
+ 		return
+ 	pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.24))
+ 	pd.glow(Vector2.ZERO, half_w() * 0.9, Color(0, 0, 0, 0.5), 0.0)
++	pd.glow(Vector2(0, 1.0), half_w() * 0.55, Color(0, 0, 0, 0.6), 0.0) # 접지 그림자 (발이 땅에 붙게 — 검토 O §2)
+ 	pd.draw_set_transform(Vector2.ZERO)
+ 	match kind:
+ 		"straw_golem": _paint_golem()
+@@ -284,6 +287,9 @@ func _paint_golem() -> void:
+ 	# 몸통 (큰 짚단, 밧줄 두 줄)
+ 	var torso := PackedVector2Array([Vector2(-11 + sway, -40), Vector2(11 + sway, -40), Vector2(12.5, -24), Vector2(10, -13), Vector2(-10, -13), Vector2(-12.5, -24)])
+ 	_straw(torso, Color("#c9a85c"), 7, 3)
++	# 명암 3단 (검토 O §2): 왼쪽 위 빛 · 오른쪽(달 반대) 그늘 — 결 위에 옅게 덮음
++	pd.draw_colored_polygon(PackedVector2Array([Vector2(-11 + sway, -40), Vector2(-5 + sway, -40), Vector2(-6.5, -13), Vector2(-10, -13), Vector2(-12.5, -24)]), Color("#f2dc9a", 0.22))
++	pd.draw_colored_polygon(PackedVector2Array([Vector2(5 + sway, -40), Vector2(11 + sway, -40), Vector2(12.5, -24), Vector2(10, -13), Vector2(4, -13)]), Color("#6b4a1e", 0.38))
+ 	for y: float in [-33.0, -20.0]:
+ 		pd.draw_line(Vector2(-12.6 + sway * 0.5, y), Vector2(12.6 + sway * 0.5, y + 0.8), Color("#6b3f1f"), 2.2)
+ 		pd.draw_line(Vector2(-12.0 + sway * 0.5, y - 0.6), Vector2(12.0 + sway * 0.5, y + 0.2), Color("#9a6a3a"), 0.6)
+@@ -307,18 +313,30 @@ func _paint_golem() -> void:
+ 	for i in 4: # 팔 끝 풀린 짚
+ 		var e := Vector2(-18 - lift * 0.6 + float(i) * 1.6, -16.5 - lift)
+ 		pd.draw_line(e, e + Vector2(-1.5 + float(i) * 0.8, 3.0), Color("#8a6a2e"), 0.8)
+-	# 머리: 자루 (목 밧줄)
++	# 머리: 자루 (목 밧줄) — 아래가 불룩한 천 자루 + 위로 묶어 올린 두 귀 (검토 O §2: 상자 머리 → 자루)
+ 	var hc := Vector2(sway * 1.4, -48)
+-	var head := PackedVector2Array([hc + Vector2(-7, -7), hc + Vector2(-3, -10), hc + Vector2(4, -10), hc + Vector2(7.5, -6), hc + Vector2(7, 6), hc + Vector2(-7, 6)])
++	var head := PackedVector2Array([hc + Vector2(-6.5, -8), hc + Vector2(-3.5, -10.5), hc + Vector2(0, -8.8), hc + Vector2(3.5, -10.5), hc + Vector2(7, -7.5),
++		hc + Vector2(8.4, -1.5), hc + Vector2(7.8, 4.2), hc + Vector2(5, 6.8), hc + Vector2(-5, 6.8), hc + Vector2(-7.8, 4.2), hc + Vector2(-8.6, -1.5)])
+ 	pd.outlined(head, Color("#a6894a"), OUT, 0.8)
+-	pd.draw_line(hc + Vector2(-5.5, -7), hc + Vector2(-2, 5), Color("#8a6a2e"), 0.6)
+-	pd.draw_line(hc + Vector2(-7, 6.5), hc + Vector2(7, 7), Color("#6b3f1f"), 2.0)
+-	pd.draw_line(hc + Vector2(-3, -10), hc + Vector2(-1, -14), Color("#8a6a2e"), 1.6) # 자루 매듭 끝
+-	pd.draw_line(hc + Vector2(4, -10), hc + Vector2(6, -13), Color("#8a6a2e"), 1.6)
++	pd.draw_colored_polygon(PackedVector2Array([hc + Vector2(3.0, -9.6), hc + Vector2(7, -7.5), hc + Vector2(8.4, -1.5), hc + Vector2(7.8, 4.2), hc + Vector2(5, 6.8), hc + Vector2(2.4, 6.8), hc + Vector2(4.2, -0.5)]), Color("#7c6232")) # 그늘
++	pd.draw_colored_polygon(PackedVector2Array([hc + Vector2(-6.5, -8), hc + Vector2(-3.5, -10.5), hc + Vector2(-2.2, -6.5), hc + Vector2(-4.5, -1.5), hc + Vector2(-8.6, -1.5)]), Color("#c4a762")) # 빛
++	for j in 4: # 성긴 천 결 (가로 점선)
++		for i in 5:
++			pd.draw_rect(Rect2(hc + Vector2(-6.5 + float(i) * 3.0 + float(j % 2) * 1.5, -6.0 + float(j) * 3.4), Vector2(1.0, 0.6)), Color("#6b4f22", 0.45))
++	pd.draw_line(hc + Vector2(-5.5, -7), hc + Vector2(-2, 5), Color("#8a6a2e"), 0.6) # 솔기 + 바늘땀
++	for k in 4:
++		var q := hc + Vector2(-5.5, -7).lerp(Vector2(-2, 5), (float(k) + 0.5) / 4.0)
++		pd.draw_line(q + Vector2(-1.2, -0.3), q + Vector2(1.2, 0.3), Color("#e8d8a8", 0.8), 0.6)
++	pd.draw_line(hc + Vector2(-7.4, 6.5), hc + Vector2(7.4, 7), Color("#6b3f1f"), 2.0) # 목 밧줄
++	pd.draw_line(hc + Vector2(-7.0, 5.9), hc + Vector2(7.0, 6.4), Color("#9a6a3a"), 0.6)
++	for k in 3: # 묶은 두 귀 끝 (풀린 짚)
++		pd.draw_line(hc + Vector2(-3.5, -10.5), hc + Vector2(-5.0 + float(k) * 1.5, -14.0 + absf(float(k) - 1.0)), Color("#8a6a2e"), 0.9)
++		pd.draw_line(hc + Vector2(3.5, -10.5), hc + Vector2(2.5 + float(k) * 1.6, -13.5 + absf(float(k) - 1.0)), Color("#8a6a2e"), 0.9)
+ 	# 눈구멍 둘 (어둡고 깊음, 안에서 아주 옅은 불씨)
+ 	for ex: float in [-4.0, 2.0]:
+ 		var e := hc + Vector2(ex, -2)
+ 		pd.draw_colored_polygon(PackedVector2Array([e + Vector2(-2, -1.5), e + Vector2(2.4, -2), e + Vector2(2, 1.5), e + Vector2(-2.2, 1.2)]), OUT)
++		pd.glow(e + Vector2(0.1, 0.1), 2.6, Color(EMBER, 0.25 + 0.15 * sin(_t * 3.0 + ex)), 0.0)
+ 		pd.draw_rect(Rect2(e + Vector2(-0.4, -0.3), Vector2(1.0, 0.8)), Color(EMBER, 0.5 + 0.3 * sin(_t * 3.0 + ex)))
+ 	pd.draw_line(hc + Vector2(-3, 3), hc + Vector2(3, 3.4), OUT, 0.8) # 꿰맨 입
+ 
+@@ -337,11 +355,30 @@ func _paint_toad() -> void:
+ 	pd.draw_set_transform(Vector2(0, -8.0), 0.0, Vector2(1.0, 0.45))
+ 	pd.glow(Vector2.ZERO, 20.0, Color("#b8c48a"), 0.0)
+ 	pd.draw_set_transform(Vector2.ZERO)
+-	# 등의 검은 점·사마귀
+-	for spec: Array in [[-10, -22, 3.0], [-2, -25, 2.4], [8, -22, 3.2], [14, -17, 2.0], [-16, -16, 2.0], [3, -19, 1.6]]:
++	# 명암 (검토 O §2): 아래 가장자리 그늘 띠 · 등 위 달빛 테 — 원 덩어리가 둥근 몸으로 읽히게
++	var ry0 := 14.0 + atk * 2.0
++	var lo_o := PackedVector2Array()
++	var lo_i := PackedVector2Array()
++	for i in 13:
++		var a := lerpf(0.15, PI - 0.15, float(i) / 12.0)
++		var rx := 24.0 + 1.5 * sin(a * 3.0)
++		lo_o.append(Vector2(cos(a) * (rx - 0.6), -14.0 + sin(a) * ry0 * 1.15 - 0.6))
++		lo_i.append(Vector2(cos(a) * (rx - 4.0), -14.0 + sin(a) * ry0 * 0.62))
++	pd.strip(lo_o, lo_i, Color("#2e3c18", 0.55))
++	var top_l := PackedVector2Array()
++	for i in 9:
++		var a := lerpf(PI * 1.08, PI * 1.62, float(i) / 8.0)
++		var rx := 24.0 + 1.5 * sin(a * 3.0)
++		top_l.append(Vector2(cos(a) * (rx - 1.4), -14.0 + sin(a) * (ry0 - 1.4)))
++	pd.draw_polyline(top_l, Color("#c8dc8a", 0.7), 1.0)
++	# 등의 검은 점·사마귀 (크기 3단)
++	for spec: Array in [[-10, -22, 3.0], [-2, -25, 2.4], [8, -22, 3.2], [14, -17, 2.0], [-16, -16, 2.0], [3, -19, 1.6], [-6, -18, 1.0], [11, -26, 1.1], [18, -22, 0.9], [-13, -21, 0.9]]:
+ 		var c := Vector2(spec[0], spec[1])
++		pd.draw_circle(c, float(spec[2]) + 0.5, Color("#3a4c1e"))
+ 		pd.draw_circle(c, float(spec[2]), Color("#4b6128"))
+ 		pd.draw_circle(c + Vector2(-0.6, -0.6), float(spec[2]) * 0.45, Color("#88a34a"))
++	for g: Vector2 in [Vector2(-4, -26.5), Vector2(6, -25), Vector2(-12, -23.5)]: # 젖은 살갗 반짝
++		pd.draw_rect(Rect2(g, Vector2(1.2, 0.8)), Color(1, 1, 0.9, 0.7))
+ 	# 목주머니 (숨 쉴 때 부풂, 공격 때 크게)
+ 	var sac := Vector2(-19.0, -8.0)
+ 	var sr := 4.5 + 2.5 * br + atk * 4.0
+@@ -390,17 +427,23 @@ func _paint_knight() -> void:
+ 	for x: float in [-5.0, 4.0]:
+ 		pd.outlined(PackedVector2Array([Vector2(x - 3.4, -22), Vector2(x + 3.4, -22), Vector2(x + 3.0, -2), Vector2(x - 3.0, -2)]), plate, OUT, 0.8)
+ 		pd.draw_line(Vector2(x - 1.6, -20), Vector2(x - 1.4, -4), plate_hi, 0.8)
++		pd.draw_line(Vector2(x + 2.0, -21), Vector2(x + 1.8, -3), plate_dk, 1.4) # 정강이 그늘
+ 		pd.outlined(PackedVector2Array([Vector2(x - 4.2, -2.5), Vector2(x + 4.6, -2.5), Vector2(x + 5.4, 0.5), Vector2(x - 4.4, 0.5)]), plate_dk, OUT, 0.8) # 발
+ 		pd.draw_line(Vector2(x - 3.2, -12), Vector2(x + 3.2, -12), plate_dk, 1.2) # 무릎 이음
+ 	# 허리·몸통 (가슴판에 균열)
+ 	var torso := PackedVector2Array([Vector2(-10, -48), Vector2(10, -48), Vector2(11.5, -36), Vector2(8, -22), Vector2(-8, -22), Vector2(-11.5, -36)])
+ 	pd.outlined(torso, plate, OUT, 0.9)
+ 	pd.draw_colored_polygon(PackedVector2Array([Vector2(-10, -48), Vector2(-2, -48), Vector2(-3, -24), Vector2(-8, -22), Vector2(-11.5, -36)]), plate_hi)
++	pd.draw_colored_polygon(PackedVector2Array([Vector2(5, -48), Vector2(10, -48), Vector2(11.5, -36), Vector2(8, -22), Vector2(4, -22)]), Color(plate_dk, 0.75)) # 오른쪽 그늘 (검토 O §2: 판 3단)
+ 	pd.draw_line(Vector2(-9, -34), Vector2(9, -34), plate_dk, 1.4)
+ 	pd.draw_line(Vector2(-8, -26), Vector2(8, -26), plate_dk, 1.0)
++	pd.draw_line(Vector2(-9, -33.0), Vector2(5, -33.0), Color("#a8a1b4", 0.7), 0.6) # 판 경계 아래 1px 밝은 선 (윗판이 겹쳐 보이게)
++	pd.draw_line(Vector2(-8, -25.0), Vector2(4, -25.0), Color("#a8a1b4", 0.6), 0.6)
++	pd.draw_line(Vector2(-9.6, -47.4), Vector2(4, -47.4), Color("#b8b1c4", 0.8), 0.6) # 가슴판 윗모서리
+ 	# 균열 (불씨가 비침) — 버프 때 환해진다
+ 	var ca := 0.55 + 0.45 * pulse + fl
+ 	pd.glow(Vector2(-1, -38), 9.0 + 10.0 * fl, Color(EMBER, 0.25 * ca), 0.0)
++	pd.glow(Vector2(-1, -36), 4.0 + 4.0 * fl, Color(EMBER_PALE, 0.3 * minf(ca, 1.0)), 0.0) # 틈에서 번지는 속불
+ 	for seg: Array in [[Vector2(-2, -46), Vector2(0, -40), Vector2(-3, -34), Vector2(1, -28)], [Vector2(3, -42), Vector2(5, -37), Vector2(3, -33)], [Vector2(-6, -31), Vector2(-4, -27)]]:
+ 		for i in range(1, seg.size()):
+ 			pd.draw_line(seg[i - 1], seg[i], Color(ember, minf(ca, 1.0)), 1.2 + fl)
+@@ -415,7 +458,9 @@ func _paint_knight() -> void:
+ 	var helm := PackedVector2Array([hc + Vector2(-6, -8), hc + Vector2(-2, -12), hc + Vector2(3, -12), hc + Vector2(6.5, -7), hc + Vector2(6.5, 5), hc + Vector2(3, 8), hc + Vector2(-5, 8), hc + Vector2(-7, 2)])
+ 	pd.outlined(helm, plate, OUT, 0.9)
+ 	pd.draw_colored_polygon(PackedVector2Array([hc + Vector2(-6, -8), hc + Vector2(-2, -12), hc + Vector2(-2, 7), hc + Vector2(-5, 8), hc + Vector2(-7, 2)]), plate_hi)
++	pd.draw_colored_polygon(PackedVector2Array([hc + Vector2(3, -12), hc + Vector2(6.5, -7), hc + Vector2(6.5, 5), hc + Vector2(3, 8), hc + Vector2(1.5, 8)]), Color(plate_dk, 0.75)) # 투구 그늘
+ 	pd.draw_line(hc + Vector2(-6.5, 0), hc + Vector2(6.5, 0), plate_dk, 1.0)
++	pd.draw_line(hc + Vector2(-5.6, -8.2), hc + Vector2(-2, -11.4), Color("#b8b1c4", 0.8), 0.6) # 투구 윗모서리 빛
+ 	pd.glow(hc + Vector2(-2, -2), 5.0 + 4.0 * fl, Color(EMBER, 0.4 * ca), 0.0)
+ 	pd.draw_line(hc + Vector2(-7, -2.5), hc + Vector2(-1, -2.0), Color(ember, minf(ca, 1.0)), 1.4) # 눈구멍 빛
+ 	pd.draw_line(hc + Vector2(-6.5, -2.5), hc + Vector2(-2, -2.1), EMBER_PALE, 0.5)
+diff --git a/game/proto/turn/t_fx.gd b/game/proto/turn/t_fx.gd
+index cd5a4e7..cb24670 100644
+--- a/game/proto/turn/t_fx.gd
++++ b/game/proto/turn/t_fx.gd
+@@ -2071,6 +2071,9 @@ class UltCutin extends Node2D:
+ 	const ANG2 := 8.0 ## 연쇄 3단계의 둘째 띠
+ 	const C := Vector2(320, 160) ## 띠 가운데
+ 	const BAND := Vector2(940, 90)
++	const FIG_SC := 3.0 ## 컷인 그림 배율 (검토 O §5: 4배 → 3배 — 모자 끝부터 가슴까지 띠 안에)
++	const FIG_FEET_Y := 150.0 ## SubViewport(높이 90) 안 발 자리: 모자 끝(로컬 −48 × 3 = −144) → y 6, 얼굴(−30) → y 60
++	const SS := 2 ## 컷인 그림을 2배 해상도로 그려 줄여 씀 (웹 = GLES3라 2D MSAA가 없음 — 3배 다각형 가장자리 계단을 없앰, 검토 O §5)
+ 	var unit: TUnit
+ 	var title := ""
+ 	var emblem_kind := "rift"
+@@ -2087,18 +2090,22 @@ class UltCutin extends Node2D:
+ 
+ 	func _ready() -> void:
+ 		_vp = SubViewport.new()
+-		_vp.size = Vector2i(BAND)
++		_vp.size = Vector2i(BAND) * SS
+ 		_vp.transparent_bg = true
+ 		_vp.disable_3d = true
+ 		_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+ 		add_child(_vp)
++		_vp.canvas_transform = Transform2D(0.0, Vector2(SS, SS), 0.0, Vector2.ZERO) # 트리에 넣은 뒤 (캔버스가 생긴 다음)
+ 		_fig = TActor.new()
+ 		_fig.deco = false
+ 		_vp.add_child(_fig)
+ 		_fig.setup(unit, Vector2(320, 160))
+-		_fig.scale = Vector2(4, 4)
++		_fig.scale = Vector2(FIG_SC, FIG_SC)
+ 		_fig.z_index = 0
+ 		_fig.pose("cast_big")
++		var art: PDraw.Canvas = _fig.witch if _fig.witch != null else (_fig.eska.art if _fig.eska != null else null)
++		if art != null:
++			art.pd.seg_k = FIG_SC * SS # 원·빛무리를 6배 꼭짓점으로 다시 그림 (작은 원이 9각형으로 보이던 것)
+ 		_rot = Node2D.new()
+ 		_rot.rotation = deg_to_rad(ANG)
+ 		_rot.position = C
+@@ -2106,6 +2113,7 @@ class UltCutin extends Node2D:
+ 		_band = CutBand.new()
+ 		_band.cut = self
+ 		_band.tex = _vp.get_texture()
++		_band.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR # 2배 그림을 줄이고 −12° 돌린 띠 — 가장 가까운 픽셀이면 가장자리가 계단 (검토 O §5)
+ 		_rot.add_child(_band)
+ 		if stage >= 3: # 3단계: 반대로 기운 둘째 띠 (+8°, 0.05초 늦게) — 첫 띠 뒤에
+ 			_rot2 = Node2D.new()
+@@ -2137,7 +2145,7 @@ class UltCutin extends Node2D:
+ 			_band2.position = Vector2(lerpf(820.0, 0.0, 1.0 - pow(1.0 - a, 3.0)) - 820.0 * b * b, 0) # 반대쪽에서 들어옴
+ 			_band2.queue_redraw()
+ 		# 띠 안에서 천천히 밀림 — 눈이 띠 가운데에 오게 12px 내림 (review_D B6: 모자 챙 그늘에 얼굴이 묻혔다)
+-		_fig.home = Vector2(340.0 - 40.0 * t / LIFE, 172.0)
++		_fig.home = Vector2(340.0 - 40.0 * t / LIFE, FIG_FEET_Y)
+ 		_lab.position = Vector2(o * 1.15, 0)
+ 
+ 	func _process(delta: float) -> void:
+@@ -2172,7 +2180,7 @@ class CutBand extends PDraw.Canvas:
+ 		pd.glow(Vector2(-150, -8), 90.0, Color(c.flame, 0.45), 0.0)
+ 		TFx.emblem(pd, cut.emblem_kind, Vector2(170, 0), 64.0, Color(c.hot, 0.16), t * 0.8)
+ 		# 머리 뒤 역광 — 모자 챙 아래 얼굴이 뜨게 (B6). 마녀 그림은 SubViewport에서 x ≈ 300~340
+-		pd.glow(Vector2(-150 + 6.0, -6), 50.0, Color(c.hot, 0.35), 0.0)
++		pd.glow(Vector2(-134, 12), 50.0, Color(c.hot, 0.35), 0.0) # 얼굴(SubViewport y 60) 뒤
+ 		for i in 16: # 속도선 (왼쪽으로 흐름)
+ 			var y := -40.0 + 80.0 * EVfx.hash01(i * 17 + 3)
+ 			var len := 60.0 + 110.0 * EVfx.hash01(i * 5 + 1)
+diff --git a/game/proto/turn/t_hud.gd b/game/proto/turn/t_hud.gd
+index df40dee..7b0d527 100644
+--- a/game/proto/turn/t_hud.gd
++++ b/game/proto/turn/t_hud.gd
+@@ -36,9 +36,16 @@ const X_C := Vector2(620, 15) ## 640 화면 자리 — 넓은 화면은 오른
+ const X_RECT := Rect2(600, 0, 40, 36) ## 누르는 자리 (그림은 반지름 12 원) — 터치 목표 36 (R3, review_N N-03). 적 카드 위 4px와 겹치는 곳은 X가 먼저
+ const HELP_C := Vector2(582, 15) ## 도움말 "?" (review_G G05 — X 왼쪽)
+ const HELP_RECT := Rect2(564, 0, 36, 36) ## 누르는 자리 36×36 (R3 N-03) — X 왼쪽 끝(600)에 붙음, 겹치지 않음
+-const WHEEL_R := 78.0
+-const SLOT_R := 20.0
+-const ULT_R := 22.0
++## 바퀴 (검토 O §4 · N-01): 몸 가운데 위쪽 반원(R 78) → 가슴(발 −50)을 중심으로 머리 위에서 적 쪽으로 펼친 부채 (−122° → −4°, R 110).
++## 옆 마녀(간격 62·30)는 왼쪽 위·오른쪽 아래에 서므로 그 방향을 비우면 칸이 옆 마녀를 덮지 않는다
++## (칸 원판 + 테 2px가 덮는 이웃 마녀 실루엣 픽셀: 기본 파티 3명 합 4,580 → 6, 칸 사이 틈 2.2 → 5.0px — 측정 review_O_art.md §4).
++## 왼쪽 위 = 기본 공격 → 오른쪽(적 쪽) = 대마법. 칸 지름 34(대마법 38) · 누름 판정은 r + 6 (지름 46·50 — 터치 목표 36 이상)
++const WHEEL_R := 110.0
++const WHEEL_OY := -50.0 ## 바퀴 중심 = 발 + (0, −50) (마녀 배율 2 기준 가슴)
++const WHEEL_A0 := -122.0 ## 첫 칸(기본 공격) 각도 (도)
++const WHEEL_A1 := -4.0 ## 끝 칸(대마법) 각도
++const SLOT_R := 17.0
++const ULT_R := 19.0
+ const HOLD := 0.4 ## 길게 누르기 (상세)
+ const HOLD_MS := 400
+ const CONFIRM := Rect2(220, 135, 200, 90)
+@@ -830,7 +837,7 @@ func _build_slots() -> void:
+ 	ids.append(String(u.data.get("ultimate", "")))
+ 	var n := ids.size()
+ 	for i in n:
+-		var ang := lerpf(-PI, 0.0, float(i) / float(n - 1))
++		var ang := deg_to_rad(lerpf(WHEEL_A0, WHEEL_A1, float(i) / float(n - 1)))
+ 		var pos := c + Vector2(cos(ang), sin(ang)) * WHEEL_R
+ 		var sid: String = ids[i]
+ 		if sid == "basic":
+@@ -844,7 +851,7 @@ func _build_slots() -> void:
+ 
+ 
+ func _wheel_center() -> Vector2:
+-	return to_screen(actor.center())
++	return to_screen(actor.feet()) + Vector2(0, WHEEL_OY)
+ 
+ 
+ ## 바퀴가 열린 동안 다른 마녀는 흐리게 (고르는 마녀가 또렷이). 아군 대상 고르기면 대상 후보는 또렷이 (review_C2 H1 ③)
+@@ -1861,14 +1868,23 @@ func _draw_panels() -> void:
+ 			draw_colored_polygon(PackedVector2Array([Vector2(mx - 5, Y - 6), Vector2(mx + 5, Y - 6), Vector2(mx, Y - 1)]), T.GOLD)
+ 
+ 
+-## 스킬 바퀴: 위쪽 반원, 칸 6개 고정. 칸 = 먹 원 + 종류 테 + 아이콘(속성 색) + 비용 배지. 대마법 칸은 금빛 + 남은 수 / 숨쉬기 + 연쇄 단계
++## 스킬 바퀴: 칸 6개 고정 (검토 O §4 — 칸 재질). 칸 = 바닥 그림자 · 속성 색 방사 원판(가운데 진하고 끝 옅게) · 안쪽 그림자 ·
++## 종류 색 금속 테 2px(왼쪽 위 밝음 → 오른쪽 아래 어두움) · 흰빛 아이콘 + 그림자 · 비용 보석(금 = 쓸 수 있음 · 회색 + 붉은 숫자 = 모자람 · 보랏빛 = +1).
++## 대마법 칸은 금 금속 테 3px + 모이는 호 / 가득이면 테를 도는 빛. 누를 수 없음 = 원판 회색 · 테 회색 · 아이콘 흐림.
++## 원판·테·아이콘·보석은 PDraw 하나로 모아 그리기 호출 1번 (글자만 따로).
++var _wpd := PDraw.new()
++
+ func _draw_wheel() -> void:
+ 	if actor == null:
+ 		return
++	var pd := _wpd
+ 	var c := _wheel_center()
+-	draw_arc(c, WHEEL_R, -PI - 0.15, 0.15, 40, Color(T.LINE, 0.25), 1.0)
++	var a0 := deg_to_rad(WHEEL_A0) - 0.12
++	var a1 := deg_to_rad(WHEEL_A1) + 0.12
++	pd.draw_arc(c, WHEEL_R, a0, a1, 40, Color(T.LINE, 0.18), 1.0) # 부채 안내 호
+ 	var u := actor.unit
+ 	var ecol: Color = TData.ELEMENT_COLOR.get(String(u.data.get("element", "")), T.LINE)
++	var labels: Array = [] ## [자리, 글, 색] — 보석 숫자는 flush 뒤에
+ 	for i in slots.size():
+ 		var s: Dictionary = slots[i]
+ 		var p: Vector2 = s.pos
+@@ -1876,61 +1892,83 @@ func _draw_wheel() -> void:
+ 		var ult := bool(s.get("ult", false))
+ 		var r := _slot_r(i) + (3.0 if on else 0.0)
+ 		if state == "target" and not on:
+-			# 대상 고르기 중엔 고른 칸만 — 다른 칸은 옅은 테만 남겨 그 밑의 마녀·적이 보이고 눌리게 (review_K K-07: 흐린 칸이 대상 마녀를 덮었다)
++			# 대상 고르기 중엔 고른 칸만 — 다른 칸은 옅은 테만 남겨 그 밑의 마녀·적이 보이고 눌리게 (review_K K-07)
+ 			if not bool(s.empty):
+-				draw_arc(p, r, 0.0, TAU, 24, Color(T.TEXT_OFF, 0.25), 1.0)
++				pd.draw_arc(p, r, 0.0, TAU, 24, Color(T.TEXT_OFF, 0.25), 1.0)
+ 			continue
+ 		if bool(s.empty):
+-			draw_arc(p, r - 2.0, 0.0, TAU, 24, Color(T.TEXT_OFF, 0.35), 1.0)
++			pd.draw_arc(p, r - 2.0, 0.0, TAU, 24, Color(T.TEXT_OFF, 0.35), 1.0)
+ 			continue
+-		var can := bool(s.can)
+-		draw_circle(p, r + 1.5, Color(T.INK, 0.95))
+-		draw_circle(p, r, Color(T.PANEL_HI if on else T.INK, 0.95))
++		var can := bool(s.can) and not bool(s.get("sealed", false))
++		var full := ult and u.credits >= TData.ULT_COST
++		var disc := ecol if can or full else Color("#6a6478")
++		# 바닥 그림자 · 고른 칸 빛무리
++		pd.glow(p + Vector2(0, 2.5), r + 5.0, Color(0, 0, 0, 0.55), 0.0)
++		if on:
++			pd.glow(p, r + 10.0, Color(ecol, 0.35), 0.0)
++		# 원판: 먹 바탕 + 속성 색 방사(가운데 0.55 → 끝 0.22) + 왼쪽 위 윤기 + 안쪽 그림자
++		pd.draw_circle(p, r, T.INK)
++		pd.glow(p, r, Color(disc, 0.55 if can or full else 0.35), 0.4)
++		pd.glow(p + Vector2(-r * 0.28, -r * 0.32), r * 0.5, Color(1, 1, 1, 0.10 if can or full else 0.04), 0.0)
++		pd.ring_grad(p, Vector2(r * 0.66, r * 0.66), Vector2(r, r), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.5), 24)
++		# 금속 테
+ 		if ult:
+-			var full := u.credits >= TData.ULT_COST
++			_ring_lit(pd, p, r, r + 3.0, Color("#fff2b8"), Color("#8a5a14") if full else Color("#5a4420"))
+ 			if full:
+-				var br := 0.6 + 0.4 * (0.5 + 0.5 * sin(_t * 4.0))
+-				draw_arc(p, r, 0.0, TAU, 32, Color(T.GOLD, br), 2.0)
+-				draw_arc(p, r + 3.0, 0.0, TAU, 32, Color(T.GOLD, 0.5), 1.0)
+-				var ph := fmod(_t, 0.8) / 0.8
+-				draw_arc(p, r + 3.0 + ph * 10.0, 0.0, TAU, 32, Color(T.GOLD, 0.5 * (1.0 - ph)), 1.0)
++				var ph := _t * 2.4
++				pd.draw_arc(p, r + 1.5, ph, ph + 1.1, 10, Color(1, 1, 0.85, 0.9), 2.0) # 테를 도는 빛
++				var pl := fmod(_t, 0.8) / 0.8
++				pd.draw_arc(p, r + 4.0 + pl * 10.0, 0.0, TAU, 32, Color(T.GOLD, 0.5 * (1.0 - pl)), 1.0)
+ 			else:
+-				# 모이는 중: 둘레에 진행 호 (크레딧/7, 12시부터 시계 방향) + 배지 "n/7" (review_C2 M3)
+-				draw_arc(p, r, 0.0, TAU, 32, Color(T.GOLD, 0.25), 2.0)
+ 				var k := clampf(float(u.credits) / float(TData.ULT_COST), 0.0, 1.0)
+-				if k > 0.0:
+-					draw_arc(p, r, -PI * 0.5, -PI * 0.5 + TAU * k, 32, T.GOLD, 2.0)
+-			TIcon.draw(self, p, String(s.icon), Color(T.GOLD if full else ecol, 1.0 if full else 0.45), r * 0.5)
++				if k > 0.0: # 모이는 호 (12시부터 시계 방향, review_C2 M3)
++					pd.draw_arc(p, r + 1.5, -PI * 0.5, -PI * 0.5 + TAU * k, 32, T.GOLD, 2.0)
++		else:
++			var kc := T.kind_col(String(s.kind)) if can else Color("#5a5566")
++			_ring_lit(pd, p, r, r + 2.5, kc.lightened(0.35), kc.darkened(0.3))
++		if on:
++			pd.draw_arc(p, r + 1.0, 0.0, TAU, 32, T.TEXT, 2.0)
++		# 아이콘 (그림자 1px + 흰빛)
++		var ic := String(s.icon)
++		var icol := ecol.lightened(0.65) if can or full else Color(T.TEXT_OFF, 0.5)
++		if ult and full:
++			icol = Color("#fff2c0")
++		elif ult:
++			icol = Color(T.GOLD, 0.5)
++		TIcon.draw(pd, p + Vector2(0.8, 1.0), ic, Color(T.INK, 0.8), r * 0.5)
++		TIcon.draw(pd, p, ic, icol, r * 0.5)
++		# 비용 보석 (오른쪽 아래)
++		var bc := p + Vector2(r * 0.74, r * 0.74)
++		if ult:
+ 			if not full:
+ 				var lab := "%d/%d" % [u.credits, TData.ULT_COST]
+-				var bw := T.width(lab, 8) + 6.0
+-				var bc := p + Vector2(14, 14)
+-				T.panel(self, Rect2(bc - Vector2(bw * 0.5, 5), Vector2(bw, 10)), Color(T.INK, 0.95), Color(T.GOLD, 0.8), 1, 2)
+-				T.text(self, bc + Vector2(0, 3), lab, 8, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER, 0)
+-			var nxt := mini(battle.chain_stage + 1, 3) if (battle.chain_owner != null and battle.chain_stage > 0) else 1
+-			if nxt >= 2 and full: # 쓸 수 있을 때만 "연쇄 n" (review_G G17)
+-				var lab := "연쇄 %d" % nxt
+-				var lw := T.width(lab, 10) + 8.0
+-				var lr := Rect2(p.x - lw * 0.5, p.y + r + 4.0, lw, 13)
+-				T.panel(self, lr, Color(T.INK, 0.95), T.GOLD, 1, 2)
+-				T.text(self, Vector2(p.x, lr.position.y + 11), lab, 10, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
++				_gem(pd, bc, T.width(lab, 8) * 0.5 + 4.0, Color("#c9a24a"), labels, lab, T.INK)
++		elif String(s.id) == "basic":
++			_gem(pd, bc, 8.0, T.GAUGE, labels, "+1", T.INK)
+ 		else:
+-			var ring := T.kind_col(String(s.kind)) if can else T.TEXT_OFF
+-			draw_arc(p, r, 0.0, TAU, 28, Color(ring, 1.0 if can else 0.6), 2.0 if on else 1.5)
+-			TIcon.draw(self, p, String(s.icon), Color(ecol, 1.0 if can else 0.4), r * 0.5)
+-			if String(s.id) == "basic":
+-				T.cost_badge(self, p + Vector2(14, 14), "+1", "gain")
+-			else:
+-				T.cost_badge(self, p + Vector2(14, 14), str(int(s.cost)), "ok" if can else "short")
++			_gem(pd, bc, 6.5, T.GOLD if can else Color("#5a5468"), labels, str(int(s.cost)), T.INK if can else Color("#ff9aa8"))
+ 		if bool(s.get("sealed", false)):
+-			# 봉인 (review_H §2.2): 칸을 어둡게 + 자물쇠 + 테 TEXT_OFF
+-			draw_circle(p, r - 1.0, Color(T.INK, 0.6))
+-			draw_arc(p, r, 0.0, TAU, 28, T.TEXT_OFF, 1.5)
+-			draw_circle(p, 7.0, Color(T.INK, 0.95))
+-			T.intent_icon(self, p, "seal", T.DANGER)
+-		if on:
+-			draw_arc(p, r, 0.0, TAU, 32, T.TEXT, 2.0)
+-	# 고른 칸 이름 꼬리표: 모든 칸 다음에, 바퀴 중심 → 칸 방향 바깥쪽 (이웃 칸을 덮지 않게, review_C2 M2). 화면 밖이면 생략 (설명 띠 1줄에 이름이 있음)
++			pd.draw_circle(p, r - 1.0, Color(T.INK, 0.6)) # 봉인 (review_H §2.2): 어둡게 + 자물쇠
++			pd.draw_circle(p, 7.0, Color(T.INK, 0.95))
++	pd.flush(self)
++	for lb: Array in labels:
++		T.text_px(self, lb[0], lb[1], 8, lb[2], HORIZONTAL_ALIGNMENT_CENTER, 0)
++	for i in slots.size():
++		var s: Dictionary = slots[i]
++		if bool(s.get("sealed", false)) and not (state == "target" and i != sel):
++			T.intent_icon(self, s.pos, "seal", T.DANGER)
++	# 대마법 "연쇄 n" (쓸 수 있을 때만, review_G G17)
++	if not slots.is_empty() and bool(slots[slots.size() - 1].get("ult", false)) and u.credits >= TData.ULT_COST and not (state == "target" and sel != slots.size() - 1):
++		var nxt := mini(battle.chain_stage + 1, 3) if (battle.chain_owner != null and battle.chain_stage > 0) else 1
++		if nxt >= 2:
++			var p: Vector2 = slots[slots.size() - 1].pos
++			var r := _slot_r(slots.size() - 1)
++			var lab := "연쇄 %d" % nxt
++			var lw := T.width(lab, 10) + 8.0
++			var lr := Rect2(p.x - lw * 0.5, p.y + r + 4.0, lw, 13)
++			T.panel(self, lr, Color(T.INK, 0.95), T.GOLD, 1, 2)
++			T.text(self, Vector2(p.x, lr.position.y + 11), lab, 10, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER)
++	# 고른 칸 이름 꼬리표: 바퀴 중심 → 칸 방향 바깥쪽 (review_C2 M2). 화면 밖이면 생략
+ 	if sel >= 0 and sel < slots.size() and not bool(slots[sel].empty):
+ 		var s: Dictionary = slots[sel]
+ 		var p: Vector2 = s.pos
+@@ -1949,6 +1987,30 @@ func _draw_wheel() -> void:
+ 			T.text(self, Vector2(nr.get_center().x, nr.position.y + 11), nm, 10, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+ 
+ 
++## 금속 테: r0~r1 고리, 왼쪽 위(−135°) hi → 오른쪽 아래 lo (빛이 위에서 오는 칸 테두리)
++func _ring_lit(pd: PDraw, p: Vector2, r0: float, r1: float, hi: Color, lo: Color) -> void:
++	var n := 28
++	for i in n:
++		var aa := TAU * float(i) / float(n)
++		var ab := TAU * float(i + 1) / float(n)
++		var ka := 0.5 + 0.5 * cos(aa + PI * 0.75)
++		var kb := 0.5 + 0.5 * cos(ab + PI * 0.75)
++		var da := Vector2(cos(aa), sin(aa))
++		var db := Vector2(cos(ab), sin(ab))
++		pd.convex_colors(PackedVector2Array([p + da * r1, p + db * r1, p + db * r0, p + da * r0]), PackedColorArray([lo.lerp(hi, ka), lo.lerp(hi, kb), lo.lerp(hi, kb), lo.lerp(hi, ka)]))
++
++
++## 비용 보석: 가로로 긴 팔각 (위 반 밝은 면 · 아래 반 어두운 면 · 먹 테 · 왼쪽 위 반짝) — 숫자는 labels에 모아 flush 뒤에
++func _gem(pd: PDraw, c: Vector2, hw: float, col: Color, labels: Array, lab: String, fg: Color) -> void:
++	var h := 5.5
++	var o := PackedVector2Array([c + Vector2(-hw - 1.2, 0), c + Vector2(-hw + 2.2, -h - 1.2), c + Vector2(hw - 2.2, -h - 1.2), c + Vector2(hw + 1.2, 0), c + Vector2(hw - 2.2, h + 1.2), c + Vector2(-hw + 2.2, h + 1.2)])
++	pd.convex(o, T.INK)
++	pd.convex(PackedVector2Array([c + Vector2(-hw, 0), c + Vector2(-hw + 3.0, -h), c + Vector2(hw - 3.0, -h), c + Vector2(hw, 0)]), col.lightened(0.25))
++	pd.convex(PackedVector2Array([c + Vector2(-hw, 0), c + Vector2(hw, 0), c + Vector2(hw - 3.0, h), c + Vector2(-hw + 3.0, h)]), col.darkened(0.18))
++	pd.draw_rect(Rect2(c + Vector2(-hw + 3.0, -h + 1.0), Vector2(2.0, 1.0)), Color(1, 1, 1, 0.7))
++	labels.append([c + Vector2(0, 3), lab, fg])
++
++
+ ## 설명 띠 (아래 띠 자리 (4, 302, 632, 56)): 1줄 이름·비용·종류 / 예상 피해(크리 값) · 2줄 효과 · 3줄 크레딧·대상 / 안내
+ func _draw_strip() -> void:
+ 	if actor == null:
+@@ -2080,8 +2142,17 @@ func _draw_targets() -> void:
+ 		draw_set_transform(Vector2.ZERO)
+ 
+ 
++## 바퀴 칸 가까이 (부채가 넓어져 중심 거리 대신 칸마다 잼)
++func _near_slot(p: Vector2, pad: float) -> bool:
++	if not _wheel_on() or actor == null:
++		return false
++	for i in slots.size():
++		if p.distance_to(slots[i].pos) < _slot_r(i) + pad:
++			return true
++	return false
++
++
+ func _draw_numbers() -> void:
+-	var wc := _wheel_center() if _wheel_on() and actor != null else Vector2(-999, -999)
+ 	for n: Dictionary in numbers:
+ 		var age := float(n.age)
+ 		if age < 0.0:
+@@ -2093,7 +2164,7 @@ func _draw_numbers() -> void:
+ 		var hits := int(n.get("hits", 1))
+ 		var rise := 18.0 * (1.0 - pow(1.0 - minf(age / 0.5, 1.0), 2.0)) * float(n.dir)
+ 		var a := 1.0 - clampf((age - 0.6) / 0.5, 0.0, 1.0)
+-		if kind in BODY_KINDS and kind != "heal" and (n.p as Vector2).distance_to(wc) < WHEEL_R + 24.0:
++		if kind in BODY_KINDS and kind != "heal" and _near_slot(n.p as Vector2, 24.0):
+ 			a *= 0.35 # 바퀴가 열린 동안 바퀴 위의 지난 숫자는 흐리게 (review_G G08) — 회복 숫자는 빼고 (R2: 지속 회복이 다음 마녀 바퀴 밑에서 흐려졌다)
+ 		var pop := 1.0 - clampf(minf(age, float(n.get("last", age))) / 0.12, 0.0, 1.0) # 합칠 때마다 다시 툭 커짐
+ 		var q: Vector2 = (n.p as Vector2) + Vector2(0, rise)
+diff --git a/game/proto/turn/t_icon.gd b/game/proto/turn/t_icon.gd
+index 26abfbf..240ec43 100644
+--- a/game/proto/turn/t_icon.gd
++++ b/game/proto/turn/t_icon.gd
+@@ -13,7 +13,7 @@ const NAMES := ["strike", "crack", "gate", "dash", "shield", "rift", "converge",
+ 	"slash", "cut_curve", "slash2", "cut_h", "aura", "cut_v", "fan", "slash_doom", "slash_x"]
+ 
+ 
+-static func draw(ci: CanvasItem, c: Vector2, icon: String, col: Color, r: float) -> void:
++static func draw(ci: Object, c: Vector2, icon: String, col: Color, r: float) -> void:
+ 	var w := maxf(1.0, r * 0.2)
+ 	var soft := Color(col, 0.55)
+ 	match icon:
+@@ -362,49 +362,49 @@ static func draw(ci: CanvasItem, c: Vector2, icon: String, col: Color, r: float)
+ 
+ # ── 공통 조각 ─────────────────────────────────────────────
+ 
+-static func _ln(ci: CanvasItem, c: Vector2, r: float, a: Vector2, b: Vector2, col: Color, w: float) -> void:
++static func _ln(ci: Object, c: Vector2, r: float, a: Vector2, b: Vector2, col: Color, w: float) -> void:
+ 	ci.draw_line(c + a * r, c + b * r, col, w)
+ 
+ 
+ ## 짝수 개의 float(x, y, x, y …)로 꺾은선
+-static func _pl(ci: CanvasItem, c: Vector2, r: float, xy: Array, col: Color, w: float) -> void:
++static func _pl(ci: Object, c: Vector2, r: float, xy: Array, col: Color, w: float) -> void:
+ 	var p := PackedVector2Array()
+ 	for i in range(0, xy.size() - 1, 2):
+ 		p.append(c + Vector2(float(xy[i]), float(xy[i + 1])) * r)
+ 	ci.draw_polyline(p, col, w)
+ 
+ 
+-static func _poly(ci: CanvasItem, c: Vector2, r: float, xy: Array, col: Color) -> void:
++static func _poly(ci: Object, c: Vector2, r: float, xy: Array, col: Color) -> void:
+ 	var p := PackedVector2Array()
+ 	for i in range(0, xy.size() - 1, 2):
+ 		p.append(c + Vector2(float(xy[i]), float(xy[i + 1])) * r)
+ 	ci.draw_colored_polygon(p, col)
+ 
+ 
+-static func _dot(ci: CanvasItem, c: Vector2, r: float, o: Vector2, rad: float, col: Color) -> void:
++static func _dot(ci: Object, c: Vector2, r: float, o: Vector2, rad: float, col: Color) -> void:
+ 	ci.draw_circle(c + o * r, rad * r, col)
+ 
+ 
+-static func _ring(ci: CanvasItem, c: Vector2, r: float, o: Vector2, rad: float, col: Color, w: float) -> void:
++static func _ring(ci: Object, c: Vector2, r: float, o: Vector2, rad: float, col: Color, w: float) -> void:
+ 	ci.draw_arc(c + o * r, rad * r, 0.0, TAU, 28, col, w)
+ 
+ 
+-static func _arc(ci: CanvasItem, c: Vector2, r: float, o: Vector2, rad: float, a0: float, a1: float, col: Color, w: float) -> void:
++static func _arc(ci: Object, c: Vector2, r: float, o: Vector2, rad: float, a0: float, a1: float, col: Color, w: float) -> void:
+ 	ci.draw_arc(c + o * r, rad * r, a0, a1, 18, col, w)
+ 
+ 
+-static func _rect(ci: CanvasItem, c: Vector2, r: float, rc: Rect2, col: Color, w: float) -> void:
++static func _rect(ci: Object, c: Vector2, r: float, rc: Rect2, col: Color, w: float) -> void:
+ 	ci.draw_rect(Rect2(c + rc.position * r, rc.size * r), col, false, w)
+ 
+ 
+ ## 화살촉: tip 쪽으로 향하는 작은 삼각형 (at = 밑변 가운데, dir = 방향)
+-static func _head(ci: CanvasItem, c: Vector2, r: float, at: Vector2, dir: Vector2, s: float, col: Color) -> void:
++static func _head(ci: Object, c: Vector2, r: float, at: Vector2, dir: Vector2, s: float, col: Color) -> void:
+ 	var n := dir.orthogonal() * s * 0.7
+ 	_poly(ci, c, r, [at.x + dir.x * s, at.y + dir.y * s, at.x + n.x, at.y + n.y, at.x - n.x, at.y - n.y], col)
+ 
+ 
+ ## 둥근 화살 (a0 → a1, 끝에 화살촉)
+-static func _arc_arrow(ci: CanvasItem, c: Vector2, r: float, rad: float, a0: float, a1: float, col: Color, w: float) -> void:
++static func _arc_arrow(ci: Object, c: Vector2, r: float, rad: float, a0: float, a1: float, col: Color, w: float) -> void:
+ 	ci.draw_arc(c, rad * r, a0, a1, 20, col, w)
+ 	var end := Vector2(cos(a1), sin(a1)) * rad
+ 	var dir := Vector2(-sin(a1), cos(a1)) * (1.0 if a1 > a0 else -1.0)
+@@ -412,13 +412,13 @@ static func _arc_arrow(ci: CanvasItem, c: Vector2, r: float, rad: float, a0: flo
+ 
+ 
+ ## 베인 자국: a→b 로 가늘어지는 마름모 띠 (가운데 두께 t)
+-static func _cut(ci: CanvasItem, c: Vector2, r: float, a: Vector2, b: Vector2, col: Color, t: float) -> void:
++static func _cut(ci: Object, c: Vector2, r: float, a: Vector2, b: Vector2, col: Color, t: float) -> void:
+ 	var m := (a + b) * 0.5
+ 	var n := (b - a).normalized().orthogonal() * t
+ 	_poly(ci, c, r, [a.x, a.y, m.x + n.x, m.y + n.y, b.x, b.y, m.x - n.x, m.y - n.y], col)
+ 
+ 
+-static func _flame(ci: CanvasItem, c: Vector2, r: float, o: Vector2, s: float, col: Color) -> void:
++static func _flame(ci: Object, c: Vector2, r: float, o: Vector2, s: float, col: Color) -> void:
+ 	var base := [0.0, -1.0, 0.45, -0.35, 0.3, 0.15, 0.55, 0.55, 0.0, 1.0, -0.55, 0.55, -0.3, 0.15, -0.45, -0.35]
+ 	var pts: Array = []
+ 	for i in range(0, base.size(), 2):
+@@ -427,7 +427,7 @@ static func _flame(ci: CanvasItem, c: Vector2, r: float, o: Vector2, s: float, c
+ 	_poly(ci, c, r, pts, col)
+ 
+ 
+-static func _sparkle(ci: CanvasItem, c: Vector2, r: float, o: Vector2, s: float, col: Color) -> void:
++static func _sparkle(ci: Object, c: Vector2, r: float, o: Vector2, s: float, col: Color) -> void:
+ 	var base := [0.0, -1.0, 0.22, -0.22, 1.0, 0.0, 0.22, 0.22, 0.0, 1.0, -0.22, 0.22, -1.0, 0.0, -0.22, -0.22]
+ 	var pts: Array = []
+ 	for i in range(0, base.size(), 2):
+@@ -471,7 +471,7 @@ static func _bolt_pts(s: float, dy: float) -> Array:
+ 	return pts
+ 
+ 
+-static func _descent(ci: CanvasItem, c: Vector2, r: float, col: Color, w: float, sg: float) -> void:
++static func _descent(ci: Object, c: Vector2, r: float, col: Color, w: float, sg: float) -> void:
+ 	_ln(ci, c, r, Vector2(-0.6, -0.92 * sg), Vector2(-0.3, -0.35 * sg), Color(col, 0.55), w * 0.8)
+ 	_ln(ci, c, r, Vector2(0.0, -0.98 * sg), Vector2(0.0, -0.3 * sg), Color(col, 0.55), w * 0.8)
+ 	_ln(ci, c, r, Vector2(0.6, -0.92 * sg), Vector2(0.3, -0.35 * sg), Color(col, 0.55), w * 0.8)
+@@ -479,7 +479,7 @@ static func _descent(ci: CanvasItem, c: Vector2, r: float, col: Color, w: float,
+ 	_poly(ci, c, r, [-0.5, 0.35 * sg, 0.5, 0.35 * sg, 0.0, 0.92 * sg], col)
+ 
+ 
+-static func _clock(ci: CanvasItem, c: Vector2, r: float, col: Color, soft: Color, w: float) -> void:
++static func _clock(ci: Object, c: Vector2, r: float, col: Color, soft: Color, w: float) -> void:
+ 	_dot(ci, c, r, Vector2.ZERO, 0.85, Color(col, 0.18))
+ 	_ring(ci, c, r, Vector2.ZERO, 0.85, col, w)
+ 	_ln(ci, c, r, Vector2(0, 0), Vector2(0, -0.58), col, w)
+diff --git a/game/proto/turn/t_stage.gd b/game/proto/turn/t_stage.gd
+index 1a0238e..bdb7e46 100644
+--- a/game/proto/turn/t_stage.gd
++++ b/game/proto/turn/t_stage.gd
+@@ -351,6 +351,10 @@ func _begin_battle() -> void:
+ 		_add_actor(battle.witches[i], WITCH_AT[i])
+ 	_add_enemies()
+ 	_bg.set_theme(_wave_theme(), true)
++	var pools: Array = []
++	for i in battle.witches.size():
++		pools.append([WITCH_AT[i], TData.ELEMENT_COLOR.get((battle.witches[i] as TUnit).element, Color("#b9a2ff"))])
++	_bg.set_pools(pools) # 마녀 발밑 빛 원 (검토 O §3)
+ 	_bg_tint(true)
+ 	hud.bind(battle, actors)
+ 	stats = {"turns": 0, "biggest": 0}
+diff --git a/game/proto/turn/t_witch_art.gd b/game/proto/turn/t_witch_art.gd
+index 72d627a..d105e38 100644
+--- a/game/proto/turn/t_witch_art.gd
++++ b/game/proto/turn/t_witch_art.gd
+@@ -15,6 +15,35 @@ const RIM_LIGHT := Color(0.9, 0.86, 1.0, 0.5) ## 테두리 빛 (review_C §8.1 
+ const RIM_OFFS: Array[Vector2] = [Vector2(-0.5, -0.5), Vector2(0.5, 0.5)] ## 로컬 px (마녀 배율 2 → 화면 1px)
+ static var _rim_shader: Shader
+ static var _rim_mats := {} ## 색 → 재질
++static var _shade_shader: Shader
++static var _shade_mats := {} ## 키 → 재질
++const RIM_OFFS_LIT: Array[Vector2] = [Vector2(-0.9, -0.9), Vector2(0.9, 0.9)] ## 차례인 마녀: 테두리 빛 2px · 속성 색 (검토 O §3)
++## 검토 O §2·§3: 그림 전체 명암을 셰이더 하나로 (CPU 0 · 그리기 호출 그대로). 원점 = 발, 위 = −y.
++## h = 그림 키 · hw = 반폭 · lift = 위 1/2을 흰빛 쪽으로 · drop = 아래 1/2을 어둡게 · side = 달 반대쪽(away 부호) 어둡게 ·
++## black = 어두운 색(밝기 0.35 아래)만 달빛 색으로 들어 올림 — 밤 배경에서 검정·남색 옷이 묻히지 않게. 알파 0.85 아래(빛무리·그림자)는 그대로
++const SHADE_SHADER := """
++shader_type canvas_item;
++uniform float h = 40.0;
++uniform float hw = 12.0;
++uniform float lift = 0.12;
++uniform float drop = 0.28;
++uniform float side = 0.10;
++uniform float away = 1.0;
++uniform float black = 0.0;
++uniform vec3 black_tint = vec3(0.55, 0.5, 0.85);
++varying vec2 lp;
++void vertex() { lp = VERTEX; }
++void fragment() {
++	float solid = step(0.85, COLOR.a);
++	float k = clamp(-lp.y / h, 0.0, 1.0);
++	vec3 c = COLOR.rgb;
++	float luma = dot(c, vec3(0.299, 0.587, 0.114));
++	c += black_tint * black * (1.0 - smoothstep(0.0, 0.35, luma)) * solid;
++	c = mix(c, vec3(1.0), smoothstep(0.5, 1.0, k) * lift * solid);
++	c *= 1.0 - ((1.0 - smoothstep(0.0, 0.5, k)) * drop + smoothstep(0.0, hw, lp.x * away) * side) * solid;
++	COLOR.rgb = c;
++}
++"""
+ 
+ const STYLE := {
+ 	"ignis": {"hat": "point_fwd", "brim": "burnt", "hair": "spiky", "back": "braid", "front": "lock", "outfit": "coat", "prop": "glove"},
+@@ -95,6 +124,7 @@ var _kneel := 0.0 ## 쓰러짐 무릎 자세 (0~1)
+ var _blink := 0.0
+ var _rim_ci := RID()
+ var _rng := RandomNumberGenerator.new() ## 눈 깜빡임 (전역 난수를 건드리지 않게)
++var lit := false ## 차례인 마녀 (TActor.set_turn) — 테두리 빛이 속성 색 2px
+ 
+ 
+ func _ready() -> void:
+@@ -102,6 +132,7 @@ func _ready() -> void:
+ 	for k in PAL.get(kind, PAL.ember):
+ 		_p[k] = Color(String(PAL.get(kind, PAL.ember)[k]))
+ 	_rim_ci = rim_make(self, RIM_LIGHT)
++	material = shade_mat(44.0, 11.0, 0.12, 0.16, 0.06, -1.0, 0.16) # 달(화면 가운데 위)이 마녀의 오른쪽 위 — 왼쪽(뒤)이 그늘
+ 
+ 
+ func _notification(what: int) -> void:
+@@ -111,12 +142,22 @@ func _notification(what: int) -> void:
+ 
+ func _draw() -> void:
+ 	_paint()
+-	rim_paint(_rim_ci, pd, RIM_OFFS if fade >= 0.99 else []) # 옅어지는 중엔 끔 (흰 실루엣이 비침)
++	rim_paint(_rim_ci, pd, (RIM_OFFS_LIT if lit else RIM_OFFS) if fade >= 0.99 else []) # 옅어지는 중엔 끔 (흰 실루엣이 비침)
+ 	pd.flush(self)
+ 
+ 
+ ## 테두리 빛 그림 자리 (EArt와 같은 방법 — 몸 뒤에 한 색으로). 적 그림(TEnemyArt)도 같이 쓴다
+-static func rim_make(ci: CanvasItem, col: Color) -> RID:
++static func rim_make(ci: CanvasItem, col: Color, shaded := true) -> RID:
++	var rid := RenderingServer.canvas_item_create()
++	RenderingServer.canvas_item_set_parent(rid, ci.get_canvas_item())
++	RenderingServer.canvas_item_set_draw_behind_parent(rid, true)
++	if shaded:
++		rim_set(rid, col)
++	return rid
++
++
++## 테두리 빛 색 바꾸기 (차례인 마녀 = 속성 색 — 검토 O §3). 색마다 재질 하나를 나눠 씀
++static func rim_set(rid: RID, col: Color) -> void:
+ 	if _rim_shader == null:
+ 		_rim_shader = Shader.new()
+ 		# 턴제만: 알파를 0/1로 자르지 않고 그대로 곱함 — 부모(HUD 초상)가 옅어질 때 테두리만 흰 유령으로 남던 것 (review_D A4)
+@@ -127,11 +168,53 @@ static func rim_make(ci: CanvasItem, col: Color) -> RID:
+ 		mat.shader = _rim_shader
+ 		mat.set_shader_parameter("rim", col)
+ 		_rim_mats[col] = mat
+-	var rid := RenderingServer.canvas_item_create()
+-	RenderingServer.canvas_item_set_parent(rid, ci.get_canvas_item())
+-	RenderingServer.canvas_item_set_draw_behind_parent(rid, true)
+ 	RenderingServer.canvas_item_set_material(rid, mat.get_rid())
+-	return rid
++
++
++## 명암 재질 (SHADE_SHADER) — 같은 값이면 하나를 나눠 씀
++static func shade_mat(h: float, hw: float, lift: float, drop: float, side: float, away: float, black := 0.0) -> ShaderMaterial:
++	var key := "%.1f|%.1f|%.2f|%.2f|%.2f|%.0f|%.2f" % [h, hw, lift, drop, side, away, black]
++	var mat: ShaderMaterial = _shade_mats.get(key)
++	if mat == null:
++		if _shade_shader == null:
++			_shade_shader = Shader.new()
++			_shade_shader.code = SHADE_SHADER
++		mat = ShaderMaterial.new()
++		mat.shader = _shade_shader
++		for kv: Array in [["h", h], ["hw", hw], ["lift", lift], ["drop", drop], ["side", side], ["away", away], ["black", black]]:
++			mat.set_shader_parameter(kv[0], kv[1])
++		_shade_mats[key] = mat
++	return mat
++
++
++## 방향마다 색이 다른 테두리 (적 — 검토 O §2): 재질 없는 rid에 offs[i]만큼 밀어 cols[i] 한 색으로. 그리기 명령 수 = offs 수 (전과 같이 2)
++static func rim_paint_cols(rid: RID, pd: PDraw, offs: Array, cols: Array) -> void:
++	if not rid.is_valid():
++		return
++	RenderingServer.canvas_item_clear(rid)
++	var n := pd.idx.size()
++	if n == 0 or offs.is_empty():
++		return
++	var cs := pd.c
++	var keep := PackedInt32Array()
++	keep.resize(n)
++	var k := 0
++	var idx := pd.idx
++	for i in range(0, n, 3):
++		if cs[idx[i]].a >= EArt.RIM_SOLID and cs[idx[i + 1]].a >= EArt.RIM_SOLID and cs[idx[i + 2]].a >= EArt.RIM_SOLID:
++			keep[k] = idx[i]
++			keep[k + 1] = idx[i + 1]
++			keep[k + 2] = idx[i + 2]
++			k += 3
++	if k == 0:
++		return
++	keep.resize(k)
++	var fill := PackedColorArray()
++	fill.resize(cs.size())
++	for j in offs.size():
++		fill.fill(cols[j])
++		RenderingServer.canvas_item_add_set_transform(rid, Transform2D(0.0, offs[j]))
++		RenderingServer.canvas_item_add_triangle_array(rid, keep, pd.v, fill)
+ 
+ 
+ ## 모은 그림 중 진한 삼각형(세 꼭짓점 알파 EArt.RIM_SOLID 이상)만 골라 offs만큼 밀어 rid에 그린다 (pd.flush 전에)

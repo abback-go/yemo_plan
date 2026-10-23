@@ -1,0 +1,18 @@
+{"scene": "res://proto/turn/turn_proto.tscn", "seed": 20261018, "steps": [
+ [10, "eval", "set_battle(\"boss_01\")"],
+ [12, "eval", "set_party([\"undine\", \"hora\", \"harpe\"])"],
+ [20, "eval", "set_auto(true)"],
+ [24, "touch", 0, 516, 316], [25, "untouch", 0, 516, 316],
+ [30, "touch", 0, 516, 316], [31, "untouch", 0, 516, 316],
+ [120, "shot", "b00_wave1"],
+ [1800, "shot", "b01"], [1800, "eval", "status()"],
+ [3600, "shot", "b02"], [3600, "eval", "status()"],
+ [5400, "shot", "b03"], [5400, "eval", "status()"],
+ [7200, "shot", "b04"], [7200, "eval", "status()"],
+ [9000, "shot", "b05"], [9000, "eval", "status()"],
+ [10800, "shot", "b06"], [10800, "eval", "status()"],
+ [12600, "shot", "b07"], [12600, "eval", "status()"],
+ [14400, "shot", "b08"], [14400, "eval", "status()"],
+ [14400, "eval", "str(stats)"],
+ [14410, "quit"]
+]}

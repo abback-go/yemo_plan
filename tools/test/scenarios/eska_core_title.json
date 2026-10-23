@@ -1,0 +1,5 @@
+{"scene": "res://ui/title.tscn", "steps": [
+[30, "shot", "tt01_title"],
+[90, "shot", "tt02_title_later"],
+[100, "quit"]
+]}
