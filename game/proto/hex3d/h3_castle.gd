@@ -434,6 +434,8 @@ static func build_clouds(root: Node3D, sea_y: float, near: Array) -> void:
 		_cloud_sprite(root, p, rng.randf_range(0.3, 0.6), rng)
 	for i in 10:
 		var p := Vector3(rng.randf_range(-50, 110), rng.randf_range(14, 40), rng.randf_range(-130, -60))
+		if p.x > -25.0 and p.x < 45.0:
+			p.x += 70.0 # 시작 시점에서 소용돌이(성 왼쪽 위)를 가리지 않게 비킴
 		_cloud_sprite(root, p, rng.randf_range(0.5, 0.9), rng)
 
 
@@ -466,7 +468,7 @@ static func build_dragons(root: Node3D, center: Vector3) -> Array:
 		s.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 		s.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 		s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		s.set_meta("orbit", Vector4(center.x, center.z, rng.randf_range(34.0, 52.0), rng.randf_range(24.0, 36.0)))
+		s.set_meta("orbit", Vector4(center.x, center.z, rng.randf_range(34.0, 52.0), rng.randf_range(12.0, 20.0))) # 높이: 게임 시점 하늘 띠 안
 		s.set_meta("phase", rng.randf() * TAU)
 		s.set_meta("speed", rng.randf_range(0.05, 0.09) * (1.0 if i % 2 == 0 else -1.0))
 		root.add_child(s)
