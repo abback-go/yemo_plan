@@ -23,8 +23,8 @@ const ROAD := [Vector2(27, 41), Vector2(28.5, 34), Vector2(33, 29), Vector2(38.5
 var tiles := {} ## 축 좌표 Vector2i → {lv, water, path, depth}
 var cam: Camera3D
 var yaw := 0.0
-var pitch := deg_to_rad(52.0)
-var dist := 30.0
+var pitch := deg_to_rad(32.0) ## 낮은 시점 — 세운 그림이 제 비율로 보이게 (사용자 2026-10-23 "시점이 너무 높아")
+var dist := 26.0
 var target := Vector3.ZERO
 var follow := true
 var _yaw_goal := 0.0
@@ -580,8 +580,10 @@ func _build_props() -> void:
 			if tiles.has(a + d) and bool(tiles[a + d].path):
 				near_path = true
 		var dens := 0.08 + 0.5 * maxf(0.0, n.get_noise_2d(c.x, c.z))
-		if c.z > 31.0 or c.x < 5.0:
-			dens += 0.4 # 앞·왼쪽 숲으로 화면 테두리
+		if c.z > 35.0 or c.x < 5.0:
+			dens += 0.4 # 지도 앞 끝·왼쪽 숲으로 테두리 (낮은 시점이라 캐릭터 앞은 비움)
+		if c.z > wpos(here).z and absf(c.x - wpos(here).x) < 6.0:
+			dens *= 0.25 # 시작 자리 앞(카메라 쪽)은 덜 가리게
 		if near_path:
 			dens *= 0.3
 		var roll := rng.randf()
@@ -673,8 +675,8 @@ func _build_eska() -> void:
 func _reset_view() -> void:
 	_yaw_goal = 0.0
 	yaw = 0.0
-	pitch = deg_to_rad(52.0)
-	dist = 30.0
+	pitch = deg_to_rad(32.0)
+	dist = 26.0
 	follow = true
 	target = eska.position + _look_ahead()
 	_place_cam()
@@ -765,7 +767,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 				else:
 					yaw -= mm.relative.x * 0.008
 					_yaw_goal = yaw
-					pitch = clampf(pitch + mm.relative.y * 0.004, deg_to_rad(28.0), deg_to_rad(75.0))
+					pitch = clampf(pitch + mm.relative.y * 0.004, deg_to_rad(18.0), deg_to_rad(60.0))
 		else:
 			hover = pick(mm.position)
 
