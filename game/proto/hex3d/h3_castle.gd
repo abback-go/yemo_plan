@@ -158,8 +158,8 @@ static func _roof(sr: SurfaceTool, c: Vector3, w: float, d: float, h: float) -> 
 	tri(sr, Vector3(x1, ridge, c.z), Vector3(x1, c.y, z0), Vector3(x1, c.y, z1), Vector2(0.5, 0), Vector2(0, 1), Vector2(1, 1))
 
 
-## 성 본체. c = 성 가운데 바닥 (광장 높이)
-static func build_castle(root: Node3D, c: Vector3) -> void:
+## 성 본체. c = 성 가운데 바닥 (광장 높이). 돌려주는 것 = 성문 쇠창살 (위 가운데가 원점 — scale.y를 줄이면 올라가 열림)
+static func build_castle(root: Node3D, c: Vector3) -> MeshInstance3D:
 	var cw: Array = H3Art.castle_wall()
 	var sw := new_st()
 	var sr := new_st()
@@ -243,13 +243,20 @@ static func build_castle(root: Node3D, c: Vector3) -> void:
 	var gm := mat(sg[0], sg[1], 3.2)
 	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 	commit(root, gl, gm, false)
-	# 성문
-	var gt := new_st()
+	# 성문: 안쪽 불빛(문간) + 그 앞 쇠창살 (열리면 위로 감김)
 	var dz := fz + 1.05
-	quad(gt, Vector3(c.x - 1.6, c.y + 4.6, dz), Vector3(c.x + 1.6, c.y + 4.6, dz), Vector3(c.x + 1.6, c.y, dz), Vector3(c.x - 1.6, c.y, dz), Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1))
-	var gtm := mat(H3Art.gate(), H3Art.gate(), 2.6)
+	var door := new_st()
+	quad(door, Vector3(c.x - 1.6, c.y + 4.6, dz - 0.03), Vector3(c.x + 1.6, c.y + 4.6, dz - 0.03), Vector3(c.x + 1.6, c.y, dz - 0.03), Vector3(c.x - 1.6, c.y, dz - 0.03), Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1))
+	var dm := mat(H3Art.gate(false), H3Art.gate(false), 2.6) # 성 안 불빛
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	commit(root, door, dm, false)
+	var gt := new_st()
+	quad(gt, Vector3(-1.6, 0, 0), Vector3(1.6, 0, 0), Vector3(1.6, -4.6, 0), Vector3(-1.6, -4.6, 0), Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1))
+	var gtm := mat(H3Art.gate(true))
 	gtm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	commit(root, gt, gtm, false)
+	var gate := commit(root, gt, gtm, false)
+	gate.position = Vector3(c.x, c.y + 4.6, dz)
+	return gate
 
 
 # ─── 떠 있는 섬 ─────────────────────────────────────

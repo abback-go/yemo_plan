@@ -290,10 +290,11 @@ static func stained() -> Array:
 	return _cache.stained
 
 
-## 성문 (32×48): 주황 불빛이 새어 나오는 아치 문
-static func gate() -> ImageTexture:
-	if _cache.has("gate"):
-		return _cache.gate
+## 성문 (32×48 뾰족 아치): bars = 쇠창살과 문틀만 (사이는 투명) · 아니면 = 안쪽 불빛 (창살 없음). 둘을 겹치면 닫힌 문, 창살이 올라가면 열린 문
+static func gate(bars: bool) -> ImageTexture:
+	var key := "gate_bars" if bars else "gate_light"
+	if _cache.has(key):
+		return _cache[key]
 	var img := Image.create(32, 48, false, Image.FORMAT_RGBA8)
 	for y in 48:
 		for x in 32:
@@ -305,13 +306,16 @@ static func gate() -> ImageTexture:
 				continue
 			var k := 1.0 - clampf(dx / 15.5, 0.0, 1.0)
 			var c := Color("#ff8a2a").lerp(Color("#ffe0a0"), k * 0.8)
-			if x % 6 == 0 and y > 10:
-				c = Color("#5a2a14") # 문 창살
+			var bar := (x % 6 == 0 and y > 10) or (y % 12 == 6 and y > 10)
 			if dx > half - 2.0:
-				c = Color("#3a3050")
+				c = Color("#3a3050") # 문틀
+			elif bar:
+				c = Color("#5a2a14") # 창살
+			elif bars:
+				continue
 			img.set_pixel(x, y, c)
-	_cache.gate = _tex(img, false)
-	return _cache.gate
+	_cache[key] = _tex(img, false)
+	return _cache[key]
 
 
 ## 다리 아치 띠 (64×32 = 4×2칸): 위는 돌, 아래는 반원 아치 구멍(투명)

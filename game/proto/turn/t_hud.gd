@@ -860,6 +860,11 @@ func _confirm_no() -> void:
 	Sfx.play(&"tn_cancel", -10.0)
 
 
+## 마녀성 필드 전투인가 (TStage.field) — 패배·철수 글을 "물러나기"로
+func _field() -> bool:
+	return stage != null and bool(stage.get("field"))
+
+
 func _banner_go(choice: String) -> void:
 	Sfx.play(&"tn_confirm", -6.0)
 	banner_tapped.emit(choice)
@@ -2567,7 +2572,7 @@ func _draw_banner() -> void:
 			var ln: Array = banner_lines[i]
 			T.text(self, Vector2(320.0, 158 + lh * i), T.clip(String(ln[0]), 10, 620), 10, ln[1], HORIZONTAL_ALIGNMENT_CENTER)
 	if lose and _banner_t > 0.5:
-		for b: Array in [[LOSE_RETRY, "다시 도전", lose_main == "retry"], [LOSE_SETUP, "편성으로", lose_main == "setup"]]:
+		for b: Array in [[LOSE_RETRY, "다시 도전", lose_main == "retry"], [LOSE_SETUP, "물러나기" if _field() else "편성으로", lose_main == "setup"]]:
 			var r: Rect2 = b[0]
 			T.panel(self, r, Color(T.LINE, 0.75) if b[2] else Color(T.INK, 0.9), Color(T.TEXT, 0.9), 1, 3)
 			T.text(self, r.get_center() + Vector2(0, 5), String(b[1]), 12, T.INK if b[2] else T.TEXT, HORIZONTAL_ALIGNMENT_CENTER, 0 if b[2] else -1)
@@ -2576,7 +2581,7 @@ func _draw_banner() -> void:
 func _draw_confirm() -> void:
 	draw_rect(T.screen(), Color(T.INK, 0.45))
 	T.panel(self, CONFIRM, Color(T.PANEL, 0.97), Color(T.LINE, 0.9), 1, 4)
-	T.text(self, Vector2(320, 162), "전투를 접고 편성으로 갈까요?", 12, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	T.text(self, Vector2(320, 162), "전투를 접고 물러날까요?" if _field() else "전투를 접고 편성으로 갈까요?", 12, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	T.text(self, Vector2(320, 178), "지금 전투의 진행은 사라집니다", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_CENTER)
 	T.panel(self, CONFIRM_NO, Color(T.INK, 0.9), Color(T.TEXT, 0.8), 1, 3)
 	T.text(self, CONFIRM_NO.get_center() + Vector2(0, 5), "취소", 12, T.TEXT, HORIZONTAL_ALIGNMENT_CENTER)

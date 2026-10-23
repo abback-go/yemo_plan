@@ -47,6 +47,7 @@ const HOLD := 0.4
 
 static var state := {} ## "party": [id, id, id] · 마녀 id → {"equipped": [id...], "equip": 장비 id, "equip_lv": 1~3, "skill_lv": {마법 id: 1~3}}
 static var battle_pick: String = TData.BATTLE.battle ## S-03에서 고른 전투 id
+static var fixed_battle := "" ## 마녀성 필드 전투(H3)가 정한 전투 — 있으면 전투 고르기(S-03) 없이 바로 출격하고, 고른 전투 줄에 이것 (battle_pick은 그대로 둠)
 static var dev := false ## 주소에 &dev — 개발자용 글("참고 구조")을 보임 (review_G G12)
 static var _tab3 := "normal" ## S-03 지금 탭 (전투 종류)
 
@@ -689,6 +690,9 @@ func _go_roster() -> void:
 
 ## 전투 고르기 (S-03)
 func _go_battle() -> void:
+	if fixed_battle != "":
+		_start()
+		return
 	step = 3
 	_msg_t = 0.0
 	var ids := battle_ids()
@@ -844,12 +848,13 @@ func _draw_roster() -> void:
 			draw_circle(b, 7.0, T.LINE)
 			T.text(self, b + Vector2(0, 4), T.SLOT_NAME[slot], 10, T.INK, HORIZONTAL_ALIGNMENT_CENTER, 0)
 	# 고른 전투 + 그 전투의 약점 (편성 판단에 필요한 것만)
-	var bd: Dictionary = TData.BATTLES.get(battle_pick, {})
+	var pick := fixed_battle if fixed_battle != "" else battle_pick
+	var bd: Dictionary = TData.BATTLES.get(pick, {})
 	T.panel(self, PICK_RECT, Color(T.PANEL, 0.9), Color(T.LINE, 0.5), 1, 3)
 	var tag: Array = KIND_TAG.get(String(bd.get("kind", "normal")), KIND_TAG.normal)
 	T.text(self, PICK_RECT.position + Vector2(8, 19), "전투", 10, T.TEXT_SUB)
-	T.text(self, PICK_RECT.position + Vector2(36, 19), T.clip(_battle_title(battle_pick), 12, 96), 12, tag[1])
-	var weak := _battle_weak(battle_pick)
+	T.text(self, PICK_RECT.position + Vector2(36, 19), T.clip(_battle_title(pick), 12, 96), 12, tag[1])
+	var weak := _battle_weak(pick)
 	var wx := PICK_RECT.end.x - 8.0
 	if weak.is_empty():
 		T.text(self, Vector2(wx, PICK_RECT.position.y + 19), "약점 없음", 10, T.TEXT_OFF, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -860,11 +865,11 @@ func _draw_roster() -> void:
 			draw_rect(Rect2(wx + 0.5, PICK_RECT.position.y + 9.5, 10, 10), Color(T.WEAK, 0.9), false, 1.0)
 			T.element_icon(self, Vector2(wx + 5.5, PICK_RECT.position.y + 14.5), String(weak[k]), 4.2)
 		T.text(self, Vector2(wx - 4, PICK_RECT.position.y + 19), "약점", 10, T.TEXT_SUB, HORIZONTAL_ALIGNMENT_RIGHT)
-	if NEXT.values().has(battle_pick) and not TSave.cleared.has(battle_pick) and not TSave.cleared.is_empty() and NEXT.get(TSave.cleared.back(), "") == battle_pick:
+	if fixed_battle == "" and NEXT.values().has(battle_pick) and not TSave.cleared.has(battle_pick) and not TSave.cleared.is_empty() and NEXT.get(TSave.cleared.back(), "") == battle_pick:
 		var tg := Rect2(PICK_RECT.position + Vector2(PICK_RECT.size.x - 52, -5), Vector2(48, 12)) # 명단 칸 테를 덮지 않게 4px 아래 (review_K K-25)
 		T.panel(self, tg, Color(T.INK, 0.95), T.GOLD, 1, 2)
 		T.text(self, Vector2(tg.get_center().x, tg.end.y - 2), "다음 추천", 8, T.GOLD, HORIZONTAL_ALIGNMENT_CENTER, 0)
-	_button(START1_RECT, "전투 고르기  ▶", true, 0.8 + 0.2 * sin(_t * 4.0))
+	_button(START1_RECT, "출격  ▶" if fixed_battle != "" else "전투 고르기  ▶", true, 0.8 + 0.2 * sin(_t * 4.0))
 	if _eq_slot < 0: # 장비 목록 판이 열려 있으면 안내 줄은 판 안에 (review_K K-27 — 덮개 밖에 남아 보였다)
 		_msg_line(Vector2(12, 350), 616, "" if TSave.persistent() else "이 브라우저에서는 저장되지 않습니다 (사생활 보호 창·저장 막힘)")
 
@@ -1091,7 +1096,7 @@ func _draw_detail() -> void:
 		_draw_witch_desc(w)
 	# 버튼
 	_button(BACK_RECT, "← 편성", false)
-	_button(START_RECT, "전투 고르기", true, 0.8 + 0.2 * sin(_t * 4.0))
+	_button(START_RECT, "출격" if fixed_battle != "" else "전투 고르기", true, 0.8 + 0.2 * sin(_t * 4.0))
 	_msg_line(Vector2(240, 340), 272, "마법·장비를 길게 누르면 강화 Lv") # 안내 글은 아래 버튼 사이로 (타일·줄이 36px로 커져 자리가 없어짐 — R3 N-03)
 
 

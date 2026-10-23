@@ -5,6 +5,10 @@ extends Node2D
 ## 전투는 코루틴 _run()이 돈다: 다음 차례 → 마녀면 바퀴에서 고르기를 기다림 / 적이면 의도대로 → 연출의 맞는 시각에 피해·숫자 → 다음.
 ## 배경·마녀·적은 모두 코드 그림. Esc 또는 오른쪽 위 X → 철수 확인 → 편성. 전투는 편성의 "전투 고르기"(S-03)에서 고른다.
 ## 첫 플레이 안내·도움말·설정·이어하기·멈춤은 TGuide(맨 위 층), 저장은 TSave (combat_proto.md §28).
+## field = 마녀성 필드(H3Map) 위의 전투: 배경 그림 없이 3D 장면 위에 겹쳐 그린다. 타이틀·이어하기·첫 안내 전투 없음,
+## 편성(전투 고르기 없이 TSetup.fixed_battle로 출격) → 전투 → field_done("win"·"lose"·"retreat"·"cancel")으로 필드에 돌려줌. 전투 저장·깬 기록은 남기지 않는다.
+
+signal field_done(result: String)
 
 const ArenaScript := preload("res://proto/p_arena.gd")
 const WITCH_AT: Array[Vector2] = [Vector2(222, 288), Vector2(160, 258), Vector2(98, 228)] ## 앞 · 중 · 뒤 (대각선, 아래 띠 y 302 위) — 간격 62 (review_D C1: 54면 모자 챙이 겹쳤다)
@@ -42,10 +46,12 @@ var _scale_was := [] ## 들어오기 전 창 배율 [aspect, stretch] — 나갈
 var _probe_cb: JavaScriptObject ## 웹 시험(주소에 probe): window.eskaProbe() → window.eskaState (tools/test/web_turn.mjs)
 var _title_actors: Array = [] ## 타이틀에 서 있는 파티 셋 (R6)
 var _setup_theme := "" ## 편성 화면 뒤 배경 테마 (넓은 화면 양옆 띠에 비침 — 고른 전투의 첫 웨이브, R3 review_N N-05)
+var field := false ## 마녀성 필드 전투 (add_child 전에 켬 — 위 머리말)
 
 
 func _exit_tree() -> void:
-	TTheme.release()
+	if not field:
+		TTheme.release() # 필드 전투면 필드(H3Map)가 같은 글꼴을 계속 씀 — 필드가 나갈 때 놓음
 	if not _scale_was.is_empty():
 		var win := get_tree().root
 		win.content_scale_aspect = _scale_was[0]
@@ -78,6 +84,7 @@ func _ready() -> void:
 	var bg := TBackdrop.new()
 	add_child(bg)
 	_bg = bg
+	bg.visible = not field # 필드 전투는 뒤의 3D 장면이 배경
 	units_node = Node2D.new()
 	units_node.name = "Units"
 	units_node.z_index = 0
@@ -131,6 +138,9 @@ func _ready() -> void:
 			_probe_cb = JavaScriptBridge.create_callback(_on_probe)
 			JavaScriptBridge.get_interface("window").eskaProbe = _probe_cb
 	setup.back_to_roster()
+	if field:
+		battle_id = TSetup.fixed_battle
+		return
 	if TSave.has_battle():
 		var d := TSave.load_battle()
 		if d.is_empty():
@@ -190,7 +200,7 @@ func _on_title_done() -> void:
 func _process(_delta: float) -> void:
 	if TTheme.sync_view(get_viewport()):
 		_place_layers()
-	if not _in_battle and setup.visible:
+	if not _in_battle and setup.visible and not field:
 		var th := battle_theme(TSetup.battle_pick, 0)
 		if th != _setup_theme:
 			_bg.set_theme(th, _setup_theme == "")
@@ -217,6 +227,9 @@ func _place_layers() -> void:
 func _exit() -> void:
 	Fx.reset()
 	TSave.save_setup()
+	if field:
+		field_done.emit("cancel")
+		return
 	GameState.go_title()
 
 
@@ -279,7 +292,7 @@ func _on_page_event(_args: Array) -> void:
 
 func _hidden() -> void:
 	if _in_battle and TSave.enabled and guide != null:
-		if not _snap.is_empty() and battle_id != "intro_01":
+		if not _snap.is_empty() and battle_id != "intro_01" and not field:
 			TSave.save_battle(_snap)
 		guide.pause()
 
@@ -321,6 +334,9 @@ func wheel_ready() -> bool:
 
 
 func _on_hud_exit() -> void:
+	if field:
+		_field_end("retreat")
+		return
 	_to_setup()
 
 
@@ -348,9 +364,19 @@ func _to_setup() -> void:
 	setup.visible = true
 
 
-## 편성의 전투 고르기(S-03)에서 "출격"
+## 필드 전투를 접고 필드로 (전투 그림·연출을 지우고 field_done)
+func _field_end(result: String) -> void:
+	_run_id += 1
+	_in_battle = false
+	_snap = {}
+	Engine.time_scale = 1.0
+	Fx.reset()
+	field_done.emit(result)
+
+
+## 편성의 전투 고르기(S-03)에서 "출격" (필드 전투는 편성에서 바로)
 func _on_setup_start() -> void:
-	battle_id = TSetup.battle_pick
+	battle_id = TSetup.fixed_battle if field else TSetup.battle_pick
 	start_battle()
 
 
@@ -1058,7 +1084,15 @@ func _finish(oc: String, token: int) -> void:
 	_in_battle = false
 	TSave.clear_battle()
 	_snap = {}
-	if oc == "win":
+	if oc == "win" and field:
+		for u in actors:
+			if u.is_witch() and u.alive:
+				(actors[u] as TActor).pose("win")
+				TFx.victory_sparkle(actors[u])
+		Sfx.play(&"tn_victory", -2.0)
+		TSave.save_setup()
+		hud.banner("승리", "눌러서 돌아가기")
+	elif oc == "win":
 		for u in actors:
 			if u.is_witch() and u.alive:
 				(actors[u] as TActor).pose("win")
@@ -1083,7 +1117,7 @@ func _finish(oc: String, token: int) -> void:
 				(actors[u] as TActor).set_down(true)
 		Sfx.play(&"tn_defeat", -2.0)
 		hud.banner_lines = _lose_reasons()
-		hud.lose_main = "setup" if String(TData.BATTLES[battle_id].get("kind", "")) == "trial" else "retry" # 시련은 같은 편성으로 다시 해도 어렵다 (review_G G03)
+		hud.lose_main = "setup" if String(TData.BATTLES[battle_id].get("kind", "")) == "trial" or field else "retry" # 시련은 같은 편성으로 다시 해도 어렵다 (review_G G03) · 필드 전투는 필드로 물러나기가 먼저
 		hud.banner("패배", "")
 
 
@@ -1092,6 +1126,8 @@ func _on_banner(choice: String) -> void:
 	if hud.banner_text == "패배" and choice == "retry":
 		hud.clear_banner()
 		start_battle()
+	elif field:
+		_field_end("win" if hud.banner_text == "승리" else "lose")
 	else:
 		_in_battle = false
 		_to_setup()
@@ -1102,7 +1138,7 @@ func _turn_snapshot() -> void:
 	_witch_turns += 1
 	_snap = battle.to_dict()
 	_snap["stage"] = {"why": _why.duplicate(true), "witch_turns": _witch_turns - 1}
-	if battle_id != "intro_01" and (_wave_new or _witch_turns % 5 == 1):
+	if battle_id != "intro_01" and not field and (_wave_new or _witch_turns % 5 == 1):
 		TSave.save_battle(_snap)
 	_wave_new = false
 

@@ -1,18 +1,22 @@
 class_name TActor
 extends Node2D
-## 전장 위의 한 명: 규칙 유닛(TUnit)과 그림을 잇는다. 에스카는 실시간판 그림(EEska/EArt)을 물리 없이 서 있는 모드로,
+## 전장 위의 한 명: 규칙 유닛(TUnit)과 그림을 잇는다. 에스카는 실시간판 그림(EEska/EArt)을 물리 없이 서 있는 모드로 (eska_sheet가 있으면 AI 그림),
 ## 불의 마녀 둘은 TWitchArt, 적은 TEnemyArt. 자세 바꾸기·맞음·쓰러짐·되살아남·보이는 체력(천천히 따라감)을 맡는다.
 
 const SCALE := 2.0 ## 마녀 코드 그림(키 40px)을 화면에서 이만큼 키움 (키 약 80px = 화면 22%, review_C §5.3)
 const ENEMY_SCALE := 1.8 ## 적 그림 배율 (× 데이터 size): 일반 약 90 · 강적 약 140 · 보스 약 160~175px
 const BIG_SHRINK := 0.95 ## 강적·보스 그림을 이만큼 줄여 머리 꼭대기가 적 카드(바닥 y 82) 밑에 들어가지 않게 (review_C2 M1)
 const DOWN_FADE := 0.25 ## 쓰러진 마녀는 이만큼 옅게 남아 되살릴 수 있음을 보여 준다
+const SPRITE_K := 0.5 ## 에스카 AI 그림 배율 (× SCALE 2 = 화면 1:1 — 줄이면 픽셀이 빠진다). 키 107px
+## 에스카 AI 그림 (가로 8장 대기 시트, 왼쪽을 봄). 있으면 에스카를 이 그림으로 — 마녀성 필드 전투 (2026-10-23 사용자: "전투에서도 AI 그림")
+static var eska_sheet: Texture2D
 
 var unit: TUnit
 var home := Vector2.ZERO
 var shown_hp := 1.0 ## 보이는 체력 비율 (천천히 따라감)
 var view_ratio := -1.0 ## ≥ 0이면 shown_hp가 실제 체력 대신 이 값을 따라감 (화면의 "보이는 값", THud.view_event)
 var eska: EEska
+var sprite: Sprite2D ## 에스카 AI 그림 (eska_sheet가 있을 때)
 var witch: TWitchArt
 var enemy: TEnemyArt
 var facing := 1
@@ -29,6 +33,12 @@ var _ring: FootRing
 var _walk := 0.0 ## 걸어 들어오는 중: 남은 가로 거리 (화면 px, 웨이브 전환)
 var _walk_v := 0.0
 var _walk_ph := 0.0
+var _spr_t := 0.0
+var _spr_hurt := 0.0 ## 맞음 붉은 기 (1 → 0)
+var _spr_glow := 0.0 ## 시전 빛 (지금 · 목표)
+var _spr_glow_to := 0.0
+var _spr_lift := 0.0 ## 큰 시전에 떠오름 (로컬 px · 목표)
+var _spr_lift_to := 0.0
 
 
 func setup(u: TUnit, at: Vector2) -> void:
@@ -39,7 +49,20 @@ func setup(u: TUnit, at: Vector2) -> void:
 	var sz := 1.0
 	if u.is_witch():
 		facing = 1
-		if u.id == "eska":
+		if u.id == "eska" and eska_sheet != null:
+			var sh := Shadow.new()
+			sh.hw = 9.0
+			add_child(sh)
+			_shadow = sh
+			sprite = Sprite2D.new()
+			sprite.texture = eska_sheet
+			sprite.hframes = 8
+			sprite.flip_h = true # 그림은 왼쪽을 봄 → 적(오른쪽)을 보게
+			sprite.offset = Vector2(0, -float(eska_sheet.get_height()) * 0.5 + 1.0)
+			sprite.scale = Vector2(SPRITE_K, SPRITE_K)
+			sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			add_child(sprite)
+		elif u.id == "eska":
 			eska = EEska.new()
 			add_child(eska)
 			eska.set_physics_process(false)
@@ -87,6 +110,16 @@ func _process(delta: float) -> void:
 	var dt := minf(delta, 1.0 / 30.0)
 	if eska != null:
 		eska.art.tick(delta)
+	elif sprite != null:
+		_spr_t += delta
+		sprite.frame = int(_spr_t / 0.16) % 8
+		_spr_hurt = maxf(_spr_hurt - delta * 5.0, 0.0)
+		_spr_glow = move_toward(_spr_glow, _spr_glow_to, delta * 4.0)
+		_spr_lift = move_toward(_spr_lift, _spr_lift_to, delta * 30.0)
+		var g := _spr_glow
+		var c := Color(1.0 + g * 0.3, 1.0 + g * 0.2, 1.0 + g * 0.45).lerp(Color(1.6, 0.45, 0.5), _spr_hurt)
+		sprite.modulate = Color(c, sprite.modulate.a)
+		sprite.position.y = -_spr_lift
 	elif witch != null:
 		witch.tick(delta)
 	elif enemy != null:
@@ -123,6 +156,8 @@ func _process(delta: float) -> void:
 func center() -> Vector2:
 	if enemy != null:
 		return to_global(enemy.center_local())
+	if sprite != null:
+		return to_global(Vector2(0, -27.0 - _spr_lift))
 	return to_global(Vector2(0, -20.0))
 
 
@@ -130,6 +165,8 @@ func center() -> Vector2:
 func head() -> Vector2:
 	if enemy != null:
 		return to_global(Vector2(0, -enemy.height() - 4.0))
+	if sprite != null:
+		return to_global(Vector2(0, -56.0))
 	return to_global(Vector2(0, -50.0))
 
 
@@ -143,6 +180,8 @@ func hand() -> Vector2:
 		return eska.art.fingertip() if eska.st != EEska.St.ULT else eska.art.to_global(EArt.ULT_HAND)
 	if witch != null:
 		return witch.hand_global()
+	if sprite != null:
+		return to_global(Vector2(13.0, -32.0 - _spr_lift)) # 가슴 앞 (적 쪽)
 	return center()
 
 
@@ -176,6 +215,10 @@ func pose(p: String) -> void:
 			_:
 				eska.st = EEska.St.NORMAL
 		eska.st_t = 0.0
+	elif sprite != null:
+		# 시전 자세 그림이 없어 빛과 떠오름으로 (cast = 빛 · cast_big = 빛 + 6px 떠오름 · win = 옅은 빛)
+		_spr_glow_to = {"cast": 1.0, "cast_big": 1.0, "win": 0.6}.get(p, 0.0)
+		_spr_lift_to = 6.0 if p == "cast_big" else 0.0
 	elif witch != null:
 		witch.set_pose(p)
 	elif enemy != null:
@@ -186,6 +229,8 @@ func pose(p: String) -> void:
 func hurt(heavy: bool) -> void:
 	if eska != null:
 		eska.art.hurt()
+	elif sprite != null:
+		_spr_hurt = 1.0
 	elif witch != null:
 		witch.hurt()
 	elif enemy != null:
@@ -234,9 +279,10 @@ func set_down(down: bool) -> void:
 			eska.art.dissolve()
 			EVfx.dark_bits(center(), 18, 200.0, Vector2.UP, 180.0, 0.6, 4)
 			EVfx.dark_burst(center(), 26.0)
-		elif witch != null:
+		elif witch != null or sprite != null:
 			EVfx.dark_bits(center(), 14, 180.0, Vector2.UP, 180.0, 0.6, 4)
-			witch.set_pose("down")
+			if witch != null:
+				witch.set_pose("down")
 		elif enemy != null:
 			pass # 재로 흩어지는 입자는 장면이 TFx.ash_dissolve로 띄운다 (TActor ↔ TFx 순환 참조를 만들지 않게)
 	else:
@@ -248,6 +294,8 @@ func set_down(down: bool) -> void:
 			witch.fade = 1.0
 			witch.set_pose("idle")
 			witch.reset_chains()
+		elif sprite != null:
+			sprite.modulate.a = 1.0
 	_mark.visible = down and unit.is_witch()
 	if not down:
 		return
@@ -258,6 +306,8 @@ func set_down(down: bool) -> void:
 		tw.tween_callback(func() -> void: eska.art.visible = false)
 	elif witch != null:
 		tw.tween_property(witch, "fade", 0.5, 0.6) # 무릎 꿇고 반쯤 흐리게 — 되살릴 수 있다
+	elif sprite != null:
+		tw.tween_property(sprite, "modulate:a", 0.4, 0.6)
 	elif enemy != null:
 		enemy.set_pose("down")
 		tw.tween_property(enemy, "fade", 0.0, 0.5)

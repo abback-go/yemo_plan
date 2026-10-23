@@ -6,6 +6,9 @@ extends Node3D
 ## 조작: 누르기 = 그 칸으로 걸어감 · 휠 = 확대·축소 · 왼쪽 끌기 = 지도 이동 · 오른쪽 끌기 = 회전·기울기 · Q/E 회전 · R 복원 · G 격자 · Esc 타이틀.
 ## 폰(시험용): 끌기 = 이동, 오른쪽 버튼(↺ ↻ + - 복원 격자)으로 회전·확대·복원·격자.
 ## 그림은 코드 픽셀 그림(H3Art) — 에스카만 사용자 AI 그림(대기·걷기는 그 그림을 줄마다 1~2px 밀어 만든 8장).
+## 문지기 전투 (2026-10-23 사용자 "전투도 기존과 같은 턴제로"): 성문 앞 재의 왕에게 다가가면 편성(파티 3 · 마법) → 보스 전투 '재의 왕'(boss_01, 웨이브 3).
+## 전투는 기존 턴제(TStage field 모드)를 이 3D 장면 위에 겹쳐 그린다 — 카메라는 광장을 옆에서(파티 왼쪽 · 적 오른쪽 · 성문 오른쪽 뒤), 배율은 전투 설계 화면 640×360.
+## 이기면 문지기가 사라지고 성문 쇠창살이 올라감 · 지거나 물러나면 문지기 두 칸 앞으로 — 다시 다가가면 또 싸움.
 
 const S := 1.0 ## 헥스 반지름 (뾰족 위)
 const LH := 0.9 ## 높이 한 층
@@ -30,6 +33,12 @@ const PLAZA := Rect2(32, -1.2, 13, 10)
 const ROAD := [Vector2(30.5, 25.0), Vector2(34, 21.5), Vector2(36.5, 18), Vector2(38.5, 13.5), Vector2(38.5, 8.5)]
 const STREAMS := [[Vector2(44, 13.5), Vector2(48, 14.2), Vector2(53.5, 15)], [Vector2(43, 20.5), Vector2(45.5, 24), Vector2(48.5, 28)]]
 const CASTLE := Vector3(38.5, 2.7, -12.0) ## 성 가운데 바닥 (광장 높이 = 3층)
+const GATE_BATTLE := "boss_01" ## 문지기 전투 (사용자: 보스 '재의 왕' 그대로)
+const TURN_SIZE := Vector2i(640, 360) ## 전투 층(TStage) 설계 화면 — 전투 동안 이 배율
+const BATTLE_AT := Vector3(38.5, 2.7, 3.2) ## 전투 카메라가 보는 점 (광장 가운데)
+const BATTLE_YAW := 0.6435 ## 광장을 옆에서: 화면 오른쪽 = 성문 쪽 (앞 (−0.6, −0.8))
+const BATTLE_PITCH := 12.0
+const BATTLE_DIST := 20.0
 
 var tiles := {} ## 축 좌표 Vector2i → {lv, water, path, deck, depth}
 var cam: Camera3D
@@ -62,6 +71,16 @@ var _press_btn := 0
 var _dragging := false
 var _scale_was: Array = []
 var hud: Control
+var gate: MeshInstance3D ## 성문 쇠창살 (열리면 scale.y가 줄어 위로 감김)
+var gate_light: OmniLight3D
+var keeper: Sprite3D ## 문지기 재의 왕 (전투 그림을 SubViewport로 찍어 세움). 이기면 null
+var keeper_vp: SubViewport
+var keeper_shadow: MeshInstance3D
+var keeper_at := Vector2i(9999, 9999)
+var stage: TStage ## 전투 중인 턴제 층 (아니면 null)
+var trees: Array = [] ## [나무, 그림자] — 전투 카메라 앞 나무를 숨김
+var road_lamps: Array = [] ## 섬 계단길 등불 (기둥 메시 + 불꽃들) — 전투 화면 왼쪽에서 파티를 가려 전투 동안 숨김
+var _meeting := false ## 문지기와 마주쳐 전투로 넘어가는 중
 
 
 func _ready() -> void:
@@ -76,19 +95,22 @@ func _ready() -> void:
 	_build_deck()
 	_build_water()
 	_build_falls()
-	H3Castle.build_castle(self, CASTLE)
+	gate = H3Castle.build_castle(self, CASTLE)
 	H3Castle.build_islands(self)
 	H3Castle.build_clouds(self, SEA_Y, [Vector3(23, SEA_Y + 1.5, 30), Vector3(39, SEA_Y + 1.0, 16), Vector3(9, SEA_Y + 3.0, 38), Vector3(52, SEA_Y + 1.0, 18), Vector3(38, SEA_Y + 1.0, -16)])
 	dragons = H3Castle.build_dragons(self, CASTLE)
 	_build_props()
 	_build_markers()
 	_build_eska()
+	_build_keeper()
 	_build_hud()
 	_reset_view()
 
 
 func _exit_tree() -> void:
 	TTheme.release()
+	TActor.eska_sheet = null # 전투 중에 장면을 나가도 ?turn 전투는 원래 그림·전투 고르기로
+	TSetup.fixed_battle = ""
 	if not _scale_was.is_empty():
 		var win := get_tree().root
 		win.content_scale_size = _scale_was[0]
@@ -218,7 +240,7 @@ func _gen_map() -> void:
 
 
 func can_step(a: Vector2i, b: Vector2i) -> bool:
-	if not tiles.has(b) or bool(tiles[b].water):
+	if not tiles.has(b) or bool(tiles[b].water) or (b == keeper_at and keeper != null):
 		return false
 	var dl := absi(int(tiles[a].lv) - int(tiles[b].lv))
 	return dl == 0 or (dl == 1 and bool(tiles[a].path) and bool(tiles[b].path))
@@ -795,13 +817,19 @@ func _build_props() -> void:
 	gl.omni_range = 12.0
 	gl.position = Vector3(CASTLE.x, CASTLE.y + 2.0, CASTLE.z + 11.5)
 	add_child(gl)
+	gate_light = gl
+	H3Castle.commit(self, st, H3Castle.mat(H3Art.masonry()))
 	# 섬 계단길 옆 작은 등불 (빛 없이 불꽃만)
+	var rst := H3Castle.new_st()
+	var f0 := flames.size()
 	for i in range(1, ROAD.size() - 1):
 		var r: Vector2 = ROAD[i]
 		var a := pixel_to_hex(r.x + 1.6, r.y)
 		if tiles.has(a) and not bool(tiles[a].water):
-			_lamp(st, wpos(a) + Vector3(0, top_y(a), 0), 0.0)
-	H3Castle.commit(self, st, H3Castle.mat(H3Art.masonry()))
+			_lamp(rst, wpos(a) + Vector3(0, top_y(a), 0), 0.0)
+	road_lamps.append(H3Castle.commit(self, rst, H3Castle.mat(H3Art.masonry())))
+	for k in range(f0, flames.size()):
+		road_lamps.append(flames[k][0])
 	# 섬: 어두운 바늘잎나무 · 덤불 (길·물·광장 비움)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 77
@@ -815,7 +843,7 @@ func _build_props() -> void:
 		var at := c + Vector3(rng.randf_range(-0.4, 0.4), top_y(a), rng.randf_range(-0.35, 0.35))
 		var tr2 := _sprite(H3Art.pine(rng.randi_range(0, 3)), at, rng.randf() < 0.5)
 		tr2.pixel_size = PX * rng.randf_range(0.9, 1.5)
-		_blob(at, 1.2)
+		trees.append([tr2, _blob(at, 1.2)])
 
 
 # ─── 표시 (커서 · 발밑 · 목적지 · 격자) ─────────────
@@ -947,6 +975,8 @@ func pick(sp: Vector2) -> Vector2i:
 
 
 func _unhandled_input(ev: InputEvent) -> void:
+	if stage != null or _meeting:
+		return # 전투 중: 입력은 턴제 층이 받음
 	var k := ev as InputEventKey
 	if k != null and k.pressed and not k.echo:
 		match k.keycode:
@@ -993,7 +1023,17 @@ func _click(sp: Vector2) -> void:
 	var a := pick(sp)
 	if not tiles.has(a) or bool(tiles[a].water) or a == here:
 		return
-	var p := find_path(here if path.is_empty() else path[0], a)
+	var from: Vector2i = here if path.is_empty() else path[0]
+	if a == keeper_at and keeper != null: # 문지기를 누름 → 그 옆 칸 중 가장 가까운 곳으로 (닿으면 전투)
+		var best: Array = []
+		for d: Vector2i in EDGE:
+			var q := find_path(from, a + d) if tiles.has(a + d) and not bool(tiles[a + d].water) else []
+			if (not q.is_empty() or a + d == from) and (best.is_empty() or q.size() < best.size()):
+				best = q
+				a = a + d
+		if best.is_empty():
+			return
+	var p := find_path(from, a)
 	if p.is_empty():
 		hud.call("say", "그 칸으로 가는 길이 없습니다 — 절벽은 계단길로만 오를 수 있습니다.")
 		return
@@ -1009,6 +1049,10 @@ func _click(sp: Vector2) -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if stage != null:
+		_ambient()
+		_place_cam()
+		return
 	if not path.is_empty():
 		step_t += delta
 		_walk_t += delta
@@ -1029,6 +1073,9 @@ func _process(delta: float) -> void:
 			here = nxt
 			path.pop_front()
 			step_t = 0.0
+			if keeper != null and not _meeting and hex_dist(here, keeper_at) <= 1:
+				path.clear() # 문지기 옆에 닿음 → 전투
+				_meet()
 			if path.is_empty():
 				goal_ring.visible = false
 				eska.texture = H3Art.eska_sheet("idle")
@@ -1043,15 +1090,180 @@ func _process(delta: float) -> void:
 		m.albedo_color = Color(1, 1, 1, 0.4 + 0.25 * sin(_t * 6.0))
 	else:
 		cursor.visible = false
+	_ambient()
+	if follow:
+		target = target.lerp(eska.position + _look_ahead(), clampf(delta * 3.0, 0.0, 1.0))
+	yaw = lerp_angle(yaw, _yaw_goal, clampf(delta * 8.0, 0.0, 1.0))
+	_place_cam()
+
+
+## 불꽃 · 불빛 일렁임 · 비룡 (전투 중에도 돎)
+func _ambient() -> void:
 	for fl: Array in flames:
 		(fl[0] as Sprite3D).frame = int(_t * 9.0 + float(fl[1])) % 3
 	for li: Array in lights: # 불빛 일렁임
 		(li[0] as OmniLight3D).light_energy = float(li[1]) * (0.85 + 0.15 * sin(_t * 9.0 + float(li[2])) * sin(_t * 5.3 + float(li[2]) * 2.0))
 	H3Castle.fly(dragons, _t)
-	if follow:
-		target = target.lerp(eska.position + _look_ahead(), clampf(delta * 3.0, 0.0, 1.0))
-	yaw = lerp_angle(yaw, _yaw_goal, clampf(delta * 8.0, 0.0, 1.0))
+
+
+static func hex_dist(a: Vector2i, b: Vector2i) -> int:
+	var d := a - b
+	return (absi(d.x) + absi(d.x + d.y) + absi(d.y)) / 2
+
+
+# ─── 문지기 전투 ───────────────────────────────────
+
+## 성문 앞 광장에 재의 왕: 전투 그림(TActor)을 SubViewport에 계속 그려 세운 그림으로 (숨쉬는 움직임 그대로)
+func _build_keeper() -> void:
+	var bd := INF
+	for a: Vector2i in tiles:
+		var d := Vector2(wpos(a).x, wpos(a).z).distance_to(Vector2(CASTLE.x, CASTLE.z + 13.0))
+		if d < bd and int(tiles[a].lv) == 3:
+			bd = d
+			keeper_at = a
+	keeper_vp = SubViewport.new()
+	keeper_vp.size = Vector2i(260, 240)
+	keeper_vp.transparent_bg = true
+	keeper_vp.disable_3d = true
+	keeper_vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	keeper_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(keeper_vp)
+	var a := TActor.new()
+	a.deco = false
+	keeper_vp.add_child(a)
+	a.setup(TUnit.make_enemy("ash_king", 0), Vector2(130, 232))
+	var at := wpos(keeper_at) + Vector3(0, stand_y(keeper_at), 0)
+	keeper_shadow = _blob(at, 2.6)
+	keeper = Sprite3D.new()
+	keeper.texture = keeper_vp.get_texture()
+	keeper.pixel_size = 4.6 / maxf(232.0 - a.head().y, 1.0) # 재의 왕 머리 꼭대기까지 → 4.6칸 (에스카 2.3칸의 두 배)
+	keeper.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	keeper.shaded = false
+	keeper.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	keeper.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	keeper.offset = Vector2(0, 232.0 - 120.0) # 발(SubViewport y 232)을 칸 바닥에
+	keeper.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	keeper.position = at
+	add_child(keeper)
+
+
+## 문지기 옆에 닿음: 잠깐 멈췄다 편성 → 전투
+func _meet() -> void:
+	_meeting = true
+	goal_ring.visible = false
+	eska.texture = H3Art.eska_sheet("idle")
+	eska.position = wpos(here) + Vector3(0, stand_y(here), 0)
+	eska.flip_h = (wpos(keeper_at) - wpos(here)).dot(cam.global_transform.basis.x) > 0.0
+	hud.call("say", "성문을 지키는 재의 왕 — 파티를 고르세요")
+	Sfx.play(&"tn_wave", -6.0)
+	await get_tree().create_timer(0.9).timeout
+	if not is_inside_tree():
+		return
+	_begin_battle()
+
+
+func _begin_battle() -> void:
+	get_tree().root.content_scale_size = TURN_SIZE
+	TActor.eska_sheet = H3Art.eska_sheet("idle")
+	TSetup.fixed_battle = GATE_BATTLE
+	stage = TStage.new()
+	stage.field = true
+	stage.field_done.connect(_on_battle_done)
+	add_child(stage)
+	_meeting = false
+	_show_field(false)
+	follow = false
+	yaw = BATTLE_YAW
+	_yaw_goal = BATTLE_YAW
+	pitch = deg_to_rad(BATTLE_PITCH)
+	dist = BATTLE_DIST
+	target = BATTLE_AT
 	_place_cam()
+	var cp := Vector2(cam.position.x, cam.position.z)
+	for tr: Array in trees: # 카메라와 광장 사이 나무는 전투 동안 숨김 (파티·적이 서는 띠를 가림)
+		var on := Vector2((tr[0] as Sprite3D).position.x, (tr[0] as Sprite3D).position.z).distance_to(cp) > dist * 0.8
+		(tr[0] as Sprite3D).visible = on
+		(tr[1] as MeshInstance3D).visible = on
+
+
+## 필드 그림·표시를 보이거나 숨김 (전투 동안 숨김 — 파티·적은 턴제 층이 그림)
+func _show_field(on: bool) -> void:
+	eska.visible = on
+	eska_shadow.visible = on
+	marker.visible = on
+	cursor.visible = false
+	hover = Vector2i(9999, 9999)
+	if not on:
+		grid.visible = false
+	if keeper != null:
+		keeper.visible = on
+		keeper_shadow.visible = on
+	for n: Node3D in road_lamps:
+		n.visible = on
+	hud.get_parent().visible = on
+	if on:
+		for b in hud.get_children():
+			(b as CanvasItem).queue_redraw() # 버튼 글자는 한 번만 그려 둔 것 — 배율이 바뀌었으니 다시
+		for tr: Array in trees:
+			(tr[0] as Sprite3D).visible = true
+			(tr[1] as MeshInstance3D).visible = true
+
+
+## 턴제 층이 끝남: "win" → 성문 열림 · "lose"·"retreat"·"cancel" → 문지기 두 칸 앞으로
+func _on_battle_done(result: String) -> void:
+	stage.queue_free()
+	stage = null
+	var ul := get_node_or_null("UltLayer") # 대마법 컷인 층 (TFx가 지금 장면 = 이 장면 밑에 만듦)
+	if ul != null:
+		ul.queue_free()
+	TSetup.fixed_battle = ""
+	TActor.eska_sheet = null
+	get_tree().root.content_scale_size = BASE
+	_show_field(true)
+	if result == "win":
+		_open_gate()
+	else:
+		_step_back()
+		hud.call("say", {"lose": "재의 왕에게 졌습니다", "retreat": "물러났습니다", "cancel": "편성을 닫았습니다"}.get(result, "") + " — 다시 다가가면 싸웁니다")
+	_reset_view()
+
+
+## 문지기와 두 칸 이상 떨어진 가장 가까운 칸으로
+func _step_back() -> void:
+	var seen := {here: true}
+	var q: Array = [here]
+	while not q.is_empty():
+		var a: Vector2i = q.pop_front()
+		if hex_dist(a, keeper_at) >= 2:
+			here = a
+			break
+		for d: Vector2i in EDGE:
+			if not seen.has(a + d) and can_step(a, a + d):
+				seen[a + d] = true
+				q.append(a + d)
+	path.clear()
+	eska.position = wpos(here) + Vector3(0, stand_y(here), 0)
+	eska.texture = H3Art.eska_sheet("idle")
+
+
+## 이김: 문지기가 재로 흩어지고 성문 쇠창살이 위로 감긴다
+func _open_gate() -> void:
+	var k := keeper
+	var ks := keeper_shadow
+	var kv := keeper_vp
+	keeper = null
+	var tw := create_tween()
+	tw.tween_property(k, "modulate:a", 0.0, 0.6)
+	tw.parallel().tween_property(ks, "transparency", 1.0, 0.6)
+	tw.tween_callback(func() -> void:
+		k.queue_free()
+		ks.queue_free()
+		kv.queue_free())
+	tw.tween_interval(0.2)
+	tw.tween_callback(func() -> void: Sfx.play(&"colossus_step", -6.0))
+	tw.tween_property(gate, "scale:y", 0.08, 1.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_property(gate_light, "light_energy", 6.0, 1.8)
+	hud.call("say", "재의 왕을 쓰러뜨렸습니다 — 성문이 열립니다 (성 안은 아직 없음)")
 
 
 # ─── HUD ───────────────────────────────────────────
@@ -1134,4 +1346,10 @@ class H3Btn extends Control:
 
 	func _draw() -> void:
 		TTheme.panel(self, Rect2(Vector2.ZERO, size), Color(TTheme.PANEL, 0.85), Color(TTheme.LINE, 0.6), 1, 5)
+		if id in ["zi", "zo"]: # + − 는 선으로 (전투에 다녀오면 이 두 글자만 글꼴 캐시가 깨져 네모로 그려졌다)
+			var c := (size * 0.5).round()
+			draw_rect(Rect2(c - Vector2(6, 1), Vector2(12, 2)), TTheme.TEXT)
+			if id == "zi":
+				draw_rect(Rect2(c - Vector2(1, 6), Vector2(2, 12)), TTheme.TEXT)
+			return
 		TTheme.text(self, Vector2(size.x * 0.5, 26), label, 12 if label.length() > 1 else 15, TTheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
