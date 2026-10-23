@@ -662,6 +662,9 @@ func _build_eska() -> void:
 	var at := wpos(here) + Vector3(0, stand_y(here), 0)
 	eska_shadow = _blob(at, 1.2)
 	eska = _sprite(H3Art.eska(0), at)
+	eska.pixel_size = 2.3 / float(eska.texture.get_height()) # 키 약 2.3칸 (나무 약 3칸)
+	eska.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	eska.modulate = Color(1, 1, 1)
 	marker.position = at + Vector3(0, 0.04, 0)
 
 
@@ -673,8 +676,13 @@ func _reset_view() -> void:
 	pitch = deg_to_rad(52.0)
 	dist = 30.0
 	follow = true
-	target = eska.position + Vector3(0, 0, -4.0)
+	target = eska.position + _look_ahead()
 	_place_cam()
+
+
+## 캐릭터가 화면 아래쪽 1/3에 오게 화면 위쪽으로 당겨 보는 거리 (확대할수록 짧게)
+func _look_ahead() -> Vector3:
+	return Vector3(-sin(yaw), 0, -cos(yaw)) * dist * 0.13
 
 
 func _place_cam() -> void:
@@ -812,7 +820,7 @@ func _process(delta: float) -> void:
 	else:
 		cursor.visible = false
 	if follow:
-		target = target.lerp(eska.position + Vector3(0, 0, -4.0), clampf(delta * 3.0, 0.0, 1.0))
+		target = target.lerp(eska.position + _look_ahead(), clampf(delta * 3.0, 0.0, 1.0))
 	yaw = lerp_angle(yaw, _yaw_goal, clampf(delta * 8.0, 0.0, 1.0))
 	_place_cam()
 

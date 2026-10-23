@@ -234,90 +234,15 @@ static func tuft(v: int) -> ImageTexture:
 	return _cache[key]
 
 
-## 에스카 (32×52 · 걸음 2장). 종말의 마녀 — 짙은 보라 옷 · 넓은 챙 모자
-static func eska(frame: int) -> ImageTexture:
-	var key := "eska%d" % frame
-	if _cache.has(key):
-		return _cache[key]
-	var img := Image.create(32, 52, false, Image.FORMAT_RGBA8)
-	var hat := Color("#241a3e")
-	var hat_hi := Color("#3a2a62")
-	var band := Color("#b48cff")
-	var hair := Color("#d8d0e8")
-	var hair_sh := Color("#9a90b8")
-	var skin := Color("#f2dccb")
-	var skin_sh := Color("#d4b8a6")
-	var cloak := Color("#3a2a5e")
-	var cloak_hi := Color("#5a4488")
-	var cloak_sh := Color("#221838")
-	# 모자 원뿔 (끝이 오른쪽으로 꺾임) + 챙
-	for y in range(0, 14):
-		var half := int(float(y) * 0.55)
-		var cx := 18 - int(float(14 - y) * 0.18)
-		for x in range(cx - half, cx + half + 1):
-			img.set_pixel(x, y, hat_hi if x < cx - half + 2 else hat)
-	for x in range(3, 29):
-		img.set_pixel(x, 14, hat)
-		img.set_pixel(x, 15, hat if x > 4 and x < 27 else Color(0, 0, 0, 0))
-	for x in range(10, 23):
-		img.set_pixel(x, 12, band)
-		img.set_pixel(x, 13, band.darkened(0.25))
-	# 머리카락 (흰 은발) · 얼굴
-	for y in range(16, 30):
-		for x in range(9, 23):
-			if y > 25 and x > 11 and x < 20:
-				continue
-			img.set_pixel(x, y, hair_sh if x < 11 or x > 20 else hair)
-	for y in range(17, 25):
-		for x in range(12, 20):
-			img.set_pixel(x, y, skin_sh if y == 17 else skin)
-	img.set_pixel(14, 21, Color("#6a3aa8"))
-	img.set_pixel(17, 21, Color("#6a3aa8"))
-	img.set_pixel(15, 23, skin_sh)
-	img.set_pixel(16, 23, skin_sh)
-	# 망토 (어깨 → 밑단으로 벌어짐)
-	for y in range(25, 46):
-		var t := float(y - 25) / 20.0
-		var x0 := int(lerpf(10.0, 5.0, t))
-		var x1 := int(lerpf(22.0, 27.0, t))
-		for x in range(x0, x1 + 1):
-			var c := cloak
-			if x <= x0 + 1:
-				c = cloak_hi
-			elif x >= x1 - 2:
-				c = cloak_sh
-			if x == 16 and y > 27:
-				c = band.darkened(0.35)
-			img.set_pixel(x, y, c)
-	img.set_pixel(7, 36, skin)
-	img.set_pixel(25, 36, skin)
-	# 발
-	var lf := 0 if frame == 0 else 1
-	for y in range(46, 51):
-		for x in range(11 - lf, 14 - lf):
-			img.set_pixel(x, y, Color("#1c1428"))
-		for x in range(18 + lf, 21 + lf):
-			img.set_pixel(x, y, Color("#1c1428"))
-	_outline(img, Color("#120a1c"))
-	_cache[key] = _tex(img, false)
-	return _cache[key]
-
-
-static func _outline(img: Image, col: Color) -> void:
-	var w := img.get_width()
-	var h := img.get_height()
-	var add: Array = []
-	for y in h:
-		for x in w:
-			if img.get_pixel(x, y).a > 0.5:
-				continue
-			for o: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-				var q := Vector2i(x, y) + o
-				if q.x >= 0 and q.y >= 0 and q.x < w and q.y < h and img.get_pixel(q.x, q.y).a > 0.5:
-					add.append(Vector2i(x, y))
-					break
-	for p: Vector2i in add:
-		img.set_pixelv(p, col)
+## 에스카 — 사용자가 준 AI 그림(2026-10-23)을 진짜 픽셀 격자로 다시 찍은 것 (45×107, 24색, 배경 투명).
+## 원본 1024×1024 · 칸 8px → 배경 지움 · 칸마다 가운데 색 · 24색으로 줄임. 걷기 프레임은 아직 없음(한 장 + 걸음 흔들림)
+static func eska(_frame: int) -> Texture2D:
+	if _cache.has("eska"):
+		return _cache.eska
+	var img := (load("res://proto/hex3d/eska_witch.png") as Texture2D).get_image()
+	img.decompress()
+	_cache.eska = _tex(img) # 밉맵: 멀리서 작게 보일 때 지글거림 줄임
+	return _cache.eska
 
 
 ## 물보라 한 점 (둥근 픽셀 덩어리)
