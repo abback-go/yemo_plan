@@ -2,13 +2,15 @@
 기준: docs/gdd/assets/eska-sheet-v3.png, 앵커 tools/make_eska_prompts.py.
 
 구조
-- 상체·머리·모자는 손으로 찍은 픽셀(행 폭·스탬프)을 그대로 쓰고, 프레임마다 통째로 옮기거나 앞으로 기울인다(LEAN, 엉덩이 높이 기준 전단).
+- 상체·머리·모자는 손으로 찍은 픽셀(행 폭·스탬프)을 그대로 쓰고, 프레임마다 통째로 옮기거나 엉덩이를 축으로 앞으로 숙인다.
+  숙일 때는 RotSprite 방식으로 돌린다 (Scale2x 세 번으로 8배 키워 경계를 살린 뒤 회전하고, 칸 가운데 색을 골라 다시 줄임).
 - 다리·팔·뒷머리·치마·겉치마·베일·검집은 자세 값(관절 위치, 휘날림)으로 프레임마다 계산해 그린다.
 - 빛: 뒤(왼쪽)에서 오는 차가운 역광 → 뒤쪽 가장자리가 밝다. 외곽선은 셀아웃(맞닿은 색을 어둡게).
 좌표: 로컬 (x 오른쪽, y 아래). 대기 자세에서 정수리 y18, 발바닥 y69."""
 import math
 import pathlib
 import sys
+import numpy as np
 from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -45,20 +47,49 @@ C = {
 img = None
 P = None
 BX = BY = 0      # 몸 전체 이동
-LEAN = 0.0       # 상체 기울기 (y 1px 위로 갈 때 x 이동량)
-U = False        # True면 상체 변환(기울기) 적용
+LEAN = 0.0       # 상체를 앞으로 숙인 각도 (도, 엉덩이 PIV_X·PIV 축)
 DY = 0           # 머리 쪽 부품은 2px 위로
+PIV_X = 22.0
 
 
 def ub(x, y):
-    """상체에 붙은 점의 실제 위치 (기울기 반영)."""
-    return (x + (PIV - y) * LEAN, y)
+    """상체에 붙은 점의 실제 위치 (숙임 회전 반영)."""
+    a = math.radians(LEAN)
+    dx, dy = x - PIV_X, y - PIV
+    return (PIV_X + dx * math.cos(a) - dy * math.sin(a), PIV + dx * math.sin(a) + dy * math.cos(a))
+
+
+def scale2x(a):
+    """EPX/Scale2x: 계단 경계를 살려 2배로."""
+    pad = np.pad(a, ((1, 1), (1, 1), (0, 0)), mode="edge")
+    Pm = pad[1:-1, 1:-1]
+    A, B, Cc, D = pad[:-2, 1:-1], pad[1:-1, 2:], pad[1:-1, :-2], pad[2:, 1:-1]
+
+    def eq(x, y):
+        return np.all(x == y, axis=-1)[..., None]
+    e0 = np.where(eq(Cc, A) & ~eq(Cc, D) & ~eq(A, B), A, Pm)
+    e1 = np.where(eq(A, B) & ~eq(A, Cc) & ~eq(B, D), B, Pm)
+    e2 = np.where(eq(D, Cc) & ~eq(D, B) & ~eq(Cc, A), Cc, Pm)
+    e3 = np.where(eq(B, D) & ~eq(B, A) & ~eq(D, Cc), D, Pm)
+    h, w = a.shape[:2]
+    out = np.empty((h * 2, w * 2, 4), dtype=a.dtype)
+    out[0::2, 0::2], out[0::2, 1::2], out[1::2, 0::2], out[1::2, 1::2] = e0, e1, e2, e3
+    return out
+
+
+def rotsprite(layer, deg, pivot):
+    """도트를 깨지지 않게 돌린다. deg 양수 = 시계 방향(앞으로 숙임). pivot = 칸 좌표."""
+    if abs(deg) < 0.01:
+        return layer
+    a = np.array(layer)
+    for _ in range(3):
+        a = scale2x(a)
+    big = Image.fromarray(a).rotate(-deg, resample=Image.NEAREST, center=(pivot[0] * 8 + 4, pivot[1] * 8 + 4))
+    return Image.fromarray(np.array(big)[4::8, 4::8])
 
 
 def px(x, y, c):
     y = y + DY
-    if U:
-        x = x + round((PIV - y) * LEAN)
     x = int(x) + BX + OX
     y = int(y) + BY + OY
     if not (0 <= x < W and 0 <= y < H):
@@ -202,22 +233,11 @@ def lifted(fn):
     return wrap
 
 
-def upper(fn):
-    """상체에 붙은 손그림 부품 — 기울기를 적용해 그린다."""
-    def wrap(*a):
-        global U
-        U = True
-        fn(*a)
-        U = False
-    return wrap
-
-
 def add(p, q, k=1.0):
     return (p[0] + q[0] * k, p[1] + q[1] * k)
 
 
 # ================================================================ 손그림 상체 (기울기 적용)
-@upper
 def torso(_):
     spans({29: (20, 22)}, "skin_d")  # 턱 밑 그늘 (턱선이 목과 분리되어 보이게)
     spans({30: (20, 22)}, "skin_s")
@@ -236,13 +256,11 @@ def torso(_):
         px(22, y, "silver_d")
 
 
-@upper
 def shawl_back(_):
     # 숄의 등 쪽: 뒷머리 밑으로 지나간다
     spans({37: (15, 19), 38: (15, 19), 39: (15, 19)}, "shawl")
 
 
-@upper
 @lifted
 def head(_):
     # 오른쪽을 보는 옆얼굴. 옆머리가 뒤쪽 볼을 가려 얼굴은 작고, 턱선은 실루엣 경계가 귀 쪽으로 대각선.
@@ -267,7 +285,6 @@ def head(_):
         px(x, y, "hair_l")  # 윤기
 
 
-@upper
 @lifted
 def hat(_):
     # 밑동이 넓게 벌어지고 옆선은 오목하게 좁아지며 곧게 솟다가, 위에서 각지게 꺾여 바늘처럼 가는 끝이 뒤로 처진다
@@ -382,7 +399,7 @@ def leg(hip, rel_knee, rel_ankle, foot_deg, far):
     cells = dict(thigh)
     cells.update(shin)
     if far:
-        paint(cells, "skin_d", left="skin_s")
+        paint(cells, "skin_s", left="skin", right="skin_d")  # 먼 쪽 다리: 한 단계 어둡게 (겉치마에 묻히지 않을 만큼)
     else:
         paint(cells, "skin", left="skin_h", right="skin_s")
     boot(knee, ankle, foot_deg, far)
@@ -553,14 +570,27 @@ def pose(**kw):
     return p
 
 
+def layer(fn, p):
+    """손그림 부품을 빈 층에 그려 숙임 각도만큼 돌린 뒤 현재 그림 위에 붙인다."""
+    global img, P
+    base, bp = img, P
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    P = img.load()
+    fn(p)
+    lay = rotsprite(img, LEAN, (PIV_X + OX + BX, PIV + OY + BY))
+    img, P = base, bp
+    img.alpha_composite(lay)
+
+
 def render(p):
     global img, P, BX, BY, LEAN
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     P = img.load()
-    BX, BY, LEAN = p["bx"], p["by"], p["lean"]
+    BX, BY = p["bx"], p["by"]
+    LEAN = math.degrees(math.atan(p["lean"])) if p.get("lean_deg") is None else p["lean_deg"]
     veil(p)
     overskirt(p)
-    shawl_back(p)
+    layer(shawl_back, p)
     hair(p)
     nh, fh = NEAR_HIP, FAR_HIP
     if p.get("near_behind"):
@@ -570,10 +600,13 @@ def render(p):
         leg(fh, *p["far"], True)
         leg(nh, *p["near"], False)
     inner_skirt(p)
-    torso(p)
+    layer(torso, p)
     weapon(p)
-    head(p)
-    hat(p)
+
+    def headhat(q):
+        head(q)
+        hat(q)
+    layer(headhat, p)
     near_arm(p)
     outline()
     return img
