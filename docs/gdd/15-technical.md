@@ -67,4 +67,7 @@
 ## 15.5 핵심 기술 리스크와 대응
 
 - Godot에서 목표 손맛이 나오지 않을 위험 → 손맛 프로토타입으로 조기 검증 (18장 R-09)
-- 클라우드 웹 빌드: 현재 클라우드 환경의 네트워크 정책이 `github.com`(Godot 배포처)을 막고 있음 → 환경 설정에서 허용 필요
+- 웹 빌드 파이프라인 [확정]: 작업 브랜치에 push → GitHub Actions(`.github/workflows/witch-web-build.yml`)가 Godot 4.7.2로 검사·웹 빌드 → `gh-pages` 브랜치 → GitHub Pages. 에스카 빌드와 같은 방식
+  - `gh-pages`는 에스카와 함께 쓰며 빌드마다 통째로 교체된다. 교체 전 에스카 웹 빌드는 `backup/eska-web-2026-10-23` 브랜치에 보관
+  - 빌드가 GitHub 서버에서 돌기 때문에 클라우드 개발 환경의 네트워크 제한과 무관
+- 글꼴: 갈무리11 (`witch_game/fonts/`, SIL OFL 1.1 — 라이선스 파일 동봉)
