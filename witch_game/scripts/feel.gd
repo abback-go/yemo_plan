@@ -3,7 +3,8 @@ extends Node
 ## 히트스톱은 Engine.time_scale을 잠깐 낮췄다가 실제 시간(ms)으로 되돌린다 — 에스카 fx.gd와 같은 방식.
 
 const HITSTOP_SCALE := 0.03
-const FONT_PATH := "res://fonts/Galmuri11.woff2"
+## 갈무리11에서 KS X 1001 한글 2350자 + ASCII + 기호만 남긴 TTF (woff2는 실행 시 읽히지 않았다)
+const FONT_PATH := "res://fonts/Galmuri11-subset.ttf"
 const FONT_SIZE := 12
 
 var camera: Camera2D
