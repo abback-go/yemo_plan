@@ -6,7 +6,7 @@ STYLE = ("Korean webtoon-style character concept art, clean cel shading with bol
 "high-contrast shadows, dark fantasy, mysterious and otherworldly mood. Dramatic cool backlight and ice-blue rim light; "
 "the hat brim casts a soft shadow over her upper face so her glowing ice-blue eyes are the brightest point. "
 "Dark desaturated slate-navy (#1A1F2E) background with a faint darker vignette.")
-ANCHOR = ("ESKA, the Witch of Endings: a tall, slender woman in her late twenties with very long legs and elongated elegant proportions, "
+ANCHOR = ("ESKA, the Witch of Endings: a tall, slender woman in her late twenties, about 7.5 heads tall with long legs (not exaggerated), "
 "carrying a cold, detached, otherworldly and melancholic presence. Slender oval face, long narrow eyes with slightly downturned outer corners, "
 "heavy tired upper lids, thin pale lips, cool porcelain skin, always expressionless. Her irises are pale ice-blue and softly glowing. "
 "Very long straight hair in dark desaturated steel blue (#3E5068) with lighter steel-blue highlights (#7F93AD), falling to mid-thigh, "
