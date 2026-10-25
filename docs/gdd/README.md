@@ -20,8 +20,8 @@
 
 | # | 섹션 | 파일 | 상태 | 채우는 단계 |
 |---|---|---|---|---|
-| 1 | 표지 | [01-cover.md](01-cover.md) | [미작성] | 1단계 |
-| 2 | 요약 (Executive Summary) | [02-executive-summary.md](02-executive-summary.md) | [미작성] | 1단계 (마지막에 다시 정리) |
+| 1 | 표지 | [01-cover.md](01-cover.md) | [작성 중] | 1단계 |
+| 2 | 요약 (Executive Summary) | [02-executive-summary.md](02-executive-summary.md) | [작성 중] | 1단계 (마지막에 다시 정리) |
 | 3 | 게임 개요 | [03-game-overview.md](03-game-overview.md) | [미작성] | 1단계 |
 | 4 | 코어 게임플레이 루프 | [04-core-loop.md](04-core-loop.md) | [미작성] | 1단계 |
 | 5 | 게임 메커닉 | [05-mechanics.md](05-mechanics.md) | [미작성] | 2단계 |
@@ -30,15 +30,15 @@
 | 8 | 내러티브·세계관 | [08-narrative-world.md](08-narrative-world.md) | [미작성] | 1~3단계 (병행) |
 | 9 | UX·인터페이스 | [09-ux-ui.md](09-ux-ui.md) | [미작성] | 3단계 |
 | 10 | 아트 디렉션 | [10-art-direction.md](10-art-direction.md) | [미작성] | 1~3단계 (병행) |
-| 11 | 사운드 디자인 | [11-sound.md](11-sound.md) | [미작성] | 3단계 |
+| 11 | 사운드 디자인 | [11-sound.md](11-sound.md) | [작성 중] | 3단계 |
 | 12 | 멀티플레이 설계 (해당 시) | [12-multiplayer.md](12-multiplayer.md) | [미작성] | 해당 여부 결정 후 |
 | 13 | 수익화 전략 (BM) | [13-monetization.md](13-monetization.md) | [미작성] | 4단계 |
 | 14 | 경제(재화) 설계 (해당 시) | [14-economy.md](14-economy.md) | [미작성] | 2단계 (6장과 함께) |
-| 15 | 기술 요구사항 | [15-technical.md](15-technical.md) | [미작성] | 4단계 |
+| 15 | 기술 요구사항 | [15-technical.md](15-technical.md) | [작성 중] | 4단계 |
 | 16 | 경쟁 분석 | [16-competitive-analysis.md](16-competitive-analysis.md) | [미작성] | 1단계 |
-| 17 | 개발 로드맵 | [17-roadmap.md](17-roadmap.md) | [미작성] | 4단계 |
-| 18 | 리스크 평가 | [18-risk.md](18-risk.md) | [미작성] | 4단계 |
-| 19 | 부록 (용어집·결정 로그·개정 이력) | [19-appendix.md](19-appendix.md) | [미작성] | 상시 |
+| 17 | 개발 로드맵 | [17-roadmap.md](17-roadmap.md) | [작성 중] | 4단계 |
+| 18 | 리스크 평가 | [18-risk.md](18-risk.md) | [작성 중] | 4단계 |
+| 19 | 부록 (용어집·결정 로그·개정 이력) | [19-appendix.md](19-appendix.md) | [작성 중] | 상시 |
 
 ## 채우는 순서 (권장)
 
