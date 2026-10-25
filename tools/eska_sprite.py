@@ -45,8 +45,8 @@ C = {
     "tw_d": hx("#0f0c13"), "tw": hx("#221d29"), "tw_l": hx("#3d3548"), "cord": hx("#556080"),
     "grip": hx("#131724"), "grip_l": hx("#2d3448"), "gem": hx("#9fd8ff"), "gem_d": hx("#4f8fc4"),
     "ink": hx("#020308"),
-    "sheer": hx("#2a3a72", 100), "sheer2": hx("#3a4d8e", 125), "sheer_e": hx("#7487bc", 175), "emb": hx("#c4d2ee", 215),
-    "veil": hx("#1c2858", 90), "veil_e": hx("#3f4f8c", 120),
+    "sheer": hx("#24326a", 165), "sheer2": hx("#33467f", 185), "sheer_e": hx("#7487bc", 210), "emb": hx("#c4d2ee", 230),
+    "veil": hx("#1a2452", 160), "veil_e": hx("#3f4f8c", 200),
 }
 
 # ---------------------------------------------------------------- 그리기 상태
@@ -257,7 +257,7 @@ def rotsprite(layer, deg, pivot):
 # ================================================================ 상체 (숙임 회전 층)
 def torso(_):
     # 목: 턱 밑은 그늘
-    neck = poly_cells([(22.5, 27.6), (24.5, 27.6), (24.8, 31.2), (22.0, 31.2)])
+    neck = poly_cells([(20.6, 27.6), (22.6, 27.6), (23.0, 31.2), (20.2, 31.2)])
     paint(neck, "skin_s", left="skin_d")
     for (x, y) in neck:
         if y <= cv(0, 28.9)[1]:
@@ -332,7 +332,9 @@ FACE_KEY = {"H": "hair", "D": "hair_d", "M": "hair_m", "L": "hair_l", "K": "hair
             "s": "skin", "S": "skin_s", "m": "skin_m", "v": "skin_h", "z": "skin_d", "u": "under2", "U": "under",
             "k": "lash", "q": "lash_m", "e": "eye2", "i": "eye_m", "E": "eye", "w": "sclera", "g": "glow",
             "p": "blush", "n": "skin_m", "l": "lip", "_": "clear"}
-FC, FR = 14, 9   # 얼굴 영역의 머리 스탬프 안 위치
+FC, FR = 10, 9   # 얼굴 영역의 머리 스탬프 안 위치 (얼굴을 머리 안쪽으로 넣어 머리가 가로로 길어 보이지 않게)
+# 뒤통수 왼쪽 가장자리 (머리 스탬프 열, 행 0~26 = 칸 y 48~74): 챙 밑에서 둥글게 부풀었다가 목덜미로 들어감
+SKULL = [5, 5, 5, 5, 6, 6, 6, 6, 6, 5, 5, 4, 4, 4, 4, 4, 4, 5, 5, 6, 6, 7, 8, 9, 10, 11, 12]
 
 
 @lifted
@@ -342,30 +344,29 @@ def head(_):
 
     def hp(c, r, col):
         dot(X0 + c, Y0 + r, col)
-    # 1) 뒷머리 덩어리: 모자 밑에서 둥글게, 세로로 흐르는 결 줄 + 뒤 가장자리 역광 + 윤기 띠
+    # 1) 뒤통수: 둥근 곡선을 따라 휘는 머릿결 (가장자리 역광 + 결 줄 + 윤기 띠). 얼굴 앞까지 9px 정도만 보인다.
     for r in range(0, 27):
-        lx = 3 if r < 3 else 2 if r < 6 else 1
-        rx = 23 if r < 4 else 27 if r < 9 else 13
+        lx = SKULL[r]
+        rx = 23 if r < 4 else 26 if r < 9 else FC + 3
         for c in range(lx, rx + 1):
-            col = "hair"
-            if c in (4, 10, 16):
-                col = "hair_d"
-            elif c in (7, 13):
-                col = "hair_m"
+            k = c - lx
+            col = "hair_d" if k in (2, 6) else "hair_m" if k == 4 else "hair"
             hp(c, r, col)
-        hp(lx, r, "hair_h" if 8 <= r <= 15 else "hair_l")
-    for c in range(3, 12):                  # 윤기 띠 (천사의 고리)
-        hp(c, 11 + (c % 3 == 0), "hair_l" if c % 2 else "hair_h")
+        hp(lx, r, "hair_h" if 9 <= r <= 15 else "hair_l")
+        if 9 <= r <= 15:
+            hp(lx + 1, r, "hair_l")
+    for k in range(1, 8):                   # 윤기 띠 (천사의 고리): 뒤통수 곡선을 따라 비스듬히
+        hp(SKULL[12] + k, 12 + (k // 3), "hair_h" if k % 2 else "hair_l")
     # 2) 얼굴 (앞머리 포함, 한 칸씩 찍은 영역)
     for r, row in enumerate(FACE):
         for c, ch in enumerate(row):
             if ch in FACE_KEY:
                 hp(FC + c, FR + r, FACE_KEY[ch])
     # 4) 옆머리: 귀 앞에서 가슴까지, 앞쪽 볼선을 감싸고 끝이 뾰족
-    side = tube([(21.0, 27.0), (21.3, 31.0), (21.1, 34.5), (21.6, 37.5)], lambda t: 1.8 * (1 - t) ** 0.7 + 0.35)
+    side = tube([(19.0, 27.0), (19.3, 31.0), (19.4, 34.5), (20.2, 37.5)], lambda t: 1.8 * (1 - t) ** 0.7 + 0.35)
     paint(side, "hair", left="hair_d", right="hair_l")
-    line(21.1, 28.0, 21.3, 34.0, "hair_m")
-    side2 = tube([(20.0, 29.0), (19.8, 33.5), (20.2, 38.0)], lambda t: 1.3 * (1 - t) + 0.35)
+    line(19.1, 28.0, 19.4, 34.0, "hair_m")
+    side2 = tube([(18.0, 29.0), (17.9, 33.5), (18.5, 38.0)], lambda t: 1.3 * (1 - t) + 0.35)
     paint(side2, "hair_d", left="hair_dd")
 
 
@@ -430,15 +431,17 @@ def trail_pts(pts, y0, y1, t, power=1.3):
 
 
 def veil(p):
-    pts = [(11, 19), (16, 19), (16, 28), (15, 36), (12, 42), (9, 36), (9, 26)]
-    pts = [ub(*q) for q in pts]
-    pts = trail_pts(pts, 19, 42, p["veil"])
+    # 모자 챙 뒤에서 허리까지 늘어진 반투명 베일: 아래로 살짝 벌어지고 밑단은 물결, 세로 주름
+    pts = [(10.5, 19.5), (16.0, 19.5), (16.5, 26.0), (16.0, 33.0), (15.4, 40.0), (14.0, 42.6), (12.6, 41.2),
+           (11.4, 43.0), (10.2, 41.4), (9.0, 42.6), (8.6, 36.0), (8.8, 28.0), (9.6, 22.0)]
+    pts = trail_pts([ub(*q) for q in pts], 19, 43, p["veil"])
     poly(pts, "veil")
-    line(*pts[6], *pts[5], "veil_e"); line(*pts[5], *pts[4], "veil_e")
-    for u in (0.3, 0.6):  # 베일의 얇은 주름
-        a = add(pts[1], (pts[4][0] - pts[1][0], pts[4][1] - pts[1][1]), u)
-        b = add(pts[0], (pts[5][0] - pts[0][0], pts[5][1] - pts[0][1]), u)
-        line(*a, *b, "veil_e")
+    for a, b in ((0, 12), (12, 11), (11, 10), (10, 9), (9, 8), (8, 7), (7, 6), (6, 5), (5, 4)):
+        line(*pts[a], *pts[b], "veil_e")
+    for u in (0.3, 0.55, 0.8):  # 세로 주름
+        top = add(pts[0], (pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]), u)
+        bot = add(pts[9], (pts[5][0] - pts[9][0], pts[5][1] - pts[9][1]), u)
+        line(*add(top, (0, 2)), *add(bot, (0, -1.5)), "veil_e")
 
 
 def overskirt(p):
@@ -470,7 +473,7 @@ def hair(p):
     p["hair"] = (중간점 dx, dy, 끝점 dx, dy), p["hwave"] = (진폭, 위상 rad)."""
     d = p["hair"]
     amp, phase = p.get("hwave", (0.6, 0.0))
-    root = ub(16.8, 23.5)
+    root = ub(17.4, 24.5)
     p1 = add(ub(16.0, 42), (d[0], d[1]))
     p2 = (8.5 + d[2], 56 + d[3])
     base = bezier(root, p1, p2, 28)

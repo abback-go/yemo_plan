@@ -307,8 +307,12 @@ def idle_preview():
     bb = f.getbbox()
     body = bg.crop((bb[0] - 6, bb[1] - 6, bb[2] + 6, bb[3] + 6))
     body.resize((body.width * 4, body.height * 4), Image.NEAREST).save(OUT / "idle_preview.png")
-    face = bg.crop((74, 46, 106, 80))
+    face = bg.crop((66, 44, 104, 82))
     face.resize((face.width * 10, face.height * 10), Image.NEAREST).save(OUT / "idle_face.png")
+    wb = Image.new("RGBA", f.size, (255, 255, 255, 255))   # 밝은 배경에서도 확인
+    wb.alpha_composite(f)
+    wb = wb.crop((bb[0] - 6, bb[1] - 6, bb[2] + 6, bb[3] + 6))
+    wb.resize((wb.width * 4, wb.height * 4), Image.NEAREST).save(OUT / "idle_preview_light.png")
 
 
 if __name__ == "__main__":
