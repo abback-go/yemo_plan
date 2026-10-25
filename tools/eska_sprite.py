@@ -364,32 +364,57 @@ def overskirt(p):
 
 
 def hair(p):
-    # 뒷머리: 머리 뒤에서 등을 따라 내려와 끝은 갈래로 나뉜다. p["hair"] = (중간점 dx, dy, 끝점 dx, dy)
+    """뒷머리: 한 덩어리가 아니라 여러 가닥. 기본 곡선(뿌리→끝)을 따라 가닥마다 퍼짐·길이가 다르고,
+    물결이 뿌리에서 끝으로 시간차를 두고 흘러간다 (끝으로 갈수록 크게 출렁임).
+    p["hair"] = (중간점 dx, dy, 끝점 dx, dy), p["hwave"] = (진폭 px, 위상 rad)."""
     d = p["hair"]
-    p0 = ub(16.5, 22)
+    amp, phase = p.get("hwave", (0.6, 0.0))
+    root = ub(16.8, 23.5)
     p1 = add(ub(16.0, 42), (d[0], d[1]))
     p2 = (8.5 + d[2], 56 + d[3])
-    pts = bezier(p0, p1, p2)
-    cut = int(len(pts) * 0.82)
-    cells = tube(pts[:cut + 1], lambda t: 5.0 - 1.2 * t)
-    end = pts[cut]
-    dirx, diry = pts[-1][0] - end[0], pts[-1][1] - end[1]
-    nl = math.hypot(dirx, diry) or 1
-    nx, ny = -diry / nl, dirx / nl
-    for s in (-1.3, 1.3):  # 두 갈래 끝
-        a = add(end, (nx * s, ny * s))
-        b = add(pts[-1], (nx * s * 2.2 + dirx * 0.25, ny * s * 2.2 + diry * 0.25))
-        cells.update(tube([a, b], lambda t: 2.4 * (1 - t) + 0.6))
-    paint(cells, "hair", left="hair_l")
-    # 결: 이어진 어두운 가닥 2줄(중간에 한 번 끊김) + 몸 쪽 그늘 + 어깨 뒤 역광
-    for i in range(1, cut):
-        (x0, y0), (x1, y1) = pts[i], pts[i + 1]
-        if i != cut // 2:
-            line(x0 - 0.4, y0, x1 - 0.4, y1, "hair_d")
-        line(x0 + 1.6, y0, x1 + 1.6, y1, "hair_dd")
-    for i in range(1, max(2, cut // 2)):
-        (x0, y0), (x1, y1) = pts[i], pts[i + 1]
-        line(x0 - 2.0, y0, x1 - 2.0, y1, "hair_h")
+    base = bezier(root, p1, p2, 24)
+    # 기본 곡선의 길이 비율과 법선
+    segs = [math.dist(base[i], base[i + 1]) for i in range(len(base) - 1)]
+    tot = sum(segs)
+    acc = [0.0]
+    for L in segs:
+        acc.append(acc[-1] + L)
+
+    def at(u):
+        """길이 비율 u의 점과 단위 법선 (곡선 왼쪽 = 뒤/위쪽)."""
+        u = max(0.0, min(1.0, u)) * tot
+        i = max(0, min(len(segs) - 1, next((k for k in range(len(segs)) if acc[k + 1] >= u), len(segs) - 1)))
+        f = (u - acc[i]) / (segs[i] or 1)
+        x = base[i][0] + (base[i + 1][0] - base[i][0]) * f
+        y = base[i][1] + (base[i + 1][1] - base[i][1]) * f
+        tx, ty = base[i + 1][0] - base[i][0], base[i + 1][1] - base[i][1]
+        tl = math.hypot(tx, ty) or 1
+        return (x, y), (ty / tl, -tx / tl)
+    # 가닥: (퍼짐 위치, 길이, 뿌리 폭, 위상 차, 색, 테두리색) — 뒤 가닥부터 그린다
+    STRANDS = [
+        (-2.6, 0.90, 2.0, 0.9, "hair_d", "hair"),
+        (2.2, 0.96, 2.0, 0.3, "hair_d", "hair"),
+        (-1.0, 1.00, 2.4, 0.0, "hair", "hair_l"),
+        (1.0, 0.86, 2.2, 1.6, "hair", "hair_l"),
+        (-3.6, 0.78, 1.6, 2.3, "hair", "hair_l"),
+        (0.0, 0.94, 1.8, 1.1, "hair_l", "hair_h"),
+    ]
+    for (off, ln, w0, dph, col, rim) in STRANDS:
+        pts = []
+        n = 18
+        for k in range(n + 1):
+            u = k / n * ln
+            (x, y), (nx, ny) = at(u)
+            spread = off * (0.3 + 1.6 * u)                       # 끝으로 갈수록 가닥이 벌어짐
+            wave = amp * (u ** 1.2) * math.sin(phase - 2 * math.pi * 1.25 * u + dph)  # 뿌리→끝으로 흐르는 물결
+            pts.append((x + nx * (spread + wave), y + ny * (spread + wave)))
+        cells = tube(pts, lambda t, w0=w0: max(0.8, w0 * (1 - t) ** 0.9 + 0.5))
+        paint(cells, col, top=rim)
+    # 머리 뒤 뿌리 덩어리 (가닥들이 시작되는 곳을 메움) + 어깨 뒤 윤기
+    root_cells = tube([root, at(0.18)[0]], lambda t: 5.0 - 1.4 * t)
+    paint(root_cells, "hair", left="hair_l")
+    (hx_, hy_), (nx, ny) = at(0.12)
+    line(hx_ + nx * 1.6, hy_ + ny * 1.6, *[v + q * 1.6 for v, q in zip(at(0.3)[0], at(0.3)[1])], "hair_h")
 
 
 def leg(hip, rel_knee, rel_ankle, foot_deg, far):

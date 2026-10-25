@@ -18,11 +18,11 @@ def lerp(a, b, t):
 
 
 # ---------------------------------------------------------------- 달리기 (8프레임, 질주)
-# 상체를 22° 숙이고 낮게. 다리 역할: 앞다리 F0 착지 → F1 체중 실음(가장 낮음) → F2 밀어냄 → F3 발끝으로 차고 나감(뒤로 길게)
+# 상체를 26° 숙이고 낮게. 다리 역할: 앞다리 F0 착지 → F1 체중 실음(가장 낮음) → F2 밀어냄 → F3 발끝으로 차고 나감(뒤로 길게)
 # / 뒷다리 B0 발꿈치를 차올림 → B1 엉덩이까지 접음 → B2 무릎을 높이 듦 → B3 앞으로 뻗음
-F = [((5.5, 7.5), (5.0, 16.5), -10), ((5.5, 7.0), (1.0, 15.5), 5), ((2.0, 8.8), (-3.5, 16.5), 25), ((-2.5, 8.8), (-10.0, 14.0), 60)]
-B = [((-3.0, 8.5), (-11.0, 9.0), 85), ((1.0, 8.5), (-7.0, 6.5), 90), ((8.0, 4.0), (2.0, 10.0), 45), ((8.5, 4.5), (11.0, 12.5), -5)]
-BOB = [2, 3, 2, 1]
+F = [((6.0, 7.5), (7.0, 16.2), -12), ((5.5, 7.0), (1.0, 15.5), 5), ((2.0, 8.8), (-4.0, 16.3), 25), ((-3.0, 8.6), (-11.5, 13.0), 65)]
+B = [((-3.5, 8.3), (-12.0, 8.0), 88), ((1.0, 8.5), (-7.0, 6.0), 92), ((8.5, 3.5), (3.0, 9.5), 45), ((8.5, 4.3), (12.0, 12.0), -8)]
+BOB = [3, 4, 3, 2]
 # 팔: 팔꿈치를 굽혀 크게 흔듦 (가까운 다리가 앞에 닿을 때 가까운 팔은 뒤로)
 ARM = [((-6.0, 4.0), (-5.5, 10.5)), ((-4.0, 6.0), (-1.5, 11.5)), ((-1.0, 7.0), (3.0, 11.0)), ((2.0, 6.5), (6.5, 8.0)),
        ((3.5, 5.5), (7.5, 2.5)), ((2.0, 6.5), (6.5, 8.0)), ((-1.0, 7.0), (3.0, 11.0)), ((-4.0, 6.0), (-1.5, 11.5))]
@@ -37,9 +37,9 @@ def run_frames():
         near, far = (F[ph], B[ph]) if i < 4 else (B[ph], F[ph])
         elbow, wrist = ARM[i]
         fr.append(S.pose(
-            by=BOB[ph], lean_deg=22 + (1 if ph == 1 else 0), near=near, far=far, elbow=elbow, wrist=wrist,
-            hair=(-7 + w, -4, -15 + 2 * w, -11 + 1.5 * w2), skirt=(0.5, -0.8 + 0.5 * w2, -3, -2.5 - 0.8 * w),
-            over=(-13 + 2 * w, -8 + 1.5 * w2), veil=(-8 + w, -3 + w2), sword=18 + 5 * w2, fringe=-4, drip=False))
+            by=BOB[ph], lean_deg=26 + (1 if ph == 1 else 0), near=near, far=far, elbow=elbow, wrist=wrist,
+            hair=(-8 + w, -6, -17 + 2 * w, -14 + 1.5 * w2), skirt=(0.5, -1.0 + 0.5 * w2, -3.5, -3 - 0.8 * w),
+            over=(-15 + 2 * w, -10 + 1.5 * w2), veil=(-10 + w, -5 + w2), sword=20 + 5 * w2, fringe=-5, drip=False))
     return fr
 
 
@@ -90,6 +90,19 @@ DASH = {
                   veil=(-3, -1), sword=8, fringe=-2),
 }
 
+WAVE_AMP = {"idle": 0.8, "run": 2.6, "jump": 1.4, "double_jump": 1.8, "dash": 2.8}
+
+
+def with_wave(name, frames):
+    """머리 물결: 동작별 진폭, 프레임마다 위상이 π/2씩 흘러 4프레임에 물결 하나가 지나간다."""
+    out = []
+    for i, f in enumerate(frames):
+        q = dict(f)
+        q.setdefault("hwave", (WAVE_AMP[name], i * math.pi / 2))
+        out.append(q)
+    return out
+
+
 ANIMS = {
     "idle": [S.IDLE],
     "run": run_frames(),
@@ -97,6 +110,7 @@ ANIMS = {
     "double_jump": [DJUMP[k] for k in ("dj_tuck", "dj_kick", "dj_burst")],
     "dash": [DASH[k] for k in ("dash_start", "dash", "dash_end")],
 }
+ANIMS = {k: with_wave(k, v) for k, v in ANIMS.items()}
 
 
 def frames_of(name):
@@ -130,6 +144,21 @@ def magic_circle(rx, ry, alpha, runes=True, sparks=0):
     for k in range(sparks):  # 위로 튀는 빛 알갱이
         t = k * 2.39
         put(cx + math.cos(t) * rx * 0.8, cy - 2 - (k % 3) * 2, ICE if k % 2 else LAV, int(230 * alpha))
+    return im
+
+
+def speed_lines(i, w, h):
+    """몸 뒤로 빠르게 지나가는 가는 빛줄기 (게임에서는 효과 층)."""
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    P = im.load()
+    for j in range(7):
+        y = 30 + (j * 13 + 7) % 60
+        ln = 6 + (j * 5) % 9
+        x0 = (w - ((i * 22 + j * 37) % (w + 40))) + 10
+        for x in range(x0, x0 + ln):
+            if 0 <= x < w and 0 <= y < h:
+                a = int(110 * (1 - (x - x0) / ln))
+                P[x, y] = (150, 175, 220, a)
     return im
 
 
@@ -200,8 +229,9 @@ def build_gifs():
             k = (i - c) % 8
             if k < 3:
                 fx.append((dust[k], 20 + S.OX + 22 - 8 - 4 * k, gy - 9))
+        fx.append((speed_lines(i, S.W + 40, S.H + top + 8), 0, 0))
         seq.append((f, 20, top, fx))
-    compose("run", seq, (S.W + 40, S.H + top + 8), 65, gy, scroll=9)
+    compose("run", seq, (S.W + 40, S.H + top + 8), 40, gy, scroll=14)
     # 점프
     J = [("takeoff", 0), ("rise_a", -10), ("rise_b", -18), ("rise_a", -24), ("apex", -27), ("apex", -28), ("fall_a", -26),
          ("fall_b", -20), ("fall_a", -12), ("fall_b", -3), ("land", 0), ("land", 0), ("idle", 0), ("idle", 0)]
