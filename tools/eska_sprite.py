@@ -391,24 +391,29 @@ def hair(p):
         tl = math.hypot(tx, ty) or 1
         return (x, y), (ty / tl, -tx / tl)
     # 가닥: (퍼짐 위치, 길이, 뿌리 폭, 위상 차, 색, 테두리색) — 뒤 가닥부터 그린다
+    # (퍼짐 위치, 길이, 뿌리 폭, 위상 차, 물결 빠르기, 색, 윗면 빛) — 뒤 가닥부터
     STRANDS = [
-        (-2.6, 0.90, 2.0, 0.9, "hair_d", "hair"),
-        (2.2, 0.96, 2.0, 0.3, "hair_d", "hair"),
-        (-1.0, 1.00, 2.4, 0.0, "hair", "hair_l"),
-        (1.0, 0.86, 2.2, 1.6, "hair", "hair_l"),
-        (-3.6, 0.78, 1.6, 2.3, "hair", "hair_l"),
-        (0.0, 0.94, 1.8, 1.1, "hair_l", "hair_h"),
+        (-2.8, 0.86, 1.6, 0.9, 1.0, "hair_d", "hair"),
+        (2.4, 0.93, 1.8, 0.3, 1.1, "hair_d", "hair"),
+        (-0.4, 1.00, 2.2, 0.0, 1.0, "hair", "hair_l"),
+        (1.3, 0.90, 1.9, 1.6, 0.9, "hair", "hair_l"),
+        (-1.8, 0.97, 1.8, 2.6, 1.2, "hair", "hair_l"),
+        (-3.8, 0.74, 1.3, 2.1, 1.3, "hair", "hair_l"),
+        (0.6, 0.82, 1.5, 3.3, 1.1, "hair_l", "hair_h"),
+        (3.2, 0.70, 1.2, 4.0, 1.2, "hair", "hair_l"),
     ]
-    for (off, ln, w0, dph, col, rim) in STRANDS:
+    for (off, ln, w0, dph, fq, col, rim) in STRANDS:
         pts = []
-        n = 18
+        n = 20
         for k in range(n + 1):
             u = k / n * ln
             (x, y), (nx, ny) = at(u)
-            spread = off * (0.3 + 1.6 * u)                       # 끝으로 갈수록 가닥이 벌어짐
-            wave = amp * (u ** 1.2) * math.sin(phase - 2 * math.pi * 1.25 * u + dph)  # 뿌리→끝으로 흐르는 물결
+            spread = off * (0.3 + 1.5 * u)                       # 끝으로 갈수록 가닥이 벌어짐
+            # 뿌리→끝으로 흐르는 물결 두 개를 섞어 규칙적이지 않게 (8프레임에 맞물려 반복)
+            wave = amp * (u ** 1.3) * (0.75 * math.sin(phase - 2 * math.pi * 1.15 * fq * u + dph)
+                                       + 0.35 * math.sin(0.5 * phase - 2 * math.pi * 2.0 * u + 2 * dph))
             pts.append((x + nx * (spread + wave), y + ny * (spread + wave)))
-        cells = tube(pts, lambda t, w0=w0: max(0.8, w0 * (1 - t) ** 0.9 + 0.5))
+        cells = tube(pts, lambda t, w0=w0: max(0.6, w0 * (1 - t) ** 1.1 + 0.45))  # 끝은 1px로 가늘게
         paint(cells, col, top=rim)
     # 머리 뒤 뿌리 덩어리 (가닥들이 시작되는 곳을 메움) + 어깨 뒤 윤기
     root_cells = tube([root, at(0.18)[0]], lambda t: 5.0 - 1.4 * t)
