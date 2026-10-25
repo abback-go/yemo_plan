@@ -20,15 +20,15 @@ ANCHOR = ("ESKA, the Witch of Endings: a tall, slender woman in her late twentie
 "split open at the front so her bare legs and the short inner skirt stay visible, flowing down at the sides and back to her ankles, "
 "its hem embroidered with the same faint silver script and floating slightly. "
 "Bare legs, short black leather ankle boots ending just above the ankle with low block heels. "
-"Signature weapon on her LEFT hip, hung from her belt by two dark cords with the edge facing down, angled backward so the scabbard end trails behind her: a slender, slightly curved single-edged Japanese-style sword (katana-like) with a long, narrow blade whose surface is etched with faint lines of tiny handwritten script, silver at rest and glowing ice-blue when she attacks, instead of a temper line; a round guard (tsuba) forged from black iron shaped like tightly woven twisted twigs; a long grip wrapped in dark navy cord with a plain silver end cap; a long narrow scabbard in dark navy lacquer with a few silver fittings; the lower third of the scabbard flares into a bundle of twisted black twigs bound with dark cord, so the sheathed sword reads as a witch's broom. A few faint lavender motes of light drift around her. "
+"Signature weapon on her LEFT hip, attached to her belt by leather straps and angled backward so the scabbard end trails behind her: a slim, straight double-edged silver longsword about two-thirds of her height, with a narrow blade tapering to a sharp point and a central fuller etched with faint lines of tiny handwritten script, silver at rest and glowing ice-blue when she attacks; an ornate silver cross-guard whose arms curve and twist like thorny branches, set with a small pale ice-blue gem at its center; a grip wrapped in dark leather with a small pointed silver pommel; a long dark slate-blue leather scabbard with an ornate silver throat plate and two silver buckle straps near the mouth; the lower third of the scabbard flares into a bundle of twisted black twigs bound with dark cord, so the sheathed sword reads as a witch's broom. A few faint lavender motes of light drift around her. "
 "Strictly cool palette: navy, steel blue, pale skin, ice-blue glow (#9FD8FF), soft lavender accents (#B9A2FF). No warm colors.")
 AV_COMMON = ("extra fingers, fused fingers, inconsistent outfit or colors between views, inconsistent face between views, "
 "asymmetric face, text typos, misspelled labels, cropped or missing views, watermark, signature")
 AV_CHAR = ("warm colors (red, orange, gold, brown), star or constellation patterns, star-shaped brooch, glowing cracks or rift effects, "
-"gray-white hair, black hair without blue tint, weapon on her right hip, western cross-guard, rapier or cup guard, straight double-edged blade, gem on the sword hilt, broad or heavy blade, crescent moon ornament, ribbon or tassel on the hilt, kimono or samurai armor, "
+"gray-white hair, black hair without blue tint, weapon on her right hip, katana or curved blade, round tsuba, rapier or cup guard, red gem, red leaves on the broom twigs, broad or heavy blade, crescent moon ornament, ribbon or tassel on the hilt, "
 "school uniform look, puffed sleeves, ballgown, fully closed long skirt hiding the legs, thigh-high or knee-high boots, hair blown sideways by strong wind, lingerie, explicit nudity, "
 "suggestive or sexualized pose, cleavage-focused framing")
-SWORD_TXT = ("a slender, slightly curved single-edged Japanese-style sword (katana-like) with a long, narrow blade whose surface is etched with faint lines of tiny handwritten script, silver at rest and glowing ice-blue when she attacks, instead of a temper line; a round guard (tsuba) forged from black iron shaped like tightly woven twisted twigs; a long grip wrapped in dark navy cord with a plain silver end cap; a long narrow scabbard in dark navy lacquer with a few silver fittings")
+SWORD_TXT = ("a slim, straight double-edged silver longsword about two-thirds of her height, with a narrow blade tapering to a sharp point and a central fuller etched with faint lines of tiny handwritten script, silver at rest and glowing ice-blue when she attacks; an ornate silver cross-guard whose arms curve and twist like thorny branches, set with a small pale ice-blue gem at its center; a grip wrapped in dark leather with a small pointed silver pommel; a long dark slate-blue leather scabbard with an ornate silver throat plate and two silver buckle straps near the mouth")
 def avoid(extra=""):
     return "AVOID: " + AV_COMMON + ", " + AV_CHAR + (", " + extra if extra else "") + "."
 def block(title, body):
@@ -36,14 +36,14 @@ def block(title, body):
 
 LAYOUT = """LAYOUT (strict):
 - HEADER LEFT: character name "ESKA" in large elegant display type, subtitle "// THE WITCH OF ENDINGS".
-- LEFT COLUMN: "BASIC INFO" data block — ROLE: Witch of Endings / HEIGHT: 175 cm / WEAPON: Broom-Katana. Below it a short italic quote in lavender: "Every world ends. / I only close the book." Below that, one large close-up bust portrait of her face, expressionless, upper face in the shadow of the hat brim, glowing ice-blue eyes behind her bangs.
-- CENTER (dominant, about half the page): full-body turnaround, 3 large views on a dark reflective floor — front, left side profile (facing screen-left so her LEFT hip and the broom-katana face the viewer), back. Identical outfit, proportions, and hair in all three views, calm standing pose, hair ends and veil drifting slightly, sword sheathed on her LEFT hip with the broom end trailing behind her, clearly visible in all three views including the back view. Keep the turnaround clearly readable despite the dramatic lighting.
+- LEFT COLUMN: "BASIC INFO" data block — ROLE: Witch of Endings / HEIGHT: 175 cm / WEAPON: Broom-Sword. Below it a short italic quote in lavender: "Every world ends. / I only close the book." Below that, one large close-up bust portrait of her face, expressionless, upper face in the shadow of the hat brim, glowing ice-blue eyes behind her bangs.
+- CENTER (dominant, about half the page): full-body turnaround, 3 large views on a dark reflective floor — front, left side profile (facing screen-left so her LEFT hip and the broom-sword face the viewer), back. Identical outfit, proportions, and hair in all three views, calm standing pose, hair ends and veil drifting slightly, sword sheathed on her LEFT hip with the broom end trailing behind her, clearly visible in all three views including the back view. Keep the turnaround clearly readable despite the dramatic lighting.
 - RIGHT COLUMN, headline "DETAILS": 4 stacked panels, each a zoomed render with a bold label and one short line:
   1) HAT & VEIL — wide navy brim, sheer veil;
   2) OVERSKIRT — open-front silver-sheen chiffon;
   3) BROOM SCABBARD — twisted black twigs bound with cord;
-  4) BLADE & GUARD — script-etched blade, twig-iron guard.
-- BOTTOM RIGHT, headline "MATERIALS": a row of 5 small labeled material spheres: Navy Wool (Cloth), Silver-Sheen Chiffon (Sheer), Navy Lacquer (Gloss), Etched Steel (Metal), Black Twig (Wood).
+  4) BLADE & GUARD — thorn-branch guard, script-etched blade.
+- BOTTOM RIGHT, headline "MATERIALS": a row of 5 small labeled material spheres: Navy Wool (Cloth), Silver-Sheen Chiffon (Sheer), Worn Leather (Matte), Antique Silver (Metal), Black Twig (Wood).
 
 All labels in clean sans-serif English, short. The character must be IDENTICAL in all views and panels."""
 
@@ -64,7 +64,7 @@ No text, no labels, no sheet layout, no other views, no cropping.
 
 hero = single("three-quarter front view (turned slightly to her left)", "Her glowing ice-blue left eye is visible, the right eye mostly hidden by bangs. Hair ends, veil, shawl fringe and the long chiffon overskirt drift slightly as if weightless.")
 front = single("straight front view", "Arms relaxed at her sides, both bare shoulders clearly visible, the broom-scabbard visible behind her left leg.")
-side = single("left side profile view, facing screen-left so her LEFT hip and the broom-katana face the viewer", "The full length of the scabbard, the twig-iron guard and the twig-broom end are clearly visible; the long open-front overskirt flows down to her ankles behind her legs; the hat's bent tip points backward.")
+side = single("left side profile view, facing screen-left so her LEFT hip and the broom-sword face the viewer", "The full length of the scabbard, the thorn-branch guard and the twig-broom end are clearly visible; the long open-front overskirt flows down to her ankles behind her legs; the hat's bent tip points backward.")
 back = single("back view", "Her face is NOT visible, head faces away. The very long steel-blue hair, the veil hanging from the hat brim, the shawl across her back, and the broom-scabbard angled behind her left hip are clearly visible.", "face visible from behind, head turned toward camera")
 expr = f"""Aspect ratio 3:2 landscape. {STYLE}
 
@@ -75,22 +75,22 @@ A single horizontal row of exactly 4 large bust close-ups of this character, eve
 {avoid("different hairstyles between panels")}"""
 weapon = f"""Aspect ratio 3:2 landscape. {STYLE}
 
-Prop design study of ESKA's signature weapon, the Broom-Katana, on the same dark slate-navy background: a slender, slightly curved single-edged Japanese-style sword (katana-like) with a long, narrow blade whose surface is etched with faint lines of tiny handwritten script, silver at rest and glowing ice-blue when she attacks, instead of a temper line; a round guard (tsuba) forged from black iron shaped like tightly woven twisted twigs; a long grip wrapped in dark navy cord with a plain silver end cap; a long narrow scabbard in dark navy lacquer with a few silver fittings; the lower third of the scabbard flares into a bundle of twisted black twigs bound with dark cord, so the sheathed sword reads as a witch's broom. Strictly cool palette: navy, steel blue, black iron, silver, ice-blue glow (#9FD8FF), soft lavender accents (#B9A2FF). No warm colors.
+Prop design study of ESKA's signature weapon, the Broom-Sword, on the same dark slate-navy background: a slim, straight double-edged silver longsword about two-thirds of her height, with a narrow blade tapering to a sharp point and a central fuller etched with faint lines of tiny handwritten script, silver at rest and glowing ice-blue when she attacks; an ornate silver cross-guard whose arms curve and twist like thorny branches, set with a small pale ice-blue gem at its center; a grip wrapped in dark leather with a small pointed silver pommel; a long dark slate-blue leather scabbard with an ornate silver throat plate and two silver buckle straps near the mouth; the lower third of the scabbard flares into a bundle of twisted black twigs bound with dark cord, so the sheathed sword reads as a witch's broom. Strictly cool palette: navy, steel blue, dark leather, silver, ice-blue glow (#9FD8FF), soft lavender accents (#B9A2FF). No warm colors.
 
-LAYOUT: left — the sheathed broom-katana shown vertically at full length; center — the drawn sword shown vertically at full length beside its empty scabbard; right column — 3 zoomed panels: GUARD (woven twig-iron tsuba), BLADE (etched script, ice-blue glow), BROOM END (twig bundle and cord binding). One short English label per panel. No character, no other objects.
+LAYOUT: left — the sheathed broom-sword shown vertically at full length; center — the drawn sword shown vertically at full length beside its empty scabbard; right column — 3 zoomed panels: GUARD (thorn-branch silver cross-guard, ice-blue gem), BLADE (etched script, ice-blue glow), BROOM END (twig bundle and cord binding). One short English label per panel. No character, no other objects.
 
-AVOID: warm colors (red, orange, gold, brown), western cross-guard, rapier or cup guard, crescent moon ornament, ribbon or tassel on the hilt, gem on the hilt, broad or heavy blade, extra blades, inconsistent design between panels, text typos, misspelled labels, watermark."""
+AVOID: warm colors (red, orange, gold, brown), red gem, red leaves on the broom twigs, katana or curved blade, round tsuba, rapier or cup guard, crescent moon ornament, ribbon or tassel on the hilt, broad or heavy blade, extra blades, inconsistent design between panels, text typos, misspelled labels, watermark."""
 
 edits = [
-("무기가 오른쪽 허리에 있을 때", "Keep everything else exactly the same. In every view, move the broom-katana so it hangs on her LEFT hip, angled behind her. Do not change her face, hair, outfit, colors, or the layout."),
+("무기가 오른쪽 허리에 있을 때", "Keep everything else exactly the same. In every view, move the broom-sword so it hangs on her LEFT hip, angled behind her. Do not change her face, hair, outfit, colors, or the layout."),
 ("라벨 오타가 있을 때 (따옴표 안을 실제 오타·정답으로 바꿔 쓰세요)", "Keep everything else exactly the same. Replace only the misspelled label text \"ESAK\" with exactly \"ESKA\". Do not change any image content."),
 ("따뜻한 색이 섞였거나 부츠가 길 때", "Keep everything else exactly the same. Remove every warm color (red, orange, gold, brown) and replace it with navy, steel blue, silver, or ice-blue. Shorten her boots to black leather ankle boots ending just above the ankle. Do not change her face, hair, pose, or the layout."),
-("무기를 빗자루 일본도로 바꿀 때 (v2 시트 첨부)", "Keep everything else exactly the same: the same layout, face, hair, outfit, colors, lighting and labels. Replace the rapier in every view and panel with a new sword: " + SWORD_TXT + "; the lower third of the scabbard flares into a bundle of twisted black twigs bound with dark cord, so the sheathed sword reads as a witch's broom. In every view, including the back view, the sword hangs on her LEFT hip from her belt by two dark cords with the edge facing down, angled backward so the broom end trails behind her legs. Change the WEAPON label to \"Broom-Katana\", the fourth DETAILS panel to \"BLADE & GUARD\" with the line \"Script-etched blade, twig-iron guard.\", and the materials \"Worn Leather (Matte)\" and \"Antique Silver (Metal)\" to \"Navy Lacquer (Gloss)\" and \"Etched Steel (Metal)\". AVOID: rapier, cup guard, western cross-guard, crescent moon ornament, ribbon or tassel on the hilt, warm colors, weapon on her right hip, missing weapon in any view."),
+("무기를 빗자루 검으로 바꿀 때 (v2 시트 첨부)", "Keep everything else exactly the same: the same layout, face, hair, outfit, colors, lighting and labels. Replace the rapier in every view and panel with a new sword: " + SWORD_TXT + "; the lower third of the scabbard flares into a bundle of twisted black twigs bound with dark cord, so the sheathed sword reads as a witch's broom. In every view, including the back view, the sword is attached to her LEFT hip by leather straps, angled backward so the broom end trails behind her legs. Change the WEAPON label to \"Broom-Sword\" and the fourth DETAILS panel to \"BLADE & GUARD\" with the line \"Thorn-branch guard, script-etched blade.\". AVOID: rapier, cup guard, katana or curved blade, red gem, crescent moon ornament, ribbon or tassel on the hilt, warm colors, weapon on her right hip, missing weapon in any view."),
 ("신비로운 느낌이 약할 때", "Keep the design and layout exactly the same. Make the mood more mysterious: stronger cool backlight, deeper shadow under the hat brim so her glowing ice-blue eyes stand out, hair ends and veil drifting as if weightless, and a few faint lavender motes of light around her. Do not change her face, outfit, colors, or labels."),
 ]
 
 out = []
-out.append("에스카(ESKA) 캐릭터 디자인 — 이미지 생성 프롬프트 모음 (v3: 신비로운 연출 · 베일 · 앞트임 긴 겉치마 · 코르셋 벨트 · 글자 자수 · 빗자루 일본도)\n"
+out.append("에스카(ESKA) 캐릭터 디자인 — 이미지 생성 프롬프트 모음 (v3: 신비로운 연출 · 베일 · 앞트임 긴 겉치마 · 코르셋 벨트 · 글자 자수 · 빗자루 검)\n"
 "만든 곳: tools/make_eska_prompts.py (앵커를 고치면 이 스크립트를 다시 실행) · 대상: ChatGPT 무료 (하루 2~3장 추정)\n기획서 연결: docs/gdd/10-art-direction.md\n")
 out.append("=== CHARACTER ANCHOR ===\n이 문단은 모든 프롬프트에 한 글자도 바꾸지 않고 들어간다 (캐릭터 일관성의 핵심).\n\n" + ANCHOR + "\n")
 out.append("=== SHEET (1단계 · 화면비 3:2 가로) ===\n"
@@ -119,13 +119,13 @@ out.append("""=== MODEL TIPS ===
 out.append("""=== QUALITY CHECKLIST ===
 1. 모든 뷰의 비율·얼굴이 같은가
 2. 따뜻한 색이 없는가 → 편집 3
-3. 빗자루 일본도가 모든 뷰에서 LEFT 허리인가 → 편집 1
+3. 빗자루 검이 모든 뷰에서 LEFT 허리인가 → 편집 1
 4. 라벨 오타가 없는가 → 편집 2
 5. 요청한 뷰·패널이 빠짐없이 있는가
 6. 잘라낸 전신 뷰 세로가 800px 이상인가 → 미만이면 2단계 단일 뷰로
 7. 앞머리가 오른쪽 눈을 가리는가, 양쪽 어깨가 드러나는가
 8. 눈이 화면에서 가장 밝은 점인가, 머리끝·베일이 떠오르는가 → 편집 5
-9. 칼날이 가늘고 살짝 휜 외날인가, 코등이가 나뭇가지 엮은 검은 쇠인가, 칼날에 글자 문양이 있는가
+9. 칼날이 가늘고 곧은 양날인가, 가드가 가시 가지 모양 은색이고 보석이 하늘색인가(빨강 아님), 칼날에 글자 문양이 있는가
 """)
 pathlib.Path(__file__).resolve().parent.parent.joinpath("docs/art/eska-design-prompts.txt").write_text("\n".join(out))
 pathlib.Path("/tmp/claude-0/sheet_edit.txt").write_text(sheet_edit)
