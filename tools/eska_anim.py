@@ -299,8 +299,21 @@ def full_sheet():
     pv.save(OUT / "sheet_preview.png")
 
 
+def idle_preview():
+    """대기 한 장: 4배 전신 + 얼굴 확대 10배 (어두운 배경)."""
+    f = S.render(S.IDLE).copy()
+    bg = Image.new("RGBA", f.size, (26, 31, 46, 255))
+    bg.alpha_composite(f)
+    bb = f.getbbox()
+    body = bg.crop((bb[0] - 6, bb[1] - 6, bb[2] + 6, bb[3] + 6))
+    body.resize((body.width * 4, body.height * 4), Image.NEAREST).save(OUT / "idle_preview.png")
+    face = bg.crop((74, 46, 106, 80))
+    face.resize((face.width * 10, face.height * 10), Image.NEAREST).save(OUT / "idle_face.png")
+
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
+    idle_preview()
     for name in ANIMS:
         sheet(name, frames_of(name))
     full_sheet()

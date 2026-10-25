@@ -34,7 +34,8 @@ C = {
     "skin_d": hx("#76829c"), "skin_s": hx("#a3afc6"), "skin_m": hx("#bcc6da"), "skin": hx("#d2dae8"), "skin_h": hx("#eef3fb"),
     "under": hx("#8e9ab9"),
     "eye": hx("#a8e2ff"), "eye_m": hx("#6cb8e6"), "eye2": hx("#3f7fb3"), "lash": hx("#0a0e1a"), "lash_m": hx("#2a3550"),
-    "lip": hx("#9aa3bd"),
+    "lip": hx("#8d96b2"), "lip_l": hx("#e6ebf5"),
+    "sclera": hx("#e2eaf6"), "glow": hx("#c4dcf2"), "blush": hx("#c9c3df"), "under2": hx("#b2bbd2"),
     "bl_d": hx("#0f1530"), "bl": hx("#1c2546"), "bl_m": hx("#243058"), "bl_l": hx("#2f3c6c"), "bl_r": hx("#4a5c9e"),
     "shawl_d": hx("#3c4864", 205), "shawl": hx("#56647f", 190), "shawl_l": hx("#8494b2", 215),
     "cor": hx("#0a0d19"), "cor_m": hx("#151a2c"), "cor_l": hx("#2a3250"),
@@ -256,7 +257,7 @@ def rotsprite(layer, deg, pivot):
 # ================================================================ 상체 (숙임 회전 층)
 def torso(_):
     # 목: 턱 밑은 그늘
-    neck = poly_cells([(20.2, 28.2), (23.0, 28.2), (23.2, 31.2), (20.0, 31.2)])
+    neck = poly_cells([(22.5, 27.6), (24.5, 27.6), (24.8, 31.2), (22.0, 31.2)])
     paint(neck, "skin_s", left="skin_d")
     for (x, y) in neck:
         if y <= cv(0, 28.9)[1]:
@@ -264,7 +265,7 @@ def torso(_):
     # 드러난 어깨·쇄골
     sh = poly_cells([(18.6, 30.7), (21.5, 30.3), (24.6, 30.6), (25.6, 31.9), (18.3, 32.3)])
     paint(sh, "skin", left="skin_s", top="skin_m")
-    line(21.6, 31.2, 24.6, 31.0, "skin_h")   # 쇄골 빛
+    line(22.2, 31.2, 24.2, 31.0, "skin_h")   # 쇄골 빛 (짧게)
     line(21.0, 31.6, 23.4, 31.5, "skin_m")   # 쇄골 아래 그늘
     # 블라우스: 일자 목선, 가슴 둥근 면, 가슴 밑 그늘
     bl = poly_cells([(18.4, 32.0), (25.7, 31.8), (26.7, 32.6), (27.1, 33.8), (26.8, 35.0), (25.8, 35.9), (19.0, 36.1), (18.5, 34.0)])
@@ -301,54 +302,70 @@ def shawl_back(_):
                 dot(x, low[x] + 1 + k, "shawl_d" if k % 2 else "shawl")
 
 
+# 얼굴 (3/4 각도) — 앞머리·눈썹·눈·코·입·턱·목을 칸 해상도로 한 칸씩 직접 찍은 18×18 영역.
+# 열 0 = 칸 x 84, 행 0 = 칸 y 57 (대기 자세 기준). 윗줄은 모자 챙이 덮는다.
+# 큰 앞쪽 눈(위 어두운 남색 → 아래 밝은 하늘색, 하이라이트 없음, 안쪽에 옅은 흰자) + 좁은 뒤쪽 눈,
+# 끝이 처진 진한 위 속눈썹, 살짝 처진 가는 눈썹, 앞쪽 눈 바깥을 지나는 앞머리 한 가닥, 눈 밑 옅은 그늘,
+# 작은 코(콧대 그늘 + 코끝 빛), 작은 입, 옅은 라벤더 볼, 귀 쪽에서 턱끝으로 내려오는 V자 턱선, 가는 목.
+FACE = [
+    # 012345678901234567
+    "HHHDHHHHDHHHHDHHHH",  # 0  y57 챙 밑
+    "HHHDHHDHHDHHDHHDHH",  # 1  y58 앞머리
+    "HHDHHDmmmDmHmmDHH.",  # 2  y59 앞머리 끝 사이로 이마
+    "HHDHmDqqqmsDqqmHH_",  # 3  y60 살짝 처진 가는 눈썹 + 쌍꺼풀 그늘
+    "HHDHkkkkkksskkkmD_",  # 4  y61 무거운 윗눈꺼풀의 진한 속눈썹
+    "HHDHkDeeiwsneksm__",  # 5  y62 눈동자 위 (눈꺼풀 그늘로 어두움), 처진 눈꼬리
+    "HHDHqDiEEwsnEssm__",  # 6  y63 눈동자 아래 (밝게 빛남, 하이라이트 없음)
+    "HHDHSqqiqsssqssv__",  # 7  y64 아래 속눈썹, 광대 빛
+    "HDHHSsugussssvsm__",  # 8  y65 눈 밑 옅은 그늘, 코끝
+    "HDHHSppsssssmpm___",  # 9  y66 볼, 콧방울 그늘
+    "HDHHSSssssssssm___",  # 10 y67
+    "HDHHHSsssmllsm____",  # 11 y68 작은 입
+    "HDHHH_Ssssvsm_____",  # 12 y69 아랫입술 빛
+    "HDHHHzzSsssm______",  # 13 y70 턱, 턱 밑 그늘
+    "HDHHHzSS_Sm_______",  # 14 y71 턱끝 (목과 사이에 틈)
+    "HDHHHSssS_________",  # 15 y72 가는 목
+    "HDHHHSssS_________",  # 16 y73
+    "HDHHHSssS_________",  # 17 y74
+]
+FACE_KEY = {"H": "hair", "D": "hair_d", "M": "hair_m", "L": "hair_l", "K": "hair_dd",
+            "s": "skin", "S": "skin_s", "m": "skin_m", "v": "skin_h", "z": "skin_d", "u": "under2", "U": "under",
+            "k": "lash", "q": "lash_m", "e": "eye2", "i": "eye_m", "E": "eye", "w": "sclera", "g": "glow",
+            "p": "blush", "n": "skin_m", "l": "lip", "_": "clear"}
+FC, FR = 14, 9   # 얼굴 영역의 머리 스탬프 안 위치
+
+
 @lifted
 def head(_):
-    # 머리: 뒤쪽은 세로로 흐르는 머릿결(결 줄 + 뒤 가장자리 역광)을 자동으로 깔고, 얼굴은 칸 해상도로 손으로 찍는다.
-    # 얼굴: 챙 그늘 아래 이마, 끝이 처진 긴 속눈썹, 하이라이트 없이 빛나는 눈, 눈 밑 그늘, 작은 코끝, 얇은 입술, 뾰족한 턱.
-    FACE = [
-        # c16 ~ c27
-        "HDDDDDDD....",  # r0  챙 밑
-        "HHDDDDDDD...",  # r1
-        "HDHHDDSS_...",  # r2  이마 (챙 그늘)
-        "HDHHHDSSS_..",  # r3
-        "HHDHDHDSSS__",  # r4  뾰족한 앞머리 끝
-        "HHmDDSkkkkk_",  # r5  긴 속눈썹 (끝이 앞으로 뻗음)
-        "HHDDSkeiEEs_",  # r6  처진 눈꼬리 + 빛나는 눈
-        "HHmDSuueEEs_",  # r7
-        "HHHDSsuuuss_",  # r8  눈 밑 그늘
-        "HHHDSssssssv",  # r9  코끝
-        "HHHDSsssssS_",  # r10
-        "HHHDSssssS__",  # r11
-        "HHHDSssssss_",  # r12 윗입술
-        "HHHDSssssl__",  # r13 입술 선
-        "HHHDSSssss__",  # r14
-        "HHHD_Ssss___",  # r15 턱
-        "HHHD__SssS__",  # r16 뾰족한 턱끝
-        "HHHD___zS___",  # r17 턱 밑 (턱선은 실루엣 경계로 귀 쪽 대각선)
-        "HHHD........",  # r18
-        "HHHD........",  # r19
-    ]
-    STRANDS = {3: "D", 6: "m", 9: "D", 12: "m", 15: "D"}
-    rows = []
-    for r, face in enumerate(FACE):
-        if r == 0:
-            back = "K" * 16
-        else:
-            rim = "T" if 5 <= r <= 9 else "L"
-            back = rim + "".join(STRANDS.get(c, "H") for c in range(1, 16))
-            if r >= 15:
-                back = "." * (r - 14) + back[r - 14:]
-        rows.append(back + face)
-    stamp(14, 22, rows, {"K": "hair_dd", "D": "hair_d", "m": "hair_m", "H": "hair", "L": "hair_l", "T": "hair_h",
-                         "S": "skin_s", "s": "skin", "v": "skin_h", "z": "skin_d", "u": "under",
-                         "k": "lash", "e": "eye2", "i": "eye_m", "E": "eye", "l": "lip", "_": "clear"})
-    # 얼굴에 흘러내린 잔머리 한 가닥
-    line(22.6, 24.0, 22.2, 27.6, "hair_d")
-    # 옆머리 (귀 앞에서 가슴까지, 끝이 뾰족) — 결 줄
-    side = tube([(21.4, 25.5), (21.6, 30.0), (21.2, 34.0), (21.6, 36.6)], lambda t: 1.9 * (1 - t) ** 0.7 + 0.4)
+    X0, Y0 = cv(13, 18)
+    X0, Y0 = round(X0), round(Y0)          # 대기 자세에서 (70, 48)
+
+    def hp(c, r, col):
+        dot(X0 + c, Y0 + r, col)
+    # 1) 뒷머리 덩어리: 모자 밑에서 둥글게, 세로로 흐르는 결 줄 + 뒤 가장자리 역광 + 윤기 띠
+    for r in range(0, 27):
+        lx = 3 if r < 3 else 2 if r < 6 else 1
+        rx = 23 if r < 4 else 27 if r < 9 else 13
+        for c in range(lx, rx + 1):
+            col = "hair"
+            if c in (4, 10, 16):
+                col = "hair_d"
+            elif c in (7, 13):
+                col = "hair_m"
+            hp(c, r, col)
+        hp(lx, r, "hair_h" if 8 <= r <= 15 else "hair_l")
+    for c in range(3, 12):                  # 윤기 띠 (천사의 고리)
+        hp(c, 11 + (c % 3 == 0), "hair_l" if c % 2 else "hair_h")
+    # 2) 얼굴 (앞머리 포함, 한 칸씩 찍은 영역)
+    for r, row in enumerate(FACE):
+        for c, ch in enumerate(row):
+            if ch in FACE_KEY:
+                hp(FC + c, FR + r, FACE_KEY[ch])
+    # 4) 옆머리: 귀 앞에서 가슴까지, 앞쪽 볼선을 감싸고 끝이 뾰족
+    side = tube([(21.0, 27.0), (21.3, 31.0), (21.1, 34.5), (21.6, 37.5)], lambda t: 1.8 * (1 - t) ** 0.7 + 0.35)
     paint(side, "hair", left="hair_d", right="hair_l")
-    line(21.4, 27.0, 21.5, 33.5, "hair_m")
-    side2 = tube([(20.3, 30.0), (20.2, 34.0), (20.5, 37.6)], lambda t: 1.4 * (1 - t) + 0.4)
+    line(21.1, 28.0, 21.3, 34.0, "hair_m")
+    side2 = tube([(20.0, 29.0), (19.8, 33.5), (20.2, 38.0)], lambda t: 1.3 * (1 - t) + 0.35)
     paint(side2, "hair_d", left="hair_dd")
 
 
@@ -607,7 +624,7 @@ def weapon(p):
     paint(tube([add(g, d, -1.2), add(g, d, -4.6)], lambda t: 1.3), "grip", top="grip_l")
     for k in (2.0, 3.2, 4.2):  # 손잡이 감은 가죽 결
         pt(*add(g, d, -k), "grip_l")
-    paint(tube([add(g, d, -5.0), add(g, d, -7.2)], lambda t: 1.4 * (1 - t) + 0.3), "silver", bottom="silver_d")
+    paint(tube([add(g, d, -4.8), add(g, d, -5.9)], lambda t: 1.3 * (1 - t) + 0.4), "silver_d", top="silver")  # 작은 은 폼멜
     for s in (1, -1):
         arm = [g, add(g, n, s * 1.4), add(add(g, n, s * 2.6), d, s * 0.3), add(add(g, n, s * 3.3), d, s * 1.2)]
         paint(tube(arm, lambda t: 0.9 * (1 - t) + 0.35), "silver", bottom="silver_d")
@@ -630,7 +647,7 @@ def near_arm(p):
     ud = (ux / ul, uy / ul)
     un = (-ud[1], ud[0])
     c0 = add(sh, ud, ul * 0.72)
-    band = tube([add(c0, un, -3.2), add(c0, un, 2.6)], lambda t: 3.0)
+    band = tube([add(c0, un, -3.4), add(c0, un, 2.8)], lambda t: 0.8 + 2.6 * math.sin(math.pi * t) ** 0.7)  # 끝이 가는 렌즈 모양
     for c in band:
         dot(*c, "shawl")
     for (x, y) in band:
@@ -652,10 +669,23 @@ def near_arm(p):
     fl = math.hypot(fx, fy) or 1
     fd = (fx / fl, fy / fl)
     cuff = add(wr, fd, 0.8)
-    bell = tube([el, cuff], lambda t: 3.3 + 4.4 * t ** 1.6)
-    paint(bell, "bl", left="bl_d", right="bl_l", left2="bl_m")
+    # 종 모양 소매: 팔이 수평에 가까울수록 아래 자락이 중력으로 늘어진다 (위 선은 팔을 따라감)
+    n_ = (fd[1], -fd[0])
+    if n_[1] > 0:
+        n_ = (-n_[0], -n_[1])                     # n_ = 위쪽
+    hz = abs(fd[0])                               # 1 = 팔이 수평
+    spread = 1.4 + (1 - hz) * 2.4
+    hang = 4.6 * hz
+    shape = [add(el, n_, 1.65), add(add(el, fd, fl * 0.55), n_, 1.7), add(cuff, n_, spread),
+             add(add(cuff, n_, -spread), (-0.6 * fd[0], hang)), add(add(add(el, fd, fl * 0.5), n_, -1.9), (0, hang * 0.35)),
+             add(el, n_, -1.65)]
+    bell = {c: 0.0 for c in poly_cells(shape)}
+    for c in poly_cells([add(cuff, n_, spread), add(add(cuff, n_, -spread), (-0.6 * fd[0], hang)),
+                         add(add(cuff, fd, -1.2), n_, -spread), add(add(cuff, fd, -1.2), n_, spread)]):
+        bell[c] = 1.0                             # 소매 끝 (안감 빛)
+    paint(bell, "bl", left="bl_d", right="bl_l", left2="bl_m", bottom="bl_d")
     for c, t in bell.items():
-        if t > 0.95:
+        if t > 0.9 and ((c[0] + 1, c[1]) not in bell or (c[0], c[1] + 1) not in bell):
             dot(*c, "bl_r")
     nn = (-fd[1], fd[0])
     for s in (-1.4, -0.3, 0.9):  # 소매 주름
@@ -700,7 +730,7 @@ FAR_HIP = (21.0, 46.0)
 IDLE = {
     "bx": 0, "by": 0, "lean": 0.0,
     "near": ((0.5, 10.0), (0.0, 19.0), 0), "far": ((-2.5, 10.5), (-4.5, 18.5), 0),
-    "elbow": (-0.5, 7.5), "wrist": (0.5, 14.0),
+    "elbow": (-0.3, 6.7), "wrist": (8.2, 7.6),  # 대기: 손을 검 손잡이 끝에 가볍게 얹음
     "hair": (0, 0, 0, 0), "skirt": (0, 0, 0, 0), "over": (0, 0), "veil": (0, 0), "sword": 0, "fringe": 0,
 }
 
