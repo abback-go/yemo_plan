@@ -3,6 +3,7 @@
 import math
 import pathlib
 import sys
+import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -117,44 +118,51 @@ def frames_of(name):
     return [S.render(p).copy() for p in ANIMS[name]]
 
 
-# ---------------------------------------------------------------- 효과 (게임에서는 따로 그리는 층)
+# ---------------------------------------------------------------- 효과 (게임에서는 따로 그리는 층) — 칸 해상도(S.K배)로 그린다
 LAV, ICE, WHITE = (185, 162, 255), (159, 216, 255), (232, 246, 255)
+k_ = S.K
+FX_W, FX_H = 40 * k_, 16 * k_   # 마법진·먼지 그림 크기
 
 
 def magic_circle(rx, ry, alpha, runes=True, sparks=0):
-    """공중에 옆에서 본 마법진 (납작한 타원 두 겹 + 룬 눈금). 중심 = 이미지 가운데."""
-    im = Image.new("RGBA", (40, 16), (0, 0, 0, 0))
-    cx, cy = 20, 8
+    """공중에 옆에서 본 마법진 (납작한 타원 두 겹 + 룬 눈금). rx, ry = 1배 단위. 중심 = 이미지 가운데."""
+    im = Image.new("RGBA", (FX_W, FX_H), (0, 0, 0, 0))
+    cx, cy = FX_W / 2, FX_H / 2
+    rx, ry = rx * k_, ry * k_
     P = im.load()
 
     def put(x, y, c, a):
         x, y = round(x), round(y)
-        if 0 <= x < 40 and 0 <= y < 16:
+        if 0 <= x < FX_W and 0 <= y < FX_H:
             r, g, b, a0 = P[x, y]
             if a > a0:
                 P[x, y] = (*c, a)
-    for i in range(160):
-        t = i / 160 * 2 * math.pi
+    for i in range(320):
+        t = i / 320 * 2 * math.pi
         put(cx + rx * math.cos(t), cy + ry * math.sin(t), LAV, int(255 * alpha))
-        put(cx + rx * 0.6 * math.cos(t), cy + ry * 0.6 * math.sin(t), ICE, int(200 * alpha))
+        put(cx + (rx + 1) * math.cos(t), cy + (ry + 0.6) * math.sin(t), LAV, int(110 * alpha))   # 바깥 번짐
+        put(cx + rx * 0.62 * math.cos(t), cy + ry * 0.62 * math.sin(t), ICE, int(210 * alpha))
+        put(cx + rx * 0.35 * math.cos(t), cy + ry * 0.35 * math.sin(t), ICE, int(120 * alpha))
     if runes:
-        for k in range(10):
-            t = k / 10 * 2 * math.pi + 0.3
-            put(cx + rx * math.cos(t), cy + ry * math.sin(t) - (1 if math.sin(t) < 0 else 0), WHITE, int(255 * alpha))
+        for k in range(16):  # 룬 눈금: 바깥 고리와 안쪽 고리 사이 짧은 획
+            t = k / 16 * 2 * math.pi + 0.2
+            for f in (0.72, 0.82, 0.92):
+                put(cx + rx * f * math.cos(t), cy + ry * f * math.sin(t), WHITE if k % 2 else ICE, int(255 * alpha))
     for k in range(sparks):  # 위로 튀는 빛 알갱이
         t = k * 2.39
-        put(cx + math.cos(t) * rx * 0.8, cy - 2 - (k % 3) * 2, ICE if k % 2 else LAV, int(230 * alpha))
+        put(cx + math.cos(t) * rx * 0.8, cy - 2 * k_ - (k % 3) * 2 * k_, ICE if k % 2 else LAV, int(230 * alpha))
+        put(cx + math.cos(t) * rx * 0.8, cy - 2 * k_ - (k % 3) * 2 * k_ + 1, ICE, int(120 * alpha))
     return im
 
 
 def speed_lines(i, w, h):
-    """몸 뒤로 빠르게 지나가는 가는 빛줄기 (게임에서는 효과 층)."""
+    """몸 뒤로 빠르게 지나가는 가는 빛줄기."""
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     P = im.load()
-    for j in range(7):
-        y = 30 + (j * 13 + 7) % 60
-        ln = 6 + (j * 5) % 9
-        x0 = (w - ((i * 22 + j * 37) % (w + 40))) + 10
+    for j in range(9):
+        y = (30 + (j * 13 + 7) % 60) * k_ + (j % 2)
+        ln = (6 + (j * 5) % 9) * k_
+        x0 = (w - ((i * 22 * k_ + j * 37 * k_) % (w + 40 * k_))) + 10 * k_
         for x in range(x0, x0 + ln):
             if 0 <= x < w and 0 <= y < h:
                 a = int(110 * (1 - (x - x0) / ln))
@@ -164,102 +172,103 @@ def speed_lines(i, w, h):
 
 def dust_puff(k):
     """착지 먼지: 작은 회청색 알갱이 덩어리가 뒤로 퍼지며 옅어진다."""
-    im = Image.new("RGBA", (40, 16), (0, 0, 0, 0))
+    im = Image.new("RGBA", (FX_W, FX_H), (0, 0, 0, 0))
     P = im.load()
     a = int(200 * (1 - k / 3))
-    for j, (x, y) in enumerate(((16, 12), (18, 11), (20, 12), (15, 10), (19, 9), (22, 11), (17, 13), (21, 10))):
-        if j < 4 + 2 * k:
-            xx, yy = x - k * (1 + j % 2), y - k * (j % 3 == 0)
-            if 0 <= xx < 40 and 0 <= yy < 16:
-                P[xx, yy] = (120, 132, 160, a if j % 2 else a // 2)
+    pts = ((16, 12), (18, 11), (20, 12), (15, 10), (19, 9), (22, 11), (17, 13), (21, 10), (14, 12), (23, 12))
+    for j, (x, y) in enumerate(pts):
+        if j < 5 + 2 * k:
+            xx = (x - k * (1 + j % 2)) * k_ + (j % 2)
+            yy = (y - k * (j % 3 == 0)) * k_
+            for (dx, dy) in ((0, 0), (1, 0), (0, 1)) if j % 3 else ((0, 0),):
+                if 0 <= xx + dx < FX_W and 0 <= yy + dy < FX_H:
+                    P[xx + dx, yy + dy] = (120, 132, 160, a if j % 2 else a // 2)
     return im
 
 
 def ghost(frame, color, k):
     """잔상: 실루엣만 남긴 색 그림자."""
-    g = Image.new("RGBA", frame.size, (0, 0, 0, 0))
-    src, dst = frame.load(), g.load()
-    for y in range(frame.height):
-        for x in range(frame.width):
-            a = src[x, y][3]
-            if a:
-                dst[x, y] = (*color, int(a * k))
-    return g
+    a = np.array(frame)
+    g = np.zeros_like(a)
+    g[..., 0], g[..., 1], g[..., 2] = color
+    g[..., 3] = (a[..., 3] * k).astype(np.uint8)
+    return Image.fromarray(g)
 
 
 def compose(name, seq, size, ms, ground_y, scroll=0):
-    """seq: [(프레임 그림, dx, dy, [(효과 그림, x, y), ...]), ...] → 4배 GIF. 바닥선 ground_y (칸 좌표)."""
+    """seq: [(프레임 그림, dx, dy, [(효과 그림, x, y), ...]), ...] → GIF (화면에서 1배 기준 4배 크기). 바닥선 ground_y (칸 좌표)."""
     bw, bh = size
     out = []
     for i, (f, dx, dy, fx) in enumerate(seq):
         bg = Image.new("RGBA", (bw, bh), (16, 19, 31, 255))
-        for x in range(bw):
-            bg.putpixel((x, ground_y), (34, 39, 58, 255))
-            for y in range(ground_y + 1, bh):
-                bg.putpixel((x, y), (20, 23, 36, 255))
+        bg.paste((20, 23, 36, 255), (0, ground_y + 1, bw, bh))
+        bg.paste((34, 39, 58, 255), (0, ground_y, bw, ground_y + 1))
         if scroll:
-            for k in range(-1, bw // 16 + 2):
-                x = (k * 16 - i * scroll) % (bw + 16) - 8
-                for xx in range(x, x + 6):
-                    if 0 <= xx < bw:
-                        bg.putpixel((xx, ground_y + 3), (40, 46, 68, 255))
+            step = 16 * k_
+            for k in range(-1, bw // step + 2):
+                x = (k * step - i * scroll) % (bw + step) - 8 * k_
+                bg.paste((40, 46, 68, 255), (max(0, x), ground_y + 3 * k_, max(0, min(bw, x + 6 * k_)), ground_y + 3 * k_ + 1))
         for (e, ex, ey) in fx:
-            if e.width > 40:  # 잔상 (몸 뒤)
+            if e.width > FX_W:  # 잔상·속도선 (몸 뒤)
                 bg.alpha_composite(e, (ex, ey))
         bg.alpha_composite(f, (dx, dy))
         for (e, ex, ey) in fx:
-            if e.width <= 40:  # 마법진 (몸 앞)
+            if e.width <= FX_W:  # 마법진·먼지 (몸 앞)
                 bg.alpha_composite(e, (ex, ey))
-        out.append(bg.resize((bw * 4, bh * 4), Image.NEAREST).convert("P", palette=Image.ADAPTIVE, colors=255))
+        sc = max(1, 4 // k_)
+        out.append(bg.resize((bw * sc, bh * sc), Image.NEAREST).convert("P", palette=Image.ADAPTIVE, colors=255))
     durs = ms if isinstance(ms, list) else [ms] * len(out)
     out[0].save(OUT / f"{name}.gif", save_all=True, append_images=out[1:], duration=durs, loop=0, disposal=2)
 
 
 def build_gifs():
-    fr = {k: S.render(v).copy() for k, v in {**JUMP, **DJUMP, **DASH, "idle": S.IDLE}.items()}
+    k = k_
+    fr = {n: S.render(v).copy() for n, v in {**JUMP, **DJUMP, **DASH, "idle": S.IDLE}.items()}
     run = frames_of("run")
-    gy = 30 + S.OY + 69 + 1  # 바닥선 (위 여백 30)
-    top = 30
-    # 달리기: 제자리 + 바닥 무늬가 흐름
-    dust = [dust_puff(k) for k in range(3)]
+    top = 30 * k
+    gy = top + S.OY + 70 * k        # 대기 발바닥 바로 아래
+    size = (S.W + 40 * k, S.H + top + 8 * k)
+    # 달리기: 제자리 + 바닥 무늬·속도선이 흐르고, 발이 닿을 때 먼지
+    dust = [dust_puff(j) for j in range(3)]
     seq = []
     for i, f in enumerate(run):
         fx = []
-        for c in (0, 4):  # 발이 닿는 프레임부터 3프레임 동안 먼지가 뒤로 흩어진다
-            k = (i - c) % 8
-            if k < 3:
-                fx.append((dust[k], 20 + S.OX + 22 - 8 - 4 * k, gy - 9))
-        fx.append((speed_lines(i, S.W + 40, S.H + top + 8), 0, 0))
-        seq.append((f, 20, top, fx))
-    compose("run", seq, (S.W + 40, S.H + top + 8), 40, gy, scroll=14)
+        for c in (0, 4):
+            j = (i - c) % 8
+            if j < 3:
+                fx.append((dust[j], 20 * k + S.OX + (22 - 8 - 4 * j) * k - FX_W // 2 + 8 * k, gy - 9 * k))
+        fx.append((speed_lines(i, *size), 0, 0))
+        seq.append((f, 20 * k, top, fx))
+    compose("run", seq, size, 40, gy, scroll=14 * k)
     # 점프
     J = [("takeoff", 0), ("rise_a", -10), ("rise_b", -18), ("rise_a", -24), ("apex", -27), ("apex", -28), ("fall_a", -26),
          ("fall_b", -20), ("fall_a", -12), ("fall_b", -3), ("land", 0), ("land", 0), ("idle", 0), ("idle", 0)]
-    compose("jump", [(fr[k], 20, top + dy, []) for k, dy in J], (S.W + 40, S.H + top + 8), 80, gy)
+    compose("jump", [(fr[n], 20 * k, top + dy * k, []) for n, dy in J], size, 80, gy)
     # 이단점프: 정점 근처에서 몸을 웅크렸다가 마법진을 딛고 다시 솟는다
-    top2 = 62
-    gy2 = top2 + S.OY + 69 + 1
+    top2 = 62 * k
+    gy2 = top2 + S.OY + 70 * k
     D = [("takeoff", 0), ("rise_a", -10), ("rise_b", -18), ("apex", -24), ("dj_tuck", -26), ("dj_kick", -26),
          ("dj_burst", -33), ("rise_a", -41), ("rise_b", -47), ("apex", -50), ("apex", -51), ("fall_a", -47),
          ("fall_b", -39), ("fall_a", -28), ("fall_b", -15), ("fall_a", -4), ("land", 0), ("land", 0), ("idle", 0), ("idle", 0)]
-    cx, cy = 20 + S.OX + 22 - 20, top2 + S.OY + 65 - 26 - 3 - 8   # 마법진 그림의 왼쪽 위 (딛는 발밑)
-    circles = {5: [magic_circle(7, 1.8, 0.85, runes=False)], 6: [magic_circle(13, 3.2, 1.0, sparks=7)],
-               7: [magic_circle(15, 3.8, 0.55, sparks=5)], 8: [magic_circle(17, 4.2, 0.25, runes=False)]}
+    cx = 20 * k + S.OX + 22 * k - FX_W // 2
+    cy = top2 + S.OY + (65 - 26 - 3) * k - FX_H // 2          # 딛는 발밑
+    circles = {5: [magic_circle(7, 1.8, 0.85, runes=False)], 6: [magic_circle(13, 3.2, 1.0, sparks=9)],
+               7: [magic_circle(15, 3.8, 0.55, sparks=6)], 8: [magic_circle(17, 4.2, 0.25, runes=False)]}
     seq = []
-    for i, (k, dy) in enumerate(D):
-        seq.append((fr[k], 20, top2 + dy, [(c, cx, cy) for c in circles.get(i, [])]))
-    compose("double_jump", seq, (S.W + 40, S.H + top2 + 8), 80, gy2)
+    for i, (n, dy) in enumerate(D):
+        seq.append((fr[n], 20 * k, top2 + dy * k, [(c, cx, cy) for c in circles.get(i, [])]))
+    compose("double_jump", seq, (S.W + 40 * k, S.H + top2 + 8 * k), 80, gy2)
     # 대시: 앞으로 미끄러지며 잔상을 남김
     X = [("idle", 0), ("dash_start", 2), ("dash", 12), ("dash", 26), ("dash", 40), ("dash_end", 48), ("dash_end", 50),
          ("idle", 51), ("idle", 51)]
     seq = []
-    for i, (k, x) in enumerate(X):
+    for i, (n, x) in enumerate(X):
         ghosts = []
-        if k == "dash":
+        if n == "dash":
             for j, (gx, a) in enumerate(((x - 13, 0.3), (x - 26, 0.14))):
-                ghosts.append((ghost(fr["dash"], ICE if j % 2 == 0 else LAV, a), 4 + gx, top))
-        seq.append((fr[k], 4 + x, top, ghosts))
-    compose("dash", seq, (S.W + 70, S.H + top + 8), [200, 60, 50, 50, 50, 70, 90, 200, 300], gy)
+                ghosts.append((ghost(fr["dash"], ICE if j % 2 == 0 else LAV, a), (4 + gx) * k, top))
+        seq.append((fr[n], (4 + x) * k, top, ghosts))
+    compose("dash", seq, (S.W + 70 * k, S.H + top + 8 * k), [200, 60, 50, 50, 50, 70, 90, 200, 300], gy)
 
 
 def sheet(name, frames):
@@ -271,7 +280,7 @@ def sheet(name, frames):
 
 
 def full_sheet():
-    """모든 동작을 줄별로: 대기 / 달리기 8 / 점프 7 / 이단점프 3 / 대시 3. 1배 시트 + 3배 미리보기(이름표)."""
+    """모든 동작을 줄별로: 대기 / 달리기 8 / 점프 7 / 이단점프 3 / 대시 3. 원본 시트 + 확대 미리보기(이름표)."""
     from PIL import ImageDraw
     rows = [(n, frames_of(n)) for n in ANIMS]
     cols = max(len(f) for _, f in rows)
@@ -282,10 +291,11 @@ def full_sheet():
     sh.save(OUT / "sheet.png")
     pv = Image.new("RGBA", sh.size, (26, 31, 46, 255))
     pv.alpha_composite(sh)
-    pv = pv.resize((sh.width * 3, sh.height * 3), Image.NEAREST)
+    z = 2
+    pv = pv.resize((sh.width * z, sh.height * z), Image.NEAREST)
     d = ImageDraw.Draw(pv)
     for r, (n, fr) in enumerate(rows):
-        d.text((6, S.H * 3 * r + 4), f"{n} ({len(fr)})", fill=(200, 210, 235, 255))
+        d.text((6, S.H * z * r + 4), f"{n} ({len(fr)})", fill=(200, 210, 235, 255))
     pv.save(OUT / "sheet_preview.png")
 
 
