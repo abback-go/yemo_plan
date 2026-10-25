@@ -225,8 +225,8 @@ def near_leg():
 
 
 def torso():
-    spans(R(29, [(20, 22), (20, 22)]), "skin", back="skin_s")
-    px(21, 29, "skin_s"); px(22, 29, "skin_s")  # 턱 그늘
+    spans({29: (20, 22)}, "skin_d")  # 턱 밑 그늘 (턱선이 목과 분리되어 보이게)
+    spans({30: (20, 22)}, "skin_s")
     spans({31: (19, 24)}, "skin", back="skin_s")  # 드러난 어깨·쇄골
     px(23, 31, "skin_h"); px(24, 31, "skin_h")
     spans(R(32, [(19, 25), (19, 26), (19, 26), (19, 25)]), "bl", back="bl_d", front="bl_l")
@@ -247,21 +247,20 @@ def head():
     # 오른쪽을 보는 옆얼굴. 뒷머리는 매끈하게 뒤로 흘러 둥근 덩어리를 피하고,
     # 옆머리가 뒤쪽 볼을 가려 얼굴은 좁고 길게, 턱은 뾰족하게. 눈은 끝이 처진 긴 속눈썹 + 빛나는 눈동자.
     HEAD = [
-        # x: 14             28
-        "KHHHHHHHHHDD...",  # 22 챙 아래
-        "THHHHHHHHDDS___",  # 23 앞머리 끝, 이마
-        "THHDHHHHDHDSS__",  # 24 뾰족한 앞머리 가닥
-        "THHDHHHDH.kkS__",  # 25 속눈썹 (길게)
-        "THHDHHDHDkeES__",  # 26 처진 눈꼬리 + 빛나는 눈
-        "THHDHHDHDSsssv_",  # 27 코끝
-        "THHDHHHDHSssS__",  # 28 코 밑
-        "THHDHHHDHSsss__",  # 29 윗입술
-        ".THDHHHDHSsS___",  # 30 입술 선
-        ".THDHHHDHzSs___",  # 31 뾰족한 턱
-        "..THDHHDH.zz___",  # 32 턱 밑 그늘
+        # x: 14          27
+        "KHHHHHHHHDD...",  # 22 챙 아래
+        "THHHHHHHDDSS__",  # 23 이마 (챙 그늘)
+        "THHDHHHDHDSS__",  # 24 뾰족한 앞머리 가닥
+        "THHDHHDHSkkkk_",  # 25 긴 속눈썹 (끝이 앞으로 뻗음)
+        "THHDHHDHSeEs__",  # 26 빛나는 눈
+        "THHDHHDHSsssv_",  # 27 작은 코끝
+        "THHDHHDHSssl__",  # 28 입술
+        ".THDHHDH_sS___",  # 29 작은 턱끝 — 턱선은 실루엣 경계가 귀 쪽으로 대각선
+        ".THDHHDH______",  # 30
+        "..THDHDH......",  # 31 (목은 그대로 둠)
     ]
     stamp(14, 22, HEAD, {"H": "hair", "D": "hair_d", "K": "hair_dd", "T": "hair_l", "S": "skin_s", "s": "skin",
-                         "v": "skin_h", "z": "skin_d", "k": "lash", "E": "eye", "e": "eye2", "_": "clear"})
+                         "v": "skin_h", "z": "skin_d", "l": "skin_s", "k": "lash", "E": "eye", "e": "eye2", "_": "clear"})
     # 옆머리: 귀 앞에서 가슴까지, 끝이 뾰족
     line(21, 27, 21, 35, "hair"); line(22, 32, 22, 34, "hair_d"); px(21, 36, "hair_d")
     line(20, 33, 20, 37, "hair_d")
@@ -393,7 +392,8 @@ def outline():
             r = sum(c[0] for c in solid) / len(solid)
             g = sum(c[1] for c in solid) / len(solid)
             b = sum(c[2] for c in solid) / len(solid)
-            k = 0.22
+            lum = (r + g + b) / 3
+            k = 0.55 if lum > 150 else 0.22
             P[x, y] = (int(r * k) + 4, int(g * k) + 5, int(b * k) + 12, 255)
 
 
