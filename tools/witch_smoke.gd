@@ -43,6 +43,9 @@ func _process(_delta: float) -> bool:
 		return false
 	if not _started:
 		_started = true
+		# 히트스톱·슬로모션을 실제 시간 대신 프레임 수(60fps)로 잰다 — 시험은 프레임을 최대 속도로 돌려서
+		# 실제 시간 기준이면 0.1초 멈춤이 수천 프레임 동안 이어진다 (에스카 시험의 FRAME_CLOCK=1과 같음)
+		root.get_node("Fx").frame_clock = true
 		stage.eska.global_position = Vector2(470, 300) # 허수아비(530~) 앞
 	frame += 1
 	for a: String in _release_next:
@@ -57,10 +60,6 @@ func _process(_delta: float) -> bool:
 			_send(String(h[2]), true)
 		elif int(h[1]) == frame:
 			_send(String(h[2]), false)
-	if frame in [79, 80, 81, 82, 83, 141, 142, 361, 362]: # 진단: 모드 바꾸기 입력이 전달되는지
-		var e = stage.eska
-		print("DIAG f=%d has=%s pressed=%s buf=%.3f act=%s st=%d mode=%d floor=%s" % [frame, InputMap.has_action("bl_mode"),
-			Input.is_action_pressed("bl_mode"), e._buf_mode, e.act, e.st, e.mode, e.is_on_floor()])
 	if frame >= END:
 		_finish(stage)
 		return true
