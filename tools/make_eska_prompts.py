@@ -13,11 +13,12 @@ ANCHOR = ("ESKA, the Witch of Endings: a tall, slender woman in her late twentie
 "its ends gently lifting and drifting as if weightless, with no wind; long uneven bangs cover most of her right eye, side locks reach her chest. "
 "A wide-brimmed pointed witch hat in deep navy (#1B2340), the brim as wide as her shoulders, the tall cone tip bending back toward her left, "
 "with a plain dark band and one small silver buckle; a thin semi-transparent navy veil hangs from the back of the brim down to her waist. "
-"An off-the-shoulder fitted navy long-sleeved blouse with a straight neckline that bares her collarbones and shoulder line, the neckline edged "
+"An off-the-shoulder fitted navy long-sleeved blouse with a straight neckline that bares her collarbones and shoulder line; the sleeves are slim on the upper arm and flare gently wide at the wrists, no puffed shoulders; the neckline is edged "
 "with faint silver-thread embroidery of tiny handwritten script. A thin semi-sheer ash-blue knit shawl draped low across her back and upper arms, "
-"resting at elbow height so both shoulders stay bare, its frayed fringe hanging to her hips and drifting softly. A wide dark leather belt. "
-"An asymmetric two-layer skirt: a short dark-navy inner skirt at mid-thigh, and an outer layer of sheer navy chiffon that is short in front "
-"and falls long on her left side to below the knee, its hem embroidered with the same faint silver script and floating slightly. "
+"resting at elbow height so both shoulders stay bare, its frayed fringe hanging to her hips and drifting softly. A high-waisted fitted dark navy leather corset belt with thin silver lacing, cinching her waist just below the bust. "
+"A two-layer skirt: a short dark-navy inner skirt at mid-thigh, and a long sheer outer overskirt of layered navy chiffon with a faint cool silver metallic sheen, "
+"split open at the front so her bare legs and the short inner skirt stay visible, flowing down at the sides and back to her ankles, "
+"its hem embroidered with the same faint silver script and floating slightly. "
 "Bare legs, short black leather ankle boots ending just above the ankle with low block heels. "
 "Signature weapon worn on her LEFT hip, angled behind her: an elegant antique rapier with a long, very slim straight blade and a tarnished "
 "silver swept hilt with curved bars, a knuckle bow and a shallow cup guard, sheathed in a long narrow dark slate-blue leather scabbard with "
@@ -28,7 +29,7 @@ AV_COMMON = ("extra fingers, fused fingers, inconsistent outfit or colors betwee
 "asymmetric face, text typos, misspelled labels, cropped or missing views, watermark, signature")
 AV_CHAR = ("warm colors (red, orange, gold, brown), star or constellation patterns, star-shaped brooch, glowing cracks or rift effects, "
 "gray-white hair, black hair without blue tint, weapon on her right hip, thorny cross-guard, gem on the sword hilt, broad or heavy blade, "
-"school uniform look, thigh-high or knee-high boots, hair blown sideways by strong wind, lingerie, explicit nudity, "
+"school uniform look, puffed sleeves, ballgown, fully closed long skirt hiding the legs, thigh-high or knee-high boots, hair blown sideways by strong wind, lingerie, explicit nudity, "
 "suggestive or sexualized pose, cleavage-focused framing")
 def avoid(extra=""):
     return "AVOID: " + AV_COMMON + ", " + AV_CHAR + (", " + extra if extra else "") + "."
@@ -41,10 +42,10 @@ LAYOUT = """LAYOUT (strict):
 - CENTER (dominant, about half the page): full-body turnaround, 3 large views on a dark reflective floor — front, left side profile (facing screen-left so her LEFT hip and the broom-rapier face the viewer), back. Identical outfit, proportions, and hair in all three views, calm standing pose, hair ends and veil drifting slightly, rapier sheathed on her LEFT hip. Keep the turnaround clearly readable despite the dramatic lighting.
 - RIGHT COLUMN, headline "DETAILS": 4 stacked panels, each a zoomed render with a bold label and one short line:
   1) HAT & VEIL — wide navy brim, sheer veil;
-  2) SKIRT — sheer chiffon layer, script hem;
+  2) OVERSKIRT — open-front silver-sheen chiffon;
   3) BROOM SCABBARD — twisted black twigs bound with cord;
   4) RAPIER HILT — tarnished silver swept hilt.
-- BOTTOM RIGHT, headline "MATERIALS": a row of 5 small labeled material spheres: Navy Wool (Cloth), Sheer Chiffon (Veil), Worn Leather (Matte), Antique Silver (Metal), Black Twig (Wood).
+- BOTTOM RIGHT, headline "MATERIALS": a row of 5 small labeled material spheres: Navy Wool (Cloth), Silver-Sheen Chiffon (Sheer), Worn Leather (Matte), Antique Silver (Metal), Black Twig (Wood).
 
 All labels in clean sans-serif English, short. The character must be IDENTICAL in all views and panels."""
 
@@ -63,9 +64,9 @@ No text, no labels, no sheet layout, no other views, no cropping.
 
 {avoid(extra_avoid)}"""
 
-hero = single("three-quarter front view (turned slightly to her left)", "Her glowing ice-blue left eye is visible, the right eye mostly hidden by bangs. Hair ends, veil, shawl fringe and the chiffon skirt layer drift slightly as if weightless.")
+hero = single("three-quarter front view (turned slightly to her left)", "Her glowing ice-blue left eye is visible, the right eye mostly hidden by bangs. Hair ends, veil, shawl fringe and the long chiffon overskirt drift slightly as if weightless.")
 front = single("straight front view", "Arms relaxed at her sides, both bare shoulders clearly visible, the broom-scabbard visible behind her left leg.")
-side = single("left side profile view, facing screen-left so her LEFT hip and the broom-rapier face the viewer", "The full length of the scabbard, the swept rapier hilt and the twig-broom end are clearly visible; the long chiffon skirt layer falls on this side; the hat's bent tip points backward.")
+side = single("left side profile view, facing screen-left so her LEFT hip and the broom-rapier face the viewer", "The full length of the scabbard, the swept rapier hilt and the twig-broom end are clearly visible; the long open-front overskirt flows down to her ankles behind her legs; the hat's bent tip points backward.")
 back = single("back view", "Her face is NOT visible, head faces away. The very long steel-blue hair, the veil hanging from the hat brim, the shawl across her back, and the broom-scabbard angled behind her left hip are clearly visible.", "face visible from behind, head turned toward camera")
 expr = f"""Aspect ratio 3:2 landscape. {STYLE}
 
@@ -90,7 +91,7 @@ edits = [
 ]
 
 out = []
-out.append("에스카(ESKA) 캐릭터 디자인 — 이미지 생성 프롬프트 모음 (v2: 신비로운 연출 · 베일 · 2단 치마 · 글자 자수 · 레이피어)\n"
+out.append("에스카(ESKA) 캐릭터 디자인 — 이미지 생성 프롬프트 모음 (v3: 신비로운 연출 · 베일 · 앞트임 긴 겉치마 · 코르셋 벨트 · 글자 자수 · 레이피어)\n"
 "만든 곳: tools/make_eska_prompts.py (앵커를 고치면 이 스크립트를 다시 실행) · 대상: ChatGPT 무료 (하루 2~3장 추정)\n기획서 연결: docs/gdd/10-art-direction.md\n")
 out.append("=== CHARACTER ANCHOR ===\n이 문단은 모든 프롬프트에 한 글자도 바꾸지 않고 들어간다 (캐릭터 일관성의 핵심).\n\n" + ANCHOR + "\n")
 out.append("=== SHEET (1단계 · 화면비 3:2 가로) ===\n"
