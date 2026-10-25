@@ -1,0 +1,88 @@
+# 종언의 마녀 손맛 프로토타입(witch_game/)을 웹용으로 빌드해 gh-pages 브랜치에 올린다.
+# 에스카 빌드(cc/vigilant-dirac-751x7b의 web-build.yml)와 같은 방식이며, gh-pages를 통째로 교체한다.
+# 교체 전 에스카 웹 빌드는 backup/eska-web-2026-10-23 브랜치에 보관했다.
+name: Witch web build
+
+on:
+  push:
+    branches: [ccr-7114ba95-8q1i5u]
+    paths: ["witch_game/**", "tools/witch_smoke.gd", ".github/workflows/witch-web-build.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-build
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot and web templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-web
+
+      - name: Download Godot and web templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          curl -sSLo godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          curl -sSLo templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest"
+          unzip -q -j templates.tpz templates/web_nothreads_release.zip templates/version.txt -d "$dest"
+          rm templates.tpz
+
+      # 스크립트 오류 검사: 가져오기 후 게임을 300프레임 돌려 보고, 오류가 한 줄이라도 있으면 실패
+      - name: Import and smoke-run
+        run: |
+          chmod +x ~/godot/godot
+          cd witch_game
+          ~/godot/godot --headless --import > /dev/null 2>&1 || true
+          ~/godot/godot --headless --import 2>&1 | tee /tmp/import.txt
+          timeout 120 ~/godot/godot --headless --quit-after 300 2>&1 | tee /tmp/run.txt
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR:" /tmp/import.txt /tmp/run.txt; then exit 1; fi
+
+      # 키 입력 시험: 마법·모드 바꾸기·검 3연격·공간참·점프·이단점프·공중 베기·순간이동·틈 자국을 한 번씩 돌린다 (tools/witch_smoke.gd)
+      - name: Input smoke test
+        run: |
+          cd witch_game
+          timeout 120 ~/godot/godot --headless --fixed-fps 60 --script ../tools/witch_smoke.gd 2>&1 | tee /tmp/smoke.txt
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR:|unknown sound" /tmp/smoke.txt; then exit 1; fi
+          grep -q "SMOKE OK" /tmp/smoke.txt
+
+      - name: Write build id into the game (shown at the bottom left)
+        run: sed -i "s/^const COMMIT := .*/const COMMIT := \"${GITHUB_SHA::7}\"/" witch_game/scripts/build_info.gd
+
+      - name: Export web build
+        run: |
+          mkdir -p build/web
+          cd witch_game
+          ~/godot/godot --headless --export-release "Web" ../build/web/index.html
+          test -f ../build/web/index.wasm
+
+      - name: Write build info
+        run: echo "${GITHUB_REF_NAME} ${GITHUB_SHA::7} $(date -u +%Y-%m-%dT%H:%MZ)" > build/web/version.txt
+
+      - name: Publish to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          force_orphan: true
+          commit_message: "Web build (witch) ${{ github.ref_name }}"
