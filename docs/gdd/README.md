@@ -1,6 +1,6 @@
 # [가제] 다크판타지 2D 사이드뷰 게임 — 게임 기획서(GDD)
 
-> 문서 버전: 0.2 · 작성 시작: 2026-10-25
+> 문서 버전: 0.3 · 작성 시작: 2026-10-25
 > 이 폴더는 업계 표준 GDD 19개 섹션을 **섹션별 파일**로 나눈 것이다. 섹션 단위로 채우고 수정 이력을 git으로 추적한다.
 
 ## 상태 표기 규칙
@@ -32,7 +32,7 @@
 | 10 | 아트 디렉션 | [10-art-direction.md](10-art-direction.md) | [작성 중] | 1~3단계 (병행) |
 | 11 | 사운드 디자인 | [11-sound.md](11-sound.md) | [작성 중] | 3단계 |
 | 12 | 멀티플레이 설계 (해당 시) | [12-multiplayer.md](12-multiplayer.md) | [미작성] | 해당 여부 결정 후 |
-| 13 | 수익화 전략 (BM) | [13-monetization.md](13-monetization.md) | [미작성] | 4단계 |
+| 13 | 수익화 전략 (BM) | [13-monetization.md](13-monetization.md) | [작성 중] | 4단계 |
 | 14 | 경제(재화) 설계 (해당 시) | [14-economy.md](14-economy.md) | [미작성] | 2단계 (6장과 함께) |
 | 15 | 기술 요구사항 | [15-technical.md](15-technical.md) | [작성 중] | 4단계 |
 | 16 | 경쟁 분석 | [16-competitive-analysis.md](16-competitive-analysis.md) | [작성 중] | 1단계 |
