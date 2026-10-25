@@ -1,6 +1,6 @@
 ; Engine configuration file.
 ; 종언의 마녀 — 손맛 프로토타입 (docs/gdd/17-roadmap.md 17.1).
-; 입력 키는 scripts/feel.gd가 시작할 때 등록한다.
+; 캐릭터·이동·빗자루 검은 에스카 프로젝트(cc/vigilant-dirac-751x7b)의 빗자루 검 데모에서 옮겼다. 입력 키는 장면(stage.gd)이 등록한다.
 
 config_version=5
 
@@ -12,7 +12,8 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
 
-Feel="*res://scripts/feel.gd"
+Fx="*res://autoload/fx.gd"
+Sfx="*res://autoload/sfx.gd"
 
 [display]
 
@@ -23,10 +24,14 @@ window/size/window_height_override=720
 window/stretch/mode="viewport"
 window/stretch/scale_mode="integer"
 
+[gui]
+
+theme/custom_font="res://fonts/Galmuri11-subset.ttf"
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-environment/defaults/default_clear_color=Color(0.055, 0.04, 0.07, 1)
+environment/defaults/default_clear_color=Color(0.04, 0.035, 0.07, 1)
 2d/snap/snap_2d_transforms_to_pixel=true
