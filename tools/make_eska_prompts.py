@@ -37,7 +37,7 @@ def block(title, body):
 LAYOUT = """LAYOUT (strict):
 - HEADER LEFT: character name "ESKA" in large elegant display type, subtitle "// THE WITCH OF ENDINGS".
 - LEFT COLUMN: "BASIC INFO" data block — ROLE: Witch of Endings / HEIGHT: 175 cm / WEAPON: Broom-Katana. Below it a short italic quote in lavender: "Every world ends. / I only close the book." Below that, one large close-up bust portrait of her face, expressionless, upper face in the shadow of the hat brim, glowing ice-blue eyes behind her bangs.
-- CENTER (dominant, about half the page): full-body turnaround, 3 large views on a dark reflective floor — front, left side profile (facing screen-left so her LEFT hip and the broom-katana face the viewer), back. Identical outfit, proportions, and hair in all three views, calm standing pose, hair ends and veil drifting slightly, sword sheathed on her LEFT hip with the broom end trailing behind her. Keep the turnaround clearly readable despite the dramatic lighting.
+- CENTER (dominant, about half the page): full-body turnaround, 3 large views on a dark reflective floor — front, left side profile (facing screen-left so her LEFT hip and the broom-katana face the viewer), back. Identical outfit, proportions, and hair in all three views, calm standing pose, hair ends and veil drifting slightly, sword sheathed on her LEFT hip with the broom end trailing behind her, clearly visible in all three views including the back view. Keep the turnaround clearly readable despite the dramatic lighting.
 - RIGHT COLUMN, headline "DETAILS": 4 stacked panels, each a zoomed render with a bold label and one short line:
   1) HAT & VEIL — wide navy brim, sheer veil;
   2) OVERSKIRT — open-front silver-sheen chiffon;
