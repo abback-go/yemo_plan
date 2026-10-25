@@ -50,7 +50,7 @@
 - 레퍼런스: 인상은 웹툰 『히어로 킬러』의 철의 마녀 아진, 의상 구성은 『마녀의 여행』 일레이나, 긴 겉치마·금속빛 옷감·코르셋 벨트는 『클레르 옵스퀴르: 33 원정대』 마엘의 의상, 얀데레풍 외형(텅 빈 눈·한쪽만 오염된 요소·약함과 섬뜩함의 대비)은 개발자가 제시한 팬아트 이미지의 분위기 — **느낌만 참고하고 고유 요소(별자리 문양, 별 모양 브로치, 퍼프 소매 실루엣 등)는 쓰지 않는다.** 마녀 모자·노출된 어깨·빗자루 검으로 차별화한다. [확정]
 - 이미지 생성 프롬프트(디자인 앵커 포함): [`../art/eska-design-prompts.txt`](../art/eska-design-prompts.txt)
 - **디자인 시트 기준안: [`assets/eska-sheet-v3.png`](assets/eska-sheet-v3.png)** — 얀데레풍 외형·빗자루 검까지 반영된 현재 기준
-- 게임 스프라이트 시안 (사이드뷰 대기, 1장): [`../art/eska-sprite-side.png`](../art/eska-sprite-side.png) · 확대본 [`../art/eska-sprite-side_preview.png`](../art/eska-sprite-side_preview.png) — 코드로 찍은 도트 (`tools/eska_sprite_side.py`). 몸 52px(정수리~발바닥), 모자 포함 약 70px. 뒤에서 오는 차가운 역광, 셀아웃 외곽선. [시도 중]
+- 게임 스프라이트 시안 (사이드뷰 대기, 1장): [`../art/eska-sprite-side.png`](../art/eska-sprite-side.png) · 확대본 [`../art/eska-sprite-side_preview.png`](../art/eska-sprite-side_preview.png) — 코드로 찍은 도트 (`tools/eska_sprite_side.py`). 몸 52px(정수리~발바닥), 모자 포함 약 74px. 허리 폭 4px의 가는 체형, 높은 원뿔이 2/3 지점에서 접혀 뒤로 늘어지는 모자. 뒤에서 오는 차가운 역광, 셀아웃 외곽선. [시도 중]
 - 디자인 시트 2차: [`assets/eska-sheet-v2.webp`](assets/eska-sheet-v2.webp) — 레이피어 시절 (비교용)
 - 디자인 시트 1차 생성본: [`assets/eska-sheet-v1.webp`](assets/eska-sheet-v1.webp) — 신비감 보완 전 (비교용)
 - **무기 형태 기준: [`assets/concept-witch-weapon-draft.png`](assets/concept-witch-weapon-draft.png)** — 검·검집 형태를 따른다 (색·캐릭터 디자인은 위 확정안을 따름)
