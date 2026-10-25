@@ -244,46 +244,86 @@ def torso():
 
 @lifted
 def head():
-    # 머리 실루엣 (머리카락), 오른쪽을 봄
-    spans(R(20, [(15, 24), (15, 25), (15, 25), (15, 26), (15, 26), (15, 26), (15, 26), (16, 26), (16, 25), (16, 24), (17, 23)]),
-          "hair", back="hair_l")
-    # 옆얼굴: 이마(챙 그늘) → 속눈썹 → 빛나는 눈 → 코끝 → 입 → 턱
-    FACE = ["HHHHHHDD_",
-            "HHHHHDS__",
-            "HHHHDLLS_",
-            "HHHDgEeS_",
-            "HHHSssssv",
-            "HHHSssss_",
-            "HH.SsssS_",
-            "HH..Sss__",
-            "H...SS___",
-            ]
-    stamp(19, 23, FACE, {"H": "hair", "D": "hair_d", "S": "skin_s", "s": "skin", "v": "skin_h",
-                         "L": "lash", "E": "eye", "e": "eye2", "g": "glow", "_": "clear"})
-    line(21, 27, 21, 30, "hair_d")  # 얼굴로 흘러내린 잔머리
-    for x, y in ((16, 24), (17, 24), (18, 25), (16, 25)):
+    # 오른쪽을 보는 옆얼굴. 뒷머리는 매끈하게 뒤로 흘러 둥근 덩어리를 피하고,
+    # 옆머리가 뒤쪽 볼을 가려 얼굴은 좁고 길게, 턱은 뾰족하게. 눈은 끝이 처진 긴 속눈썹 + 빛나는 눈동자.
+    HEAD = [
+        # x: 14             28
+        "KHHHHHHHHHDD...",  # 22 챙 아래
+        "THHHHHHHHDDS___",  # 23 앞머리 끝, 이마
+        "THHDHHHHDHDSS__",  # 24 뾰족한 앞머리 가닥
+        "THHDHHHDH.kkS__",  # 25 속눈썹 (길게)
+        "THHDHHDHDkeES__",  # 26 처진 눈꼬리 + 빛나는 눈
+        "THHDHHDHDSsssv_",  # 27 코끝
+        "THHDHHHDHSssS__",  # 28 코 밑
+        "THHDHHHDHSsss__",  # 29 윗입술
+        ".THDHHHDHSsS___",  # 30 입술 선
+        ".THDHHHDHzSs___",  # 31 뾰족한 턱
+        "..THDHHDH.zz___",  # 32 턱 밑 그늘
+    ]
+    stamp(14, 22, HEAD, {"H": "hair", "D": "hair_d", "K": "hair_dd", "T": "hair_l", "S": "skin_s", "s": "skin",
+                         "v": "skin_h", "z": "skin_d", "k": "lash", "E": "eye", "e": "eye2", "_": "clear"})
+    # 옆머리: 귀 앞에서 가슴까지, 끝이 뾰족
+    line(21, 27, 21, 35, "hair"); line(22, 32, 22, 34, "hair_d"); px(21, 36, "hair_d")
+    line(20, 33, 20, 37, "hair_d")
+    for x, y in ((16, 23), (17, 23), (18, 24)):
         px(x, y, "hair_l")  # 윤기
-    # 옆머리 (귀 앞에서 가슴까지)
-    line(19, 26, 19, 35, "hair"); line(20, 30, 20, 36, "hair_d"); px(19, 36, "hair_d")
+
+
+def tube(center, width):
+    """중심선(점 목록)을 따라 폭 width(t)(t=0~1, 길이 비율)로 채운 픽셀 집합 (로컬 좌표)."""
+    import math
+    seg = [math.dist(center[i], center[i + 1]) for i in range(len(center) - 1)]
+    total = sum(seg)
+    samples = []
+    acc = 0.0
+    for i, L in enumerate(seg):
+        (x0, y0), (x1, y1) = center[i], center[i + 1]
+        n = max(2, int(L * 4))
+        for k in range(n):
+            u = k / n
+            samples.append((x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, (acc + L * u) / total, (x1 - x0) / L, (y1 - y0) / L))
+        acc += L
+    samples.append((*center[-1], 1.0, samples[-1][3], samples[-1][4]))
+    cells = set()
+    for (x, y, t, dx, dy) in samples:
+        w = width(t) / 2
+        nx, ny = -dy, dx
+        steps = max(1, int(w * 3))
+        for k in range(-steps, steps + 1):
+            q = k / steps * w
+            cells.add((int(math.floor(x + nx * q)), int(math.floor(y + ny * q))))
+    return cells
 
 
 @lifted
 def hat():
-    # 원뿔: 가늘고 높게 살짝 뒤로 기울어 올라가다, 2/3 지점에서 접혀 가늘고 뾰족하게 뒤로 늘어진다
-    cone = [(15, 20), (15, 15), (14, 10), (13, 6), (10, 4), (6, 5), (2, 7),
-            (5, 3), (9, 1), (13, 0), (16, 1), (18, 4), (19, 7), (21, 12), (22, 16), (24, 20)]
-    poly(cone, "hat")
-    # 역광: 세운 부분의 뒤쪽 가장자리, 늘어진 부분의 윗면
-    line(15, 12, 15, 19, "hat_r"); line(14, 8, 14, 11, "hat_r")
-    line(3, 6, 5, 4, "hat_r"); line(6, 3, 9, 1, "hat_r"); line(10, 1, 12, 0, "hat_l")
-    # 접힌 자리: 어두운 주름 + 바로 위 빛
-    line(13, 6, 17, 3, "hat_d"); line(14, 7, 17, 5, "hat_d")
-    line(13, 2, 15, 2, "hat_l")
-    # 늘어진 부분 아랫면·앞쪽 그늘
-    line(6, 5, 12, 5, "hat_d"); px(3, 7, "hat_d")
-    line(19, 8, 22, 17, "hat_d"); line(17, 2, 18, 5, "hat_d")
-    # 세운 부분 가운데 은은한 빛 (원뿔의 둥근 면)
-    line(17, 9, 18, 15, "hat_l")
+    # 밑동이 넓게 벌어지고 옆선은 오목하게 좁아지며 곧게 솟다가, 위에서 한 번 각지게 꺾여 바늘처럼 가는 끝이 뒤를 향한다
+    TB = 0.58  # 꺾이는 자리 (길이 비율)
+
+    def width(t):
+        if t < TB:
+            return 2.8 + 7.7 * (1 - t / TB) ** 2.2
+        return 2.8 * (1 - (t - TB) / (1 - TB)) ** 1.1
+
+    center = [(20.0, 20.5), (19.6, 15), (19.0, 10), (18.4, 5.0), (14.5, 4.2), (10.0, 5.4), (6.0, 7.2), (3.0, 9.0)]
+    cells = tube(center, width)
+    for (x, y) in cells:
+        px(x, y, "hat")
+    for (x, y) in cells:
+        up = x >= 16  # 세운 부분
+        if up and (x - 1, y) not in cells:
+            px(x, y, "hat_r")                      # 세운 부분 뒤쪽 가장자리: 역광
+        elif not up and (x, y - 1) not in cells:
+            px(x, y, "hat_r")                      # 꺾여 처진 부분 윗면: 역광
+        elif (x, y - 1) not in cells:
+            px(x, y, "hat_l")                      # 꺾인 모서리 윗면
+        elif up and (x + 1, y) not in cells:
+            px(x, y, "hat_d")                      # 앞쪽 그늘
+        elif not up and (x, y + 1) not in cells:
+            px(x, y, "hat_d")                      # 처진 부분 아랫면 그늘
+    # 꺾인 자리의 날카로운 주름 + 원뿔 둥근 면의 은은한 빛
+    line(16, 6, 18, 5, "hat_d")
+    line(18, 9, 18, 16, "hat_l")
     # 띠 + 버클
     spans({18: (15, 24), 19: (15, 24)}, "band")
     stamp(21, 17, ["ss", "sd", "dd"], {"s": "silver", "d": "silver_d"})
@@ -291,12 +331,12 @@ def hat():
     def poly_line(pts, c):
         for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
             line(x0, y0, x1, y1, c)
-    poly_line([(6, 19), (10, 20), (15, 21), (26, 22), (32, 23), (35, 24)], "hat")
-    poly_line([(7, 20), (11, 21), (16, 22), (26, 23), (31, 24), (34, 25)], "hat_d")
-    poly_line([(6, 18), (10, 19), (15, 20), (25, 21), (31, 22), (34, 23)], "hat_l")
-    line(6, 18, 11, 19, "hat_r")  # 챙 윗면 뒤쪽 역광
-    px(5, 18, "hat_r"); px(5, 17, "hat_r")     # 뒤 끝이 들림
-    px(36, 24, "hat"); px(36, 25, "hat_d")     # 앞 끝이 숙임
+    poly_line([(5, 19), (10, 20), (15, 21), (26, 22), (32, 23), (36, 24)], "hat")
+    poly_line([(8, 20), (12, 21), (16, 22), (26, 23), (31, 24), (34, 25)], "hat_d")
+    poly_line([(7, 18), (11, 19), (15, 20), (25, 21), (31, 22), (34, 23)], "hat_l")
+    line(7, 18, 11, 19, "hat_r")  # 챙 윗면 뒤쪽 역광
+    px(4, 18, "hat_r"); px(3, 18, "hat_r")     # 뒤 끝이 가늘게 들림
+    px(37, 24, "hat"); px(38, 25, "hat_d")     # 앞 끝이 가늘게 숙임
 
 
 def weapon():
