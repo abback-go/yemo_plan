@@ -70,4 +70,7 @@
 - 웹 빌드 파이프라인 [확정]: 작업 브랜치에 push → GitHub Actions(`.github/workflows/witch-web-build.yml`)가 Godot 4.7.2로 검사·웹 빌드 → `gh-pages` 브랜치 → GitHub Pages. 에스카 빌드와 같은 방식
   - `gh-pages`는 에스카와 함께 쓰며 빌드마다 통째로 교체된다. 교체 전 에스카 웹 빌드는 `backup/eska-web-2026-10-23` 브랜치에 보관
   - 빌드가 GitHub 서버에서 돌기 때문에 클라우드 개발 환경의 네트워크 제한과 무관
+- 프로토타입 코드 출처 [확정]: 캐릭터·이동·빗자루 검·이펙트는 에스카 프로젝트(`cc/vigilant-dirac-751x7b`)의 빗자루 검 데모에서 필요한 부분만 옮겼다. 원본 파일 이름과 클래스 이름은 그대로 둬서 나중에 비교·동기화하기 쉽게 했다.
+  - `witch_game/eska/` 캐릭터 그림(EArt)·이동과 몸(EEska)·이동 연출·이펙트·배경, `witch_game/blade/` 빗자루 검(BEska·BArt·BFx·BDummy·BHud), `witch_game/core/` 그리기·입자·카메라·허수아비, `witch_game/autoload/` 연출(Fx)·합성 효과음(Sfx)
+  - 뺀 것: 물약, 대마법, 고급 마법(천열·단공·낙성), 종언 게이지, 순간이동 경로 찢기, 세라 시제품 전용 코드, 터치 조작
 - 글꼴: 갈무리11 TTF를 KS X 1001 한글 2350자 + ASCII + 기호로 줄인 것 (`witch_game/fonts/Galmuri11-subset.ttf`, 481KB, SIL OFL 1.1 — 라이선스 파일 동봉). woff2는 Godot 실행 시 FreeType이 읽지 못해 TTF로 바꿈
