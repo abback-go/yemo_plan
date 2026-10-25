@@ -57,6 +57,10 @@ func _process(_delta: float) -> bool:
 			_send(String(h[2]), true)
 		elif int(h[1]) == frame:
 			_send(String(h[2]), false)
+	if frame in [79, 80, 81, 82, 83, 141, 142, 361, 362]: # 진단: 모드 바꾸기 입력이 전달되는지
+		var e = stage.eska
+		print("DIAG f=%d has=%s pressed=%s buf=%.3f act=%s st=%d mode=%d floor=%s" % [frame, InputMap.has_action("bl_mode"),
+			Input.is_action_pressed("bl_mode"), e._buf_mode, e.act, e.st, e.mode, e.is_on_floor()])
 	if frame >= END:
 		_finish(stage)
 		return true
