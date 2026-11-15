@@ -46,9 +46,8 @@
   R.cardOf = function (st, uid) { return st.cards[uid]; };
 
   // 카드 설명문: {dmg} {all} {draw} {self} {weaken} → 효과 수치
-  R.cardText = function (id) {
-    var c = D().cards[id];
-    var v = {};
+  R.cardValues = function (id) {
+    var c = D().cards[id], v = {};
     (c.effects || []).forEach(function (e) {
       if (e.type === 'damage') v.dmg = e.amount;
       if (e.type === 'damageAll') v.all = e.amount;
@@ -56,7 +55,15 @@
       if (e.type === 'selfDamage') v.self = e.amount;
       if (e.type === 'weaken') v.weaken = e.amount;
     });
-    return String(c.text || '').replace(/\{(\w+)\}/g, function (m, k) { return v[k] != null ? String(v[k]) : m; });
+    return v;
+  };
+  // wrap: 수치를 감쌀 함수(선택, 화면에서 강조용)
+  R.cardText = function (id, wrap) {
+    var v = R.cardValues(id);
+    return String(D().cards[id].text || '').replace(/\{(\w+)\}/g, function (m, k) {
+      if (v[k] == null) return m;
+      return wrap ? wrap(String(v[k])) : String(v[k]);
+    });
   };
 
   // ───────── 새 게임 / 파티 ─────────

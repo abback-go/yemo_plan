@@ -290,7 +290,8 @@
         { who: 'warrior', text: '……', pause: 1400 },
         { who: 'warrior', text: '……' }
       ],
-      reactionTremble: 2600
+      reactionTremble: 2600,
+      bloodRemain: 0.6        // C7 피 자국이 옅어진 뒤 남는 진하기
     },
 
     // ───────────── 짓밟힘 → 탈출 ─────────────
@@ -335,7 +336,7 @@
       // 마녀의 손 그림: 원본 1672×941. scale 배로 줄여 (x, y)에 둔다.
       hand: {
         img: 'ui_witch_hands.png', imgW: 1672, imgH: 941,
-        scale: 0.9, x: 212, y: 395,
+        scale: 0.9, x: 212, y: 370,
         // 원본 그림 속 다섯 장 카드 자리 (투명 영역, 원본 좌표). [왼위, 오위, 오아래, 왼아래]
         slots: [
           [[351.3, 287.5], [579.6, 171.7], [726.7, 603.8], [566.2, 685.2]],
@@ -350,29 +351,29 @@
         dragScale: 0.85
       },
       card: { w: 240, h: 360 },
-      playZoneY: 640,        // 대상 없는 카드: 이 선보다 위에서 놓으면 사용
+      playZoneY: 610,        // 대상 없는 카드: 이 선보다 위에서 놓으면 사용
       // 동료 뒷모습: x(가운데), top(머리 위), h(그림 높이), anchor(붉은 실이 나오는 등 위치, 그림 비율), hpY(HP판 y)
       allies: {
         archer:  { img: 'spr_archer_back.png',  x: 290,  top: 440, h: 960, anchor: [0.50, 0.24] },
-        hero:    { img: 'spr_hero_back.png',    x: 960,  top: 392, h: 820, anchor: [0.50, 0.25] },
+        hero:    { img: 'spr_hero_back.png',    x: 960,  top: 392, h: 820, anchor: [0.50, 0.165] },
         warrior: { img: 'spr_warrior_back.png', x: 1640, top: 428, h: 990, anchor: [0.55, 0.22] }
       },
       allyHpOffset: 34,       // 머리 위로 얼마나 띄울지
       // 적: x(가운데), feet(발 y), h(그림 높이). 광신도 그림은 2:3
       enemySlots: [
-        { x: 690, feet: 372, h: 240 },
-        { x: 960, feet: 335, h: 240 },
-        { x: 1230, feet: 372, h: 240 }
+        { x: 700, feet: 352, h: 232 },
+        { x: 960, feet: 316, h: 232 },
+        { x: 1220, feet: 352, h: 232 }
       ],
       enemyAspect: 2 / 3,
       // 거대 존재의 발 그림(16:9)을 화면 위쪽에 잘라서 둔다
-      giant: { x: 0, y: -340, w: 1920, h: 1080, feetY: 340, intentY: 236 },
+      giant: { x: 0, y: -360, w: 1920, h: 1080, feetY: 322, intentY: 214 },
       witchPanel: { x: 24, y: 952, w: 320, h: 104 },
       energy: { x: 1716, y: 930, r: 56 },
       endTurn: { x: 1640, y: 1004, w: 260, h: 60 },
-      drawPile: { x: 360, y: 1010 },
-      discardPile: { x: 1580, y: 1010 },
-      dialog: { x: 24, y: 20, w: 600, h: 132 }
+      drawPile: { x: 400, y: 1034 },
+      discardPile: { x: 1574, y: 1034 },
+      dialog: { x: 24, y: 20, w: 580, h: 132 }
     },
 
     // 대화·연출 속도 (ms)
