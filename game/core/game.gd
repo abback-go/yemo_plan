@@ -7,15 +7,13 @@ var S: Dictionary = ScriptData.S
 
 # 등록되는 부분 (main.gd 가 채운다)
 var main: Node
-var ctl: Node          # 장면 흐름·전투 진행 (core/ctl.gd)
-var view: Node2D       # 전투 화면 (ui/battle_view.gd)
-var hand: Node2D       # 마녀의 손과 손패 (ui/hand.gd)
-var input: Node        # 전투 드래그 조작 (ui/battle_input.gd)
-var dialog: Node2D     # 대사창·안내 상자 (ui/dialog_box.gd)
-var scenes: Node       # 타이틀·캠프·컷신·탐색·종료 (scenes/scenes.gd)
-var cutin: Node2D      # 컷인 (ui/cutin.gd)
-var debug: Node        # 디버그 패널
-var L := {}            # 레이어 노드 {"world", "bg", "enemies", ...}
+var ctl: Ctl           # 장면 흐름·전투 진행 (core/ctl.gd)
+var guide: Guide       # 튜토리얼 안내 트리거 (core/guide.gd)
+var view: BattleView   # 전투 화면 + 마녀의 손(view.hand) (ui/battle_view.gd, ui/hand.gd)
+var input: BattleInput # 전투 드래그 조작 (ui/battle_input.gd)
+var dialog: DialogBox  # 대사창·안내 상자 (ui/dialog_box.gd)
+var scenes: Scenes     # 타이틀·VN·탐색·컷신·종료 (scenes/scenes.gd)
+var cutin: Cutin       # 컷인 (ui/cutin.gd)
 
 var params := {}       # 주소 뒤 옵션 (?seed=7&speed=4&scene=giant&test=1&autoguide=1)
 var test := false

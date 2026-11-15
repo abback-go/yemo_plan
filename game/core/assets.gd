@@ -32,6 +32,45 @@ func ok(name: String) -> bool:
 	return name != "" and ResourceLoader.exists(DIR + name)
 
 
+var _svg := {}
+var _faces := {}
+
+## 얼굴만 잘라 낸 그림 (표정 그림 또는 스탠딩에서). 없으면 null
+func face_tex(who: String, face = null, large := false) -> Texture2D:
+	var k := "%s|%s|%s" % [who, str(face), large]
+	if _faces.has(k):
+		return _faces[k]
+	var fr := face_region(who, face, large)
+	if fr.is_empty():
+		return null
+	var img: Image = fr.tex.get_image()
+	if img == null:
+		return null
+	if img.is_compressed():
+		img.decompress()
+	var r: Rect2i = Rect2i(fr.rect).intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+	var sub := img.get_region(r)
+	sub.generate_mipmaps()
+	var t := ImageTexture.create_from_image(sub)
+	_faces[k] = t
+	return t
+
+## 코드로 쓴 SVG → 그림 (같은 key 는 한 번만 만든다). scale: 배율(카드 그림은 2배로 또렷하게)
+func svg(key: String, src: String, scale := 1.0) -> Texture2D:
+	var k := key + "@" + str(scale)
+	if _svg.has(k):
+		return _svg[k]
+	var img := Image.new()
+	var err := img.load_svg_from_string(src, scale)
+	if err != OK:
+		push_warning("SVG 그림을 만들지 못함: " + key)
+		return null
+	img.generate_mipmaps()
+	var t := ImageTexture.create_from_image(img)
+	_svg[k] = t
+	return t
+
+
 func tex(name: String) -> Texture2D:
 	if not ok(name):
 		return null

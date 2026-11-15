@@ -39,6 +39,13 @@ class Anim extends RefCounted:
 	var easing = "linear"
 	var apply: Callable
 	var key = null
+	var wrs: Array = []       # 이 노드들이 사라지면 애니메이션도 멈춘다(opts "node")
+
+	func alive() -> bool:
+		for w in wrs:
+			if w.get_ref() == null:
+				return false
+		return true
 
 	func cancel() -> void:
 		if done:
@@ -99,6 +106,13 @@ func anim(dur_ms: float, frames: Array, apply: Callable, opts := {}) -> Anim:
 	a.easing = opts.get("easing", "linear")
 	a.apply = apply
 	a.key = opts.get("key", null)
+	var nd = opts.get("node", null)
+	if nd is Object:
+		a.wrs.append(weakref(nd))
+	elif nd is Array:
+		for n in nd:
+			if n is Object:
+				a.wrs.append(weakref(n))
 	if a.key != null:
 		for o in anims:
 			if not o.done and o.key == a.key:
@@ -201,6 +215,10 @@ func _process(delta: float) -> void:
 			if a.done:
 				continue
 			if now < a.t0:
+				continue
+			if not a.wrs.is_empty() and not a.alive():
+				a.done = true
+				a.finished.emit()
 				continue
 			var k: float = (now - a.t0) / a.dur
 			if k >= 1.0:
