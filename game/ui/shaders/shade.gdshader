@@ -2,11 +2,8 @@
 // (발이 동료 뒤에 있어도 그림자는 동료 위에 드리워진다)
 shader_type canvas_item;
 uniform float opacity = 0.0;
-varying float world_y;
-
-void vertex() {
-	world_y = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).y;
-}
+uniform float y0 = 0.0;    // 그림 위 끝의 화면 y
+uniform float y1 = 1080.0; // 그림 아래 끝의 화면 y
 
 float mask(float y) {
 	float t = y / 1080.0;
@@ -19,5 +16,6 @@ float mask(float y) {
 
 void fragment() {
 	float a = texture(TEXTURE, UV).a;
+	float world_y = mix(y0, y1, UV.y);
 	COLOR = vec4(0.008, 0.008, 0.024, a * mask(world_y) * opacity);
 }

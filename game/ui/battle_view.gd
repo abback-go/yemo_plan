@@ -269,7 +269,7 @@ func _make_ally(st: Dictionary, id: String) -> void:
 	pose.add_child(body)
 	var spr := _sprite(conf.img, Rect2(-box.size.x / 2.0, 0, box.size.x, box.size.y))
 	body.add_child(spr)
-	var shades := [_shade_of(spr)]
+	var shades := [_shade_of(spr, float(conf.top))]
 	body.add_child(shades[0])
 	var acts := {}
 	var poses: Dictionary = LY().poses.get(id, {})
@@ -286,7 +286,7 @@ func _make_ally(st: Dictionary, id: String) -> void:
 		act.modulate.a = 0.0
 		var asp := _sprite(p.img, Rect2(-w / 2.0 + float(p.get("dx", 0)), box.size.y - h + float(p.get("dy", 0)), w, h))
 		act.add_child(asp)
-		var ash := _shade_of(asp)
+		var ash := _shade_of(asp, float(conf.top))
 		act.add_child(ash)
 		shades.append(ash)
 		pose.add_child(act)
@@ -307,7 +307,7 @@ func _sprite(file: String, r: Rect2) -> Sprite2D:
 	return s
 
 
-func _shade_of(src: Sprite2D) -> Sprite2D:
+func _shade_of(src: Sprite2D, base_y: float) -> Sprite2D:
 	var s := Sprite2D.new()
 	s.texture = src.texture
 	s.centered = false
@@ -316,6 +316,10 @@ func _shade_of(src: Sprite2D) -> Sprite2D:
 	var m := ShaderMaterial.new()
 	m.shader = preload("res://ui/shaders/shade.gdshader")
 	m.set_shader_parameter("opacity", shadow_v)
+	# 그림 위·아래 끝의 화면 y (그림자 세로 그라데이션을 화면 기준으로 맞춘다)
+	var y0 := base_y + src.position.y
+	m.set_shader_parameter("y0", y0)
+	m.set_shader_parameter("y1", y0 + src.texture.get_height() * src.scale.y)
 	s.material = m
 	shade_mats.append(m)
 	return s
