@@ -1,6 +1,6 @@
 // 용사 파티 탐험 틀 시안 — 땅 한 장 (PtField). map_tex = 칸 지도(56×36, R = 칸 종류 ÷ 10) — 스프라이트 텍스처와 같은 것을 16배로 키워 맵 전체를 덮는다.
 // (TEXTURE는 fragment() 밖 함수에서 못 써서 같은 텍스처를 uniform으로 한 번 더 받는다)
-// 칸 종류: 0 풀 · 1 꽃 핀 풀 · 2 흙길 · 3 돌바닥(유적 광장) · 4 물 · 5 숲 바닥.
+// 칸 종류: 0 풀 · 1 꽃 핀 풀 · 2 흙길 · 3 돌바닥(유적 광장) · 4 물 · 5 숲 바닥 · 6 타락한 땅(적 진지 — 보라로 빛나는 금, 성 방어 시안).
 // 화면 1px = 맵 1px (640×360 설계 화면)이라 맵 좌표를 정수로 잘라 픽셀 그림처럼 칠한다. 경계는 잡음으로 흔들어 칸 모양이 보이지 않게.
 // 고정 탑다운 3/4 시점: 물 위쪽 물가(땅이 물보다 위)는 땅의 앞면(절벽 6px)이 보이고, 아래쪽 물가는 땅 가장자리 + 물거품만.
 shader_type canvas_item;
@@ -8,6 +8,7 @@ shader_type canvas_item;
 uniform sampler2D map_tex : filter_nearest;
 uniform vec2 tiles = vec2(56.0, 36.0);
 uniform vec2 plaza_c = vec2(200.0, 420.0); // 광장 가운데 (맵 px) — 새긴 원
+uniform float roots = 1.0; // 땅을 기는 뿌리 (숲속 유적 1 · 성 앞 평지 0)
 const float TS = 16.0;
 
 const vec3 GR[6] = vec3[6](vec3(0.122, 0.227, 0.165), vec3(0.165, 0.302, 0.200), vec3(0.208, 0.380, 0.251), vec3(0.263, 0.471, 0.290), vec3(0.353, 0.569, 0.333), vec3(0.475, 0.671, 0.384));
@@ -22,6 +23,8 @@ const vec3 FLOWER = vec3(0.345, 0.784, 1.0);
 const vec3 GLOW = vec3(0.20, 0.45, 0.60);
 const vec3 GROOVE = vec3(0.30, 0.25, 0.18);
 const vec3 GILT = vec3(0.91, 0.75, 0.31);
+const vec3 BL[3] = vec3[3](vec3(0.137, 0.094, 0.153), vec3(0.200, 0.133, 0.216), vec3(0.275, 0.184, 0.294));
+const vec3 BLIGHT_GLOW = vec3(0.70, 0.35, 1.0);
 const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
 
 float hash(vec2 p) {
@@ -128,6 +131,13 @@ void fragment() {
 		if (mat(p + vec2(0.0, 3.0)) != 3 || mat(p - vec2(0.0, 3.0)) != 3 || mat(p + vec2(3.0, 0.0)) != 3 || mat(p - vec2(3.0, 0.0)) != 3) {
 			if (vnoise(p * 0.2) > 0.4) c = mix(c, GR[2], 0.7); // 광장 가장자리를 덮는 풀
 		}
+	} else if (m == 6) {
+		float v = fbm(p * 0.06) + (hash(p) - 0.5) * 0.1;
+		c = BL[clamp(int(floor(v * 2.5 + d)), 0, 2)];
+		float r2 = abs(vnoise(p * 0.05) + vnoise(p * 0.11) * 0.4 - 0.7); // 보라로 빛나는 금
+		if (r2 < 0.012) c = mix(BLIGHT_GLOW, vec3(1.0), 0.25 + 0.2 * sin(TIME * 2.0 + p.x * 0.05));
+		else if (r2 < 0.03) c = mix(c, BLIGHT_GLOW, 0.35);
+		if (hash(p * 0.7) > 0.985) c = vec3(0.85, 0.65, 1.0); // 수정 부스러기
 	} else if (m == 2) {
 		float v = fbm(p * 0.07) + (hash(p) - 0.5) * 0.1;
 		c = DI[clamp(int(floor(v * 3.0 + d)), 0, 3)];
@@ -156,7 +166,7 @@ void fragment() {
 				if (dd == vec2(0.0)) c = vec3(0.92, 1.0, 1.0);
 			}
 		}
-		if (m != 5 && fbm(p * 0.012 + 40.0) > 0.62) { // 땅 위를 기는 뿌리 (가는 줄만)
+		if (roots > 0.5 && m != 5 && fbm(p * 0.012 + 40.0) > 0.62) { // 땅 위를 기는 뿌리 (가는 줄만)
 			float r2 = abs(vnoise(p * 0.03) + vnoise(p * 0.07) * 0.35 - 0.67);
 			if (r2 < 0.012) c = RT[2];
 			else if (r2 < 0.022) c = RT[0];
