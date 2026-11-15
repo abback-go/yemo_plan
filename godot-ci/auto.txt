@@ -1,168 +1,166 @@
 Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
 
-[    0.6] newGame seed=142935862
-[    0.6] newGame seed=416650135
+[    0.5] newGame seed=89154452
+[    0.5] newGame seed=598074532
 [    0.8] scene vn:camp
-[    0.9] vn camp 0
-[    1.1] vn camp 1
-[    1.3] vn camp 2
+[    0.8] vn camp 0
+[    1.0] vn camp 1
+[    1.2] vn camp 2
 [    1.4] vn camp 3
-[    1.6] vn camp 4
-[    1.8] vn camp 5
-[    1.9] vn camp 6
-[    2.0] vn camp 7
+[    1.5] vn camp 4
+[    1.7] vn camp 5
+[    1.8] vn camp 6
+[    1.9] vn camp 7
 [    2.1] vn camp 8
-[    2.3] vn camp 9
-[    2.4] vn camp 10
-[    2.5] vn camp 11
-[    2.7] vn camp 12
+[    2.2] vn camp 9
+[    2.3] vn camp 10
+[    2.4] vn camp 11
+[    2.6] vn camp 12
 [    2.7] vn camp 13
-[    2.9] vn camp 14
-[    3.0] vn camp 15
-[    3.1] vn camp 16
-[    3.2] vn camp 17
-[    3.3] vn camp 18
+[    2.8] vn camp 14
+[    2.9] vn camp 15
+[    3.0] vn camp 16
+[    3.1] vn camp 17
+[    3.2] vn camp 18
 [    3.5] vn camp 19
-[    3.7] vn camp 20
-[    3.8] vn camp 21
-[    4.0] vn camp 22
-[    4.1] vn camp 23
-[    4.2] vn camp 24
+[    3.6] vn camp 20
+[    3.7] vn camp 21
+[    3.9] vn camp 22
+[    4.0] vn camp 23
+[    4.1] vn camp 24
 [    4.4] vn camp 26
-[    4.7] vn camp 28
+[    4.6] vn camp 28
 [    4.9] vn camp 30
-[    5.1] vn camp 31
-[    5.2] vn camp 32
+[    5.0] vn camp 31
+[    5.1] vn camp 32
 [    5.3] vn camp 33
-[    5.6] vn camp 35
-[    5.7] vn camp 36
-[    5.8] vn camp 37
+[    5.5] vn camp 35
+[    5.6] vn camp 36
+[    5.7] vn camp 37
 [    5.9] vn camp 38
-[    6.0] vn camp 39
-[    6.2] vn camp 40
-[    6.3] vn camp 41
-[    6.4] vn camp 42
-[    6.5] vn camp 43
-[    6.7] vn camp 44
-[    6.8] vn camp 45
-[    6.9] vn camp 46
+[    5.9] vn camp 39
+[    6.1] vn camp 40
+[    6.2] vn camp 41
+[    6.3] vn camp 42
+[    6.4] vn camp 43
+[    6.6] vn camp 44
+[    6.7] vn camp 45
+[    6.8] vn camp 46
 [    7.0] vn camp 47
-[    7.2] vn camp 48
-[    7.3] vn camp 49
+[    7.1] vn camp 48
+[    7.2] vn camp 49
 [    7.4] vn camp 50
-[    7.8] vn camp 52
-[    8.0] vn camp 53
-[    8.1] vn camp 54
-[    8.3] vn camp 55
-[    8.4] vn camp 56
-[    8.6] vn camp 58
+[    7.7] vn camp 52
+[    7.9] vn camp 53
+[    8.0] vn camp 54
+[    8.2] vn camp 55
+[    8.3] vn camp 56
+[    8.5] vn camp 58
 [    8.7] vn camp 59
-[    8.9] vn camp 60
-[    9.0] vn camp 61
-[    9.1] vn camp 62
-[    9.3] vn camp 63
-[    9.4] vn camp 64
+[    8.8] vn camp 60
+[    8.9] vn camp 61
+[    9.0] vn camp 62
+[    9.2] vn camp 63
+[    9.3] vn camp 64
 [    9.4] vn camp 65
-[    9.6] vn camp 66
-[    9.7] vn camp 67
-[    9.8] vn camp 68
-[    9.9] vn camp 69
-[   10.0] vn camp 70
-[   10.1] vn camp 71
-[   10.3] vn camp 72
-[   10.9] battle normal
-[   11.6] ev turnStart
+[    9.5] vn camp 66
+[    9.6] vn camp 67
+[    9.7] vn camp 68
+[    9.8] vn camp 69
+[    9.9] vn camp 70
+[   10.0] vn camp 71
+[   10.2] vn camp 72
+[   10.8] battle normal
+[   11.5] ev turnStart
+[   11.6] ev draw
+[   11.6] ev draw
+[   11.6] ev draw
 [   11.7] ev draw
-[   11.7] ev draw
-[   11.7] ev draw
-[   11.7] ev draw
-[   11.8] ev intents
-[   11.8] ev energy
-[   11.8] locked hero_death
-[   12.3] play holy_slash { "enemy": "c1" }
-[   12.3] ev play
-[   12.5] ev damage
-[   12.5] ev enemyDie
-[   12.6] play curse_flame { "enemy": "c2" }
-[   12.6] ev play
+[   11.7] ev intents
+[   11.7] ev energy
+[   11.7] locked hero_death
+[   12.2] play holy_slash { "enemy": "c1" }
+[   12.2] ev play
+[   12.4] ev damage
+[   12.4] ev enemyDie
+[   12.5] play curse_flame { "enemy": "c2" }
+[   12.5] ev play
+[   12.7] ev damage
+[   12.7] play shield_bash { "enemy": "c2" }
+[   12.7] ev play
 [   12.8] ev damage
-[   12.8] play shield_bash { "enemy": "c2" }
+[   12.8] ev energyOut
+[   12.8] play take_hit { "enemy": "c2" }
 [   12.8] ev play
-[   12.9] ev damage
-[   12.9] ev energyOut
-[   12.9] play take_hit { "enemy": "c2" }
-[   12.9] ev play
-[   13.0] ev redirect
-[   13.0] ev intents
+[   12.9] ev redirect
+[   12.9] ev intents
 [   13.0] ev energyOut
-[   13.1] endTurn 1
-[   13.1] ev discardHand
-[   13.1] ev enemyPhase
+[   13.0] endTurn 1
+[   13.0] ev discardHand
+[   13.0] ev enemyPhase
+[   13.0] ev enemyAct
+[   13.1] ev damage
 [   13.1] ev enemyAct
 [   13.2] ev damage
-[   13.2] ev enemyAct
-[   13.3] ev damage
-[   13.6] ev turnStart
-[   13.7] ev draw
-[   13.7] ev draw
-[   13.7] ev draw
-[   13.7] ev draw
-[   13.7] ev intents
-[   13.7] ev energy
-[   13.8] play fate_shift { "enemy": "c2", &"to": "warrior" }
+[   13.5] ev turnStart
+[   13.6] ev draw
+[   13.6] ev draw
+[   13.6] ev draw
+[   13.6] ev draw
+[   13.6] ev intents
+[   13.6] ev energy
+[   13.7] play fate_shift { "enemy": "c2", &"to": "warrior" }
+[   13.7] ev play
+[   13.7] ev redirect
+[   13.8] ev intents
+[   13.8] play cover { "enemy": "c2" }
 [   13.8] ev play
-[   13.9] ev redirect
-[   13.9] ev intents
-[   13.9] play cover { "enemy": "c2" }
-[   13.9] ev play
-[   14.1] ev redirect
-[   14.1] ev intents
-[   14.1] play snipe { "enemy": "c2" }
-[   14.1] ev play
-[   14.3] ev damage
-[   14.3] ev enemyDie
-[   14.4] ev energyOut
-[   14.4] endTurn 2
-[   14.4] ev discardHand
-[   14.4] ev enemyPhase
-[   14.5] ev enemyAct
-[   14.5] ev damage
-[   14.6] ev turnStart
+[   14.0] ev redirect
+[   14.0] ev intents
+[   14.0] play snipe { "enemy": "c2" }
+[   14.0] ev play
+[   14.2] ev damage
+[   14.2] ev enemyDie
+[   14.3] ev energyOut
+[   14.3] endTurn 2
+[   14.3] ev discardHand
+[   14.3] ev enemyPhase
+[   14.4] ev enemyAct
+[   14.4] ev damage
+[   14.5] ev turnStart
 [   14.6] ev draw
 [   14.6] ev draw
-[   14.7] ev draw
-[   14.7] ev draw
-[   14.7] ev intents
-[   14.7] ev energy
+[   14.6] ev draw
+[   14.6] ev draw
+[   14.6] ev intents
+[   14.6] ev energy
+[   14.9] play suppress { "enemy": "c3" }
+[   14.9] ev play
+[   15.0] ev damage
+[   15.0] ev weaken
+[   15.0] ev intents
 [   15.0] play curse_flame { "enemy": "c3" }
 [   15.0] ev play
-[   15.1] ev damage
-[   15.2] play vanguard {  }
+[   15.2] ev damage
+[   15.2] play foresight {  }
 [   15.2] ev play
-[   15.2] ev aoe
-[   15.3] ev damage
-[   15.3] play foresight {  }
-[   15.3] ev play
-[   15.4] ev draw
-[   15.4] ev draw
-[   15.4] ev energyOut
+[   15.3] ev draw
+[   15.3] ev draw
+[   15.3] ev energyOut
 [   15.4] endTurn 3
 [   15.4] ev discardHand
-[   15.5] ev enemyPhase
+[   15.4] ev enemyPhase
 [   15.5] ev enemyAct
-[   15.6] ev damage
+[   15.5] ev damage
+[   15.5] ev allyDown
 [   15.6] ev turnStart
 [   15.7] ev draw
 [   15.7] ev reshuffle
 [   15.7] ev draw
-[   15.8] ev draw
-[   15.8] ev draw
+[   15.7] ev draw
+[   15.7] ev draw
 [   15.8] ev intents
 [   15.8] ev energy
-[   15.8] play fate_shift { "enemy": "c3", &"to": "warrior" }
-[   15.8] ev play
-[   15.9] ev redirect
-[   15.9] ev intents
 [   15.9] play vanguard {  }
 [   15.9] ev play
 [   16.0] ev aoe
@@ -170,153 +168,159 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
 [   16.1] ev enemyDie
 [   16.1] ev battleEnd
 [   16.1] win normal
-[   17.4] scene explore:hall
-[   17.5] walk (960.0, 470.0)
-[   17.8] scene explore:fork
-[   17.9] map open
-[   19.2] map close
-[   20.4] walk (1560.0, 460.0)
-[   20.6] path train
-[   20.7] scene vn:train
-[   20.8] vn train 0
-[   20.9] vn train 1
-[   21.4] train holy_slash k7
-[   21.4] vn train 4
-[   21.6] scene vn:stairs
-[   21.7] vn stairs 1
-[   21.9] vn stairs 2
-[   22.0] vn stairs 3
-[   22.1] vn stairs 4
-[   22.2] vn stairs 5
-[   22.4] vn stairs 6
-[   22.5] vn stairs 7
-[   22.9] vn stairs 9
-[   23.0] vn stairs 10
-[   23.2] vn stairs 11
-[   23.4] vn stairs 12
-[   24.0] choice sera=silent
-[   24.0] vn stairs 14
+[   17.2] ev wound
+[   17.3] ev revive
+[   17.5] scene explore:hall
+[   17.6] walk (960.0, 470.0)
+[   17.9] scene explore:fork
+[   18.0] map open
+[   19.3] map close
+[   20.5] walk (1560.0, 460.0)
+[   20.7] path train
+[   20.8] scene vn:train
+[   20.9] vn train 0
+[   21.0] vn train 1
+[   21.5] train snipe k13
+[   21.5] vn train 5
+[   21.7] scene vn:stairs
+[   21.8] vn stairs 1
+[   22.0] vn stairs 2
+[   22.1] vn stairs 3
+[   22.2] vn stairs 4
+[   22.3] vn stairs 5
+[   22.5] vn stairs 6
+[   22.6] vn stairs 7
+[   23.0] vn stairs 9
+[   23.2] vn stairs 10
+[   23.3] vn stairs 11
+[   23.6] vn stairs 12
+[   24.1] choice sera=silent
 [   24.1] vn stairs 14
-[   24.2] vn stairs 15
-[   24.6] scene explore:stairs
-[   25.0] walk (1330.0, 760.0)
-[   25.3] path battle
-[   25.5] battle floor2
-[   25.9] ev turnStart
-[   26.0] ev draw
-[   26.0] ev draw
-[   26.0] ev draw
-[   26.0] ev draw
-[   26.1] ev intents
-[   26.1] ev energy
-[   26.1] play foresight {  }
-[   26.1] ev play
+[   24.2] vn stairs 14
+[   24.3] vn stairs 15
+[   24.7] scene explore:stairs
+[   25.1] walk (1330.0, 760.0)
+[   25.4] path battle
+[   25.6] battle floor2
+[   26.0] ev turnStart
+[   26.1] ev draw
+[   26.1] ev draw
+[   26.1] ev draw
 [   26.2] ev draw
-[   26.2] ev draw
-[   26.2] play holy_slash { "enemy": "c1" }
+[   26.2] ev intents
+[   26.2] ev energy
+[   26.2] play fate_shift { "enemy": "c1", &"to": "warrior" }
 [   26.2] ev play
-[   26.4] ev damage
-[   26.4] ev enemyDie
-[   26.4] ev giantTrigger
-[   27.6] giant appears
-[   27.6] battle giant
-[   28.1] ev turnStart
-[   28.2] ev unlock
-[   28.3] ev draw
-[   28.3] ev draw
-[   28.3] ev draw
-[   28.4] ev draw
-[   28.4] ev intents
-[   28.4] ev energy
-[   28.4] endTurn 1
-[   28.4] ev discardHand
-[   28.4] ev enemyPhase
-[   28.5] ev enemyAct
-[   28.7] ev turnStart
-[   28.8] ev draw
-[   28.8] ev draw
-[   28.8] ev draw
-[   28.8] ev draw
-[   28.8] ev intents
-[   28.8] ev energy
-[   29.1] endTurn 2
-[   29.1] ev discardHand
-[   29.1] ev enemyPhase
-[   29.2] ev enemyAct
-[   29.3] ev damage
-[   29.3] ev damage
-[   29.3] ev allyDown
-[   29.4] ev damage
-[   29.4] ev damage
-[   29.4] ev turnStart
-[   29.5] ev draw
-[   29.5] ev draw
-[   29.5] ev draw
-[   29.6] ev draw
-[   29.6] ev intents
-[   29.6] ev energy
-[   29.8] endTurn 3
-[   29.8] ev discardHand
-[   29.8] ev enemyPhase
-[   29.9] ev enemyAct
-[   30.0] ev damage
-[   30.0] ev allyDown
+[   26.3] ev redirect
+[   26.3] ev intents
+[   26.3] play cover { "enemy": "c1" }
+[   26.3] ev play
+[   26.5] ev redirect
+[   26.5] ev intents
+[   26.5] play holy_slash { "enemy": "c1" }
+[   26.5] ev play
+[   26.7] ev damage
+[   26.7] ev enemyDie
+[   26.8] ev giantTrigger
+[   27.9] giant appears
+[   27.9] battle giant
+[   28.3] ev turnStart
+[   28.5] ev unlock
+[   28.6] ev draw
+[   28.6] ev draw
+[   28.6] ev draw
+[   28.6] ev draw
+[   28.6] ev intents
+[   28.7] ev energy
+[   28.7] endTurn 1
+[   28.7] ev discardHand
+[   28.7] ev enemyPhase
+[   28.8] ev enemyAct
+[   28.9] ev turnStart
+[   29.1] ev draw
+[   29.1] ev draw
+[   29.1] ev draw
+[   29.1] ev draw
+[   29.1] ev intents
+[   29.1] ev energy
+[   29.4] endTurn 2
+[   29.4] ev discardHand
+[   29.4] ev enemyPhase
+[   29.5] ev enemyAct
+[   29.6] ev damage
+[   29.6] ev damage
+[   29.6] ev allyDown
+[   29.7] ev damage
+[   29.7] ev damage
+[   29.7] ev turnStart
+[   29.8] ev draw
+[   29.8] ev draw
+[   29.8] ev draw
+[   29.8] ev draw
+[   29.9] ev intents
+[   29.9] ev energy
+[   29.9] endTurn 3
+[   29.9] ev discardHand
+[   29.9] ev enemyPhase
+[   30.0] ev enemyAct
 [   30.1] ev damage
 [   30.1] ev allyDown
 [   30.2] ev damage
-[   30.2] ev battleEnd
-[   30.2] wipe giant
-[   30.2] rewind
-[   30.2] scene rewind
-[   30.3] rewind glass
-[   30.5] battle giant (restart)
-[   31.7] ev turnStart
-[   31.8] ev unlock
-[   32.0] ev draw
-[   32.0] ev draw
-[   32.0] ev draw
-[   32.0] ev draw
-[   32.0] ev intents
-[   32.0] ev energy
-[   32.1] play hero_death {  }
-[   32.1] ev play
-[   32.3] ev allyDeath
-[   32.3] scene cutscene
-[   32.3] cut C1
-[   33.2] cut C2
-[   33.5] cut C3
-[   33.8] cut C4
-[   34.0] cut C5
-[   34.5] cut C6
-[   34.9] cut end true
-[   34.9] cut done
-[   34.9] death: back to battle
-[   35.0] death: C7
-[   35.2] ev relicize
-[   35.3] ev addCard
-[   35.4] reactions
-[   36.1] afterDeath
-[   36.5] afterDeath done
-[   36.6] play trample {  }
-[   36.6] ev play
-[   36.8] ev aoe
-[   36.9] ev retreat
-[   37.1] retreat → escape
-[   38.2] scene escape
-[   38.8] scene vn:emptycamp
-[   38.8] vn emptycamp 0
-[   38.9] vn emptycamp 1
-[   39.0] vn emptycamp 2
-[   39.1] vn emptycamp 3
-[   39.2] vn emptycamp 5
-[   39.3] vn emptycamp 6
-[   39.4] vn emptycamp 7
-[   39.5] vn emptycamp 8
-[   39.6] vn emptycamp 9
-[   39.8] vn emptycamp 10
-[   40.1] vn emptycamp 12
-[   40.4] scene ending
-[   40.4] ending
+[   30.2] ev allyDown
+[   30.3] ev damage
+[   30.3] ev battleEnd
+[   30.3] wipe giant
+[   30.3] rewind
+[   30.3] scene rewind
+[   30.5] rewind glass
+[   30.6] battle giant (restart)
+[   31.9] ev turnStart
+[   32.0] ev unlock
+[   32.1] ev draw
+[   32.1] ev draw
+[   32.1] ev draw
+[   32.1] ev draw
+[   32.1] ev intents
+[   32.2] ev energy
+[   32.2] play hero_death {  }
+[   32.2] ev play
+[   32.4] ev allyDeath
+[   32.4] scene cutscene
+[   32.4] cut C1
+[   33.3] cut C2
+[   33.6] cut C3
+[   33.9] cut C4
+[   34.1] cut C5
+[   34.6] cut C6
+[   35.0] cut end true
+[   35.1] cut done
+[   35.1] death: back to battle
+[   35.2] death: C7
+[   35.4] ev relicize
+[   35.4] ev addCard
+[   35.6] reactions
+[   36.2] afterDeath
+[   36.7] afterDeath done
+[   36.7] play trample {  }
+[   36.7] ev play
+[   36.9] ev aoe
+[   37.0] ev retreat
+[   37.2] retreat → escape
+[   38.3] scene escape
+[   38.9] scene vn:emptycamp
+[   38.9] vn emptycamp 0
+[   39.0] vn emptycamp 1
+[   39.2] vn emptycamp 2
+[   39.3] vn emptycamp 3
+[   39.3] vn emptycamp 5
+[   39.5] vn emptycamp 6
+[   39.6] vn emptycamp 7
+[   39.6] vn emptycamp 8
+[   39.8] vn emptycamp 9
+[   39.9] vn emptycamp 10
+[   40.2] vn emptycamp 12
+[   40.5] scene ending
+[   40.5] ending
 WARNING: 2 RIDs of type "CanvasItem" were leaked.
    at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2735)
 WARNING: 2 ObjectDB instances were leaked at exit (run with `--verbose` for details).
