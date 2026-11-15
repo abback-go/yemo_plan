@@ -1,0 +1,27 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_e_blight",
+  "spawn": "start",
+  "flags": ["p_intro_done", "ab_neoul", "teach_폭주 게이지", "ab_storm", "ab_double_jump", "ab_fox_window", "seen_fox_window_teach"],
+  "steps": [
+    [5, "tp", 38, 19],
+    [6, "face", 1],
+    [10, "spawn_enemy", "blight_spore", 48, 19],
+    [80, "shot", "spore_idle"],
+    [130, "shot", "spore_swell"],
+    [170, "shot", "spore_puff"],
+    [230, "shot", "spore_zone"],
+    [260, "log", "zone"],
+    [400, "status", "standing"],
+    [401, "log", "standing"],
+    [420, "press", "skill_1"],
+    [424, "release", "skill_1"],
+    [470, "shot", "spore_burn"],
+    [600, "status", "after_pillar"],
+    [620, "godmode"],
+    [640, "kill"],
+    [700, "shot", "spore_dead"],
+    [760, "status", "end"],
+    [770, "quit"]
+  ]
+}

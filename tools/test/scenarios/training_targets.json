@@ -1,0 +1,25 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "s_training",
+  "spawn": "east",
+  "flags": ["p_intro_done", "t_escaped", "s_woke", "met_emberlyn", "s_training_intro", "ab_neoul", "ab_fox_mode", "teach_폭주 게이지"],
+  "steps": [
+    [2, "auto", true],
+    [20, "tp", 30, 18.5],
+    [40, "face", -1],
+    [41, "tap", "attack"],
+    [60, "logv", "after_t1"],
+    [62, "tp", 31, 12.5],
+    [80, "face", 1],
+    [115, "tap", "attack"],
+    [100, "logv", "after_t2"],
+    [130, "tp", 37, 18.5],
+    [150, "face", 1],
+    [200, "tap", "attack"],
+    [220, "logv", "after_t3"],
+    [221, "flags", "f"],
+    [225, "shot", "tg"],
+    [300, "status", "s"],
+    [310, "quit"]
+  ]
+}

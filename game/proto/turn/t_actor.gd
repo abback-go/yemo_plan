@@ -1,0 +1,415 @@
+class_name TActor
+extends Node2D
+## 전장 위의 한 명: 규칙 유닛(TUnit)과 그림을 잇는다. 에스카는 실시간판 그림(EEska/EArt)을 물리 없이 서 있는 모드로 (eska_sheet가 있으면 AI 그림),
+## 불의 마녀 둘은 TWitchArt, 적은 TEnemyArt. 자세 바꾸기·맞음·쓰러짐·되살아남·보이는 체력(천천히 따라감)을 맡는다.
+
+const SCALE := 2.0 ## 마녀 코드 그림(키 40px)을 화면에서 이만큼 키움 (키 약 80px = 화면 22%, review_C §5.3)
+const ENEMY_SCALE := 1.8 ## 적 그림 배율 (× 데이터 size): 일반 약 90 · 강적 약 140 · 보스 약 160~175px
+const BIG_SHRINK := 0.95 ## 강적·보스 그림을 이만큼 줄여 머리 꼭대기가 적 카드(바닥 y 82) 밑에 들어가지 않게 (review_C2 M1)
+const DOWN_FADE := 0.25 ## 쓰러진 마녀는 이만큼 옅게 남아 되살릴 수 있음을 보여 준다
+const SPRITE_K := 0.5 ## 에스카 AI 그림 배율 (× SCALE 2 = 화면 1:1 — 줄이면 픽셀이 빠진다). 키 107px
+## 에스카 AI 그림 (가로 8장 대기 시트, 왼쪽을 봄). 있으면 에스카를 이 그림으로 — 마녀성 필드 전투 (2026-10-23 사용자: "전투에서도 AI 그림")
+static var eska_sheet: Texture2D
+
+var unit: TUnit
+var home := Vector2.ZERO
+var shown_hp := 1.0 ## 보이는 체력 비율 (천천히 따라감)
+var view_ratio := -1.0 ## ≥ 0이면 shown_hp가 실제 체력 대신 이 값을 따라감 (화면의 "보이는 값", THud.view_event)
+var eska: EEska
+var sprite: Sprite2D ## 에스카 AI 그림 (eska_sheet가 있을 때)
+var witch: TWitchArt
+var enemy: TEnemyArt
+var facing := 1
+var _lunge := 0.0
+var _lunge_v := 0.0
+var _down := false
+var _down_t := 0.0
+var _mark: DownMark
+var _shadow: Node2D
+var deco := true ## 전장 꾸밈(발밑 고리 등). 패널 초상·컷인처럼 그림만 빌려 쓸 때는 setup 전에 false
+var turn_on := false ## 지금 이 마녀의 차례 (발밑 속성 고리)
+var act_on := false ## 지금 행동 중인 적 (발밑 DANGER 고리)
+var _ring: FootRing
+var _walk := 0.0 ## 걸어 들어오는 중: 남은 가로 거리 (화면 px, 웨이브 전환)
+var _walk_v := 0.0
+var _walk_ph := 0.0
+var _spr_t := 0.0
+var _spr_hurt := 0.0 ## 맞음 붉은 기 (1 → 0)
+var _spr_glow := 0.0 ## 시전 빛 (지금 · 목표)
+var _spr_glow_to := 0.0
+var _spr_lift := 0.0 ## 큰 시전에 떠오름 (로컬 px · 목표)
+var _spr_lift_to := 0.0
+
+
+func setup(u: TUnit, at: Vector2) -> void:
+	unit = u
+	home = at
+	position = at
+	shown_hp = u.hp_ratio()
+	var sz := 1.0
+	if u.is_witch():
+		facing = 1
+		if u.id == "eska" and eska_sheet != null:
+			var sh := Shadow.new()
+			sh.hw = 9.0
+			add_child(sh)
+			_shadow = sh
+			sprite = Sprite2D.new()
+			sprite.texture = eska_sheet
+			sprite.hframes = 8
+			sprite.flip_h = true # 그림은 왼쪽을 봄 → 적(오른쪽)을 보게
+			sprite.offset = Vector2(0, -float(eska_sheet.get_height()) * 0.5 + 1.0)
+			sprite.scale = Vector2(SPRITE_K, SPRITE_K)
+			sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			add_child(sprite)
+		elif u.id == "eska":
+			eska = EEska.new()
+			add_child(eska)
+			eska.set_physics_process(false)
+			eska.set_process(false)
+			eska.art.stand = true
+			eska.art.rim_on = true
+			eska.art.material = TWitchArt.shade_mat(44.0, 11.0, 0.12, 0.16, 0.06, -1.0, 0.16) # 마녀 11명과 같은 명암 (검토 O §3)
+		else:
+			witch = TWitchArt.new()
+			witch.kind = u.id
+			add_child(witch)
+	else:
+		facing = -1
+		var sh := Shadow.new()
+		add_child(sh)
+		_shadow = sh
+		enemy = TEnemyArt.new()
+		enemy.kind = TEnemyArt.kind_for(u.id, String(u.data.get("art", u.id))) # 재의 왕·시련의 거상은 전용 그림
+		sz = float(u.data.get("size", 1.0)) * ENEMY_SCALE / SCALE
+		if u.tier in ["elite", "boss"]:
+			sz *= BIG_SHRINK
+		add_child(enemy)
+		sh.hw = enemy.half_w() + 4.0
+	scale = Vector2(SCALE * sz, SCALE * sz)
+	if facing < 0:
+		# 적 그림은 왼콈을 보게 그렸으므로 뒤집지 않는다
+		pass
+	z_index = int(at.y) # 아래(앞)에 있는 쪽이 위에 그려짐
+	_mark = DownMark.new()
+	_mark.visible = false
+	add_child(_mark)
+	if get_parent() is Control: # 패널 초상 (THud) — 꾸밈 없음
+		deco = false
+	if deco:
+		_ring = FootRing.new()
+		_ring.actor = self
+		_ring.visible = false
+		add_child(_ring)
+		move_child(_ring, 0) # 그림 아래
+
+
+func _process(delta: float) -> void:
+	if unit == null:
+		return
+	var dt := minf(delta, 1.0 / 30.0)
+	if eska != null:
+		eska.art.tick(delta)
+	elif sprite != null:
+		_spr_t += delta
+		sprite.frame = int(_spr_t / 0.16) % 8
+		_spr_hurt = maxf(_spr_hurt - delta * 5.0, 0.0)
+		_spr_glow = move_toward(_spr_glow, _spr_glow_to, delta * 4.0)
+		_spr_lift = move_toward(_spr_lift, _spr_lift_to, delta * 30.0)
+		var g := _spr_glow
+		var c := Color(1.0 + g * 0.3, 1.0 + g * 0.2, 1.0 + g * 0.45).lerp(Color(1.6, 0.45, 0.5), _spr_hurt)
+		sprite.modulate = Color(c, sprite.modulate.a)
+		sprite.position.y = -_spr_lift
+	elif witch != null:
+		witch.tick(delta)
+	elif enemy != null:
+		enemy.tick(delta)
+	shown_hp = move_toward(shown_hp, view_ratio if view_ratio >= 0.0 else unit.hp_ratio(), dt * 1.6)
+	_lunge_v += (-_lunge * 160.0 - _lunge_v * 14.0) * dt
+	_lunge += _lunge_v * dt
+	var hop := 0.0
+	if _walk > 0.0:
+		_walk = maxf(_walk - _walk_v * delta, 0.0)
+		_walk_ph += delta * 18.0
+		hop = -absf(sin(_walk_ph)) * 3.0
+	position = home + Vector2(_lunge * float(facing) + _walk, hop)
+	if enemy != null and enemy.phase != unit.bar_i:
+		enemy.set_phase(unit.bar_i)
+	if enemy != null: # 단계 F-2 상태 그림 (방어 태세·막아서기·차지·등불 가림)
+		enemy.guarding = unit.has_buff("dmg_cut")
+		enemy.covering = unit.has_buff("cover")
+		enemy.charge_k = float(unit.charge) / float(unit.charge_max) if unit.charge_max > 0 else 0.0
+		enemy.guard_link = not unit.passive.is_empty() and unit.alive
+	if _ring != null:
+		var on := unit.alive and (turn_on or act_on or (unit.is_witch() and unit.is_taunting()))
+		_ring.visible = on
+		if on:
+			_ring.t += delta
+			_ring.queue_redraw()
+	if _down:
+		_down_t += delta
+		_mark.t = _down_t
+		_mark.queue_redraw()
+
+
+## 몸 가운데 (전역)
+func center() -> Vector2:
+	if enemy != null:
+		return to_global(enemy.center_local())
+	if sprite != null:
+		return to_global(Vector2(0, -27.0 - _spr_lift))
+	return to_global(Vector2(0, -20.0))
+
+
+## 머리 위 (전역) — 체력 바 자리
+func head() -> Vector2:
+	if enemy != null:
+		return to_global(Vector2(0, -enemy.height() - 4.0))
+	if sprite != null:
+		return to_global(Vector2(0, -56.0))
+	return to_global(Vector2(0, -50.0))
+
+
+func feet() -> Vector2:
+	return global_position
+
+
+## 마법이 나가는 손 (전역)
+func hand() -> Vector2:
+	if eska != null:
+		return eska.art.fingertip() if eska.st != EEska.St.ULT else eska.art.to_global(EArt.ULT_HAND)
+	if witch != null:
+		return witch.hand_global()
+	if sprite != null:
+		return to_global(Vector2(13.0, -32.0 - _spr_lift)) # 가슴 앞 (적 쪽)
+	return center()
+
+
+## 소품의 빛나는 자리 (엠버의 등불 · 이그니스의 장갑), 없으면 손
+func prop_pos() -> Vector2:
+	if witch != null:
+		return witch.prop_global()
+	return hand()
+
+
+func half_w() -> float:
+	if enemy != null:
+		return enemy.half_w() * scale.x
+	return 10.0 * scale.x
+
+
+## 자세: idle · cast · cast_big · hit · win · attack(적)
+func pose(p: String) -> void:
+	if _down and p != "idle":
+		return
+	if eska != null:
+		match p:
+			"cast":
+				eska.st = EEska.St.CAST
+				eska.cast_kind = "cheonyeol"
+			"cast_big":
+				eska.st = EEska.St.ULT
+			"win":
+				eska.st = EEska.St.CAST
+				eska.cast_kind = "dangong"
+			_:
+				eska.st = EEska.St.NORMAL
+		eska.st_t = 0.0
+	elif sprite != null:
+		# 시전 자세 그림이 없어 빛과 떠오름으로 (cast = 빛 · cast_big = 빛 + 6px 떠오름 · win = 옅은 빛)
+		_spr_glow_to = {"cast": 1.0, "cast_big": 1.0, "win": 0.6}.get(p, 0.0)
+		_spr_lift_to = 6.0 if p == "cast_big" else 0.0
+	elif witch != null:
+		witch.set_pose(p)
+	elif enemy != null:
+		enemy.set_pose(p)
+
+
+## 맞음: 움찔 + 붉게 + 뒤로 밀림
+func hurt(heavy: bool) -> void:
+	if eska != null:
+		eska.art.hurt()
+	elif sprite != null:
+		_spr_hurt = 1.0
+	elif witch != null:
+		witch.hurt()
+	elif enemy != null:
+		enemy.hurt()
+	_lunge_v -= (120.0 if heavy else 60.0)
+
+
+## 공격 시작: 앞으로 살짝 내딛음
+func lunge() -> void:
+	_lunge_v += 90.0
+
+
+## 웨이브 전환: 오른쪽 밖(dist px)에서 dur초 동안 걸어 들어온다 (review_C §8.4)
+func walk_in(dist: float, dur := 0.4) -> void:
+	_walk = dist
+	_walk_v = dist / maxf(dur, 0.05)
+	_walk_ph = 0.0
+
+
+func set_turn(on: bool) -> void:
+	turn_on = on
+	# 차례인 마녀 강조 (검토 O §3): 테두리 빛을 속성 색 2px로 — 밤 배경에서 누구 차례인지 그림만으로 읽힘
+	var col := Color(Color(TData.ELEMENT_COLOR.get(unit.element, TWitchArt.RIM_LIGHT)).lightened(0.35), 0.95)
+	if witch != null:
+		witch.lit = on
+		TWitchArt.rim_set(witch._rim_ci, col if on else TWitchArt.RIM_LIGHT)
+	elif eska != null and eska.art._rim_ci.is_valid():
+		if on:
+			TWitchArt.rim_set(eska.art._rim_ci, col)
+		else:
+			RenderingServer.canvas_item_set_material(eska.art._rim_ci, EArt._rim_mat.get_rid())
+
+
+func set_acting(on: bool) -> void:
+	act_on = on
+
+
+func set_down(down: bool) -> void:
+	if down == _down:
+		return
+	_down = down
+	_down_t = 0.0
+	if down:
+		pose("idle")
+		if eska != null:
+			eska.art.dissolve()
+			EVfx.dark_bits(center(), 18, 200.0, Vector2.UP, 180.0, 0.6, 4)
+			EVfx.dark_burst(center(), 26.0)
+		elif witch != null or sprite != null:
+			EVfx.dark_bits(center(), 14, 180.0, Vector2.UP, 180.0, 0.6, 4)
+			if witch != null:
+				witch.set_pose("down")
+		elif enemy != null:
+			pass # 재로 흩어지는 입자는 장면이 TFx.ash_dissolve로 띄운다 (TActor ↔ TFx 순환 참조를 만들지 않게)
+	else:
+		if eska != null:
+			eska.art.revive()
+			eska.art.visible = true
+			eska.art.reset_chains()
+		elif witch != null:
+			witch.fade = 1.0
+			witch.set_pose("idle")
+			witch.reset_chains()
+		elif sprite != null:
+			sprite.modulate.a = 1.0
+	_mark.visible = down and unit.is_witch()
+	if not down:
+		return
+	# 그림을 옅게
+	var tw := create_tween()
+	if eska != null:
+		tw.tween_interval(0.5)
+		tw.tween_callback(func() -> void: eska.art.visible = false)
+	elif witch != null:
+		tw.tween_property(witch, "fade", 0.5, 0.6) # 무릎 꿇고 반쯤 흐리게 — 되살릴 수 있다
+	elif sprite != null:
+		tw.tween_property(sprite, "modulate:a", 0.4, 0.6)
+	elif enemy != null:
+		enemy.set_pose("down")
+		tw.tween_property(enemy, "fade", 0.0, 0.5)
+		if _shadow != null:
+			tw.parallel().tween_property(_shadow, "modulate:a", 0.0, 0.5)
+
+
+## 적 발밑 그림자 타원 (마녀는 그림 안에 있음) — 적이 떠 보이지 않게
+class Shadow extends PDraw.Canvas:
+	var hw := 12.0
+
+	func _paint() -> void:
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.25))
+		pd.glow(Vector2.ZERO, hw + 3.0, Color(0, 0, 0, 0.5), 0.0)
+		pd.draw_set_transform(Vector2.ZERO)
+
+
+## 쓰러진 자리 표시: 바닥의 보랏빛 고리 + 떠오르는 작은 빛 + 머리 위 작은 영혼 불꽃 (되살릴 수 있다는 뜻)
+class DownMark extends PDraw.Canvas:
+	var t := 0.0
+
+	func _paint() -> void:
+		var pulse := 0.5 + 0.5 * sin(t * 2.4)
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.32))
+		pd.glow(Vector2.ZERO, 11.0 + pulse * 2.0, Color("#b9a2ff", 0.3), 0.0)
+		pd.draw_arc(Vector2.ZERO, 9.0 + pulse * 1.5, 0.0, TAU, 24, Color("#d9ccff", 0.6), 1.0)
+		pd.draw_set_transform(Vector2.ZERO)
+		for i in 3:
+			var ph := fmod(t * 0.5 + float(i) / 3.0, 1.0)
+			var p := Vector2(-6.0 + float(i) * 6.0 + sin(t * 2.0 + float(i)) * 1.5, -ph * 22.0)
+			pd.draw_rect(Rect2(p, Vector2(1.2, 1.2)), Color("#e6dcff", (1.0 - ph) * 0.8))
+		# 영혼 불꽃 (머리 위에서 흔들리며 숨 쉼)
+		var a := minf(t * 2.0, 1.0)
+		var c := Vector2(sin(t * 1.7) * 1.5, -40.0 - 1.5 * sin(t * 2.3))
+		pd.glow(c, 6.0 + 1.5 * pulse, Color("#b9a2ff", 0.4 * a), 0.0)
+		var tip := c + Vector2(sin(t * 6.0) * 1.2, -6.0 - pulse)
+		pd.convex(PackedVector2Array([c + Vector2(-2.4, 0.6), tip, c + Vector2(2.4, 0.6), c + Vector2(0, 2.6)]), Color("#d9ccff", 0.85 * a))
+		pd.convex(PackedVector2Array([c + Vector2(-1.1, 0.8), c + Vector2(0, -3.0), c + Vector2(1.1, 0.8), c + Vector2(0, 1.8)]), Color("#ffffff", 0.9 * a))
+
+
+## 발밑 고리: 차례인 마녀 = 속성 색 숨쉬기 + 위로 오르는 알갱이 4 · 행동 중인 적 = DANGER · 도발 중 = 붉은 점선 (review_C §8.1)
+class FootRing extends PDraw.Canvas:
+	var actor: TActor
+	var t := 0.0
+
+	func _paint() -> void:
+		var u := actor.unit
+		var r := 9.0 # 로컬 (마녀 배율 2 → 화면 반지름 18)
+		var col := Color("#ff4f6a")
+		if u.is_witch():
+			col = TData.ELEMENT_COLOR.get(u.element, Color("#b9a2ff"))
+		else:
+			r = actor.enemy.half_w() + 4.0
+		var br := 0.6 + 0.4 * (0.5 + 0.5 * sin(t * 4.0))
+		pd.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.35))
+		if actor.turn_on or actor.act_on:
+			pd.glow(Vector2.ZERO, r * 1.3, Color(col, 0.25 * br), 0.0)
+			pd.draw_arc(Vector2.ZERO, r, 0.0, TAU, 28, Color(col, br), 1.0)
+			pd.draw_arc(Vector2.ZERO, r * 0.72, 0.0, TAU, 24, Color(col, 0.5 * br), 0.6)
+		if u.is_witch() and u.is_taunting():
+			for i in 10:
+				var a0 := TAU * float(i) / 10.0 + t * 0.8
+				pd.draw_arc(Vector2.ZERO, r + 3.0, a0, a0 + 0.35, 4, Color("#ff7a5a", 0.8), 0.8)
+		pd.draw_set_transform(Vector2.ZERO)
+		if actor.turn_on and u.is_witch():
+			for i in 4:
+				var ph := fmod(t * 0.9 + float(i) * 0.25, 1.0)
+				var p := Vector2(cos(float(i) * 1.7) * r * 0.8, sin(float(i) * 1.7) * r * 0.25 - ph * 16.0)
+				pd.draw_rect(Rect2(p, Vector2(0.8, 0.8)), Color(col, (1.0 - ph) * 0.9))
+
+
+## 그림 한 장 찍어 두기 (review_K K-13 차례 칩 얼굴 · K-18 편성 명단): px 크기 SubViewport에 이 유닛을 몇 프레임 그린 뒤 멈춰 텍스처로 쓴다.
+## 매 프레임 움직이는 TActor 대신 정지 그림 — 편성 명단 12칸이 그리기 호출을 가장 많이 먹었다. feet = 발 자리(SubViewport 안), sc = 그림 배율
+class Snap extends SubViewport:
+	const FRAMES := 6 ## 그림이 첫 프레임에 다 그려지지 않아 몇 프레임 그린 뒤 멈춤
+	var actor: TActor
+	var _left := FRAMES
+
+	static func make(parent: Node, u: TUnit, px: Vector2i, sc: float, feet: Vector2) -> Snap:
+		var s := Snap.new()
+		s.size = px
+		s.transparent_bg = true
+		s.disable_3d = true
+		s.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+		s.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		parent.add_child(s)
+		var a := TActor.new()
+		a.deco = false
+		s.add_child(a)
+		a.setup(u, feet)
+		a.scale = Vector2(sc, sc)
+		a.z_index = 0
+		s.actor = a
+		return s
+
+	## 그림을 다시 찍는다 (마녀 그림이 바뀔 때)
+	func again() -> void:
+		_left = FRAMES
+		render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+	func _process(_d: float) -> void:
+		if _left > 0:
+			_left -= 1
+			if _left == 0:
+				render_target_update_mode = SubViewport.UPDATE_DISABLED

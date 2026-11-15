@@ -1,0 +1,20 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(300, 300))"],
+[22, "eval", "spawn_foe('colossus', 420, 300)"],
+[24, "eval", "spawn_foe('runner', 640, 300)"],
+[60, "eval", "get_node('MagicCast').big_hp()"],
+[62, "eval", "get_node('MagicCast').cast('meteor')"],
+[66, "shot", "m01"], [72, "shot", "m02"], [80, "shot", "m03"], [96, "shot", "m04"], [110, "shot", "m05"], [130, "shot", "m06"], [150, "shot", "m07"], [175, "shot", "m08"], [195, "shot", "m09"],
+[140, "eval", "perf()"], [141, "eval", "bench(200)"],
+[260, "eval", "get_node('MagicCast').lost()"],
+[262, "eval", "get_node('MagicCast').big_hp()"],
+[264, "eval", "dummy.set('position', Vector2(470, 300))"],
+[266, "eval", "eska.set('global_position', Vector2(200, 300))"],
+[300, "eval", "get_node('MagicCast').cast('doom')"],
+[304, "shot", "d01"], [314, "shot", "d02"], [330, "shot", "d03"], [350, "shot", "d04"], [370, "shot", "d05"], [380, "shot", "d06"], [386, "shot", "d07"], [392, "shot", "d08"], [400, "shot", "d09"], [420, "shot", "d10"], [460, "shot", "d11"], [490, "shot", "d12"],
+[376, "eval", "bench(200)"], [384, "eval", "perf()"],
+[520, "eval", "get_node('MagicCast').lost()"],
+[530, "quit"]
+]}

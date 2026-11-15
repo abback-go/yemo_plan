@@ -1,0 +1,22 @@
+diff --git a/game/proto/p_dummy.gd b/game/proto/p_dummy.gd
+index 961d894..c7faea0 100644
+--- a/game/proto/p_dummy.gd
++++ b/game/proto/p_dummy.gd
+@@ -128,12 +128,13 @@ func _process(delta: float) -> void:
+ 		_hp_trail = maxf(float(hp), _hp_trail - float(max_hp) * delta * (0.9 if _since_hit > 0.35 else 0.0))
+ 	else:
+ 		_hp_trail = hp
++	var sd := minf(delta, 1.0 / 30.0) # 느린 프레임(웹 첫 셰이더 준비 등)에서 용수철이 폭주해 화면을 덮는 판이 되지 않게 (EArt·카메라와 같은 방식)
+ 	if _bound <= 0.0:
+ 		# 용수철처럼 흔들리다 멈춤
+-		_wobble_v += (-_wobble * 60.0 - _wobble_v * 7.0) * delta
+-		_wobble += _wobble_v * delta
+-	_sq_v += (-_sq * 260.0 - _sq_v * 16.0) * delta
+-	_sq += _sq_v * delta
++		_wobble_v += (-_wobble * 60.0 - _wobble_v * 7.0) * sd
++		_wobble += _wobble_v * sd
++	_sq_v += (-_sq * 260.0 - _sq_v * 16.0) * sd
++	_sq += _sq_v * sd
+ 	if kind == "launcher" and PState.launcher_on and _bound <= 0.0:
+ 		_shoot_t -= delta
+ 		if _shoot_t <= 0.0:

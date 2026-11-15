@@ -1,0 +1,81 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_st_tower",
+  "spawn": "start",
+  "flags": [
+    "ab_neoul"
+  ],
+  "steps": [
+    [
+      2,
+      "godmode"
+    ],
+    [
+      3,
+      "auto",
+      true
+    ],
+    [
+      40,
+      "run",
+      "dev_ch5_portrait"
+    ],
+    [
+      80,
+      "shot",
+      "gallery_portraits"
+    ],
+    [
+      90,
+      "go",
+      "dev_st_tower",
+      "start"
+    ],
+    [
+      160,
+      "run",
+      "dev_ch5_poses"
+    ],
+    [
+      200,
+      "shot",
+      "gallery_lyra_poses"
+    ],
+    [
+      210,
+      "go",
+      "dev_st_tower",
+      "start"
+    ],
+    [
+      280,
+      "run",
+      "dev_ch5_poses2"
+    ],
+    [
+      320,
+      "shot",
+      "gallery_lyra_poses2"
+    ],
+    [
+      330,
+      "go",
+      "dev_st_tower",
+      "start"
+    ],
+    [
+      400,
+      "run",
+      "dev_ch5_poses_b"
+    ],
+    [
+      440,
+      "shot",
+      "gallery_astrid_poses"
+    ],
+    [
+      441,
+      "quit"
+    ]
+  ]
+}

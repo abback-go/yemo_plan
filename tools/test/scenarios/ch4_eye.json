@@ -1,0 +1,28 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_tp_temple",
+  "spawn": "eye",
+  "flags": ["p_intro_done", "t_escaped", "s_woke", "ab_neoul", "ab_storm", "ab_double_jump", "teach_폭주 게이지", "teach_퍼펙트 회피"],
+  "steps": [
+    [3, "auto", true],
+    [5, "setting", "difficulty", 1],
+    [20, "spawn_enemy", "lumen_eye", 74, 18, {"source": true, "beam_deg": 0}],
+    [50, "shot", "puzzle_before"],
+    [51, "face", 1],
+    [52, "tap", "skill_1"],
+    [110, "shot", "puzzle_after"],
+    [111, "worldinfo", "puzzle"],
+    [120, "spawn_enemy", "lumen_eye", 92, 11, {"facing": -1}],
+    [150, "shot", "eye_aim"],
+    [200, "shot", "eye_sweep"],
+    [215, "shot", "eye_sweep2"],
+    [270, "status", "after_sweep"],
+    [275, "shot", "eye_hot"],
+    [300, "enemies", "e1"],
+    [420, "status", "after_2nd"],
+    [421, "godmode"],
+    [430, "kill"],
+    [470, "status", "killed"],
+    [480, "quit"]
+  ]
+}

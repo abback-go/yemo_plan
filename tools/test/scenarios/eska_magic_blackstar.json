@@ -1,0 +1,18 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(400, 300))"],
+[20, "eval", "get_node('MagicCast').big_hp()"],
+[22, "eval", "spawn_foe('colossus', 760, 300)"],
+[24, "eval", "spawn_foe('caster', 700, 240)"],
+[60, "eval", "foes()"],
+[60, "eval", "get_node('MagicCast').big_hp()"],
+[62, "eval", "get_node('MagicCast').cast('blackstar')"],
+[65, "shot", "b01"], [69, "shot", "b02"], [76, "shot", "b03"], [90, "shot", "b04"], [120, "shot", "b05"], [160, "shot", "b06"],
+[190, "eval", "perf()"], [191, "eval", "bench(200)"],
+[190, "eval", "foes()"],
+[196, "shot", "b07"], [202, "shot", "b08"], [206, "shot", "b09"], [212, "shot", "b10"], [222, "shot", "b11"], [240, "shot", "b12"],
+[300, "eval", "get_node('MagicCast').lost()"],
+[300, "eval", "foes()"],
+[320, "quit"]
+]}

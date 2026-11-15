@@ -1,0 +1,9 @@
+{"scene": "res://proto/eska/eska_boss.tscn", "steps": [
+[2, "attach", "../tools/test/eska_boss_bot.gd"],
+[900, "shot", "b01_fight"],
+[2400, "shot", "b02_fight"],
+[4800, "shot", "b03_fight"],
+[7200, "shot", "b04_fight"],
+[9600, "shot", "b05_fight"],
+[36000, "quit"]
+]}

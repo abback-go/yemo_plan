@@ -1,0 +1,17 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(300, 300))"],
+[30, "eval", "get_node('MagicCast').rift_bench(200)"],
+[40, "eval", "perf()"],
+[50, "eval", "get_node('MagicCast').cast('flurry')"],
+[70, "eval", "perf()"], [71, "eval", "bench(100)"],
+[120, "eval", "get_node('MagicCast').cast('meteor')"],
+[200, "eval", "perf()"], [201, "eval", "bench(100)"],
+[330, "eval", "get_node('MagicCast').cast('blackstar')"],
+[420, "eval", "perf()"], [421, "eval", "bench(100)"],
+[560, "eval", "get_node('MagicCast').cast('doom')"],
+[630, "eval", "perf()"], [631, "eval", "bench(100)"],
+[760, "eval", "perf()"],
+[770, "quit"]
+]}

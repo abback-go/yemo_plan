@@ -1,0 +1,12 @@
+{"scene": "res://proto/turn/turn_proto.tscn", "seed": 20261018, "steps": [
+ [20, "touch", 0, 76, 19], [21, "untouch", 0, 76, 19],
+ [60, "touch", 0, 12, 19], [61, "untouch", 0, 12, 19],
+ [100, "touch", 0, 574, 331], [101, "untouch", 0, 574, 331],
+ [106, "touch", 0, 574, 331], [107, "untouch", 0, 574, 331],
+ [140, "eval", "set_auto(true)"],
+ [600, "eval", "status()"], [1200, "eval", "status()"], [1800, "eval", "status()"], [2400, "eval", "status()"], [3000, "eval", "status()"],
+ [3600, "eval", "status()"], [4200, "eval", "status()"], [4800, "eval", "status()"], [5400, "eval", "status()"], [6000, "eval", "status()"],
+ [6000, "eval", "str(stats)"],
+ [6600, "eval", "status()"],
+ [6600, "quit"]
+]}

@@ -1,0 +1,30 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "dev_tp_temple",
+  "spawn": "bell",
+  "flags": ["p_intro_done", "t_escaped", "s_woke", "ab_neoul", "ab_storm", "ab_double_jump", "teach_폭주 게이지", "teach_퍼펙트 회피"],
+  "steps": [
+    [3, "auto", true],
+    [5, "setting", "difficulty", 1],
+    [20, "spawn_enemy", "bell_wraith", 147, 14, {"facing": -1}],
+    [25, "tp", 139, 18],
+    [60, "shot", "wraith_idle"],
+    [100, "shot", "wraith_raise"],
+    [130, "shot", "wraith_ring"],
+    [150, "shot", "wraith_ring2"],
+    [200, "status", "after_ring"],
+    [210, "tp", 134, 18],
+    [214, "face", 1],
+    [215, "tap", "skill_1"],
+    [250, "shot", "bell_rung"],
+    [252, "enemies", "stunned"],
+    [253, "press", "attack"],
+    [300, "shot", "wraith_stunned"],
+    [380, "release", "attack"],
+    [381, "status", "after_stun_damage"],
+    [382, "godmode"],
+    [400, "kill"],
+    [440, "status", "killed"],
+    [450, "quit"]
+  ]
+}

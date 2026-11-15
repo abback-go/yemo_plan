@@ -1,0 +1,15 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(470, 300))"],
+[30, "tap", "es_attack"],
+[38, "eval", "dummy.get('_sq')"],
+[39, "eval", "dummy.call('_process', 0.3)"], [39, "eval", "dummy.get('_sq')"],
+[39, "eval", "dummy.call('_process', 0.3)"], [39, "eval", "dummy.get('_sq')"],
+[39, "eval", "dummy.call('_process', 0.3)"], [39, "eval", "dummy.get('_sq')"],
+[40, "shot", "slow01"],
+[42, "eval", "dummy.get('_sq')"],
+[60, "eval", "dummy.get('_sq')"], [60, "shot", "slow02"],
+[90, "eval", "dummy.get('_sq')"],
+[100, "quit"]
+]}

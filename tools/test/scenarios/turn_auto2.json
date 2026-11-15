@@ -1,0 +1,9 @@
+{"scene": "res://proto/turn/turn_proto.tscn", "seed": 20261019, "steps": [
+ [5, "eval", "set_party(['harpe','tonan','nerei'])"],
+ [20, "shot", "a_roster"],
+ [40, "eval", "set_auto(true)"],
+ [50, "eval", "start_battle()"],
+ [600, "eval", "status()"], [1800, "eval", "status()"], [3000, "eval", "status()"], [4200, "eval", "status()"], [5400, "eval", "status()"],
+ [6000, "eval", "status()"], [6000, "eval", "str(stats)"],
+ [6600, "quit"]
+]}

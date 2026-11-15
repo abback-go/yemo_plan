@@ -1,0 +1,60 @@
+extends RoomData
+## 자동 생성: tools/roomgen.py — 직접 고치지 말고 생성기를 고친 뒤 다시 만들 것
+## 정의: tools/roomgen.py s_headmaster()
+
+
+func _init() -> void:
+	id = "s_headmaster"
+	title = "마녀학교 · 교장실"
+	area = "school"
+	theme = "room"
+	music = "school"
+	cell = Vector2i(7, 0)
+	cells = Vector2i(1, 1)
+	map = """
+########################################
+########################################
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+########################################
+########################################
+########################################
+########################################
+"""
+	entities = [
+		{t = "door", id = "door", x = 4, y = 19, to = "s_clock", to_id = "hm", style = "grand", label = "시계탑"},
+		{t = "npc", id = "astrid", who = "astrid", x = 26, y = 19, face = "left"},
+		{t = "prop", kind = "desk", x = 29, y = 19, w = 4},
+		{t = "prop", kind = "bookshelf", x = 12, y = 19, w = 4, h = 10},
+		{t = "prop", kind = "bookshelf", x = 36, y = 19, w = 3, h = 10},
+		{t = "prop", kind = "window", x = 20, y = 14, w = 5, h = 10},
+		{t = "prop", kind = "globe", x = 33, y = 19},
+		{t = "prop", kind = "fox_statue", x = 17, y = 19},
+		{t = "prop", kind = "painting", x = 26, y = 11, w = 4, h = 4, col = Color("#1a2a5a")},
+		{t = "prop", kind = "candles", x = 8, y = 19},
+		# 덧붙임(overlay): tools/rooms/ch2.py
+		{t = "trigger", id = "k_envoy_tg", x = 6, y = 13, w = 4, h = 6, run = "k_envoy", cond = "ab_wings,!k_envoy_seen", once = false},
+		# 덧붙임(overlay): tools/rooms/ch3.py
+		{t = "trigger", id = "t_ch3", x = 8, y = 11, w = 3, h = 8, run = "e_headmaster", cond = "e_start,!e_letter"},
+		# 덧붙임(overlay): tools/rooms/ch5.py
+		{t = "prop", kind = "st_photo_frame", x = 12, y = 14},
+		{t = "trigger", id = "st_photo", x = 4, y = 13, w = 10, h = 7, run = "st_photo_scene", cond = "st_fest,!st_fest_ready"},
+		{t = "sign", id = "st_album", x = 16, y = 19, look = "book", prompt = "기억의 사진첩 보기", cond = "ch5_done", run = "st_mem_album"},
+		{t = "prop", kind = "st_tea_table", x = 33, y = 19, cond = "ch5_done"},
+		{t = "npc", id = "lyra5", who = "lyra", x = 35, y = 19, face = "left", cond = "ch5_done"},
+	]

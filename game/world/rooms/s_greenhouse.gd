@@ -1,0 +1,58 @@
+extends RoomData
+## 자동 생성: tools/roomgen.py — 직접 고치지 말고 생성기를 고친 뒤 다시 만들 것
+## 정의: tools/roomgen.py s_greenhouse()
+
+
+func _init() -> void:
+	id = "s_greenhouse"
+	title = "마녀학교 · 유리 온실"
+	area = "school"
+	theme = "greenhouse"
+	music = "school"
+	cell = Vector2i(4, 4)
+	cells = Vector2i(1, 1)
+	map = """
+########################################
+########################################
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#......................................#
+#...........................=======....#
+#...........=======....................#
+#......................................#
+#......................................#
+#......................................#
+########################################
+########################################
+########################################
+########################################
+"""
+	entities = [
+		{t = "door", id = "up", x = 4, y = 19, to = "s_courtyard", to_id = "greenhouse", style = "stair_up", label = "앞마당"},
+		{t = "enemy", id = "vine", kind = "snapvine", x = 24, y = 19, face = "left"},
+		{t = "pickup", id = "moonherb", kind = "moonherb", x = 35, y = 19, name = "월광초", flag = "moonherb", text = "달빛을 머금은 약초. 피피가 찾던 것이다."},
+		{t = "prop", kind = "plant", x = 8, y = 19},
+		{t = "prop", kind = "plant", x = 15, y = 19},
+		{t = "prop", kind = "plant", x = 20, y = 19},
+		{t = "prop", kind = "plant", x = 31, y = 19},
+		{t = "prop", kind = "plant", x = 37, y = 19},
+		{t = "prop", kind = "window", x = 10, y = 11, w = 4, h = 6},
+		{t = "prop", kind = "window", x = 22, y = 11, w = 4, h = 6},
+		{t = "prop", kind = "window", x = 32, y = 11, w = 4, h = 6},
+		# 덧붙임(overlay): tools/rooms/ch3.py
+		{t = "prop", kind = "eilach_sapling", x = 11, y = 19, white = 0.6, cond = "e_start,!e_herald_done"},
+		{t = "prop", kind = "eilach_sapling", x = 11, y = 19, white = 0.0, cond = "e_herald_done"},
+		{t = "spawn", id = "ch3", x = 6, y = 19, face = "right"},
+		{t = "npc", id = "pippa_gh", who = "pippa", x = 14, y = 19, face = "left", cond = "e_start,!ch3_done"},
+		# 덧붙임(overlay): tools/rooms/ch5.py
+		{t = "pickup", id = "st_ing_moss", kind = "key", x = 31, y = 14, name = "반딧불 이끼", flag = "st_ing_moss", text = "밤마다 빛나는 이끼. 피피의 물약 재료다.", cond = "q_st_pippa_stall"},
+	]

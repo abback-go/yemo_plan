@@ -1,0 +1,20 @@
+{
+  "scene": "res://world/world.tscn",
+  "room": "e_crown_nest",
+  "spawn": "ally",
+  "flags": ["p_intro_done", "ab_neoul", "s_woke", "ch1_done", "teach_폭주 게이지"],
+  "steps": [
+    [2, "auto", true],
+    [10, "tp", 60, 19],
+    [30, "shot", "pod_a"],
+    [40, "run", "dev_ch3_pod"],
+    [75, "shot", "pod_b"],
+    [130, "shot", "pod_c"],
+    [200, "run", "dev_ch3_moon"],
+    [250, "shot", "moon_a"],
+    [400, "shot", "moon_b"],
+    [470, "shot", "moon_c"],
+    [520, "shot", "moon_d"],
+    [620, "quit"]
+  ]
+}

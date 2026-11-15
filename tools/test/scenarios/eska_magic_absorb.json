@@ -1,0 +1,20 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(400, 300))"],
+[22, "eval", "spawn_foe('runner', 700, 300)"],
+[24, "eval", "spawn_foe('colossus', 380, 300)"],
+[60, "eval", "get_node('MagicCast').big_hp()"],
+[62, "eval", "get_node('MagicCast').cast('blackstar')"],
+[90, "eval", "get_node('MagicCast').absorb_test()"],
+[94, "shot", "ab01"], [104, "shot", "ab02"], [130, "shot", "ab03"],
+[140, "eval", "get_node('MagicCast').absorb_count()"], [215, "eval", "get_node('MagicCast').absorb_count()"],
+[150, "eval", "get_node('MagicCast').lens()"],
+[151, "eval", "get_node('MagicCast').still(2.0)"],
+[153, "eval", "get_node('MagicCast').lens()"],
+[156, "shot", "ab04_still"],
+[200, "eval", "get_node('MagicCast').absorb_test()"],
+[222, "shot", "ab05_burst"], [226, "shot", "ab06_burst"],
+[300, "eval", "get_node('MagicCast').lost()"],
+[320, "quit"]
+]}

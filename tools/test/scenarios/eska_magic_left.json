@@ -1,0 +1,13 @@
+{"scene": "res://proto/eska/eska_arena.tscn", "steps": [
+[1, "eval", "waves.set('enabled', false)"],
+[2, "attach", "../tools/test/eska_magic_cast.gd"],
+[5, "eval", "eska.set('global_position', Vector2(700, 300))"],
+[6, "eval", "eska.set('facing', -1)"],
+[20, "eval", "get_node('MagicCast').big_hp()"],
+[30, "eval", "get_node('MagicCast').cast('nakseong')"], [48, "shot", "l01_nak"],
+[100, "eval", "get_node('MagicCast').cast('meteor')"], [170, "shot", "l02_meteor"],
+[300, "eval", "get_node('MagicCast').cast('blackstar')"], [400, "shot", "l03_blackstar"],
+[560, "eval", "get_node('MagicCast').cast('doom')"], [620, "shot", "l04_doom"],
+[760, "eval", "get_node('MagicCast').lost()"],
+[770, "quit"]
+]}
