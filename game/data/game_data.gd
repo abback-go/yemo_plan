@@ -197,7 +197,7 @@ const D := {
 	# 1인칭 오른손(ui_witch_hand_raise.png)이 아래에서 올라와 반투명한 카드를 쥐고, 동료 쪽 붉은 실이 잠깐 팽팽해진다.
 	# clarity: 0(누군지 알아볼 수 없음) ~ 1(또렷함) — 대본 v0.6: 캠프·계단은 또렷(카드 문구까지), 빈 캠프의 다음 카드는 0
 	# 손(ui_witch_hand_raise.png)은 x,y,scale / 떠오른 카드는 cardX,cardY(왼쪽 위), cardK(배율)
-	"omen": {"scale": 0.9, "x": 300, "y": 560, "cardX": 1060, "cardY": 110, "cardK": 1.4, "from": [260, 560], "rise": 900, "fade": 700, "alpha": 0.75,
+	"omen": {"scale": 0.9, "x": 175, "y": 250, "cardX": 1060, "cardY": 110, "cardK": 1.4, "from": [260, 560], "rise": 900, "fade": 700, "alpha": 0.75,
 		"anchors": {"hero": [0.5, 0.33], "warrior": [0.5, 0.3], "archer": [0.5, 0.3], "noel": [0.5, 0.3]}},
 
 	# ───────────── 탐색: 이동·갈림길 (tutorial-flow.md 2장, 목업 11) ─────────────

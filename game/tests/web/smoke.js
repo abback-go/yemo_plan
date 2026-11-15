@@ -351,10 +351,13 @@ async function pathB(browser) {
     if (s.battle && s.battle.turn >= 3 && s.battle.phase === 'enemy' && !shotRed) { shotRed = true; }
     await H.botStep(s, { noDeath: true });
   });
+  await H.W('setSpeed', 0.3);
   await H.sleep(500);
   await H.shot('B01_rewind_red.png');
-  await H.sleep(900);
+  await H.until(s => (s.log || []).includes('rewind glass'), 20000, '유리 깨짐');
+  await H.sleep(600);
   await H.shot('B02_rewind_glass.png');
+  await H.W('setSpeed', 1);
   s = await H.until(s => (s.log || []).some(l => /battle giant \(restart\)/.test(l)) && s.battle && s.battle.turn === 1, 30000, '재시작', async s => { if (s.guideOpen || s.dialogBusy) await H.W('advance'); });
   await H.sleep(1200);
   await H.shot('B03_restart.png');

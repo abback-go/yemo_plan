@@ -529,6 +529,7 @@ func rewind() -> void:
 	root.move_child(bk, 0)
 	FX.flash("#ffffff", 200, 0.5)
 	FX.shake(10, 300)
+	G.ctl.note("rewind glass")
 	var b := FX.anim(1400, [{"k": 0.0}, {"k": 1.0}], func(v): glass.k = v.k; glass.queue_redraw(), {"node": glass, "easing": "ease-in"})
 	await FX.until(b)
 	FX.set_fade(1)
