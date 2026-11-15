@@ -43,14 +43,22 @@ func set_intent_hover(id: String) -> void:
 
 func set_prompt(text: String) -> void:
 	if prompt == null:
-		prompt = UI.label("", 26, Color("#ffd9dc"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER)
-		prompt.z_index = 330
-		G.main.ui_layer.add_child(prompt)
-		prompt.draw.connect(func(): prompt.draw_style_box(UI.box(Color(0.04, 0, 0.016, 0.85), UI.RED, 22, 1), Rect2(Vector2(-22, -8), prompt.size + Vector2(44, 16))))
-	prompt.visible = text != ""
+		var bgp := Control.new()
+		bgp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bgp.z_index = 330
+		G.main.ui_layer.add_child(bgp)
+		prompt = UI.label("", 28, Color("#ffd9dc"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER)
+		bgp.add_child(prompt)
+		bgp.draw.connect(func(): bgp.draw_style_box(UI.box(Color(0.04, 0, 0.016, 0.9), UI.RED, 22, 2), Rect2(Vector2.ZERO, bgp.size)))
+	var holder: Control = prompt.get_parent()
+	holder.visible = text != ""
 	prompt.text = text
 	prompt.reset_size()
-	prompt.position = Vector2(960 - prompt.size.x / 2.0, 600)
+	var sz := Assets.font("sans_bold").get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28) + Vector2(48, 18)
+	holder.size = sz
+	holder.position = Vector2(960 - sz.x / 2.0, 600)
+	prompt.position = Vector2(24, 7)
+	holder.queue_redraw()
 
 
 ## Main 이 전투 중 입력을 넘겨준다. pos: 무대 좌표
@@ -207,6 +215,8 @@ func _on_up() -> void:
 		drag.enemy = drag.hot
 		drag.choices = Rules.redirect_choices(st, drag.enemy)
 		mode = "pick"
+		H().lifted_uid = ""
+		H().layout()
 		V().highlight(null, "", drag.choices)
 		V().hot("", "")
 		set_prompt(G.ui("pickAlly"))

@@ -446,10 +446,37 @@ async function pathD(browser) {
   await ctx.close();
 }
 
+// ───────── 경로 E: 느린 속도 연출 스크린샷 (손 들기 중간·컷인·동료 타격) ─────────
+async function pathE(browser) {
+  say('경로 E: 느린 속도 연출 — 오른손이 빠짐 → 세운 손 → 컷인 → 타격');
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const H = helpers(page, 'E');
+  await H.open('scene=normal&autoguide=1&speed=0.35');
+  let s = await H.until(s => s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 120000, '1턴');
+  await H.W('play', 'curse_flame', JSON.stringify({ enemy: 'c1' }));
+  await H.sleep(250);
+  await H.shot('E01_right_hand_out.png');
+  let h = await H.handsOk('오른손이 빠지는 중');
+  await H.sleep(900);
+  await H.shot('E02_raised_card.png');
+  await H.sleep(1100);
+  await H.shot('E03_cutin_curse_flame.png');
+  s = await H.until(s => !s.busy, 30000, '불꽃 끝');
+  await H.sleep(500);
+  await H.W('play', 'shield_bash', JSON.stringify({ enemy: 'c3' }));
+  await H.sleep(2050);
+  await H.shot('E04_warrior_strike.png');
+  s = await H.until(s => !s.busy, 30000, '방패 강타 끝');
+  h = await H.handsOk('느린 속도 전체');
+  check('느린 속도에서도 손은 언제나 둘 이하', h.ok, h.detail);
+  check('저주의 불꽃 컷인(노엘)', s.cutinLog.includes('curse_flame'), s.cutinLog);
+  await page.close();
+}
+
 (async () => {
   const browser = await launch();
   const t0 = Date.now();
-  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD]]) {
+  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE]]) {
     try { await fn(browser); } catch (e) { check('경로 ' + name + ' 진행', false, e.message); }
   }
   await browser.close();

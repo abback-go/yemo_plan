@@ -54,7 +54,10 @@ jobs:
         run: |
           chmod +x ~/godot/godot
           cd game
+          # 처음 가져오기는 글꼴(.tres)이 아직 가져오지 않은 .ttf 를 가리킨다는 경고가 날 수 있다 → 두 번째 결과로 판단
+          ~/godot/godot --headless --import > /tmp/import1.txt 2>&1 || true
           ~/godot/godot --headless --import > /tmp/import.txt 2>&1 || true
+          cat /tmp/import.txt | grep -E "ERROR|SCRIPT" | head -20 || true
           ! grep -E "SCRIPT ERROR|Parse Error" /tmp/import.txt
 
       - name: Compile all scripts
