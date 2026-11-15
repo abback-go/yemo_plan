@@ -72,7 +72,7 @@ const D := {
 				{"type": "relicize", "ally": "hero"},
 				{"type": "addCard", "card": "trample", "permanent": true, "freeThisTurn": true, "at": "source"},
 			],
-			"text": "세라피나는 이곳에서 짓밟혀 죽는다.\n내면, 지금 일어난다.",
+			"text": "세라피나는 성당 가장 깊은 곳에서 짓밟혀 죽는다.",   # 대본 v0.6 1장(캠프에서 보이는 카드 문구)
 			"tags": ["보존", "사용 시 짓밟힘 획득"]},
 
 		# 상속 카드
