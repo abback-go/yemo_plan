@@ -10,20 +10,20 @@ static func draw(ci: CanvasItem, kind: String, c: Vector2, r: float, col := Colo
 	var cc := Color(col.r, col.g, col.b, col.a * a)
 	match kind:
 		"flame":
-			var pts := PackedVector2Array()
-			for i in 33:
-				var t := float(i) / 32.0 * TAU
-				var rr := r * (0.55 + 0.45 * pow(absf(sin(t / 2.0)), 0.6))
-				var p := Vector2(sin(t) * rr * 0.62, -cos(t) * rr)
-				p.y += r * 0.25
-				if p.y < -r * 0.2:
-					p.x *= 0.6 + 0.4 * (p.y + r) / (r * 0.8)
-				pts.append(c + p)
-			ci.draw_colored_polygon(pts, Color(1, 0.45, 0.15, 0.9 * a))
-			var inner := PackedVector2Array()
-			for p in pts:
-				inner.append(c + (p - c) * 0.55 + Vector2(0, r * 0.18))
-			ci.draw_colored_polygon(inner, Color(1, 0.88, 0.55, 0.95 * a))
+			# 물방울 모양 불꽃: 아래는 둥글고 위는 살짝 휘어진 뾰족한 끝 + 안쪽 밝은 불꽃
+			for layer in 2:
+				var k := 1.0 if layer == 0 else 0.55
+				var off := Vector2(0, r * 0.22) if layer == 0 else Vector2(0, r * 0.42)
+				var rr := r * 0.5 * k
+				var pts := PackedVector2Array()
+				var tip := c + off + Vector2(r * 0.12 * k, -r * 1.25 * k)
+				pts.append(tip)
+				for i in 21:
+					var ang := deg_to_rad(-25.0 + i * (230.0 / 20.0))
+					pts.append(c + off + Vector2(cos(ang), sin(ang)) * rr)
+				pts.append(c + off + Vector2(-rr * 0.7, -rr * 1.1))
+				var col2 := Color(1, 0.42, 0.12, 0.95 * a) if layer == 0 else Color(1, 0.9, 0.6, 0.95 * a)
+				ci.draw_colored_polygon(pts, col2)
 		"question":
 			ci.draw_arc(c + Vector2(0, -r * 0.28), r * 0.42, PI * 1.05, PI * 2.35, 20, cc, w * 1.3, true)
 			ci.draw_line(c + Vector2(r * 0.12, r * 0.06), c + Vector2(0, r * 0.3), cc, w * 1.3, true)

@@ -248,7 +248,7 @@ func set_tag(who: String) -> void:
 	var t := UI.label(str(G.S.tags.get(who, G.name_of(who))), 34, Color("#f6e7c8"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, 6)
 	var pnl := Control.new()
 	pnl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sz := t.get_combined_minimum_size() + Vector2(48, 18)
+	var sz := Assets.font("serif_bold").get_string_size(t.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 34) + Vector2(60, 22)
 	pnl.size = sz
 	pnl.position = Vector2(960 - sz.x / 2.0, 690)
 	pnl.draw.connect(func():

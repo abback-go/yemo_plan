@@ -222,12 +222,12 @@ const D := {
 		},
 		# 동료 뒷모습(전투보다 작게, 앞서 걷는 자리): x(가운데), top(머리 위), h(그림 높이)
 		"allies": {
-			"archer": {"x": 420, "top": 560, "h": 640},
-			"hero": {"x": 980, "top": 540, "h": 600},
-			"warrior": {"x": 1480, "top": 560, "h": 680},
+			"archer": {"x": 600, "top": 570, "h": 620},
+			"hero": {"x": 1000, "top": 540, "h": 600},
+			"warrior": {"x": 1460, "top": 560, "h": 680},
 		},
 		# 랜턴을 든 왼손 (ui_witch_hand_lantern.png 1672×941, 손잡이 고리 근처 pivot을 중심으로 흔들림)
-		"lantern": {"img": "ui_witch_hand_lantern.png", "x": -60, "y": 340, "scale": 0.86, "pivot": [530, 300]},
+		"lantern": {"img": "ui_witch_hand_lantern.png", "x": -70, "y": 430, "scale": 0.74, "pivot": [530, 300]},
 		# 걸어 들어가는 연출
 		"walk": {"duration": 2600, "zoom": 2.1, "steps": 5, "bob": 12, "sway": 5.0, "fadeAt": 0.72, "allyShrink": 0.32},
 	},
@@ -370,6 +370,7 @@ const D := {
 		"drawPile": {"x": 400, "y": 1034},
 		"discardPile": {"x": 1574, "y": 1034},
 		"dialog": {"x": 24, "y": 20, "w": 580, "h": 132},
+		"guideBattleY": 396,     # 전투 중 안내 상자의 위쪽 y (적·예고 줄 바로 아래)
 	},
 
 	# 대화·연출 속도 (ms)

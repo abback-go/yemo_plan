@@ -91,8 +91,8 @@ func reset_seen() -> void:
 # ───────── 배치 (작은 화면이면 글씨·상자를 키운다) ─────────
 func relayout() -> void:
 	var u := FX.ui
-	var w := 640.0
-	var fs := 28
+	var w := 560.0
+	var fs := 26
 	dlg_face.position = Vector2(14, 14)
 	dlg_face.size = Vector2(104, 104)
 	dlg_name.position = Vector2(134, 12)
@@ -106,7 +106,11 @@ func relayout() -> void:
 	var gw := minf(1180.0, 1840.0 / u)
 	guide.size = Vector2(gw, 150)
 	guide.scale = Vector2(u, u)
-	guide.position = Vector2(960 - gw * u / 2.0, 18)
+	# 전투 중에는 적·예고를 가리지 않게 적 줄 바로 아래(화면 위쪽 절반)에, 그 밖에는 화면 맨 위에 띄운다
+	var gy := 18.0
+	if G.ctl and G.ctl.in_battle and not G.scenes.is_open():
+		gy = float(GameData.D.layout.get("guideBattleY", 396))
+	guide.position = Vector2(960 - gw * u / 2.0, gy)
 	guide_title.position = Vector2(30, 14)
 	guide_text.position = Vector2(30, 52)
 	guide_text.size = Vector2(gw - 60, 0)
