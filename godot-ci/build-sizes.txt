@@ -7,7 +7,7 @@
 5456 index.html
 4978 index.icon.png
 279815 index.js
-15931208 index.pck
+15932520 index.pck
 21443 index.png
 39514754 index.wasm
 51 version.txt

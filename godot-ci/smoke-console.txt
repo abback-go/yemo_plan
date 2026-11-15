@@ -89,4 +89,4 @@
   ✔ 느린 속도에서도 손은 언제나 둘 이하 — 느린 속도 전체 maxHands=2 now=2
   ✔ 저주의 불꽃 컷인(노엘) — ["curse_flame"]
   ✔ 브라우저 콘솔 에러 0
-smoke: 43 passed, failures: 0 (580s)
+smoke: 43 passed, failures: 0 (535s)
