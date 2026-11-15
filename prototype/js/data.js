@@ -370,7 +370,7 @@
       ],
       enemyAspect: 2 / 3,     // 광신도 그림이 없을 때의 회색 박스 비율 (그림이 있으면 그림 비율)
       // 거대 존재의 발: 그림 비율을 지킨 채 너비 w, 아랫변 bottom(화면 위쪽에서 잘림). feetY: ??? 표시, intentY: 예고
-      giant: { cx: 960, w: 1500, bottom: 420, feetY: 322, intentY: 214 },
+      giant: { cx: 960, w: 900, bottom: 560, feetY: 322, intentY: 214 },
       witchPanel: { x: 24, y: 952, w: 320, h: 104 },
       energy: { x: 1716, y: 930, r: 56 },
       endTurn: { x: 1640, y: 1004, w: 260, h: 60 },
@@ -388,7 +388,11 @@
     },
 
     // 그림 파일 목록. 없으면 같은 자리에 회색 박스 + 파일명 (파일을 넣고 새로고침하면 교체)
+    // 카드 그림 파일 (카드 id → 파일). 있으면 코드로 그린 그림 대신 쓴다
+    cardArtImg: { hero_death: 'card_art_hero_death.png', trample: 'card_art_trample.png' },
+
     assets: [
+      'card_art_hero_death.png', 'card_art_trample.png',
       'bg_cathedral.png', 'bg_camp.png',
       'spr_hero_back.png', 'spr_warrior_back.png', 'spr_archer_back.png',
       'spr_cultist.png', 'spr_giant_foot.png',

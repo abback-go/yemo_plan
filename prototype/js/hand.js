@@ -133,9 +133,13 @@
       : d.kind === 'inherit' ? '상속 · ' + OWNER[d.from]
       : d.kind === 'wound' ? '상처 · ' + (OWNER[card.woundOf] || '')
       : OWNER[d.owner] || '';
-    var art = Game.CardArt.svg(d.art, tone);
+    var artFile = (Game.DATA.cardArtImg || {})[card.id];
+    var useImg = artFile && Game.Assets.ok(artFile);
+    var art = useImg
+      ? '<img class="c-artimg" src="' + Game.Assets.url(artFile) + '" draggable="false" alt="">'
+      : Game.CardArt.svg(d.art, tone);
     var face = '';
-    if (Game.CardArt.hasFace(d.art)) {
+    if (!useImg && Game.CardArt.hasFace(d.art)) {
       face = '<div class="c-face" data-face="hero"></div><svg viewBox="0 0 212 184" style="position:absolute;inset:0;width:100%;height:100%">' +
         '<path d="M0 30 L60 70 L92 60 L130 110 L212 120" stroke="#ff2a3c" stroke-width="2" fill="none" opacity=".9"/>' +
         '<path d="M150 0 L138 50 L160 92 L144 184" stroke="#000" stroke-width="3" fill="none" opacity=".8"/></svg>';
