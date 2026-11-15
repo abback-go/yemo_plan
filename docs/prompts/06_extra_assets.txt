@@ -171,3 +171,42 @@ No speed lines, no glow trails, no sparks, no magic circles, no effects outside 
 
 AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, pointed witch hat, staff or wand, colorful robe, smiling, screaming, crying with open mouth, heavy gore, large blood pools on her, wounds.
 - - - 여기까지 복사 - - -
+
+[13] 세라피나 표정 1×4 (완료) → prototype/assets/face_hero_*.png (4장으로 잘라 저장) — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Seraphina, the hero and leader of an adventuring party: an adult woman in her late twenties, tall and athletic, with a calm, confident face and steel-blue eyes. Her presence feels overwhelmingly strong and reliable. Long silver hair gathered into a high ponytail that falls as one thick braid down her back, tied at the crown with a deep red ribbon bow, a few loose strands framing her face. Polished silver plate armor with engraved gold trim over a dark gray gambeson, layered pauldrons, plated gauntlets and armored boots with low heels. A long deep red cape, slightly tattered at the hem, fastened at both shoulders. A sacred longsword with a cross-shaped silver guard and a faint pale-white glow along the blade, carried in a scabbard on her left hip.
+
+A single horizontal row of exactly 4 large bust close-ups of this character, evenly spaced edge to edge with clear gaps between them, filling the full width and height of the frame, all facing the viewer, plain dark blue-gray background, expressions left to right: calm / gentle closed-mouth smile / determined / shocked.
+Identical face shape, eye size, hair, outfit and lighting in all four.
+No text, no labels, no letters. No other views, no turnaround, no color swatches.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, text, labels, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, helmet covering her hair.
+- - - 여기까지 복사 - - -
+
+[14] 엘리안 표정 1×4 → prototype/assets/face_archer_*.png (4장으로 잘라 저장) — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+A single horizontal row of exactly 4 large bust close-ups of this character, evenly spaced edge to edge with clear gaps between them, filling the full width and height of the frame, all facing the viewer, plain dark blue-gray background, expressions left to right: gentle closed-mouth smile / shocked with wide eyes and parted lips / grief with tears streaming down and trembling lips / hollow and empty, staring at nothing.
+Identical face shape, eye size, hair, outfit and lighting in all four.
+No text, no labels, no letters. No other views, no turnaround, no color swatches.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, text, labels, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, round human ears, short hair, hood pulled up, screaming.
+- - - 여기까지 복사 - - -
+
+[15] 브룬힐드 표정 1×4 → prototype/assets/face_warrior_*.png (4장으로 잘라 저장) — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Brunhild, the shield-bearer and protector of an adventuring party: a tall, broad-shouldered, muscular adult woman in her thirties, the largest member of the party. Short, shaggy ash-white hair, a stern weathered face with a pale scar running down her right cheek from just below the eye, gray eyes. Heavy dark iron plate armor, dented and scratched, over chain mail, with a tattered deep red scarf around her neck and a faded deep red tabard bearing a gold cross emblem. A massive iron tower shield almost as tall as her shoulders, its face scarred with claw marks and an engraved cross crest, strapped to her left arm, a short flanged mace hanging at her left hip beside the shield, and armored boots with low heels.
+
+A single horizontal row of exactly 4 large bust close-ups of this character, evenly spaced edge to edge with clear gaps between them, filling the full width and height of the frame, all facing the viewer, plain dark blue-gray background, expressions left to right: stern / shocked with wide eyes / grief, jaw clenched and holding back tears, eyes wet / rage, teeth gritted and eyes burning.
+Identical face shape, eye size, hair, outfit and lighting in all four.
+No text, no labels, no letters. No other views, no turnaround, no color swatches.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, text, labels, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, long hair, scar on the left cheek, smiling, screaming.
+- - - 여기까지 복사 - - -
