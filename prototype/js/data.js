@@ -285,10 +285,10 @@
       // C7·C8은 전투 화면에서 진행 (피 튐 오버레이, 죽음 카드가 재로 부서짐, 끊어진 실, 동료 반응)
       returnDelay: 600,
       ashDuration: 1600,
+      // pause: 그 대사 뒤에 더 머무는 시간(ms) — 엘리안의 말 뒤 침묵, 그리고 브룬힐드
       reactions: [
-        { who: 'archer', text: '…세라?' },
-        { who: 'warrior', text: '……', pause: 1400 },
-        { who: 'warrior', text: '……' }
+        { who: 'archer', text: '…세라?', pause: 1600 },
+        { who: 'warrior', text: '……', pause: 800 }
       ],
       reactionTremble: 2600,
       bloodRemain: 0.6        // C7 피 자국이 옅어진 뒤 남는 진하기

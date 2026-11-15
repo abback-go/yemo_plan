@@ -164,6 +164,15 @@ test('광신도가 1명 남으면 거대 존재가 짓밟는다', () => {
   assert.equal(R.aliveEnemies(st).length, 0);
 });
 
+test('남은 광신도가 한 번에 모두 쓰러져도 거대 존재가 등장한다', () => {
+  const st = normalBattle();
+  R.play(st, findInHand(st, 'holy_slash'), { enemy: 'c1' });
+  R.debugSetHp(st, 'c2', 3); R.debugSetHp(st, 'c3', 3);
+  const r = R.play(st, giveCard(st, 'vanguard'), {});
+  assert.ok(r.events.some(e => e.t === 'giantTrigger'));
+  assert.equal(st.battle.result, 'giant');
+});
+
 test('턴 종료: 손패 버림, 덱 소진 시 버림 더미를 섞는다', () => {
   const st = normalBattle();
   R.endTurn(st);

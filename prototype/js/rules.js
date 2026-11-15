@@ -376,8 +376,9 @@
     var b = st.battle, enc = D().encounters[b.enc];
     if (b.result) return;
     var alive = aliveEnemies(st);
-    if (b.kind === 'normal' && enc.giantTriggerAlive && !b.giantTriggered &&
-        alive.length > 0 && alive.length <= enc.giantTriggerAlive) {
+    // 광신도가 giantTriggerAlive 명 이하로 남으면(한 번에 모두 쓰러져도) 거대 존재가 짓밟는다
+    if (b.kind === 'normal' && enc.giantTriggerAlive != null && !b.giantTriggered &&
+        alive.length <= enc.giantTriggerAlive) {
       b.giantTriggered = true;
       b.result = 'giant';
       var victims = alive.map(function (e) { return e.id; });
