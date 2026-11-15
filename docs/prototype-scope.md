@@ -98,7 +98,7 @@ prototype/
 | (게임에 넣지 않음, `reference/sheets/`) | 캐릭터 시트: 용사·전사·궁수·마녀 | 4 |
 | `bg_camp.png` | 캠프 배경 | 1 |
 | `bg_cathedral.png` | 성당 폐허 전투 배경 (빈 무대) | 1 |
-| `spr_hero_back.png` · `spr_warrior_back.png` · `spr_archer_back.png` | 동료 뒷모습 (용사: 똑바로 등 / 궁수: 약간 오른쪽 / 전사: 약간 왼쪽을 향함) | 3 |
+| `spr_hero_back.png` · `spr_warrior_back.png` · `spr_archer_back.png` | 동료 뒷모습. 모두 똑바로 등을 보이는 1장 — 편성 자리(왼쪽·가운데·오른쪽)와 상관없이 재사용, 좌우 반전 금지 [결정] | 3 |
 | `ui_witch_hands.png` | 마녀의 1인칭 손. 카드 자리를 배경과 같은 단색으로 뽑아 지우면, 손가락·엄지만 카드 위에 겹쳐짐 | 1 |
 | `spr_cultist.png` | 광신도 | 1 |
 | `spr_giant_foot.png` | 거대 존재의 발 (위쪽이 잘린 형태) | 1 |
