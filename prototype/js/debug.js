@@ -83,6 +83,30 @@
     window.addEventListener('keydown', function (e) {
       if (e.code === 'Backquote' || e.key === 'F9') { e.preventDefault(); DBG.toggle(); }
     });
+    // 키보드가 없는 휴대폰: 화면 오른쪽 위 구석(무대 x ≥ 1800, y ≤ 110)을 빠르게 3번 탭하면 열고 닫는다
+    var taps = [];
+    window.addEventListener('pointerdown', function (e) {
+      if (e.target && e.target.closest && e.target.closest('#debugPanel')) return;
+      var p = Game.Input.toStage(e.clientX, e.clientY), now = Date.now();
+      if (p.x < 1800 || p.y > 110) { taps = []; return; }
+      taps = taps.filter(function (t) { return now - t < 900; });
+      taps.push(now);
+      if (taps.length >= 3) { taps = []; DBG.toggle(); }
+    }, true);
+  };
+  // 시험용: 손패 장수를 n장으로 (덱에서 뽑거나 버림 더미로 보낸다. 모자라면 카드를 만들어 넣는다)
+  DBG.setHandSize = async function (n) {
+    var st = C().st, b = st && st.battle;
+    if (!b) return;
+    while (b.hand.length > n) {
+      var i = b.hand.findIndex(function (u) { return !R.def(st, u).retain; });
+      if (i < 0) i = b.hand.length - 1;
+      b.discard.push(b.hand.splice(i, 1)[0]);
+    }
+    var pool = ['curse_flame', 'snipe', 'cover', 'foresight', 'shield_bash', 'fate_shift'];
+    while (b.hand.length < n) R.debugAddCard(st, pool[b.hand.length % pool.length]);
+    Game.View.syncFromState(st);
+    Game.View.render();
   };
   DBG.toggle = function () {
     var p = $('debugPanel');

@@ -25,14 +25,30 @@
     return c.inBattle && c.st && c.st.battle && c.st.battle.phase === 'player' && !c.st.battle.result && !Game.Scenes.current;
   }
 
+  // 마우스·터치 모두 Pointer Events 로 같은 드래그. 터치에서는 마우스 올림(hover) 대신:
+  //  · 카드를 누르고 있으면 확대, 끌면 사용 / 적 예고를 탭하면 대상 선 / 빈 곳을 탭하면 대사 넘김
   I.init = function () {
     var stage = document.getElementById('stage');
     stage.addEventListener('pointermove', onMove);
     stage.addEventListener('pointerdown', onDown);
     stage.addEventListener('pointerup', onUp);
-    stage.addEventListener('contextmenu', function (e) { e.preventDefault(); I.cancelDrag(); });
+    stage.addEventListener('pointercancel', function () { if (I.mode === 'drag') I.cancelDrag(); });
+    // 마우스 우클릭은 취소. 터치의 길게 누르기(일부 브라우저가 contextmenu 를 보냄)는 무시
+    stage.addEventListener('contextmenu', function (e) { e.preventDefault(); if (I.lastType === 'mouse') I.cancelDrag(); });
     window.addEventListener('keydown', function (e) { if (e.key === 'Escape') I.cancelDrag(); });
   };
+  function isTouch(e) { return e.pointerType && e.pointerType !== 'mouse'; }
+  // 터치는 손가락이 커서 적·예고·아군을 누르는 영역을 넓힌다(실제 화면 약 16px, 무대 좌표 최대 40)
+  function setPointer(e) {
+    I.lastType = e.pointerType || 'mouse';
+    V().hitPad = isTouch(e) ? Math.min(40, 16 / (Game.stageScale || 1)) : 0;
+  }
+  function moveThresh() { return (I.lastType === 'mouse' ? 8 : 12) / Math.min(1, Game.stageScale || 1); }
+  function setIntentHover(id) {
+    I.hoverIntent = id;
+    document.querySelectorAll('.intent.hover').forEach(function (el) { el.classList.remove('hover'); });
+    if (id && V().els.intents[id]) V().els.intents[id].classList.add('hover');
+  }
 
   function setPrompt(text) {
     var p = document.getElementById('pickPrompt');
@@ -47,17 +63,17 @@
     if (!C().inBattle || !V().vm) return;
     if (I.mode === 'drag') { updateDrag(); return; }
     if (I.mode === 'pick') { var a = V().allyAt(p.x, p.y); V().hot(null, I.drag.choices.indexOf(a) >= 0 ? a : null); return; }
+    if (isTouch(e)) return;   // 터치에는 마우스 올림이 없다(누르고 있으면 확대, 예고는 탭)
     // 마우스 올림
-    var uid = (!C().busy || true) ? H().hitTest(p.x, p.y) : null;
+    var uid = H().hitTest(p.x, p.y);
     if (Game.Scenes.current) uid = null;
     H().setHover(uid);
-    I.hoverIntent = uid ? null : V().intentAt(p.x, p.y);
-    document.querySelectorAll('.intent.hover').forEach(function (el) { el.classList.remove('hover'); });
-    if (I.hoverIntent && V().els.intents[I.hoverIntent]) V().els.intents[I.hoverIntent].classList.add('hover');
+    setIntentHover(uid ? null : V().intentAt(p.x, p.y));
   }
 
   function onDown(e) {
     if (e.button !== 0) return;
+    setPointer(e);
     var p = I.toStage(e.clientX, e.clientY);
     I.px = p.x; I.py = p.y;
     if (I.mode === 'pick') {
@@ -70,16 +86,27 @@
       } else I.cancelDrag();
       return;
     }
-    if (!battleReady() || C().busy || I.mode !== 'idle') return;
+    var inBattle = C().inBattle && V().vm && !Game.Scenes.current;
+    if (!battleReady() || C().busy || I.mode !== 'idle') {
+      if (inBattle && I.mode !== 'drag' && Game.Dialog.busy()) Game.Dialog.advance();   // 연출 중에도 빈 곳 탭 = 대사 넘김
+      return;
+    }
     var uid = H().hitTest(p.x, p.y);
-    if (!uid) return;
+    if (!uid) {
+      var it = V().intentAt(p.x, p.y);
+      // 터치: 예고를 탭하면 그 공격의 대상 선을 보여 준다(같은 예고를 다시 탭하거나 다른 곳을 탭하면 사라짐)
+      if (isTouch(e)) setIntentHover(it && it !== I.hoverIntent ? it : null);
+      if (!it && Game.Dialog.busy()) Game.Dialog.advance();   // 빈 곳 탭 = 대사 넘김
+      return;
+    }
     var st = C().st, def = R.def(st, uid);
     I.drag = { uid: uid, spec: def.target, start: p, moved: false, valid: R.validTargets(st, uid), hot: null };
     I.mode = 'drag';
+    setIntentHover(null);
     try { document.getElementById('stage').setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
     H().hoverUid = null;
-    if (def.target === 'none') { H().dragUid = uid; H().dragMode = 'follow'; H().dragPos = { x: p.x, y: p.y }; }
-    else { H().liftedUid = uid; }
+    // 누르고 있는 동안은 확대해서 보여 주고(대상 없는 카드도), 끌기 시작하면 사용 조작으로
+    H().liftedUid = uid;
     V().highlight(I.drag.valid, def.target, null);
     H().layout();
   }
@@ -87,8 +114,10 @@
   function updateDrag() {
     var d = I.drag;
     if (!d) return;
-    if (Math.abs(I.px - d.start.x) + Math.abs(I.py - d.start.y) > 8) d.moved = true;
+    if (Math.abs(I.px - d.start.x) + Math.abs(I.py - d.start.y) > moveThresh()) d.moved = true;
     if (d.spec === 'none') {
+      if (!d.moved) return;
+      if (H().dragMode !== 'follow') { H().liftedUid = null; H().dragUid = d.uid; H().dragMode = 'follow'; }
       H().dragPos = { x: I.px, y: I.py };
       H().layout();
       return;

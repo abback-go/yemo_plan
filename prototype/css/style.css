@@ -13,6 +13,26 @@
 }
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
 body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-select: none; }
+/* 휴대폰: 드래그 중 스크롤·확대·당겨서 새로고침·길게 누르기 메뉴·이미지 끌기 고스트를 막는다 */
+html, body, #viewport, #stage { touch-action: none; overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+img { -webkit-user-drag: none; user-select: none; -webkit-user-select: none; }
+#safeProbe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+#rotateHint { position: fixed; inset: 0; z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: #050305; color: #f0e2e4; font: 700 22px var(--sans); text-align: center; }
+#rotateHint small { font: 400 14px var(--sans); color: #a99; }
+#rotateHint .rot-icon { width: 54px; height: 90px; border: 3px solid #b3121f; border-radius: 10px; animation: rotHint 1.8s ease-in-out infinite; }
+@keyframes rotHint { 0%, 25% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
+body.touch.portrait #rotateHint { display: flex; }
+/* 손가락으로 누르기 충분한 영역: 실제 화면 44px(--t44, main.js 가 무대 배율로 계산)보다 작으면 누르는 영역만 넓힌다 */
+#endTurn::before, .btn::before, .vn .vn-skip::before {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: max(100%, var(--t44, 0px)); height: max(100%, var(--t44, 0px));
+}
+/* 턴 종료는 화면 아래 가장자리에 붙어 있어(아래 여백 16px) 아래로는 넓힐 수 없다 → 화면 아래 끝에서 위로 넓힌다 */
+#endTurn::before { top: auto; bottom: -16px; transform: translateX(-50%); height: max(calc(100% + 16px), var(--t44, 0px)); }
+/* 캠프 건너뛰기는 화면 위 가장자리 가까이(위 여백 30px) → 화면 위 끝에서 아래로 넓힌다 */
+.vn .vn-skip::before { top: -30px; transform: translateX(-50%); height: max(calc(100% + 30px), var(--t44, 0px)); }
 #viewport { position: fixed; inset: 0; background: #000; overflow: hidden; }
 #stage {
   position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
@@ -327,7 +347,7 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
 .title-scene .sub { margin-top: 18px; font: 400 26px var(--serif); color: #b9a3a7; letter-spacing: .2em; }
 .title-scene .note { position: absolute; bottom: 40px; font-size: 18px; color: #7d6f72; }
 .btn {
-  margin-top: 70px; padding: 16px 64px; cursor: pointer; border-radius: 40px;
+  position: relative; margin-top: 70px; padding: 16px 64px; cursor: pointer; border-radius: 40px;
   background: linear-gradient(#4a1820, #1d080b); border: 2px solid #b3121f; color: #f7e9eb;
   font: 700 30px var(--serif); letter-spacing: .3em; box-shadow: 0 0 24px rgba(179,18,31,.5);
 }
@@ -361,7 +381,7 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
 .vn .vn-text.narr { color: #cfc6c0; }
 .vn .vn-text.inner { font-style: italic; color: #d8c0ce; }
 .vn .vn-next { position: absolute; right: 30px; bottom: 16px; font-size: 20px; color: #b3121f; animation: pulse 1s infinite; }
-.vn .vn-skip { position: absolute; right: 40px; top: 30px; padding: 8px 20px; font: 700 18px var(--sans); color: #c9b9bc; cursor: pointer;
+.vn .vn-skip { position: absolute; right: 130px; top: 30px; padding: 8px 20px; font: 700 18px var(--sans); color: #c9b9bc; cursor: pointer;
   background: rgba(0,0,0,.55); border: 1px solid #5a4a4e; border-radius: 20px; }
 .vn .vn-skip:hover { color: #fff; border-color: #b3121f; }
 
@@ -394,7 +414,7 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
 
 /* ───────── 디버그 패널 ───────── */
 #debugPanel {
-  position: absolute; z-index: 1000; right: 16px; top: 16px; width: 430px; max-height: 1040px; overflow: auto; box-sizing: border-box;
+  touch-action: pan-y; position: absolute; z-index: 1000; right: 16px; top: 16px; width: 430px; max-height: 1040px; overflow: auto; box-sizing: border-box;
   padding: 14px; background: rgba(8,10,14,.95); border: 1px solid #3b6; border-radius: 10px; color: #cfe; font: 14px/1.4 var(--sans);
 }
 #debugPanel h3 { margin: 6px 0 6px; font-size: 14px; color: #7f7; border-bottom: 1px solid #253; padding-bottom: 2px; }

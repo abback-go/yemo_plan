@@ -5,7 +5,8 @@
 (function (root) {
   'use strict';
   var Game = root.Game = root.Game || {};
-  var V = Game.View = { vm: null, els: { enemies: {}, allies: {}, hpAlly: {}, hpEnemy: {}, intents: {} } };
+  // hitPad: 터치일 때 적·예고·아군을 누르는 영역을 넓히는 여유(무대 좌표, input.js 가 정한다)
+  var V = Game.View = { vm: null, hitPad: 0, els: { enemies: {}, allies: {}, hpAlly: {}, hpEnemy: {}, intents: {} } };
   var FX = Game.FX;
 
   function D() { return Game.DATA; }
@@ -77,13 +78,13 @@
     for (var i = 0; i < es.length; i++) {
       var e = es[i];
       if (!e.alive) continue;
-      if (inRect(V.intentRect(e.id), x, y, 6)) return e.id;
+      if (inRect(V.intentRect(e.id), x, y, 6 + V.hitPad)) return e.id;
     }
     for (var j = 0; j < es.length; j++) {
       var e2 = es[j];
       if (!e2.alive) continue;
       var b = V.enemyBox(e2.id);
-      if (inRect(b, x, y, 6)) return e2.id;
+      if (inRect(b, x, y, 6 + V.hitPad)) return e2.id;
       if (e2.slot !== 'giant' && inRect({ x: b.x, y: b.y + b.h, w: b.w, h: 34 }, x, y)) return e2.id;
     }
     return null;
@@ -92,17 +93,17 @@
     var st = Game.Ctl.st;
     if (!st || !st.battle) return null;
     var es = st.battle.enemies;
-    for (var i = 0; i < es.length; i++) if (es[i].alive && inRect(V.intentRect(es[i].id), x, y, 4)) return es[i].id;
+    for (var i = 0; i < es.length; i++) if (es[i].alive && inRect(V.intentRect(es[i].id), x, y, 4 + V.hitPad)) return es[i].id;
     return null;
   };
   // 좌표의 아군 (동료 상체·HP판, 마녀 HP판)
   V.allyAt = function (x, y) {
-    if (inRect(V.witchRect(), x, y, 4)) return 'witch';
+    if (inRect(V.witchRect(), x, y, 4 + V.hitPad)) return 'witch';
     var st = Game.Ctl.st, order = st.party.order;
     for (var i = 0; i < order.length; i++) {
       var id = order[i];
       if (st.party.allies[id].status === 'dead') continue;
-      if (inRect(V.allyHitRect(id), x, y)) return id;
+      if (inRect(V.allyHitRect(id), x, y, V.hitPad)) return id;
     }
     return null;
   };

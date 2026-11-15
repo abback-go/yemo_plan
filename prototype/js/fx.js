@@ -120,7 +120,7 @@
   // opts: count, color(s), speed, spread(각도 범위), angle, gravity, life, size, shape(dot|rock|flake|line), drag
   FX.burst = function (x, y, opts) {
     opts = opts || {};
-    var n = opts.count || 20;
+    var n = Math.round((opts.count || 20) * (FX.low ? 0.55 : 1));
     for (var i = 0; i < n; i++) {
       var ang = (opts.angle != null ? opts.angle : -Math.PI / 2) + (Math.random() - 0.5) * (opts.spread != null ? opts.spread : Math.PI * 2);
       var sp = (opts.speed || 300) * (0.35 + Math.random() * 0.75);
@@ -138,7 +138,7 @@
   // 위에서 떨어지는 먼지·돌
   FX.rain = function (x0, x1, y, opts) {
     opts = opts || {};
-    var n = opts.count || 30;
+    var n = Math.round((opts.count || 30) * (FX.low ? 0.55 : 1));
     for (var i = 0; i < n; i++) {
       FX.particles.push({
         x: x0 + Math.random() * (x1 - x0), y: y - Math.random() * 120,
