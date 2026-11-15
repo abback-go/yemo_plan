@@ -57,27 +57,53 @@ No text, no letters, no symbols, no illustration, no numbers.
 AVOID: text, letters, numbers, card art, gems filled with color, bright saturated colors on the border, watermark, signature.
 - - - 여기까지 복사 - - -
 
-[6] 용사 사망 컷신 (리버스 샷) → prototype/assets/cut_hero_reverse.png — 화면비: 16:9 가로
+[6] C1 리버스 샷 — 웃는 세라피나, 등 뒤로 발 → prototype/assets/cut_hero_reverse.png — 화면비: 16:9 가로
 - - - 여기부터 복사 - - -
 Cinematic anime illustration, 16:9, dark fantasy. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
 Eye-level medium close-up, the camera directly facing Seraphina. She is not looking up.
 Seraphina, the hero and leader of an adventuring party: an adult woman in her late twenties, tall and athletic, with a calm, confident face and steel-blue eyes. Her presence feels overwhelmingly strong and reliable. Long silver hair gathered into a high ponytail that falls as one thick braid down her back, tied at the crown with a deep red ribbon bow, a few loose strands framing her face. Polished silver plate armor with engraved gold trim over a dark gray gambeson, layered pauldrons, plated gauntlets and armored boots with low heels. A long deep red cape, slightly tattered at the hem, fastened at both shoulders. A sacred longsword with a cross-shaped silver guard and a faint pale-white glow along the blade, carried in a scabbard on her left hip.
 She makes direct eye contact with the viewer, looking straight into the camera lens, with a soft, gentle, closed-mouth smile. She is calm and trusting, as if reassuring the person who is watching her.
-She has her back turned to the danger and cannot see it. Behind her head, in the background, a colossal foot descends from the top of the frame, cropped by the top edge. Its skin is cracked, gray and stone-like, stained with dried blood, with anatomically shaped toes with cracked toenails, sunk in deep shadow. The upper third of the frame is already swallowed by the foot's shadow.
+She has her back turned to the danger and cannot see it. Behind her head, in the background, a colossal humanoid foot with cracked, gray, stone-like skin stained with dried dark blood and anatomically shaped toes with cracked toenails (not log-shaped) descends from the top of the frame, cropped by the top edge, sunk in deep shadow. The upper third of the frame is already swallowed by the foot's shadow.
 Setting: a ruined gothic cathedral with a glowing deep red rose window and tattered red banners in the distance.
 Lighting: warm, soft light on her face from the front; cold darkness from the foot's shadow creeping down from above. Dust and small stones begin to fall around her hair, which lifts slightly in the wind pressure.
-Mood: tragic, beautiful, ominous, quiet. No gore, no text, no letters.
+Mood: tragic, beautiful, ominous, quiet. No text, no letters.
 
-AVOID: looking up, open-mouth smile, crazed expression, log-shaped toes, gore, blood on her, watermark, signature.
+AVOID: looking up, open-mouth smile, crazed expression, log-shaped toes, blood on her, watermark, signature.
 - - - 여기까지 복사 - - -
 
-[7] 부러진 성검만 남은 빈자리 → prototype/assets/cut_broken_sword.png — 화면비: 16:9 가로
+[7] C2 손을 뻗음 — 웃음이 굳은 세라피나 → prototype/assets/cut_hero_reach.png — 화면비: 16:9 가로
 - - - 여기부터 복사 - - -
 Cinematic anime illustration, 16:9, dark fantasy. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
-Eye-level view of an empty spot on the cracked stone floor of a ruined gothic cathedral, moments after a colossal impact: a huge, deep footprint pressed into the shattered stone, dust still settling in a single beam of cold light.
-In the center of the footprint lies a sacred longsword with a cross-shaped silver guard, snapped in half, its faint pale glow dying out, beside a torn piece of deep red cape and a deep red ribbon.
-No body, no blood pools, no gore. Quiet, empty, mournful.
-Cold blue-gray palette with a single deep red accent. No text, no letters.
+Eye-level medium shot, the camera directly facing Seraphina, a split second after the previous moment. She is not looking up.
+Seraphina, the hero and leader of an adventuring party: an adult woman in her late twenties, tall and athletic, with a calm, confident face and steel-blue eyes. Her presence feels overwhelmingly strong and reliable. Long silver hair gathered into a high ponytail that falls as one thick braid down her back, tied at the crown with a deep red ribbon bow, a few loose strands framing her face. Polished silver plate armor with engraved gold trim over a dark gray gambeson, layered pauldrons, plated gauntlets and armored boots with low heels. A long deep red cape, slightly tattered at the hem, fastened at both shoulders. A sacred longsword with a cross-shaped silver guard and a faint pale-white glow along the blade, carried in a scabbard on her left hip.
+Her gentle smile has frozen and is fading into confusion: she has just seen something wrong in the eyes of the person watching her. Her lips are slightly parted, her eyes searching the viewer's face. She reaches one gauntleted hand toward the viewer, fingers spread, as if to touch them or hold on to them; the hand is close to the camera and slightly blurred by motion.
+The shadow of a colossal humanoid foot with cracked, gray, stone-like skin stained with dried dark blood and anatomically shaped toes with cracked toenails (not log-shaped) has already fallen over the upper half of the frame and covers the upper half of her face; only one eye and her mouth are still lit by warm light. The foot itself is a dark mass at the very top edge. Her braid and cape are pushed by a sudden downward gust; dust and stones fall around her.
+Setting: a ruined gothic cathedral, a deep red rose window glowing faintly in the darkness behind her.
+Mood: the last heartbeat before the end, unbearable tension. No text, no letters.
 
-AVOID: a person, a body, gore, blood pools, bright saturated colors, watermark, signature.
+AVOID: looking up, screaming, fear grimace, blood, extra fingers, deformed hand, log-shaped toes, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[8] C4 발 아래 — 튀어나온 손 하나 → prototype/assets/cut_hero_crushed.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Cinematic anime illustration, 16:9, dark fantasy. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+A low eye-level view across the cracked stone floor of a ruined gothic cathedral, one moment after a colossal impact.
+The front edge of a colossal humanoid foot with cracked, gray, stone-like skin stained with dried dark blood and anatomically shaped toes with cracked toenails (not log-shaped) is driven deep into the shattered floor, filling the upper half of the frame; the stone around it has burst into cracks and craters radiating outward, dust still rising.
+From under the edge of the foot, only one arm in polished silver plate armor with engraved gold trim sticks out onto the floor, the gauntleted hand open with the palm turned up, fingers slightly curled, completely still. A torn strip of deep red cape is pinned under the foot beside it.
+Dark red blood seeps out from under the foot and runs along the cracks between the stones, reaching toward the open hand. Beside the hand lies the upper half of a snapped sacred longsword with a cross-shaped silver guard, its pale glow flickering out.
+A single cold beam of light falls through the dust. Cold blue-gray palette, the blood and cape as the only deep red.
+Nothing else of her is visible: no face, no head, no torso. No text, no letters.
+
+AVOID: visible face, visible head, visible torso, exposed bones, cartoonish blood, bright saturated colors other than the blood, log-shaped toes, extra fingers, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[9] C6 발이 들린 뒤 — 발자국 안의 잔해 → prototype/assets/cut_hero_aftermath.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Cinematic anime illustration, 16:9, dark fantasy. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+A slightly high eye-level view looking down into a huge, deep footprint pressed into the shattered stone floor of a ruined gothic cathedral, after a colossal foot has lifted away. The outline of five toes is clearly stamped into the stone. Dust is slowly settling in a single beam of cold light.
+At the bottom of the footprint, a wide pool of dark red blood fills the cracks of the crushed stone. In the blood lie flattened and crumpled fragments of polished silver plate armor with engraved gold trim, a bent gauntlet, the torn and blood-soaked deep red cape, and a deep red ribbon lying in the blood. The sacred longsword with the cross-shaped silver guard lies snapped in half across the edge of the footprint, its glow gone.
+No body and no face are visible; only what remains. Silent, empty, devastating.
+Cold blue-gray palette, the blood, cape and ribbon as the only deep red. No text, no letters.
+
+AVOID: visible body, visible face, bones, cartoonish blood, people, bright saturated colors other than the blood, watermark, signature.
 - - - 여기까지 복사 - - -

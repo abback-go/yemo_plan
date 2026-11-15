@@ -104,7 +104,7 @@ prototype/
 | `spr_giant_foot.png` | 거대 존재의 발 (위쪽이 잘린 형태) | 1 |
 | `stand_hero.png` · `stand_warrior.png` · `stand_archer.png` · `stand_witch.png` | 대화용 스탠딩, 기본 표정 | 4 |
 | `card_frame.png` | 카드 앞면 프레임 | 1 |
-| `cut_broken_sword.png` | 부러진 성검과 먼지만 남은 빈자리 | 1 |
+| `cut_hero_reach.png` · `cut_hero_crushed.png` · `cut_hero_aftermath.png` | 용사 사망 컷신 C2(손을 뻗음)·C4(발 아래 튀어나온 손)·C6(발이 들린 뒤 잔해). 연출 8컷은 combat-system.md 7장 참고 | 3 |
 | `cut_hero_reverse.png` | 용사 사망 리버스 샷 (07과 같은 구도. 나오기 전까지 07을 임시 사용) | 1 |
 
 ### 6.2 코드로 그리는 것 [결정]
