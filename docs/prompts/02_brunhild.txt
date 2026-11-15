@@ -21,11 +21,11 @@ LAYOUT (strict):
 - BOTTOM RIGHT: a row of 5 flat color swatches of her main colors, no labels.
 All text in clean English, as short as written above. The character must be IDENTICAL in all views and panels.
 
-AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor, face visible in the back view.
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor, face visible in the back view.
 - - - 여기까지 복사 - - -
 
 === AVOID ===
-AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor.
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor.
 (위 프롬프트 끝에 이미 포함되어 있음. 별도 입력 불필요)
 
 === EDIT PROMPTS ===
@@ -65,7 +65,7 @@ Brunhild, the shield-bearer and protector of an adventuring party: a tall, broad
 Single full-body front view of this character, vertical 2:3 portrait composition, centered, full figure from head to feet with a small even margin, relaxed natural standing pose facing the viewer, a stern but kind expression, mouth closed, looking at the viewer. plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
 No text, no labels, no sheet layout, no other views, no cropping.
 
-AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor.
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor.
 - - - 여기까지 복사 - - -
 
 [2단계 ②] 반측면 뒷모습 (전투 스프라이트) — 화면비: 2:3 세로
@@ -77,7 +77,7 @@ Brunhild, the shield-bearer and protector of an adventuring party: a tall, broad
 Single full-body three-quarter rear view of this character (over-the-shoulder view from behind), vertical 2:3 portrait composition, centered, full figure from head to feet with a small even margin. The camera stands just behind her: we see her back and part of one side as she faces away toward the left side of the frame, standing ready for battle and looking into the distance ahead. Her face is NOT visible, head faces away; at most the edge of her cheek and ear can be seen. plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
 No text, no labels, no sheet layout, no other views, no cropping.
 
-AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor, face visible from behind, head turned toward camera, looking back over the shoulder.
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor, face visible from behind, head turned toward camera, looking back over the shoulder.
 - - - 여기까지 복사 - - -
 
 [3단계] 표정 1×4 (프로토타입 이후) — 화면비: 16:9 가로
@@ -90,7 +90,7 @@ A single horizontal row of exactly 4 large bust close-ups of this character, eve
 Identical face shape, eye size, hair, and lighting in all four.
 One short English label under each: "STERN", "FAINT SMILE", "PAINED", "GRIEF". No other views, no turnaround, no color swatches.
 
-AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor.
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, small round shield, shield on the right arm, long hair, slim or petite body, shiny new armor.
 - - - 여기까지 복사 - - -
 
 === MODEL TIPS ===
