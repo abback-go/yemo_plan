@@ -1,0 +1,81 @@
+경로 A: 타이틀 → 캠프 → 1층 → 탐색 → 휴식 → 계단(웃어 준다) → 2층 → 거대 존재 → 죽음 카드 → 컷신 → 탈출 → 빈 캠프 → 종료
+    📷 A00_title.png
+  ✔ 타이틀 「시작」 실제 클릭 → 캠프
+    📷 A01_camp_party_intro.png
+    📷 A02_camp_death_card_clear.png
+  ✔ 캠프: 「용사의 죽음」이 손 위로 떠오름(또렷)
+  ✔ 캠프 대사(v0.6 던전에 온 이유 포함)를 끝까지 진행 — ["[안내] **패배 조건**: 노엘의 HP가 0이 되거나, 동료 셋이 모두 쓰러지면 패배합니다.","세라피나: 가운데부터 친다. 엘리안, 뒤는 맡겼어."]
+  ✔ 1층 1턴: 죽음 카드(맨 오른쪽·잠김) + 4장, 에너지 3 — ["holy_slash","curse_flame","shield_bash","take_hit","hero_death"]
+    📷 A03_floor1_locked_death_card.png
+    📷 A04_locked_try_inner.png
+  ✔ 잠긴 죽음 카드를 끌면 손패로 돌아가고 속마음이 뜬다
+    📷 A05_raise_two_hands.png
+    📷 A06_cutin_holy_slash.png
+  ✔ 성검 베기(실제 드래그) → 광신도 일격, 손 들기·컷인·공격 자세 — {"raise":["holy_slash"],"cutin":["holy_slash"],"motion":["hero:attack"]}
+  ✔ 카드를 낼 때 보이는 손은 언제나 둘 이하 — 성검 베기 maxHands=2 now=2
+  ✔ 손 그림의 잘린 자리가 카드·덱 덮개로 가려짐 — []
+    📷 A07_intent_hover.png
+  ✔ 턴 종료(실제 클릭) → 2턴, 죽음 카드는 손패에 남고 여전히 잠김 — ["fate_shift","cover","snipe","holy_slash","hero_death"]
+    📷 A08_fate_shift_pick.png
+  ✔ 운명 전가(실제 드래그 + 아군 클릭): 예고 대상이 브룬힐드로 — ["warrior",null,"archer"]
+  ✔ 1층 전투 승리(완전히 끝남, 거대 존재 없음)
+    📷 A09_walk_in.png
+    📷 A10_map_first.png
+  ✔ 처음 지도: 층·방·죽음 표식 안내가 나온다 — ["[안내] **붉은 실 표식**: 노엘이 그곳에서 무언가를 본 자리입니다. 지금은 아무 일도 없습니다."]
+    📷 A11_fork.png
+    📷 A12_fork_desc.png
+  ✔ 길을 누르면 설명(아직 들어가지 않음)
+    📷 A13_walk_to_chapel.png
+  ✔ 한 번 더 누르면 걸어 들어간다
+  ✔ 휴식: 최대 HP 동료 +3·노엘 +2, 모두 회복 — {"w":{"hp":17,"maxHp":17},"a":{"hp":15,"id":"archer","maxHp":15,"status":"ok"}}
+    📷 A14_stairs_death_card_again.png
+    📷 A15_stairs_choice.png
+  ✔ 계단 선택 [웃어 준다] (실제 클릭)
+    📷 A16_explore_floor2.png
+  ✔ 2층: 광신도 1명 남자 발이 내려와 짓밟고 거대 존재 전투로
+  ✔ 거대한 발은 동료 뒤 레이어(z 발 < 동료) — {"foot":15,"allies":20}
+    📷 A17_giant_unlock.png
+  ✔ 거대 존재 1턴: 자물쇠가 부서져 죽음 카드를 낼 수 있다
+    📷 A18_giant_turn1.png
+  ✔ 거대 존재에게 공격 무효
+    📷 A19_death_card_raised.png
+  ✔ 죽음 카드를 들어 올린 순간에도 손은 둘(왼손 + 세운 오른손) — 죽음 카드 maxHands=2 now=2
+    📷 A20_cut_C1.png
+  ✔ C1 세라피나의 마지막 말(웃어 준다) — ["세라피나: …노엘? 왜 그런 얼굴이야.","세라피나: 내가 앞에서 저걸 붙잡아 둘게. 잠깐이면 돼."]
+    📷 A21_cut_C3_impact.png
+    📷 A22_cut_C5_grind.png
+    📷 A23_C7_blood.png
+    📷 A24_C8_reaction.png
+  ✔ C1~C6 컷신 → C7 복귀 → C8 반응 — ["C1","C2","C3","C4","C5","C6"]
+  ✔ 죽음 카드 → 세라피나 사망, 유품 변환, 짓밟힘(비용 0) 획득
+    📷 A25_cutin_trample.png
+  ✔ 짓밟힘 → 존재가 물러남 → 탈출
+    📷 A26_empty_camp.png
+    📷 A27_empty_camp_next_card.png
+  ✔ 빈 캠프: 엘리안 대사가 선택(웃어 준다)을 반영 — ["엘리안: 마지막에… 웃어 줘서 다행이야, 노엘. 대장, 그거 엄청 보고 싶어 했거든요.","브룬힐드: 노엘. 네 예지에… 이건 보였나.","노엘: ……","브룬힐드: …아니. 묻지 않겠다. 보였어도, 못 막았겠지.","노엘: 보였다. 그리고 내가, 냈다.","노엘: \"내가 없어도 잘 할 수 있지?\" — 그 말에, 나는 끝내 대답하지 못했다."]
+    📷 A28_ending.png
+  ✔ 종료 화면
+  ✔ 경로 A 전체에서 동시에 보인 손은 최대 둘 — 경로 A 전체 maxHands=2 now=0
+  ✔ 「다시 하기」 → 캠프부터
+경로 B: 거대 존재 전투 3턴 버팀 → 짓밟기 → 되감기 → 등장 직후부터 재시작
+    📷 B01_rewind_red.png
+    📷 B02_rewind_glass.png
+    📷 B03_restart.png
+  ✔ 짓밟기로 전멸 → "카드를 내지 않은 미래" → 거대 존재 1턴부터 다시
+  ✔ 되감기 속마음·안내(대본 5.7)
+경로 C: 시체 발견 / 훈련 / [대답하지 못한다]
+    📷 C01_corpse.png
+  ✔ 시체 발견: 이야기(원정대가 아닌 오래된 마녀)
+    📷 C02_train_pick.png
+  ✔ 훈련: 후보 3장 중 1장 강화(+) — snipe
+  ✔ 계단 [대답하지 못한다]
+  ✔ 빈 캠프 엘리안 대사가 [대답하지 못한다]를 반영
+경로 D: 휴대폰 가로(iPhone 13) 터치
+  ✔ 작은 화면 감지 → 글씨 배율 확대 — {"css":0.316666666666667,"ui":1.9,"card":2.31578947368421}
+  ✔ 터치 탭으로 시작
+    📷 D01_phone_camp_text.png
+  ✘ 경로 D 진행 — 시간 초과: 안내 · stage=battle:normal scene=
+경로 E: 느린 속도 연출 — 오른손이 빠짐 → 세운 손 → 컷인 → 타격
+  ✘ 경로 E 진행 — 시간 초과: 1턴 · stage=battle:normal scene=
+  ✘ 브라우저 콘솔 에러 0 — A: ERROR: Condition "p_pattern.is_empty()" is true. Returning: nullptr | A:    at: find_child (scene/main/node.cpp:1991)
+smoke: 37 passed, failures: 3 (516s)
