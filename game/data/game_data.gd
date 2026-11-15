@@ -12,7 +12,9 @@ const D := {
 	# ───────────── 기본 규칙 (combat-system.md 2장) ─────────────
 	"rules": {
 		"energyPerTurn": 3,
-		"drawPerTurn": 5,          # 죽음 카드(보존)가 손에 있으면 그 장수만큼 덜 뽑는다
+		"drawPerTurn": 5,          # 죽음 카드(보존)가 손에 있으면 그 장수만큼 덜 뽑는다 (튜토리얼은 1층부터 4장)
+		"retainPos": "right",      # 보존 카드(죽음 카드) 자리: right(맨 오른쪽, 대본 v0.5) | middle(HTML 판)
+		"deathLockRuns": 1,        # 이 회차까지는 죽음 카드의 잠금(lockedUntil)이 걸린다. 2회차부터 미리 낼 수 있게 하려면 1 그대로, 잠그려면 99
 		"maxHand": 10,             # 손패 상한 (넘치면 더 뽑지 않음)
 		"guardRound": "floor",     # 감싸기 '절반' 반올림: floor | ceil
 		"downedReviveHp": 1,       # 전투 후 쓰러진 동료가 복귀하는 HP
@@ -63,6 +65,8 @@ const D := {
 		# 죽음 카드 (6.3) — 비용 0, 손패 보존, 사용 시 용사 사망 → 유품 변환 → 짓밟힘 획득
 		"hero_death": {"name": "용사의 죽음", "kind": "death", "ally": "hero", "owner": "witch", "cost": 0, "target": "none", "art": "deathface",
 			"retain": true, "exhaust": true,
+			# 1회차에는 거대 존재 전투(전투 종류 "giant") 1턴 시작까지 잠겨 낼 수 없다 (대본 v0.5 1.1)
+			"lockedUntil": "giant",
 			"effects": [
 				{"type": "killAlly", "ally": "hero"},
 				{"type": "relicize", "ally": "hero"},
@@ -109,6 +113,9 @@ const D := {
 		["snipe", 2], ["suppress", 1],
 	],
 
+	# 노엘이 처음부터 쥐고 있는 죽음 카드 (사흘 전부터 비친 세라피나의 죽음 — 대본 1장)
+	"startingDeathCards": ["hero_death"],
+
 	# ───────────── 훈련: 카드 강화 (tutorial-flow.md 2.3) [제안] ─────────────
 	# 후보 4종 중 무작위 3장을 보여 주고 1장 선택. 덱에서 그 카드 1장만 강화된다(이름 옆 +).
 	"upgrades": {
@@ -143,8 +150,9 @@ const D := {
 			},
 			# 튜토리얼 각 턴의 손패 (덱에 있으면 그 카드를 뽑는다. 없으면 무작위)
 			"scriptedHands": {
-				1: ["holy_slash", "curse_flame", "shield_bash", "foresight", "take_hit"],
-				2: ["fate_shift", "cover", "snipe", "curse_flame", "holy_slash"],
+				# 죽음 카드 1장 + 새로 뽑는 4장 (대본 v0.5 2장)
+				1: ["holy_slash", "curse_flame", "shield_bash", "take_hit"],
+				2: ["fate_shift", "cover", "snipe", "holy_slash"],
 			},
 		},
 		# 2층 전투: 광신도 2 → 1명 남으면 발이 내려와 짓밟음 → 거대 존재 전투
@@ -167,7 +175,7 @@ const D := {
 				{"kind": "aoe", "label": "기둥 붕괴", "value": 5, "hitsWitch": true, "detail": "아군 전원"},
 				{"kind": "stomp", "label": "짓밟기", "detail": "전원 사망", "lethal": true},
 			],
-			"turnStartCards": {1: ["hero_death"]},   # 거대 존재 전투 1턴 시작 시 죽음 카드
+			# 죽음 카드는 1층부터 손패에 있다(startingDeathCards). 이 전투 1턴 시작에 잠금이 풀린다(lockedUntil)
 		},
 	},
 

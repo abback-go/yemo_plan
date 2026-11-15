@@ -7,6 +7,8 @@
 ##                   status: ok | down(쓰러짐) | dead(사망)
 ##   st.battle       전투 중일 때만. draw/hand/discard/exhaust 는 uid 배열
 ##   st.flags        갈림길·이벤트 선택 { path, sera, upgraded }
+##   st.run          회차(1부터). 죽음 카드의 잠금(lockedUntil)은 rules.deathLockRuns 회차까지만 걸린다
+##   st.party.deathCards  노엘이 쥔 죽음 카드 uid (덱과 따로. 전투마다 처음부터 손패에 보존된다)
 ##   st.progress     지도: { floor, room, visited:[] }
 ##
 ## 규칙 함수는 상태를 바꾸고, 화면이 연출할 이벤트 배열을 돌려준다.
@@ -135,11 +137,11 @@ static func new_game(seed = null) -> Dictionary:
 		sd = randi() % 1000000000
 	else:
 		sd = int(seed) & M32
-	var st := {"seed": sd, "rng": sd if sd != 0 else 1, "nextUid": 1, "cards": {}, "party": {}, "battle": null,
+	var st := {"seed": sd, "rng": sd if sd != 0 else 1, "nextUid": 1, "cards": {}, "party": {}, "battle": null, "run": 1,
 		"flags": {}, "progress": {"floor": 1, "room": "camp", "visited": ["camp"]}}
 	var p := {
 		"witch": {"hp": d.party.witch.hp, "maxHp": d.party.witch.hp},
-		"allies": {}, "order": d.party.order.duplicate(), "deck": []}
+		"allies": {}, "order": d.party.order.duplicate(), "deck": [], "deathCards": []}
 	st.party = p
 	for id in p.order:
 		var a: Dictionary = d.party.allies[id]
@@ -147,6 +149,9 @@ static func new_game(seed = null) -> Dictionary:
 	for e in d.startingDeck:
 		for i in int(e[1]):
 			p.deck.append(new_card(st, e[0]))
+	# 노엘이 이미 보고 있는 죽음 카드 (대본 1장: 사흘 전부터)
+	for id in d.get("startingDeathCards", []):
+		p.deathCards.append(new_card(st, id))
 	return st
 
 
@@ -202,8 +207,15 @@ static func start_battle(st: Dictionary, enc_id: String) -> Array:
 	var b := {
 		"enc": enc_id, "kind": enc.kind, "turn": 0, "phase": "start", "energy": 0,
 		"draw": shuffle(st, st.party.deck.duplicate()), "hand": [], "discard": [], "exhaust": [],
-		"free": {}, "enemies": [], "result": null, "shadow": 0, "giantTriggered": false, "lastPlayedIndex": -1}
+		"free": {}, "enemies": [], "result": null, "shadow": 0, "giantTriggered": false, "lastPlayedIndex": -1, "unlocked": {}}
 	st.battle = b
+	# 죽음 카드는 전투 처음부터 손패에 있다(보존 — 버려지지 않고 한 칸을 차지한다)
+	for u in st.party.get("deathCards", []):
+		var dc: Dictionary = d.cards[st.cards[u].id]
+		var da = ally(st, dc.get("ally", ""))
+		if da != null and da.status != "dead":
+			b.hand.append(u)
+	_arrange_hand(st)
 	for e in enc.enemies:
 		var t: Dictionary = d.enemies[e.type]
 		b.enemies.append({
@@ -229,7 +241,7 @@ static func alive_enemies(st: Dictionary) -> Array:
 	return out
 
 
-## 손패: 보존(죽음) 카드를 가운데로
+## 손패: 보존(죽음) 카드의 자리 — rules.retainPos: "right"(맨 오른쪽, 대본 v0.5 2장) | "middle"(HTML 판)
 static func _arrange_hand(st: Dictionary) -> void:
 	var b: Dictionary = st.battle
 	var keep := []
@@ -238,8 +250,11 @@ static func _arrange_hand(st: Dictionary) -> void:
 		(keep if def(st, u).get("retain", false) else normal).append(u)
 	if keep.is_empty():
 		return
-	var mid := normal.size() / 2
-	b.hand = normal.slice(0, mid) + keep + normal.slice(mid)
+	if str(D().rules.get("retainPos", "right")) == "middle":
+		var mid := normal.size() / 2
+		b.hand = normal.slice(0, mid) + keep + normal.slice(mid)
+	else:
+		b.hand = normal + keep
 
 
 static func draw_cards(st: Dictionary, n: int, scripted, ev: Array) -> void:
@@ -358,6 +373,13 @@ static func start_turn(st: Dictionary) -> Array:
 	b.energy = int(d.rules.energyPerTurn)
 	b.lastPlayedIndex = -1
 	ev.append({"t": "turnStart", "turn": b.turn, "energy": b.energy})
+	# 잠긴 죽음 카드: 정해진 전투(lockedUntil = 전투 종류)의 1턴 시작에 자물쇠가 부서진다
+	if int(b.turn) == 1:
+		for u in b.hand:
+			var lu := str(def(st, u).get("lockedUntil", ""))
+			if lu != "" and (lu == str(b.kind) or lu == str(b.enc)) and not b.unlocked.has(u):
+				b.unlocked[u] = true
+				ev.append({"t": "unlock", "uid": u, "id": st.cards[u].id})
 	var tsc: Dictionary = enc.get("turnStartCards", {})
 	if tsc.has(int(b.turn)):
 		for id in tsc[int(b.turn)]:
@@ -416,6 +438,21 @@ static func owner_blocked(st: Dictionary, uid: String) -> String:
 	return ""
 
 
+## 잠긴 죽음 카드인가 (1회차: 정해진 전투 전까지 낼 수 없다. 2회차 이후는 rules.deathLockRuns 로 푼다)
+static func is_locked(st: Dictionary, uid: String) -> bool:
+	if not st.cards.has(uid):
+		return false
+	var lu := str(def(st, uid).get("lockedUntil", ""))
+	if lu == "":
+		return false
+	if int(st.get("run", 1)) > int(D().rules.get("deathLockRuns", 1)):
+		return false
+	var b = st.battle
+	if b != null and b.get("unlocked", {}).has(uid):
+		return false
+	return true
+
+
 static func can_play(st: Dictionary, uid: String) -> Dictionary:
 	var b = st.battle
 	if b == null or b.phase != "player" or b.result != null:
@@ -423,6 +460,8 @@ static func can_play(st: Dictionary, uid: String) -> Dictionary:
 	if not b.hand.has(uid):
 		return _no("손패에 없는 카드")
 	var c := def(st, uid)
+	if is_locked(st, uid):
+		return {"ok": false, "reason": "아직 낼 수 없다", "locked": true}
 	if c.get("unplayable", false):
 		return _no("낼 수 없는 카드")
 	var blocked := owner_blocked(st, uid)
@@ -643,6 +682,7 @@ static func _apply_effect(st: Dictionary, uid: String, c: Dictionary, eff: Dicti
 			if a != null:
 				a.status = "dead"
 				a.hp = 0
+				st.party.deathCards.erase(uid)
 				ev.append({"t": "allyDeath", "ally": eff.ally, "cause": "deathCard", "card": st.cards[uid].id, "handIndex": b.lastPlayedIndex})
 		"relicize":
 			var changes := []
@@ -754,9 +794,11 @@ static func finish_battle(st: Dictionary) -> Array:
 			st.cards[u].woundOf = id
 			ev.append({"t": "wound", "ally": id, "uid": u, "from": from})
 		ev.append({"t": "revive", "ally": id, "hp": a.hp})
-	# 임시 카드(죽음 카드 등)는 버린다
+	# 임시 카드는 버린다 (덱과 노엘이 쥔 죽음 카드는 남는다)
 	var keep := {}
 	for u in p.deck:
+		keep[u] = true
+	for u in p.get("deathCards", []):
 		keep[u] = true
 	for u in st.cards.keys():
 		if not keep.has(u):

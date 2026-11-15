@@ -87,6 +87,10 @@ func _init() -> void:
 	t_floor2_all()
 	t_endturn()
 	t_giant_hand()
+	t_locked_floor1()
+	t_locked_persist()
+	t_unlock_giant()
+	t_run2_unlocked()
 	t_immune()
 	t_countdown()
 	t_death()
@@ -130,6 +134,8 @@ func t_text() -> void:
 func t_turn1() -> void:
 	var st := normal_battle()
 	var h := hand_ids(st)
+	var last: String = h[h.size() - 1]
+	h.remove_at(h.size() - 1)
 	h.sort()
 	var want: Array = D.encounters.normal.scriptedHands[1].duplicate()
 	want.sort()
@@ -137,7 +143,8 @@ func t_turn1() -> void:
 	for e in st.battle.enemies:
 		if e.hp != 14 or e.intent.kind != "attack":
 			all14 = false
-	check("1턴: 에너지 3, 5장 드로우(튜토리얼 손패), 광신도 3명 예고", st.battle.energy == 3 and h == want and st.battle.enemies.size() == 3 and all14 and st.battle.enemies[0].intent.target == "warrior", str(h))
+	check("1층 1턴: 에너지 3, 죽음 카드(맨 오른쪽) + 4장 드로우(튜토리얼 손패), 광신도 3명 예고",
+		st.battle.energy == 3 and last == "hero_death" and h == want and st.battle.enemies.size() == 3 and all14 and st.battle.enemies[0].intent.target == "warrior", str(hand_ids(st)))
 
 
 func t_sword() -> void:
@@ -251,23 +258,79 @@ func t_floor2_all() -> void:
 func t_endturn() -> void:
 	var st := normal_battle()
 	Rules.end_turn(st)
-	var a: bool = st.battle.hand.size() == 0 and st.battle.discard.size() == 5
+	var a: bool = hand_ids(st) == ["hero_death"] and st.battle.discard.size() == 4
 	Rules.start_turn(st)
 	Rules.end_turn(st)
 	Rules.start_turn(st)
 	Rules.end_turn(st)
 	var ev := Rules.start_turn(st)
-	check("턴 종료: 손패 버림, 덱 소진 시 버림 더미를 섞는다", a and has_ev(ev, "reshuffle") and st.battle.hand.size() == 5)
+	check("턴 종료: 손패 버림(죽음 카드는 보존), 덱 소진 시 버림 더미를 섞는다", a and has_ev(ev, "reshuffle") and st.battle.hand.size() == 5)
 
 
 func t_giant_hand() -> void:
 	var st := giant_battle()
 	var h := hand_ids(st)
-	var ok1: bool = h.size() == 5 and h.count("hero_death") == 1 and h[2] == "hero_death"
+	var ok1: bool = h.size() == 5 and h.count("hero_death") == 1 and h[4] == "hero_death"
 	Rules.end_turn(st)
 	var ok2: bool = hand_ids(st) == ["hero_death"]
 	Rules.start_turn(st)
-	check("거대 존재: 1턴에 죽음 카드 + 4장, 가운데, 손패에 보존", ok1 and ok2 and st.battle.hand.size() == 5 and hand_ids(st).count("hero_death") == 1, str(h))
+	check("거대 존재: 1턴에 죽음 카드 + 4장, 맨 오른쪽, 손패에 보존", ok1 and ok2 and st.battle.hand.size() == 5 and hand_ids(st).count("hero_death") == 1, str(h))
+
+
+# ───────── 잠긴 죽음 카드 (대본 v0.5 1.1) ─────────
+func t_locked_floor1() -> void:
+	var st := normal_battle()
+	var death := find_in_hand(st, "hero_death")
+	var chk := Rules.can_play(st, death)
+	var r := Rules.play(st, death, {})
+	var still: bool = st.battle.hand.has(death) and st.party.allies.hero.status == "ok" and st.battle.energy == 3
+	Rules.end_turn(st)
+	var kept: bool = hand_ids(st) == ["hero_death"]
+	Rules.start_turn(st)
+	var t2 := hand_ids(st)
+	var chk2 := Rules.can_play(st, death)
+	check("1층: 죽음 카드는 잠겨 낼 수 없다(손패에 남음·에너지 그대로), 턴이 끝나도 보존, 2턴도 4장 + 잠김",
+		not chk.ok and chk.get("locked", false) and not r.ok and still and kept and t2.size() == 5 and t2[4] == "hero_death"
+		and not chk2.ok and chk2.get("locked", false) and Rules.is_locked(st, death), str(t2))
+
+
+func t_locked_persist() -> void:
+	var st := normal_battle()
+	var death := find_in_hand(st, "hero_death")
+	Rules.debug_win(st)
+	var win: bool = st.battle.result == "win"
+	Rules.finish_battle(st)
+	var kept: bool = st.cards.has(death) and st.party.deathCards == [death] and st.party.deck.size() == 15 and not st.party.deck.has(death)
+	Rules.start_battle(st, "floor2")
+	var in_hand: bool = st.battle.hand == [death]
+	Rules.start_turn(st)
+	var h := hand_ids(st)
+	var locked: bool = Rules.is_locked(st, death) and not Rules.can_play(st, death).ok
+	check("1층 승리 후에도 죽음 카드는 덱과 따로 남고, 2층 전투도 처음부터 손패(잠김) + 4장",
+		win and kept and in_hand and h.size() == 5 and h[4] == "hero_death" and locked, str(h))
+
+
+func t_unlock_giant() -> void:
+	var st := Rules.new_game(7)
+	Rules.start_battle(st, "giant")
+	var death := find_in_hand(st, "hero_death")
+	var before: bool = Rules.is_locked(st, death)
+	var ev := Rules.start_turn(st)
+	var unlock_ev := false
+	for e in ev:
+		if e.t == "unlock" and e.uid == death:
+			unlock_ev = true
+	check("거대 존재 전투 1턴 시작에 자물쇠가 풀린다(unlock 이벤트) → 낼 수 있다",
+		before and unlock_ev and not Rules.is_locked(st, death) and Rules.can_play(st, death).ok)
+
+
+func t_run2_unlocked() -> void:
+	var st := Rules.new_game(7)
+	st.run = 2
+	Rules.start_battle(st, "normal")
+	Rules.start_turn(st)
+	var death := find_in_hand(st, "hero_death")
+	check("2회차 이후(st.run > deathLockRuns)에는 잠금이 걸리지 않는다", not Rules.is_locked(st, death) and Rules.can_play(st, death).ok)
 
 
 func t_immune() -> void:
