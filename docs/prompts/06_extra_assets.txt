@@ -117,3 +117,17 @@ No speed lines, no glow trails, no sparks, no magic effects outside the characte
 
 AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, face visible from behind, head turned toward camera, looking back over the shoulder, bow in the right hand, round human ears, aiming to the left, aiming to the right, aiming sideways across the frame.
 - - - 여기까지 복사 - - -
+
+[9] 죽음 카드를 내미는 손 (컷신 C0, C1 직전) → prototype/assets/cut_death_card_offer.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Cinematic anime illustration, 16:9, dark fantasy. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent.
+First-person point of view of a witch standing just behind her party in a ruined gothic cathedral, the camera slightly above head height.
+In the foreground, her own very pale, thin right hand in a frayed wide black robe sleeve is raised in front of the viewer, trembling slightly, knuckles white, holding up a single playing card between two fingers. The card faces the viewer: it is blackened and charred like a burned photograph, showing a small faded portrait of a smiling silver-haired woman with a deep red ribbon; soot and cracks creep across it. Her other cards are held low and out of focus at the bottom edge.
+A few steps ahead, in the center, Seraphina stands with her back to the viewer, seen directly from behind: long silver hair in one thick braid tied with a deep red ribbon bow, polished silver plate armor with gold trim, a long tattered deep red cape. She faces the enemies far ahead and does not know what the witch is holding.
+A thin, glowing deep red thread runs from the black card straight to the middle of Seraphina's back, pulled completely taut.
+At the left and right edges of the frame, the backs of two other companions are partly visible and out of focus: a blonde elf archer in a dark green cloak on the left, a tall woman with short ash-white hair and a huge iron tower shield on the right.
+High above Seraphina, the top of the frame is sinking into a heavy, unnatural darkness, the shadow of something colossal; dust begins to fall.
+Mood: silent, unbearable, the moment of decision. No text, no letters.
+
+AVOID: the witch's face, other hands holding the card, the card facing away, gore, bright saturated colors other than the deep red, Seraphina turning around, extra fingers, deformed hands, watermark, signature.
+- - - 여기까지 복사 - - -
