@@ -153,8 +153,9 @@
   };
 
   // ───────── 화살표·예고 선 ─────────
-  function arrow(ctx, a, b, color, width, dashed) {
-    var mx = (a.x + b.x) / 2, my = Math.min(a.y, b.y) - 80;
+  // lift: 곡선이 위로 휘는 정도(손에서 위로 쏘는 화살표는 크게, 예고 선은 작게)
+  function arrow(ctx, a, b, color, width, dashed, lift) {
+    var mx = (a.x + b.x) / 2, my = lift == null ? Math.min(a.y, b.y) - 80 : (a.y + b.y) / 2 - lift;
     ctx.save();
     ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round';
     ctx.shadowColor = color; ctx.shadowBlur = 14;
@@ -189,7 +190,7 @@
     } else if (I.mode === 'pick' && d) {
       var r = V().intentRect(d.enemy);
       var a = r ? { x: r.x + r.w / 2, y: r.y + r.h } : V().enemyCenter(d.enemy);
-      arrow(ctx, a, { x: I.px, y: I.py }, '#ff3346', 6, [12, 8]);
+      arrow(ctx, a, { x: I.px, y: I.py }, '#ff3346', 6, [12, 8], 40);
     } else if (I.hoverIntent) {
       drawIntentLines(ctx, I.hoverIntent);
     }
@@ -199,6 +200,6 @@
     if (!it || !r) return;
     var a = { x: r.x + r.w / 2, y: r.y + r.h };
     var targets = it.target === 'all' ? ['witch'].concat(C().st.party.order.filter(function (id) { return V().vm.status[id] === 'ok'; })) : [it.target];
-    targets.forEach(function (t) { arrow(ctx, a, V().targetPoint(t), 'rgba(255,60,75,.95)', 4, [10, 7]); });
+    targets.forEach(function (t) { arrow(ctx, a, V().targetPoint(t), 'rgba(255,60,75,.95)', 4, [10, 7], 40); });
   }
 })(window);

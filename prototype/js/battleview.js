@@ -709,6 +709,7 @@
   V.footY = 0;
 
   V.giantAppear = async function (victims) {
+    Game.Dialog.clear();
     Game.Dialog.say(D().giantAppear.before);
     V.setShadow(0.78, 1400);
     FX.rain(0, 1920, -20, { count: 50, colors: ['#8a8580', '#5a5550'], size: 3, life: 1800 });
@@ -767,6 +768,7 @@
     await FX.fade(1, 200);
   };
   V.giantRetreat = async function () {
+    Game.Dialog.clear();
     var foot = footEl();
     var hp = Object.keys(V.els.hpEnemy).map(function (k) { return V.els.hpEnemy[k]; });
     FX.shake(18, 900);
@@ -795,6 +797,7 @@
   // ───────── 용사의 죽음: 컷신(C1~C6) → 전투 화면 복귀(C7) ─────────
   V.deathSequence = async function () {
     var cs = D().cutscene;
+    Game.Dialog.clear();
     await Game.Scenes.cutscene();
     // 화면 뒤에서 정리: 용사가 사라지고, 손패 위로 피가 튄다
     V.vm.pull = 0;

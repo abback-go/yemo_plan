@@ -171,9 +171,25 @@
     }
   };
 
+  // 다 흘러내린 뒤에는 다시 그리지 않는다(그림자 흐림 연산이 무거워서)
+  function settleTime(s) {
+    var m = 200;
+    s.drips.forEach(function (d) { m = Math.max(m, d.delay + d.max / d.speed * 1000); });
+    return s.t0 + m + 250;
+  }
+  function needsDraw(L, now) {
+    if (L.alpha !== L.drawnAlpha || L.items.length !== L.drawnCount) return true;
+    return L.items.some(function (it) {
+      if (it.pool) return Math.abs(it.level - it.shown) > 0.003;
+      if (it.settle == null) it.settle = settleTime(it);
+      return now < it.settle;
+    });
+  }
   B.render = function (now) {
     B.layers.forEach(function (L) {
       var dt = now - L.last; L.last = now;
+      if (!needsDraw(L, now)) return;
+      L.drawnAlpha = L.alpha; L.drawnCount = L.items.length;
       var ctx = L.ctx;
       ctx.clearRect(0, 0, L.canvas.width, L.canvas.height);
       if (L.alpha <= 0 || !L.items.length) return;

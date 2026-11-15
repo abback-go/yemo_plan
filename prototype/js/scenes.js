@@ -232,6 +232,7 @@
     for (var i = 0; i < cs.cuts.length; i++) {
       var c = cs.cuts[i];
       el.setAttribute('data-cut', c.id);
+      if (c.id === 'C4') { cut.lensCv.style.transition = 'opacity 1.2s'; cut.lensCv.style.opacity = 0.85; }
       if (c.code === 'impact') await impactCut(c);
       else if (c.code === 'grind') await grindCut(c);
       else {

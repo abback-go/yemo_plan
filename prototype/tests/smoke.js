@@ -7,6 +7,7 @@
  *         → 짓밟힘 → 존재가 물러남 → 탈출 → 종료 화면
  * 경로 B: 다시 하기 → 캠프 건너뛰기 → 일반 전투(디버그 즉시 승리) → 거대 존재 전투에서 카드 없이 3턴
  *         → 짓밟기로 전멸 → 다시 → 거대 존재 등장 직후(1턴)부터 재시작
+ * 경로 C: 1280×960 창(검은 여백)에서 드래그 좌표 확인 → 일반 전투 전멸 → 이 전투 처음부터 재시작
  * 콘솔 에러: 스크립트 에러 0 이어야 통과. 없는 그림 파일의 리소스 로드 실패 로그는 따로 집계한다.
  */
 'use strict';
@@ -55,7 +56,13 @@ function check(name, ok, detail) {
   const enemyPos = id => ev(id => Game.View.enemyCenter(id), id);
   const intentPos = id => ev(id => { const r = Game.View.intentRect(id); return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; }, id);
   const allyPos = id => ev(id => { const r = id === 'witch' ? Game.View.witchRect() : Game.View.allyHitRect(id); return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; }, id);
+  // 1920×1080 논리 좌표 → 창 좌표 (창 크기가 달라도 동작하는지 확인하려고 항상 변환)
+  async function toPage(p) {
+    const r = await ev(() => { const b = document.getElementById('stage').getBoundingClientRect(); return { l: b.left, t: b.top, s: b.width / 1920 }; });
+    return { x: r.l + p.x * r.s, y: r.t + p.y * r.s };
+  }
   async function drag(from, to) {
+    from = await toPage(from); to = await toPage(to);
     await page.mouse.move(from.x, from.y);
     await page.waitForTimeout(80);
     await page.mouse.down();
@@ -64,6 +71,8 @@ function check(name, ok, detail) {
     await page.waitForTimeout(60);
     await page.mouse.up();
   }
+  async function clickAt(p) { p = await toPage(p); await page.mouse.click(p.x, p.y); }
+  async function moveTo(p) { p = await toPage(p); await page.mouse.move(p.x, p.y); }
   async function playOn(cardId, to) {
     const p = await cardPos(cardId);
     if (!p) throw new Error('손패에 없음: ' + cardId);
@@ -71,7 +80,7 @@ function check(name, ok, detail) {
   }
   async function clickEndTurn() {
     const r = await ev(() => { const e = document.getElementById('endTurn'); return { x: e.offsetLeft + e.offsetWidth / 2, y: e.offsetTop + e.offsetHeight / 2 }; });
-    await page.mouse.click(r.x, r.y);
+    await clickAt(r);
   }
   async function waitScene(name, timeout) {
     await page.waitForFunction(n => Game.Scenes.current === n, name, { timeout: timeout || 60000 });
@@ -92,7 +101,7 @@ function check(name, ok, detail) {
       const ln = await ev(() => +(document.querySelector('[data-scene=camp]') || { getAttribute: () => -1 }).getAttribute('data-line'));
       if (ln === 30 && !fs.existsSync(path.join(SHOTS, '01_camp.png'))) { await page.waitForTimeout(700); await shot('01_camp.png'); }
       lines = Math.max(lines, ln + 1);
-      await page.mouse.click(960, 900);
+      await clickAt({ x: 960, y: 900 });
       await page.waitForTimeout(45);
     }
     check('캠프 대화를 끝까지 진행', lines >= 40, lines + '줄');
@@ -117,7 +126,7 @@ function check(name, ok, detail) {
     await waitIdle();
     // 예고에 마우스를 올리면 선
     const ip = await intentPos('c3');
-    await page.mouse.move(ip.x, ip.y);
+    await moveTo(ip);
     await page.waitForTimeout(400);
     check('예고에 마우스를 올리면 대상 표시', await ev(() => Game.Input.hoverIntent === 'c3'));
     await shot('03_intent_hover.png');
@@ -133,7 +142,7 @@ function check(name, ok, detail) {
     check('운명 전가 ①단계 후 아군 선택 대기', await ev(() => Game.Input.mode === 'pick'));
     await shot('04_fate_shift_pick.png');
     const wp = await allyPos('warrior');
-    await page.mouse.click(wp.x, wp.y);
+    await clickAt(wp);
     await waitIdle();
     s = await state();
     check('운명 전가: 예고 대상이 바뀜 (' + tgtBefore + ' → warrior)', s.battle.enemies.find(e => e.id === 'c3').intent.target === 'warrior');
@@ -224,6 +233,26 @@ function check(name, ok, detail) {
     check('거대 존재 등장 직후(1턴)부터 재시작, HP 복원', s.battle.kind === 'giant' && s.battle.turn === 1 && s.battle.hand.includes('hero_death') &&
       s.party.witch === snapHp.witch && s.party.allies.hero.status === 'ok', 'witch ' + s.party.witch + ', hero ' + s.party.allies.hero.hp);
     await shot('13_restart.png');
+
+    console.log('경로 C: 다른 창 크기(1280×960, 위아래 검은 여백) + 일반 전투 전멸 → 이 전투 처음부터');
+    await page.setViewportSize({ width: 1280, height: 960 });
+    await page.goto(URL + '&scene=normal');
+    await waitIdle();
+    const box = await ev(() => { const b = document.getElementById('stage').getBoundingClientRect(); return { l: b.left, t: b.top, w: b.width, h: b.height }; });
+    check('비율 유지 축소 + 검은 여백', Math.abs(box.w - 1280) < 1 && Math.abs(box.h - 720) < 1 && Math.abs(box.t - 120) < 1, JSON.stringify(box));
+    await playOn('holy_slash', await enemyPos('c2'));
+    await waitIdle();
+    s = await state();
+    check('축소된 화면에서도 드래그로 카드 사용', s.battle.enemies.find(e => e.id === 'c2').alive === false);
+    await shot('14_letterbox_1280x960.png');
+    await ev(() => { ['hero', 'warrior', 'archer'].forEach(a => Game.debug.setHp(a, 0)); });
+    await clickEndTurn();
+    await waitScene('wipe', 60000);
+    check('일반 전투 전멸 → 전멸 화면', true);
+    await page.click('[data-act=retry]');
+    await waitIdle();
+    s = await state();
+    check('일반 전투 처음부터 재시작 (광신도 3, 동료 HP 복원)', s.battle.kind === 'normal' && s.battle.turn === 1 && s.battle.enemies.every(e => e.alive && e.hp === 14) && s.party.allies.archer.hp === 12);
   } catch (e) {
     check('예외 없이 진행', false, e.message);
     try { await shot('99_failure.png'); console.log(JSON.stringify(await state()).slice(0, 1500)); } catch (e2) { /* 무시 */ }

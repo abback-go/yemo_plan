@@ -24,6 +24,10 @@
     $('dialog').classList.add('hidden');
   };
   DL.busy = function () { return !!DL.cur || DL.queue.length > 0; };
+  DL.dropPending = function () {
+    var q = DL.queue; DL.queue = [];
+    q.forEach(function (x) { if (x.resolve) x.resolve(); });
+  };
 
   function pump() {
     var item = DL.queue.shift();
@@ -80,6 +84,8 @@
   G.fire = function (on, ctx) {
     ctx = ctx || {};
     var st = Game.Ctl.st, out = [];
+    // 새 턴이 시작되면 아직 못 읽은 지난 안내는 버린다(밀려서 늦게 나오지 않게)
+    if (on === 'turnStart') DL.dropPending();
     Game.DATA.guide.forEach(function (g) {
       if (g.on !== on) return;
       if (g.enc && g.enc !== ctx.enc) return;
