@@ -84,7 +84,7 @@ static func medallion(ci: CanvasItem, c: Vector2, r: float, kind: String, hot :=
 		ci.draw_colored_polygon(PackedVector2Array([p + dir * 9, p + nn * 5, p - dir * 4, p - nn * 5]), Color(rim.r, rim.g, rim.b, a))
 		ci.draw_circle(p + dir * 2, 2.2, Color(0.8, 0.1, 0.15, a))
 	var icol := Color("#ffd9b0") if kind == "flame" else (Color("#ffb0b0") if red else Color("#f0e6d8"))
-	draw(ci, kind, c, r * 0.62, icol, a)
+	draw(ci, kind, c, r * (0.8 if red else 0.62), icol, a)
 
 
 ## 작은 돌판 한 칸 (왼쪽 가장자리 층 표시) — 마름모꼴 윗면 + 두께

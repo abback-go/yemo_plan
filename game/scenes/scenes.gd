@@ -59,8 +59,8 @@ func title() -> void:
 	var line := UI.tex_rect(UI.grad([[0, Color(1, 0.16, 0.24, 0)], [0.5, Color(1, 0.16, 0.24, 0.55)], [1, Color(1, 0.16, 0.24, 0)]], "h", 256, 2), Rect2(0, 539, 1920, 2))
 	root.add_child(line)
 	var m: Dictionary = G.S.meta
-	var t := UI.label(m.title, 110, Color("#efe3e5"), "serif_wide", HORIZONTAL_ALIGNMENT_CENTER, 18)
-	t.add_theme_color_override("font_outline_color", Color(0.7, 0.07, 0.12, 0.35))
+	var t := UI.label(m.title, 110, Color("#efe3e5"), "serif_wide", HORIZONTAL_ALIGNMENT_CENTER, 12)
+	t.add_theme_color_override("font_outline_color", Color(0.45, 0.04, 0.08, 0.45))
 	t.position = Vector2(0, 330)
 	t.size = Vector2(1920, 150)
 	root.add_child(t)

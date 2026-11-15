@@ -231,7 +231,6 @@ async function pathA(browser) {
   await H.shot('A10_map_first.png');
   s = await H.advanceAll(s => s.explore && s.explore.map && !s.guideOpen && !s.dialogBusy, 60000, '지도 안내');
   check('처음 지도: 층·방·죽음 표식 안내가 나온다', has(s, /붉은 실 표식/), (s.dialog || []).slice(-1));
-  const close = await H.W('geom', 'button', '');
   // 지도 닫기 버튼 (지도 오른쪽 아래)
   await H.W('closeMap');
   s = await H.advanceAll(s => s.explore && !s.explore.map && !s.guideOpen && !s.dialogBusy && s.scene === 'explore:fork', 60000, '갈림길 안내');
@@ -345,7 +344,7 @@ async function pathB(browser) {
   say('경로 B: 거대 존재 전투 3턴 버팀 → 짓밟기 → 되감기 → 등장 직후부터 재시작');
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const H = helpers(page, 'B');
-  await H.open('scene=giant&guides=reset&speed=2');
+  await H.open('scene=giant&guides=reset');
   let s = await H.until(s => s.stage === 'battle:giant', 30000, '거대 존재');
   let shotRed = false;
   s = await H.until(s => (s.log || []).includes('rewind'), 120000, '짓밟기 전멸', async s => {
@@ -418,7 +417,7 @@ async function pathD(browser) {
   await H.shot('D01_phone_camp_text.png');
   await H.open('scene=normal&guides=reset');
   s = await H.until(s => s.stage === 'battle:normal', 30000, '전투');
-  await H.until(s => s.battle && s.battle.turn === 1 && s.guideOpen, 30000, '안내', async s => { if (s.dialogBusy && !s.guideOpen) await H.W('advance'); });
+  await H.until(s => s.battle && s.battle.turn === 1 && s.guideOpen, 60000, '안내', async s => { if ((s.dialogBusy && !s.guideOpen) || (s.guideOpen && (!s.battle || s.battle.turn < 1))) await H.touchTap(960, 560); });
   await H.sleep(800);
   await H.shot('D02_phone_guide_box.png');
   s = await H.until(s => s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 60000, '1턴', async s => { if (s.guideOpen || s.dialogBusy) await H.touchTap(960, 560); });
@@ -476,7 +475,9 @@ async function pathE(browser) {
 (async () => {
   const browser = await launch();
   const t0 = Date.now();
+  const only = process.argv[4] || 'ABCDE';
   for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE]]) {
+    if (!only.includes(name)) continue;
     try { await fn(browser); } catch (e) { check('경로 ' + name + ' 진행', false, e.message); }
   }
   await browser.close();

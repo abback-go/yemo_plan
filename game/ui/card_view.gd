@@ -62,20 +62,23 @@ func setup_face(st: Dictionary, p_uid: String) -> void:
 
 ## 흐린 죽음 카드 (누구인지 알아볼 수 없다 — 빈 캠프)
 func setup_unknown() -> void:
+	# 아주 낮은 해상도로 그려 크게 늘린다 → 셰이더 없이도 확실히 흐려진다
+	var k := 0.16
 	vp = SubViewport.new()
-	vp.size = Vector2i(int(W * K), int(H * K))
+	vp.size = Vector2i(int(W * k), int(H * k))
 	vp.transparent_bg = true
 	vp.disable_3d = true
 	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR
 	add_child(vp)
 	face = Control.new()
 	face.size = Vector2(vp.size)
 	vp.add_child(face)
 	tex = vp.get_texture()
-	var bg := UI.panel(UI.box(Color("#0a0405"), Color("#3a0a10"), int(14 * K), int(2 * K)))
+	var bg := UI.panel(UI.box(Color("#0a0405"), Color("#3a0a10"), 2, 1))
 	bg.size = face.size
 	face.add_child(bg)
-	var fog := UI.tex_rect(UI.grad([[0, Color(0.85, 0.2, 0.25, 0.95)], [0.4, Color(0.5, 0.08, 0.12, 0.8)], [1, Color(0.1, 0.02, 0.04, 0)]], "radial", 128, 128, Vector2(0.5, 0.42), 0.55), Rect2(Vector2(10, 10) * K, Vector2(220, 300) * K))
+	var fog := UI.tex_rect(UI.grad([[0, Color(0.85, 0.2, 0.25, 0.95)], [0.4, Color(0.5, 0.08, 0.12, 0.8)], [1, Color(0.1, 0.02, 0.04, 0)]], "radial", 128, 128, Vector2(0.5, 0.42), 0.55), Rect2(Vector2(10, 10) * k, Vector2(220, 300) * k))
 	face.add_child(fog)
 	if Assets.ok("card_frame.png"):
 		var fr := UI.tex_rect(Assets.tex("card_frame.png"), Rect2(Vector2.ZERO, face.size))
@@ -85,8 +88,8 @@ func setup_unknown() -> void:
 	var sil := Control.new()
 	sil.size = face.size
 	sil.draw.connect(func():
-		sil.draw_circle(Vector2(120, 120) * K, 34 * K, Color(0.05, 0.0, 0.02, 0.55))
-		sil.draw_colored_polygon(PackedVector2Array([Vector2(60, 230) * K, Vector2(180, 230) * K, Vector2(150, 150) * K, Vector2(90, 150) * K]), Color(0.05, 0.0, 0.02, 0.5)))
+		sil.draw_circle(Vector2(120, 120) * k, 34 * k, Color(0.05, 0.0, 0.02, 0.55))
+		sil.draw_colored_polygon(PackedVector2Array([Vector2(60, 230) * k, Vector2(180, 230) * k, Vector2(150, 150) * k, Vector2(90, 150) * k]), Color(0.05, 0.0, 0.02, 0.5)))
 	face.add_child(sil)
 	omen_blur = 1.0
 
