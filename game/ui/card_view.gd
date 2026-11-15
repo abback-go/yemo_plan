@@ -75,12 +75,19 @@ func setup_unknown() -> void:
 	var bg := UI.panel(UI.box(Color("#0a0405"), Color("#3a0a10"), int(14 * K), int(2 * K)))
 	bg.size = face.size
 	face.add_child(bg)
-	var fog := UI.tex_rect(UI.grad([[0, Color(0.55, 0.06, 0.1, 0.85)], [0.55, Color(0.25, 0.02, 0.05, 0.6)], [1, Color(0, 0, 0, 0)]], "radial", 128, 128, Vector2(0.5, 0.42), 0.55), Rect2(Vector2(10, 10) * K, Vector2(220, 300) * K))
+	var fog := UI.tex_rect(UI.grad([[0, Color(0.85, 0.2, 0.25, 0.95)], [0.4, Color(0.5, 0.08, 0.12, 0.8)], [1, Color(0.1, 0.02, 0.04, 0)]], "radial", 128, 128, Vector2(0.5, 0.42), 0.55), Rect2(Vector2(10, 10) * K, Vector2(220, 300) * K))
 	face.add_child(fog)
 	if Assets.ok("card_frame.png"):
 		var fr := UI.tex_rect(Assets.tex("card_frame.png"), Rect2(Vector2.ZERO, face.size))
-		fr.material = _tint_mat(2)
+		fr.modulate = Color(1.3, 1.1, 1.1)
 		face.add_child(fr)
+	# 사람 모양의 흐린 윤곽 (누구인지는 알아볼 수 없다)
+	var sil := Control.new()
+	sil.size = face.size
+	sil.draw.connect(func():
+		sil.draw_circle(Vector2(120, 120) * K, 34 * K, Color(0.05, 0.0, 0.02, 0.55))
+		sil.draw_colored_polygon(PackedVector2Array([Vector2(60, 230) * K, Vector2(180, 230) * K, Vector2(150, 150) * K, Vector2(90, 150) * K]), Color(0.05, 0.0, 0.02, 0.5)))
+	face.add_child(sil)
 	omen_blur = 1.0
 
 

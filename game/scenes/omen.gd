@@ -73,7 +73,9 @@ func show_omen(cfg: Dictionary) -> void:
 	else:
 		card.setup_unknown()
 		card.apply_blur(1.0)
-	card.set_quad(_quad(), true)
+	# 카드는 손에 쥐이지 않고 손 위로 떠오른다(엄지가 문구를 가리지 않게) — 대본 1장 "손 위에 카드 한 장이 떠오른다"
+	var ck: float = o.get("cardK", 1.4)
+	card.set_rect(Vector2(o.cardX, o.cardY), ck, true)
 	card.smooth = false
 	hand_spr = Sprite2D.new()
 	hand_spr.texture = Assets.tex(GameData.D.layout.raise.img)
@@ -81,6 +83,7 @@ func show_omen(cfg: Dictionary) -> void:
 	hand_spr.position = Vector2(o.x, o.y)
 	hand_spr.scale = Vector2.ONE * float(o.scale)
 	rig.add_child(hand_spr)
+	rig.move_child(hand_spr, 0)
 	rig.visible = true
 	var from := Vector2(o.from[0], o.from[1])
 	var d: float = cfg.get("dim", 0.25)
@@ -112,10 +115,14 @@ func hide_omen() -> void:
 	showing = false
 	taut = []
 	faint = []
+	get_node("threads").queue_redraw()
 
 
 func _process(delta: float) -> void:
 	_t += delta
+	if showing and card:
+		var o := _conf()
+		card.set_rect(Vector2(o.cardX, o.cardY + sin(_t * 1.6) * 6.0), float(o.get("cardK", 1.4)), true)
 	if showing:
 		get_node("threads").queue_redraw()
 		if card and not taut.is_empty():

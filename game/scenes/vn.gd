@@ -72,7 +72,7 @@ func setup(name: String) -> void:
 	# 이벤트 제목 (위쪽 작게)
 	var tt: String = G.S.eventTitles.get(name, "")
 	title_l = UI.label(tt, 26, Color("#d9c9b8"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, 6)
-	title_l.position = Vector2(560, 200)
+	title_l.position = Vector2(560, 34)
 	title_l.size = Vector2(800, 40)
 	title_l.visible = tt != "" and name != "camp"
 	add_child(title_l)
@@ -393,7 +393,7 @@ func choose(opts: Array) -> Dictionary:
 	var w := DialogBox.Waiter.new()
 	var picked := [opts[0]]
 	choice_btns = []
-	var y := 520.0 - opts.size() * 60.0
+	var y := 600.0 - opts.size() * 60.0
 	for o in opts:
 		var b := UI.button(str(o.text), int(36 * minf(FX.ui, 1.4)), func():
 			picked[0] = o
