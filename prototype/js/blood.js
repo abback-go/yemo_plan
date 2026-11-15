@@ -95,7 +95,7 @@
     var grow = Math.min(1, age / 120);
     var sc = { k: grow, ox: s.cx * (1 - grow), oy: s.cy * (1 - grow) };
     ctx.save();
-    ctx.shadowColor = 'rgba(10,0,0,0.8)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+    ctx.shadowColor = 'rgba(10,0,0,0.8)'; ctx.shadowBlur = Game.FX.low ? 0 : 6; ctx.shadowOffsetY = 2;
     var g = ctx.createRadialGradient(s.cx - s.size * 0.15, s.cy - s.size * 0.2, s.size * 0.05, s.cx, s.cy, s.size * 1.4);
     g.addColorStop(0, 'rgba(150,10,24,0.97)'); g.addColorStop(0.45, 'rgba(112,3,16,0.96)'); g.addColorStop(1, 'rgba(66,0,8,0.96)');
     ctx.fillStyle = g;
@@ -147,20 +147,26 @@
   };
 
   // 레이어: 캔버스 하나에 여러 자국. alpha 로 전체 투명도
+  // 캔버스는 항상 1920×1080 좌표로 그린다(실제 해상도는 FX.canvasK 배율, FX.prepCanvas)
   B.layer = function (canvas) {
-    var L = { canvas: canvas, ctx: canvas.getContext('2d'), items: [], alpha: 1, last: performance.now() };
+    Game.FX.prepCanvas(canvas);
+    var L = { canvas: canvas, ctx: canvas.getContext('2d'), items: [], alpha: 1, last: performance.now(), W: 1920, H: 1080 };
     B.layers.push(L);
     return L;
   };
   B.remove = function (L) {
     var i = B.layers.indexOf(L);
     if (i >= 0) B.layers.splice(i, 1);
-    if (L && L.ctx) L.ctx.clearRect(0, 0, L.canvas.width, L.canvas.height);
+    if (L && L.ctx) { L.ctx.setTransform(1, 0, 0, 1, 0, 0); L.ctx.clearRect(0, 0, L.canvas.width, L.canvas.height); }
+  };
+  // 해상도가 바뀌면(창 크기·회전) 다시 그린다
+  B.rescale = function () {
+    B.layers.forEach(function (L) { if (Game.FX.prepCanvas(L.canvas)) L.drawnCount = -1; });
   };
   // 여러 자국을 한 번에: 영역(x0~x1, y0~y1) 안에 count 개
   B.spray = function (L, opts) {
     opts = opts || {};
-    var W = L.canvas.width, H = L.canvas.height, seed = opts.seed || Math.floor(Math.random() * 1e6);
+    var W = L.W, H = L.H, seed = opts.seed || Math.floor(Math.random() * 1e6);
     var r = rng(seed), n = opts.count || 5;
     var x0 = opts.x0 != null ? opts.x0 : 0, x1 = opts.x1 != null ? opts.x1 : W, y0 = opts.y0 != null ? opts.y0 : 0, y1 = opts.y1 != null ? opts.y1 : H;
     for (var i = 0; i < n; i++) {
@@ -189,8 +195,8 @@
       var dt = now - L.last; L.last = now;
       if (!needsDraw(L, now)) return;
       L.drawnAlpha = L.alpha; L.drawnCount = L.items.length;
-      var ctx = L.ctx;
-      ctx.clearRect(0, 0, L.canvas.width, L.canvas.height);
+      var ctx = Game.FX.ctx(L.canvas);
+      ctx.clearRect(0, 0, L.W, L.H);
       if (L.alpha <= 0 || !L.items.length) return;
       ctx.save();
       ctx.globalAlpha = L.alpha;

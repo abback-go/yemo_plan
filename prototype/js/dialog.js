@@ -35,9 +35,10 @@
     if (!item) { DL.cur = null; box.classList.add('hidden'); return; }
     var ln = item.line, who = ln.who, D = Game.DATA;
     box.classList.remove('hidden', 'inner', 'system', 'noface');
-    var faceWho = who === 'inner' ? 'noel' : who;
+    var faceWho = who === 'inner' ? 'noel' : who, faceEl = box.querySelector('.dlg-face');
+    var faces = ln.faces || (ln.face ? [ln.face] : [null]);
     if (who === 'system' || !D.faces[faceWho]) box.classList.add('noface');
-    else Game.Assets.applyFace(box.querySelector('.dlg-face'), faceWho, 96);
+    else Game.Assets.applyFace(faceEl, faceWho, 96, 1, faces[0]);
     if (who === 'inner') box.classList.add('inner');
     if (who === 'system') box.classList.add('system');
     box.querySelector('.dlg-name').textContent = who === 'system' ? '안내' : who === 'inner' ? '노엘 (속마음)' : (D.names[who] || '');
@@ -58,12 +59,21 @@
       textEl.textContent = full;
       var hold = (ln.pause || 0) + T.guideBase + T.guidePerChar * full.length;
       DL.cur.timer = setTimeout(next, Game.FX.ms(hold));
+      // 표정이 여러 개면 머무는 동안 차례로 바꾼다 (예: 놀람 → 슬픔 → 텅 빔)
+      if (faces.length > 1) {
+        var me = DL.cur;
+        faces.slice(1).forEach(function (fc, i) {
+          var t = setTimeout(function () { if (DL.cur === me) Game.Assets.applyFace(faceEl, faceWho, 96, 1, fc); }, Game.FX.ms(hold * (i + 1) / faces.length));
+          me.faceTimers = (me.faceTimers || []).concat(t);
+        });
+      }
     }
     DL.cur.finishTyping = finishTyping;
   }
   function next() {
     if (!DL.cur) return;
     clearTimeout(DL.cur.timer); clearInterval(DL.cur.typer);
+    (DL.cur.faceTimers || []).forEach(clearTimeout);
     var r = DL.cur.resolve;
     DL.cur = null;
     if (r) r();

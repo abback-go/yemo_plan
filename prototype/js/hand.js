@@ -6,13 +6,15 @@
 (function (root) {
   'use strict';
   var Game = root.Game = root.Game || {};
-  var H = Game.Hand = { els: {}, quads: {}, z: {}, hoverUid: null, dragUid: null, dragMode: null, dragPos: null, liftedUid: null };
+  var H = Game.Hand = { els: {}, quads: {}, z: {}, hoverUid: null, dragUid: null, dragMode: null, dragPos: null, liftedUid: null,
+    dy: 0, backs: [], raised: null, raiseLog: [] };
 
   function L() { return Game.DATA.layout; }
   function HL() { return Game.DATA.layout.hand; }
 
   // ───────── 기하 ─────────
-  function toScreen(p) { var h = HL(); return [h.x + p[0] * h.scale, h.y + p[1] * h.scale]; }
+  // dy: 카드를 낼 때 부채꼴 손 전체(손 그림·카드·뒷면 카드)가 함께 내려가는 거리
+  function toScreen(p) { var h = HL(); return [h.x + p[0] * h.scale, h.y + H.dy + p[1] * h.scale]; }
   function lerp(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; }
 
   // 슬롯 i(0~4)의 카드 사각형(화면 좌표): 자리 아래쪽 cardFrac 만큼
@@ -87,6 +89,7 @@
   };
   // 카드 윗변 가운데 (붉은 실이 걸리는 곳)
   H.topPoint = function (uid) {
+    if (H.raised && H.raised.uid === uid) return H.raiseTopPoint();
     if (uid === H.dragUid && H.dragMode === 'follow') { var d = H.dragRect(); return { x: d.x + d.w / 2, y: d.y + 6 }; }
     if (uid === H.hoverUid || uid === H.liftedUid) { var r = H.hoverRect(uid); return { x: r.x + r.w / 2, y: r.y + 6 }; }
     var q = H.quads[uid];
@@ -102,21 +105,169 @@
   // ───────── 손 그림 ─────────
   H.init = function () {
     var layer = document.getElementById('handLayer');
-    var old = document.getElementById('handImg');
-    if (old) old.remove();
+    ['handImg', 'raiseRig'].forEach(function (id) { var o = document.getElementById(id); if (o) o.remove(); });
+    Array.prototype.slice.call(layer.querySelectorAll('.card-back')).forEach(function (e) { e.remove(); });
     var hl = HL();
+    H.dy = 0;
     var img = Game.Assets.el(hl.img, hl.imgW, hl.imgH);
     img.id = 'handImg';
     img.style.left = hl.x + 'px'; img.style.top = hl.y + 'px';
-    img.style.transform = 'scale(' + hl.scale + ')';
+    img.style.transform = 'translateY(0px) scale(' + hl.scale + ')';
     img.style.transformOrigin = '0 0';
     layer.appendChild(img);
+    // 비는 카드 자리를 덮는 덱(뒷면 카드). 실제 손패 카드보다 아래에 깔린다
+    H.backs = [];
+    if (hl.backs) {
+      for (var i = 0; i < hl.slots.length; i++) {
+        var b = document.createElement('div');
+        b.className = 'card-back';
+        b.setAttribute('data-slot', i);
+        b.innerHTML = Game.CardArt.backSvg();
+        b.style.zIndex = 41 + (i === 2 ? 2 : i === 1 || i === 3 ? 1 : 0);
+        layer.appendChild(b);
+        H.backs.push(b);
+      }
+    }
+    H.raiseInit();
+    H.layoutBacks();
   };
   H.clear = function () {
     Object.keys(H.els).forEach(function (u) { H.els[u].remove(); });
     H.els = {}; H.quads = {}; H.z = {}; H.hoverUid = null; H.dragUid = null; H.liftedUid = null; H.dragMode = null;
+    H.raised = null; H.dy = 0;
     var layer = document.getElementById('handLayer');
-    Array.prototype.slice.call(layer.querySelectorAll('.card')).forEach(function (e) { e.remove(); });
+    Array.prototype.slice.call(layer.querySelectorAll('.card, .card-back')).forEach(function (e) { e.remove(); });
+    H.backs = [];
+  };
+  H.layoutBacks = function () {
+    H.backs.forEach(function (b, i) { b.style.transform = H.matrix3d(H.slotQuad(i)); });
+    var img = document.getElementById('handImg');
+    if (img) img.style.transform = 'translateY(' + H.dy + 'px) scale(' + HL().scale + ')';
+  };
+  // 부채꼴 손 전체를 dy만큼 내린다(카드·뒷면 카드·손 그림이 같은 시간·같은 곡선으로 움직여 어긋나지 않는다)
+  H.setDrop = function (dy) {
+    if (H.dy === dy) return;
+    H.dy = dy;
+    H.layout();
+    H.layoutBacks();
+  };
+
+  // ───────── 카드를 세워 드는 오른손 (ui_witch_hand_raise.png) ─────────
+  // #raiseRig(위치·떨림) 안에 [카드, 손 그림] — 엄지가 카드 위에 겹친다
+  function RL() { return Game.DATA.layout.raise; }
+  H.raiseInit = function () {
+    var r = RL(); if (!r) return;
+    var rig = document.createElement('div');
+    rig.id = 'raiseRig';
+    var img = Game.Assets.el(r.img, r.imgW, r.imgH);
+    img.id = 'raiseImg';
+    img.style.left = r.x + 'px'; img.style.top = r.y + 'px';
+    img.style.transform = 'scale(' + r.scale + ')';
+    img.style.transformOrigin = '0 0';
+    rig.appendChild(img);
+    rig.style.transform = 'translate(' + r.from[0] + 'px,' + r.from[1] + 'px)';
+    rig.style.opacity = 0;
+    document.getElementById('handLayer').appendChild(rig);
+  };
+  // 세운 카드 자리(화면 좌표, 손이 다 올라왔을 때)
+  H.raiseQuad = function () {
+    var r = RL();
+    return r.quad.map(function (p) { return [r.x + p[0] * r.scale, r.y + p[1] * r.scale]; });
+  };
+  // 세운 카드에 붉은 실이 걸리는 곳: 세라피나 쪽(왼쪽) 변의 위쪽 — 실이 카드 앞면을 가로지르지 않게.
+  // 손이 올라오는 중·떨리는 중에도 따라가도록 리그의 현재 변환을 적용
+  H.raiseTopPoint = function () {
+    var q = H.raiseQuad(), t = 0.12;
+    var p = { x: q[0][0] + (q[3][0] - q[0][0]) * t + 3, y: q[0][1] + (q[3][1] - q[0][1]) * t };
+    var rig = document.getElementById('raiseRig'), t = rig ? getComputedStyle(rig).transform : 'none';
+    if (t && t !== 'none' && typeof DOMMatrix !== 'undefined') {
+      var m = new DOMMatrix(t), r = m.transformPoint(new DOMPoint(p.x, p.y));
+      return { x: r.x, y: r.y };
+    }
+    return p;
+  };
+  // 카드 요소를 들어 올린다. 카드는 놓은 자리에서 올라오는 손 안으로 빨려 들어간다.
+  // opts: { slow: 죽음 카드처럼 천천히 }  반환: 손이 다 올라오면 끝나는 Promise
+  H.raiseCard = function (uid, el, opts) {
+    opts = opts || {};
+    var r = RL(), rig = document.getElementById('raiseRig'), T = Game.DATA.timing, FX = Game.FX;
+    if (!rig || !el) return Promise.resolve();
+    var up = opts.slow ? T.deathRaiseUp : T.raiseUp;
+    H.raised = { uid: uid, el: el };
+    var cd = Game.Ctl.st && Game.Ctl.st.cards[uid];
+    H.raiseLog.push(cd ? cd.id : uid);   // 시험용 기록
+    H.setDrop(HL().dropY || 0);
+    var from = el.style.transform || '';
+    el.classList.remove('hover', 'lifted', 'dragging');
+    el.classList.add('notrans', 'raised');
+    el.style.zIndex = '';
+    rig.insertBefore(el, rig.firstChild);
+    var fin = H.matrix3d(H.raiseQuad());
+    // 리그가 (from)만큼 떨어져 있으니, 카드의 처음 위치는 그만큼 되돌려 둔다
+    el.style.transform = fin;
+    var a1 = FX.anim(el, [{ transform: 'translate(' + (-r.from[0]) + 'px,' + (-r.from[1]) + 'px) ' + from }, { transform: fin }], { duration: up, easing: 'cubic-bezier(.2,.7,.3,1)' });
+    rig.style.opacity = 1;
+    var a2 = FX.anim(rig, [{ transform: 'translate(' + r.from[0] + 'px,' + r.from[1] + 'px)' }, { transform: 'translate(0px,0px)' }], { duration: up, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
+    return Promise.all([a1, a2]).then(function () {
+      rig.style.transform = 'translate(0px,0px)';
+      rig.getAnimations().forEach(function (a) { if (a !== H.trembleAnim) a.cancel(); });
+    });
+  };
+  // 세운 카드를 손에서 떼어 손패 레이어로 (날아가는 연출용). 반환: 카드 요소
+  H.releaseRaised = function () {
+    var R = H.raised;
+    if (!R) return null;
+    var el = R.el;
+    H.raised = null;
+    H.raiseTremble(false);
+    el.classList.remove('raised');
+    el.style.transform = H.matrix3d(H.raiseQuad());
+    document.getElementById('handLayer').appendChild(el);
+    return el;
+  };
+  // 손을 내리고 부채꼴 손을 되돌린다
+  H.raiseDown = function (ms) {
+    var r = RL(), rig = document.getElementById('raiseRig'), FX = Game.FX;
+    H.setDrop(0);
+    if (!rig) return Promise.resolve();
+    return FX.anim(rig, [{ transform: 'translate(0px,0px)', opacity: 1 }, { transform: 'translate(' + r.from[0] * 0.6 + 'px,' + r.from[1] * 0.6 + 'px)', opacity: 0 }],
+      { duration: ms || Game.DATA.timing.raiseDown, easing: 'ease-in', fill: 'forwards' })
+      .then(function () { rig.style.opacity = 0; rig.style.transform = 'translate(' + r.from[0] + 'px,' + r.from[1] + 'px)'; rig.getAnimations().forEach(function (a) { a.cancel(); }); });
+  };
+  // 화면 밖(컷신 중 등)에서 손을 즉시 원래대로
+  H.raiseReset = function () {
+    var r = RL(), rig = document.getElementById('raiseRig');
+    H.raiseTremble(false);
+    if (rig) {
+      rig.getAnimations().forEach(function (a) { a.cancel(); });
+      rig.style.opacity = 0; rig.style.transform = 'translate(' + r.from[0] + 'px,' + r.from[1] + 'px)';
+    }
+    var R = H.raised;
+    H.raised = null;
+    if (R && R.el) {
+      R.el.classList.remove('raised');
+      document.getElementById('handLayer').appendChild(R.el);
+    }
+    H.dy = 0;
+    Object.keys(H.els).forEach(function (u) { H.els[u].classList.add('notrans'); });
+    H.backs.forEach(function (b) { b.classList.add('notrans'); });
+    var hi = document.getElementById('handImg'); if (hi) hi.classList.add('notrans');
+    H.layout(); H.layoutBacks();
+    void document.body.offsetWidth;
+    Object.keys(H.els).forEach(function (u) { H.els[u].classList.remove('notrans'); });
+    H.backs.forEach(function (b) { b.classList.remove('notrans'); });
+    if (hi) hi.classList.remove('notrans');
+  };
+  // 들어 올린 손이 떨린다(코드로 흔들기) — 리그 전체를 흔들어 카드와 손이 함께 떨린다
+  H.raiseTremble = function (on, power) {
+    var rig = document.getElementById('raiseRig');
+    if (!rig) return;
+    if (H.trembleAnim) { H.trembleAnim.cancel(); H.trembleAnim = null; }
+    if (!on) return;
+    var p = (power || 3) * (Game.FX.reduced ? 0.3 : 1), frames = [];
+    for (var i = 0; i < 12; i++) frames.push({ transform: 'translate(' + ((Math.random() * 2 - 1) * p).toFixed(1) + 'px,' + ((Math.random() * 2 - 1) * p).toFixed(1) + 'px) rotate(' + ((Math.random() * 2 - 1) * p * 0.12).toFixed(2) + 'deg)' });
+    frames.push(frames[0]);
+    H.trembleAnim = rig.animate(frames, { duration: 520, iterations: Infinity });
   };
 
   // ───────── 카드 DOM ─────────
@@ -224,7 +375,9 @@
     var vm = Game.View.vm;
     if (!vm) return;
     var list = vm.hand.slice();
-    if (vm.ghost && list.indexOf(vm.ghost) < 0) list.splice(Math.max(0, Math.min(list.length, vm.ghostIndex)), 0, vm.ghost);
+    var raisedUid = H.raised ? H.raised.uid : null;
+    // 들어 올린 카드(죽음 카드)는 부채꼴에서 빠지고, 나머지 카드가 자리를 메운다
+    if (vm.ghost && vm.ghost !== raisedUid && list.indexOf(vm.ghost) < 0) list.splice(Math.max(0, Math.min(list.length, vm.ghostIndex)), 0, vm.ghost);
     var fan = H.fan(list.length);
     var st = Game.Ctl.st;
     list.forEach(function (uid, i) {
@@ -248,9 +401,19 @@
         el.style.zIndex = f.z;
       }
     });
-    // 목록에 없는 카드 요소 제거
+    // 목록에 없는 카드 요소 제거 (들어 올린 카드는 그대로 둔다)
     Object.keys(H.els).forEach(function (uid) {
+      if (uid === raisedUid) { delete H.quads[uid]; return; }
       if (list.indexOf(uid) < 0) { H.els[uid].remove(); delete H.els[uid]; delete H.quads[uid]; }
+    });
+  };
+  // 시험·디버그용: 손 그림의 잘린 자리(카드 자리 안쪽에서 손이 끊긴 곳)가 카드나 뒷면 카드로 덮였는지
+  // pts: 원본 손 그림 좌표 목록 → 덮이지 않은 점 목록(화면 좌표)
+  H.uncovered = function (pts) {
+    var quads = Object.keys(H.quads).map(function (u) { return H.quads[u]; });
+    if (H.backs.length) H.backs.forEach(function (b, i) { quads.push(H.slotQuad(i)); });
+    return pts.map(toScreen).filter(function (p) {
+      return !quads.some(function (q) { return inQuad(q, p[0], p[1]); });
     });
   };
 

@@ -73,12 +73,23 @@
     return A.placeholder(name, w, h, opts.phCls);
   };
 
-  // 스탠딩 그림에서 얼굴만 잘라 배경으로 (data.js faces)
-  A.applyFace = function (el, who, boxSize, zoom) {
-    var f = Game.DATA.faces[who];
-    if (!f) { el.style.backgroundImage = 'none'; return; }
+  // 표정 이름(예: 'hero_smile') → 그림 파일 이름 (data.js expressions.file)
+  A.expressionFile = function (face) {
+    var E = Game.DATA.expressions;
+    return face && E ? E.file.replace('{name}', face) : null;
+  };
+  // 얼굴을 잘라 배경으로. face(표정 이름)가 있고 그 그림이 있으면 표정 그림(data.js expressions),
+  // 없으면 스탠딩 그림에서 잘라 쓴다(data.js faces). large: 캠프 대화창의 큰 얼굴
+  A.applyFace = function (el, who, boxSize, zoom, face, large) {
+    var E = Game.DATA.expressions, file = A.expressionFile(face), f;
+    if (file && A.ok(file)) {
+      var ch = face.split('_')[0], c = ((large ? E.cropLarge : E.crop) || {})[ch] || E.crop[ch];
+      f = { img: file, cx: c.cx, cy: c.cy, size: c.size };
+    } else f = Game.DATA.faces[who];
+    if (!f) { el.style.backgroundImage = 'none'; el.removeAttribute('data-face-img'); return; }
     var sz = A.size(f.img);
-    if (!sz) { el.style.backgroundImage = 'none'; el.textContent = ''; return; }
+    if (!sz) { el.style.backgroundImage = 'none'; el.textContent = ''; el.removeAttribute('data-face-img'); return; }
+    el.setAttribute('data-face-img', f.img);
     var size = f.size / (zoom || 1);
     var k = boxSize / size;
     el.style.backgroundImage = 'url("' + A.url(f.img) + '")';
