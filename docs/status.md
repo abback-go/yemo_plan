@@ -1,0 +1,53 @@
+# 현재 상태와 다음 작업 (세션 인계용)
+
+- 기준 시각: 2026-11-15 (KST 저녁)
+- 작업 브랜치: `cc/amazing-darwin-nesbwh` (초안 PR: https://github.com/abback-go/yemo_plan/pull/7)
+- 이 문서는 세션 컨텍스트를 정리하기 전에 남긴 **최신 상태 요약**이다. 결정의 근거와 세부는 아래 문서들에 있다.
+  - [`HANDOFF.md`](../HANDOFF.md) 14장(이 세션의 결정 사항) — 최우선
+  - [`combat-system.md`](combat-system.md) 전투 규칙 · [`prototype-scope.md`](prototype-scope.md) 프로토타입 범위·화면 배치 · [`tutorial-flow.md`](tutorial-flow.md) 갈림길·이벤트
+  - 그림 프롬프트: [`prompts/`](prompts/) (01~04 캐릭터, 05 장면·적·UI·컷신, 06 추가 그림, 07 탐색 목업, 08 튜토리얼 탐색)
+
+## 1. 사용자 작업 방식 (지켜야 할 것)
+- 한국어, 간결하게. 근거 없이 동의하지 말고 반론할 것. 불확실하면 검색해서 확인.
+- 이미지 프롬프트는 **한 번에 하나씩, 그대로 붙여넣을 수 있게**(복사 경계선 안 내용만) 채팅에 준다. 결과 그림을 받으면 검수 → 배경 제거/크기 조정 → `prototype/assets/`에 저장 → 커밋·푸시.
+- 서브에이전트는 쓰기 전에 사용자에게 묻는다(이번 세션은 큰 개발 작업을 Opus 5.5 · xhigh 백그라운드 에이전트로 맡겨 왔음).
+- 사용자는 휴대폰(앱)과 PC를 오가며 확인한다. 휴대폰 앱에서는 환경 변경 승인 카드가 뜨지 않는다.
+
+## 2. 지금까지 확정된 핵심 (요약)
+- **컨셉**: 동료의 죽음을 미리 보고 그 죽음을 카드로 쓰는 마녀. 노엘은 학생이 아니라 **최강급 이름난 파티의 마녀**.
+- **파티**: 마녀 노엘 + 핵심 동료 5명(용사 세라피나·전사 브룬힐드·궁수 엘리안·사제·도적). 전투는 동료 3명 출전. 튜토리얼은 세라피나·브룬힐드·엘리안. **세라피나가 튜토리얼에서 참혹하게 사망**.
+- **전투 화면**: 마녀 1인칭 손패 + 동료 3명 뒷모습(궁수 왼쪽·용사 가운데·전사 오른쪽) + **붉은 실**(동료 등 → 손패, 죽음 카드에 팽팽). UNREASON X와 구도가 겹치지 않게 하려는 결정.
+- **규칙**: 에너지 3, 5장 드로우, 방어 = **피해 옮기기**, 쓰러지면 상처 카드, 죽음 카드 비용 0·손패 보존, 죽은 동료 카드는 **유품 카드**(강하지만 마녀 HP 소모), 상속 카드 `짓밟힘`.
+- **연출**: 대표 카드(성검 베기·저격·감싸기·저주의 불꽃·짓밟힘)는 낼 때마다 컷인. **모든 카드는 손으로 들어 올려 낸다.** 사망 컷신 8컷(C1~C8, 손·피·잔해까지 보여주는 수위).
+- **튜토리얼 흐름(확정)**: 캠프 → 1층 전투 → 이동·갈림길 3택(시체 발견 / 휴식(잠) / 훈련) → 세라피나와의 대화(계단) → 2층 광신도 → 거대 존재 → 사망 → 짓밟힘 탈출 → 빈 캠프. 오프닝(왜 던전에 왔나)은 **미정**.
+- **엔진**: HTML 프로토타입으로 재미 검증 → **Godot 4.7.2 + GDScript로 이식 중**. 갈림길·이동·지도·이벤트는 HTML에 넣지 않고 Godot에서 처음 만든다.
+
+## 3. 결과물이 어디에 있나
+| 무엇 | 위치 |
+|---|---|
+| HTML 프로토타입(전투 튜토리얼, 모바일 터치) | `prototype/` · 웹: https://abback-go.github.io/yemo_plan/ |
+| Godot 버전(이식 중) | `game/`(에이전트가 생성) · 웹: https://abback-go.github.io/yemo_plan/godot/ (CI 배포) · CI 스크린샷: gh-pages `godot-ci/` |
+| 에스카(이전 게임) | 웹: https://abback-go.github.io/yemo_plan/eska/ · 브랜치 `cc/vigilant-dirac-751x7b`(빌드 설정을 `eska/` 폴더에만 올리도록 수정함) |
+| 게임 그림(투명 PNG 등 46개) | `prototype/assets/` |
+| 원본(초록/마젠타 배경 등) | `art/raw/` |
+| 캐릭터 시트 | `reference/sheets/` |
+| 목업·참고 이미지 | `reference/images/` (01 외부 레퍼런스는 사용 금지, 10은 마케팅용 대표 이미지) |
+| 옛 claude.ai 링크 | https://claude.ai/artifact/KxYn4FgfipSCo6nuqF7Mkx (v1에서 멈춤, 더 쓰지 않음) |
+
+## 4. 도구
+- `tools/remove_bg.py` — 크로마(초록 #00FF00 / 마젠타 #FF00FF) 배경 제거. 옵션 `--keep-canvas`(화면 배치용 그림), `--thin N`(카드 외곽선 같은 가는 선 제거), `--min-area N`(부스러기 제거). 궁수처럼 초록 옷은 마젠타 배경으로 뽑는다.
+- `tools/build_web.py 출력폴더` — HTML 웹 배포본 생성(PNG→WebP, 67MB→8MB, index.html에 `GAME_ASSET_EXT='webp'` 주입).
+- `tools/make_char_prompts.py docs/prompts` — 캐릭터 프롬프트 01~04 재생성기(CHARACTER ANCHOR가 여기 들어 있음).
+- HTML 테스트: `node --test prototype/tests/rules.test.js`(23개), `node prototype/tests/smoke.js <스크린샷폴더>`(67항목, 5~6분).
+- HTML 웹 배포 절차: `python3 tools/build_web.py <폴더>` → gh-pages 브랜치 체크아웃(워크트리) → 루트의 `index.html css js assets`만 교체(`eska/`·`godot/`·`godot-ci/` 건드리지 말 것) → `version.txt` 갱신 → 커밋·푸시.
+
+## 5. 진행 중
+- **Godot 이식 백그라운드 에이전트**(Opus 5.5 · xhigh, 2026-11-15 시작): 튜토리얼 전체 + 이동(걸어 들어가는 연출)·지도(층 표시·죽음 표식)·갈림길 3택·세라피나 대화·빈 캠프, **카드 들 때 손이 셋 보이는 버그**(왼손은 손패 유지, 오른손만 빠져 카드를 듦), 모바일 글씨 크기 개선, 그림 압축. `cc/amazing-darwin-nesbwh`에 직접 푸시하며 CI(`.github/workflows/witch-web-build.yml`)로 빌드·GDScript 테스트·Playwright 스모크·스크린샷 검증. 끝나면 결과 보고 → 검토.
+- **네트워크 환경 허용 요청 대기**: 이 클라우드에서 Godot를 직접 받으려면 이 저장소용 개인 환경(`yemo_plan`, 허용 호스트 github.com · objects.githubusercontent.com · release-assets.githubusercontent.com)이 필요. 휴대폰 앱에서는 승인 카드가 안 떠서 미처리. PC의 claude.ai에서 "환경 허용 다시 요청해줘"라고 하면 다시 요청.
+
+## 6. 남은 일 / 미정
+- Godot 결과 검토 → 루트를 Godot 버전으로 바꿀지 결정.
+- 실기기 확인 필요: 아이폰 사파리에서 노엘 스탠딩 비율, 노치 영역, 길게 누르기.
+- 미정 기획: 오프닝, 마녀만 죽음을 보는 이유, 죽음 카드의 정식 이름(인스크립션 'Deathcard'와 겹침), 사제·도적 이름·외형, 임시 동료 설계, 시체 발견 길의 보상 유무, 파티 성비(UNREASON X '미소녀 동료 사망'과의 겹침 완화 검토).
+- 그림 후보(필요할 때): 일반 카드 그림 10장, 광신도 공격 포즈, 세라피나·엘리안 공격 후속 포즈.
+- 마케팅 원칙: 문구는 "동료가 죽는다"가 아니라 "죽음을 미리 보고 카드로 쓰는 마녀".

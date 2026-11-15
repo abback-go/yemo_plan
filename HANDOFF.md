@@ -1,5 +1,7 @@
 # 인계 문서 — 잔혹 판타지 카드 RPG (가제: 죽음을 보는 마녀)
 
+> **가장 최신 상태는 [`docs/status.md`](docs/status.md)를 먼저 읽을 것.** (진행 중 작업, 결과물 위치, 도구, 남은 일)
+
 - 인계일: 2026-11-15
 - 이전 기획 문서(초기 정리본, 이 파일이 더 최신): https://claude.ai/artifact/BX1N57JgC3iskALyN3P4Ba
 - 이 폴더 구성
