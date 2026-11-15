@@ -1,0 +1,16 @@
+# 추가 그림 프롬프트 (핵심 카드 그림 · 행동 컷인 · 뒷모습 행동 포즈)
+# 한 번에 하나씩 입력. 제목의 화면비를 꼭 맞출 것. 복사 경계선 사이를 통째로 복사.
+# 카드 그림은 card_frame.png의 그림 창(약 800x795, 거의 정사각형)에 들어간다 → 1:1로 뽑는다.
+
+[1] 카드 그림 「용사의 죽음」 → prototype/assets/card_art_hero_death.png — 화면비: 1:1 정사각
+- - - 여기부터 복사 - - -
+Square illustration for a card in a dark fantasy card game, 1:1. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+A centered close-up portrait of Seraphina, the hero: an adult woman in her late twenties with a calm, confident face and steel-blue eyes, long silver hair gathered into a high ponytail that falls as one thick braid, tied at the crown with a deep red ribbon bow, a few loose strands framing her face, silver plate armor with engraved gold trim at the shoulders and a deep red cape.
+She looks straight at the viewer with a soft, gentle, closed-mouth smile, unaware.
+The whole portrait is drained of life: her colors are faded to ash gray and charcoal black, as if the image has been burned and blackened like an old charred photograph, with cracks and soot creeping in from the edges and across one side of her face. Only the deep red ribbon in her hair keeps its color.
+From the top edge, the dark shadow of a colossal foot falls over the portrait, covering the top of her head.
+A thin deep red thread runs out of the bottom of the image, as if tied to her.
+Composition centered, her face filling most of the square, simple dark background. No text, no letters, no numbers, no frame, no border.
+
+AVOID: text, letters, card frame, border, bright colors other than the red ribbon and thread, gore, open-mouth smile, looking up, watermark, signature.
+- - - 여기까지 복사 - - -
