@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>죽음을 보는 마녀 — 튜토리얼 프로토타입</title>
+<title>죽음을 보는 마녀</title>
 <!-- 외부 폰트(없어도 시스템 폰트로 대체됨) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@400;700;900&display=swap">
 <link rel="stylesheet" href="css/style.css">
@@ -41,6 +41,7 @@
 </div>
 <div id="rotateHint"><div class="rot-icon"></div><div>가로로 돌려 주세요</div><small>이 게임은 가로 화면(16:9)으로 플레이합니다</small></div>
 <!-- 전역 네임스페이스 window.Game 하나만 사용 (ES 모듈 아님 → file:// 로 열어도 동작) -->
+<script>window.GAME_ASSET_EXT = 'webp';</script>
 <script src="js/data.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/assets.js"></script>

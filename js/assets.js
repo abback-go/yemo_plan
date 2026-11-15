@@ -7,8 +7,11 @@
   var Game = root.Game = root.Game || {};
   var A = Game.Assets = { status: {} };
 
+  // 웹 배포본은 그림을 WebP로 압축해 올린다(tools/build_web.py가 index.html에 GAME_ASSET_EXT를 넣음).
   A.url = function (name) {
     if (name.indexOf('/') >= 0) return name;          // 상대 경로(예: ../reference/...)는 그대로
+    var ext = root.GAME_ASSET_EXT;
+    if (ext && /\.png$/.test(name)) name = name.replace(/\.png$/, '.' + ext);
     return Game.DATA.assetDir + name;
   };
 
@@ -23,16 +26,19 @@
       }
       img.onload = function () { fin(true); };
       img.onerror = function () { fin(false); };
-      setTimeout(function () { fin(false); }, 8000);
+      // 시간 제한 없음: 느린 휴대폰 회선에서도 다 받을 때까지 기다린다(없는 파일은 onerror로 바로 끝남)
       img.src = A.url(name);
     });
   }
 
   // 목록의 그림을 모두 확인한다. 컷신 대체 그림(fallback)도 함께 확인.
-  A.load = function () {
+  A.load = function (onProgress) {
     var D = Game.DATA, list = D.assets.slice();
     (D.cutscene.cuts || []).forEach(function (c) { if (c.fallback && list.indexOf(c.fallback) < 0) list.push(c.fallback); });
-    return Promise.all(list.map(probe));
+    var done = 0;
+    return Promise.all(list.map(function (n) {
+      return probe(n).then(function () { done++; if (onProgress) onProgress(done, list.length); });
+    }));
   };
 
   A.ok = function (name) { return !!(A.status[name] && A.status[name].ok); };
