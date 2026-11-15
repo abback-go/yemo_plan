@@ -232,23 +232,35 @@
    "ok": true
   },
   {
-   "name": "경로 D 진행",
-   "ok": false,
-   "detail": "시간 초과: 안내 · stage=battle:normal scene="
+   "name": "안내 상자를 터치 탭으로 넘김",
+   "ok": true
   },
   {
-   "name": "경로 E 진행",
-   "ok": false,
-   "detail": "시간 초과: 1턴 · stage=battle:normal scene="
+   "name": "터치 드래그로 성검 베기 → 광신도 처치",
+   "ok": true
+  },
+  {
+   "name": "휴대폰에서도 손은 둘 이하",
+   "ok": true,
+   "detail": "휴대폰 maxHands=2 now=2"
+  },
+  {
+   "name": "느린 속도에서도 손은 언제나 둘 이하",
+   "ok": true,
+   "detail": "느린 속도 전체 maxHands=2 now=2"
+  },
+  {
+   "name": "저주의 불꽃 컷인(노엘)",
+   "ok": true,
+   "detail": [
+    "curse_flame"
+   ]
   },
   {
    "name": "브라우저 콘솔 에러 0",
-   "ok": false,
-   "detail": "A: ERROR: Condition \"p_pattern.is_empty()\" is true. Returning: nullptr | A:    at: find_child (scene/main/node.cpp:1991)"
+   "ok": true,
+   "detail": ""
   }
  ],
- "errors": [
-  "A: ERROR: Condition \"p_pattern.is_empty()\" is true. Returning: nullptr",
-  "A:    at: find_child (scene/main/node.cpp:1991)"
- ]
+ "errors": []
 }
