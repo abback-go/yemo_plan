@@ -1,0 +1,83 @@
+# 장면·적·UI 그림 프롬프트 (튜토리얼 프로토타입용)
+# 한 번에 하나씩 입력. 제목의 화면비를 꼭 맞출 것. 복사 경계선 사이를 통째로 복사.
+
+[1] 전투 배경 → prototype/assets/bg_cathedral.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Dark fantasy card game battle background, 16:9, anime illustration style. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+An EMPTY stage with no characters. First-person view from a person standing in the nave of a ruined gothic cathedral, the camera slightly above head height and looking a little downward along a wide, cracked, wet stone floor toward a distant altar with stairs and a glowing deep red rose window.
+Collapsed pillars and rubble at the left and right sides, tattered deep red banners hanging from broken arches, a few candles. The center and the lower half of the floor are open and uncluttered, because characters will be placed there later.
+Cold blue-gray palette with a single deep red accent, faint mist near the floor.
+No people, no creatures, no statues of people in the foreground, no text, no letters, no UI.
+
+AVOID: characters, figures, silhouettes of people, weapons on the floor in the center, bright saturated colors, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[2] 캠프 배경 → prototype/assets/bg_camp.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Dark fantasy visual novel background, 16:9, anime illustration style. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+An EMPTY night camp in a small sheltered alcove of a ruined gothic cathedral: a crackling campfire in the center with a small iron pot hanging over it, four bedrolls and travel packs around it, a huge iron tower shield leaning against a broken pillar, a longbow and a quiver resting on a pack, a few candles on a fallen stone block.
+Warm orange firelight on the near floor and walls contrasting with the cold blue-gray darkness and broken stained glass beyond. Eye-level camera. The lower middle of the frame is open space in front of the fire, because standing characters will be placed there later.
+A quiet, gentle, fragile moment of rest.
+No people, no creatures, no text, no letters, no UI.
+
+AVOID: characters, figures, silhouettes of people, bright saturated colors other than the firelight, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[3] 광신도 (적) → prototype/assets/spr_cultist.png — 화면비: 2:3 세로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+A human-sized hollow-eyed cultist of a death cult: a gaunt figure in long tattered gray robes with a faded deep red sash and a crude red sun-like sigil painted on the chest, a deep hood that hides the face in darkness except for two faint pale glowing eyes, bandaged hands, holding a rusted curved blade in the right hand.
+
+Single full-body front view of this enemy, vertical 2:3 portrait composition, centered, full figure from head to feet with a small even margin, standing slightly hunched and facing the viewer, menacing but still. Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the subject.
+No text, no labels, no other views, no cropping.
+
+AVOID: extra fingers, visible face, skull face, bright saturated colors on the figure, multiple figures, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[4] 거대 존재의 발 → prototype/assets/spr_giant_foot.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent.
+
+The sole and toes of one colossal humanoid foot, far too big to fit in the frame, descending from above toward the viewer. It is cropped by the top edge of the 16:9 frame at the ankle and fills the upper 60 percent of the frame; we look up at the underside of the foot and the front of the toes. Cracked gray stone-like skin stained with dried dark blood, anatomically shaped toes with cracked toenails (NOT log-shaped or cylindrical), deep creases on the sole, dust and a few small stones falling from it.
+Nothing else in the frame: no ground, no buildings, no people. Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the subject.
+No text.
+
+AVOID: log-shaped toes, cylindrical toes, cute or chubby foot, a whole giant body, ground, buildings, people, bright saturated colors on the foot, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[5] 카드 앞면 프레임 → prototype/assets/card_frame.png — 화면비: 2:3 세로
+- - - 여기부터 복사 - - -
+Front frame of a single playing card for a dark fantasy card game, Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+The card fills a vertical 2:3 frame with a small even margin. An ornate gothic border of tarnished silver and dark iron with thin filigree, a thin deep red inner line, and a small round empty gem socket at the top left corner for the cost.
+Inside the border there are two areas: an upper window for an illustration (about the top 55 percent) and a lower panel for text (about the bottom 35 percent), separated by a thin ornate bar. BOTH the upper window and the lower panel are filled with flat, solid pure green (#00FF00) with no texture.
+Outside the card, the background is also flat, solid pure green (#00FF00).
+No text, no letters, no symbols, no illustration, no numbers.
+
+AVOID: text, letters, numbers, card art, gems filled with color, bright saturated colors on the border, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[6] 용사 사망 컷신 (리버스 샷) → prototype/assets/cut_hero_reverse.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Cinematic anime illustration, 16:9, dark fantasy. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+Eye-level medium close-up, the camera directly facing Seraphina. She is not looking up.
+Seraphina, the hero and leader of an adventuring party: an adult woman in her late twenties, tall and athletic, with a calm, confident face and steel-blue eyes. Her presence feels overwhelmingly strong and reliable. Long silver hair gathered into a high ponytail that falls as one thick braid down her back, tied at the crown with a deep red ribbon bow, a few loose strands framing her face. Polished silver plate armor with engraved gold trim over a dark gray gambeson, layered pauldrons, plated gauntlets and armored boots with low heels. A long deep red cape, slightly tattered at the hem, fastened at both shoulders. A sacred longsword with a cross-shaped silver guard and a faint pale-white glow along the blade, carried in a scabbard on her left hip.
+She makes direct eye contact with the viewer, looking straight into the camera lens, with a soft, gentle, closed-mouth smile. She is calm and trusting, as if reassuring the person who is watching her.
+She has her back turned to the danger and cannot see it. Behind her head, in the background, a colossal foot descends from the top of the frame, cropped by the top edge. Its skin is cracked, gray and stone-like, stained with dried blood, with anatomically shaped toes with cracked toenails, sunk in deep shadow. The upper third of the frame is already swallowed by the foot's shadow.
+Setting: a ruined gothic cathedral with a glowing deep red rose window and tattered red banners in the distance.
+Lighting: warm, soft light on her face from the front; cold darkness from the foot's shadow creeping down from above. Dust and small stones begin to fall around her hair, which lifts slightly in the wind pressure.
+Mood: tragic, beautiful, ominous, quiet. No gore, no text, no letters.
+
+AVOID: looking up, open-mouth smile, crazed expression, log-shaped toes, gore, blood on her, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[7] 부러진 성검만 남은 빈자리 → prototype/assets/cut_broken_sword.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Cinematic anime illustration, 16:9, dark fantasy. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+Eye-level view of an empty spot on the cracked stone floor of a ruined gothic cathedral, moments after a colossal impact: a huge, deep footprint pressed into the shattered stone, dust still settling in a single beam of cold light.
+In the center of the footprint lies a sacred longsword with a cross-shaped silver guard, snapped in half, its faint pale glow dying out, beside a torn piece of deep red cape and a deep red ribbon.
+No body, no blood pools, no gore. Quiet, empty, mournful.
+Cold blue-gray palette with a single deep red accent. No text, no letters.
+
+AVOID: a person, a body, gore, blood pools, bright saturated colors, watermark, signature.
+- - - 여기까지 복사 - - -
