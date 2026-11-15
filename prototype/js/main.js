@@ -27,15 +27,16 @@
   function frame(now) {
     var dt = last ? Math.min(100, now - last) : 16;
     last = now;
-    var tc = document.getElementById('threadCanvas').getContext('2d');
+    var tc = Game.FX.ctx(document.getElementById('threadCanvas'));
     tc.clearRect(0, 0, 1920, 1080);
     Game.View.drawThreads(tc, now);
     Game.FX.updateParticles(dt);
-    var fc = document.getElementById('fxCanvas').getContext('2d');
+    var fc = Game.FX.ctx(document.getElementById('fxCanvas'));
     fc.clearRect(0, 0, 1920, 1080);
     Game.FX.drawParticles(fc);
     Game.FX.drawOverlays(fc, now);
     Game.View.drawBroken(fc, now);
+    Game.View.drawRaisedThread(fc, now);
     Game.Input.drawOverlay(fc, now);
     Game.Blood.render(now);
     requestAnimationFrame(frame);

@@ -8,6 +8,8 @@
   --ink: #0b0c10;
   --paper: #e9e2d2;
   --steel: #9aa3b5;
+  /* 거대 존재의 그림자(위쪽 어둠). #shadowLayer 와 동료 그림 위 덮개(.shade)가 같은 세로 그라데이션을 쓴다 */
+  --shadow-mask: linear-gradient(to bottom, rgba(0,0,0,.97) 0%, rgba(0,0,0,.9) 26%, rgba(0,0,0,.62) 46%, rgba(0,0,0,.25) 62%, rgba(0,0,0,0) 78%);
 }
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
 body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-select: none; }
@@ -18,10 +20,13 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
 }
 #world { position: absolute; inset: 0; }
 #bgLayer, #enemyLayer, #allyLayer, #handLayer, #hudLayer, #floatLayer, #sceneLayer { position: absolute; inset: 0; }
+/* 레이어 순서: 배경 < 광신도(10) < 그림자(12) < 거대한 발(15) < 동료(20, 그림자는 각자 .shade) < 붉은 실(40) < 손패 */
 #shadowLayer {
-  position: absolute; inset: 0; z-index: 30; pointer-events: none; opacity: 0;
+  position: absolute; inset: 0; z-index: 12; pointer-events: none; opacity: 0;
   background: linear-gradient(to bottom, rgba(2,2,6,.97) 0%, rgba(4,3,8,.9) 26%, rgba(6,4,10,.62) 46%, rgba(6,4,10,.25) 62%, rgba(0,0,0,0) 78%);
 }
+/* 캔버스는 항상 1920×1080 크기로 보인다(실제 해상도는 터치 기기에서 낮출 수 있다: FX.canvasK) */
+#threadCanvas, #bloodCanvas, #fxCanvas, .cut canvas { width: 1920px; height: 1080px; }
 #threadCanvas { position: absolute; left: 0; top: 0; z-index: 40; pointer-events: none; }
 #bloodCanvas { position: absolute; left: 0; top: 0; z-index: 85; pointer-events: none; }
 #fxCanvas { position: absolute; left: 0; top: 0; z-index: 200; pointer-events: none; }
@@ -59,7 +64,8 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
 .enemy { position: absolute; z-index: 10; transform-origin: 50% 100%; }
 .enemy .body { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
 .enemy .body img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.enemy.giant { z-index: 32; transform-origin: 50% 0; } /* 그림자를 드리우는 쪽이라 그림자 레이어 위, 대신 조금 어둡게 */
+.enemy.giant { z-index: 15; transform-origin: 50% 0; } /* 동료 뒤(배경 쪽). 그림자를 드리우는 쪽이라 그림자 레이어 위, 대신 조금 어둡게 */
+.enemy.giant.crushing { z-index: 34; } /* 마지막 짓밟기만 일행을 덮친다 */
 .enemy.giant .body { filter: brightness(.72) contrast(1.05); }
 .enemy.hit .body { animation: hitflash .35s; }
 .enemy.dead { opacity: 0; transition: opacity .5s, transform .5s; }
@@ -69,8 +75,17 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
 }
 .enemy.target-hot .body::after, .ally.target-hot .body::after { border-color: #ffd36b; box-shadow: 0 0 34px rgba(255, 210, 100, 1); }
 .ally { position: absolute; z-index: 20; transform-origin: 50% 0; }
+.ally .pose { position: absolute; inset: 0; animation: breathe 3.8s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--breathe-amp, -1.5px)); } }
 .ally .body { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
-.ally .body img { width: 100%; height: 100%; display: block; }
+.ally .body img, .ally .act img { width: 100%; height: 100%; display: block; }
+.ally .act { position: absolute; opacity: 0; pointer-events: none; }
+.ally img.shade { position: absolute; left: 0; top: 0; pointer-events: none; opacity: 0; filter: brightness(0);
+  -webkit-mask-image: var(--shadow-mask); mask-image: var(--shadow-mask);
+  -webkit-mask-size: 1920px 1080px; mask-size: 1920px 1080px; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+.ally .ph.shade { display: none; }
+.afterimage { position: absolute; z-index: 19; pointer-events: none; filter: brightness(1.8) saturate(.4); }
+@media (prefers-reduced-motion: reduce) { .ally .pose { animation: none; } }
 .ally.valid .body::after { inset: 0 10% 55% 10%; }
 .ally.down .body { filter: grayscale(1) brightness(.45); transition: filter .6s; }
 .ally.dead { opacity: 0; transition: opacity .2s; }
@@ -173,7 +188,16 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
   background: rgba(0,0,0,.65); border: 1px solid #4a3a3e; border-radius: 10px; padding: 3px 10px; white-space: nowrap; }
 
 /* ───────── 손패 ───────── */
-#handImg { position: absolute; z-index: 80; pointer-events: none; transform-origin: 0 0; }
+#handImg { position: absolute; z-index: 80; pointer-events: none; transform-origin: 0 0; transition: transform .22s ease-out; }
+#handImg.notrans, .card-back.notrans { transition: none; }
+/* 비는 카드 자리에 깔린 덱(뒷면 카드): 손패 카드(50~)보다 아래 */
+.card-back { position: absolute; left: 0; top: 0; width: 240px; height: 360px; transform-origin: 0 0; pointer-events: none; border-radius: 14px;
+  transition: transform .22s ease-out; filter: brightness(.82); backface-visibility: hidden; }
+.card-back svg { display: block; width: 100%; height: 100%; }
+/* 카드를 세워 드는 오른손: [카드, 손 그림] 순서로 쌓여 엄지가 카드 위 */
+#raiseRig { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 141; pointer-events: none; }
+#raiseImg { position: absolute; transform-origin: 0 0; pointer-events: none; }
+.card.raised { z-index: 0 !important; }
 .card {
   position: absolute; left: 0; top: 0; width: 240px; height: 360px; box-sizing: border-box; transform-origin: 0 0;
   border-radius: 14px; z-index: 50; color: #eee; pointer-events: none;
@@ -314,15 +338,22 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
 .vn .vn-bg img { width: 100%; height: 100%; object-fit: cover; }
 .vn .vn-fire { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 85%, rgba(255,140,40,.22), rgba(0,0,0,0) 55%); animation: fire 2.4s infinite alternate; }
 @keyframes fire { from { opacity: .7; } to { opacity: 1; } }
+/* 스탠딩: 너비·높이를 그림 원래 비율로 JS 가 정한다(scenes.js). 그림은 상자를 비율 그대로 채운다 */
 .vn .stand { position: absolute; top: 120px; height: 1010px; transform: translateX(-50%); transition: left .45s, filter .35s, opacity .4s; opacity: 0; }
 .vn .stand.on { opacity: 1; }
 .vn .stand.dim { filter: brightness(.5) saturate(.7); }
-.vn .stand img, .vn .stand .ph { height: 100%; width: auto; display: block; position: relative; }
+.vn .stand img, .vn .stand .ph { width: 100%; height: 100%; object-fit: contain; display: block; position: relative; }
 .vn .vn-box {
   position: absolute; left: 160px; right: 160px; bottom: 30px; height: 230px; box-sizing: border-box; padding: 54px 60px 20px;
   background: linear-gradient(rgba(10,6,9,.86), rgba(6,3,5,.95)); border: 1px solid #5a2a32; border-top: 3px solid #8c1a26; border-radius: 12px;
   box-shadow: 0 8px 40px rgba(0,0,0,.9);
 }
+/* 말하는 사람의 표정(큰 얼굴): 표정 그림이 있는 대사만 */
+.vn .vn-face { position: absolute; left: 26px; bottom: 18px; width: 230px; height: 230px; display: none; border-radius: 10px;
+  border: 2px solid #8c1a26; background-color: #111; background-repeat: no-repeat; box-shadow: 0 6px 24px rgba(0,0,0,.9); }
+.vn .vn-box.has-face { padding-left: 290px; }
+.vn .vn-box.has-face .vn-face { display: block; }
+.vn .vn-box.has-face .vn-name { left: 290px; }
 .vn .vn-name { position: absolute; left: 40px; top: -26px; padding: 8px 30px; background: #1a0a0e; border: 1px solid #8c1a26; border-radius: 8px;
   font: 700 26px var(--serif); color: #ffb6bd; min-width: 120px; text-align: center; }
 .vn .vn-name.empty { display: none; }
@@ -377,3 +408,17 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
 #debugPanel .assets .miss { color: #f88; }
 #debugPanel .assets .ok { color: #8f8; }
 #debugPanel .state { font: 12px/1.4 monospace; white-space: pre-wrap; color: #aaa; }
+
+/* ───────── 컷인 (대표 카드) ───────── */
+#cutinLayer { position: absolute; inset: 0; z-index: 260; pointer-events: none; }
+#cutinLayer.on { pointer-events: auto; }
+.cutin { position: absolute; inset: 0; cursor: pointer; }
+.cutin .ci-band { position: absolute; inset: 0; overflow: hidden;
+  background: linear-gradient(100deg, #1a0006 0%, #4a0812 38%, #6a0c18 52%, #3a0510 70%, #12000a 100%); }
+.cutin .ci-band::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 52% 50%, rgba(255,90,100,.18), rgba(0,0,0,0) 60%); }
+.cutin .ci-lines { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+.cutin .ci-char { position: absolute; display: block; filter: drop-shadow(0 0 18px rgba(0,0,0,.85)); }
+.cutin .ci-edge { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 120px rgba(0,0,0,.75); }
+.cutin.heavy .ci-band { background: linear-gradient(100deg, #000 0%, #2a0004 35%, #5a0008 52%, #1a0003 72%, #000 100%); }
+.cutin.heavy .ci-char { filter: drop-shadow(0 0 26px rgba(255,20,40,.55)) contrast(1.08); }

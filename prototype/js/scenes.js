@@ -37,7 +37,7 @@
   };
 
   // ───────── 캠프 대화 ─────────
-  var SLOT_X = { FL: 250, L: 600, C: 960, R: 1320, FR: 1670 };
+  var SLOT_X = { FL: 250, L: 600, C: 960, R: 1320, FR: 1670 }, STAND_H = 1010;
   S.camp = function () {
     return new Promise(function (resolve) {
       Game.Ctl.inBattle = false;
@@ -50,12 +50,14 @@
       Object.keys(D().standing).forEach(function (k) {
         var s = div('stand', el);
         s.setAttribute('data-char', k);
-        var img = Game.Assets.el(D().standing[k], null, 1010);
-        if (img.classList.contains('ph')) img.style.width = '430px';
-        s.appendChild(img);
+        // 너비를 그림의 원래 비율로 직접 정한다(화면 오른쪽 끝 자리에서도 상자가 줄어들어 그림이 찌그러지지 않게)
+        var file = D().standing[k], sz = Game.Assets.size(file), h = STAND_H, w = sz ? h * sz.w / sz.h : 430;
+        s.style.width = w + 'px'; s.style.height = h + 'px';
+        s.appendChild(Game.Assets.el(file, w, h));
         stands[k] = s;
       });
       var box = div('vn-box', el);
+      var face = div('vn-face', box);
       var nm = div('vn-name', box), tx = div('vn-text', box), nx = div('vn-next', box);
       nx.textContent = '▼';
       var skip = div('vn-skip', el);
@@ -85,6 +87,11 @@
         if (sp === 'inner') nmText = '노엘';
         nm.textContent = nmText;
         nm.classList.toggle('empty', !nmText);
+        // 말하는 사람의 표정 (표정 그림이 있는 대사만 큰 얼굴로)
+        var hasFace = !!(ln.face && Game.Assets.ok(Game.Assets.expressionFile(ln.face)));
+        box.classList.toggle('has-face', hasFace);
+        if (hasFace) Game.Assets.applyFace(face, who, 230, 1, ln.face, true);
+        else face.removeAttribute('data-face-img');
         tx.className = 'vn-text' + (sp === 'narr' ? ' narr' : sp === 'inner' ? ' inner' : '');
         full = sp === 'inner' ? '(' + ln.text + ')' : ln.text;
         tx.textContent = '';

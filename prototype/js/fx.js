@@ -7,6 +7,27 @@
   var Game = root.Game = root.Game || {};
   var FX = Game.FX = { speed: 1, particles: [], overlays: [] };
 
+  function mq(q) { return !!(root.matchMedia && root.matchMedia(q).matches); }
+  // 움직임 줄이기(운영체제 설정): 흔들림·돌진·숨쉬기를 약하게
+  FX.reduced = mq('(prefers-reduced-motion: reduce)');
+  // 터치 기기(휴대폰·태블릿): 입력 보정 + 무거운 캔버스 효과(피·실·입자)를 가볍게
+  FX.touch = (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) || mq('(pointer: coarse)');
+  FX.low = FX.touch;
+  FX.canvasK = 1;     // 1920×1080 캔버스의 실제 해상도 배율 (터치 기기에서 화면 크기·기기 픽셀 비율(최대 2)에 맞춰 낮춘다)
+
+  // 캔버스 해상도를 FX.canvasK 에 맞춘다. 그리는 쪽은 FX.ctx(cv) 로 1920×1080 좌표를 그대로 쓴다
+  FX.prepCanvas = function (cv) {
+    var k = FX.canvasK;
+    if (!cv || cv._k === k) return false;
+    cv.width = Math.round(1920 * k); cv.height = Math.round(1080 * k); cv._k = k;
+    return true;
+  };
+  FX.ctx = function (cv) {
+    var c = cv.getContext('2d'), k = cv._k || 1;
+    c.setTransform(k, 0, 0, k, 0, 0);
+    return c;
+  };
+
   FX.ms = function (ms) { return Math.max(0, ms / FX.speed); };
   FX.wait = function (ms) { return new Promise(function (r) { setTimeout(r, FX.ms(ms)); }); };
   FX.$ = function (id) { return document.getElementById(id); };
@@ -24,7 +45,7 @@
 
   // 화면 흔들림
   FX.shake = function (power, dur) {
-    power = power || 10; dur = dur || 380;
+    power = (power || 10) * (FX.reduced ? 0.3 : 1); dur = dur || 380;
     var w = FX.$('world'), frames = [], n = 10;
     for (var i = 0; i < n; i++) {
       var k = 1 - i / n;
@@ -36,6 +57,7 @@
   // 임의 요소 흔들림 (컷신용)
   FX.shakeEl = function (el, power, dur, rot) {
     var frames = [], n = 12;
+    if (FX.reduced) { power *= 0.3; rot = rot ? rot * 0.3 : rot; }
     for (var i = 0; i < n; i++) {
       var k = 1 - i / n;
       var r = rot ? ((Math.random() * 2 - 1) * rot * k).toFixed(2) : 0;

@@ -111,7 +111,8 @@
   V.clear = function () {
     ['bgLayer', 'enemyLayer', 'allyLayer', 'hudLayer'].forEach(function (id) { $(id).innerHTML = ''; });
     Game.Hand.clear();
-    var hi = $('handImg'); if (hi) hi.remove();
+    ['handImg', 'raiseRig'].forEach(function (id) { var o = $(id); if (o) o.remove(); });
+    if (Game.Cutin && Game.Cutin.active) Game.Cutin.active.finish();
     $('shadowLayer').style.opacity = 0;
     V.els = { enemies: {}, allies: {}, hpAlly: {}, hpEnemy: {}, intents: {} };
     V.vm = null;
@@ -128,13 +129,18 @@
     $('bgLayer').appendChild(bg);
 
     // 동료 뒷모습 (좌우 반전 없음)
+    // .ally(위치·타격 움직임) > .pose(숨쉬기) > .body(기본 자세) + .act(행동 자세). 각 그림 위에 거대 존재의 그림자(.shade)
     st.party.order.forEach(function (id) {
       var a = st.party.allies[id], box = V.allyBox(id), conf = ly.allies[id];
       var el = div('ally', $('allyLayer'));
       el.setAttribute('data-ally', id);
       el.style.left = box.x + 'px'; el.style.top = box.y + 'px'; el.style.width = box.w + 'px'; el.style.height = box.h + 'px';
-      var body = div('body', el);
+      var pose = div('pose', el);
+      var body = div('body', pose);
       body.appendChild(Game.Assets.el(conf.img, box.w, box.h));
+      function shade(img, w, h, ox, oy) { return V.shadeEl(img, w, h, box.x + ox, box.y + oy); }
+      body.appendChild(shade(conf.img, box.w, box.h, 0, 0));
+      Game.Motion.buildAlly(id, el, shade);
       V.els.allies[id] = el;
       var hp = div('hp-ally', $('hudLayer'));
       var p = V.allyHpPos(id);
@@ -338,11 +344,23 @@
     if (wp) wp.classList.toggle('target-hot', allyId === 'witch');
   };
 
+  // 거대 존재의 그림자: 배경·적에는 #shadowLayer(발보다 아래 레이어), 동료에게는 각 그림 모양대로 덮는 .shade
+  // (발이 동료 뒤에 있어도 그림자는 동료 위에 드리워진다)
   V.setShadow = function (v, ms) {
+    var tr = 'opacity ' + (FX.ms(ms == null ? 1200 : ms) / 1000) + 's';
     var s = $('shadowLayer');
-    s.style.transition = 'opacity ' + (FX.ms(ms == null ? 1200 : ms) / 1000) + 's';
+    s.style.transition = tr;
     s.style.opacity = v;
+    Array.prototype.forEach.call(document.querySelectorAll('#allyLayer .shade'), function (e) { e.style.transition = tr; e.style.opacity = v; });
     if (V.vm) V.vm.shadow = v;
+  };
+  // 그림 모양 그대로의 검은 덮개. 세로 그라데이션 가림막을 화면 좌표(sx, sy)에 맞춰 #shadowLayer 와 같은 어둠이 되게 한다
+  V.shadeEl = function (img, w, h, sx, sy) {
+    var e = Game.Assets.el(img, w, h, { cls: 'shade' });
+    e.classList.add('shade');
+    e.style.webkitMaskPosition = e.style.maskPosition = (-sx) + 'px ' + (-sy) + 'px';
+    e.style.opacity = $('shadowLayer').style.opacity || 0;
+    return e;
   };
 
   // ───────── 붉은 실 ─────────
@@ -375,10 +393,12 @@
     var tops = list.map(function (u) { return H.topPoint(u); }).filter(Boolean);
     var dc = deathCardInHand();
     var tension = vm.tension || 0, t = now / 1000;
+    var raisedDeath = dc && H.raised && H.raised.uid === dc.uid;
     order.forEach(function (id, idx) {
       if (vm.status[id] === 'dead') return;
       var a = V.allyAnchor(id);
       var taut = dc && dc.ally === id;
+      if (taut && raisedDeath) return;   // 들어 올린 죽음 카드의 실은 카드 위 레이어에 그린다(V.drawRaisedThread)
       var b;
       if (taut) b = H.topPoint(dc.uid);
       if (!b) {
@@ -388,20 +408,12 @@
       if (!b) return;
       var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
       if (taut) {
-        var k = 1 + tension * 0.55 + (vm.pull ? 3 : 0);
-        var vib = (tension * 0.9 + (vm.pull ? 4 : 0)) * Math.sin(t * 60 + idx);
-        var c = { x: mx + vib, y: my + Math.max(0, 14 - tension * 5) + vib * 0.5 };
-        strokeThread(ctx, a, c, b, 1.8 + k * 0.9, 'rgba(255,' + Math.max(10, 50 - tension * 12) + ',60,' + Math.min(1, 0.72 + tension * 0.09) + ')', 10 + k * 5);
-        // 매듭(카드에 걸린 곳)
-        ctx.fillStyle = 'rgba(255,60,80,.95)'; ctx.shadowColor = '#ff2a3c'; ctx.shadowBlur = 14;
-        ctx.beginPath(); ctx.arc(b.x, b.y, 3 + tension, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(a.x, a.y, 2.5 + tension * 0.6, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0;
+        drawTaut(ctx, a, b, tension, idx, t);
       } else {
         var sag = 70 - tension * 6;
         var sway = Math.sin(t * 0.9 + idx * 1.7) * 10;
         var dim = vm.status[id] === 'down' ? 0.14 : 0.4 + tension * 0.06;
-        strokeThread(ctx, a, { x: mx + sway, y: my + sag }, b, 1.5 + tension * 0.2, 'rgba(230,30,48,' + dim + ')', 7);
+        strokeThread(ctx, a, { x: mx + sway, y: my + sag }, b, 1.5 + tension * 0.2, 'rgba(230,30,48,' + dim + ')', FX.low ? 3 : 7);
       }
     });
     // 용사가 있던 자리에 남은 끊어진 실 끝
@@ -410,6 +422,28 @@
       strokeThread(ctx, { x: hb.x, y: hb.y - 16 }, { x: hb.x + 12 + sw0 * 0.4, y: hb.y + 30 }, { x: hb.x + 18 + sw0, y: hb.y + 74 }, 1.6, 'rgba(160,12,26,.6)', 4);
     }
   };
+  // 죽음 카드에 걸린 팽팽한 실. pull: 1 = 카드를 낸 순간, 2 = 들어 올린 손에서 최대로 팽팽 (곧게 펴지고 굵게 떨린다)
+  function drawTaut(ctx, a, b, tension, idx, t) {
+    var vm = V.vm, pull = vm.pull || 0, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    var k = 1 + tension * 0.55 + pull * (pull > 1 ? 2.4 : 3);
+    var vib = (tension * 0.9 + pull * (pull > 1 ? 3.2 : 4)) * Math.sin(t * 60 + idx);
+    var c = { x: mx + vib, y: my + (pull > 1 ? 0 : Math.max(0, 14 - tension * 5)) + vib * 0.5 };
+    strokeThread(ctx, a, c, b, 1.8 + k * 0.9, 'rgba(255,' + Math.max(10, 50 - tension * 12 - pull * 10) + ',60,' + Math.min(1, 0.72 + tension * 0.09 + pull * 0.1) + ')', (10 + k * 5) * (FX.low ? 0.5 : 1));
+    // 매듭(카드에 걸린 곳)
+    ctx.fillStyle = 'rgba(255,60,80,.95)'; ctx.shadowColor = '#ff2a3c'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.arc(b.x, b.y, 3 + tension, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(a.x, a.y, 2.5 + tension * 0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  // 들어 올린 죽음 카드 ↔ 그 동료의 등: 들어 올린 손(손패보다 위 레이어)에 걸리므로 효과 캔버스에 그린다
+  V.drawRaisedThread = function (ctx, now) {
+    var vm = V.vm, st = Game.Ctl.st, H = Game.Hand;
+    if (!vm || !st || !st.battle || !Game.Ctl.inBattle || !H.raised) return;
+    var dc = deathCardInHand();
+    if (!dc || H.raised.uid !== dc.uid || vm.status[dc.ally] === 'dead') return;
+    drawTaut(ctx, V.allyAnchor(dc.ally), H.raiseTopPoint(), vm.tension || 0, st.party.order.indexOf(dc.ally), now / 1000);
+  };
+
   // 카드에 걸린 채 끊어져 늘어진 실 (카드 위에 그린다)
   V.drawBroken = function (ctx, now) {
     var vm = V.vm;
@@ -455,18 +489,17 @@
     return { witch: ['#c86bff', '#ff4a6a'], hero: ['#ffffff', '#bfe6ff'], warrior: ['#ffd36b', '#c9a24a'], archer: ['#b6ff9a', '#ffffff'] }[d.owner] || ['#fff'];
   }
 
-  // 카드 사용 모션: 카드가 대상 쪽으로 날아가며 사라진다
-  async function flyCard(uid, to) {
-    var el = Game.Hand.detach(uid);
+  // 카드 사용 모션: 카드가 (세워 든 손에서) 대상 쪽으로 날아가며 사라진다
+  async function flyCard(el, to) {
     if (!el) return;
-    el.classList.remove('hover', 'lifted', 'dragging');
+    el.classList.remove('hover', 'lifted', 'dragging', 'raised');
     el.classList.add('notrans');
     el.style.zIndex = 140;
     var c = LY().card;
     var from = el.style.transform;
     var mid = 'translate(' + (to.x - c.w * 0.45) + 'px,' + (to.y - c.h * 0.45 - 60) + 'px) scale(.9)';
     var end = 'translate(' + (to.x - c.w * 0.2) + 'px,' + (to.y - c.h * 0.2) + 'px) scale(.4)';
-    await FX.anim(el, [{ transform: from, opacity: 1, filter: 'brightness(1)' }, { transform: mid, opacity: 1, filter: 'brightness(1.6)', offset: 0.55 }, { transform: end, opacity: 0, filter: 'brightness(3)' }], { duration: 380, easing: 'ease-in', fill: 'forwards' });
+    await FX.anim(el, [{ transform: from, opacity: 1, filter: 'brightness(1)' }, { transform: mid, opacity: 1, filter: 'brightness(1.6)', offset: 0.55 }, { transform: end, opacity: 0, filter: 'brightness(3)' }], { duration: D().timing.cardFly, easing: 'ease-in', fill: 'forwards' });
     el.remove();
   }
 
@@ -532,30 +565,44 @@
       await FX.wait(60);
     },
     play: async function (e) {
-      var st = Game.Ctl.st, d = D().cards[e.id];
+      var st = Game.Ctl.st, d = D().cards[e.id], H = Game.Hand, T = D().timing;
       V.vm.energy = e.energy;
       V.vm.discardCount = st.battle.discard.length;
+      H.hoverUid = null; H.liftedUid = null; H.dragUid = null; H.dragMode = null;
       if (d.kind === 'death') {
-        // 죽음 카드: 손에서 떠나지 않고 제자리에서 팽팽해진다
-        Game.Hand.hoverUid = null; Game.Hand.liftedUid = null; Game.Hand.dragUid = null; Game.Hand.dragMode = null;
+        // 죽음 카드: 오른손이 천천히 들어 올린 채 떨리고, 세라피나의 등까지 이어진 붉은 실이 최대로 팽팽해진 뒤 컷신으로
         V.vm.ghost = e.uid; V.vm.ghostIndex = e.handIndex;
         V.vm.hand = e.hand;
-        V.render();
-        var g = Game.Hand.els[e.uid];
+        var g = H.els[e.uid];
         if (g) g.classList.add('taut');
         V.vm.pull = 1;
+        var up = H.raiseCard(e.uid, g, { slow: true });
+        V.render();
         if (V.els.allies.hero) V.els.allies.hero.classList.add('tremble');
-        FX.shake(3, 900);
-        await FX.wait(1100);
+        await up;
+        V.vm.pull = 2;
+        H.raiseTremble(true, T.deathTremble);
+        FX.shake(3, T.deathHold);
+        await FX.wait(T.deathHold);
         return;
       }
       var to;
       if (e.target && e.target.enemy) to = d.target === 'intent' ? (function () { var r = V.intentRect(e.target.enemy); return r ? { x: r.x + r.w / 2, y: r.y + r.h / 2 } : V.enemyCenter(e.target.enemy); })() : V.enemyCenter(e.target.enemy);
       else to = { x: 960, y: 430 };
+      // 카드 내기: 부채꼴 손이 내려가고, 오른손이 그 카드를 세워 든다 → (대표 카드면 컷인) → 카드가 날아간다
       V.vm.hand = e.hand;
-      var fly = flyCard(e.uid, to);
+      var cel = H.detach(e.uid);
+      var raised = H.raiseCard(e.uid, cel);
       V.render();
-      await fly;
+      await raised;
+      await FX.wait(T.raiseHold);
+      if (Game.Cutin.has(e.id)) await Game.Cutin.play(e.id);
+      var mv = D().motion.cards[e.id];
+      var strike = mv && st.party.allies[mv[0]] ? Game.Motion.strike(mv[0], mv[1], to) : null;
+      var flyEl = H.releaseRaised();
+      H.raiseDown();
+      var fly = flyCard(flyEl, to);
+      await (strike ? Promise.all([fly, strike.hit]) : fly);
       FX.burst(to.x, to.y, { count: 26, colors: ownerColor(e.id), speed: 320, life: 600, size: 3, gravity: 0 });
       // 카드별 짧은 연출
       if (d.art === 'sword' || d.art === 'brokensword') { FX.slash(to.x, to.y, { len: 260, width: 12, color: d.kind === 'relic' ? '#ddd' : '#eaf6ff', ang: -0.9 }); FX.shake(8, 260); }
@@ -597,7 +644,8 @@
       vm.hp[w.ally] = e.hp;
       var cls = 'ally' + (e.cause === 'relic' ? ' small' : '');
       hpFloat(w, '-' + e.amount, cls);
-      if (w.ally === 'witch') flashEl($('witchPanel')); else flashEl(V.els.allies[w.ally]);
+      if (w.ally === 'witch') flashEl($('witchPanel'));
+      else { flashEl(V.els.allies[w.ally]); if (e.cause !== 'stomp') Game.Motion.hurt(w.ally); }
       if (e.cause === 'attack') FX.shake(6 + e.amount * 0.6, 280);
       V.render();
       await FX.wait(e.cause === 'aoe' || e.cause === 'stomp' ? 120 : 300);
@@ -638,11 +686,12 @@
     enemyAct: async function (e) {
       var el = V.els.enemies[e.enemy];
       if (e.kind === 'attack') {
+        // 몸을 젖혔다가 달려든다 → 맞는 순간 베기 자국 (맞은 동료의 흔들림은 이어지는 damage 에서)
         var tp = V.targetPoint(e.target);
-        if (el) FX.anim(el, [{ transform: 'translateY(0) scale(1)' }, { transform: 'translateY(16px) scale(1.12)', offset: 0.4 }, { transform: 'translateY(0) scale(1)' }], { duration: 360, easing: 'ease-out' });
-        await FX.wait(200);
+        var ln = Game.Motion.enemyLunge(el);
+        await ln.hit;
         FX.slash(tp.x, tp.y, { len: 150, width: 7, color: '#ff4050', ang: -0.8, count: 3 });
-        await FX.wait(D().timing.enemyAttack - 200);
+        await FX.wait(Math.max(60, D().timing.enemyAttack - 440));
       } else if (e.kind === 'shadow') {
         await V.giantShadow();
       } else if (e.kind === 'aoe') {
@@ -768,6 +817,8 @@
     V.setShadow(0.97, 700);
     await moveFoot(foot, V.footY, -180, 700, 'ease-out');
     await FX.wait(400);
+    // 마지막 짓밟기만은 발이 일행을 덮친다(평소에는 동료 뒤 레이어)
+    foot.classList.add('crushing');
     await moveFoot(foot, -180, 900, 260, 'cubic-bezier(.6,0,1,.4)');
     FX.flash('#fff', 260, 1);
     FX.shake(40, 900);
@@ -788,7 +839,8 @@
   // 짓밟힘: 붉은 환영의 발이 내리찍는다
   V.trampleStrike = async function () {
     var ph = document.createElement('div');
-    ph.style.cssText = 'position:absolute;left:560px;top:-700px;width:800px;height:700px;z-index:35;pointer-events:none;filter:drop-shadow(0 0 30px #ff2a3c);opacity:.85';
+    // 거대 존재(동료 뒤)를 내리찍으므로 발과 같은 층(동료 뒤)에 그린다
+    ph.style.cssText = 'position:absolute;left:560px;top:-700px;width:800px;height:700px;z-index:17;pointer-events:none;filter:drop-shadow(0 0 30px #ff2a3c);opacity:.85';
     ph.innerHTML = '<svg viewBox="0 0 212 184" width="800" height="700" preserveAspectRatio="none"><path d="M70 10 C64 60 66 130 102 166 C130 186 156 160 152 120 C150 90 146 40 146 10Z" fill="rgba(160,0,20,.75)" stroke="#ff3346" stroke-width="3"/></svg>';
     $('world').appendChild(ph);
     FX.flash('#600', 400, 0.5);
@@ -804,7 +856,10 @@
   V.deathSequence = async function () {
     var cs = D().cutscene;
     Game.Dialog.clear();
-    await Game.Scenes.cutscene();
+    var cut = Game.Scenes.cutscene();     // 컷신 화면이 곧바로(동기) 덮는다
+    // 컷신 뒤에서: 들어 올렸던 손을 내리고 죽음 카드를 원래 손패 자리로 (C7에서 그 자리에서 재가 된다)
+    Game.Hand.raiseReset();
+    await cut;
     // 화면 뒤에서 정리: 용사가 사라지고, 손패 위로 피가 튄다
     V.vm.pull = 0;
     V.vm.status.hero = 'dead';

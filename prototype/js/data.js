@@ -327,6 +327,27 @@
       archer:  { img: 'stand_archer.png',  cx: 335, cy: 112, size: 190 },
       noel:    { img: 'stand_witch.png',   cx: 250, cy: 118, size: 190 }
     },
+    // 표정 그림 (대사의 face: 'hero_smile' → face_hero_smile.png). 정면 상반신(약 435×887)에서 얼굴 부분(원본 픽셀 중심, 한 변)
+    // 표정 이름이 없는 캐릭터(노엘)·표정을 지정하지 않은 대사는 위 faces(스탠딩에서 잘라 쓴 얼굴)를 쓴다
+    expressions: {
+      file: 'face_{name}.png',
+      crop: {
+        hero:    { cx: 220, cy: 270, size: 360 },
+        archer:  { cx: 215, cy: 280, size: 360 },
+        warrior: { cx: 220, cy: 270, size: 360 }
+      },
+      // 캠프 대화창의 큰 얼굴(어깨까지 조금 더 넓게)
+      cropLarge: {
+        hero:    { cx: 220, cy: 300, size: 470 },
+        archer:  { cx: 215, cy: 310, size: 470 },
+        warrior: { cx: 220, cy: 300, size: 470 }
+      },
+      names: {
+        hero: ['calm', 'smile', 'determined', 'shocked'],
+        archer: ['smile', 'shocked', 'grief', 'hollow'],
+        warrior: ['stern', 'shocked', 'grief', 'rage']
+      }
+    },
     standing: {
       hero: 'stand_hero.png', warrior: 'stand_warrior.png', archer: 'stand_archer.png', noel: 'stand_witch.png'
     },
@@ -351,7 +372,25 @@
         cardFrac: 0.685,     // 카드 자리 아래에서부터 이 비율만큼만 카드(2:3)로 채운다
         hoverScale: 1.12,    // 마우스를 올렸을 때 카드 배율 (카드 원본 240×360 기준)
         hoverBottom: 1060,   // 확대된 카드의 아랫변 y
-        dragScale: 0.85
+        dragScale: 0.85,
+        // 손패가 5장보다 적어 비는 카드 자리에는 마녀가 쥔 덱(뒷면 카드)이 보인다(손 그림이 잘려 보이지 않게)
+        backs: true,
+        dropY: 70            // 카드를 낼 때 부채꼴 손이 내려가는 거리
+      },
+      // 카드를 낼 때 오른손이 카드 한 장을 세워 드는 그림 (ui_witch_hand_raise.png, 원본 1672×941)
+      // quad: 그 카드 자리의 네 모서리 [왼위, 오위, 오아래, 왼아래] — assets/ui_witch_hand_raise.json 값과 같아야 한다(테스트로 확인)
+      raise: {
+        img: 'ui_witch_hand_raise.png', imgW: 1672, imgH: 941,
+        // 다 올라왔을 때 위치(손 그림과 같은 방식: 원본 좌표 × scale + x,y). 세운 카드가 세라피나의 등을 가리지 않게 오른쪽에 둔다
+        scale: 0.9, x: 420, y: 320,
+        from: [300, 520],                 // 시작 위치(오른쪽 아래로 이만큼 떨어진 곳)
+        quad: [[866, 64], [1186, 32], [1221, 480], [914, 507]]
+      },
+      // 동료 행동 자세(뒷모습). 기본 자세와 같은 배율로, 발끝(그림 아래 가운데)을 맞춰 겹친다. dx·dy: 미세 조정(화면 px)
+      poses: {
+        hero:    { attack: { img: 'spr_hero_back_attack.png', dx: 30, dy: 0 } },
+        archer:  { attack: { img: 'spr_archer_back_attack.png', dx: 20, dy: 0 } },
+        warrior: { guard:  { img: 'spr_warrior_back_guard.png', dx: -30, dy: 0 } }
       },
       card: { w: 240, h: 360 },
       playZoneY: 610,        // 대상 없는 카드: 이 선보다 위에서 놓으면 사용
@@ -384,7 +423,51 @@
       typeCharsPerSec: 38,
       guideBase: 1800, guidePerChar: 70,
       enemyAttack: 520, drawGap: 90, banner: 900,
-      footDrop: 520
+      footDrop: 520,
+      // 카드 내기(손 들기): 부채꼴 손이 내려가고 오른손이 카드를 세워 든 뒤 카드가 날아간다. 일반 카드 합계 약 0.45초
+      raiseUp: 150, raiseHold: 60, cardFly: 240, raiseDown: 170,
+      // 죽음 카드: 천천히 들어 올려 떨며 붉은 실이 최대로 팽팽해진 뒤 컷신으로
+      deathRaiseUp: 420, deathHold: 1700, deathTremble: 4
+    },
+
+    // ───────────── 컷인 (대표 카드를 낼 때마다) ─────────────
+    // 화면을 가로지르는 띠(검붉은 배경 + 코드로 그린 속도선·빛 궤적) 안으로 캐릭터가 미끄러져 들어왔다 빠진다. 클릭/탭하면 건너뜀
+    // focus: 그림 속 띠 가운데에 올 점(그림 비율) / at: 띠 안에서 그 점이 머무는 가로 위치(화면 x)
+    cutin: {
+      duration: 820,           // 일반 컷인 길이(ms)
+      heavyDuration: 1350,     // 무거운 컷인(짓밟힘) 길이
+      band: { y: 300, h: 420, slant: 70 },   // 띠 위쪽 y, 높이, 기울기(왼쪽이 이만큼 아래)
+      imgH: 820,               // 그림 높이(화면 px, 원본 941)
+      cards: {
+        holy_slash:  { img: 'cutin_hero.png',          focus: [0.50, 0.40], at: 1000, from: 1, color: '#e8f4ff' },
+        snipe:       { img: 'cutin_archer.png',        focus: [0.55, 0.30], at: 940, from: 1, color: '#d8ffb8' },
+        cover:       { img: 'cutin_warrior.png',       focus: [0.45, 0.40], at: 1140, from: -1, color: '#ffd36b' },
+        curse_flame: { img: 'cutin_witch_cast.png',    focus: [0.45, 0.30], at: 1000, from: 1, color: '#ff7a3a' },
+        trample:     { img: 'cutin_witch_inherit.png', focus: [0.40, 0.28], at: 980, from: 1, color: '#ff2a3c', heavy: true }
+      }
+    },
+
+    // ───────────── 동료·적 움직임 ─────────────
+    // 동료 카드: 준비(움츠림) → 기본·행동 자세를 겹쳐 녹임 → 타격(대상 쪽으로 튀어나감, 순간 멈춤, 잔상) → 복귀(살짝 지나쳤다 돌아옴)
+    motion: {
+      windup: 150, blend: 100, strike: 110, hitstop: 80, recover: 260,
+      crouch: 10,              // 준비 때 내려앉는 정도(px)
+      // 카드 → [동료, 자세]
+      cards: {
+        holy_slash: ['hero', 'attack'], vanguard: ['hero', 'attack'],
+        snipe: ['archer', 'attack'], suppress: ['archer', 'attack'],
+        cover: ['warrior', 'guard'], shield_bash: ['warrior', 'guard']
+      },
+      // 타격 때: toward(대상 쪽으로 가로 이동 비율), max(가로 이동 상한 px), dy(앞으로 = 위쪽 px), scale(확대)
+      lunge: {
+        hero:    { toward: 0.18, max: 110, dy: -70, scale: 1.07 },
+        archer:  { toward: 0.04, max: 30,  dy: -16, scale: 1.03 },
+        warrior: { toward: 0.12, max: 90,  dy: -46, scale: 1.06 }
+      },
+      breathe: { amp: 1.5, period: 3800 },   // 대기 중 숨쉬기 (위아래 px, 주기 ms)
+      // 적 공격: 몸을 젖혔다가 달려든다(아래로 = 화면 앞쪽), 맞은 동료는 흔들린다
+      enemy: { windup: 130, rush: 150, back: 300, dy: 46, scale: 1.28 },
+      hurt: { power: 9, dur: 300 }
     },
 
     // 그림 파일 목록. 없으면 같은 자리에 회색 박스 + 파일명 (파일을 넣고 새로고침하면 교체)
@@ -397,8 +480,13 @@
       'spr_hero_back.png', 'spr_warrior_back.png', 'spr_archer_back.png',
       'spr_cultist.png', 'spr_giant_foot.png',
       'stand_hero.png', 'stand_warrior.png', 'stand_archer.png', 'stand_witch.png',
-      'ui_witch_hands.png', 'card_frame.png',
-      'cut_hero_reverse.png', 'cut_hero_reach.png', 'cut_hero_crushed.png', 'cut_hero_aftermath.png'
+      'ui_witch_hands.png', 'ui_witch_hand_raise.png', 'card_frame.png',
+      'cut_hero_reverse.png', 'cut_hero_reach.png', 'cut_hero_crushed.png', 'cut_hero_aftermath.png',
+      'cutin_hero.png', 'cutin_archer.png', 'cutin_warrior.png', 'cutin_witch_cast.png', 'cutin_witch_inherit.png',
+      'face_hero_calm.png', 'face_hero_smile.png', 'face_hero_determined.png', 'face_hero_shocked.png',
+      'face_archer_smile.png', 'face_archer_shocked.png', 'face_archer_grief.png', 'face_archer_hollow.png',
+      'face_warrior_stern.png', 'face_warrior_shocked.png', 'face_warrior_grief.png', 'face_warrior_rage.png',
+      'spr_hero_back_attack.png', 'spr_archer_back_attack.png', 'spr_warrior_back_guard.png'
     ],
     assetDir: 'assets/'
   };
