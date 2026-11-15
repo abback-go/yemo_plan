@@ -119,4 +119,18 @@
     return wrap(artKey, tone, f());
   };
   ART.hasFace = function (artKey) { return artKey === 'deathface'; };
+  // 마녀의 덱 뒷면(240×360 카드 전체): 검붉은 바탕, 가는 금테, 가운데 눈과 붉은 실
+  ART.backSvg = function () {
+    return '<svg viewBox="0 0 240 360" width="240" height="360" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">' +
+      '<defs><radialGradient id="gBack" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#3b0a14"/><stop offset=".65" stop-color="#1a0408"/><stop offset="1" stop-color="#080203"/></radialGradient></defs>' +
+      '<rect x="1" y="1" width="238" height="358" rx="14" fill="url(#gBack)" stroke="#0b0b0d" stroke-width="2"/>' +
+      '<rect x="12" y="12" width="216" height="336" rx="9" fill="none" stroke="#8a6a3a" stroke-width="2" opacity=".75"/>' +
+      '<rect x="20" y="20" width="200" height="320" rx="6" fill="none" stroke="#5e0710" stroke-width="1.5"/>' +
+      '<path d="M120 40 L120 320 M40 180 L200 180" stroke="#5e0710" stroke-width="1" opacity=".6"/>' +
+      '<path d="M66 180 C88 146 152 146 174 180 C152 214 88 214 66 180Z" fill="#12030a" stroke="#b08850" stroke-width="2.5"/>' +
+      '<circle cx="120" cy="180" r="17" fill="#8a0c1c"/><circle cx="120" cy="180" r="7" fill="#050102"/>' +
+      '<path d="M120 197 C112 236 132 262 118 312" stroke="#c0182a" stroke-width="2" fill="none" opacity=".85"/>' +
+      '<path d="M120 163 C128 124 108 98 122 48" stroke="#c0182a" stroke-width="2" fill="none" opacity=".85"/>' +
+      '</svg>';
+  };
 })(window);
