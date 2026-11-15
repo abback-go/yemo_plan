@@ -52,3 +52,19 @@ Mood: tragic, beautiful, ominous, quiet. No gore, no text, no letters.
 - 동료가 정면을 보면: `three-quarter rear view` → `over-the-shoulder view from behind`
 - 거대 존재가 화면에 다 들어오면: `cropped by the top edge of the frame` 추가
 - 폐기한 방향: 로우앵글 정면(아래에서 올려다보는 구도) — 다양한 적에 맞지 않고 하체가 강조되어 폐기
+
+---
+
+## 캐릭터 시트 프롬프트 (2026-11-15 추가)
+
+캐릭터별 파일로 분리했다. 각 파일에 1단계 시트 · 편집 프롬프트 · 2단계 단일 뷰 · 3단계 표정 · 체크리스트가 모두 들어 있다.
+
+| 파일 | 캐릭터 | 2단계 산출물 |
+|---|---|---|
+| [`prompts/01_seraphina.txt`](prompts/01_seraphina.txt) | 용사 세라피나 | `stand_hero.png`, `spr_hero_back.png` |
+| [`prompts/02_brunhild.txt`](prompts/02_brunhild.txt) | 전사 브룬힐드 | `stand_warrior.png`, `spr_warrior_back.png` |
+| [`prompts/03_elian.txt`](prompts/03_elian.txt) | 궁수 엘리안 | `stand_archer.png`, `spr_archer_back.png` |
+| [`prompts/04_noel.txt`](prompts/04_noel.txt) | 마녀 노엘 | `stand_witch.png` |
+
+- 1단계 시트는 `reference/sheets/`에, 2단계 결과물은 배경 제거 후 `prototype/assets/`에 넣는다.
+- 위 ③ 사망 컷신 프롬프트는 궁수 기준이다. 용사 버전(`cut_hero_reverse.png`)은 캐릭터 시트가 나온 뒤 작성한다.
