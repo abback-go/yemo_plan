@@ -1,0 +1,463 @@
+## 규칙 단위 테스트 (헤드리스) — prototype/tests/rules.test.js 를 옮기고, 이번에 더한 규칙(1층 완전 종료·2층·휴식·훈련)과
+## 데이터 검사(글꼴에 대사 글자가 모두 있는지, 손 들기 카드 자리 = json)를 더했다.
+##   cd game && godot --headless --import   (처음 한 번)
+##   godot --headless --path game --script res://tests/test_rules.gd
+## 마지막 줄 "rules: N passed, failures: M" — M 이 0 이어야 통과(종료 코드도 0).
+extends SceneTree
+
+var passes := 0
+var fails := 0
+var D: Dictionary = GameData.D
+
+
+func check(name: String, ok: bool, detail := "") -> void:
+	if ok:
+		passes += 1
+		print("  ✔ " + name)
+	else:
+		fails += 1
+		print("  ✘ " + name + (" — " + detail if detail != "" else ""))
+
+
+func ids(st: Dictionary, uids: Array) -> Array:
+	return uids.map(func(u): return st.cards[u].id)
+
+
+func hand_ids(st: Dictionary) -> Array:
+	return ids(st, st.battle.hand)
+
+
+func find_in_hand(st: Dictionary, id: String) -> String:
+	for u in st.battle.hand:
+		if st.cards[u].id == id:
+			return u
+	return ""
+
+
+func give_card(st: Dictionary, id: String) -> String:
+	Rules.debug_add_card(st, id)
+	return find_in_hand(st, id)
+
+
+func normal_battle(seed := 7, enc := "normal") -> Dictionary:
+	var st := Rules.new_game(seed)
+	Rules.start_battle(st, enc)
+	Rules.start_turn(st)
+	return st
+
+
+func giant_battle(seed := 7) -> Dictionary:
+	var st := Rules.new_game(seed)
+	Rules.start_battle(st, "giant")
+	Rules.start_turn(st)
+	return st
+
+
+func count_of(arr: Array) -> Dictionary:
+	var c := {}
+	for x in arr:
+		c[x] = c.get(x, 0) + 1
+	return c
+
+
+func has_ev(evs: Array, t: String) -> bool:
+	for e in evs:
+		if e.t == t:
+			return true
+	return false
+
+
+func _init() -> void:
+	print("규칙 테스트")
+	t_rng()
+	t_deck()
+	t_text()
+	t_turn1()
+	t_sword()
+	t_energy()
+	t_fate()
+	t_fate_bad()
+	t_cover()
+	t_take_hit()
+	t_suppress()
+	t_down()
+	t_wound()
+	t_normal_complete()
+	t_floor2_giant()
+	t_floor2_all()
+	t_endturn()
+	t_giant_hand()
+	t_immune()
+	t_countdown()
+	t_death()
+	t_trample_cost()
+	t_relic()
+	t_defeat()
+	t_snapshot()
+	t_rest()
+	t_train()
+	t_cover_up()
+	t_relic_clears_up()
+	t_data()
+	print("rules: %d passed, failures: %d" % [passes, fails])
+	quit(1 if fails > 0 else 0)
+
+
+# HTML 판과 같은 난수열(mulberry32) — 같은 시드면 같은 덱 순서
+func t_rng() -> void:
+	var st := {"rng": 7}
+	var got := []
+	for i in 5:
+		got.append("%.10f" % Rules.rnd(st))
+	check("난수열이 HTML 판(mulberry32)과 같다", ",".join(got) == "0.0117047532,0.0619582576,0.9769076328,0.6990287057,0.5214452685", ",".join(got))
+	var g := Rules.new_game(7)
+	Rules.start_battle(g, "normal")
+	check("시드 7 의 1층 덱 순서가 HTML 판과 같다", ",".join(ids(g, g.battle.draw)) == "holy_slash,cover,fate_shift,snipe,holy_slash,shield_bash,fate_shift,curse_flame,cover,take_hit,foresight,vanguard,snipe,suppress,curse_flame", str(g.rng))
+
+
+func t_deck() -> void:
+	var st := Rules.new_game(1)
+	var c := count_of(ids(st, st.party.deck))
+	check("시작 덱 15장, 구성이 문서와 같다", st.party.deck.size() == 15 and c == {"curse_flame": 2, "fate_shift": 2, "take_hit": 1, "foresight": 1, "holy_slash": 2, "vanguard": 1, "cover": 2, "shield_bash": 1, "snipe": 2, "suppress": 1}
+		and st.party.witch.hp == 15 and st.party.allies.hero.hp == 30 and st.party.allies.warrior.hp == 24 and st.party.allies.archer.hp == 12, str(c))
+
+
+func t_text() -> void:
+	check("카드 설명문 수치 치환", Rules.card_text("holy_slash") == "적 1명에게 14 피해" and Rules.card_text("suppress") == "적 1명에게 3 피해 + 그 적의 이번 공격 피해 -4"
+		and Rules.card_text("foresight") == "카드 2장을 뽑는다" and Rules.card_text("cover") == "예고된 공격 1개를 브룬힐드가 받되 피해 절반", Rules.card_text("cover"))
+
+
+func t_turn1() -> void:
+	var st := normal_battle()
+	var h := hand_ids(st)
+	h.sort()
+	var want: Array = D.encounters.normal.scriptedHands[1].duplicate()
+	want.sort()
+	var all14 := true
+	for e in st.battle.enemies:
+		if e.hp != 14 or e.intent.kind != "attack":
+			all14 = false
+	check("1턴: 에너지 3, 5장 드로우(튜토리얼 손패), 광신도 3명 예고", st.battle.energy == 3 and h == want and st.battle.enemies.size() == 3 and all14 and st.battle.enemies[0].intent.target == "warrior", str(h))
+
+
+func t_sword() -> void:
+	var st := normal_battle()
+	var uid := find_in_hand(st, "holy_slash")
+	var r := Rules.play(st, uid, {"enemy": "c2"})
+	check("성검 베기는 광신도를 일격에 쓰러뜨리고 에너지 1을 쓴다", r.ok and not Rules.enemy(st, "c2").alive and st.battle.energy == 2 and st.battle.discard.has(uid))
+
+
+func t_energy() -> void:
+	var st := normal_battle()
+	st.battle.energy = 0
+	var r := Rules.play(st, find_in_hand(st, "holy_slash"), {"enemy": "c1"})
+	check("에너지 부족이면 낼 수 없다", not r.ok and r.reason == "에너지가 부족하다")
+
+
+func t_fate() -> void:
+	var st := normal_battle()
+	var uid := give_card(st, "fate_shift")
+	var e = Rules.enemy(st, "c3")
+	var ok1: bool = e.intent.target == "archer" and Rules.redirect_choices(st, "c3").has("warrior") and not Rules.redirect_choices(st, "c3").has("archer")
+	var r := Rules.play(st, uid, {"enemy": "c3", "to": "warrior"})
+	var ok2: bool = r.ok and e.intent.target == "warrior"
+	var before: int = st.party.allies.warrior.hp
+	var ab: int = st.party.allies.archer.hp
+	Rules.end_turn(st)
+	check("운명 전가: 예고 대상을 다른 아군으로 바꾼다", ok1 and ok2 and st.party.allies.archer.hp == ab and st.party.allies.warrior.hp == before - 5 - 5)
+
+
+func t_fate_bad() -> void:
+	var st := normal_battle()
+	var uid := give_card(st, "fate_shift")
+	check("운명 전가 ②단계 대상이 잘못되면 실패", not Rules.play(st, uid, {"enemy": "c3", "to": "archer"}).ok)
+
+
+func t_cover() -> void:
+	var st := normal_battle()
+	Rules.enemy(st, "c2").intent.value = 8
+	var uid := give_card(st, "cover")
+	var ok: bool = Rules.play(st, uid, {"enemy": "c2"}).ok
+	var it = Rules.enemy(st, "c2").intent
+	check("감싸기: 전사가 받되 피해 절반 (8 → 4)", ok and it.target == "warrior" and it.halve and Rules.intent_damage(it) == 4)
+
+
+func t_take_hit() -> void:
+	var st := normal_battle()
+	var uid := find_in_hand(st, "take_hit")
+	var c0 := Rules.cost(st, uid)
+	var ok: bool = Rules.play(st, uid, {"enemy": "c2"}).ok
+	var en: int = st.battle.energy
+	Rules.end_turn(st)
+	check("대신 받기: 비용 0, 마녀가 받는다", c0 == 0 and ok and en == 3 and st.party.witch.hp == 15 - 6 and st.party.allies.hero.hp == 30)
+
+
+func t_suppress() -> void:
+	var st := normal_battle()
+	var uid := give_card(st, "suppress")
+	var ok: bool = Rules.play(st, uid, {"enemy": "c2"}).ok
+	check("견제 사격: 3 피해 + 그 적의 이번 공격 -4", ok and Rules.enemy(st, "c2").hp == 11 and Rules.intent_damage(Rules.enemy(st, "c2").intent) == 2)
+
+
+func t_down() -> void:
+	var st := normal_battle()
+	Rules.debug_set_hp(st, "archer", 0)
+	var uid := give_card(st, "snipe")
+	var r := Rules.can_play(st, uid)
+	var ev := Rules.finish_battle(st)
+	var wounds: Array = st.party.deck.filter(func(u): return st.cards[u].id == "wound")
+	check("쓰러진 동료의 카드는 낼 수 없고, 전투 후 HP 1 + 상처 카드", not r.ok and r.reason == "쓰러진 동료의 카드" and st.party.allies.archer.status == "ok"
+		and st.party.allies.archer.hp == 1 and wounds.size() == 1 and st.cards[wounds[0]].woundOf == "archer" and st.party.deck.size() == 15 and has_ev(ev, "wound"))
+
+
+func t_wound() -> void:
+	var st := normal_battle()
+	var uid := give_card(st, "wound")
+	check("상처 카드는 낼 수 없다", not Rules.can_play(st, uid).ok)
+
+
+# 1층 일반 전투는 거대 존재 없이 완전히 끝난다 [tutorial-flow 2]
+func t_normal_complete() -> void:
+	var st := normal_battle()
+	Rules.play(st, find_in_hand(st, "holy_slash"), {"enemy": "c1"})
+	Rules.debug_set_hp(st, "c2", 1)
+	var r := Rules.play(st, find_in_hand(st, "curse_flame"), {"enemy": "c2"})
+	var mid_ok: bool = not has_ev(r.events, "giantTrigger") and st.battle.result == null and Rules.alive_enemies(st).size() == 1
+	Rules.debug_set_hp(st, "c3", 1)
+	var r2 := Rules.play(st, give_card(st, "snipe"), {"enemy": "c3"})
+	check("1층 전투: 1명 남아도 거대 존재가 나오지 않고, 모두 쓰러뜨리면 승리", mid_ok and st.battle.result == "win" and has_ev(r2.events, "battleEnd"))
+
+
+# 2층: 광신도 2 → 1명 남으면 발이 내려와 짓밟음
+func t_floor2_giant() -> void:
+	var st := normal_battle(7, "floor2")
+	var two: bool = st.battle.enemies.size() == 2
+	var r := Rules.play(st, find_in_hand(st, "holy_slash") if find_in_hand(st, "holy_slash") != "" else give_card(st, "holy_slash"), {"enemy": "c1"})
+	var trig := {}
+	for e in r.events:
+		if e.t == "giantTrigger":
+			trig = e
+	check("2층: 광신도 2명 중 1명 남으면 거대 존재가 짓밟는다", two and not trig.is_empty() and trig.victims == ["c3"] and st.battle.result == "giant" and Rules.alive_enemies(st).is_empty())
+
+
+func t_floor2_all() -> void:
+	var st := normal_battle(7, "floor2")
+	Rules.debug_set_hp(st, "c1", 3)
+	Rules.debug_set_hp(st, "c3", 3)
+	var r := Rules.play(st, give_card(st, "vanguard"), {})
+	check("2층: 남은 광신도가 한 번에 모두 쓰러져도 거대 존재가 등장한다", has_ev(r.events, "giantTrigger") and st.battle.result == "giant")
+
+
+func t_endturn() -> void:
+	var st := normal_battle()
+	Rules.end_turn(st)
+	var a: bool = st.battle.hand.size() == 0 and st.battle.discard.size() == 5
+	Rules.start_turn(st)
+	Rules.end_turn(st)
+	Rules.start_turn(st)
+	Rules.end_turn(st)
+	var ev := Rules.start_turn(st)
+	check("턴 종료: 손패 버림, 덱 소진 시 버림 더미를 섞는다", a and has_ev(ev, "reshuffle") and st.battle.hand.size() == 5)
+
+
+func t_giant_hand() -> void:
+	var st := giant_battle()
+	var h := hand_ids(st)
+	var ok1: bool = h.size() == 5 and h.count("hero_death") == 1 and h[2] == "hero_death"
+	Rules.end_turn(st)
+	var ok2: bool = hand_ids(st) == ["hero_death"]
+	Rules.start_turn(st)
+	check("거대 존재: 1턴에 죽음 카드 + 4장, 가운데, 손패에 보존", ok1 and ok2 and st.battle.hand.size() == 5 and hand_ids(st).count("hero_death") == 1, str(h))
+
+
+func t_immune() -> void:
+	var st := giant_battle()
+	var uid := give_card(st, "holy_slash")
+	var r := Rules.play(st, uid, {"enemy": "giant"})
+	var imm := false
+	for e in r.events:
+		if e.t == "damage" and e.get("immune", false):
+			imm = true
+	check("거대 존재: 공격 무효(피해 0)", r.ok and imm and Rules.enemy(st, "giant").alive)
+
+
+func t_countdown() -> void:
+	var st := giant_battle()
+	var k1: bool = Rules.enemy(st, "giant").intent.kind == "shadow"
+	Rules.end_turn(st)
+	var s1: bool = st.battle.shadow == 1 and st.battle.result == null
+	Rules.start_turn(st)
+	var k2: bool = Rules.enemy(st, "giant").intent.kind == "aoe"
+	Rules.end_turn(st)
+	var hp: bool = st.party.witch.hp == 10 and st.party.allies.hero.hp == 25 and st.party.allies.archer.hp == 7
+	Rules.start_turn(st)
+	var k3: bool = Rules.enemy(st, "giant").intent.kind == "stomp"
+	var ev := Rules.end_turn(st)
+	var stomp := false
+	for e in ev:
+		if e.t == "battleEnd" and e.reason == "stomp":
+			stomp = true
+	check("거대 존재: 3턴 카운트다운 — 그림자 → 기둥 붕괴(전원 5) → 짓밟기(전멸)", k1 and s1 and k2 and hp and k3 and st.battle.result == "lose" and stomp)
+
+
+func t_death() -> void:
+	var st := giant_battle()
+	st.battle.energy = 0
+	var death := find_in_hand(st, "hero_death")
+	var idx: int = st.battle.hand.find(death)
+	var r := Rules.play(st, death, {})
+	var all_ids := ids(st, st.cards.keys())
+	var tr := find_in_hand(st, "trample")
+	var ok: bool = r.ok and st.party.allies.hero.status == "dead" and all_ids.count("holy_slash") + all_ids.count("vanguard") == 0 \
+		and all_ids.count("broken_sword") == 2 and all_ids.count("last_charge") == 1 and tr != "" and st.battle.hand.find(tr) == idx \
+		and Rules.cost(st, tr) == 0 and st.party.deck.has(tr) and st.party.deck.size() == 16
+	var r2 := Rules.play(st, tr, {})
+	check("죽음 카드: 비용 0 → 용사 사망, 유품 3장, 짓밟힘(이번 턴 0) → 존재가 물러남", ok and r2.ok and has_ev(r2.events, "retreat") and st.battle.result == "retreat")
+
+
+func t_trample_cost() -> void:
+	var st := giant_battle()
+	Rules.play(st, find_in_hand(st, "hero_death"), {})
+	var tr := find_in_hand(st, "trample")
+	Rules.end_turn(st)
+	Rules.start_turn(st)
+	check("짓밟힘: 획득한 다음 턴부터는 비용 2", Rules.cost(st, tr) == 2)
+
+
+func t_relic() -> void:
+	var st := Rules.new_game(3)
+	Rules.start_battle(st, "normal")
+	Rules.start_turn(st)
+	st.party.allies.hero.status = "dead"
+	var uid := give_card(st, "broken_sword")
+	var r := Rules.play(st, uid, {"enemy": "c1"})
+	check("유품 카드: 원래보다 강하고 마녀 HP를 잃는다", r.ok and not Rules.enemy(st, "c1").alive and st.party.witch.hp == 12)
+
+
+func t_defeat() -> void:
+	var st := normal_battle()
+	Rules.debug_set_hp(st, "witch", 0)
+	var st2 := normal_battle()
+	for a in ["hero", "warrior", "archer"]:
+		Rules.debug_set_hp(st2, a, 0)
+	check("패배 조건: 마녀 HP 0 또는 동료 전원 쓰러짐", Rules.is_defeat(st) and Rules.is_defeat(st2))
+
+
+func t_snapshot() -> void:
+	var st := Rules.new_game(11)
+	Rules.start_battle(st, "giant")
+	var snap := Rules.snapshot(st)
+	Rules.start_turn(st)
+	Rules.end_turn(st)
+	Rules.start_turn(st)
+	Rules.end_turn(st)
+	var st2 := Rules.restore(snap, st.rng)
+	var a: bool = st2.party.witch.hp == 15 and st2.battle.turn == 0
+	Rules.start_turn(st2)
+	check("스냅샷 복원: 거대 존재 등장 직후 상태로 돌아간다", a and hand_ids(st2).has("hero_death"))
+
+
+# 휴식: 동료 최대 HP +3, 마녀 +2, 모두 회복 [tutorial-flow 2.2]
+func t_rest() -> void:
+	var st := normal_battle()
+	Rules.debug_set_hp(st, "archer", 4)
+	Rules.debug_set_hp(st, "witch", 9)
+	Rules.finish_battle(st)
+	Rules.apply_rest(st)
+	var p: Dictionary = st.party
+	check("휴식: 최대 HP 동료 +3·마녀 +2, 전원 회복", p.witch.maxHp == 17 and p.witch.hp == 17 and p.allies.archer.maxHp == 15 and p.allies.archer.hp == 15
+		and p.allies.hero.maxHp == 33 and p.allies.hero.hp == 33 and p.allies.warrior.hp == 27, JSON.stringify(p.allies))
+
+
+# 훈련: 후보 3장(서로 다름) 중 1장 강화 → 그 카드 1장만 강화, 이름 옆 +, 강화 수치로 동작
+func t_train() -> void:
+	var st := Rules.new_game(7)
+	var c := Rules.train_candidates(st)
+	var uniq := count_of(c).size() == c.size()
+	var in_table := c.all(func(x): return D.upgrades.has(x))
+	var u := Rules.upgrade_card(st, "holy_slash")
+	var ups: Array = st.party.deck.filter(func(x): return st.cards[x].get("up", false))
+	Rules.start_battle(st, "normal")
+	Rules.start_turn(st)
+	# 강화된 성검 베기를 손에 넣고 써 본다
+	var b: Dictionary = st.battle
+	for zone in ["draw", "discard"]:
+		if b[zone].has(u):
+			b[zone].erase(u)
+			b.hand.append(u)
+	if not b.hand.has(u):
+		b.hand.append(u)
+	Rules.debug_set_hp(st, "c1", 18)
+	var r := Rules.play(st, u, {"enemy": "c1"})
+	check("훈련: 후보 3장(서로 다름) → 1장만 강화(+), 피해 14 → 18", c.size() == 3 and uniq and in_table and u != "" and ups.size() == 1
+		and Rules.card_name("holy_slash", true) == "성검 베기+" and Rules.card_text("holy_slash", true) == "적 1명에게 18 피해" and r.ok and not Rules.enemy(st, "c1").alive and st.flags.upgraded == "holy_slash", str(c))
+
+
+func t_cover_up() -> void:
+	var st := normal_battle()
+	var u := give_card(st, "cover")
+	st.cards[u].up = true
+	Rules.enemy(st, "c2").intent.value = 9
+	var ok: bool = Rules.play(st, u, {"enemy": "c2"}).ok
+	check("강화한 감싸기: 받는 피해 1/3 (9 → 3)", ok and Rules.intent_damage(Rules.enemy(st, "c2").intent) == 3 and Rules.card_text("cover", true).ends_with("피해 1/3"))
+
+
+func t_relic_clears_up() -> void:
+	var st := Rules.new_game(7)
+	var u := Rules.upgrade_card(st, "holy_slash")
+	Rules.start_battle(st, "giant")
+	Rules.start_turn(st)
+	Rules.play(st, find_in_hand(st, "hero_death"), {})
+	check("용사 사망 시 강화한 성검 베기도 유품(부러진 성검)이 되고 + 는 사라진다", st.cards[u].id == "broken_sword" and not st.cards[u].has("up"))
+
+
+# 데이터 검사: 대본·카드 글자가 모두 글꼴에 있는지(없으면 네모로 보임), 손 들기 카드 자리 = json
+func t_data() -> void:
+	var texts := []
+	_collect(ScriptData.S, texts)
+	for id in D.cards:
+		texts.append(D.cards[id].name)
+		texts.append(D.cards[id].text)
+		for t in D.cards[id].get("tags", []):
+			texts.append(t)
+	for id in D.upgrades:
+		texts.append(D.upgrades[id].summary)
+	var fonts := {"sans": load("res://assets/fonts/NotoSansKR-KS.ttf"), "serif": load("res://assets/fonts/NotoSerifKR-KS-Regular.ttf"), "serif_bold": load("res://assets/fonts/NotoSerifKR-KS-Bold.ttf")}
+	var missing := {}
+	for s in texts:
+		var str_s: String = s
+		for i in str_s.length():
+			var ch := str_s.unicode_at(i)
+			if ch < 32:
+				continue
+			for k in fonts:
+				if not fonts[k].has_char(ch):
+					missing[char(ch)] = k
+	check("대본·카드의 모든 글자가 글꼴(한글 2,350자 묶음)에 있다", missing.is_empty(), str(missing.keys()))
+	var f := FileAccess.open("res://assets/ui_witch_hand_raise.json", FileAccess.READ)
+	var j = JSON.parse_string(f.get_as_text()) if f else null
+	var q: Array = D.layout.raise.quad
+	var same := j != null
+	if same:
+		for i in 4:
+			for k in 2:
+				if int(j.card_quad_tl_tr_br_bl[i][k]) != int(q[i][k]):
+					same = false
+	check("손 들기 카드 자리 = ui_witch_hand_raise.json", same)
+	var no_extra := true
+	for w in ["사제", "도적"]:
+		for s in texts:
+			if s.contains(w):
+				no_extra = false
+	check("대본에 사제·도적이 나오지 않는다", no_extra)
+
+
+func _collect(v, out: Array) -> void:
+	if v is String:
+		out.append(v)
+	elif v is Dictionary:
+		for k in v:
+			_collect(v[k], out)
+	elif v is Array:
+		for x in v:
+			_collect(x, out)
