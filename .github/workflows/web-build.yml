@@ -1,5 +1,6 @@
-# game/ 폴더의 Godot 프로젝트를 웹용으로 빌드해 gh-pages 브랜치에 올린다.
+# game/ 폴더의 Godot 프로젝트를 웹용으로 빌드해 gh-pages 브랜치의 eska/ 폴더에 올린다.
 # GitHub Pages(Settings → Pages → Deploy from a branch: gh-pages)가 이 브랜치를 사이트로 공개한다.
+# 사이트 루트는 '죽음을 보는 마녀'가 쓰므로, 에스카는 eska/ 폴더만 바꾸고 다른 파일은 남긴다.
 name: Web build
 
 on:
@@ -12,8 +13,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: web-build
-  cancel-in-progress: true
+  group: gh-pages-deploy
+  cancel-in-progress: false
 
 env:
   GODOT_VERSION: "4.7.2"
@@ -89,5 +90,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: build/web
-          force_orphan: true
-          commit_message: "Web build ${{ github.ref_name }}"
+          destination_dir: eska
+          keep_files: true
+          commit_message: "Web build (eska) ${{ github.ref_name }}"
