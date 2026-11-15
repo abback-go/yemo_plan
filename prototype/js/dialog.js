@@ -85,7 +85,7 @@
     ctx = ctx || {};
     var st = Game.Ctl.st, out = [];
     // 새 턴이 시작되면 아직 못 읽은 지난 안내는 버린다(밀려서 늦게 나오지 않게)
-    if (on === 'turnStart') DL.dropPending();
+    if (on === 'turnStart') { DL.dropPending(); if (DL.cur) next(); }
     Game.DATA.guide.forEach(function (g) {
       if (g.on !== on) return;
       if (g.enc && g.enc !== ctx.enc) return;
