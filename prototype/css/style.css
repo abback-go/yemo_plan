@@ -442,3 +442,10 @@ body.touch.portrait #rotateHint { display: flex; }
 .cutin .ci-edge { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 120px rgba(0,0,0,.75); }
 .cutin.heavy .ci-band { background: linear-gradient(100deg, #000 0%, #2a0004 35%, #5a0008 52%, #1a0003 72%, #000 100%); }
 .cutin.heavy .ci-char { filter: drop-shadow(0 0 26px rgba(255,20,40,.55)) contrast(1.08); }
+
+/* 처음 그림 불러오기 화면 (휴대폰 회선에서는 수십 초 걸릴 수 있음) */
+#loading { position: absolute; inset: 0; z-index: 9999; background: #07080c; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
+#loading .ld-title { font-family: var(--serif, serif); font-size: 64px; color: #d9cfc4; letter-spacing: .08em; }
+#loading .ld-bar { width: 720px; height: 10px; border-radius: 5px; background: #1c1d26; overflow: hidden; border: 1px solid #3a1418; }
+#loading .ld-bar i { display: block; height: 100%; width: 0; background: #8f1d26; transition: width .2s; }
+#loading .ld-text { font-size: 30px; color: #9a948c; font-variant-numeric: tabular-nums; }

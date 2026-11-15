@@ -79,7 +79,15 @@
     document.getElementById('fade').style.opacity = 1;
     var dl = Game.DATA.layout.dialog, dbox = document.getElementById('dialog');
     dbox.style.left = dl.x + 'px'; dbox.style.top = dl.y + 'px'; dbox.style.width = dl.w + 'px'; dbox.style.minHeight = dl.h + 'px';
-    Game.Assets.load().then(function () {
+    var ld = document.createElement('div');
+    ld.id = 'loading';
+    ld.innerHTML = '<div class="ld-title">죽음을 보는 마녀</div><div class="ld-bar"><i></i></div><div class="ld-text">그림 불러오는 중…</div>';
+    document.getElementById('stage').appendChild(ld);
+    Game.Assets.load(function (n, total) {
+      ld.querySelector('i').style.width = Math.round(n / total * 100) + '%';
+      ld.querySelector('.ld-text').textContent = '그림 불러오는 중… ' + n + ' / ' + total;
+    }).then(function () {
+      if (ld.parentNode) ld.parentNode.removeChild(ld);
       Game.Input.init();
       Game.debug.init();
       requestAnimationFrame(frame);
