@@ -187,11 +187,12 @@
     var skipWait = waitOrClick(c.duration).then(function () { skipped = true; });
     for (var i = 0; i < (c.slams || 2) && !skipped; i++) {
       // 발이 살짝 들린다(그림 전체가 위로)
-      await FX.anim(box, [{ transform: 'translateY(0) scale(1.02)' }, { transform: 'translateY(' + (-lift) + 'px) scale(1.035)' }], { duration: 460, easing: 'ease-out', fill: 'forwards' });
+      // (확대해 두어 그림이 움직여도 가장자리가 비지 않게)
+      await FX.anim(box, [{ transform: 'translateY(0) scale(1.08)' }, { transform: 'translateY(' + (-lift) + 'px) scale(1.1)' }], { duration: 460, easing: 'ease-out', fill: 'forwards' });
       if (skipped) break;
       await FX.wait(120);
       // 세게 내리찍는다
-      await FX.anim(box, [{ transform: 'translateY(' + (-lift) + 'px) scale(1.035)' }, { transform: 'translateY(14px) scale(1.09)', offset: 0.55 }, { transform: 'translateY(0) scale(1.04)' }], { duration: 220, easing: 'ease-in', fill: 'forwards' });
+      await FX.anim(box, [{ transform: 'translateY(' + (-lift) + 'px) scale(1.1)' }, { transform: 'translateY(14px) scale(1.14)', offset: 0.55 }, { transform: 'translateY(0) scale(1.08)' }], { duration: 220, easing: 'ease-in', fill: 'forwards' });
       FX.shakeEl(cut.root, 40, 480);
       FX.flash('#3a0006', 240, 0.45);
       cut.poolItem.level += 1.1;
@@ -202,9 +203,9 @@
       FX.shakeEl(cut.root, 12, 760);
       cut.poolItem.level += 0.9;
       await FX.anim(box, [
-        { transform: 'translateY(0) scale(1.04) rotate(0deg)' }, { transform: 'translateY(4px) scale(1.05) rotate(' + (-tw) + 'deg)', offset: 0.2 },
-        { transform: 'translateY(2px) scale(1.05) rotate(' + tw + 'deg)', offset: 0.45 }, { transform: 'translateY(4px) scale(1.05) rotate(' + (-tw * 0.6) + 'deg)', offset: 0.7 },
-        { transform: 'translateY(0) scale(1.04) rotate(' + (tw * 0.25) + 'deg)', offset: 0.88 }, { transform: 'translateY(0) scale(1.04) rotate(0deg)' }
+        { transform: 'translateY(0) scale(1.08) rotate(0deg)' }, { transform: 'translateY(4px) scale(1.1) rotate(' + (-tw) + 'deg)', offset: 0.2 },
+        { transform: 'translateY(2px) scale(1.1) rotate(' + tw + 'deg)', offset: 0.45 }, { transform: 'translateY(4px) scale(1.1) rotate(' + (-tw * 0.6) + 'deg)', offset: 0.7 },
+        { transform: 'translateY(0) scale(1.08) rotate(' + (tw * 0.25) + 'deg)', offset: 0.88 }, { transform: 'translateY(0) scale(1.08) rotate(0deg)' }
       ], { duration: 760, easing: 'ease-in-out', fill: 'forwards' });
     }
     var left = c.duration - (performance.now() - t0) * FX.speed;
@@ -216,7 +217,7 @@
     var el = mount('cut', 'cutscene');
     cut = { root: el, waiter: null };
     cut.box = div('cut-img', el);
-    var pool = document.createElement('canvas'); pool.width = 1920; pool.height = 1080; cut.box.appendChild(pool);
+    var pool = document.createElement('canvas'); pool.width = 1920; pool.height = 1080; pool.style.mixBlendMode = 'multiply'; cut.box.appendChild(pool);
     cut.shade = div('cut-shade', el);
     cut.black = div('cut-black', el);
     var lens = document.createElement('canvas'); lens.width = 1920; lens.height = 1080; el.appendChild(lens);
@@ -224,14 +225,16 @@
     cut.sub = div('cut-sub', el);
     var hint = div('cut-hint', el); hint.textContent = '클릭: 다음';
     cut.pool = Game.Blood.layer(pool);
-    cut.poolItem = Game.Blood.pool(520, 1400, 900, 5);
+    cut.poolItem = Game.Blood.pool(cs.pool.x0, cs.pool.x1, cs.pool.y, 5);
     cut.pool.items.push(cut.poolItem);
     cut.lens = Game.Blood.layer(lens);
     el.addEventListener('pointerdown', function () { if (cut && cut.waiter) cut.waiter(); });
     black(1, 0);
+    S.cutLog = [];
     for (var i = 0; i < cs.cuts.length; i++) {
       var c = cs.cuts[i];
       el.setAttribute('data-cut', c.id);
+      S.cutLog.push(c.id);
       if (c.id === 'C4') { cut.lensCv.style.transition = 'opacity 1.2s'; cut.lensCv.style.opacity = 0.85; }
       if (c.code === 'impact') await impactCut(c);
       else if (c.code === 'grind') await grindCut(c);

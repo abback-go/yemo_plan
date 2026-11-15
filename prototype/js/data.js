@@ -74,7 +74,7 @@
           { type: 'relicize', ally: 'hero' },
           { type: 'addCard', card: 'trample', permanent: true, freeThisTurn: true, at: 'source' }
         ],
-        text: '세라피나는 이곳에서 짓밟혀 죽는다.\n내면, 그 죽음이 지금 일어난다.',
+        text: '세라피나는 이곳에서 짓밟혀 죽는다.\n내면, 지금 일어난다.',
         tags: ['보존', '사용 시 짓밟힘 획득'] },
 
       // 상속 카드
@@ -280,8 +280,11 @@
         // C5: C4 그림 자체를 움직인다 — 살짝 들렸다가(위로) 세게 내리찍기 + 확대 펄스 + 강한 흔들림 × slams, 마지막에 비트는 회전 흔들림.
         //     매번 화면 아래쪽(돌 틈)에 코드로 그린 피 번짐이 넓어진다.
         { id: 'C5', code: 'grind', image: 'cut_hero_crushed.png', duration: 4400, slams: 2, lift: 46, twistDeg: 2.2 },
+        // (C5 피 번짐 위치: cutscene.pool)
         { id: 'C6', image: 'cut_hero_aftermath.png', duration: 3600, zoom: [1.08, 1.0] }
       ],
+      // C5에서 피가 번지는 자리(화면 아래쪽 돌 틈, 1920×1080 기준) — 건틀릿 손 주변
+      pool: { x0: 560, x1: 1380, y: 880 },
       // C7·C8은 전투 화면에서 진행 (피 튐 오버레이, 죽음 카드가 재로 부서짐, 끊어진 실, 동료 반응)
       returnDelay: 600,
       ashDuration: 1600,
@@ -365,9 +368,9 @@
         { x: 960, feet: 316, h: 232 },
         { x: 1220, feet: 352, h: 232 }
       ],
-      enemyAspect: 2 / 3,
-      // 거대 존재의 발 그림(16:9)을 화면 위쪽에 잘라서 둔다
-      giant: { x: 0, y: -360, w: 1920, h: 1080, feetY: 322, intentY: 214 },
+      enemyAspect: 2 / 3,     // 광신도 그림이 없을 때의 회색 박스 비율 (그림이 있으면 그림 비율)
+      // 거대 존재의 발: 그림 비율을 지킨 채 너비 w, 아랫변 bottom(화면 위쪽에서 잘림). feetY: ??? 표시, intentY: 예고
+      giant: { cx: 960, w: 1500, bottom: 420, feetY: 322, intentY: 214 },
       witchPanel: { x: 24, y: 952, w: 320, h: 104 },
       energy: { x: 1716, y: 930, r: 56 },
       endTurn: { x: 1640, y: 1004, w: 260, h: 60 },

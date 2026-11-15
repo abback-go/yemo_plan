@@ -161,10 +161,11 @@
     if (!card) return;
     var d = Game.DATA.cards[card.id];
     el.setAttribute('data-id', card.id);
-    el.className = 'card o-' + (d.kind === 'wound' ? (card.woundOf || 'witch') : (d.owner || 'witch')) + ' k-' + d.kind + (el.classList.contains('notrans') ? ' notrans' : '');
+    el.className = 'card o-' + (d.kind === 'wound' ? (card.woundOf || 'witch') : (d.owner || 'witch')) + ' k-' + d.kind +
+      (Game.Assets.ok('card_frame.png') ? ' framed' : '') + (el.classList.contains('notrans') ? ' notrans' : '');
     el.innerHTML = H.cardHtml(st, uid);
     var f = el.querySelector('.c-face');
-    if (f) Game.Assets.applyFace(f, 'hero', 212, 0.9);
+    if (f) Game.Assets.applyFace(f, 'hero', el.classList.contains('framed') ? 204 : 212, 0.9);
   };
 
   H.create = function (st, uid, from) {

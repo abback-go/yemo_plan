@@ -32,11 +32,22 @@
     return { x: b.x + b.w * 0.12, y: hp.y - 6, w: b.w * 0.76, h: (b.y + Math.min(b.h * 0.42, 330)) - (hp.y - 6) };
   };
   V.witchRect = function () { var p = LY().witchPanel; return { x: p.x, y: p.y, w: p.w, h: p.h }; };
+  // 거대 존재의 발 그림 위치(그림 비율 유지). 그림이 없으면 화면 위쪽 회색 박스
+  V.footRect = function () {
+    var g = LY().giant, sz = Game.Assets.size(D().enemies.giant.sprite);
+    if (!sz) return { x: 0, y: -40, w: 1920, h: g.bottom + 40, ph: true };
+    var h = g.w * sz.h / sz.w;
+    return { x: g.cx - g.w / 2, y: g.bottom - h, w: g.w, h: h };
+  };
+  function enemyAspect(type) {
+    var sz = Game.Assets.size(D().enemies[type].sprite);
+    return sz ? sz.w / sz.h : LY().enemyAspect;
+  }
   V.enemyBox = function (id) {
     var e = Game.Rules.enemy(Game.Ctl.st, id);
     if (!e) return null;
-    if (e.slot === 'giant') { var g = LY().giant; return { x: 260, y: 0, w: 1400, h: g.feetY }; }
-    var s = LY().enemySlots[e.slot], w = s.h * LY().enemyAspect;
+    if (e.slot === 'giant') { var f = V.footRect(), top = Math.max(0, f.y); return { x: Math.max(0, f.x), y: top, w: Math.min(1920, f.w), h: LY().giant.bottom - top }; }
+    var s = LY().enemySlots[e.slot], w = s.h * enemyAspect(e.type);
     return { x: s.x - w / 2, y: s.feet - s.h, w: w, h: s.h };
   };
   V.enemyCenter = function (id) {
@@ -179,15 +190,9 @@
   V.makeEnemy = function (e) {
     var ly = LY(), el;
     if (e.slot === 'giant') {
-      var g = ly.giant;
-      el = div('enemy giant', $('enemyLayer'));
-      el.style.left = g.x + 'px'; el.style.top = g.y + 'px'; el.style.width = g.w + 'px'; el.style.height = g.h + 'px';
-      var body = div('body', el);
-      var img = Game.Assets.el(D().enemies.giant.sprite, g.w, g.h, { phCls: 'foot' });
-      if (img.classList.contains('ph')) { img.style.height = (g.h * 0.6 + 40) + 'px'; }
-      body.appendChild(img);
+      el = makeFoot();
     } else {
-      var s = ly.enemySlots[e.slot], w = s.h * ly.enemyAspect;
+      var s = ly.enemySlots[e.slot], w = s.h * enemyAspect(e.type);
       el = div('enemy', $('enemyLayer'));
       el.style.left = (s.x - w / 2) + 'px'; el.style.top = (s.feet - s.h) + 'px'; el.style.width = w + 'px'; el.style.height = s.h + 'px';
       var body2 = div('body', el);
@@ -196,7 +201,7 @@
     el.setAttribute('data-enemy', e.id);
     V.els.enemies[e.id] = el;
     var hp = div('hp-enemy' + (e.slot === 'giant' ? ' giant' : ''), $('hudLayer'));
-    var pos = e.slot === 'giant' ? { x: 960, y: ly.giant.feetY } : { x: ly.enemySlots[e.slot].x, y: ly.enemySlots[e.slot].feet + 6 };
+    var pos = e.slot === 'giant' ? { x: ly.giant.cx, y: ly.giant.feetY } : { x: ly.enemySlots[e.slot].x, y: ly.enemySlots[e.slot].feet + 6 };
     hp.style.left = pos.x + 'px'; hp.style.top = pos.y + 'px';
     hp.innerHTML = '<div class="bar"><i></i></div><div class="v"></div>';
     V.els.hpEnemy[e.id] = hp;
@@ -297,7 +302,7 @@
       html = (ICON[it.kind] || ICON.attack) + '<span class="lbl">' + it.label + '</span>' + val +
         '<span class="pips" title="짓밟기까지">' + pips + '</span>';
       el.classList.toggle('lethal', !!it.lethal);
-      el.style.left = '960px'; el.style.top = ly.giant.intentY + 'px';
+      el.style.left = ly.giant.cx + 'px'; el.style.top = ly.giant.intentY + 'px';
     } else {
       var dmg = Game.Rules.intentDamage(it), reduced = dmg < it.value;
       html = ICON.attack + '<span class="val' + (reduced ? ' reduced' : '') + '">' + dmg + '</span><span class="arrow">→</span><span class="tgt">' + name(it.target) + '</span>' +
@@ -687,20 +692,21 @@
   };
 
   // ───────── 거대 존재 ─────────
+  function makeFoot() {
+    var r = V.footRect(), el = div('enemy giant', $('enemyLayer'));
+    el.style.left = r.x + 'px'; el.style.top = r.y + 'px'; el.style.width = r.w + 'px'; el.style.height = r.h + 'px';
+    var body = div('body', el);
+    body.appendChild(Game.Assets.el(D().enemies.giant.sprite, r.w, r.h, { phCls: 'foot' }));
+    return el;
+  }
   function footEl() {
     var st = Game.Ctl.st;
     var g = st.battle && st.battle.enemies.filter(function (e) { return e.slot === 'giant'; })[0];
     if (g && V.els.enemies[g.id]) return V.els.enemies[g.id];
     if (V.tempFoot) return V.tempFoot;
     // 일반 전투 중 등장: 임시로 만든다
-    var ly = LY().giant, el = div('enemy giant', $('enemyLayer'));
-    el.style.left = ly.x + 'px'; el.style.top = ly.y + 'px'; el.style.width = ly.w + 'px'; el.style.height = ly.h + 'px';
-    var body = div('body', el);
-    var img = Game.Assets.el(D().enemies.giant.sprite, ly.w, ly.h, { phCls: 'foot' });
-    if (img.classList.contains('ph')) img.style.height = (ly.h * 0.6 + 40) + 'px';
-    body.appendChild(img);
-    V.tempFoot = el;
-    return el;
+    V.tempFoot = makeFoot();
+    return V.tempFoot;
   }
   function moveFoot(el, y0, y1, ms, easing) {
     return FX.anim(el, [{ transform: 'translateY(' + y0 + 'px)' }, { transform: 'translateY(' + y1 + 'px)' }], { duration: ms, easing: easing || 'ease-out', fill: 'forwards' })

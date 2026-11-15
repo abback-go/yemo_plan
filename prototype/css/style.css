@@ -49,6 +49,7 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
   background-size: 120px 60px; transform: perspective(500px) rotateX(58deg); transform-origin: 50% 0;
 }
 .ph.foot { border-style: solid; border-color: #6d727c; background: repeating-linear-gradient(135deg, #4a4d55 0 18px, #43464e 18px 36px); align-items: flex-end; justify-content: flex-start; }
+.enemy.giant .body img { object-fit: fill; }
 .ph.foot span { margin: 0 0 28px 40px; }
 .ph.cutph span { font-size: 26px; }
 
@@ -58,7 +59,8 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
 .enemy { position: absolute; z-index: 10; transform-origin: 50% 100%; }
 .enemy .body { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
 .enemy .body img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.enemy.giant { z-index: 12; transform-origin: 50% 0; }
+.enemy.giant { z-index: 32; transform-origin: 50% 0; } /* 그림자를 드리우는 쪽이라 그림자 레이어 위, 대신 조금 어둡게 */
+.enemy.giant .body { filter: brightness(.72) contrast(1.05); }
 .enemy.hit .body { animation: hitflash .35s; }
 .enemy.dead { opacity: 0; transition: opacity .5s, transform .5s; }
 .enemy.valid .body::after, .ally.valid .body::after {
@@ -201,6 +203,20 @@ body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-se
   box-shadow: 0 2px 6px rgba(0,0,0,.8); font: 900 28px/44px var(--serif); text-align: center; color: #fff; text-shadow: 0 2px 3px #000; }
 .card .c-block { position: absolute; left: 0; right: 0; top: 120px; text-align: center; display: none;
   font: 900 26px var(--serif); color: #ff6b76; text-shadow: 0 0 8px #000, 0 0 3px #000; transform: rotate(-12deg); }
+/* card_frame.png 가 있을 때: 프레임의 그림 창·글 영역·비용 홈에 맞춘 배치 (카드 240×360 기준, 실측값) */
+.card.framed .c-namebar, .card.framed .c-frame { display: none; }
+.card.framed .c-art { left: 22px; top: 24px; width: 201px; height: 204px; border-radius: 4px; }
+.card.framed .c-cost { left: 15px; top: 16px; width: 37px; height: 37px; border-width: 1px; font-size: 22px; line-height: 35px; }
+.card.framed .c-name { top: 241px; height: 30px; line-height: 30px; font-size: 20px; }
+.card.framed .c-text { left: 26px; right: 26px; top: 270px; height: 58px; font-size: 15px; }
+.card.framed .c-text b { font-size: 17px; }
+.card.framed .c-owner { bottom: 16px; font-size: 11px; }
+.card.framed .c-tags { top: 204px; left: 26px; }
+.card.framed .c-block { top: 110px; }
+.card.framed.k-death .c-text, .card.framed.k-inherit .c-text { font-size: 13.5px; line-height: 1.28; }
+.card.framed.k-relic img.c-frameimg { filter: grayscale(1); }
+.card.framed.k-death img.c-frameimg { filter: brightness(.45) sepia(1) hue-rotate(-40deg) saturate(3); }
+.card.framed.k-inherit img.c-frameimg { filter: sepia(1) hue-rotate(-45deg) saturate(4) brightness(.8); }
 /* 소속별 색 */
 .card.o-witch .c-in { background: linear-gradient(#1e1220, #0e0a10); }
 .card.o-hero .c-in { background: linear-gradient(#20232d, #0f1015); }

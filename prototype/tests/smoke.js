@@ -189,7 +189,8 @@ function check(name, ok, detail) {
       }
       await page.waitForTimeout(40);
     }
-    check('컷신 C1~C6 모두 재생', ['C1', 'C2', 'C3', 'C4', 'C5', 'C6'].every(c => cuts[c]), Object.keys(cuts).join(','));
+    const cutLog = await ev(() => Game.Scenes.cutLog || []);
+    check('컷신 C1~C6 모두 재생', ['C1', 'C2', 'C3', 'C4', 'C5', 'C6'].every(c => cutLog.includes(c)), cutLog.join(',') + ' (캡처: ' + Object.keys(cuts).join(',') + ')');
     await page.waitForTimeout(500);
     await shot('08_after_death_C7.png');
     await waitIdle(60000);

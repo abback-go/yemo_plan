@@ -73,17 +73,18 @@
   };
 
   // 돌 틈으로 번지는 피 (C5). level 이 오를수록 넓어진다.
+  // 캔버스에 mix-blend-mode: multiply 를 걸어 그림의 돌 위에 스며든 것처럼 보이게 한다.
   B.pool = function (x0, x1, y, seed) {
     var r = rng(seed || 7), p = { pool: true, polys: [], level: 0, shown: 0, cracks: [], cx: (x0 + x1) / 2, cy: y };
-    for (var i = 0; i < 9; i++) {
-      var bx = x0 + (i + 0.5) / 9 * (x1 - x0) + (r() - 0.5) * 60;
-      p.polys.push({ x: bx, y: y + (r() - 0.4) * 30, rad: 44 + r() * 50, pts: blobPoly(r, 0, 0, 1, 26, 0.32, 1.7, 0.5) });
+    for (var i = 0; i < 16; i++) {
+      var t = r(), bx = x0 + t * (x1 - x0), by = y + (r() - 0.45) * 70 + Math.sin(t * 6) * 18;
+      p.polys.push({ x: bx, y: by, rad: 26 + r() * 46, grow: 0.6 + r() * 0.8, pts: blobPoly(r, 0, 0, 1, 28, 0.42, 1.5 + r() * 0.8, 0.45 + r() * 0.25) });
     }
-    for (var c = 0; c < 12; c++) {
-      var pts = [], px = x0 + r() * (x1 - x0), py = y + (r() - 0.5) * 20, ang = (r() < 0.5 ? -1 : 1) * (0.2 + r() * 0.5);
+    for (var c = 0; c < 14; c++) {
+      var pts = [], px = x0 + r() * (x1 - x0), py = y + (r() - 0.5) * 40, dir = r() < 0.5 ? -1 : 1;
       pts.push([px, py]);
-      for (var s2 = 0; s2 < 7; s2++) { px += Math.cos(ang) * (30 + r() * 50) * (r() < 0.5 ? -1 : 1); py += 8 + r() * 26; ang += (r() - 0.5) * 0.8; pts.push([px, py]); }
-      p.cracks.push({ pts: pts, w: 1.5 + r() * 3 });
+      for (var s2 = 0; s2 < 7; s2++) { px += dir * (20 + r() * 60); py += (r() - 0.35) * 40; pts.push([px, py]); }
+      p.cracks.push({ pts: pts, w: 1.5 + r() * 2.5 });
     }
     return p;
   };
@@ -124,8 +125,7 @@
     var L = p.shown;
     if (L <= 0.01) return;
     ctx.save();
-    // 돌 틈(금)을 따라 스며든다
-    ctx.strokeStyle = 'rgba(80,0,10,0.9)'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(150,14,24,0.95)'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     p.cracks.forEach(function (c) {
       var n = Math.min(c.pts.length, 1 + Math.floor(L * 2.4));
       if (n < 2) return;
@@ -134,13 +134,12 @@
       for (var i = 1; i < n; i++) ctx.lineTo(c.pts[i][0], c.pts[i][1]);
       ctx.stroke();
     });
-    ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 10;
-    var g = ctx.createRadialGradient(p.cx, p.cy - 20, 10, p.cx, p.cy, 300 * (0.5 + Math.min(3, L) * 0.4));
-    g.addColorStop(0, 'rgba(128,6,20,0.95)'); g.addColorStop(0.6, 'rgba(96,2,14,0.94)'); g.addColorStop(1, 'rgba(58,0,8,0.94)');
+    var g = ctx.createRadialGradient(p.cx, p.cy, 10, p.cx, p.cy, 420);
+    g.addColorStop(0, 'rgba(175,18,30,0.97)'); g.addColorStop(1, 'rgba(150,10,22,0.93)');
     ctx.fillStyle = g;
     ctx.beginPath();
     p.polys.forEach(function (b) {
-      var k = b.rad * (0.45 + Math.min(3, L) * 0.42);
+      var k = b.rad * (0.35 + Math.min(3, L) * 0.4 * b.grow);
       polyPath(ctx, b.pts, { k: k, ox: b.x, oy: b.y });
     });
     ctx.fill();
