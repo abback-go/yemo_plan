@@ -144,3 +144,30 @@ No other hand, no other cards, no other body parts, no face, no text, no letters
 
 AVOID: extra fingers, fused or missing fingers, six fingers, deformed hand, left hand, two hands, rings, jewelry, nail polish, gloves, card designs, card borders, card outline, card that is not green, tremble lines, motion lines, watermark, signature.
 - - - 여기까지 복사 - - -
+
+[11] 행동 컷인 — 노엘 일반 시전 → prototype/assets/cutin_witch_cast.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Dynamic action cut-in illustration for a card game, 16:9. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Strong dramatic lighting from the side.
+
+Noel, the witch of an adventuring party, who secretly foresees how each of her companions will die: an adult woman in her mid-twenties, slight and thin, with pale skin and tired, half-lidded deep red eyes with faint dark circles beneath them. Long straight black hair falling past her waist, with messy bangs falling over her eyes. A worn, hooded black robe with the hood down, layered tattered hems and very wide ragged sleeves, a simple brown leather belt with a long hanging strap, plain brown boots, no jewelry. Around her neck hangs a small bundle of old cards tied together with a faded red string. Her expression is quiet and withdrawn; she looks more like a mourner than a mage.
+
+Upper body from the waist up, three-quarter front view, filling the center of the frame and cropped at the waist by the bottom edge. She raises her right hand to shoulder height and holds a single playing card between two fingers, its face turned toward the enemy at the left of the frame; the edges of the card smolder with a faint deep red ember glow, the only light on her. Her expression is cold and almost blank: half-lidded deep red eyes, mouth closed, as if she has done this many times and feels nothing anymore. Her long black hair and wide ragged sleeves drift slightly; the small card bundle on its faded red string hangs at her chest.
+Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
+No speed lines, no glow trails, no sparks, no magic circles, no effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, pointed witch hat, staff or wand, colorful robe, smiling, angry shouting.
+- - - 여기까지 복사 - - -
+
+
+[12] 행동 컷인 — 노엘 상속 스킬 시전 (짓밟힘 등) → prototype/assets/cutin_witch_inherit.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Dynamic action cut-in illustration for a card game, 16:9. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Strong dramatic lighting from the side.
+
+Noel, the witch of an adventuring party, who secretly foresees how each of her companions will die: an adult woman in her mid-twenties, slight and thin, with pale skin and tired, half-lidded deep red eyes with faint dark circles beneath them. Long straight black hair falling past her waist, with messy bangs falling over her eyes. A worn, hooded black robe with the hood down, layered tattered hems and very wide ragged sleeves, a simple brown leather belt with a long hanging strap, plain brown boots, no jewelry. Around her neck hangs a small bundle of old cards tied together with a faded red string. Her expression is quiet and withdrawn; she looks more like a mourner than a mage.
+
+Upper body from the waist up, three-quarter front view, filling the center of the frame and cropped at the waist by the bottom edge, slightly closer than a normal cut-in. She thrusts her right hand forward toward the left of the frame, gripping a single charred black card so hard her knuckles are white. Small specks of dark red blood are spattered across her pale cheek, her neck and her right hand. Her deep red eyes are wide open and hollow, staring at nothing; a single silent tear runs down her cheek through the blood specks; her lips are slightly parted but she is not screaming. Her long black hair is disheveled and falls across her face; the faded red string of her card bundle has snapped and hangs loose.
+Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
+No speed lines, no glow trails, no sparks, no magic circles, no effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, pointed witch hat, staff or wand, colorful robe, smiling, screaming, crying with open mouth, heavy gore, large blood pools on her, wounds.
+- - - 여기까지 복사 - - -
