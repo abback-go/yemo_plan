@@ -30,6 +30,9 @@ func _ready() -> void:
 		if q is String and String(q).contains("hex3d"):
 			_phase = 4
 			get_tree().change_scene_to_file.call_deferred("res://proto/hex3d/hex3d.tscn")
+		elif q is String and String(q).contains("party"):
+			_phase = 4
+			get_tree().change_scene_to_file.call_deferred("res://proto/party/party.tscn")
 		elif q is String and String(q).contains("hex"):
 			_phase = 4
 			get_tree().change_scene_to_file.call_deferred("res://proto/hex/hex_map.tscn")
