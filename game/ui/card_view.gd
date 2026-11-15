@@ -33,6 +33,8 @@ static func rect_corners(pos: Vector2, k: float) -> PackedVector2Array:
 
 
 func _init() -> void:
+	# 뷰포트 그림에는 밉맵이 없으므로 선형 필터 (흐린 다음 카드도 부드럽게 번진다)
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	corners = rect_corners(Vector2.ZERO, 1.0)
 	target = corners.duplicate()
 
@@ -40,6 +42,7 @@ func _init() -> void:
 ## 뒷면 카드 (마녀가 쥔 덱)
 func setup_back() -> void:
 	tex = Assets.svg("card_back", CardArt.SVG.__back, 2.0)
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 
 ## 앞면 카드
@@ -198,6 +201,7 @@ func build(st: Dictionary) -> void:
 		cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cost.position = Vector2(15, 16) * s
 		cost.size = Vector2(37, 37) * s
+		cost.add_theme_stylebox_override("panel", UI.box(Color("#2a2a2a") if kind == "death" else Color("#b3121f"), Color("#1b0b0e"), int(19 * s), int(2 * s)))
 		face.add_child(cost)
 		var cl := UI.label(str(d.cost), int(22 * s), Color.WHITE, "serif_black", HORIZONTAL_ALIGNMENT_CENTER, int(3 * s))
 		cl.size = cost.size
