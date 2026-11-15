@@ -14,3 +14,15 @@ Composition centered, her face filling most of the square, simple dark backgroun
 
 AVOID: text, letters, card frame, border, bright colors other than the red ribbon and thread, gore, open-mouth smile, looking up, watermark, signature.
 - - - 여기까지 복사 - - -
+
+[2] 카드 그림 「짓밟힘」 → prototype/assets/card_art_trample.png — 화면비: 1:1 정사각
+- - - 여기부터 복사 - - -
+Square illustration for a card in a dark fantasy card game, 1:1. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+A forbidden curse born from a death: a colossal foot formed of black ash, smoke and cracked charcoal-gray stone, with thin veins of glowing deep red light running through its cracks, stomping straight down from the top of the frame onto a ruined gothic cathedral floor.
+At the moment of impact, a shockwave of dust and shattered stone bursts outward in a ring, and several small hooded cultist silhouettes are flung away and crushed flat into the shadow at the edges.
+Above the shockwave, a torn deep red ribbon and a snapped silver sword blade with a cross-shaped guard tumble through the air, the only reminders of whose death this power came from.
+Dramatic downward perspective, strong motion, heavy weight. Cold blue-gray and black palette, the glowing cracks, the ribbon and the dust lit in deep red as the only accent.
+Composition centered, simple dark background. No text, no letters, no numbers, no frame, no border.
+
+AVOID: text, letters, card frame, border, gore, visible blood spray, cute or chubby foot, log-shaped toes, bright saturated colors other than deep red, watermark, signature.
+- - - 여기까지 복사 - - -
