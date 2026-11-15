@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>죽음을 보는 마녀 — 튜토리얼 프로토타입</title>
+<!-- 외부 폰트(없어도 시스템 폰트로 대체됨) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@400;700;900&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+    <div id="world">
+      <div id="bgLayer"></div>
+      <div id="enemyLayer"></div>
+      <div id="allyLayer"></div>
+      <div id="shadowLayer"></div>
+      <canvas id="threadCanvas" width="1920" height="1080"></canvas>
+      <div id="handLayer"></div>
+      <canvas id="bloodCanvas" width="1920" height="1080"></canvas>
+      <div id="hudLayer"></div>
+    </div>
+    <canvas id="fxCanvas" width="1920" height="1080"></canvas>
+    <div id="floatLayer"></div>
+    <div id="dialog" class="hidden">
+      <div class="dlg-face"></div>
+      <div class="dlg-body"><div class="dlg-name"></div><div class="dlg-text"></div></div>
+    </div>
+    <div id="banner" class="hidden"></div>
+    <div id="toast" class="hidden"></div>
+    <div id="sceneLayer"></div>
+    <div id="flash"></div>
+    <div id="fade"></div>
+    <div id="debugPanel" class="hidden"></div>
+  </div>
+</div>
+<!-- 전역 네임스페이스 window.Game 하나만 사용 (ES 모듈 아님 → file:// 로 열어도 동작) -->
+<script src="js/data.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/blood.js"></script>
+<script src="js/cardart.js"></script>
+<script src="js/hand.js"></script>
+<script src="js/dialog.js"></script>
+<script src="js/battleview.js"></script>
+<script src="js/input.js"></script>
+<script src="js/scenes.js"></script>
+<script src="js/controller.js"></script>
+<script src="js/debug.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

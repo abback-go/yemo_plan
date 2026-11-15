@@ -1,0 +1,378 @@
+/* ───────── 기본 ───────── */
+:root {
+  --serif: 'Noto Serif KR', 'Nanum Myeongjo', 'Batang', 'AppleMyungjo', serif;
+  --sans: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Nanum Gothic', sans-serif;
+  --red: #b3121f;
+  --red-dark: #5e0710;
+  --red-glow: #ff3346;
+  --ink: #0b0c10;
+  --paper: #e9e2d2;
+  --steel: #9aa3b5;
+}
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+body { font-family: var(--sans); color: #ddd; user-select: none; -webkit-user-select: none; }
+#viewport { position: fixed; inset: 0; background: #000; overflow: hidden; }
+#stage {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+  transform-origin: 0 0; overflow: hidden; background: #07080b;
+}
+#world { position: absolute; inset: 0; }
+#bgLayer, #enemyLayer, #allyLayer, #handLayer, #hudLayer, #floatLayer, #sceneLayer { position: absolute; inset: 0; }
+#shadowLayer {
+  position: absolute; inset: 0; z-index: 30; pointer-events: none; opacity: 0;
+  background: linear-gradient(to bottom, rgba(2,2,6,.97) 0%, rgba(4,3,8,.9) 26%, rgba(6,4,10,.62) 46%, rgba(6,4,10,.25) 62%, rgba(0,0,0,0) 78%);
+}
+#threadCanvas { position: absolute; left: 0; top: 0; z-index: 40; pointer-events: none; }
+#bloodCanvas { position: absolute; left: 0; top: 0; z-index: 85; pointer-events: none; }
+#fxCanvas { position: absolute; left: 0; top: 0; z-index: 200; pointer-events: none; }
+#floatLayer { z-index: 210; pointer-events: none; }
+#sceneLayer { z-index: 400; pointer-events: none; }
+#sceneLayer > * { pointer-events: auto; }
+#flash { position: absolute; inset: 0; z-index: 900; background: #fff; opacity: 0; pointer-events: none; }
+#fade { position: absolute; inset: 0; z-index: 950; background: #000; opacity: 0; pointer-events: none; transition: opacity .4s; }
+.hidden { display: none !important; }
+
+/* ───────── 그림이 없을 때: 회색 박스 + 파일명 ───────── */
+.ph {
+  position: absolute; box-sizing: border-box;
+  background: repeating-linear-gradient(135deg, #4b4f58 0 14px, #444851 14px 28px);
+  border: 2px dashed #8b919c; color: #d7dbe2;
+  font: 700 18px/1.3 var(--sans); display: flex; align-items: center; justify-content: center; text-align: center;
+  overflow: hidden;
+}
+.ph span { background: rgba(0,0,0,.45); padding: 4px 10px; border-radius: 4px; }
+.ph.bg { background: radial-gradient(ellipse at 50% 38%, #3b3f47 0%, #2b2e35 55%, #1d1f24 100%); border: none; align-items: flex-start; justify-content: flex-end; }
+.ph.bg span { margin: 170px 24px 0 0; font-size: 20px; opacity: .8; }
+.ph.bg::after { /* 바닥 원근 격자 (그림이 없을 때만) */
+  content: ''; position: absolute; left: -20%; right: -20%; top: 38%; bottom: -10%;
+  background-image: linear-gradient(rgba(255,255,255,.05) 2px, transparent 2px), linear-gradient(90deg, rgba(255,255,255,.05) 2px, transparent 2px);
+  background-size: 120px 60px; transform: perspective(500px) rotateX(58deg); transform-origin: 50% 0;
+}
+.ph.foot { border-style: solid; border-color: #6d727c; background: repeating-linear-gradient(135deg, #4a4d55 0 18px, #43464e 18px 36px); align-items: flex-end; justify-content: flex-start; }
+.enemy.giant .body img { object-fit: fill; }
+.ph.foot span { margin: 0 0 28px 40px; }
+.ph.cutph span { font-size: 26px; }
+
+/* ───────── 배경·스프라이트 ───────── */
+.bg-img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; z-index: 0; }
+.sprite { position: absolute; display: block; pointer-events: none; }
+.enemy { position: absolute; z-index: 10; transform-origin: 50% 100%; }
+.enemy .body { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.enemy .body img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.enemy.giant { z-index: 32; transform-origin: 50% 0; } /* 그림자를 드리우는 쪽이라 그림자 레이어 위, 대신 조금 어둡게 */
+.enemy.giant .body { filter: brightness(.72) contrast(1.05); }
+.enemy.hit .body { animation: hitflash .35s; }
+.enemy.dead { opacity: 0; transition: opacity .5s, transform .5s; }
+.enemy.valid .body::after, .ally.valid .body::after {
+  content: ''; position: absolute; inset: -6px; border: 3px solid rgba(255, 70, 80, .9); border-radius: 12px;
+  box-shadow: 0 0 22px rgba(255, 50, 60, .8), inset 0 0 18px rgba(255,50,60,.35); animation: pulse 1s infinite;
+}
+.enemy.target-hot .body::after, .ally.target-hot .body::after { border-color: #ffd36b; box-shadow: 0 0 34px rgba(255, 210, 100, 1); }
+.ally { position: absolute; z-index: 20; transform-origin: 50% 0; }
+.ally .body { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.ally .body img { width: 100%; height: 100%; display: block; }
+.ally.valid .body::after { inset: 0 10% 55% 10%; }
+.ally.down .body { filter: grayscale(1) brightness(.45); transition: filter .6s; }
+.ally.dead { opacity: 0; transition: opacity .2s; }
+.ally.hit .body { animation: hitflash .35s; }
+.ally.tremble { animation: tremble .09s infinite; }
+@keyframes hitflash { 0% { filter: brightness(2.4) sepia(1) hue-rotate(-40deg) saturate(4); } 100% { filter: none; } }
+@keyframes pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes tremble { 0% { transform: translate(0,0); } 25% { transform: translate(-2px,1px); } 50% { transform: translate(2px,0); } 75% { transform: translate(-1px,-1px); } 100% { transform: translate(1px,1px); } }
+
+/* ───────── HP 표시 ───────── */
+.hp-ally {
+  position: absolute; z-index: 90; transform: translateX(-50%);
+  min-width: 190px; padding: 4px 12px 6px; box-sizing: border-box;
+  background: linear-gradient(#17181e, #0c0d11); border: 1px solid #5a5f6c; border-radius: 16px;
+  box-shadow: 0 3px 10px rgba(0,0,0,.7); font: 700 15px var(--sans); color: #e8e8ee; pointer-events: none;
+}
+.hp-ally .nm { display: flex; justify-content: space-between; gap: 10px; font-size: 15px; letter-spacing: .02em; }
+.hp-ally .nm .v { font-variant-numeric: tabular-nums; color: #ffb3b9; }
+.hp-ally .bar { height: 9px; margin-top: 3px; background: #2a0b10; border-radius: 6px; overflow: hidden; border: 1px solid #000; }
+.hp-ally .bar i { display: block; height: 100%; background: linear-gradient(#ff4d5c, #a3101f); transition: width .35s; }
+.hp-ally.down { border-color: #333; color: #777; }
+.hp-ally.down .nm .v { color: #888; }
+.hp-ally.valid { border-color: #ff4d5a; box-shadow: 0 0 18px rgba(255,60,70,.9); }
+.hp-ally .st { position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font-size: 13px; color: #ff8a92; white-space: nowrap; }
+
+.hp-enemy {
+  position: absolute; z-index: 90; transform: translateX(-50%); width: 160px; height: 22px; pointer-events: none;
+}
+.hp-enemy .bar {
+  position: absolute; inset: 0; background: #14070a; border: 1px solid #7b2a33;
+  clip-path: polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%);
+}
+.hp-enemy .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#c23a2e, #6f1510); transition: width .35s; }
+.hp-enemy .v { position: absolute; inset: 0; text-align: center; font: 700 14px/22px var(--sans); color: #fff; text-shadow: 0 1px 2px #000; }
+.hp-enemy.giant { width: 260px; }
+.hp-enemy.giant .v { letter-spacing: .4em; color: #c9c9c9; }
+.hp-enemy.giant .bar i { background: repeating-linear-gradient(90deg, #333 0 6px, #222 6px 12px); width: 100% !important; }
+
+/* ───────── 적 예고 ───────── */
+.intent {
+  position: absolute; z-index: 92; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px; padding: 4px 12px 4px 8px; white-space: nowrap;
+  background: rgba(10, 6, 8, .82); border: 1px solid #6e2a31; border-radius: 22px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.8); font: 700 20px var(--sans); color: #fff; cursor: default;
+}
+.intent svg { width: 28px; height: 28px; flex: none; }
+.intent .val { font-size: 24px; color: #ff6b76; font-variant-numeric: tabular-nums; }
+.intent .val.reduced { color: #9be59b; }
+.intent .arrow { color: #b9a0a4; font-size: 16px; }
+.intent .tgt { font-size: 17px; color: #f0dede; }
+.intent .mod { font-size: 13px; color: #ffcf7a; font-weight: 400; }
+.intent.hover, .intent.valid { border-color: #ff5361; box-shadow: 0 0 16px rgba(255, 60, 75, .9); }
+.intent.valid { animation: pulse 1s infinite; }
+.intent.target-hot { border-color: #ffd36b; box-shadow: 0 0 26px rgba(255, 210, 100, 1); animation: none; }
+.intent.giant { padding: 6px 16px 6px 10px; font-size: 22px; border-color: #8a1a24; }
+.intent.giant .lbl { color: #ffd0d4; }
+.intent.giant .det { font-size: 15px; color: #c8a9ad; font-weight: 400; }
+.intent.giant.lethal { background: rgba(60, 0, 6, .9); border-color: #ff2a3a; animation: lethal 1s infinite; }
+.intent .pips { display: flex; gap: 4px; margin-left: 4px; }
+.intent .pips i { width: 10px; height: 10px; border-radius: 50%; background: #3a1418; border: 1px solid #a33; }
+.intent .pips i.on { background: #ff3346; box-shadow: 0 0 8px #ff3346; }
+@keyframes lethal { 0%,100% { box-shadow: 0 0 10px rgba(255,30,50,.6); } 50% { box-shadow: 0 0 30px rgba(255,30,50,1); } }
+
+/* ───────── 마녀 HP·에너지·턴 종료 ───────── */
+#witchPanel {
+  position: absolute; z-index: 95; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(22,10,18,.92), rgba(8,6,10,.92)); border: 1px solid #6b2a3c; border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.8);
+}
+#witchPanel .face { width: 78px; height: 78px; border-radius: 50%; border: 2px solid #7a2232; background-color: #222; background-repeat: no-repeat; flex: none; }
+#witchPanel .info { flex: 1; }
+#witchPanel .nm { font: 700 18px var(--serif); color: #f0d8dc; display: flex; justify-content: space-between; }
+#witchPanel .nm .v { font-family: var(--sans); color: #ff9aa4; font-variant-numeric: tabular-nums; }
+#witchPanel .bar { height: 14px; margin-top: 6px; background: #2a0b10; border-radius: 7px; overflow: hidden; border: 1px solid #000; }
+#witchPanel .bar i { display: block; height: 100%; background: linear-gradient(#ff4d5c, #a3101f); transition: width .35s; }
+#witchPanel .sub { font-size: 12px; color: #a99; margin-top: 4px; }
+#witchPanel.valid { border-color: #ff4d5a; box-shadow: 0 0 22px rgba(255,60,70,.95); animation: pulse 1s infinite; }
+#witchPanel.target-hot { border-color: #ffd36b; box-shadow: 0 0 30px rgba(255,210,100,1); animation: none; }
+#witchPanel.hit { animation: hitflash .35s; }
+
+#energyOrb {
+  position: absolute; z-index: 95; border-radius: 50%; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  background: radial-gradient(circle at 40% 35%, #ff7b86 0%, #b3121f 45%, #3c050b 100%);
+  border: 3px solid #2a0a0e; box-shadow: 0 0 24px rgba(255, 40, 60, .6), inset 0 -6px 14px rgba(0,0,0,.6);
+  font: 900 36px var(--serif); color: #fff; text-shadow: 0 2px 4px #000;
+}
+#energyOrb small { font: 700 12px var(--sans); opacity: .8; margin-top: -4px; }
+#energyOrb.empty { background: radial-gradient(circle at 40% 35%, #5a4a4e 0%, #2a2224 60%, #120d0e 100%); box-shadow: none; }
+#endTurn {
+  position: absolute; z-index: 95; box-sizing: border-box; border-radius: 30px; cursor: pointer;
+  background: linear-gradient(#3a1d22, #1a0b0e); border: 2px solid #8c3340; color: #f3e1e3;
+  font: 700 24px var(--serif); display: flex; align-items: center; justify-content: center; letter-spacing: .08em;
+  box-shadow: 0 4px 14px rgba(0,0,0,.8);
+}
+#endTurn:hover { background: linear-gradient(#5a2730, #2a0f14); border-color: #ff5a68; }
+#endTurn.ready { animation: pulse 1.2s infinite; border-color: #ff5a68; }
+#endTurn.disabled { opacity: .45; cursor: default; animation: none; }
+.pile { position: absolute; z-index: 95; transform: translate(-50%, -50%); font: 700 14px var(--sans); color: #c9b9bc;
+  background: rgba(0,0,0,.65); border: 1px solid #4a3a3e; border-radius: 10px; padding: 3px 10px; white-space: nowrap; }
+
+/* ───────── 손패 ───────── */
+#handImg { position: absolute; z-index: 80; pointer-events: none; transform-origin: 0 0; }
+.card {
+  position: absolute; left: 0; top: 0; width: 240px; height: 360px; box-sizing: border-box; transform-origin: 0 0;
+  border-radius: 14px; z-index: 50; color: #eee; pointer-events: none;
+  transition: transform .22s ease-out, opacity .25s, filter .3s;
+  backface-visibility: hidden;
+}
+.card.notrans { transition: none; }
+.card .c-in { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; background: #15161b; }
+.card .c-art { position: absolute; left: 14px; top: 14px; width: 212px; height: 184px; border-radius: 8px 8px 2px 2px; overflow: hidden; background: #222; }
+.card .c-art svg { width: 100%; height: 100%; display: block; }
+.card .c-face { position: absolute; inset: 0; background-repeat: no-repeat; filter: grayscale(1) brightness(.5) contrast(1.35); }
+.card .c-frame { position: absolute; inset: 0; border-radius: 14px; pointer-events: none;
+  border: 7px solid #2c2f38; box-shadow: inset 0 0 0 2px #6a6f7c, inset 0 0 0 4px #15161b, inset 0 0 0 5px rgba(179,18,31,.75); }
+.card img.c-frameimg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.card .c-namebar { position: absolute; left: 10px; right: 10px; top: 198px; height: 36px;
+  background: linear-gradient(#2b2d35, #17181d); border-top: 1px solid #6a6f7c; border-bottom: 1px solid #6a6f7c; }
+.card .c-name { position: absolute; left: 10px; right: 10px; top: 198px; height: 36px; text-align: center;
+  font: 700 21px/36px var(--serif); color: #f4ead6; text-shadow: 0 1px 2px #000; white-space: nowrap; letter-spacing: -.02em; }
+.card .c-text { position: absolute; left: 18px; right: 18px; top: 240px; height: 86px; display: flex; align-items: center; justify-content: center; text-align: center;
+  font: 400 17px/1.32 var(--sans); color: #e7dfd2; white-space: pre-line; word-break: keep-all; }
+.card .c-text b { color: #ffcf6a; font-size: 19px; }
+.card .c-owner { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font: 700 13px var(--sans); color: #a8a2a0; letter-spacing: .08em; }
+.card .c-tags { position: absolute; left: 18px; top: 170px; display: flex; gap: 4px; }
+.card .c-tags span { font: 700 12px var(--sans); padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.7); color: #ff9aa4; border: 1px solid #7a2232; }
+.card .c-cost { position: absolute; left: 4px; top: 4px; width: 50px; height: 50px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #ff8b95, #b3121f 52%, #46060d 100%); border: 3px solid #1b0b0e;
+  box-shadow: 0 2px 6px rgba(0,0,0,.8); font: 900 28px/44px var(--serif); text-align: center; color: #fff; text-shadow: 0 2px 3px #000; }
+.card .c-block { position: absolute; left: 0; right: 0; top: 120px; text-align: center; display: none;
+  font: 900 26px var(--serif); color: #ff6b76; text-shadow: 0 0 8px #000, 0 0 3px #000; transform: rotate(-12deg); }
+/* card_frame.png 가 있을 때: 프레임의 그림 창·글 영역·비용 홈에 맞춘 배치 (카드 240×360 기준, 실측값) */
+.card.framed .c-namebar, .card.framed .c-frame { display: none; }
+.card.framed .c-art { left: 22px; top: 24px; width: 201px; height: 204px; border-radius: 4px; }
+.card.framed .c-cost { left: 15px; top: 16px; width: 37px; height: 37px; border-width: 1px; font-size: 22px; line-height: 35px; }
+.card.framed .c-name { top: 241px; height: 30px; line-height: 30px; font-size: 20px; }
+.card.framed .c-text { left: 26px; right: 26px; top: 270px; height: 58px; font-size: 15px; }
+.card.framed .c-text b { font-size: 17px; }
+.card.framed .c-owner { bottom: 16px; font-size: 11px; }
+.card.framed .c-tags { top: 204px; left: 26px; }
+.card.framed .c-block { top: 110px; }
+.card.framed.k-death .c-text, .card.framed.k-inherit .c-text { font-size: 13.5px; line-height: 1.28; }
+.card.framed.k-relic img.c-frameimg { filter: grayscale(1); }
+.card.framed.k-death img.c-frameimg { filter: brightness(.45) sepia(1) hue-rotate(-40deg) saturate(3); }
+.card.framed.k-inherit img.c-frameimg { filter: sepia(1) hue-rotate(-45deg) saturate(4) brightness(.8); }
+/* 소속별 색 */
+.card.o-witch .c-in { background: linear-gradient(#1e1220, #0e0a10); }
+.card.o-hero .c-in { background: linear-gradient(#20232d, #0f1015); }
+.card.o-warrior .c-in { background: linear-gradient(#251d17, #100c09); }
+.card.o-archer .c-in { background: linear-gradient(#18241a, #0b100b); }
+.card.o-hero .c-owner { color: #cfd3dd; }
+.card.o-warrior .c-owner { color: #c9a985; }
+.card.o-archer .c-owner { color: #9fc38f; }
+.card.o-witch .c-owner { color: #c79ab0; }
+/* 종류별 */
+.card.k-death .c-in { background: linear-gradient(#070607, #000); }
+.card.k-death .c-frame { border-color: #0a0a0a; box-shadow: inset 0 0 0 2px #5e0710, inset 0 0 0 4px #000, inset 0 0 0 5px rgba(255,40,60,.6), 0 0 18px rgba(255,20,40,.55); }
+.card.k-death .c-name { color: #ff6b76; }
+.card.k-death .c-namebar { background: linear-gradient(#1a0306, #050001); border-color: #5e0710; }
+.card.k-death .c-cost { background: radial-gradient(circle at 38% 32%, #555, #111 60%, #000); }
+.card.k-inherit .c-in { background: linear-gradient(#2a0508, #0b0001); }
+.card.k-inherit .c-frame { border-color: #3b0a0f; box-shadow: inset 0 0 0 2px #b3121f, inset 0 0 0 4px #000, 0 0 16px rgba(255, 40, 60, .7); }
+.card.k-inherit .c-name { color: #ffb0b6; }
+.card.k-relic .c-art, .card.k-relic .c-name { filter: grayscale(1); }
+.card.k-relic .c-in { background: linear-gradient(#202020, #0b0b0b); }
+.card.k-relic .c-frame { border-color: #2a2a2a; box-shadow: inset 0 0 0 2px #8a8a8a, inset 0 0 0 4px #111; }
+.card.k-relic .c-name { color: #d8d8d8; }
+.card.k-wound .c-in { background: linear-gradient(#1b0d0f, #070304); }
+.card.k-wound .c-cost { display: none; }
+.card.k-wound .c-name { color: #c98a90; }
+.card.free .c-cost { background: radial-gradient(circle at 38% 32%, #fff3b0, #e0a020 55%, #5a3a00 100%); }
+.card.poor .c-cost { filter: grayscale(.8) brightness(.7); color: #ff9aa0; }
+.card.blocked .c-in, .card.blocked .c-art { filter: grayscale(1) brightness(.45); }
+.card.blocked .c-block { display: block; }
+.card.hover { z-index: 120 !important; box-shadow: 0 10px 40px rgba(0,0,0,.9), 0 0 24px rgba(255,80,90,.35); }
+.card.dragging { z-index: 130 !important; transition: transform .05s linear, opacity .2s; }
+.card.lifted { z-index: 125 !important; }
+.card.playable-glow { box-shadow: 0 0 0 2px rgba(255,210,120,.55), 0 0 14px rgba(255,180,80,.35); }
+.card.k-death.taut { box-shadow: 0 0 26px rgba(255, 30, 50, .95); }
+.card.ash { transition: opacity 1.4s, filter 1.4s; filter: brightness(.15) contrast(1.6) grayscale(1); opacity: 0; }
+.card.appear { animation: appear .9s ease-out; }
+@keyframes appear { 0% { filter: brightness(3) saturate(0); opacity: 0; } 40% { opacity: 1; } 100% { filter: none; } }
+.card.relicflash { animation: relicflash 1s ease-out; }
+@keyframes relicflash { 0% { filter: brightness(2.5); } 100% { filter: none; } }
+
+/* ───────── 대사창 (전투 중 안내) ───────── */
+#dialog {
+  position: absolute; z-index: 300; left: 24px; top: 20px; width: 580px; min-height: 120px; box-sizing: border-box;
+  display: flex; gap: 14px; padding: 12px 18px 12px 12px; cursor: pointer;
+  background: linear-gradient(135deg, rgba(12,8,12,.93), rgba(20,10,14,.9)); border: 1px solid #6e2a31; border-left: 4px solid #b3121f; border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.85);
+}
+#dialog .dlg-face { width: 96px; height: 96px; flex: none; border-radius: 8px; border: 2px solid #5a2a32; background-color: #222; background-repeat: no-repeat; }
+#dialog.noface .dlg-face { display: none; }
+#dialog .dlg-name { font: 700 19px var(--serif); color: #ff9aa4; margin-bottom: 4px; }
+#dialog .dlg-text { font: 400 20px/1.5 var(--sans); color: #f0e8e8; word-break: keep-all; }
+#dialog.inner .dlg-text { font-style: italic; color: #d7c3cf; font-family: var(--serif); }
+#dialog.system { border-left-color: #c9a24a; }
+#dialog.system .dlg-text { font-size: 18px; color: #f3e3b6; }
+#dialog.system .dlg-name { color: #c9a24a; }
+
+#banner {
+  position: absolute; z-index: 310; left: 0; right: 0; top: 470px; text-align: center; pointer-events: none;
+  font: 900 64px var(--serif); color: #f4e6e8; letter-spacing: .2em; text-shadow: 0 0 20px #000, 0 0 40px rgba(179,18,31,.8);
+}
+#toast {
+  position: absolute; z-index: 320; left: 50%; top: 560px; transform: translateX(-50%); pointer-events: none;
+  padding: 10px 26px; background: rgba(0,0,0,.82); border: 1px solid #8c3340; border-radius: 10px;
+  font: 700 22px var(--sans); color: #ffd9dc; white-space: nowrap;
+}
+.float {
+  position: absolute; transform: translate(-50%, -50%); font: 900 56px var(--serif); color: #fff;
+  text-shadow: 0 0 6px #000, 0 3px 0 #000, 0 0 18px rgba(0,0,0,.9); white-space: nowrap; pointer-events: none;
+}
+.float.ally { color: #ff4b5a; }
+.float.enemy { color: #ffe9a8; }
+.float.immune { color: #b9bcc4; font-size: 34px; }
+.float.small { font-size: 30px; }
+.prompt {
+  position: absolute; z-index: 330; left: 50%; top: 600px; transform: translateX(-50%); pointer-events: none;
+  padding: 8px 22px; background: rgba(10,0,4,.85); border: 1px solid #b3121f; border-radius: 22px; font: 700 20px var(--sans); color: #ffd9dc;
+}
+
+/* ───────── 장면: 타이틀 / 캠프 / 컷신 / 종료 ───────── */
+.scene { position: absolute; inset: 0; overflow: hidden; }
+.title-scene { background: radial-gradient(ellipse at 50% 60%, #2a0a10 0%, #0b0507 55%, #000 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.title-scene h1 { margin: 0; font: 900 104px var(--serif); color: #efe3e5; letter-spacing: .12em; text-shadow: 0 0 40px rgba(179,18,31,.75); }
+.title-scene .sub { margin-top: 18px; font: 400 26px var(--serif); color: #b9a3a7; letter-spacing: .2em; }
+.title-scene .note { position: absolute; bottom: 40px; font-size: 18px; color: #7d6f72; }
+.btn {
+  margin-top: 70px; padding: 16px 64px; cursor: pointer; border-radius: 40px;
+  background: linear-gradient(#4a1820, #1d080b); border: 2px solid #b3121f; color: #f7e9eb;
+  font: 700 30px var(--serif); letter-spacing: .3em; box-shadow: 0 0 24px rgba(179,18,31,.5);
+}
+.btn:hover { background: linear-gradient(#6a2230, #2d0c11); box-shadow: 0 0 40px rgba(255,40,60,.7); }
+.title-thread { position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,40,60,.55), transparent); }
+
+.vn .vn-bg { position: absolute; inset: 0; }
+.vn .vn-bg img { width: 100%; height: 100%; object-fit: cover; }
+.vn .vn-fire { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 85%, rgba(255,140,40,.22), rgba(0,0,0,0) 55%); animation: fire 2.4s infinite alternate; }
+@keyframes fire { from { opacity: .7; } to { opacity: 1; } }
+.vn .stand { position: absolute; top: 120px; height: 1010px; transform: translateX(-50%); transition: left .45s, filter .35s, opacity .4s; opacity: 0; }
+.vn .stand.on { opacity: 1; }
+.vn .stand.dim { filter: brightness(.5) saturate(.7); }
+.vn .stand img, .vn .stand .ph { height: 100%; width: auto; display: block; position: relative; }
+.vn .vn-box {
+  position: absolute; left: 160px; right: 160px; bottom: 30px; height: 230px; box-sizing: border-box; padding: 54px 60px 20px;
+  background: linear-gradient(rgba(10,6,9,.86), rgba(6,3,5,.95)); border: 1px solid #5a2a32; border-top: 3px solid #8c1a26; border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.9);
+}
+.vn .vn-name { position: absolute; left: 40px; top: -26px; padding: 8px 30px; background: #1a0a0e; border: 1px solid #8c1a26; border-radius: 8px;
+  font: 700 26px var(--serif); color: #ffb6bd; min-width: 120px; text-align: center; }
+.vn .vn-name.empty { display: none; }
+.vn .vn-text { font: 400 30px/1.6 var(--serif); color: #f2ebe6; word-break: keep-all; }
+.vn .vn-text.narr { color: #cfc6c0; }
+.vn .vn-text.inner { font-style: italic; color: #d8c0ce; }
+.vn .vn-next { position: absolute; right: 30px; bottom: 16px; font-size: 20px; color: #b3121f; animation: pulse 1s infinite; }
+.vn .vn-skip { position: absolute; right: 40px; top: 30px; padding: 8px 20px; font: 700 18px var(--sans); color: #c9b9bc; cursor: pointer;
+  background: rgba(0,0,0,.55); border: 1px solid #5a4a4e; border-radius: 20px; }
+.vn .vn-skip:hover { color: #fff; border-color: #b3121f; }
+
+.cut { background: #000; }
+.cut .cut-img { position: absolute; inset: 0; transform-origin: 50% 50%; }
+.cut .cut-img img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+.cut .cut-img .ph { left: 0; top: 0; width: 1920px; height: 1080px; }
+.cut .cut-shade { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,.95) 0%, rgba(0,0,0,.75) 35%, rgba(0,0,0,.2) 60%, rgba(0,0,0,0) 75%); }
+.cut canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+.cut .cut-sub { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center; pointer-events: none;
+  font: 700 34px/1.5 var(--serif); color: #f6eeee; text-shadow: 0 0 10px #000, 0 2px 4px #000; opacity: 0; transition: opacity .3s; }
+.cut .cut-sub .who { display: block; font-size: 22px; color: #ffb6bd; }
+.cut .cut-black { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+.cut .cut-hint { position: absolute; right: 30px; bottom: 24px; font-size: 16px; color: #555; }
+
+.end-scene { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.end-scene h2 { margin: 0 0 40px; font: 900 72px var(--serif); color: #e9dcde; letter-spacing: .16em; }
+.end-scene p { margin: 8px 0; font: 400 30px var(--serif); color: #bfb2b4; opacity: 0; transition: opacity 1.2s; }
+.end-scene p.on { opacity: 1; }
+.end-scene p.inner { font-style: italic; color: #d8a9b4; margin-top: 30px; }
+.end-scene .btn { opacity: 0; transition: opacity 1s; }
+.end-scene .btn.on { opacity: 1; }
+.wipe-scene { background: radial-gradient(ellipse at 50% 50%, rgba(60,0,8,.94), rgba(0,0,0,.98)); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.wipe-scene h2 { margin: 0; font: 900 80px var(--serif); color: #ff5a68; letter-spacing: .14em; text-shadow: 0 0 30px rgba(255,30,50,.7); }
+.wipe-scene p { font: 400 28px var(--serif); color: #cdb7ba; }
+.escape-title { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #000;
+  font: 900 96px var(--serif); color: #e9dcde; letter-spacing: .5em; opacity: 0; transition: opacity .8s; }
+.escape-title.on { opacity: 1; }
+
+/* ───────── 디버그 패널 ───────── */
+#debugPanel {
+  position: absolute; z-index: 1000; right: 16px; top: 16px; width: 430px; max-height: 1040px; overflow: auto; box-sizing: border-box;
+  padding: 14px; background: rgba(8,10,14,.95); border: 1px solid #3b6; border-radius: 10px; color: #cfe; font: 14px/1.4 var(--sans);
+}
+#debugPanel h3 { margin: 6px 0 6px; font-size: 14px; color: #7f7; border-bottom: 1px solid #253; padding-bottom: 2px; }
+#debugPanel button { margin: 2px; padding: 4px 9px; background: #18301f; color: #dfd; border: 1px solid #3a6; border-radius: 5px; cursor: pointer; font: 13px var(--sans); }
+#debugPanel button:hover { background: #24502f; }
+#debugPanel input, #debugPanel select { background: #111; color: #eee; border: 1px solid #456; border-radius: 4px; padding: 2px 4px; font: 13px var(--sans); }
+#debugPanel input[type=number] { width: 56px; }
+#debugPanel .row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+#debugPanel .row label { width: 90px; }
+#debugPanel .assets div { font-size: 12px; }
+#debugPanel .assets .miss { color: #f88; }
+#debugPanel .assets .ok { color: #8f8; }
+#debugPanel .state { font: 12px/1.4 monospace; white-space: pre-wrap; color: #aaa; }
