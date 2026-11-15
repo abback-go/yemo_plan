@@ -269,6 +269,7 @@ async function pathA(browser) {
   const bt = await H.W('geom', 'path', 'battle');
   await H.click(bt.x, bt.y); await H.sleep(300); await H.click(bt.x, bt.y);
   s = await H.until(s => s.stage === 'battle:floor2', 30000, '2층 전투');
+  check('탐색·전투 HP 표시가 같은 파티 데이터(휴식 뒤 최대 HP 33/27/15·노엘 17)를 쓴다', s.party.allies.hero.maxHp === 33 && s.party.allies.warrior.maxHp === 27 && s.party.allies.archer.maxHp === 15 && s.party.witch.maxHp === 17, s.party);
   s = await H.fight(s => s.stage === 'battle:giant', 180000, '거대 존재 등장');
   await H.sleep(200);
   s = await H.state();

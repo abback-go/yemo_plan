@@ -185,10 +185,10 @@ func build(st: Dictionary) -> void:
 	# 주인
 	var owner := ""
 	match kind:
-		"death": owner = "죽음 · " + _owner_name(d.get("ally"))
-		"relic": owner = "유품 · " + _owner_name(d.owner)
-		"inherit": owner = "상속 · " + _owner_name(d.get("from"))
-		"wound": owner = "상처 · " + _owner_name(card.get("woundOf", ""))
+		"death": owner = G.ui("ownerDeath", {"name": _owner_name(d.get("ally"))})
+		"relic": owner = G.ui("ownerRelic", {"name": _owner_name(d.owner)})
+		"inherit": owner = G.ui("ownerInherit", {"name": _owner_name(d.get("from"))})
+		"wound": owner = G.ui("ownerWound", {"name": _owner_name(card.get("woundOf", ""))})
 		_: owner = _owner_name(d.owner)
 	var ocol: Color = {"hero": Color("#cfd3dd"), "warrior": Color("#c9a985"), "archer": Color("#9fc38f"), "witch": Color("#c79ab0")}.get(str(d.owner), Color("#a8a2a0"))
 	var ow := UI.label(owner, int(11 * s), ocol, "sans_bold", HORIZONTAL_ALIGNMENT_CENTER)

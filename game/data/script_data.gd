@@ -54,6 +54,8 @@ const S := {
 		"trainTitle": "강화할 카드를 고르세요", "trainHint": "고른 카드 1장이 강화된다 (이름 옆 +)",
 		"resultOk": "확인", "rotate": "가로로 돌려 주세요", "rotateSub": "이 게임은 가로 화면(16:9)으로 플레이합니다",
 		"loading": "불러오는 중…",
+		# 카드 아래쪽 주인 표시
+		"ownerDeath": "죽음 · {name}", "ownerRelic": "유품 · {name}", "ownerInherit": "상속 · {name}", "ownerWound": "상처 · {name}",
 	},
 	# 카드를 낼 수 없을 때 짧은 알림 (rules.gd 의 이유 → 화면 문구)
 	"reasons": {

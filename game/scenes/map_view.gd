@@ -8,7 +8,7 @@ signal closed
 var close_btn: Btn
 var first := false
 var _t := 0.0
-const PANEL := Rect2(250, 70, 1420, 920)
+const PANEL := Rect2(250, 168, 1420, 896)   # 위쪽 대사창(왼쪽 위)과 겹치지 않게 아래로
 
 
 func _ready() -> void:
@@ -72,7 +72,7 @@ func room_pos(id: String) -> Vector2:
 
 func floor_band(n: int) -> Rect2:
 	var y := PANEL.position.y + 100.0
-	var hs := {1: 330.0, 2: 220.0, 3: 70.0, 4: 70.0}
+	var hs := {1: 360.0, 2: 200.0, 3: 64.0, 4: 64.0}
 	for i in range(1, n):
 		y += hs.get(i, 70.0) + 14.0
 	return Rect2(PANEL.position.x + 40, y, PANEL.size.x - 80, hs.get(n, 70.0))
@@ -134,8 +134,12 @@ func _draw() -> void:
 		if cur:
 			draw_arc(p, 50 + 4 * sin(_t * 4.0), 0, TAU, 48, Color(1, 0.82, 0.5, 0.9), 3.0, true)
 			draw_string(fs, p + Vector2(-80, -58), G.ui("mapHere"), HORIZONTAL_ALIGNMENT_CENTER, 160, 20, Color("#ffe2a8"))
+		# 방 이름: 연결선 위에서도 읽히게 어두운 판을 깐다
 		var nm2 := str(G.S.map.rooms.get(id, id))
-		draw_string(Assets.font("sans"), p + Vector2(-90, 66), nm2, HORIZONTAL_ALIGNMENT_CENTER, 180, 19, Color(0.9, 0.86, 0.8, a2))
+		var lf := Assets.font("sans_bold")
+		var tw := lf.get_string_size(nm2, HORIZONTAL_ALIGNMENT_LEFT, -1, 19).x
+		draw_style_box(UI.box(Color(0.05, 0.04, 0.035, 0.92 * maxf(a2, 0.6)), Color(0.45, 0.36, 0.22, 0.6 * a2), 6, 1), Rect2(p.x - tw / 2.0 - 10, p.y + 44, tw + 20, 30))
+		draw_string(lf, p + Vector2(-90, 66), nm2, HORIZONTAL_ALIGNMENT_CENTER, 180, 19, Color(0.95, 0.9, 0.82, maxf(a2, 0.5)))
 		# 마녀만 보는 죽음 표식 (흐리게, 설명 없이)
 		if r.get("deathMark", false):
 			Icons.death_mark(self, p + Vector2(46, -40), 16.0, _t, 0.5)

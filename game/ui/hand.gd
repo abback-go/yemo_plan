@@ -186,9 +186,10 @@ func center_of(uid: String) -> Vector2:
 # ───────── 세워 드는 오른손 ─────────
 func raise_quad() -> PackedVector2Array:
 	var r := RL()
+	var lift: Array = r.get("cardLift", [0, 0])
 	var q := PackedVector2Array()
 	for p in r.quad:
-		q.append(Vector2(float(r.x) + float(p[0]) * float(r.scale), float(r.y) + float(p[1]) * float(r.scale)))
+		q.append(Vector2(float(r.x) + (float(p[0]) + float(lift[0])) * float(r.scale), float(r.y) + (float(p[1]) + float(lift[1])) * float(r.scale)))
 	return q
 
 
