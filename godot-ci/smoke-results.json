@@ -116,6 +116,38 @@
    "ok": true
   },
   {
+   "name": "탐색·전투 HP 표시가 같은 파티 데이터(휴식 뒤 최대 HP 33/27/15·노엘 17)를 쓴다",
+   "ok": true,
+   "detail": {
+    "allies": {
+     "archer": {
+      "hp": 15,
+      "id": "archer",
+      "maxHp": 15,
+      "status": "ok"
+     },
+     "hero": {
+      "hp": 33,
+      "id": "hero",
+      "maxHp": 33,
+      "status": "ok"
+     },
+     "warrior": {
+      "hp": 27,
+      "id": "warrior",
+      "maxHp": 27,
+      "status": "ok"
+     }
+    },
+    "deathCards": 1,
+    "deck": 15,
+    "witch": {
+     "hp": 17,
+     "maxHp": 17
+    }
+   }
+  },
+  {
    "name": "2층: 광신도 1명 남자 발이 내려와 짓밟고 거대 존재 전투로",
    "ok": true
   },

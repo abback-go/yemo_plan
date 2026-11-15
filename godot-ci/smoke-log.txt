@@ -32,6 +32,7 @@
     📷 A15_stairs_choice.png
   ✔ 계단 선택 [웃어 준다] (실제 클릭)
     📷 A16_explore_floor2.png
+  ✔ 탐색·전투 HP 표시가 같은 파티 데이터(휴식 뒤 최대 HP 33/27/15·노엘 17)를 쓴다 — {"allies":{"archer":{"hp":15,"id":"archer","maxHp":15,"status":"ok"},"hero":{"hp":33,"id":"hero","maxHp":33,"status":"ok"},"warrior":{"hp":27,"id":"warrior","maxHp":27,"status":"ok"}},"deathCards":1,"deck":15,"witch":{"hp":17,"maxHp":17}}
   ✔ 2층: 광신도 1명 남자 발이 내려와 짓밟고 거대 존재 전투로
   ✔ 거대한 발은 동료 뒤 레이어(z 발 < 동료) — {"foot":15,"allies":20}
     📷 A17_giant_unlock.png
@@ -89,5 +90,5 @@
   ✔ 느린 속도에서도 손은 언제나 둘 이하 — 느린 속도 전체 maxHands=2 now=2
   ✔ 저주의 불꽃 컷인(노엘) — ["curse_flame"]
   ✔ 브라우저 콘솔 에러 0
-smoke: 43 passed, failures: 0 (535s)
+smoke: 44 passed, failures: 0 (611s)
 
