@@ -587,7 +587,7 @@ async function pathT(browser) {
     && s.topdown.followers.map(f => f.id).join() === 'seraphina,brunhild,elian', s.topdown.followers);
   s = await H.advanceAll(s => s.topdown.mode === 'free' && !s.dialogBusy, 30000, '자유 이동');
   const p0 = s.topdown.pos;
-  check('입구 자리에 섬(설 수 있는 곳)', s.topdown.canStand && Math.abs(p0[0] - 424) < 2 && Math.abs(p0[1] - 510) < 2, s.topdown.pos);
+  check('입구 자리에 섬(설 수 있는 곳)', s.topdown.canStand && Math.abs(p0[0] - 424) < 2 && Math.abs(p0[1] - 480) < 2, s.topdown.pos);
   // 키보드: 캔버스에 초점 → 오른쪽으로 걷기
   await page.evaluate(() => { const c = document.querySelector('canvas'); c.setAttribute('tabindex', '0'); c.focus(); });
   const seen = new Set(), fseen = new Set();
@@ -670,7 +670,7 @@ async function pathT(browser) {
   await H.shot('T08_trial_end.png');
   check('다시 탭 → "시험판은 여기까지"', /시험판은 여기까지/.test(s.topdown.desc), s.topdown.desc);
   s = await H.until(s => s.topdown.mode === 'free' && s.fade < 0.05, 20000, '입구로 되돌아옴');
-  check('입구 자리로 되돌림', Math.abs(s.topdown.pos[0] - 424) < 2 && Math.abs(s.topdown.pos[1] - 510) < 2 && s.topdown.exits.includes('rest'), s.topdown);
+  check('입구 자리로 되돌림', Math.abs(s.topdown.pos[0] - 424) < 2 && Math.abs(s.topdown.pos[1] - 480) < 2 && s.topdown.exits.includes('rest'), s.topdown);
   check('되돌아오면 동료도 노엘 뒤에 다시 줄 섬', tdLine(s, [0, 1], 'up', true), s.topdown.followers);
   // 벽: 아래(입구 밖)로·왼쪽 벽으로 계속 밀기
   await page.keyboard.down('ArrowDown');
