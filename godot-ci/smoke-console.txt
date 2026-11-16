@@ -78,6 +78,8 @@
     📷 D02_phone_guide_box.png
   ✔ 안내 상자를 터치 탭으로 넘김
     📷 D03_phone_card_preview.png
+    📷 D03b_phone_aiming.png
+  ✔ 휴대폰: 대상 고르는 중엔 카드 확대 해제 — {"lifted":"","mode":"aim"}
   ✔ 터치 드래그로 성검 베기 → 광신도 처치
   ✔ 휴대폰에서도 손은 둘 이하 — 휴대폰 maxHands=2 now=2
     📷 D04_phone_battle.png
@@ -90,4 +92,4 @@
   ✔ 느린 속도에서도 손은 언제나 둘 이하 — 느린 속도 전체 maxHands=2 now=2
   ✔ 저주의 불꽃 컷인(노엘) — ["curse_flame"]
   ✔ 브라우저 콘솔 에러 0
-smoke: 44 passed, failures: 0 (590s)
+smoke: 45 passed, failures: 0 (518s)
