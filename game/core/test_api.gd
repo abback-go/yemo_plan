@@ -107,6 +107,7 @@ func state() -> Dictionary:
 		"dialog": G.dialog.log.slice(maxi(0, G.dialog.log.size() - 30)), "log": c.log.slice(maxi(0, c.log.size() - 40)),
 		"cssScale": FX.css_scale, "ui": FX.ui, "small": FX.small, "cardPreview": FX.card_preview, "fps": Engine.get_frames_per_second(),
 		"cutinActive": G.cutin.is_active(),
+		"handLifted": G.view.hand.lifted_uid, "handDragMode": G.view.hand.drag_mode,
 	}
 	if st.is_empty():
 		return s

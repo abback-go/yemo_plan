@@ -436,7 +436,25 @@ async function pathD(browser) {
   await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await H.sleep(300);
   const en = await H.W('geom', 'enemy', 'c2');
-  await H.touchDrag({ x: hs.x, y: hs.y }, { x: en.x, y: en.y }, 14);
+  // 대상을 고르는 동안에는 카드 확대가 풀려야 한다(확대된 카드가 동료·적을 가리지 않게)
+  {
+    const a = await H.toPage(hs.x, hs.y), b = await H.toPage(en.x, en.y);
+    await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: a.x, y: a.y }] });
+    for (let i = 1; i <= 7; i++) {
+      await H.sleep(20);
+      await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: a.x + (b.x - a.x) * i / 14, y: a.y + (b.y - a.y) * i / 14 }] });
+    }
+    await H.sleep(300);
+    const m = await H.state();
+    await H.shot('D03b_phone_aiming.png');
+    check('휴대폰: 대상 고르는 중엔 카드 확대 해제', m.handLifted === '' && m.handDragMode === 'aim', { lifted: m.handLifted, mode: m.handDragMode });
+    for (let i = 8; i <= 14; i++) {
+      await H.sleep(20);
+      await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: a.x + (b.x - a.x) * i / 14, y: a.y + (b.y - a.y) * i / 14 }] });
+    }
+    await H.sleep(30);
+    await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  }
   s = await H.until(s => !s.busy && s.battle.enemies.find(e => e.id === 'c2').alive === false, 20000, '터치 드래그');
   check('터치 드래그로 성검 베기 → 광신도 처치', true);
   const h = await H.handsOk('휴대폰');

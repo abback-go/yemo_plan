@@ -428,6 +428,16 @@ func layout(instant := false) -> void:
 			c.set_rect(d.position, HL().dragScale, false)
 			c.z_index = 130
 			c.smooth = false
+		elif uid == drag_uid and drag_mode == "aim":
+			# 화살표로 대상을 고르는 중: 확대하지 않고 제자리에서 살짝 떠 있기만 한다
+			var qa: PackedVector2Array = fi.quad
+			var lift := Vector2(0, -float(HL().get("aimLift", 60)))
+			for k in 4:
+				qa[k] += lift
+			c.set_quad(qa, false)
+			c.z_index = 125
+			c.shadow = 1.0
+			c.smooth = true
 		elif (uid == hover_uid and drag_uid == "") or uid == lifted_uid:
 			var r := hover_rect(uid)
 			c.set_rect(r.position, FX.card_preview, false)
