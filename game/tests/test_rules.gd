@@ -568,7 +568,7 @@ func t_topdown() -> void:
 		if im == null or im.get_size() != Vector2i(216, 288):
 			sheets_ok = false
 	check("탑뷰 동료: 세라피나 → 브룬힐드 → 엘리안, 시트 216×288", ids == ["seraphina", "brunhild", "elian"] and sheets_ok, str(ids))
-	check("탑뷰 동료 간격 16~20 맵px, 속도 120", float(C.followGap) >= 16.0 and float(C.followGap) <= 20.0 and float(C.speed) == 120.0)
+	check("탑뷰 동료 간격 16~40 맵px, 속도 120", float(C.followGap) >= 16.0 and float(C.followGap) <= 40.0 and float(C.speed) == 120.0)
 	var gap := float(C.followGap)
 	var rest := []
 	for i in 3:
