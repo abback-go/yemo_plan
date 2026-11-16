@@ -3,7 +3,7 @@
 ## 함수의 결과는 window.__witchOut (JSON 문자열)에 남긴다 — 시험 쪽에서 W(name, ...args) 로 부르고 읽는다.
 ##   state() · jump(scene, opts) · play(cardId, target) · endTurn() · advance() · pickPath(id) · choose(value) · train(id)
 ##   openMap() · closeMap() · winBattle() · geom(kind, id) · handCut() · resetGuides() · setSpeed(n)
-##   탑뷰 시험판: state().topdown (노엘 발끝·방향·걷기 그림·조사·출구) · geom("tdItem"|"tdExit", id) · geom("tdMap", "x,y") (맵 픽셀 → 무대 좌표)
+##   탑뷰 시험판: state().topdown (노엘 발끝·방향·걷기 그림·조사·출구·동료 followers·조이스틱 stick·조사 버튼 btn) · geom("tdItem"|"tdExit", id) · geom("tdMap", "x,y") (맵 픽셀 → 무대 좌표)
 class_name TestApi
 extends Node
 

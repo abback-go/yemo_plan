@@ -559,6 +559,47 @@ func t_topdown() -> void:
 	check("탑뷰: 벽으로 밀어도 바닥 밖으로 나가지 않는다", nav.can_stand(p2) and p2.y <= 581 and nav.can_stand(p3), "%s %s" % [p2, p3])
 	for id in ["shield", "journal", "spade", "thread"]:
 		check("탑뷰 대사: " + id, ScriptData.S.topdown.items.has(id) and ScriptData.S.topdown.items[id].size() > 0)
+	# 동료 셋: 순서·시트(3열×4행, 72px 칸)·간격
+	var ids := []
+	var sheets_ok := true
+	for f in C.followers:
+		ids.append(f.id)
+		var im := Image.load_from_file("res://assets/" + str(f.sheet))
+		if im == null or im.get_size() != Vector2i(216, 288):
+			sheets_ok = false
+	check("탑뷰 동료: 세라피나 → 브룬힐드 → 엘리안, 시트 216×288", ids == ["seraphina", "brunhild", "elian"] and sheets_ok, str(ids))
+	check("탑뷰 동료 간격 16~20 맵px, 속도 120", float(C.followGap) >= 16.0 and float(C.followGap) <= 20.0 and float(C.speed) == 120.0)
+	var gap := float(C.followGap)
+	var rest := []
+	for i in 3:
+		rest.append(entry + Vector2(0, gap * (i + 1)))
+	var stand_bad := rest.filter(func(q): return q.y > 570.0)
+	check("탑뷰: 입구에 섰을 때 동료 셋이 아치 위(방 안)에 선다", stand_bad.is_empty(), str(rest))
+	# 경로 따라 걷기: 꺾어 걸어도 경로 길이로 간격, 멈추면 그대로
+	var tr := TopdownNav.Trail.new()
+	tr.keep = gap * 4 + 24
+	var head := Vector2(100, 300)
+	tr.line_up(head, Vector2.DOWN)
+	var ok_line := tr.at(head, gap).distance_to(Vector2(100, 300 + gap)) < 0.01 and tr.at(head, gap * 3).distance_to(Vector2(100, 300 + gap * 3)) < 0.01
+	for i in 30:
+		head += Vector2(2, 0)
+		tr.push(head)
+	var a1 := tr.at(head, gap)
+	var a3 := tr.at(head, 72.0)
+	check("탑뷰 경로: 일직선 줄 → 오른쪽으로 꺾은 뒤 앞사람은 가로줄, 뒷사람은 모퉁이 뒤", ok_line and a1.distance_to(head - Vector2(gap, 0)) < 0.01 and a3.distance_to(Vector2(100, 312)) < 0.01, "%s %s" % [a1, a3])
+	for i in 20:
+		tr.push(head)
+	check("탑뷰 경로: 노엘이 멈추면 동료도 간격을 둔 채 멈춘다", tr.at(head, gap).distance_to(a1) < 0.01 and tr.at(head, gap * 2).distance_to(tr.at(head, gap)) > gap - 0.5)
+	# 방향 행·조이스틱
+	check("탑뷰 방향: 가장 가까운 4방향, 대각선 근처는 지금 방향 유지",
+		TopdownNav.face_dir("up", Vector2(1, 0)) == "right" and TopdownNav.face_dir("up", Vector2(-1, -1)) == "up"
+		and TopdownNav.face_dir("down", Vector2(-1, -1)) == "left" and TopdownNav.face_dir("left", Vector2(-0.2, 1)) == "down"
+		and TopdownNav.face_dir("right", Vector2.ZERO) == "right")
+	var sc: Dictionary = C.stick
+	var v0 := TopdownNav.stick_to_vec(Vector2(0.1, 0), sc.dead, sc.min)
+	var v1 := TopdownNav.stick_to_vec(Vector2(0.3, 0), sc.dead, sc.min)
+	var v2 := TopdownNav.stick_to_vec(Vector2(0, -2.0), sc.dead, sc.min)
+	check("탑뷰 조이스틱: 가운데는 0, 조금 기울이면 느리게, 끝까지 기울이면 최대", v0 == Vector2.ZERO and v1.length() > 0.0 and v1.length() < 0.6 and v1.x > 0 and absf(v2.length() - 1.0) < 0.001 and v2.y < 0, "%s %s %s" % [v0, v1, v2])
 
 
 func _collect(v, out: Array) -> void:

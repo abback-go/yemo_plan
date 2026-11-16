@@ -12,8 +12,10 @@
  * 경로 B: 거대 존재 전투에서 카드를 내지 않고 3턴 → 짓밟기 → "카드를 내지 않은 미래"(붉게 번짐·유리 깨짐) → 등장 직후(1턴)부터 재시작
  * 경로 C: 갈림길 시체 발견 / 훈련(카드 강화 +) 각각, 계단 [대답하지 못한다] → C1·빈 캠프 대사가 선택을 반영
  * 경로 D: 휴대폰 가로(iPhone 13 에뮬레이션, 터치) — 작은 화면 글씨 배율, 터치 탭·터치 드래그로 카드 내기, 세로 화면 "가로로 돌려 주세요"
- * 경로 T: 탑뷰 이동 시험판(?scene=topdown) — 걸어 들어옴(앞벽 가림)·세라피나 첫 대사 → 방향키·WASD 걷기(걷기 그림 프레임) → 탭 이동 → 물건 4개 조사(탭·E 키)
- *         → 기둥 뒤 가림 → 출구(설명 → 다시 탭 → 시험판 끝 → 입구로) → 벽·아래 입구 막힘 → 휴대폰(iPhone 13 가로) 터치 탭 이동·조사
+ * 경로 T: 탑뷰 이동 시험판(?scene=topdown) — 걸어 들어옴(앞벽 가림, 동료 셋이 뒤따름)·세라피나 첫 대사 → 방향키·WASD 걷기(걷기 그림 프레임·속도 120,
+ *         동료가 경로 뒤쪽에 간격을 두고 따라오고 멈추면 겹치지 않음) → 탭 이동 → 물건 4개 조사(탭·E 키) → 기둥 뒤 가림
+ *         → 출구(설명 → 다시 탭 → 시험판 끝 → 입구로, 동료 다시 줄 섬) → 벽·아래 입구 막힘
+ *         → 휴대폰(iPhone 13 가로): 터치 빈 바닥 탭은 안 움직임, 물건 터치 조사, 조사 버튼, 왼쪽 절반 조이스틱(끌기 → 이동·느리게 → 떼면 정지)
  *   경로만 고르기: node smoke.js <주소> <폴더> T   (기본: ABCDET 전부)
  * 통과 조건: 모든 확인 통과 + 브라우저 콘솔 에러 0 (Godot 의 ERROR / SCRIPT ERROR 포함)
  */
@@ -98,6 +100,17 @@ function helpers(page, tag) {
     await H.sleep(60);
     await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   };
+  // 터치를 누른 채로 두기 (조이스틱): touchStart → touchMove … → touchEnd
+  H.touchStart = async (x, y) => {
+    const p = await H.toPage(x, y);
+    H.cdp = H.cdp || await page.context().newCDPSession(page);
+    await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p.x, y: p.y }] });
+  };
+  H.touchMove = async (x, y) => {
+    const p = await H.toPage(x, y);
+    await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: p.x, y: p.y }] });
+  };
+  H.touchEnd = async () => { await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
   H.touchDrag = async (a, b, steps) => {
     const p = await H.toPage(a.x, a.y), q = await H.toPage(b.x, b.y);
     H.cdp = H.cdp || await page.context().newCDPSession(page);
@@ -168,6 +181,21 @@ function helpers(page, tag) {
 }
 
 const has = (s, re) => (s.dialog || []).some(l => re.test(l));
+// 탑뷰 동료 줄: 노엘 발끝에서 dx,dy 방향(맵 px)으로 간격(gap)마다 한 사람씩 서 있는가 + 방향·서기 프레임
+function tdLine(s, back, dir, still) {
+  const t = s.topdown, g = t.gap;
+  return t.followers.length === 3 && t.followers.every((f, i) => {
+    const want = [t.pos[0] + back[0] * g * (i + 1), t.pos[1] + back[1] * g * (i + 1)];
+    return Math.hypot(f.pos[0] - want[0], f.pos[1] - want[1]) < 1.6 && (!dir || f.dir === dir) && (!still || (!f.moving && f.frame === 1));
+  });
+}
+// 멈춘 동료끼리(노엘 포함) 발끝 거리가 간격 가까이 떨어져 있는가 (겹쳐 쌓이지 않음)
+function tdApart(s) {
+  const pts = [s.topdown.pos, ...s.topdown.followers.map(f => f.pos)];
+  let min = 1e9;
+  for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) min = Math.min(min, Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]));
+  return { ok: min >= s.topdown.gap - 1.5, min };
+}
 
 // ───────── 경로 A ─────────
 async function pathA(browser) {
@@ -555,20 +583,34 @@ async function pathT(browser) {
   await H.sleep(900);
   await H.shot('T02_intro_sera.png');
   check('첫 대사: 세라피나 + 세라피나 스탠딩', has(s, /세라피나: 노엘, 길이 셋으로 갈린다\. 어디로 갈까\?/) && s.topdown.stand === 'hero', s.dialog.slice(-2));
+  check('걸어 들어온 동료 셋(세라피나·브룬힐드·엘리안)이 노엘 뒤(아래)에 간격을 두고 줄 섬, 위를 봄·서기', tdLine(s, [0, 1], 'up', true)
+    && s.topdown.followers.map(f => f.id).join() === 'seraphina,brunhild,elian', s.topdown.followers);
   s = await H.advanceAll(s => s.topdown.mode === 'free' && !s.dialogBusy, 30000, '자유 이동');
   const p0 = s.topdown.pos;
-  check('입구 자리에 섬(설 수 있는 곳)', s.topdown.canStand && Math.abs(p0[0] - 424) < 2 && Math.abs(p0[1] - 556) < 2, s.topdown.pos);
+  check('입구 자리에 섬(설 수 있는 곳)', s.topdown.canStand && Math.abs(p0[0] - 424) < 2 && Math.abs(p0[1] - 510) < 2, s.topdown.pos);
   // 키보드: 캔버스에 초점 → 오른쪽으로 걷기
   await page.evaluate(() => { const c = document.querySelector('canvas'); c.setAttribute('tabindex', '0'); c.focus(); });
-  const seen = new Set();
+  const seen = new Set(), fseen = new Set();
+  let sa = null;
   await page.keyboard.down('ArrowRight');
-  for (let i = 0; i < 10; i++) { await H.sleep(110); s = await H.state(); seen.add(s.topdown.sheetFrame); if (i === 5) await H.shot('T03_key_walk_right.png'); }
+  for (let i = 0; i < 12; i++) {
+    await H.sleep(110); s = await H.state(); seen.add(s.topdown.sheetFrame); fseen.add(s.topdown.followers[2].sheetFrame);
+    if (i === 3) sa = s;
+    if (i === 6) await H.shot('T03_key_walk_right.png');
+  }
+  const kmove = s;
   await page.keyboard.up('ArrowRight');
   check('방향키 → 오른쪽으로 걸음(x 증가, 오른쪽 행 그림)', s.topdown.pos[0] > p0[0] + 10 && s.topdown.dir === 'right', { pos: s.topdown.pos, dir: s.topdown.dir });
   check('걷기 그림: 왼발·오른발 프레임이 바뀜(오른쪽 행 6~8)', seen.has(6) && seen.has(8), [...seen]);
+  const kv = (kmove.topdown.pos[0] - sa.topdown.pos[0]) / ((kmove.topdown.t - sa.topdown.t) / 1000);
+  check('걷는 속도 약 120 맵px/초', kv > 105 && kv < 135, Math.round(kv));
+  check('걷는 동안 동료 셋이 노엘 경로 뒤쪽(왼쪽)에 간격을 두고 따라옴, 오른쪽 행 걷기 그림', tdLine(kmove, [-1, 0], 'right')
+    && kmove.topdown.followers.every(f => f.moving && Math.floor(f.sheetFrame / 3) === 2) && fseen.has(6) && fseen.has(8), { f: kmove.topdown.followers, n: kmove.topdown.pos, fseen: [...fseen] });
   await H.sleep(300);
   s = await H.state();
   check('멈추면 서기 프레임', !s.topdown.moving && s.topdown.frame === 1, s.topdown);
+  const ap = tdApart(s);
+  check('노엘이 멈추면 동료도 간격을 둔 채 멈춤(서기 프레임, 겹치지 않음)', tdLine(s, [-1, 0], 'right', true) && ap.ok, { min: ap.min, f: s.topdown.followers });
   const p1 = s.topdown.pos;
   await page.keyboard.down('KeyW');
   await H.sleep(900);
@@ -628,7 +670,8 @@ async function pathT(browser) {
   await H.shot('T08_trial_end.png');
   check('다시 탭 → "시험판은 여기까지"', /시험판은 여기까지/.test(s.topdown.desc), s.topdown.desc);
   s = await H.until(s => s.topdown.mode === 'free' && s.fade < 0.05, 20000, '입구로 되돌아옴');
-  check('입구 자리로 되돌림', Math.abs(s.topdown.pos[0] - 424) < 2 && Math.abs(s.topdown.pos[1] - 556) < 2 && s.topdown.exits.includes('rest'), s.topdown);
+  check('입구 자리로 되돌림', Math.abs(s.topdown.pos[0] - 424) < 2 && Math.abs(s.topdown.pos[1] - 510) < 2 && s.topdown.exits.includes('rest'), s.topdown);
+  check('되돌아오면 동료도 노엘 뒤에 다시 줄 섬', tdLine(s, [0, 1], 'up', true), s.topdown.followers);
   // 벽: 아래(입구 밖)로·왼쪽 벽으로 계속 밀기
   await page.keyboard.down('ArrowDown');
   await H.sleep(1500);
@@ -661,7 +704,7 @@ async function pathT(browser) {
   await H.shot('T09_front_wall.png');
   await page.close();
 
-  // 휴대폰 가로: 터치 탭 이동
+  // 휴대폰 가로: 터치 빈 바닥 탭은 안 움직임 · 물건 터치 조사 · 조사 버튼 · 조이스틱
   const dev = devices['iPhone 13 landscape'] || { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
   const ctx = await browser.newContext({ ...dev });
   const pp = await ctx.newPage();
@@ -672,16 +715,64 @@ async function pathT(browser) {
   await P.shot('T10_phone_intro.png');
   for (let i = 0; i < 6 && s.topdown.mode !== 'free'; i++) { await P.touchTap(1300, 300); await P.sleep(400); s = await P.state(); }
   s = await P.until(s => s.topdown.mode === 'free' && !s.dialogBusy, 20000, '휴대폰 자유 이동');
+  check('휴대폰: 동료 셋이 노엘 뒤에 줄 섬', tdLine(s, [0, 1], 'up', true), s.topdown.followers);
+  check('휴대폰: 조사 버튼이 오른쪽 아래에 보이고, 가까운 물건이 없으면 꺼짐', s.topdown.touch && s.topdown.btn.rect[2] > 100 && s.topdown.btn.rect[0] > 1500 && s.topdown.btn.rect[1] > 700 && !s.topdown.btn.active, s.topdown.btn);
   const q0 = s.topdown.pos;
-  await P.tdTap('tdMap', '300,470', true);
-  await P.sleep(300);
-  s = await P.until(s => s.topdown.path === 0 && !s.topdown.moving, 30000, '휴대폰 탭 이동');
-  check('휴대폰: 터치 탭한 곳으로 걸어감', s.topdown.pos[0] < q0[0] - 50, { from: q0, to: s.topdown.pos });
+  g = await P.W('geom', 'tdMap', '600,450');
+  await P.touchTap(g.x, g.y);
+  await P.sleep(500);
+  await P.touchTap(500, 420);
+  await P.sleep(700);
+  s = await P.state();
+  check('휴대폰: 빈 바닥을 터치 탭해도 걸어가지 않음(오른쪽·왼쪽 절반)', s.topdown.path === 0 && !s.topdown.moving && Math.hypot(s.topdown.pos[0] - q0[0], s.topdown.pos[1] - q0[1]) < 0.5 && !s.topdown.stick.on, { from: q0, to: s.topdown.pos });
   await P.tdTap('tdItem', 'journal', true);
   s = await P.until(s => s.topdown.inspecting === 'journal', 30000, '휴대폰 일지 조사');
   await P.sleep(1200);
   await P.shot('T11_phone_inspect.png');
   check('휴대폰: 물건 터치 → 걸어가서 조사', has(s, /찢어진 일지/), s.dialog.slice(-2));
+  for (let i = 0; i < 8 && (s.topdown.mode !== 'free' || s.dialogBusy); i++) { await P.touchTap(1300, 300); await P.sleep(400); s = await P.state(); }
+  s = await P.until(s => s.topdown.mode === 'free' && !s.dialogBusy && s.topdown.near === 'journal', 20000, '일지 앞 자유 이동');
+  await P.sleep(300);
+  s = await P.state();
+  await P.shot('T13_phone_button.png');
+  check('휴대폰: 물건 가까이에서 조사 버튼이 켜짐', s.topdown.btn.active, s.topdown.btn);
+  const br = s.topdown.btn.rect;
+  await P.touchTap(br[0] + br[2] / 2, br[1] + br[3] / 2);
+  s = await P.until(s => s.topdown.inspecting === 'journal', 10000, '조사 버튼');
+  check('휴대폰: 조사 버튼 → E 키와 같은 조사', s.topdown.mode === 'talk', s.topdown.mode);
+  for (let i = 0; i < 8 && (s.topdown.mode !== 'free' || s.dialogBusy); i++) { await P.touchTap(1300, 300); await P.sleep(400); s = await P.state(); }
+  s = await P.until(s => s.topdown.mode === 'free' && !s.dialogBusy, 20000, '조사 끝');
+  // 조이스틱: 왼쪽 절반을 누른 채 오른쪽으로 끌기 → 이동 → 조금만 기울이면 느리게 → 떼면 정지
+  const j0 = { x: 300, y: 820 };
+  await P.touchStart(j0.x, j0.y);
+  await P.sleep(150);
+  s = await P.state();
+  const R = s.topdown.stick.r;
+  check('휴대폰: 왼쪽 절반을 누른 자리에 조이스틱(지름 약 130 CSS px)', s.topdown.stick.on && Math.hypot(s.topdown.stick.c[0] - j0.x, s.topdown.stick.c[1] - j0.y) < 4
+    && R * 2 * s.cssScale > 110 && R * 2 * s.cssScale < 150, { stick: s.topdown.stick, css: s.cssScale });
+  for (let i = 1; i <= 8; i++) { await P.touchMove(j0.x + R * 1.1 * i / 8, j0.y); await P.sleep(25); }
+  await P.sleep(300);
+  const ja = await P.state();
+  await P.sleep(800);
+  const jb = await P.state();
+  await P.shot('T12_phone_joystick.png');
+  const fast = (jb.topdown.pos[0] - ja.topdown.pos[0]) / ((jb.topdown.t - ja.topdown.t) / 1000);
+  check('휴대폰: 조이스틱 끝까지 → 오른쪽으로 최대 속도(약 120) 걷기', jb.topdown.moving && jb.topdown.dir === 'right' && fast > 100 && fast < 140 && jb.topdown.pace > 0.99, { fast: Math.round(fast), pace: jb.topdown.pace });
+  check('휴대폰: 조이스틱으로 걸을 때도 동료가 뒤따라옴', tdLine(jb, [-1, 0], 'right'), jb.topdown.followers);
+  const c = jb.topdown.stick.c;
+  await P.touchMove(c[0] + R * 0.3, c[1]);
+  await P.sleep(300);
+  const jc = await P.state();
+  await P.sleep(800);
+  const jd = await P.state();
+  const slow = (jd.topdown.pos[0] - jc.topdown.pos[0]) / ((jd.topdown.t - jc.topdown.t) / 1000);
+  check('휴대폰: 조금만 기울이면 느리게 걷기', slow > 15 && slow < fast * 0.7 && jd.topdown.pace < 0.7, { slow: Math.round(slow), pace: jd.topdown.pace });
+  await P.touchEnd();
+  await P.sleep(400);
+  s = await P.state();
+  const ap2 = tdApart(s);
+  check('휴대폰: 손을 떼면 조이스틱이 사라지고 멈춤(동료도 겹치지 않고 멈춤)', !s.topdown.stick.on && !s.topdown.moving && s.topdown.frame === 1 && ap2.ok
+    && s.topdown.followers.every(f => !f.moving), { stick: s.topdown.stick, min: ap2.min });
   await ctx.close();
 }
 

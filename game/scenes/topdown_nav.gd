@@ -143,3 +143,66 @@ func move(p: Vector2, d: Vector2) -> Vector2:
 		if can_stand(p + r):
 			return p + r
 	return p
+
+
+## 움직임 d 에 맞는 4방향 행 (가장 가까운 쪽). 지금 보는 쪽이 이동 방향의 한쪽이면 조금 더 기울어질 때까지 그대로
+## (대각선·조이스틱 45도 근처에서 그림이 깜빡이지 않게)
+static func face_dir(cur: String, d: Vector2) -> String:
+	if d == Vector2.ZERO:
+		return cur
+	var ax := absf(d.x)
+	var ay := absf(d.y)
+	var keep := (cur == "left" and d.x < 0) or (cur == "right" and d.x > 0) or (cur == "up" and d.y < 0) or (cur == "down" and d.y > 0)
+	if keep:
+		if (cur == "left" or cur == "right") and ay <= ax * 1.25:
+			return cur
+		if (cur == "up" or cur == "down") and ax <= ay * 1.25:
+			return cur
+	if ax >= ay:
+		return "left" if d.x < 0 else "right"
+	return "up" if d.y < 0 else "down"
+
+
+## v: 받침 반지름을 1로 한 손가락 위치. 조금 기울이면 min 빠르기, 끝까지 기울이면 1
+static func stick_to_vec(v: Vector2, dead: float, mn: float) -> Vector2:
+	var l := v.length()
+	if l <= dead:
+		return Vector2.ZERO
+	var t := clampf((l - dead) / maxf(0.001, 1.0 - dead), 0.0, 1.0)
+	return v / l * lerpf(mn, 1.0, t)
+
+
+## 노엘이 지나간 경로(발끝 기록). 동료는 이 경로를 따라 잰 거리만큼 뒤에 선다 → 노엘이 멈추면 간격을 둔 채 함께 멈추고 겹쳐 쌓이지 않는다.
+## 점은 오래된 것 → 최근 것 순서. 충돌 검사는 하지 않는다(노엘이 이미 걸은 곳이므로).
+class Trail:
+	extends RefCounted
+	var pts := PackedVector2Array()
+	var keep := 120.0   # 이만큼(경로 길이)만 남기고 오래된 점은 버린다
+
+	## 지금 발끝 head 를 기록한다 (마지막 점에서 1px 이상 움직였을 때만)
+	func push(head: Vector2) -> void:
+		if pts.is_empty() or pts[pts.size() - 1].distance_to(head) >= 1.0:
+			pts.append(head)
+		var total := 0.0
+		for i in range(pts.size() - 1, 0, -1):
+			total += pts[i].distance_to(pts[i - 1])
+			if total > keep:
+				pts = pts.slice(i - 1)
+				return
+
+	## head 뒤로 back 방향 일직선 줄로 다시 놓는다 (시작·되돌아올 때)
+	func line_up(head: Vector2, back: Vector2) -> void:
+		pts = PackedVector2Array([head + back.normalized() * keep, head])
+
+	## head 에서 경로를 따라 dist 만큼 뒤의 점
+	func at(head: Vector2, dist: float) -> Vector2:
+		var prev := head
+		for i in range(pts.size() - 1, -1, -1):
+			var seg := prev.distance_to(pts[i])
+			if seg < 0.0001:
+				continue
+			if dist <= seg:
+				return prev.lerp(pts[i], dist / seg)
+			dist -= seg
+			prev = pts[i]
+		return prev

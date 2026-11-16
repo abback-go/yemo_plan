@@ -1,5 +1,6 @@
 ## topdown.gd — 픽셀아트 탑뷰 이동 시험판 (?scene=topdown, 헤드리스 --scene=topdown). 기존 튜토리얼 흐름과 따로 노는 장면.
-## 1층 갈림길 방을 위에서 내려다보며 노엘이 혼자 걷는다. PC: WASD·방향키, 휴대폰·마우스: 탭한 곳으로 걸어감(장애물을 피해 감).
+## 1층 갈림길 방을 위에서 내려다보며 노엘이 걷고, 동료 셋(세라피나·브룬힐드·엘리안)이 노엘이 지나간 경로를 따라 줄지어 걷는다.
+## PC: WASD·방향키, 마우스: 클릭한 곳으로 걸어감(장애물을 피해 감). 터치: 왼쪽 절반을 누른 자리에 조이스틱(아날로그), 오른쪽 아래 조사 버튼.
 ## 물건 가까이에서 탭 / E·스페이스 → 대화창(G.dialog)에 노엘 속마음 + 대화창 옆 스탠딩. 출구 앞 → 갈림길 설명, 한 번 더 → 입구로 되돌림.
 ## 맵·노엘 모두 같은 정수 배율(zoom)로 확대해 Nearest 로 그린다(픽셀 밀도 통일). 앞벽은 노엘 위에 덮고, 기둥·돌무더기는 y 기준 정렬.
 ## 수치·다각형은 game_data.gd "topdown", 대사는 script_data.gd "topdown".
@@ -18,6 +19,9 @@ var world: Node2D
 var sorter: Node2D
 var noel: Node2D
 var noel_spr: Sprite2D
+var followers: Array = []  # [{"id", "node", "spr", "pos", "dir", "frame", "walk_t", "moving"}] — 노엘 뒤 순서대로
+var trail := TopdownNav.Trail.new()
+var pad: Control           # 터치 조이스틱·조사 버튼 (무대 좌표로 그림)
 var marks: Node2D
 var stand: TextureRect
 var stand_who := ""
@@ -32,6 +36,10 @@ var dir := "up"
 var frame := 1
 var moving := false
 var walk_t := 0.0
+var pace := 1.0            # 지금 걷는 빠르기 비율 (조이스틱을 덜 기울이면 1보다 작다)
+var stick := {}            # 조이스틱을 누른 손가락 {"i": 터치 번호, "c": 가운데, "p": 손가락, "drag": 끌었는가} (무대 좌표)
+var btn_flash := 0.0
+var touch_ui := false      # 터치 화면용 배치(조사 버튼·도움말)로 그렸는가
 var path := PackedVector2Array()
 var pending := ""          # 도착하면 조사할 물건
 var mode := "intro"        # intro | free | talk | leaving
@@ -71,23 +79,17 @@ func setup() -> void:
 	sorter = Node2D.new()
 	sorter.y_sort_enabled = true
 	world.add_child(sorter)
-	noel = Node2D.new()
-	sorter.add_child(noel)
-	var shadow := Node2D.new()
-	shadow.draw.connect(func():
-		var pts := PackedVector2Array()
-		for i in 16:
-			var a := TAU * i / 16.0
-			pts.append(Vector2(cos(a) * 11.0, sin(a) * 3.5))
-		shadow.draw_colored_polygon(pts, Color(0, 0, 0, 0.35)))
-	noel.add_child(shadow)
-	noel_spr = Sprite2D.new()
-	noel_spr.texture = Assets.tex(C.sheet)
-	noel_spr.centered = false
-	noel_spr.hframes = int(C.cols)
-	noel_spr.vframes = int(C.rows)
-	noel_spr.offset = Vector2(-float(C.foot[0]), -float(C.foot[1]))
-	noel.add_child(noel_spr)
+	# 동료(뒤에 선 사람부터 먼저 넣어 같은 y 일 때 노엘이 위)
+	foot = _v(C.start)
+	trail.keep = float(C.followGap) * (C.followers.size() + 1) + 24.0
+	trail.line_up(foot, Vector2.DOWN)
+	var fl: Array = C.followers
+	for i in range(fl.size() - 1, -1, -1):
+		var w := _walker(str(fl[i].sheet), fl[i].foot)
+		followers.push_front({"id": str(fl[i].id), "node": w[0], "spr": w[1], "pos": trail.at(foot, _gap(i)), "dir": "up", "frame": 1, "walk_t": 0.0, "moving": false})
+	var nw := _walker(str(C.sheet), C.foot)
+	noel = nw[0]
+	noel_spr = nw[1]
 	for o in C.occluders:
 		sorter.add_child(_cut(tex, o.poly, float(o.base)))
 	# 앞벽: 언제나 노엘 위
@@ -128,9 +130,53 @@ func setup() -> void:
 	help_l.size = Vector2(940, 34)
 	help_l.z_index = 5
 	add_child(help_l)
-	foot = _v(C.start)
+	pad = Control.new()
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.size = size
+	pad.z_index = 6
+	pad.draw.connect(_draw_pad)
+	add_child(pad)
 	cam = _cam_target()
 	_apply()
+
+
+## 걷는 사람 하나(발밑 그림자 + 걷기 시트). 노드 위치 = 발끝(y 정렬 기준). 반환 [노드, 시트]
+func _walker(sheet: String, ft: Array) -> Array:
+	var n := Node2D.new()
+	sorter.add_child(n)
+	var shadow := Node2D.new()
+	shadow.draw.connect(func():
+		var pts := PackedVector2Array()
+		for i in 16:
+			var a := TAU * i / 16.0
+			pts.append(Vector2(cos(a) * 11.0, sin(a) * 3.5))
+		shadow.draw_colored_polygon(pts, Color(0, 0, 0, 0.35)))
+	n.add_child(shadow)
+	var spr := Sprite2D.new()
+	spr.texture = Assets.tex(sheet)
+	spr.centered = false
+	spr.hframes = int(C.cols)
+	spr.vframes = int(C.rows)
+	spr.offset = Vector2(-float(ft[0]), -float(ft[1]))
+	n.add_child(spr)
+	return [n, spr]
+
+
+## i 번째 동료가 노엘 뒤로 떨어진 거리 (경로를 따라 잰 맵 px)
+func _gap(i: int) -> float:
+	return float(C.followGap) * (i + 1)
+
+
+## 동료를 노엘 뒤(back 쪽) 일직선 줄로 다시 세운다
+func _line_up(back: Vector2) -> void:
+	trail.line_up(foot, back)
+	for i in followers.size():
+		var f: Dictionary = followers[i]
+		f.pos = trail.at(foot, _gap(i))
+		f.dir = dir
+		f.moving = false
+		f.walk_t = 0.0
+		f.frame = 1
 
 
 func _v(a: Array) -> Vector2:
@@ -189,12 +235,20 @@ func run() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
+	pace = 1.0
 	if mode == "free":
 		var kv := _key_dir()
+		var sv := stick_vec()
 		if kv != Vector2.ZERO:
 			path = PackedVector2Array()
 			pending = ""
 			_step(kv.normalized() * float(C.speed) * dt * FX.speed)
+		elif sv != Vector2.ZERO:
+			# 조이스틱: 기울인 만큼 느리게~최대 속도, 벽에 비스듬히 닿으면 미끄러지는 처리는 키보드와 같다
+			path = PackedVector2Array()
+			pending = ""
+			pace = sv.length()
+			_step(sv * float(C.speed) * dt * FX.speed)
 		elif not path.is_empty():
 			_follow(float(C.speed) * dt * FX.speed)
 		else:
@@ -203,11 +257,14 @@ func _process(dt: float) -> void:
 	elif mode != "intro":
 		moving = false
 	if moving:
-		walk_t += dt * float(C.fps) * FX.speed
+		walk_t += dt * float(C.fps) * FX.speed * pace
 		frame = SEQ[int(walk_t) % SEQ.size()]
 	else:
 		walk_t = 0.0
 		frame = 1
+	trail.push(foot)
+	_update_followers(dt)
+	btn_flash = maxf(0.0, btn_flash - dt)
 	if not tap_mark.is_empty():
 		tap_mark.t += dt
 		if tap_mark.t > 0.6:
@@ -216,13 +273,37 @@ func _process(dt: float) -> void:
 	cam = cam.lerp(tc, 1.0 - exp(-float(C.camLerp) * dt))
 	_apply()
 	_update_stand(dt)
+	if FX.touch != touch_ui:
+		_layout_touch()
 	help_l.visible = not G.dialog.dlg.visible and not desc.visible
 	marks.queue_redraw()
+	pad.queue_redraw()
+
+
+## 동료: 경로를 따라 정해진 거리 뒤의 점으로. 움직인 쪽으로 방향 행, 움직인 만큼 걷기 그림(멈추면 서기, 마지막 방향 유지)
+func _update_followers(dt: float) -> void:
+	var full := maxf(0.0001, float(C.speed) * dt * FX.speed)
+	for i in followers.size():
+		var f: Dictionary = followers[i]
+		var np := trail.at(foot, _gap(i))
+		var d: Vector2 = np - f.pos
+		f.moving = d.length() > 0.02
+		if f.moving:
+			f.dir = TopdownNav.face_dir(f.dir, d)
+			f.walk_t += dt * float(C.fps) * FX.speed * clampf(d.length() / full, 0.3, 1.2)
+			f.frame = SEQ[int(f.walk_t) % SEQ.size()]
+		else:
+			f.walk_t = 0.0
+			f.frame = 1
+		f.pos = np
 
 
 func _apply() -> void:
 	noel.position = foot.round()
 	noel_spr.frame = DIRS.find(dir) * int(C.cols) + frame
+	for f in followers:
+		f.node.position = f.pos.round()
+		f.spr.frame = DIRS.find(f.dir) * int(C.cols) + int(f.frame)
 	# 카메라: 픽셀 한 칸 단위로 맞춰 움직인다(Nearest 확대가 흔들리지 않게)
 	world.position = Vector2(960, 540) - cam.round() * k
 
@@ -253,15 +334,7 @@ func _key_dir() -> Vector2:
 
 
 func _face(d: Vector2) -> void:
-	if absf(d.x) > absf(d.y) + 0.01:
-		dir = "left" if d.x < 0 else "right"
-	elif absf(d.y) > absf(d.x) + 0.01:
-		dir = "up" if d.y < 0 else "down"
-	elif d != Vector2.ZERO:
-		# 대각선: 지금 보는 쪽이 그 대각선의 한쪽이면 그대로
-		var ok := (dir == "left" and d.x < 0) or (dir == "right" and d.x > 0) or (dir == "up" and d.y < 0) or (dir == "down" and d.y > 0)
-		if not ok:
-			dir = "left" if d.x < 0 else "right"
+	dir = TopdownNav.face_dir(dir, d)
 
 
 func _step(d: Vector2) -> void:
@@ -389,6 +462,7 @@ func leave(id: String) -> void:
 	exit_sel = ""
 	foot = _v(C.entry)
 	dir = "up"
+	_line_up(Vector2.DOWN)
 	cam = _cam_target()
 	_apply()
 	await FX.fade(0, 450)
@@ -421,7 +495,120 @@ func investigate(id: String) -> void:
 func _gui_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
 		accept_event()
+		# 터치에서 흉내 낸 마우스는 버린다 (터치는 _input 의 조이스틱·탭으로 처리)
+		if e.device == InputEvent.DEVICE_ID_EMULATION:
+			return
 		tap(get_local_mouse_position())
+
+
+# ───────── 터치: 조이스틱 · 조사 버튼 ─────────
+func _input(e: InputEvent) -> void:
+	if not (e is InputEventScreenTouch or e is InputEventScreenDrag):
+		return
+	if G.main and G.main.rotate_hint and G.main.rotate_hint.visible:
+		return
+	FX.touch = true
+	var p := make_canvas_position_local(e.position)
+	if e is InputEventScreenTouch:
+		if e.pressed:
+			_touch_down(e.index, p)
+		elif not stick.is_empty() and stick.i == e.index:
+			if not stick.drag:
+				tap(p, true)   # 끌지 않고 뗌 = 탭 (왼쪽 절반의 물건·출구)
+			stick = {}
+	elif not stick.is_empty() and stick.i == e.index:
+		var r := stick_r()
+		stick.p = p
+		var v: Vector2 = p - stick.c
+		if v.length() > float(C.stick.slop) / _cs():
+			stick.drag = true
+		# 테두리 밖으로 끌면 받침이 손가락을 따라온다
+		if v.length() > r:
+			stick.c = p - v.normalized() * r
+	get_viewport().set_input_as_handled()
+
+
+func _touch_down(i: int, p: Vector2) -> void:
+	if G.dialog.is_busy() or G.dialog.guide_open() or mode != "free":
+		tap(p, true)
+		return
+	if btn_rect().has_point(p):
+		btn_flash = 0.2
+		confirm()
+		return
+	if stick.is_empty() and p.x < 960.0:
+		stick = {"i": i, "c": p, "p": p, "drag": false}
+		return
+	tap(p, true)
+
+
+func _cs() -> float:
+	return maxf(0.05, FX.css_scale)
+
+
+## 조이스틱 받침 반지름 (무대 px) — 실제 화면에서 지름 stick.d CSS px
+func stick_r() -> float:
+	return float(C.stick.d) / 2.0 / _cs()
+
+
+## 조이스틱 입력: 방향 × 빠르기 비율(0 또는 min~1). 가운데 근처(dead)는 0
+func stick_vec() -> Vector2:
+	if stick.is_empty():
+		return Vector2.ZERO
+	return TopdownNav.stick_to_vec((stick.p - stick.c) / stick_r(), float(C.stick.dead), float(C.stick.min))
+
+
+## 조사 버튼 자리 (무대 좌표, 오른쪽 아래). 터치 화면·자유 이동 중에만
+func btn_rect() -> Rect2:
+	if not FX.touch or mode != "free":
+		return Rect2()
+	var d := float(C.stick.btn) / _cs()
+	var m := float(C.stick.margin) / _cs()
+	return Rect2(Vector2(1920.0 - m - d, 1080.0 - m - d), Vector2(d, d))
+
+
+func btn_active() -> bool:
+	return exit_sel != "" or near != ""
+
+
+## 터치 화면이면 도움말을 터치용 문구로 바꿔 화면 위쪽에 (오른쪽 아래는 조사 버튼 자리)
+func _layout_touch() -> void:
+	touch_ui = FX.touch
+	if touch_ui:
+		var u := minf(FX.ui, 1.5)
+		help_l.text = str(T.helpTouch)
+		help_l.scale = Vector2(u, u)
+		help_l.size = Vector2(1880.0 / u, 34)
+		help_l.position = Vector2(20, 14)
+	else:
+		help_l.text = str(T.help)
+		help_l.scale = Vector2.ONE
+		help_l.position = Vector2(960, 1080 - 46)
+		help_l.size = Vector2(940, 34)
+
+
+func _draw_pad() -> void:
+	if not stick.is_empty() and mode == "free":
+		var r := stick_r()
+		var c: Vector2 = stick.c
+		var kp: Vector2 = c + (stick.p - c).limit_length(r)
+		pad.draw_circle(c, r, Color(1, 1, 1, 0.10))
+		pad.draw_arc(c, r, 0, TAU, 48, Color(1, 1, 1, 0.35), maxf(3.0, 2.0 / _cs()), true)
+		pad.draw_circle(kp, r * float(C.stick.knob), Color(1, 1, 1, 0.32))
+		pad.draw_arc(kp, r * float(C.stick.knob), 0, TAU, 32, Color(1, 1, 1, 0.5), maxf(2.0, 1.5 / _cs()), true)
+	var b := btn_rect()
+	if b.size.x > 0.0:
+		var on := btn_active()
+		var bc := b.get_center()
+		var br := b.size.x / 2.0
+		var pulse := 0.5 + 0.5 * sin(_t * 4.0)
+		pad.draw_circle(bc, br, Color(0.08, 0.04, 0.04, (0.62 if on else 0.3) + (0.2 if btn_flash > 0.0 else 0.0)))
+		var ring := Color(UI.GOLD.r, UI.GOLD.g, UI.GOLD.b, 0.75 + 0.25 * pulse) if on else Color(1, 1, 1, 0.22)
+		pad.draw_arc(bc, br, 0, TAU, 48, ring, maxf(3.0, 2.5 / _cs()), true)
+		var txt := str(T.btnEnter) if exit_sel != "" else str(T.btnInspect)
+		var fs := int(br * (0.42 if txt.length() <= 2 else 0.3))
+		pad.draw_string(Assets.font("sans_bold"), bc + Vector2(-br, fs * 0.36), txt, HORIZONTAL_ALIGNMENT_CENTER, br * 2.0, fs,
+			Color("#f6e7c8") if on else Color(1, 1, 1, 0.35))
 
 
 func _unhandled_input(e: InputEvent) -> void:
@@ -461,7 +648,8 @@ func _hit(list: Array, mp: Vector2) -> String:
 
 
 ## 탭(무대 좌표): 대사 넘기기 / 물건 → 가까우면 조사, 멀면 걸어가서 조사 / 출구 → 걸어감, 출구 앞에서 한 번 더 → 들어감 / 그 밖 → 그곳으로 걸어감
-func tap(p: Vector2) -> void:
+## touch: 터치 탭이면 빈 바닥으로 걸어가지 않는다 (이동은 조이스틱)
+func tap(p: Vector2, touch := false) -> void:
 	if G.dialog.is_busy() or G.dialog.guide_open():
 		G.dialog.advance()
 		return
@@ -485,7 +673,8 @@ func tap(p: Vector2) -> void:
 		else:
 			go(_v(exit_conf(ex).at))
 		return
-	go(mp)
+	if not touch:
+		go(mp)
 
 
 func go(p: Vector2, then := "") -> void:
@@ -572,4 +761,9 @@ func test_state() -> Dictionary:
 		"mode": mode, "near": near, "exit": exit_sel, "inspecting": inspecting, "inspected": inspected, "exits": exits_log,
 		"canStand": nav.can_stand(foot), "path": path.size(), "cam": [cam.x, cam.y], "zoom": k, "map": [map_size.x, map_size.y],
 		"stand": stand_who if stand.visible else "", "desc": desc_text.text if desc.visible else "",
-		"world": [world.position.x, world.position.y]}
+		"world": [world.position.x, world.position.y], "t": Time.get_ticks_msec(), "pace": pace, "gap": float(C.followGap),
+		"followers": followers.map(func(f): return {"id": f.id, "pos": [snappedf(f.pos.x, 0.1), snappedf(f.pos.y, 0.1)], "dir": f.dir,
+			"frame": f.frame, "sheetFrame": f.spr.frame, "moving": f.moving}),
+		"touch": FX.touch, "stick": {"on": not stick.is_empty(), "drag": stick.get("drag", false),
+			"c": [stick.c.x, stick.c.y] if not stick.is_empty() else [], "r": stick_r(), "v": [stick_vec().x, stick_vec().y]},
+		"btn": {"rect": [btn_rect().position.x, btn_rect().position.y, btn_rect().size.x, btn_rect().size.y], "active": btn_active()}}
