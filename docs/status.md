@@ -42,6 +42,8 @@
 - HTML 테스트: `node --test prototype/tests/rules.test.js`(23개), `node prototype/tests/smoke.js <스크린샷폴더>`(67항목, 5~6분).
 - HTML 웹 배포 절차: `python3 tools/build_web.py <폴더>` → gh-pages 브랜치 체크아웃(워크트리) → 루트의 `index.html css js assets`만 교체(`eska/`·`godot/`·`godot-ci/` 건드리지 말 것) → `version.txt` 갱신 → 커밋·푸시.
 
+- **검증 방식(2026-11-16 결정)**: 매번 전체 검증은 비효율적 → 작은 수정은 스크립트 검사·규칙 테스트·바뀐 부분 스크린샷만. CI(`witch-web-build.yml`)도 푸시 때는 검사·규칙 테스트·웹 빌드·배포만(약 2~3분). 헤드리스 자동 진행·Playwright 스모크·스크린샷(`godot-ci/`)은 큰 작업이 끝났을 때 Actions 에서 수동 실행(Run workflow, full).
+
 ## 5. 진행 중
 - **Godot 이식 백그라운드 에이전트**(Opus 5.5 · xhigh, 2026-11-15 시작): 튜토리얼 전체 + 이동(걸어 들어가는 연출)·지도(층 표시·죽음 표식)·갈림길 3택·세라피나 대화·빈 캠프, **카드 들 때 손이 셋 보이는 버그**(왼손은 손패 유지, 오른손만 빠져 카드를 듦), 모바일 글씨 크기 개선, 그림 압축. `cc/amazing-darwin-nesbwh`에 직접 푸시하며 CI(`.github/workflows/witch-web-build.yml`)로 빌드·GDScript 테스트·Playwright 스모크·스크린샷 검증. 끝나면 결과 보고 → 검토.
 - **네트워크 환경 허용 요청 대기**: 이 클라우드에서 Godot를 직접 받으려면 이 저장소용 개인 환경(`yemo_plan`, 허용 호스트 github.com · objects.githubusercontent.com · release-assets.githubusercontent.com)이 필요. 휴대폰 앱에서는 승인 카드가 안 떠서 미처리. PC의 claude.ai에서 "환경 허용 다시 요청해줘"라고 하면 다시 요청.

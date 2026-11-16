@@ -1,6 +1,8 @@
 # game/ 폴더의 Godot 4.7 프로젝트("죽음을 보는 마녀" 튜토리얼)를 시험하고 웹용으로 빌드해 gh-pages 의 godot/ 폴더에 올린다.
-# 시험: 스크립트 컴파일 검사 → 규칙 단위 테스트(GDScript) → 헤드리스 자동 진행(끝까지 · 전멸 재시작) → 웹 내보내기
+# 빠른 빌드(푸시할 때마다, 약 2~3분): 스크립트 컴파일 검사 → 규칙 단위 테스트(GDScript) → 웹 내보내기 → 배포.
+# 전체 검증(수동 실행 · full=true 일 때만): 위에 더해 헤드리스 자동 진행(끝까지 · 전멸 재시작)
 #      → Playwright 로 로컬 http 서버에 띄워 스모크 테스트(실제 클릭·드래그·터치, 스크린샷) → 스크린샷·로그는 gh-pages 의 godot-ci/ 폴더.
+#      실행: GitHub Actions 에서 이 워크플로를 Run workflow → full 체크.
 # 사이트 루트(HTML 프로토타입)와 eska/ 는 건드리지 않는다(keep_files, destination_dir 만 바꾼다). 에스카 빌드와 같은 동시 실행 묶음을 쓴다.
 name: Witch web build (Godot)
 
@@ -9,6 +11,11 @@ on:
     branches: [cc/amazing-darwin-nesbwh]
     paths: ["game/**", ".github/workflows/witch-web-build.yml"]
   workflow_dispatch:
+    inputs:
+      full:
+        description: "전체 검증(헤드리스 자동 진행 + Playwright 스모크·스크린샷)"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -74,6 +81,7 @@ jobs:
           grep -q "failures: 0" /tmp/rules.txt
 
       - name: Headless auto-play (full tutorial, and wipe → rewind → restart)
+        if: ${{ inputs.full }}
         run: |
           cd game
           for args in "--path=rest --choice=smile --autoplay" "--path=train --train=snipe --choice=silent --autoplay=wipe"; do
@@ -93,10 +101,12 @@ jobs:
           echo "${GITHUB_REF_NAME} ${GITHUB_SHA::7} $(date -u +%Y-%m-%dT%H:%MZ)" > ../build/web/version.txt
 
       - uses: actions/setup-node@v4
+        if: ${{ inputs.full }}
         with:
           node-version: "22"
 
       - name: Install Playwright (Chromium)
+        if: ${{ inputs.full }}
         run: |
           mkdir -p /tmp/pw && cd /tmp/pw
           npm init -y > /dev/null
@@ -105,6 +115,7 @@ jobs:
 
       - name: Smoke test (Playwright on local http server)
         id: smoke
+        if: ${{ inputs.full }}
         continue-on-error: true
         run: |
           (cd build/web && python3 -m http.server 8000 > /tmp/http.txt 2>&1 &)
@@ -114,7 +125,7 @@ jobs:
           test "${PIPESTATUS[0]}" = "0"
 
       - name: Collect test logs
-        if: always()
+        if: ${{ always() && inputs.full }}
         run: |
           mkdir -p build/ci
           cp /tmp/check.txt /tmp/rules.txt /tmp/auto.txt build/ci/ 2>/dev/null || true
@@ -122,7 +133,7 @@ jobs:
           echo "${GITHUB_REF_NAME} ${GITHUB_SHA::7} smoke=${{ steps.smoke.outcome }} $(date -u +%Y-%m-%dT%H:%MZ)" > build/ci/version.txt
 
       - name: Publish screenshots and logs to gh-pages godot-ci/
-        if: always()
+        if: ${{ always() && inputs.full }}
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -132,7 +143,7 @@ jobs:
           commit_message: "Godot CI screenshots ${{ github.ref_name }}"
 
       - name: Publish web build to gh-pages godot/
-        if: steps.smoke.outcome == 'success'
+        if: ${{ steps.smoke.outcome != 'failure' }}
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -142,7 +153,7 @@ jobs:
           commit_message: "Web build (godot) ${{ github.ref_name }}"
 
       - name: Fail if smoke test failed
-        if: steps.smoke.outcome != 'success'
+        if: ${{ steps.smoke.outcome == 'failure' }}
         run: |
           echo "스모크 테스트 실패 — gh-pages 의 godot-ci/smoke-log.txt 와 스크린샷을 보세요"
           exit 1
