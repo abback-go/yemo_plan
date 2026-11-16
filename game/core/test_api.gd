@@ -108,6 +108,7 @@ func state() -> Dictionary:
 		"cssScale": FX.css_scale, "ui": FX.ui, "small": FX.small, "cardPreview": FX.card_preview, "fps": Engine.get_frames_per_second(),
 		"cutinActive": G.cutin.is_active(),
 		"handLifted": G.view.hand.lifted_uid, "handDragMode": G.view.hand.drag_mode,
+		"handGrip": G.view.hand.grip.get("uid", ""), "handGripBox": _grip_box(), "handRightOut": G.view.hand.right_out,
 	}
 	if st.is_empty():
 		return s
@@ -235,3 +236,14 @@ func hand_cut(pts_json) -> Dictionary:
 	if not pts is Array:
 		pts = []
 	return {"uncovered": G.view.hand.uncovered(pts), "hands": G.view.hand.hands_visible()}
+
+
+## 시험용: 작은 오른손이 쥔 카드의 화면 사각형 [x0, y0, x1, y1] (쥔 카드가 없으면 [])
+func _grip_box() -> Array:
+	var h: HandView = G.view.hand
+	if h.grip.is_empty() or not is_instance_valid(h.grip.card):
+		return []
+	var r := Rect2(h.rig.transform * h.grip.card.corners[0], Vector2.ZERO)
+	for p in h.grip.card.corners:
+		r = r.expand(h.rig.transform * p)
+	return [r.position.x, r.position.y, r.end.x, r.end.y]

@@ -165,12 +165,15 @@ func _update_drag() -> void:
 		H().drag_pos = p
 		H().layout()
 		return
-	# 대상 카드: 끌기 시작하면 확대를 풀어 동료·적을 가리지 않게 한다(누르고 있는 동안만 확대 보기)
+	# 대상 카드: 끌기 시작하면 확대를 풀어 동료·적을 가리지 않게 한다(누르고 있는 동안만 확대 보기).
+	# 오른손이 손패에서 그 카드를 뽑아 손패 높이에서 작게 쥐고, 화살표는 그 카드에서 나간다
 	if drag.moved and H().drag_mode != "aim":
 		H().lifted_uid = ""
 		H().drag_uid = drag.uid
 		H().drag_mode = "aim"
 		H().layout()
+		if not Rules.is_locked(G.ctl.st, drag.uid):
+			H().aim_grab(drag.uid)
 	var en := V().enemy_at(p)
 	var hot_id: String = en if drag.valid.has(en) else ""
 	if hot_id != drag.hot:
@@ -241,6 +244,8 @@ func cancel_drag() -> void:
 	H().drag_uid = ""
 	H().drag_mode = ""
 	H().lifted_uid = ""
+	# 작은 오른손이 쥐고 있던 카드는 손패로 돌려놓고, 오른손이 손패로 돌아온다
+	H().aim_release()
 	if not V().vm.is_empty():
 		V().highlight(null, "", null)
 		V().hot("", "")

@@ -5,7 +5,7 @@
  * Godot 캔버스에는 DOM 이 없으므로 게임이 ?test=1 일 때 붙이는 window.witch 훅(core/test_api.gd)으로 상태를 읽고 장면을 옮긴다.
  * 중요한 조작(카드 끌기·잠긴 죽음 카드·길 고르기·선택지·지도 닫기·턴 종료)은 좌표로 실제 마우스·터치 입력을 보낸다.
  *
- * 경로 A: 타이틀(실제 클릭) → 캠프(파티 소개 이름표·또렷한 죽음 카드) → 1층 전투(잠긴 죽음 카드를 끌어 내려다 실패, 성검 베기 실제 드래그,
+ * 경로 A: 타이틀(실제 클릭) → 캠프(파티 소개 이름표·또렷한 죽음 카드) → 1층 전투(잠긴 죽음 카드를 끌어 내려다 실패, 성검 베기 조준(작은 오른손이 카드를 쥠)·취소, 성검 베기 실제 드래그,
  *         손 들기 중 손은 둘뿐, 운명 전가 2단계) → 승리 → 걸어 들어감 → 지도(처음: 안내) → 갈림길(길 탭 → 설명 → 다시 탭 → 걷기)
  *         → 휴식 → 계단(죽음 카드 다시 떠오름, [웃어 준다] 실제 클릭) → 이동 → 2층 → 거대 존재 등장(발이 동료 뒤) → 자물쇠가 부서짐
  *         → 죽음 카드 실제 드래그(세운 손·팽팽한 실, 손은 둘) → 컷신 C1(웃어 준다 대사)~C6 → C7·C8 → 짓밟힘(컷인) → 탈출 → 빈 캠프(흐린 카드) → 종료
@@ -138,6 +138,13 @@ function helpers(page, tag) {
     await H.W('endTurn');
   };
   H.fight = async (pred, timeout, what, opts) => H.until(pred, timeout || 120000, what, async s => { await H.botStep(s, opts); });
+  // 조준 중: 작은 오른손이 그 카드를 쥐었는지, 손은 둘 이하인지, 쥔 카드가 손패 영역(화면 아래쪽) 안인지
+  H.gripOk = (s, uid) => {
+    const b = s.handGripBox || [];
+    const inHand = b.length === 4 && b[1] >= 470 && b[3] <= 1080 && b[0] >= 200 && b[2] <= 1720;
+    return { ok: s.handDragMode === 'aim' && s.handLifted === '' && s.handGrip === uid && s.handsNow <= 2 && inHand,
+      detail: { mode: s.handDragMode, lifted: s.handLifted, grip: s.handGrip, uid, hands: s.handsNow, box: b.map(v => Math.round(v)) } };
+  };
   H.handsOk = async label => {
     const s = await H.state();
     return { ok: s.maxHands <= 2, detail: label + ' maxHands=' + s.maxHands + ' now=' + s.handsNow };
@@ -183,9 +190,29 @@ async function pathA(browser) {
   await H.shot('A04_locked_try_inner.png');
   check('잠긴 죽음 카드를 끌면 손패로 돌아가고 속마음이 뜬다', s.battle.hand.some(c => c.id === 'hero_death') && s.party.allies.hero.status === 'ok');
   await H.until(s => !s.dialogBusy, 15000, '속마음 끝', async () => { await H.W('advance'); });
-  // 성검 베기: 실제 드래그로 가운데 광신도에게
+  // 성검 베기: 대상을 고르다가 빈 곳에 놓아 취소 → 오른손이 카드를 손패로 돌려놓는다
   const hs = await H.W('geom', 'card', 'holy_slash');
   const en = await H.W('geom', 'enemy', 'c2');
+  const hsUid = s.battle.hand.find(c => c.id === 'holy_slash').uid;
+  {
+    const a = await H.toPage(hs.x, hs.y), b = await H.toPage(en.x, en.y);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) { await page.mouse.move(a.x + (b.x - a.x) * i / 12, a.y + (b.y - a.y) * i / 12); await H.sleep(16); }
+    await H.sleep(350);
+    const m = await H.state();
+    await H.shot('A04b_aiming_grip.png');
+    const g = H.gripOk(m, hsUid);
+    check('PC: 대상 고르는 중 오른손이 그 카드를 손패 높이에서 작게 쥠(손은 둘, 화면 아래쪽 안)', g.ok, g.detail);
+    const c = await H.toPage(1500, 760);
+    await page.mouse.move(c.x, c.y, { steps: 4 });
+    await page.mouse.up();
+    await H.sleep(600);
+    const m2 = await H.state();
+    check('대상 고르기를 취소하면 카드가 손패로 돌아가고 오른손도 손패로', m2.handGrip === '' && m2.handDragMode === '' && m2.handRightOut === 0 && m2.handsNow <= 2 && m2.battle.hand.some(x => x.uid === hsUid) && !m2.busy,
+      { grip: m2.handGrip, mode: m2.handDragMode, rightOut: m2.handRightOut, hands: m2.handsNow, max: m2.maxHands });
+  }
+  // 성검 베기: 실제 드래그로 가운데 광신도에게
   const dragP = H.drag({ x: hs.x, y: hs.y }, { x: en.x, y: en.y }, 14);
   await dragP;
   await H.sleep(330);
@@ -447,7 +474,9 @@ async function pathD(browser) {
     await H.sleep(300);
     const m = await H.state();
     await H.shot('D03b_phone_aiming.png');
-    check('휴대폰: 대상 고르는 중엔 카드 확대 해제', m.handLifted === '' && m.handDragMode === 'aim', { lifted: m.handLifted, mode: m.handDragMode });
+    const hsUid = (m.battle.hand.find(c => c.id === 'holy_slash') || {}).uid;
+    const g = H.gripOk(m, hsUid);
+    check('휴대폰: 대상 고르는 중엔 카드 확대 해제 → 오른손이 그 카드를 손패 높이에서 작게 쥠(손은 둘)', g.ok, g.detail);
     for (let i = 8; i <= 14; i++) {
       await H.sleep(20);
       await H.cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: a.x + (b.x - a.x) * i / 14, y: a.y + (b.y - a.y) * i / 14 }] });
