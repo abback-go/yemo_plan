@@ -9,6 +9,9 @@
     📷 A03_floor1_locked_death_card.png
     📷 A04_locked_try_inner.png
   ✔ 잠긴 죽음 카드를 끌면 손패로 돌아가고 속마음이 뜬다
+    📷 A04b_aiming_grip.png
+  ✔ PC: 대상 고르는 중 오른손이 그 카드를 손패 높이에서 작게 쥠(손은 둘, 화면 아래쪽 안) — {"mode":"aim","lifted":"","grip":"k8","uid":"k8","hands":2,"box":[1177,584,1352,819]}
+  ✔ 대상 고르기를 취소하면 카드가 손패로 돌아가고 오른손도 손패로 — {"grip":"","mode":"","rightOut":0,"hands":2,"max":2}
     📷 A05_raise_two_hands.png
     📷 A06_cutin_holy_slash.png
   ✔ 성검 베기(실제 드래그) → 광신도 일격, 손 들기·컷인·공격 자세 — {"raise":["holy_slash"],"cutin":["holy_slash"],"motion":["hero:attack"]}
@@ -79,7 +82,7 @@
   ✔ 안내 상자를 터치 탭으로 넘김
     📷 D03_phone_card_preview.png
     📷 D03b_phone_aiming.png
-  ✔ 휴대폰: 대상 고르는 중엔 카드 확대 해제 — {"lifted":"","mode":"aim"}
+  ✔ 휴대폰: 대상 고르는 중엔 카드 확대 해제 → 오른손이 그 카드를 손패 높이에서 작게 쥠(손은 둘) — {"mode":"aim","lifted":"","grip":"k8","uid":"k8","hands":2,"box":[1177,584,1352,819]}
   ✔ 터치 드래그로 성검 베기 → 광신도 처치
   ✔ 휴대폰에서도 손은 둘 이하 — 휴대폰 maxHands=2 now=2
     📷 D04_phone_battle.png
@@ -92,4 +95,4 @@
   ✔ 느린 속도에서도 손은 언제나 둘 이하 — 느린 속도 전체 maxHands=2 now=2
   ✔ 저주의 불꽃 컷인(노엘) — ["curse_flame"]
   ✔ 브라우저 콘솔 에러 0
-smoke: 45 passed, failures: 0 (518s)
+smoke: 47 passed, failures: 0 (522s)
