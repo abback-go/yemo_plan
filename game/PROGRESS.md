@@ -8,7 +8,7 @@
 - `core/`: `rules.gd`(전투 규칙, 잠긴 죽음 카드) · `ctl.gd`(장면 흐름) · `guide.gd`(안내 트리거) · `fx.gd`(애니메이션·입자) · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
 - `ui/`: `battle_view.gd`(전투 화면·연출·HUD) · `hand.gd`(두 손·세운 손) · `card_view.gd`(원근 카드) · `battle_input.gd` · `dialog_box.gd`(대사창·안내 상자) · `cutin.gd` · `blood.gd` · `icons.gd` · `btn.gd` · `card_art.gd` · `shaders/`
 - `scenes/`: `scenes.gd`(타이틀·컷신·탈출·종료·전멸·되감기) · `vn.gd`(캠프·이벤트·계단·빈 캠프) · `omen.gd`(죽음 카드 떠오름) · `explore.gd`(탐색·걷기) · `map_view.gd`(지도)
-- 시험: `tests/test_rules.gd`(규칙 37개) · `tests/web/smoke.js`(Playwright 경로 A~E)
+- 시험: `tests/test_rules.gd`(규칙·데이터 46개) · `tests/web/smoke.js`(Playwright 경로 A~E, T=탑뷰 시험판)
 
 ## 로컬 검증 방법
 - `godot --headless --path game --import` 두 번 → `godot --headless --path game -- --check-scripts` → `godot --headless --path game --script res://tests/test_rules.gd`
@@ -23,9 +23,12 @@
 - [x] 코디네이터 검토 반영: 지도 패널 위치·방 이름 판, 세운 손이 카드 아래 가장자리를 쥠, HP 표시 한 곳(st.party)에서
 - [x] 대상 카드 조준: 끌기 시작하면 오른손이 손패에서 그 카드를 뽑아 손패 높이에서 작게 쥠(세운 손 그림 0.55배, `layout.grip`), 화살표는 쥔 카드에서. 확정하면 그 손이 커지며 세운 손, 취소하면 손패로 돌려놓음. 스모크 A(PC 조준·취소)·D(휴대폰 조준)에 손 둘·쥔 카드 위치 확인 추가
 
+- [x] 탑뷰 이동 시험판(`?scene=topdown`, 튜토리얼 흐름과 따로): 넓힌 갈림길 맵(2112×1662 → 블록 2.5px로 844×664)·노엘 4방향 걷기, WASD·방향키 + 탭 이동(격자 경로찾기), 충돌 다각형, 앞벽 덮기·기둥/돌무더기 y 정렬 가림, 물건 4개 조사(대화창 + 옆 스탠딩), 출구 3개(갈림길 설명 → 시험판 끝 → 입구로). `scenes/topdown.gd`·`topdown_nav.gd`, 수치 `game_data.gd "topdown"`, 대사 `script_data.gd "topdown"`. 규칙 테스트 +9(46개), 스모크 경로 T(25항목)
+
 ## 다음 할 일
 - 최종 CI 통과 확인 후 최종 보고
 
 ## 알려진 문제
 - 로컬 swiftshader 에서 스모크 테스트가 느림(전체 약 9~10분). 스크린샷 시점이 늦어 짧은 연출은 느린 속도(setSpeed)로 찍는다
+- 탑뷰 시험판: 기둥 뒤에 서면 노엘이 완전히 가려진다(실루엣 표시 없음). 가림 윤곽은 손으로 딴 다각형이라 가장자리 몇 px 오차. 휴대폰(DPR 3)에서는 무대 배율이 정수가 아니라 도트 폭이 1px 들쭉날쭉할 수 있음. 원본(좁은) 맵 비교용 `?map=small` 은 만들지 않음
 - 본 안내 기록이 브라우저 저장소에 남아 같은 브라우저에서는 다시 나오지 않음(의도). 다시 보려면 주소에 `?guides=reset`

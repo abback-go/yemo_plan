@@ -29,6 +29,9 @@ var queue: Array = []
 var cur = null            # {"line", "waiter", "typing", "full", "n", "hold", "t", "guide"}
 var seen := {}            # 본 안내 (글 → true)
 var log: Array = []       # 시험용: 보여 준 줄 기록 (최근 300)
+var dock := ""            # "" = 화면 왼쪽 위(기본) / "bottom" = 화면 아래, dock_x 부터 오른쪽 끝까지 (탑뷰 시험판: 옆에 스탠딩, 얼굴 칸 없음)
+var dock_x := 470.0       # dock = "bottom" 일 때 왼쪽 x
+var dock_w := 0.0         # dock = "bottom" 일 때 너비(무대 px). 0 = 오른쪽 끝까지
 var _type_acc := 0.0
 
 
@@ -103,6 +106,16 @@ func relayout() -> void:
 	dlg.position = Vector2(24, 20)
 	dlg.scale = Vector2(u, u)
 	dlg.size = Vector2(w, 132)
+	if dock == "bottom":
+		w = (dock_w if dock_w > 0.0 else 1920.0 - dock_x - 30.0) / u
+		fs = 30
+		dlg_text.position = Vector2(24, 50)
+		dlg_name.position = Vector2(24, 12)
+		dlg_text.size = Vector2(w - 48, 0)
+		dlg_text.custom_minimum_size = Vector2(w - 48, 0)
+		dlg_text.add_theme_font_size_override("normal_font_size", fs)
+		dlg.size = Vector2(w, 132)
+		dlg.position = Vector2(dock_x, 1080 - 26 - 132 * u)
 	var gw := minf(1180.0, 1840.0 / u)
 	guide.size = Vector2(gw, 150)
 	guide.scale = Vector2(u, u)
@@ -123,6 +136,8 @@ func _fit() -> void:
 	if dlg.visible:
 		var th: float = dlg_text.get_content_height()
 		dlg.size.y = maxf(132.0, 50.0 + th + 18.0)
+		if dock == "bottom":
+			dlg.position.y = 1080 - 26 - dlg.size.y * dlg.scale.y
 		dlg.queue_redraw()
 	if guide.visible:
 		var gh: float = guide_text.get_content_height()
@@ -250,7 +265,7 @@ func _pump() -> void:
 
 
 func _set_face(who: String, face) -> void:
-	var ft := Assets.face_tex(who, face, false)
+	var ft := Assets.face_tex(who, face, false) if dock == "" else null
 	if ft == null:
 		dlg_face.visible = false
 		dlg_text.position.x = 24

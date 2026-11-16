@@ -12,6 +12,9 @@
  * 경로 B: 거대 존재 전투에서 카드를 내지 않고 3턴 → 짓밟기 → "카드를 내지 않은 미래"(붉게 번짐·유리 깨짐) → 등장 직후(1턴)부터 재시작
  * 경로 C: 갈림길 시체 발견 / 훈련(카드 강화 +) 각각, 계단 [대답하지 못한다] → C1·빈 캠프 대사가 선택을 반영
  * 경로 D: 휴대폰 가로(iPhone 13 에뮬레이션, 터치) — 작은 화면 글씨 배율, 터치 탭·터치 드래그로 카드 내기, 세로 화면 "가로로 돌려 주세요"
+ * 경로 T: 탑뷰 이동 시험판(?scene=topdown) — 걸어 들어옴(앞벽 가림)·세라피나 첫 대사 → 방향키·WASD 걷기(걷기 그림 프레임) → 탭 이동 → 물건 4개 조사(탭·E 키)
+ *         → 기둥 뒤 가림 → 출구(설명 → 다시 탭 → 시험판 끝 → 입구로) → 벽·아래 입구 막힘 → 휴대폰(iPhone 13 가로) 터치 탭 이동·조사
+ *   경로만 고르기: node smoke.js <주소> <폴더> T   (기본: ABCDET 전부)
  * 통과 조건: 모든 확인 통과 + 브라우저 콘솔 에러 0 (Godot 의 ERROR / SCRIPT ERROR 포함)
  */
 'use strict';
@@ -144,6 +147,18 @@ function helpers(page, tag) {
     const inHand = b.length === 4 && b[1] >= 470 && b[3] <= 1080 && b[0] >= 200 && b[2] <= 1720;
     return { ok: s.handDragMode === 'aim' && s.handLifted === '' && s.handGrip === uid && s.handsNow <= 2 && inHand,
       detail: { mode: s.handDragMode, lifted: s.handLifted, grip: s.handGrip, uid, hands: s.handsNow, box: b.map(v => Math.round(v)) } };
+  };
+  // 탑뷰: 맵의 한 점(물건·출구·좌표)이 화면 밖이면 그쪽 화면 가장자리를 눌러 다가간 뒤, 보이면 실제로 누른다 (touch=true 면 터치)
+  H.tdTap = async (kind, id, touch) => {
+    for (let i = 0; i < 8; i++) {
+      const g = await H.W('geom', kind, id);
+      const inside = g.x > 60 && g.x < 1860 && g.y > 60 && g.y < 1020;
+      const x = Math.max(160, Math.min(1760, g.x)), y = Math.max(160, Math.min(920, g.y));
+      if (touch) await H.touchTap(x, y); else await H.click(x, y);
+      if (inside) return true;
+      await H.until(s => s.topdown.path === 0 && !s.topdown.moving, 30000, '화면 밖 ' + id + ' 쪽으로');
+    }
+    return false;
   };
   H.handsOk = async label => {
     const s = await H.state();
@@ -524,11 +539,157 @@ async function pathE(browser) {
   await page.close();
 }
 
+// ───────── 경로 T: 탑뷰 이동 시험판 (?scene=topdown) ─────────
+async function pathT(browser) {
+  say('경로 T: 탑뷰 시험판 — 걸어 들어옴 → 키보드 걷기 → 탭 이동 → 물건 4개 조사 → 출구 → 벽 → 휴대폰 터치');
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const H = helpers(page, 'T');
+  await H.open('scene=topdown&speed=0.3');
+  let s = await H.until(s => s.topdown && s.topdown.pos[1] < 625, 30000, '탑뷰 장면');
+  check('?scene=topdown → 탑뷰 장면', s.scene === 'topdown', s.scene);
+  await H.shot('T01_intro_arch.png');
+  await H.W('setSpeed', 1);
+  s = await H.state();
+  check('시작: 아래 입구 아치에서 걸어 들어옴(앞벽이 노엘 위에 덮임)', s.topdown.mode === 'intro' || s.topdown.pos[1] > 560, s.topdown);
+  s = await H.until(s => s.topdown.mode === 'talk' && s.topdown.stand === 'hero', 30000, '세라피나 첫 대사');
+  await H.sleep(900);
+  await H.shot('T02_intro_sera.png');
+  check('첫 대사: 세라피나 + 세라피나 스탠딩', has(s, /세라피나: 노엘, 길이 셋으로 갈린다\. 어디로 갈까\?/) && s.topdown.stand === 'hero', s.dialog.slice(-2));
+  s = await H.advanceAll(s => s.topdown.mode === 'free' && !s.dialogBusy, 30000, '자유 이동');
+  const p0 = s.topdown.pos;
+  check('입구 자리에 섬(설 수 있는 곳)', s.topdown.canStand && Math.abs(p0[0] - 424) < 2 && Math.abs(p0[1] - 556) < 2, s.topdown.pos);
+  // 키보드: 캔버스에 초점 → 오른쪽으로 걷기
+  await page.evaluate(() => { const c = document.querySelector('canvas'); c.setAttribute('tabindex', '0'); c.focus(); });
+  const seen = new Set();
+  await page.keyboard.down('ArrowRight');
+  for (let i = 0; i < 10; i++) { await H.sleep(110); s = await H.state(); seen.add(s.topdown.sheetFrame); if (i === 5) await H.shot('T03_key_walk_right.png'); }
+  await page.keyboard.up('ArrowRight');
+  check('방향키 → 오른쪽으로 걸음(x 증가, 오른쪽 행 그림)', s.topdown.pos[0] > p0[0] + 10 && s.topdown.dir === 'right', { pos: s.topdown.pos, dir: s.topdown.dir });
+  check('걷기 그림: 왼발·오른발 프레임이 바뀜(오른쪽 행 6~8)', seen.has(6) && seen.has(8), [...seen]);
+  await H.sleep(300);
+  s = await H.state();
+  check('멈추면 서기 프레임', !s.topdown.moving && s.topdown.frame === 1, s.topdown);
+  const p1 = s.topdown.pos;
+  await page.keyboard.down('KeyW');
+  await H.sleep(900);
+  s = await H.state();
+  await page.keyboard.up('KeyW');
+  check('W → 위로 걸음(뒷모습 행)', s.topdown.pos[1] < p1[1] - 10 && s.topdown.dir === 'up' && Math.floor(s.topdown.sheetFrame / 3) === 3, s.topdown);
+  // 탭 이동
+  await H.sleep(800);
+  let g = await H.W('geom', 'tdMap', '560,330');
+  await H.click(g.x, g.y);
+  await H.sleep(300);
+  s = await H.until(s => s.topdown.path === 0 && !s.topdown.moving, 20000, '탭한 곳까지');
+  check('탭한 곳으로 걸어감', Math.hypot(s.topdown.pos[0] - 560, s.topdown.pos[1] - 330) < 12, s.topdown.pos);
+  // 물건 4개
+  const want = {
+    shield: [/왕도 기사단의 문장\. …원정대는, 여기까지는 왔다\./],
+    journal: [/찢어진 일지\. 마지막 장만 읽힌다\./, /「발소리가 들린다\. 위에서\.」/],
+    spade: [/돌에 새긴 카드 한 장\./, /…나 말고도, 카드를 쓰는 누군가가 여기 있었다\./],
+    thread: [/붉은 실\. 내 것이 아니다\./, /끊어진 채, 돌에 걸려 있다\./],
+  };
+  let n = 0;
+  for (const id of ['shield', 'journal', 'spade', 'thread']) {
+    if (id === 'spade') {
+      // 가까이 걸어가서 E 키로 조사 (! 표시 확인)
+      await H.tdTap('tdMap', '96,372');
+      s = await H.until(s => s.topdown.near === 'spade' && s.topdown.path === 0 && !s.topdown.moving, 30000, '카드 무늬 앞');
+      await H.sleep(300);
+      await H.shot('T05_near_spade_mark.png');
+      await page.keyboard.press('KeyE');
+    } else {
+      await H.tdTap('tdItem', id);
+    }
+    s = await H.until(s => s.topdown.inspecting === id && s.topdown.stand === 'inner', 40000, '조사 ' + id);
+    if (n === 0) { await H.sleep(1200); await H.shot('T04_inspect_shield_dialog.png'); }
+    s = await H.advanceAll(s => s.topdown.mode === 'free' && !s.dialogBusy, 30000, '조사 끝 ' + id);
+    const ok = want[id].every(re => has(s, re));
+    check('조사 ' + id + ' → 노엘 속마음 대사', ok, s.dialog.slice(-3));
+    n++;
+  }
+  check('물건 4개 모두 조사함', s.topdown.inspected.length === 4, s.topdown.inspected);
+  // 기둥 뒤(위쪽)로 → 기둥이 노엘을 가림
+  await H.tdTap('tdMap', '50,428');
+  s = await H.until(s => s.topdown.path === 0 && !s.topdown.moving, 30000, '기둥 뒤');
+  await H.sleep(500);
+  await H.shot('T06_behind_pillar.png');
+  check('기둥 뒤에 섬(y 정렬 가림 확인용)', s.topdown.pos[1] < 436 && s.topdown.pos[0] < 80 && s.topdown.canStand, s.topdown.pos);
+  // 출구: 예배당
+  await H.tdTap('tdExit', 'rest');
+  s = await H.until(s => s.topdown.exit === 'rest' && s.topdown.path === 0, 40000, '예배당 앞');
+  await H.sleep(400);
+  await H.shot('T07_exit_rest_desc.png');
+  check('출구 앞 → 갈림길 설명 문구(예배당)', /쉬어 갈 수 있을 것 같다/.test(s.topdown.desc), s.topdown.desc);
+  g = await H.W('geom', 'tdExit', 'rest');
+  await H.click(g.x, g.y);
+  s = await H.until(s => s.topdown.mode === 'leaving', 10000, '들어가기');
+  await H.sleep(300);
+  await H.shot('T08_trial_end.png');
+  check('다시 탭 → "시험판은 여기까지"', /시험판은 여기까지/.test(s.topdown.desc), s.topdown.desc);
+  s = await H.until(s => s.topdown.mode === 'free' && s.fade < 0.05, 20000, '입구로 되돌아옴');
+  check('입구 자리로 되돌림', Math.abs(s.topdown.pos[0] - 424) < 2 && Math.abs(s.topdown.pos[1] - 556) < 2 && s.topdown.exits.includes('rest'), s.topdown);
+  // 벽: 아래(입구 밖)로·왼쪽 벽으로 계속 밀기
+  await page.keyboard.down('ArrowDown');
+  await H.sleep(1500);
+  await page.keyboard.up('ArrowDown');
+  s = await H.state();
+  check('아래 입구로 나가려 하면 막힘', s.topdown.pos[1] <= 581 && s.topdown.canStand, s.topdown.pos);
+  await H.tdTap('tdMap', '300,300');
+  await H.until(s => s.topdown.path === 0 && !s.topdown.moving, 30000, '가운데로');
+  await H.W('setSpeed', 3);
+  await page.keyboard.down('ArrowLeft');
+  await H.sleep(3000);
+  await page.keyboard.up('ArrowLeft');
+  s = await H.state();
+  check('왼쪽 벽까지 걷고 뚫지 않음', s.topdown.pos[0] >= 46 && s.topdown.pos[0] < 52 && s.topdown.canStand, s.topdown.pos);
+  await page.keyboard.down('ArrowUp');
+  await H.sleep(3000);
+  await page.keyboard.up('ArrowUp');
+  s = await H.state();
+  check('위쪽 벽까지 걷고 뚫지 않음', s.topdown.pos[1] >= 152 && s.topdown.pos[1] < 158 && s.topdown.canStand, s.topdown.pos);
+  // 벽 안쪽을 탭 → 가장 가까운 바닥까지만
+  await H.tdTap('tdMap', '600,60');
+  s = await H.until(s => s.topdown.path === 0 && !s.topdown.moving, 30000, '벽 탭');
+  check('벽을 탭해도 바닥 안에 멈춤', s.topdown.canStand && s.topdown.pos[1] >= 140, s.topdown.pos);
+  await H.W('setSpeed', 1);
+  // 앞벽 가림: 앞벽 바로 뒤에 서기
+  await H.tdTap('tdMap', '424,576');
+  s = await H.until(s => s.topdown.path === 0 && !s.topdown.moving, 30000, '앞벽 뒤');
+  await page.keyboard.down('ArrowDown'); await H.sleep(500); await page.keyboard.up('ArrowDown');
+  await H.sleep(400);
+  await H.shot('T09_front_wall.png');
+  await page.close();
+
+  // 휴대폰 가로: 터치 탭 이동
+  const dev = devices['iPhone 13 landscape'] || { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
+  const ctx = await browser.newContext({ ...dev });
+  const pp = await ctx.newPage();
+  const P = helpers(pp, 'T-phone');
+  await P.open('scene=topdown');
+  s = await P.until(s => s.topdown && s.topdown.mode === 'talk', 40000, '휴대폰 첫 대사');
+  await P.sleep(800);
+  await P.shot('T10_phone_intro.png');
+  for (let i = 0; i < 6 && s.topdown.mode !== 'free'; i++) { await P.touchTap(1300, 300); await P.sleep(400); s = await P.state(); }
+  s = await P.until(s => s.topdown.mode === 'free' && !s.dialogBusy, 20000, '휴대폰 자유 이동');
+  const q0 = s.topdown.pos;
+  await P.tdTap('tdMap', '300,470', true);
+  await P.sleep(300);
+  s = await P.until(s => s.topdown.path === 0 && !s.topdown.moving, 30000, '휴대폰 탭 이동');
+  check('휴대폰: 터치 탭한 곳으로 걸어감', s.topdown.pos[0] < q0[0] - 50, { from: q0, to: s.topdown.pos });
+  await P.tdTap('tdItem', 'journal', true);
+  s = await P.until(s => s.topdown.inspecting === 'journal', 30000, '휴대폰 일지 조사');
+  await P.sleep(1200);
+  await P.shot('T11_phone_inspect.png');
+  check('휴대폰: 물건 터치 → 걸어가서 조사', has(s, /찢어진 일지/), s.dialog.slice(-2));
+  await ctx.close();
+}
+
 (async () => {
   const browser = await launch();
   const t0 = Date.now();
-  const only = process.argv[4] || 'ABCDE';
-  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE]]) {
+  const only = process.argv[4] || 'ABCDET';
+  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE], ['T', pathT]]) {
     if (!only.includes(name)) continue;
     try { await fn(browser); } catch (e) { check('경로 ' + name + ' 진행', false, e.message); }
   }

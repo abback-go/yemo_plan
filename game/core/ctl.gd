@@ -304,6 +304,7 @@ func ending_flow(my: int) -> void:
 
 # ───────── 시험용 바로 가기 ─────────
 ## scene: title | camp | normal | fork | corpse | rest | train | stairs | explore2 | floor2 | giant | cutscene | emptycamp | ending
+##        | topdown (탑뷰 이동 시험판 — 튜토리얼 흐름과 따로)
 func jump(scene: String, opts := {}) -> void:
 	flow += 1
 	var my := flow
@@ -335,3 +336,6 @@ func jump(scene: String, opts := {}) -> void:
 				G.scenes.ending()
 		"ending":
 			G.scenes.ending()
+		"topdown":
+			stage = "topdown"
+			await G.scenes.topdown()

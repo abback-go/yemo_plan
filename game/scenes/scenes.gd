@@ -142,6 +142,16 @@ func explore(place: String) -> String:
 	return id
 
 
+# ───────── 탑뷰 이동 시험판 (?scene=topdown, 튜토리얼 흐름과 따로) ─────────
+func topdown() -> void:
+	G.ctl.in_battle = false
+	G.view.clear()
+	var t := TopdownScene.new()
+	t.setup()
+	mount(t, "topdown")
+	await t.run()
+
+
 # ───────── 용사 사망 컷신 C1~C6 ─────────
 func _cut_lines(c: Dictionary) -> Array:
 	var out := []

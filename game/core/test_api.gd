@@ -3,6 +3,7 @@
 ## 함수의 결과는 window.__witchOut (JSON 문자열)에 남긴다 — 시험 쪽에서 W(name, ...args) 로 부르고 읽는다.
 ##   state() · jump(scene, opts) · play(cardId, target) · endTurn() · advance() · pickPath(id) · choose(value) · train(id)
 ##   openMap() · closeMap() · winBattle() · geom(kind, id) · handCut() · resetGuides() · setSpeed(n)
+##   탑뷰 시험판: state().topdown (노엘 발끝·방향·걷기 그림·조사·출구) · geom("tdItem"|"tdExit", id) · geom("tdMap", "x,y") (맵 픽셀 → 무대 좌표)
 class_name TestApi
 extends Node
 
@@ -128,6 +129,8 @@ func state() -> Dictionary:
 	var cur = G.scenes.current
 	if cur is ExploreScene:
 		s.explore = {"place": cur.place, "selected": cur.selected, "map": cur.map.visible, "walking": cur.walking, "paths": cur.path_list().map(func(p): return p.id)}
+	if cur is TopdownScene:
+		s.topdown = cur.test_state()
 	if cur is VnScene:
 		s.vn = {"name": cur.scene_name, "line": cur.line_index, "choices": cur.choice_btns.size(), "omen": cur.omen.showing, "typing": cur.typing}
 	return s
@@ -215,6 +218,20 @@ func geom(kind: String, id: String) -> Dictionary:
 				for pa in cur.path_list():
 					if pa.id == id:
 						return {"x": pa.x, "y": pa.y}
+		"tdItem", "tdExit", "tdMap":
+			var td = G.scenes.current
+			if td is TopdownScene:
+				var mp := Vector2.ZERO
+				if kind == "tdMap":
+					var xy := id.split(",")
+					mp = Vector2(float(xy[0]), float(xy[1]))
+				else:
+					var conf: Dictionary = td.item(id) if kind == "tdItem" else td.exit_conf(id)
+					if conf.is_empty():
+						return {}
+					mp = Vector2(conf.at[0], conf.at[1])
+				var sp: Vector2 = td.to_stage(mp)
+				return {"x": sp.x, "y": sp.y}
 		"button":
 			var cur2 = G.scenes.current
 			if cur2:

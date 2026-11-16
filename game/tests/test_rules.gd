@@ -103,6 +103,7 @@ func _init() -> void:
 	t_cover_up()
 	t_relic_clears_up()
 	t_data()
+	t_topdown()
 	print("rules: %d passed, failures: %d" % [passes, fails])
 	quit(1 if fails > 0 else 0)
 
@@ -513,6 +514,51 @@ func t_data() -> void:
 			if s.contains(w):
 				no_extra = false
 	check("대본에 사제·도적이 나오지 않는다", no_extra)
+
+
+# 탑뷰 시험판: 걸을 수 있는 곳·막힌 곳·경로 (game_data.gd "topdown")
+func t_topdown() -> void:
+	var C: Dictionary = D.topdown
+	var img := Image.load_from_file("res://assets/" + str(C.map))
+	var msz := Vector2i(844, 664) if img == null else img.get_size()
+	var nav := TopdownNav.new(C, msz)
+	var entry := Vector2(C.entry[0], C.entry[1])
+	check("탑뷰: 입구 자리에 설 수 있다", nav.can_stand(entry))
+	var bad := []
+	for p in [[424, 620], [424, 600], [10, 300], [50, 455], [120, 420], [128, 467], [300, 386], [780, 360], [424, 60], [600, 100], [835, 300]]:
+		if nav.can_stand(Vector2(p[0], p[1])):
+			bad.append(p)
+	check("탑뷰: 벽·아래 입구 밖·기둥·돌무더기·물건 자리에는 설 수 없다", bad.is_empty(), str(bad))
+	var miss := []
+	for it in C.items:
+		var sp := Vector2(it.spot[0], it.spot[1])
+		var path := nav.find_path(entry, sp)
+		if not nav.can_stand(sp) or path.is_empty() or path[path.size() - 1].distance_to(sp) > 0.5:
+			miss.append(it.id)
+	for e in C.exits:
+		var at := Vector2(e.at[0], e.at[1])
+		var path2 := nav.find_path(entry, at)
+		if not nav.can_stand(at) or path2.is_empty() or path2[path2.size() - 1].distance_to(at) > float(e.r):
+			miss.append(e.id)
+	check("탑뷰: 입구에서 물건 4개·출구 3개까지 걸어갈 수 있다", miss.is_empty() and C.items.size() == 4 and C.exits.size() == 3, str(miss))
+	# 경로의 모든 구간이 벽을 뚫지 않는다
+	var through := false
+	var cur := entry
+	for q in nav.find_path(entry, Vector2(170, 420)):
+		if not nav.line_ok(cur, q):
+			through = true
+		cur = q
+	check("탑뷰: 탭 이동 경로가 장애물을 뚫지 않는다", not through)
+	# 벽 쪽으로 계속 걸어도 바닥 안에 머문다
+	var p2 := entry
+	for i in 400:
+		p2 = nav.move(p2, Vector2(0, 2))
+	var p3 := entry
+	for i in 400:
+		p3 = nav.move(p3, Vector2(-2, -1))
+	check("탑뷰: 벽으로 밀어도 바닥 밖으로 나가지 않는다", nav.can_stand(p2) and p2.y <= 581 and nav.can_stand(p3), "%s %s" % [p2, p3])
+	for id in ["shield", "journal", "spade", "thread"]:
+		check("탑뷰 대사: " + id, ScriptData.S.topdown.items.has(id) and ScriptData.S.topdown.items[id].size() > 0)
 
 
 func _collect(v, out: Array) -> void:

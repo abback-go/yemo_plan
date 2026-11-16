@@ -5,6 +5,9 @@
 3) 색을 --colors 개로 정리한다(디더링 없음).
 4) cols×rows 칸으로 나눠, 칸마다 발끝을 같은 높이에 맞춰 --cell 크기 칸에 다시 담는다.
 사용법: python3 tools/pixel_sheet.py 입력.png 출력.png [--cols 3] [--rows 4] [--cell 64] [--colors 32] [--preview 미리보기.png]
+맵·배경처럼 한 장 그림: --no-key(초록 배경 제거 안 함) --whole(칸 나누기 없이 줄인 그림 그대로)
+  격자가 고르지 않은 그림은 --block 2.5 처럼 블록 크기를 직접 정한다(격자 찾기 생략, 시작점은 --offset 0,0).
+  예: python3 tools/pixel_sheet.py art/raw/map_f1_fork_raw.png game/assets/td_f1_fork.png --no-key --whole --block 2.5 --colors 64
 """
 import argparse
 from collections import deque
@@ -40,7 +43,7 @@ def find_grid(im):
     return best[1:]
 
 
-def downsample(im, p, ox, oy):
+def downsample(im, p, ox, oy, key=True):
     H, W, _ = im.shape
     nx, ny = int((W - ox) // p), int((H - oy) // p)
     out = np.zeros((ny, nx, 4), np.uint8)
@@ -49,7 +52,7 @@ def downsample(im, p, ox, oy):
             x0, y0 = ox + i * p, oy + j * p
             b = im[int(y0 + p * .3):int(y0 + p * .7) + 1, int(x0 + p * .3):int(x0 + p * .7) + 1].reshape(-1, 3)
             r, g, bb = np.median(b, axis=0)
-            green = g > 90 and g - max(r, bb) > 35
+            green = key and g > 90 and g - max(r, bb) > 35
             out[j, i, :3] = (r, min(g, max(r, bb)), bb)
             out[j, i, 3] = 0 if green else 255
     return out
@@ -108,12 +111,20 @@ def main():
     ap.add_argument('--cols', type=int, default=3); ap.add_argument('--rows', type=int, default=4)
     ap.add_argument('--cell', type=int, default=64); ap.add_argument('--colors', type=int, default=32)
     ap.add_argument('--preview')
+    ap.add_argument('--no-key', action='store_true', help='초록 배경을 빼지 않는다(맵·배경 그림)')
+    ap.add_argument('--whole', action='store_true', help='칸으로 나누지 않고 줄인 그림 한 장으로 저장')
+    ap.add_argument('--block', type=float, help='픽셀 블록 크기를 직접 지정(격자 찾기 생략)')
+    ap.add_argument('--offset', default='0,0', help='--block 과 함께: 격자 시작점 x,y')
     o = ap.parse_args()
     im = np.asarray(Image.open(o.src).convert('RGB')).astype(float)
-    p, ox, oy = find_grid(im)
+    if o.block:
+        p = o.block
+        ox, oy = (float(v) for v in o.offset.split(','))
+    else:
+        p, ox, oy = find_grid(im)
     print(f'픽셀 블록 {p:.2f}px, 격자 시작 ({ox:.1f},{oy:.1f})')
-    a = quantize(downsample(im, p, ox, oy), o.colors)
-    sheet = pack(a, o.cols, o.rows, o.cell)
+    a = quantize(downsample(im, p, ox, oy, key=not o.no_key), o.colors)
+    sheet = Image.fromarray(a, 'RGBA') if o.whole else pack(a, o.cols, o.rows, o.cell)
     sheet.save(o.dst)
     print('저장', o.dst, sheet.size)
     if o.preview:

@@ -1,6 +1,7 @@
 ## main.gd — 시작: 화면 레이어를 만들고 각 부분을 등록한다. 1920×1080 무대를 창에 맞춰 비율 유지(project.godot stretch).
 ## 휴대폰 세로면 "가로로 돌려 주세요". 작은 화면이면 대사·안내·카드 확대 글씨를 키운다(FX.update_screen).
 ## 주소 뒤 옵션(웹): ?seed=7 · ?speed=4 · ?scene=giant(바로 시작) · ?test=1(시험 훅) · ?autoguide=1 · ?guides=reset · ?run=2
+##   ?scene=topdown — 픽셀아트 탑뷰 이동 시험판(튜토리얼 흐름과 따로, scenes/topdown.gd)
 extends Node
 
 var stage: Node2D
