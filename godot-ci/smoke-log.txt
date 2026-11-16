@@ -94,6 +94,42 @@
     📷 E04_warrior_strike.png
   ✔ 느린 속도에서도 손은 언제나 둘 이하 — 느린 속도 전체 maxHands=2 now=2
   ✔ 저주의 불꽃 컷인(노엘) — ["curse_flame"]
+경로 T: 탑뷰 시험판 — 걸어 들어옴 → 키보드 걷기 → 탭 이동 → 물건 4개 조사 → 출구 → 벽 → 휴대폰 터치
+  ✔ ?scene=topdown → 탑뷰 장면 — topdown
+    📷 T01_intro_arch.png
+  ✔ 시작: 아래 입구 아치에서 걸어 들어옴(앞벽이 노엘 위에 덮임) — {"cam":[424,484],"canStand":false,"desc":"","dir":"up","exit":"","exits":[],"frame":2,"inspected":[],"inspecting":"","map":[844,664],"mode":"intro","moving":true,"near":"","path":0,"pos":[424,596.6],"sheetFrame":11,"stand":"","world":[-312,-912],"zoom":3}
+    📷 T02_intro_sera.png
+  ✔ 첫 대사: 세라피나 + 세라피나 스탠딩 — ["세라피나: 노엘, 길이 셋으로 갈린다. 어디로 갈까?"]
+  ✔ 입구 자리에 섬(설 수 있는 곳) — [424,556]
+    📷 T03_key_walk_right.png
+  ✔ 방향키 → 오른쪽으로 걸음(x 증가, 오른쪽 행 그림) — {"pos":[599.1,556],"dir":"right"}
+  ✔ 걷기 그림: 왼발·오른발 프레임이 바뀜(오른쪽 행 6~8) — [7,8,6]
+  ✔ 멈추면 서기 프레임 — {"cam":[523.998291015625,484],"canStand":true,"desc":"","dir":"right","exit":"","exits":[],"frame":1,"inspected":[],"inspecting":"","map":[844,664],"mode":"free","moving":false,"near":"","path":0,"pos":[602.9,556],"sheetFrame":7,"stand":"","world":[-612,-912],"zoom":3}
+  ✔ W → 위로 걸음(뒷모습 행) — {"cam":[523.999938964844,468.975128173828],"canStand":true,"desc":"","dir":"up","exit":"","exits":[],"frame":2,"inspected":[],"inspecting":"","map":[844,664],"mode":"free","moving":true,"near":"","path":0,"pos":[602.9,488.1],"sheetFrame":11,"stand":"","world":[-612,-867],"zoom":3}
+  ✔ 탭한 곳으로 걸어감 — [560,330]
+    📷 T04_inspect_shield_dialog.png
+  ✔ 조사 shield → 노엘 속마음 대사 — ["세라피나: 노엘, 길이 셋으로 갈린다. 어디로 갈까?","노엘: (왕도 기사단의 문장. …원정대는, 여기까지는 왔다.)"]
+  ✔ 조사 journal → 노엘 속마음 대사 — ["노엘: (왕도 기사단의 문장. …원정대는, 여기까지는 왔다.)","노엘: (찢어진 일지. 마지막 장만 읽힌다.)","노엘: 「발소리가 들린다. 위에서.」"]
+    📷 T05_near_spade_mark.png
+  ✔ 조사 spade → 노엘 속마음 대사 — ["노엘: 「발소리가 들린다. 위에서.」","노엘: (돌에 새긴 카드 한 장.)","노엘: (…나 말고도, 카드를 쓰는 누군가가 여기 있었다.)"]
+  ✔ 조사 thread → 노엘 속마음 대사 — ["노엘: (…나 말고도, 카드를 쓰는 누군가가 여기 있었다.)","노엘: (붉은 실. 내 것이 아니다.)","노엘: (끊어진 채, 돌에 걸려 있다.)"]
+  ✔ 물건 4개 모두 조사함 — ["shield","journal","spade","thread"]
+    📷 T06_behind_pillar.png
+  ✔ 기둥 뒤에 섬(y 정렬 가림 확인용) — [53,428]
+    📷 T07_exit_rest_desc.png
+  ✔ 출구 앞 → 갈림길 설명 문구(예배당) — 쉬어 갈 수 있을 것 같다. 모두의 HP를 회복하고, 최대 HP가 오른다.
+    📷 T08_trial_end.png
+  ✔ 다시 탭 → "시험판은 여기까지" — 시험판은 여기까지입니다 — 입구로 돌아갑니다
+  ✔ 입구 자리로 되돌림 — {"cam":[424,484],"canStand":true,"desc":"","dir":"up","exit":"","exits":["rest"],"frame":1,"inspected":["shield","journal","spade","thread"],"inspecting":"","map":[844,664],"mode":"free","moving":false,"near":"","path":0,"pos":[424,556],"sheetFrame":10,"stand":"","world":[-312,-912],"zoom":3}
+  ✔ 아래 입구로 나가려 하면 막힘 — [421.2,576.6]
+  ✔ 왼쪽 벽까지 걷고 뚫지 않음 — [47.5,296.7]
+  ✔ 위쪽 벽까지 걷고 뚫지 않음 — [52.8,153.2]
+  ✔ 벽을 탭해도 바닥 안에 멈춤 — [585,153]
+    📷 T09_front_wall.png
+    📷 T10_phone_intro.png
+  ✔ 휴대폰: 터치 탭한 곳으로 걸어감 — {"from":[424,556],"to":[299.8,470]}
+    📷 T11_phone_inspect.png
+  ✔ 휴대폰: 물건 터치 → 걸어가서 조사 — ["세라피나: 노엘, 길이 셋으로 갈린다. 어디로 갈까?","노엘: (찢어진 일지. 마지막 장만 읽힌다.)"]
   ✔ 브라우저 콘솔 에러 0
-smoke: 47 passed, failures: 0 (522s)
+smoke: 71 passed, failures: 0 (620s)
 

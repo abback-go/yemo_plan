@@ -38,4 +38,18 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   ✔ 대본·카드의 모든 글자가 글꼴(한글 2,350자 묶음)에 있다
   ✔ 손 들기 카드 자리 = ui_witch_hand_raise.json
   ✔ 대본에 사제·도적이 나오지 않는다
-rules: 37 passed, failures: 0
+WARNING: Loaded resource as image file, this will not work on export: 'res://assets/td_f1_fork.png'. Instead, import the image file as an Image resource and load it normally as a resource.
+     at: load_from_file (core/io/image.cpp:2780)
+     GDScript backtrace (most recent call first):
+         [0] t_topdown (res://tests/test_rules.gd:522)
+         [1] _init (res://tests/test_rules.gd:106)
+  ✔ 탑뷰: 입구 자리에 설 수 있다
+  ✔ 탑뷰: 벽·아래 입구 밖·기둥·돌무더기·물건 자리에는 설 수 없다
+  ✔ 탑뷰: 입구에서 물건 4개·출구 3개까지 걸어갈 수 있다
+  ✔ 탑뷰: 탭 이동 경로가 장애물을 뚫지 않는다
+  ✔ 탑뷰: 벽으로 밀어도 바닥 밖으로 나가지 않는다
+  ✔ 탑뷰 대사: shield
+  ✔ 탑뷰 대사: journal
+  ✔ 탑뷰 대사: spade
+  ✔ 탑뷰 대사: thread
+rules: 46 passed, failures: 0

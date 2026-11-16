@@ -334,6 +334,326 @@
    ]
   },
   {
+   "name": "?scene=topdown → 탑뷰 장면",
+   "ok": true,
+   "detail": "topdown"
+  },
+  {
+   "name": "시작: 아래 입구 아치에서 걸어 들어옴(앞벽이 노엘 위에 덮임)",
+   "ok": true,
+   "detail": {
+    "cam": [
+     424,
+     484
+    ],
+    "canStand": false,
+    "desc": "",
+    "dir": "up",
+    "exit": "",
+    "exits": [],
+    "frame": 2,
+    "inspected": [],
+    "inspecting": "",
+    "map": [
+     844,
+     664
+    ],
+    "mode": "intro",
+    "moving": true,
+    "near": "",
+    "path": 0,
+    "pos": [
+     424,
+     596.6
+    ],
+    "sheetFrame": 11,
+    "stand": "",
+    "world": [
+     -312,
+     -912
+    ],
+    "zoom": 3
+   }
+  },
+  {
+   "name": "첫 대사: 세라피나 + 세라피나 스탠딩",
+   "ok": true,
+   "detail": [
+    "세라피나: 노엘, 길이 셋으로 갈린다. 어디로 갈까?"
+   ]
+  },
+  {
+   "name": "입구 자리에 섬(설 수 있는 곳)",
+   "ok": true,
+   "detail": [
+    424,
+    556
+   ]
+  },
+  {
+   "name": "방향키 → 오른쪽으로 걸음(x 증가, 오른쪽 행 그림)",
+   "ok": true,
+   "detail": {
+    "pos": [
+     599.1,
+     556
+    ],
+    "dir": "right"
+   }
+  },
+  {
+   "name": "걷기 그림: 왼발·오른발 프레임이 바뀜(오른쪽 행 6~8)",
+   "ok": true,
+   "detail": [
+    7,
+    8,
+    6
+   ]
+  },
+  {
+   "name": "멈추면 서기 프레임",
+   "ok": true,
+   "detail": {
+    "cam": [
+     523.998291015625,
+     484
+    ],
+    "canStand": true,
+    "desc": "",
+    "dir": "right",
+    "exit": "",
+    "exits": [],
+    "frame": 1,
+    "inspected": [],
+    "inspecting": "",
+    "map": [
+     844,
+     664
+    ],
+    "mode": "free",
+    "moving": false,
+    "near": "",
+    "path": 0,
+    "pos": [
+     602.9,
+     556
+    ],
+    "sheetFrame": 7,
+    "stand": "",
+    "world": [
+     -612,
+     -912
+    ],
+    "zoom": 3
+   }
+  },
+  {
+   "name": "W → 위로 걸음(뒷모습 행)",
+   "ok": true,
+   "detail": {
+    "cam": [
+     523.999938964844,
+     468.975128173828
+    ],
+    "canStand": true,
+    "desc": "",
+    "dir": "up",
+    "exit": "",
+    "exits": [],
+    "frame": 2,
+    "inspected": [],
+    "inspecting": "",
+    "map": [
+     844,
+     664
+    ],
+    "mode": "free",
+    "moving": true,
+    "near": "",
+    "path": 0,
+    "pos": [
+     602.9,
+     488.1
+    ],
+    "sheetFrame": 11,
+    "stand": "",
+    "world": [
+     -612,
+     -867
+    ],
+    "zoom": 3
+   }
+  },
+  {
+   "name": "탭한 곳으로 걸어감",
+   "ok": true,
+   "detail": [
+    560,
+    330
+   ]
+  },
+  {
+   "name": "조사 shield → 노엘 속마음 대사",
+   "ok": true,
+   "detail": [
+    "세라피나: 노엘, 길이 셋으로 갈린다. 어디로 갈까?",
+    "노엘: (왕도 기사단의 문장. …원정대는, 여기까지는 왔다.)"
+   ]
+  },
+  {
+   "name": "조사 journal → 노엘 속마음 대사",
+   "ok": true,
+   "detail": [
+    "노엘: (왕도 기사단의 문장. …원정대는, 여기까지는 왔다.)",
+    "노엘: (찢어진 일지. 마지막 장만 읽힌다.)",
+    "노엘: 「발소리가 들린다. 위에서.」"
+   ]
+  },
+  {
+   "name": "조사 spade → 노엘 속마음 대사",
+   "ok": true,
+   "detail": [
+    "노엘: 「발소리가 들린다. 위에서.」",
+    "노엘: (돌에 새긴 카드 한 장.)",
+    "노엘: (…나 말고도, 카드를 쓰는 누군가가 여기 있었다.)"
+   ]
+  },
+  {
+   "name": "조사 thread → 노엘 속마음 대사",
+   "ok": true,
+   "detail": [
+    "노엘: (…나 말고도, 카드를 쓰는 누군가가 여기 있었다.)",
+    "노엘: (붉은 실. 내 것이 아니다.)",
+    "노엘: (끊어진 채, 돌에 걸려 있다.)"
+   ]
+  },
+  {
+   "name": "물건 4개 모두 조사함",
+   "ok": true,
+   "detail": [
+    "shield",
+    "journal",
+    "spade",
+    "thread"
+   ]
+  },
+  {
+   "name": "기둥 뒤에 섬(y 정렬 가림 확인용)",
+   "ok": true,
+   "detail": [
+    53,
+    428
+   ]
+  },
+  {
+   "name": "출구 앞 → 갈림길 설명 문구(예배당)",
+   "ok": true,
+   "detail": "쉬어 갈 수 있을 것 같다. 모두의 HP를 회복하고, 최대 HP가 오른다."
+  },
+  {
+   "name": "다시 탭 → \"시험판은 여기까지\"",
+   "ok": true,
+   "detail": "시험판은 여기까지입니다 — 입구로 돌아갑니다"
+  },
+  {
+   "name": "입구 자리로 되돌림",
+   "ok": true,
+   "detail": {
+    "cam": [
+     424,
+     484
+    ],
+    "canStand": true,
+    "desc": "",
+    "dir": "up",
+    "exit": "",
+    "exits": [
+     "rest"
+    ],
+    "frame": 1,
+    "inspected": [
+     "shield",
+     "journal",
+     "spade",
+     "thread"
+    ],
+    "inspecting": "",
+    "map": [
+     844,
+     664
+    ],
+    "mode": "free",
+    "moving": false,
+    "near": "",
+    "path": 0,
+    "pos": [
+     424,
+     556
+    ],
+    "sheetFrame": 10,
+    "stand": "",
+    "world": [
+     -312,
+     -912
+    ],
+    "zoom": 3
+   }
+  },
+  {
+   "name": "아래 입구로 나가려 하면 막힘",
+   "ok": true,
+   "detail": [
+    421.2,
+    576.6
+   ]
+  },
+  {
+   "name": "왼쪽 벽까지 걷고 뚫지 않음",
+   "ok": true,
+   "detail": [
+    47.5,
+    296.7
+   ]
+  },
+  {
+   "name": "위쪽 벽까지 걷고 뚫지 않음",
+   "ok": true,
+   "detail": [
+    52.8,
+    153.2
+   ]
+  },
+  {
+   "name": "벽을 탭해도 바닥 안에 멈춤",
+   "ok": true,
+   "detail": [
+    585,
+    153
+   ]
+  },
+  {
+   "name": "휴대폰: 터치 탭한 곳으로 걸어감",
+   "ok": true,
+   "detail": {
+    "from": [
+     424,
+     556
+    ],
+    "to": [
+     299.8,
+     470
+    ]
+   }
+  },
+  {
+   "name": "휴대폰: 물건 터치 → 걸어가서 조사",
+   "ok": true,
+   "detail": [
+    "세라피나: 노엘, 길이 셋으로 갈린다. 어디로 갈까?",
+    "노엘: (찢어진 일지. 마지막 장만 읽힌다.)"
+   ]
+  },
+  {
    "name": "브라우저 콘솔 에러 0",
    "ok": true,
    "detail": ""
