@@ -149,6 +149,12 @@ func move(p: Vector2, d: Vector2) -> Vector2:
 		return p + Vector2(d.x, 0)
 	if d.y != 0.0 and can_stand(p + Vector2(0, d.y)):
 		return p + Vector2(0, d.y)
+	# 한 걸음이 벽을 넘으면 걸음을 줄여 벽에 바짝 붙는다(빠를수록 한 프레임 걸음이 커서 벽 앞에 멈춰 서지 않게)
+	var h := d
+	for i in 5:
+		h *= 0.5
+		if can_stand(p + h):
+			return p + h
 	return p
 
 

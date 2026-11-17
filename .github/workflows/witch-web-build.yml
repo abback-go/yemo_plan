@@ -9,7 +9,7 @@ name: Witch web build (Godot)
 on:
   push:
     branches: [cc/amazing-darwin-nesbwh]
-    paths: ["game/**", ".github/workflows/witch-web-build.yml"]
+    paths: ["game/**", ".github/workflows/witch-web-build.yml", "tools/web_sw.js", "tools/web_sw_patch.py"]
   workflow_dispatch:
     inputs:
       full:
@@ -99,6 +99,11 @@ jobs:
           test -f ../build/web/index.wasm
           ls -la ../build/web
           echo "${GITHUB_REF_NAME} ${GITHUB_SHA::7} $(date -u +%Y-%m-%dT%H:%MZ)" > ../build/web/version.txt
+
+      # 접속할 때마다 새 버전인지 확인하고 바로 새 버전을 연다(에스카와 같은 방식 — 자세한 이유는 tools/web_sw_patch.py 머리말).
+      # 온라인이면 게임 파일을 언제나 서버에 물어 받고, 새 워커는 기다리지 않고 교체 + 페이지 한 번 새로고침. 원문이 달라 고치지 못하면 실패한다.
+      - name: Patch service worker (always fetch latest, update immediately)
+        run: python3 tools/web_sw_patch.py build/web
 
       - uses: actions/setup-node@v4
         if: ${{ inputs.full }}
