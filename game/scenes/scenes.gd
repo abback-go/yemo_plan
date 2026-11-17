@@ -251,6 +251,7 @@ func cutscene(key := "hero", level := 1) -> void:
 		img.modulate = Color(0.68, 0.6, 0.62)
 	if cut_root != null and is_instance_valid(cut_root):
 		cut_root.queue_free()
+	root.z_index = 30   # 탑뷰(붉은 덮개·운명 표시)보다 위
 	add_child(root)
 	cut_root = root
 	current_name = "cutscene" if current == null else current_name
@@ -345,10 +346,14 @@ func _image_cut(c: Dictionary) -> void:
 		FX.flash("#ffffff", 240, 1)
 		FX.shake_node(cut.holder, 34, 700)
 		var lens0: BloodLayer = cut.lens
-		lens0.modulate.a = 1.0
-		lens0.spray({"count": 3, "min": 140, "max": 260, "x0": 300, "x1": 1500, "y0": 150, "y1": 700, "seed": 17 + cut_level, "stagger": 40})
-		lens0.spray({"count": 6, "min": 40, "max": 100, "seed": 29, "stagger": 25})
-		FX.anim(float(c.duration), [{"a": 1.0}, {"a": 0.55}], func(v): if is_instance_valid(lens0): lens0.modulate.a = v.a, {"node": lens0})
+		if not c.get("blood", true):
+			# 화형: 피 대신 화면 가득 불티
+			FX.burst(960, 760, {"count": 120, "colors": ["#ff3a1e", "#ff9a2a", "#ffe08a", "#2a2a2a"], "speed": 520, "angle": -PI / 2, "spread": 2.4, "life": 1600, "size": 5, "gravity": -120})
+		else:
+			lens0.modulate.a = 1.0
+			lens0.spray({"count": 3, "min": 140, "max": 260, "x0": 300, "x1": 1500, "y0": 150, "y1": 700, "seed": 17 + cut_level, "stagger": 40})
+			lens0.spray({"count": 6, "min": 40, "max": 100, "seed": 29, "stagger": 25})
+			FX.anim(float(c.duration), [{"a": 1.0}, {"a": 0.55}], func(v): if is_instance_valid(lens0): lens0.modulate.a = v.a, {"node": lens0})
 	await _black(0.0, 700.0 if c.id == "C1" else 250.0)
 	var lines := _cut_lines(c)
 	if lines.is_empty():
@@ -681,7 +686,7 @@ class GlassShatter extends Control:
 # ───────── 1차 시험판 v2: 운명의 시도 · 카드 획득 · 층 끝 · 결과 요약 ─────────
 ## 지금 장면 위에 덮는 화면을 단다 (탑뷰·전투를 지우지 않는다)
 func _overlay(root: Control, name: String) -> void:
-	root.z_index = 5
+	root.z_index = 20   # 지금 장면(탑뷰의 운명 표시·지도 버튼 z 6)보다 위, 컷신(30)보다 아래
 	add_child(root)
 	overlays.append(root)
 	G.ctl.note("overlay " + name)
@@ -935,7 +940,7 @@ func result() -> void:
 	h.position = Vector2(0, 60)
 	h.size = Vector2(1920, 90)
 	root.add_child(h)
-	var x := 960.0 - 860.0
+	var x := 960.0 - 560.0 * u
 	var y := 190.0
 	# 동료마다 한 줄
 	var rows := []

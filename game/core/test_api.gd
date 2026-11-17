@@ -17,7 +17,8 @@ func _ready() -> void:
 		return
 	_win = JavaScriptBridge.get_interface("window")
 	_obj = JavaScriptBridge.create_object("Object")
-	for name in ["state", "jump", "play", "endTurn", "advance", "pickPath", "choose", "train", "openMap", "closeMap", "winBattle", "geom", "handCut", "resetGuides", "setSpeed", "tapStart", "again"]:
+	for name in ["state", "jump", "play", "endTurn", "advance", "pickPath", "choose", "train", "openMap", "closeMap", "winBattle", "geom", "handCut", "resetGuides", "setSpeed", "tapStart", "again",
+			"fate", "tdGo", "tdConfirm"]:
 		var cb := JavaScriptBridge.create_callback(_call.bind(name))
 		_cbs.append(cb)
 		_obj.set(name, cb)
@@ -76,11 +77,15 @@ func _call(args: Array, name: String) -> void:
 			var e2 = G.scenes.current
 			if e2 is ExploreScene:
 				e2.open_map(false)
-			r = {"ok": e2 is ExploreScene}
+			if e2 is TopdownScene and e2.hud:
+				e2.hud.open_map()
+			r = {"ok": e2 is ExploreScene or e2 is TopdownScene}
 		"closeMap":
 			var e3 = G.scenes.current
 			if e3 is ExploreScene and e3.map.visible:
 				e3.map.close()
+			if e3 is TopdownScene and e3.hud and e3.hud.map != null and e3.hud.map.visible:
+				e3.hud.map.close()
 			r = {"ok": true}
 		"winBattle":
 			r = win_battle()
@@ -94,6 +99,25 @@ func _call(args: Array, name: String) -> void:
 		"setSpeed":
 			FX.speed = maxf(0.1, float(_arg(args, 0, 1)))
 			r = {"ok": true}
+		"fate":
+			# 운명의 시도 선택 화면에서 고른다 (offer | defy)
+			r = {"ok": G.scenes.pick_fate(str(_arg(args, 0, "defy")))}
+		"tdConfirm":
+			var tdc = G.scenes.current
+			if tdc is TopdownScene:
+				tdc.confirm()
+			r = {"ok": tdc is TopdownScene}
+		"tdGo":
+			# 탑뷰: 출구(exit:id)·트리거(trigger:id)·물건(item:id) 쪽으로 걸어간다
+			var tdv = G.scenes.current
+			r = {"ok": false}
+			if tdv is TopdownScene:
+				var a := str(_arg(args, 0, "")).split(":")
+				match a[0]:
+					"exit": tdv.auto_exit(a[1])
+					"trigger": tdv.auto_trigger(a[1])
+					"item": tdv.go(Vector2(tdv.item(a[1]).spot[0], tdv.item(a[1]).spot[1]), a[1])
+				r = {"ok": true}
 	_out(r)
 
 
@@ -115,12 +139,16 @@ func state() -> Dictionary:
 		return s
 	s.flags = st.flags
 	s.progress = st.progress
+	s.fates = st.get("fates", []).map(func(f): return {"id": f.id, "who": f.who, "level": f.level, "floor": f.floor, "alive": f.alive, "result": f.result, "triedFloor": f.get("triedFloor", 0)})
+	s.scars = Rules.scar_count(st)
+	s.fatePicker = not G.scenes.fate_picker.is_empty()
+	s.overlay = G.scenes.overlay_open()
 	s.party = {"witch": st.party.witch, "allies": st.party.allies, "deck": st.party.deck.size(), "deathCards": st.party.get("deathCards", []).size()}
 	var b = st.battle
 	if b != null:
 		var hand := []
 		for u in b.hand:
-			hand.append({"uid": u, "id": st.cards[u].id, "locked": Rules.is_locked(st, u), "playable": Rules.can_play(st, u).ok, "up": Rules.is_up(st, u)})
+			hand.append({"uid": u, "id": st.cards[u].id, "locked": Rules.is_locked(st, u), "playable": Rules.can_play(st, u).ok, "up": Rules.is_up(st, u), "lv": Rules.level(st, u)})
 		var ens := []
 		for e in b.enemies:
 			ens.append({"id": e.id, "hp": e.hp, "alive": e.alive, "intent": e.intent})
@@ -133,6 +161,8 @@ func state() -> Dictionary:
 		s.topdown = cur.test_state()
 	if cur is VnScene:
 		s.vn = {"name": cur.scene_name, "line": cur.line_index, "choices": cur.choice_btns.size(), "omen": cur.omen.showing, "typing": cur.typing}
+	if cur is TopdownScene and cur.vn != null:
+		s.vn = {"name": cur.vn.scene_name, "line": cur.vn.line_index, "choices": cur.vn.choice_btns.size(), "omen": cur.vn.omen.showing, "typing": cur.vn.typing, "overlay": true}
 	return s
 
 
@@ -164,6 +194,9 @@ func advance() -> Dictionary:
 	var cur = G.scenes.current
 	if cur is VnScene:
 		cur.tap()
+		return {"ok": true, "what": "vn"}
+	if cur is TopdownScene and cur.vn != null:
+		cur.vn.tap()
 		return {"ok": true, "what": "vn"}
 	if cur is Control and G.scenes.current_name == "cutscene" and not G.scenes.cut.is_empty() and G.scenes.cut.get("waiter") != null:
 		G.scenes.cut.waiter.finish()

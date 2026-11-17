@@ -51,8 +51,14 @@ func refresh() -> void:
 		cv.smooth = false
 		cv.taut = 0.6
 		var r := Rect2(Vector2(x, 20), Vector2(CardView.W, CardView.H) * kk)
+		var nm := Rules.card_name(st.cards[f.card].id, false, Rules.level(st, f.card))
+		var lw: float = Assets.font("sans_bold").get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, int(17 * u)).x + 16 * u
+		if lw > r.size.x:
+			# 이름표가 카드보다 넓으면 카드를 이름표 가운데에 둔다(옆 카드 이름표와 겹치지 않게)
+			r.position.x += (lw - r.size.x) / 2.0
+			cv.set_rect(r.position, kk, true)
 		cards.append({"uid": f.card, "view": cv, "rect": r, "who": f.who})
-		x += r.size.x + 14.0
+		x += maxf(r.size.x, lw) + 14.0
 	var bs := 92.0 * u
 	map_rect = Rect2(Vector2(1920 - 22 - bs, 20), Vector2(bs, bs))
 	queue_redraw()
@@ -168,8 +174,14 @@ func open_map_first() -> void:
 		map = MapView.new()
 		map.z_index = 10
 		add_child(map)
+	# 지도 안내 대사는 지도 판(가운데)과 겹치지 않게 화면 왼쪽 위 대사창으로
+	var dock := G.dialog.dock
+	G.dialog.dock = ""
+	G.dialog.relayout()
 	map.open(true)
 	await map.closed
+	G.dialog.dock = dock
+	G.dialog.relayout()
 
 
 func open_map() -> void:

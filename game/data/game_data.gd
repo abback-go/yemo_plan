@@ -370,7 +370,7 @@ const D := {
 			]},
 		"archer_burn": {"overlay": "fire", "pool": {"x0": 600, "x1": 1320, "y": 900},
 			"cuts": [
-				{"id": "A1", "image": "cut_archer_burning.png", "duration": 4400, "zoom": [1.0, 1.08], "impact": true},
+				{"id": "A1", "image": "cut_archer_burning.png", "duration": 4400, "zoom": [1.0, 1.08], "impact": true, "blood": false},
 				{"id": "A2", "image": "cut_archer_aftermath.png", "duration": 3800, "zoom": [1.07, 1.0]},
 			]},
 	},
@@ -578,14 +578,14 @@ const D := {
 		"navCell": 6,              # 탭 이동 경로찾기 격자 크기 (맵 px)
 		"footR": [7, 3],           # 발 자리 반지름(가로·세로) — 벽에 이만큼 떨어져 선다
 		"start": [424, 662],       # 시작: 아래 입구 아치 통로
-		"entry": [424, 480],       # 걸어 들어와 서는 곳 (시험판 출구에서 되돌아오는 곳) — 뒤에 선 동료 셋이 아치 안쪽(방 안)에 들어오는 자리
+		"entry": [424, 468],       # 걸어 들어와 서는 곳 (시험판 출구에서 되돌아오는 곳) — 뒤에 선 동료 셋이 아치 안쪽(방 안)에 들어오는 자리
 		# 노엘 뒤를 줄지어 따라 걷는 동료 (순서대로). 시트는 노엘과 같은 3열×4행, 칸 72px, 발끝 [x, y]
 		"followers": [
 			{"id": "seraphina", "sheet": "td_seraphina_walk.png", "foot": [36, 70]},
 			{"id": "brunhild", "sheet": "td_brunhild_walk.png", "foot": [36, 70]},
 			{"id": "elian", "sheet": "td_elian_walk.png", "foot": [36, 70]},
 		],
-		"followGap": 28,           # 앞사람 발끝과의 거리 (노엘이 지나간 경로를 따라 잰 맵 px)
+		"followGap": 32,           # 앞사람 발끝과의 거리 (노엘이 지나간 경로를 따라 잰 맵 px)
 		# 터치 화면 이동 패드: 왼쪽 절반을 누른 자리에 조이스틱, 오른쪽 아래 조사 버튼 (크기·여백은 실제 화면 CSS px)
 		"stick": {"d": 130, "knob": 0.42, "dead": 0.16, "min": 0.3, "slop": 10, "btn": 78, "margin": 22},
 		"walk": [[40, 150], [78, 150], [80, 124], [90, 104], [126, 104], [132, 124], [136, 150], [392, 150], [392, 112], [456, 112], [456, 150],

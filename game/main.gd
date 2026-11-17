@@ -7,6 +7,7 @@ extends Node
 var stage: Node2D
 var world: Node2D
 var fx_draw: Node2D
+var fx_top: Node2D
 var ui_layer: Node2D
 var rotate_hint: Control
 var test_api: TestApi
@@ -78,6 +79,12 @@ func _ready() -> void:
 	scenes.z_index = 400
 	stage.add_child(scenes)
 	G.scenes = scenes
+	# 탑뷰·컷신 같은 장면이 열려 있으면 입자·선 효과를 장면 위에 그린다 (전투 중에는 아래 Fx 층)
+	fx_top = Node2D.new()
+	fx_top.name = "FxTop"
+	fx_top.z_index = 440
+	stage.add_child(fx_top)
+	fx_top.draw.connect(_draw_fx_top)
 	var dialog := DialogBox.new()
 	dialog.name = "Dialog"
 	dialog.z_index = 450
@@ -123,9 +130,14 @@ func _ready() -> void:
 		scenes.title()
 
 
+func _fx_on_top() -> bool:
+	return G.scenes != null and (G.scenes.is_open() or G.scenes.overlay_open())
+
+
 func _draw_fx() -> void:
-	FX.draw_particles(fx_draw)
-	FX.draw_overlays(fx_draw)
+	if not _fx_on_top():
+		FX.draw_particles(fx_draw)
+		FX.draw_overlays(fx_draw)
 	if G.view and G.view.visible:
 		G.view.draw_highlights(fx_draw)
 		G.view.draw_broken(fx_draw)
@@ -133,9 +145,17 @@ func _draw_fx() -> void:
 		G.input.draw_overlay(fx_draw)
 
 
+func _draw_fx_top() -> void:
+	if _fx_on_top():
+		FX.draw_particles(fx_top)
+		FX.draw_overlays(fx_top)
+
+
 func _process(_delta: float) -> void:
 	if fx_draw:
 		fx_draw.queue_redraw()
+	if fx_top:
+		fx_top.queue_redraw()
 
 
 func _make_rotate_hint() -> void:

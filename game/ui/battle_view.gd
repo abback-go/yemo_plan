@@ -1779,12 +1779,12 @@ class IntentBox extends Control:
 		if v.kind == "fate":
 			# 운명의 불길 → 엘리안 · 치명 · 옮기기 불가
 			icon.texture = Assets.svg("intent_fate", ICON.fate, 2.0)
-			_add(str(v.get("label", "")), 24, Color("#ffd0a0"), "sans_black")
-			_add("→", 20, Color("#ffb0a0"))
-			_add(G.name_of(v.target), 24, Color("#ffffff"), "sans_black")
-			_add(G.ui("lethal"), 18, Color("#ff6b76"), "sans_bold")
-			_add(G.ui("noRedirect"), 16, Color("#ffcf7a"), "sans")
-			_layout(52)
+			_add(str(v.get("label", "")), 28, Color("#ffd0a0"), "sans_black")
+			_add("→", 22, Color("#ffb0a0"))
+			_add(G.name_of(v.target), 28, Color("#ffffff"), "sans_black")
+			_add(G.ui("lethal"), 22, Color("#ff6b76"), "sans_black")
+			_add(G.ui("noRedirect"), 20, Color("#ffcf7a"), "sans_bold")
+			_layout(60)
 			queue_redraw()
 			return
 		if v.get("blocked", false):

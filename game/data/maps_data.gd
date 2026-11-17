@@ -20,7 +20,7 @@ extends Object
 const M := {
 	# 1층 곁방 (캠프) — block 2.3
 	"camp": {
-		"map": "td_camp.png", "start": [365, 330], "entry": [365, 330], "dir": "up",
+		"map": "td_camp.png", "start": [365, 304], "entry": [365, 304], "dir": "up",
 		"walk": [[60, 200], [130, 190], [270, 175], [320, 150], [320, 60], [410, 60], [410, 150], [470, 165], [600, 200], [668, 215], [668, 385], [60, 385]],
 		"blocks": [
 			[[130, 150], [265, 150], [265, 192], [130, 200]],
@@ -155,7 +155,7 @@ const M := {
 		"exits": [{"id": "north", "at": [232, 148], "r": 20, "hit": [198, 20, 70, 130]}],
 		"triggers": [{"id": "altar", "rect": [120, 360, 225, 60]}],
 		"npcs": [
-			{"id": "k1", "sheet": "td_cultist_walk.png", "at": [398, 384], "dir": "left", "group": "enemies", "dark": true, "scale": 1, "hidden": true, "walkTo": [318, 400]},
+			{"id": "k1", "sheet": "td_cultist_walk.png", "at": [398, 384], "dir": "left", "group": "enemies", "dark": true, "scale": 1.25, "hidden": true, "walkTo": [318, 400]},
 			{"id": "c1", "sheet": "td_cultist_walk.png", "at": [66, 384], "dir": "right", "group": "enemies", "hidden": true, "walkTo": [140, 400]},
 		],
 		"lights": [{"at": [195, 262], "r": 18, "kind": "candle"}, {"at": [270, 262], "r": 18, "kind": "candle"}, {"at": [185, 334], "r": 16, "kind": "candle"},
@@ -219,8 +219,8 @@ const M := {
 		"exits": [{"id": "north", "at": [250, 164], "r": 20, "hit": [212, 40, 76, 125]}],
 		"triggers": [{"id": "pyre", "rect": [30, 160, 440, 205]}],
 		"npcs": [
-			{"id": "p1", "sheet": "td_pyre_priest_walk.png", "at": [300, 226], "dir": "down", "group": "enemies"},
-			{"id": "c1", "sheet": "td_cultist_walk.png", "at": [196, 228], "dir": "down", "group": "enemies"},
+			{"id": "p1", "sheet": "td_pyre_priest_walk.png", "at": [384, 318], "dir": "left", "group": "enemies"},
+			{"id": "c1", "sheet": "td_cultist_walk.png", "at": [114, 318], "dir": "right", "group": "enemies"},
 		],
 		"lights": [{"at": [138, 136], "r": 34, "kind": "fire"}, {"at": [358, 136], "r": 34, "kind": "fire"}, {"at": [455, 282], "r": 34, "kind": "fire"},
 			{"at": [182, 290], "r": 14, "kind": "candle"}, {"at": [312, 292], "r": 14, "kind": "candle"}],

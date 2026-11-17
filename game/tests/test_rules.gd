@@ -512,7 +512,8 @@ func t_data() -> void:
 	var no_extra := true
 	for w in ["사제", "도적"]:
 		for s in texts:
-			if s.contains(w):
+			# 적 「화형 사제」(3층)는 파티의 사제가 아니다
+			if s.replace("화형 사제", "").replace("불을 든 사제", "").contains(w):
 				no_extra = false
 	check("대본에 사제·도적이 나오지 않는다", no_extra)
 
@@ -594,11 +595,11 @@ func t_topdown() -> void:
 	var head := Vector2(100, 300)
 	tr.line_up(head, Vector2.DOWN)
 	var ok_line := tr.at(head, gap).distance_to(Vector2(100, 300 + gap)) < 0.01 and tr.at(head, gap * 3).distance_to(Vector2(100, 300 + gap * 3)) < 0.01
-	for i in 30:
+	for i in 40:
 		head += Vector2(2, 0)
 		tr.push(head)
 	var a1 := tr.at(head, gap)
-	var a3 := tr.at(head, 72.0)
+	var a3 := tr.at(head, 92.0)
 	check("탑뷰 경로: 일직선 줄 → 오른쪽으로 꺾은 뒤 앞사람은 가로줄, 뒷사람은 모퉁이 뒤", ok_line and a1.distance_to(head - Vector2(gap, 0)) < 0.01 and a3.distance_to(Vector2(100, 312)) < 0.01, "%s %s" % [a1, a3])
 	for i in 20:
 		tr.push(head)

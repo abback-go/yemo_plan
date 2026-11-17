@@ -264,7 +264,7 @@ func _make_npc(n: Dictionary) -> void:
 	var sc := float(n.get("scale", 1.0))
 	var w := _walker(str(n.sheet), n.get("foot", [36, 70]), sc)
 	if n.get("dark", false):
-		w[1].modulate = Color(0.55, 0.5, 0.62)
+		w[1].modulate = Color(0.42, 0.44, 0.55)
 	var e := {"id": str(n.id), "node": w[0], "spr": w[1], "conf": n, "pos": _v(n.at), "dir": str(n.get("dir", "down")), "frame": 1, "walk_t": 0.0, "moving": false}
 	if n.get("hidden", false):
 		w[0].visible = false
@@ -1179,7 +1179,7 @@ func _draw_marks() -> void:
 ## 대사 중이면 말하는 인물의 스탠딩을 대화창 옆에 띄운다 (노엘 속마음 = 노엘)
 func _update_stand(dt: float) -> void:
 	var who := ""
-	if vn == null and G.dialog.cur != null and not G.dialog.cur.guide:
+	if vn == null and G.dialog.cur != null and not G.dialog.cur.guide and not (hud and hud.map != null and hud.map.visible):
 		who = str(G.dialog.cur.line.get("who", ""))
 	var files: Dictionary = C.stand.files
 	var file: String = files.get(who, "")
