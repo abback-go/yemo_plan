@@ -92,6 +92,7 @@ body {
 		</style>
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+<link rel="manifest" href="index.manifest.json">
 
 	</head>
 	<body>
@@ -111,7 +112,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":16104216,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":16104328,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
@@ -215,6 +216,22 @@ const engine = new Engine(GODOT_CONFIG);
 	}
 }());
 		</script>
-	</body>
+	<script>
+// 배포 뒤처리(tools/web_sw_patch.py): 열 때마다 새 버전 워커가 있는지 직접 확인하고
+// (브라우저는 새로고침만으로는 바로 확인하지 않는다), 이미 워커가 있던 상태에서 워커가 바뀌면 한 번 새로고침해 새 버전을 연다
+if ('serviceWorker' in navigator) {
+	if (navigator.serviceWorker.controller) {
+		let reloaded = false;
+		navigator.serviceWorker.addEventListener('controllerchange', () => {
+			if (!reloaded) {
+				reloaded = true;
+				window.location.reload();
+			}
+		});
+	}
+	navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => {});
+}
+</script>
+</body>
 </html>
 
