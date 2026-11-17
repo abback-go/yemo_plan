@@ -1083,18 +1083,27 @@ class DeathOverlay extends Node2D:
 
 	func _draw() -> void:
 		if kind == "spears":
-			# 바닥에서 솟은 창 몇 자루 (그림 위쪽까지 비스듬히)
-			var spears := [[520, 1080, 610, 160], [760, 1080, 790, 90], [1180, 1080, 1120, 120], [1400, 1080, 1330, 220], [960, 1080, 980, 40], [300, 1080, 420, 300]]
-			for s in spears:
-				var a := Vector2(s[0], s[1])
-				var b := Vector2(s[2], s[3])
-				draw_line(a, b, Color(0.05, 0.03, 0.03, 0.85), 16.0, true)
-				draw_line(a, b, Color(0.42, 0.36, 0.34, 0.95), 9.0, true)
-				var dirv := (b - a).normalized()
-				var nrm := Vector2(-dirv.y, dirv.x)
-				var tip := PackedVector2Array([b + dirv * 70.0, b + nrm * 16.0, b - nrm * 16.0])
-				draw_colored_polygon(tip, Color(0.75, 0.72, 0.7, 0.95))
-				draw_line(b + dirv * 70.0, b - dirv * 10.0, Color(0.55, 0.0, 0.05, 0.9), 5.0, true)
+			# 바닥에서 비스듬히 솟은 굵은 창 (나무 자루 + 잎 모양 쇠 날 + 날에 묻은 피)
+			var spears := [[380, 1080, 640, 290], [720, 1080, 770, 150], [1520, 1080, 1270, 230], [1180, 1080, 1090, 400], [180, 1080, 460, 520]]
+			for sp in spears:
+				var a := Vector2(sp[0], sp[1])
+				var b := Vector2(sp[2], sp[3])
+				var dv := (b - a).normalized()
+				var nv := Vector2(-dv.y, dv.x)
+				draw_line(a, b, Color(0.04, 0.02, 0.02, 0.92), 24.0, true)
+				draw_line(a, b, Color(0.3, 0.22, 0.17, 1.0), 15.0, true)
+				draw_line(a + nv * 3.0, b + nv * 3.0, Color(0.5, 0.4, 0.32, 0.8), 4.0, true)
+				var tip := PackedVector2Array([b + dv * 150.0, b + nv * 30.0 + dv * 20.0, b - dv * 14.0, b - nv * 30.0 + dv * 20.0])
+				var out := PackedVector2Array([b + dv * 160.0, b + nv * 36.0 + dv * 20.0, b - dv * 20.0, b - nv * 36.0 + dv * 20.0])
+				draw_colored_polygon(out, Color(0.05, 0.03, 0.03, 0.95))
+				draw_colored_polygon(tip, Color(0.62, 0.62, 0.66, 1.0))
+				draw_line(b - dv * 8.0, b + dv * 140.0, Color(0.85, 0.85, 0.9, 0.9), 3.0, true)
+				# 날 아래쪽 절반에 피가 흘러내린다
+				var blood := PackedVector2Array([b + dv * 70.0 + nv * 18.0, b + nv * 30.0 + dv * 20.0, b - dv * 14.0, b - nv * 24.0 + dv * 18.0, b + dv * 60.0 - nv * 12.0])
+				draw_colored_polygon(blood, Color(0.5, 0.0, 0.04, 0.85))
+				for k in 3:
+					var d0 := b - dv * (20.0 + k * 40.0) + nv * (8.0 - k * 6.0)
+					draw_line(d0, d0 + Vector2(0, 30.0 + 20.0 * sin(_t * 2.0 + k)), Color(0.45, 0.0, 0.03, 0.8), 5.0, true)
 		elif kind == "fire":
 			for i in 14:
 				var x := 60.0 + i * 140.0

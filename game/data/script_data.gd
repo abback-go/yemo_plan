@@ -468,6 +468,9 @@ const S := {
 			"intro": [{"who": "hero", "face": "hero_determined", "text": "…저기. 의식 원 앞에 셋."}],
 			"exits": {"east": {"title": "동쪽 아치", "desc": "더 깊은 곳으로 이어진다. 길이 갈라지는 소리가 난다.", "locked": "광신도들이 길을 막고 있다."}}},
 		"deep_hall": {"title": "1층의 깊은 곳",
+			"items": {
+				"foot": [{"who": "hero", "face": "hero_calm", "text": "…바닥이 꺼져 있어. 뭔가 무거운 게 지나갔나 봐."},
+					{"who": "inner", "text": "(발자국이다. 사흘 동안 카드 속에서 본, 그 발.)"}]},
 			"intro": [{"who": "warrior", "face": "warrior_stern", "text": "기도 소리다. 제단 앞에… 둘."},
 				{"who": "hero", "face": "hero_determined", "text": "의식은 여기서 끝낸다. 가자."}]},
 		"spike_corridor": {"title": "창 함정 회랑",
@@ -478,6 +481,9 @@ const S := {
 				"plate": [{"who": "inner", "text": "(피 묻은 판. 구멍마다 녹슨 창끝이 숨어 있다.)"}, {"who": "inner", "text": "(이 판들. 전부, 누군가를 기다리고 있다.)"}]},
 			"exits": {"north": {"title": "철창문", "desc": "철창이 반쯤 들려 있다. 그 너머에서 찬 바람이 분다."}}},
 		"ossuary": {"title": "기사단 납골당",
+			"items": {
+				"coffin": [{"who": "archer", "face": "archer_grief", "text": "…여기 묻힌 사람들도, 기사였을까요."},
+					{"who": "inner", "text": "(관마다 창이 한 자루씩. 죽어서도 창을 쥐고 있다.)"}]},
 			"intro": [{"who": "archer", "face": "archer_shocked", "text": "…석상들이 전부 창을 들고 있어요."}],
 			"appear": [{"who": "system", "text": "석상 사이에서, 창을 든 기사가 걸어 나온다."},
 				{"who": "warrior", "face": "warrior_rage", "text": "기사단 갑옷…! 원정대다. 아니— 원정대였던 것."}],
@@ -488,6 +494,9 @@ const S := {
 				"bow": [{"who": "archer", "face": "archer_grief", "text": "궁수였나 봐. 나처럼."}, {"who": "inner", "text": "(…불. 그녀의 카드와 같은 불.)"}]},
 			"exits": {"north": {"title": "타 버린 문", "desc": "문 너머에서 장작 타는 냄새가 난다."}}},
 		"pyre_court": {"title": "화형대 광장",
+			"items": {
+				"bones": [{"who": "inner", "text": "(타다 만 뼈. 화형대에서 굴러떨어진 것.)"},
+					{"who": "archer", "face": "archer_shocked", "text": "…저 사람은, 다 타지도 못했네요."}]},
 			"intro": [{"who": "archer", "face": "archer_shocked", "text": "…화형대."}],
 			"appear": [{"who": "system", "text": "화형대 뒤에서 불을 든 사제가 돌아선다."},
 				{"who": "inner", "text": "(저 불이다. 카드 속에서 엘리안을 삼키던 불.)"}],

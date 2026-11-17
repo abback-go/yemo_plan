@@ -183,7 +183,7 @@ func _leave_by_exit(t: TopdownScene, my: int) -> bool:
 func _step_camp(my: int) -> bool:
 	_visit("camp")
 	var C: Dictionary = MapsData.M.camp
-	var t := td_open("camp", {"at": C.start, "dir": "up", "seated": true})
+	var t := td_open("camp", {"at": C.start, "dir": str(C.dir), "seated": true})
 	await t.run()
 	if not _td_ok(t, my):
 		return false
@@ -278,7 +278,7 @@ func _step_emptycamp(my: int) -> bool:
 	_visit("camp")
 	stage = "emptycamp"
 	var C: Dictionary = MapsData.M.camp
-	var t := td_open("camp", {"at": C.start, "dir": "up", "seated": true})
+	var t := td_open("camp", {"at": C.start, "dir": str(C.dir), "seated": true})
 	await t.run()
 	if not _td_ok(t, my):
 		return false
