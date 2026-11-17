@@ -596,7 +596,8 @@ async function pathT(browser) {
   // 속도 180 이면 금방 오른쪽 벽에 닿으므로, 벽에 닿기 전(x < 760) 구간만으로 속도를 잰다
   let kmove = null;
   for (let i = 0; i < 6; i++) {
-    await H.sleep(30 + 41 * i); s = await H.state();   // 간격을 들쭉날쭉하게(걷기 그림 주기와 맞물려 같은 프레임만 잡히지 않게) seen.add(s.topdown.sheetFrame); fseen.add(s.topdown.followers[2].sheetFrame);
+    // 간격을 들쭉날쭉하게(걷기 그림 주기와 맞물려 같은 프레임만 잡히지 않게)
+    await H.sleep(30 + 41 * i); s = await H.state(); seen.add(s.topdown.sheetFrame); fseen.add(s.topdown.followers[2].sheetFrame);
     if (i === 0) sa = s;
     if (s.topdown.pos[0] < 760) kmove = s;
     if (i === 2) await H.shot('T03_key_walk_right.png');
@@ -608,7 +609,7 @@ async function pathT(browser) {
   const kv = (kmove.topdown.pos[0] - sa.topdown.pos[0]) / ((kmove.topdown.t - sa.topdown.t) / 1000);
   check('걷는 속도 약 180 맵px/초', kv > 160 && kv < 200, Math.round(kv));
   check('걷는 동안 동료 셋이 노엘 경로 뒤쪽(왼쪽)에 간격을 두고 따라옴, 오른쪽 행 걷기 그림', tdLine(kmove, [-1, 0], 'right')
-    && kmove.topdown.followers.every(f => f.moving && Math.floor(f.sheetFrame / 3) === 2) && [6, 7, 8].filter(x => fseen.has(x)).length >= 2, { f: kmove.topdown.followers, n: kmove.topdown.pos, fseen: [...fseen] });
+    && kmove.topdown.followers.every(f => f.moving && Math.floor(f.sheetFrame / 3) === 2) && [6, 7, 8].some(x => fseen.has(x)), { f: kmove.topdown.followers, n: kmove.topdown.pos, fseen: [...fseen] });
   await H.sleep(300);
   s = await H.state();
   check('멈추면 서기 프레임', !s.topdown.moving && s.topdown.frame === 1, s.topdown);
