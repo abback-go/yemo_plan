@@ -172,6 +172,8 @@ const S := {
 			{"who": "system", "text": "**살아 있는 동료의 죽음 카드는 모두 손에 들어옵니다.** 두 장이면 두 장 모두 — 그만큼 덜 뽑습니다."}]},
 		{"id": "v2_fate_fire", "on": "fateIntent", "lines": [
 			{"who": "system", "text": "**운명의 시도가 예고되었습니다.** 「운명의 불길」은 피해를 옮길 수 없습니다. 적의 차례에 불길이 닿는 순간, 바칠지 거스를지 고릅니다."}]},
+		{"id": "v2_fate_first", "on": "fateFirst", "lines": [
+			{"who": "system", "text": "**운명의 시도** — 고르세요.\n· **바친다**(죽음 카드를 낸다): 그 동료는 그 자리에서 죽고, 그 죽음이 「상속」 카드가 되어 노엘의 덱에 들어옵니다.\n· **거스른다**(카드를 내지 않는다): 그 동료는 살지만 노엘 덱에 「흉터」가 새겨지고, 운명은 다음 층으로 미뤄져 더 잔혹하게(Lv 이 올라) 다시 옵니다."}]},
 		{"id": "v2_scar", "on": "scarFirst", "lines": [
 			{"who": "system", "text": "**「흉터」**: 운명을 거스른 값. 낼 수 없고, 손에 든 채 턴이 끝나면 노엘 HP가 1 줄어듭니다. 이번 회차 내내 덱에 남습니다."}]},
 		{"id": "v2_after_w", "on": "afterDeath", "card": "warrior_death", "lines": [
@@ -379,6 +381,7 @@ const S := {
 			{"call": "descend"},
 			{"if": {"brun": "alive"}, "omen_levelup": true},
 			{"if": {"brun": "alive"}, "speaker": "inner", "text": "…카드가 바뀌었다. 3층. 이번엔— 꼬챙이."},
+			{"if": {"brun": "alive"}, "speaker": "system", "text": "**살아서 층을 내려가면 미뤄진 운명은 더 잔혹해집니다(Lv2).** 다음 층에서 다시 시도가 오고, 더 높은 Lv 에서 바치면 상속 카드도 같은 Lv 로 더 강해집니다."},
 			{"if": {"brun": "alive"}, "omen_end": true},
 			{"if": {"brun": "dead"}, "show": {"archer": "C", "noel": "FR"}, "speaker": "archer", "face": "archer_hollow", "text": "……"},
 			{"if": {"brun": "dead"}, "speaker": "archer", "face": "archer_grief", "text": "브룬힐드는… 제 등을 맡긴다고 했었는데."},
@@ -586,7 +589,7 @@ const S := {
 		},
 		"exitHint": "한 번 더 누르면 들어갑니다 · PC: E / 스페이스",
 		"trialEnd": "시험판은 여기까지입니다 — 입구로 돌아갑니다",
-		"help": "이동: WASD·방향키 / 탭한 곳으로 걷기 · 조사: 가까이 가서 탭 또는 E·스페이스",
+		"help": "이동: WASD·방향키 / 클릭한 곳으로 걷기 · 조사: 가까이 가서 클릭 또는 E·스페이스 · 지도: M",
 		"helpTouch": "이동: 왼쪽 화면을 누른 채 끌기 · 조사: 물건을 탭하거나 가까이 가서 조사 버튼",
 		"btnInspect": "조사",
 		"btnEnter": "들어가기",

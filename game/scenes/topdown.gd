@@ -281,6 +281,24 @@ func npc_group(group: String, on: bool) -> void:
 			npcs[id].node.visible = on
 
 
+## 적이 노엘을 알아챈다: 노엘 쪽으로 돌아서고 머리 위에 ! (전투 직전)
+func npc_alert(group: String) -> void:
+	var any := false
+	for id in npcs:
+		var e: Dictionary = npcs[id]
+		if str(e.conf.get("group", "")) != group or not e.node.visible:
+			continue
+		any = true
+		e.dir = TopdownNav.face_dir(e.dir, foot - e.pos)
+		e.alert = 0.0
+	if not any:
+		return
+	FX.shake(3, 200)
+	await FX.wait(650)
+	for id in npcs:
+		npcs[id].erase("alert")
+
+
 ## 인물이 walkTo 자리로 걸어 나온다 (납골당: 석상 사이에서 창 기사)
 func npc_walk_out(group: String) -> void:
 	var waits := []
@@ -939,7 +957,7 @@ func _draw_pad() -> void:
 
 func _unhandled_input(e: InputEvent) -> void:
 	if vn != null:
-		return
+		return   # 탑뷰 위 대화 장면은 자기 키 입력(스페이스·엔터·E)으로 넘긴다
 	if e is InputEventKey and e.pressed and not e.echo and e.keycode in [KEY_E, KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]:
 		get_viewport().set_input_as_handled()
 		confirm()
@@ -1232,6 +1250,15 @@ func _draw_marks() -> void:
 				var a2 := 0.3 + 0.3 * sin(_t * 3.0)
 				ci.draw_rect(Rect2(at + Vector2(-1, -14), Vector2(3, 8)), Color(1, 0.85, 0.5, a2))
 				ci.draw_rect(Rect2(at + Vector2(-4, -17), Vector2(9, 3)), Color(1, 0.85, 0.5, a2))
+	# 적이 알아챈 표시 (!)
+	for id in npcs:
+		var e: Dictionary = npcs[id]
+		if e.has("alert") and e.node.visible:
+			var b: Vector2 = e.pos.round() + Vector2(0, -72 * float(e.conf.get("scale", 1.0)) + (1 if fmod(_t, 0.3) < 0.15 else 0))
+			ci.draw_rect(Rect2(b + Vector2(-4, -9), Vector2(9, 16)), Color("#1a0a0e"))
+			ci.draw_rect(Rect2(b + Vector2(-3, -8), Vector2(7, 14)), UI.RED)
+			ci.draw_rect(Rect2(b + Vector2(-1, -6), Vector2(3, 7)), Color("#f6e7c8"))
+			ci.draw_rect(Rect2(b + Vector2(-1, 3), Vector2(3, 2)), Color("#f6e7c8"))
 	if not tap_mark.is_empty():
 		var tp: Vector2 = tap_mark.p.round()
 		var r: float = 3.0 + float(tap_mark.t) * 10.0

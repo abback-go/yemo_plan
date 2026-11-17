@@ -216,6 +216,16 @@ func _on_resize() -> void:
 func _unhandled_input(e: InputEvent) -> void:
 	if rotate_hint.visible:
 		return
+	# PC: 스페이스·엔터로 대사·안내 상자 넘기기 (탑뷰·대화 장면은 각자 처리)
+	if e is InputEventKey and e.pressed and not e.echo and e.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]:
+		if G.dialog.is_busy():
+			G.dialog.advance()
+			get_viewport().set_input_as_handled()
+			return
+		if not G.scenes.cut.is_empty() and G.scenes.cut.get("waiter") != null:
+			G.scenes.cut.waiter.finish()   # 컷신(데스신) 다음 컷
+			get_viewport().set_input_as_handled()
+			return
 	if e is InputEventMouse:
 		var is_touch: bool = e.device == InputEvent.DEVICE_ID_EMULATION
 		if is_touch:

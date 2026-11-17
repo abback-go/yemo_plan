@@ -150,10 +150,15 @@ func _battle_on_map(t: TopdownScene, map_id: String, trig: String, enc: String, 
 	var at := [t.foot.x, t.foot.y]
 	var dir := t.dir
 	var appear: Array = t.T.get("appear", [])
+	var grp: String = hide[0] if not hide.is_empty() else "enemies"
 	if t.npcs.size() > 0 and not appear.is_empty():
-		await t.npc_walk_out(hide[0] if not hide.is_empty() else "enemies")
+		await t.npc_walk_out(grp)
 		if not _td_ok(t, my):
 			return null
+	await t.npc_alert(grp)
+	if not _td_ok(t, my):
+		return null
+	if not appear.is_empty():
 		await t.say(appear)
 	if not _alive(my):
 		return null
@@ -255,6 +260,9 @@ func _step_deep(my: int) -> bool:
 			return false
 		if ev.type == "trigger":
 			break
+	await t.npc_alert("cultists")
+	if not _td_ok(t, my):
+		return false
 	await FX.fade(1, 450)
 	var ok := await battle("deep", false, my)   # 광신도 → 거대 존재 → 죽음 카드 → 물러남
 	if not ok or not _alive(my):
@@ -399,6 +407,7 @@ func field_fate(t: TopdownScene, fate_id: String, my: int) -> void:
 	if not _td_ok(t, my):
 		return
 	await t.say(L.trap2 if int(f.level) >= 2 and L.has("trap2") else L.trap)
+	await G.guide.fire("fateFirst", {})
 	var choice := await G.scenes.fate_choice(f)
 	if not _td_ok(t, my):
 		return
@@ -423,6 +432,8 @@ func field_fate(t: TopdownScene, fate_id: String, my: int) -> void:
 		var sub := G.ui("relic", {"name": G.name_of(str(f.who)), "n": relic_n}) if relic_n > 0 else ""
 		await G.scenes.card_gain(gain, "inherit", "", sub)
 		t.fate_trap_fade()
+		# 상속 카드 안내(전투 중 바친 것과 같은 안내)
+		await G.guide.fire("afterDeath", {"card": str(GameData.D.fates[fate_id].card)})
 	else:
 		var ev2 := Rules.defy_fate(st, fate_id)
 		await t.fate_defy_fx()
@@ -583,6 +594,7 @@ func battle_fate(my: int) -> void:
 	stage = "fate:" + str(af.fate)
 	await G.view.fate_freeze(str(af.who), true)
 	await G.dialog.say(L.get("trap", []))
+	await G.guide.fire("fateFirst", {})
 	if not _alive(my):
 		return
 	var choice := await G.scenes.fate_choice(f)

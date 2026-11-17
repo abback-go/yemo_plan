@@ -198,6 +198,14 @@ func _gui_input(e: InputEvent) -> void:
 		tap()
 
 
+## PC: 스페이스·엔터·E 로도 대사를 넘긴다 (선택지가 떠 있을 때는 버튼을 눌러야 한다)
+func _unhandled_input(e: InputEvent) -> void:
+	if e is InputEventKey and e.pressed and not e.echo and e.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER, KEY_E]:
+		if choice_btns.is_empty() and is_visible_in_tree():
+			get_viewport().set_input_as_handled()
+			tap()
+
+
 func tap() -> void:
 	if G.dialog.guide_open():
 		G.dialog.advance()
