@@ -3,7 +3,7 @@
 class_name FateHud
 extends Control
 
-const THUMB := 0.4         # 작은 카드 배율 (카드 원본 240×360)
+const THUMB := 0.46        # 작은 카드 배율 (카드 원본 240×360)
 var cards: Array = []      # [{"uid", "view", "rect"}]
 var map_rect := Rect2()
 var big: Control = null
@@ -52,7 +52,7 @@ func refresh() -> void:
 		cv.taut = 0.6
 		var r := Rect2(Vector2(x, 20), Vector2(CardView.W, CardView.H) * kk)
 		var nm := Rules.card_name(st.cards[f.card].id, false, Rules.level(st, f.card))
-		var lw: float = Assets.font("sans_bold").get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, int(17 * u)).x + 16 * u
+		var lw: float = Assets.font("sans_bold").get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, int(20 * u)).x + 16 * u
 		if lw > r.size.x:
 			# 이름표가 카드보다 넓으면 카드를 이름표 가운데에 둔다(옆 카드 이름표와 겹치지 않게)
 			r.position.x += (lw - r.size.x) / 2.0
@@ -80,7 +80,7 @@ func _draw() -> void:
 		var p := 0.5 + 0.5 * sin(_t * 3.0)
 		draw_style_box(UI.box(Color(0, 0, 0, 0), Color(1, 0.16, 0.24, 0.35 + 0.35 * p), int(10 * u), int(3 * u)), r.grow(3 * u))
 		var nm := Rules.card_name(st.cards[c.uid].id, false, Rules.level(st, c.uid)) if st.cards.has(c.uid) else ""
-		var fs := int(17 * u)
+		var fs := int(20 * u)
 		var tw := f.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var tr := Rect2(r.position.x + r.size.x / 2.0 - tw / 2.0 - 8 * u, r.end.y + 6 * u, tw + 16 * u, fs + 10 * u)
 		draw_style_box(UI.box(Color(0.04, 0.0, 0.01, 0.85), Color("#7a0010"), int(6 * u), 1), tr)

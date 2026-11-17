@@ -836,7 +836,7 @@ func _input(e: InputEvent) -> void:
 	var p := make_canvas_position_local(e.position)
 	if e is InputEventScreenTouch:
 		if e.pressed:
-			if hud and hud.visible and hud.hit(p):
+			if hud and hud.visible and hud.hit(p) and (mode == "free" or hud.big != null or (hud.map != null and hud.map.visible)):
 				hud.tap(p)
 				get_viewport().set_input_as_handled()
 				return
@@ -943,7 +943,7 @@ func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventKey and e.pressed and not e.echo and e.keycode in [KEY_E, KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]:
 		get_viewport().set_input_as_handled()
 		confirm()
-	elif e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_M and hud:
+	elif e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_M and hud and mode == "free" and not G.dialog.is_busy():
 		get_viewport().set_input_as_handled()
 		hud.open_map()
 
@@ -984,7 +984,7 @@ func tap(p: Vector2, touch := false) -> void:
 	if G.dialog.is_busy() or G.dialog.guide_open():
 		G.dialog.advance()
 		return
-	if hud and hud.visible and hud.hit(p):
+	if hud and hud.visible and hud.hit(p) and (mode == "free" or hud.big != null or (hud.map != null and hud.map.visible)):
 		if not touch:
 			hud.tap(p)
 		return
@@ -1194,6 +1194,18 @@ func _draw_fate() -> void:
 ## 물건마다 옅은 반짝임, 조사할 수 있는 거리면 ! 말풍선, 탭한 곳 표시 (맵 픽셀 단위로 그려 도트와 맞춘다)
 func _draw_marks() -> void:
 	var ci := marks
+	# 모닥불·화로: 위로 날리는 불티 (맵 픽셀 단위)
+	for l in lights:
+		var lc: Dictionary = l.conf
+		if lc.kind != "fire":
+			continue
+		var at := _v(lc.at)
+		for i in 6:
+			var ph := fmod(_t * 0.9 + i / 6.0 + float(l.ph), 1.0)
+			var x := at.x + sin(float(l.ph) * 3.0 + i * 2.3 + _t * 2.0) * (4.0 + ph * 6.0)
+			var y := at.y - 6.0 - ph * float(lc.r) * 0.5
+			var c := Color(1.0, 0.75 - ph * 0.4, 0.25, (1.0 - ph) * 0.9)
+			ci.draw_rect(Rect2(Vector2(roundf(x), roundf(y)), Vector2(1, 1)), c)
 	for it in C.get("items", []):
 		var at := _v(it.at)
 		var ph := _t * 2.2 + at.x * 0.05

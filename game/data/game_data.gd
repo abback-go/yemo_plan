@@ -185,10 +185,10 @@ const D := {
 		# 1차 시험판 v2 [임시 수치 — 2명(노엘+엘리안)으로도 이길 수 있게, 3명이면 조금 여유]
 		# pattern: 턴마다 차례로 도는 예고 (kind attack: target random | highest(HP 가장 높은 동료) / kind aoe: 모두에게)
 		# scale: 전투 화면에서 적 자리 높이의 배율 / fateGuard: 이 적이 맡은 운명의 시도가 오기 전에는 HP 1 아래로 내려가지 않는다
-		"spear_knight": {"name": "창 기사", "hp": 38, "sprite": "spr_cult_knight.png", "scale": 1.22,
+		"spear_knight": {"name": "창 기사", "hp": 36, "sprite": "spr_cult_knight.png", "scale": 1.22,
 			"pattern": [
 				{"kind": "attack", "label": "찌르기", "value": 7, "target": "random"},
-				{"kind": "attack", "label": "관통 돌진", "value": 11, "target": "highest"},
+				{"kind": "attack", "label": "관통 돌진", "value": 10, "target": "highest"},
 			]},
 		"pyre_priest": {"name": "화형 사제", "hp": 46, "sprite": "spr_pyre_priest.png", "scale": 1.22, "fateGuard": true,
 			"pattern": [
@@ -244,7 +244,7 @@ const D := {
 		"ossuary": {
 			"kind": "normal", "floor": 2, "bg": "bg_ossuary.png",
 			"enemies": [{"id": "c1", "type": "cultist", "slot": 0}, {"id": "k1", "type": "spear_knight", "slot": 1}],
-			"attackRange": [4, 5],
+			"attackRange": [3, 5],
 		},
 		"pyre": {
 			"kind": "normal", "floor": 3, "bg": "bg_pyre_court.png",
