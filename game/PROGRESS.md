@@ -50,9 +50,14 @@
   PC 키보드(스페이스·엔터·E 로 대화 장면·안내·컷신 넘기기, M 지도), 필드에서 바친 뒤 상속 카드 안내, 새 적 그림 가져오기 768 제한(빌드 index.pck 19.1MB, v1 16.1MB)
 - [x] GitHub Actions 수동 실행(workflow_dispatch)은 이 세션 권한으로 부를 수 없음(403 Resource not accessible by integration) → 같은 전체 검증을 로컬에서 실행
 
-### v2 다음 할 일
-- 마지막: 로컬 전체 스모크(ABCDEFT) → GitHub Actions 전체 검증(full=true) 통과 확인
-- (여유가 되면) 2층 회랑 철창문 열림 연출, 동료 줄이 세로로 걸을 때 겹쳐 보이는 것
+- [x] 마지막 로컬 전체 검증(최신 커밋): 스크립트 39 · 규칙 72 통과, 헤드리스 자동 진행 5경로(처음부터 2 + 2층부터 ①②③) 모두 결과 요약까지 에러 0,
+  스모크 ABCDEFT 107/107 · 브라우저 콘솔 에러 0, 웹 빌드 index.pck 19.1MB(v1 16.1MB). GitHub Actions 푸시 빌드(빠른 빌드·배포) 통과
+
+### v2 다음 할 일 (사용자 확인 뒤)
+- GitHub Actions 전체 검증(Run workflow → full)을 사람이 한 번 실행(이 세션에서는 workflow_dispatch 403)
+- 사용자 플레이 소감에 따라: 전투 수치(창 기사·화형 사제), 흉터 장수·시점, 대사([임시]) 조정 — 모두 data/game_data.gd · data/script_data.gd
+- 그림이 오면 이름만 맞추기: 흉터 카드 `card_art_scar.png`, 창 기사 걷기 시트(maps_data.gd ossuary npcs 의 sheet)
+- (여유) 동료 줄이 세로로 걸을 때 겹쳐 보이는 것, 2층 이후 지도 방 아이콘 다듬기
 
 ## 다음 할 일
 - 최종 CI 통과 확인 후 최종 보고
