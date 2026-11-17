@@ -66,13 +66,13 @@ func _process(d: float) -> void:
 func room_pos(id: String) -> Vector2:
 	var r: Dictionary = GameData.D.map.rooms[id]
 	var band := floor_band(int(r.floor))
-	var rows := 3.0 if int(r.floor) == 1 else 3.0
-	return Vector2(band.position.x + 150 + float(r.col) * 250.0, band.position.y + band.size.y * (float(r.row) + 0.5) / rows)
+	var rows := 3.0 if int(r.floor) == 1 else 1.0
+	return Vector2(band.position.x + 150 + float(r.col) * 215.0, band.position.y + band.size.y * (float(r.row) + 0.5) / rows)
 
 
 func floor_band(n: int) -> Rect2:
 	var y := PANEL.position.y + 100.0
-	var hs := {1: 360.0, 2: 200.0, 3: 64.0, 4: 64.0}
+	var hs := {1: 330.0, 2: 150.0, 3: 150.0, 4: 56.0}
 	for i in range(1, n):
 		y += hs.get(i, 70.0) + 14.0
 	return Rect2(PANEL.position.x + 40, y, PANEL.size.x - 80, hs.get(n, 70.0))
@@ -92,7 +92,7 @@ func _draw() -> void:
 	for fl in M.floors:
 		var n: int = fl.n
 		var band := floor_band(n)
-		var locked: bool = fl.get("locked", false)
+		var locked: bool = fl.get("locked", false) or n > int(prog.floor)
 		draw_style_box(UI.box(Color(0.12, 0.1, 0.09, 0.6) if not locked else Color(0.06, 0.06, 0.06, 0.6), Color(0.4, 0.32, 0.22, 0.5), 10, 1), band)
 		Icons.stone_tile(self, band.position + Vector2(-2, 22), 40, n == int(prog.floor), locked)
 		var nm := str(G.S.map.floors.get(n, str(n)))
@@ -101,6 +101,8 @@ func _draw() -> void:
 	var path: String = st.flags.get("path", "")
 	# 연결선
 	for ln in M.links:
+		if int(M.rooms[ln[0]].floor) > int(prog.floor) or int(M.rooms[ln[1]].floor) > int(prog.floor):
+			continue
 		var a := room_pos(ln[0])
 		var b := room_pos(ln[1])
 		var both: bool = prog.visited.has(ln[0]) and prog.visited.has(ln[1])
@@ -120,6 +122,8 @@ func _draw() -> void:
 	# 방
 	for id in M.rooms:
 		var r: Dictionary = M.rooms[id]
+		if int(r.floor) > int(prog.floor):
+			continue
 		var p := room_pos(id)
 		var visited: bool = prog.visited.has(id)
 		var cur: bool = prog.room == id
@@ -141,7 +145,16 @@ func _draw() -> void:
 		draw_style_box(UI.box(Color(0.05, 0.04, 0.035, 0.92 * maxf(a2, 0.6)), Color(0.45, 0.36, 0.22, 0.6 * a2), 6, 1), Rect2(p.x - tw / 2.0 - 10, p.y + 44, tw + 20, 30))
 		draw_string(lf, p + Vector2(-90, 66), nm2, HORIZONTAL_ALIGNMENT_CENTER, 180, 19, Color(0.95, 0.9, 0.82, maxf(a2, 0.5)))
 		# 마녀만 보는 죽음 표식 (흐리게, 설명 없이)
-		if r.get("deathMark", false):
+		var dm = r.get("deathMark", false)
+		var show_mark := false
+		if dm is bool:
+			show_mark = dm
+		elif str(dm) == "hero":
+			show_mark = st.party.allies.hero.status != "dead"
+		else:
+			var fm = Rules.fate_by_id(st, str(dm))
+			show_mark = fm != null and fm.alive and int(fm.floor) == int(r.floor)
+		if show_mark:
 			Icons.death_mark(self, p + Vector2(46, -40), 16.0, _t, 0.5)
 	# 범례
 	draw_string(fs, Vector2(PANEL.position.x + 50, PANEL.end.y - 40), G.ui("mapLegend"), HORIZONTAL_ALIGNMENT_LEFT, PANEL.size.x - 360, 20, Color(0.82, 0.76, 0.68))

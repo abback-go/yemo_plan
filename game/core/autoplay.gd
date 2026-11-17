@@ -18,6 +18,7 @@ func _process(delta: float) -> void:
 	if G.dialog.guide_open():
 		G.dialog.advance()
 		return
+	_walk()
 	if not c.in_battle or c.busy or c.st.is_empty() or c.st.battle == null:
 		return
 	var st: Dictionary = c.st
@@ -49,6 +50,8 @@ func _process(delta: float) -> void:
 		var d := Rules.def(st, u)
 		if d.kind == "death":
 			continue
+		if d.kind == "relic" and int(st.party.witch.hp) <= 6:
+			continue   # 노엘 HP 가 낮으면 유품(HP 소모)은 아낀다
 		if d.target == "none":
 			c.play_card(u, {})
 			return
@@ -62,3 +65,31 @@ func _process(delta: float) -> void:
 		c.play_card(u, target)
 		return
 	c.end_turn()
+
+
+## 탑뷰 자동 걷기: 켜진 트리거가 있으면 그 안으로, 없으면 열린 출구로 (갈림길은 --path 의 출구)
+var _walk_wait := 0.0
+func _walk() -> void:
+	var td = G.scenes.current
+	if not (td is TopdownScene) or td.mode != "free" or G.dialog.is_busy() or td.vn != null:
+		return
+	if td.moving or td.path.size() > 0:
+		return
+	_walk_wait += 0.35
+	if _walk_wait < 0.7:
+		return
+	_walk_wait = 0.0
+	if td.exit_sel != "" and not td.locked_exits.has(td.exit_sel):
+		td.confirm()
+		return
+	if not td.armed.is_empty():
+		td.auto_trigger(str(td.armed[0]))
+		return
+	var want := str(G.params.get("path", "rest")) if td.map_id == "fork" else ""
+	for e in td.C.get("exits", []):
+		if td.locked_exits.has(e.id):
+			continue
+		if want != "" and e.id != want:
+			continue
+		td.auto_exit(str(e.id))
+		return

@@ -51,7 +51,8 @@ const S := {
 		"mapLegend": "칼: 전투 · 물음표: 모르는 방 · 불꽃: 휴식 · 교차한 칼: 훈련 · 계단: 다음 층",
 		"mapHere": "지금 여기", "mapMarkHint": "붉은 실 표식",
 		"pathTapAgain": "한 번 더 누르면 들어갑니다",
-		"trainTitle": "강화할 카드를 고르세요", "trainHint": "고른 카드 1장이 강화된다 (이름 옆 +)",
+		"trainTitle": "강화할 카드를 고르세요", "trainHint": "고른 카드 1장이 강화된다 (Lv1 → Lv2)", "tapClose": "탭하면 닫힘", "ownerScar": "흉터 · 운명을 거스른 값",
+		"blocked": "막힘", "defied": "운명을 거슬렀다", "fateGuard": "…아직이다", "lethal": "치명", "noRedirect": "옮기기 불가", "allTargets": "모두",
 		"resultOk": "확인", "rotate": "가로로 돌려 주세요", "rotateSub": "이 게임은 가로 화면(16:9)으로 플레이합니다",
 		"loading": "불러오는 중…",
 		# 카드 아래쪽 주인 표시
@@ -69,7 +70,7 @@ const S := {
 	# ───────────── 전투 중 안내 (대본 2·5장) ─────────────
 	# on: battleStart | turnStart | cardPlayed | redirect | energyOut | enemyPhaseEnd | allyDown | immune | afterDeath | restart | battleWin
 	#     | unlock | mapFirst | exploreShown
-	# enc: normal(1층) | floor2(2층) | giant / turn: 그 턴에만 / card: 그 카드를 냈을 때 / once: 한 번만
+	# enc: normal(1층) | deep(1층의 깊은 곳) | giant / turn: 그 턴에만 / card: 그 카드를 냈을 때 / once: 한 번만
 	"guide": [
 		# ── 1층 전투 시작 ──
 		{"id": "n_start", "on": "battleStart", "enc": "normal", "lines": [
@@ -116,7 +117,7 @@ const S := {
 			{"who": "warrior", "face": "warrior_stern", "text": "아래층에서 냄새가 더 짙어진다. 쉬지 말고 가자."}]},
 
 		# ── 2층 광신도 (대본 5.1) ──
-		{"id": "f2_start", "on": "battleStart", "enc": "floor2", "lines": [
+		{"id": "f2_start", "on": "battleStart", "enc": "deep", "lines": [
 			{"who": "hero", "face": "hero_determined", "text": "둘. 빨리 끝내고 내려가자."},
 			{"who": "system", "text": "배운 대로 해 보세요. 「예고」를 보고, 위험한 공격은 옮기세요."}]},
 
@@ -142,7 +143,7 @@ const S := {
 			{"who": "hero", "face": "hero_calm", "text": "노엘. 늘 하던 말이야. 카드는 아끼다간 죽는 거야."},
 			{"who": "hero", "face": "hero_smile", "text": "…써야 할 땐, 망설이지 마."}]},
 		# 5.6 사망 직후
-		{"id": "g_after", "on": "afterDeath", "lines": [
+		{"id": "g_after", "on": "afterDeath", "card": "hero_death", "lines": [
 			{"who": "inner", "text": "그녀가 죽은 방식이, 내 손에 남았다."},
 			{"who": "system", "text": "**죽은 동료가 남기는 것**\n· **「짓밟힘」**: 동료를 죽인 그 죽음이 노엘의 카드가 되었습니다. 이번 턴에는 비용 0. 손패 위쪽으로 끌어올려 사용하세요.\n· **「유품」 카드**: 세라피나의 카드는 「유품」으로 바뀌었습니다. 더 강하지만, 낼 때마다 노엘의 HP가 줄어듭니다."}]},
 		# 5.7 전멸 — 카드를 내지 않은 미래 (화면이 깨지고 되돌아간 뒤)
@@ -161,7 +162,23 @@ const S := {
 		{"id": "x_fork", "on": "exploreShown", "explore": "fork", "lines": [
 			{"who": "archer", "face": "archer_smile", "text": "셋이네요. 어디로 가요?"},
 			{"who": "hero", "face": "hero_calm", "text": "노엘이 골라. 네 눈이 우리 길잡이니까."},
-			{"who": "system", "text": "**세 길 중 하나를 고르세요.** 길을 누르면 그 길에 대한 설명이 나옵니다. 한 번 더 누르면 들어갑니다."}]},
+			{"who": "system", "text": "**위쪽 세 출구 중 하나를 고르세요.** 출구 앞에 서면 그 길의 설명이 나옵니다. 한 번 더 누르면(E·스페이스) 들어갑니다. 고르지 않은 길로는 돌아갈 수 없습니다."}]},
+
+		# ── 1차 시험판 v2: 2·3층 (prototype-v2-spec.md 3.2·3.3, 4.2) ──
+		{"id": "v2_death_any", "on": "battleStart", "enc": "ossuary", "lines": [
+			{"who": "system", "text": "**손패의 죽음 카드는 언제든 낼 수 있습니다.** 내면 그 동료는 그 자리에서 죽고, 그 죽음이 「상속」 카드가 되어 손에 들어옵니다.\n· 죽음 카드는 버려지지 않고 손패에 남아, 그 장수만큼 덜 뽑습니다."}]},
+		{"id": "v2_two_cards", "on": "battleStart", "enc": "pyre", "lines": [
+			{"who": "system", "text": "**살아 있는 동료의 죽음 카드는 모두 손에 들어옵니다.** 두 장이면 두 장 모두 — 그만큼 덜 뽑습니다."}]},
+		{"id": "v2_fate_fire", "on": "fateIntent", "lines": [
+			{"who": "system", "text": "**운명의 시도가 예고되었습니다.** 「운명의 불길」은 피해를 옮길 수 없습니다. 적의 차례에 불길이 닿는 순간, 바칠지 거스를지 고릅니다."}]},
+		{"id": "v2_scar", "on": "scarFirst", "lines": [
+			{"who": "system", "text": "**「흉터」**: 운명을 거스른 값. 낼 수 없고, 손에 든 채 턴이 끝나면 노엘 HP가 1 줄어듭니다. 이번 회차 내내 덱에 남습니다."}]},
+		{"id": "v2_after_w", "on": "afterDeath", "card": "warrior_death", "lines": [
+			{"who": "inner", "text": "그녀가 죽은 방식이, 내 손에 남았다."},
+			{"who": "system", "text": "**「꿰뚫린 방패」**: 예고된 공격을 막고(피해 0) 그 피해만큼 되돌립니다. 브룬힐드의 카드는 「유품」이 되었습니다."}]},
+		{"id": "v2_after_a", "on": "afterDeath", "card": "archer_death", "lines": [
+			{"who": "inner", "text": "그녀가 타 죽은 불이, 내 손에 남았다."},
+			{"who": "system", "text": "**「타버린 활」**: 모든 적에게 피해. 엘리안의 카드는 「유품」이 되었습니다."}]},
 	],
 
 	# 거대 존재 등장 연출 중 대사 (기존 + 대본 v0.6 5.1 추가)
@@ -291,7 +308,7 @@ const S := {
 		"train": [
 			{"show": {"warrior": "L", "hero": "C", "archer": "R"}, "speaker": "warrior", "face": "warrior_stern", "text": "아래층에 내려가기 전에 한 번 맞춰 보자."},
 			{"speaker": "hero", "face": "hero_smile", "text": "좋지. 노엘, 네 예지에 맞춰서 우리가 한 박자 빨리 들어갈게."},
-			{"speaker": "system", "text": "**카드 1장을 강화합니다.** 3장 중 하나를 고르세요. 강화된 카드는 이름 옆에 「+」가 붙습니다."},
+			{"speaker": "system", "text": "**카드 1장을 강화합니다.** 3장 중 하나를 고르세요. 강화된 카드는 레벨이 오릅니다(Lv1 → Lv2)."},
 			{"call": "train"},
 			{"if": {"upgraded": "holy_slash"}, "speaker": "hero", "face": "hero_determined", "text": "더 깊게. 다시."},
 			{"if": {"upgraded": "snipe"}, "speaker": "archer", "face": "archer_smile", "text": "바람 계산, 이번엔 완벽해요."},
@@ -342,12 +359,44 @@ const S := {
 			# [연출] 다음 죽음의 예고 — 불이 낮게 흔들리고, 누구인지 알아볼 수 없을 만큼 흐린 카드. 실은 특정 동료에게 걸리지 않고 남은 둘 쪽이 아주 희미하게 떨릴 뿐
 			{"omen": {"card": "", "clarity": 0.0, "faint": ["warrior", "archer"], "dim": 0.3, "fireLow": true}},
 			{"speaker": "inner", "text": "…다음 카드가, 비치기 시작했다."},
+			# v2: 흐릿한 카드가 또렷해진다 — 브룬힐드 관통 Lv1 (2층)
+			{"call": "fate:warrior_pierce"},
+			{"omen_sharpen": {"card": "warrior_death", "taut": ["warrior"]}},
+			{"speaker": "inner", "text": "…또 보였다. 이번엔, 브룬힐드."},
+			{"speaker": "inner", "text": "말할 수 없다. 말하는 순간, 들은 사람은 모두 죽는다."},
 			{"omen_end": true},
+			{"call": "heal"},
+			{"speaker": "narr", "text": "불이 꺼질 무렵, 셋은 다시 아래로 향했다."},
+		],
+		# 2층 → 3층 계단: 살아서 내려간 운명은 Lv2 로, 그리고 새 운명 (prototype-v2-spec.md 3.2 계단)
+		"f2stairs": [
+			{"speaker": "narr", "text": "계단은 더 깊이 이어진다. 아래에서 탄내가 올라온다."},
+			{"if": {"brun": "alive"}, "show": {"warrior": "L", "archer": "C", "noel": "FR"}, "speaker": "warrior", "face": "warrior_stern", "text": "…아까 그 창. 한 뼘만 더 왔으면 끝이었다."},
+			{"if": {"brun": "alive"}, "speaker": "archer", "face": "archer_smile", "text": "운이 좋았던 거예요. 그쵸, 노엘?"},
+			{"if": {"brun": "alive"}, "omen": {"card": "warrior_death", "clarity": 1.0, "taut": ["warrior"], "dim": 0.3}},
+			{"if": {"brun": "alive"}, "speaker": "inner", "text": "운이 아니다. 미뤘을 뿐이다."},
+			{"call": "descend"},
+			{"if": {"brun": "alive"}, "omen_levelup": true},
+			{"if": {"brun": "alive"}, "speaker": "inner", "text": "…카드가 바뀌었다. 3층. 이번엔— 꼬챙이."},
+			{"if": {"brun": "alive"}, "omen_end": true},
+			{"if": {"brun": "dead"}, "show": {"archer": "C", "noel": "FR"}, "speaker": "archer", "face": "archer_hollow", "text": "……"},
+			{"if": {"brun": "dead"}, "speaker": "archer", "face": "archer_grief", "text": "브룬힐드는… 제 등을 맡긴다고 했었는데."},
+			{"if": {"brun": "alive"}, "omen": {"card": "", "clarity": 0.0, "faint": ["warrior", "archer"], "dim": 0.3}},
+			{"if": {"brun": "dead"}, "omen": {"card": "", "clarity": 0.0, "faint": ["archer"], "dim": 0.3}},
+			{"speaker": "inner", "text": "…또, 비치기 시작했다."},
+			{"call": "fate:archer_burn"},
+			{"omen_sharpen": {"card": "archer_death", "taut": ["archer"]}},
+			{"if": {"brun": "alive"}, "speaker": "inner", "text": "둘이다. 이제 둘의 죽음을, 쥐고 있다."},
+			{"if": {"brun": "dead"}, "speaker": "inner", "text": "브룬힐드 다음은, 엘리안."},
+			{"omen_end": true},
+			{"call": "heal"},
+			{"show": {}, "speaker": "narr", "text": "3층 — 불탄 예배당."},
 		],
 	},
 
 	# 이벤트 장면 위쪽 작은 제목
-	"eventTitles": {"corpse": "핏자국이 끌려간 통로", "rest": "촛불이 남은 작은 예배당", "train": "무너진 경비 훈련장", "stairs": "끝이 보이지 않는 계단", "emptycamp": "곁방"},
+	"eventTitles": {"corpse": "핏자국이 끌려간 통로", "rest": "촛불이 남은 작은 예배당", "train": "무너진 경비 훈련장", "stairs": "끝이 보이지 않는 계단", "emptycamp": "곁방",
+		"f2stairs": "3층으로 내려가는 계단"},
 	# 훈련 결과 한 줄 ({card} = 강화한 카드 이름, {summary} = 바뀐 수치)
 	"trainResult": "{card} 강화 — {summary}",
 
@@ -361,9 +410,10 @@ const S := {
 			"battle": {"title": "2층 · 회랑", "desc": "기도하는 목소리가 들린다. 전투."}}},
 	},
 	"map": {
-		"floors": {1: "1층 · 잿빛 성당", 2: "2층 · 깊은 회랑", 3: "3층", 4: "4층"},
+		"floors": {1: "1층 · 잿빛 성당", 2: "2층 · 기사단의 길", 3: "3층 · 불탄 예배당", 4: "4층"},
 		"rooms": {"camp": "곁방", "hall": "광신도의 회랑", "fork": "갈림길", "corpse": "핏자국 통로", "rest": "예배당", "train": "훈련장",
-			"stairs": "계단", "f2hall": "기도 소리", "f2deep": "가장 깊은 곳"},
+			"stairs": "계단", "deep": "1층의 깊은 곳", "f2corridor": "창 함정 회랑", "f2ossuary": "기사단 납골당", "f2stairs": "계단",
+			"f3chapel": "불탄 예배당 회랑", "f3pyre": "화형대 광장", "f3stairs": "계단"},
 		"floorShort": "{n}층",
 	},
 
@@ -408,6 +458,112 @@ const S := {
 		"normal": {"title": "전멸", "text": "노엘의 눈앞에서 파티가 쓰러졌다.", "button": "다시 — 이 전투 처음부터"},
 	},
 
+	# ═══════════════ 1차 시험판 v2 (docs/prototype-v2-spec.md 3장) — 대사는 모두 [임시] ═══════════════
+	# 탑뷰 맵마다: title(맵 이름) / intro(들어설 때) / items(조사) / exits(출구 설명: title·desc·locked) / 사건 대사
+	"maps": {
+		"camp": {"title": "곁방",
+			"exits": {"out": {"title": "위쪽 아치", "desc": "성당 안쪽으로 이어진다. 광신도의 의식이 열리는 곳.", "locked": "아직이다."}}},
+		"cult_hall": {"title": "광신도의 회랑",
+			"intro": [{"who": "hero", "face": "hero_determined", "text": "…저기. 의식 원 앞에 셋."}],
+			"exits": {"east": {"title": "동쪽 아치", "desc": "더 깊은 곳으로 이어진다. 길이 갈라지는 소리가 난다.", "locked": "광신도들이 길을 막고 있다."}}},
+		"deep_hall": {"title": "1층의 깊은 곳",
+			"intro": [{"who": "warrior", "face": "warrior_stern", "text": "기도 소리다. 제단 앞에… 둘."},
+				{"who": "hero", "face": "hero_determined", "text": "의식은 여기서 끝낸다. 가자."}]},
+		"spike_corridor": {"title": "창 함정 회랑",
+			"intro": [{"who": "warrior", "face": "warrior_stern", "text": "바닥이 수상하다. 내 뒤로 붙어."},
+				{"who": "archer", "face": "archer_shocked", "text": "…저 해골들, 다 창에 꿰여 있어."}],
+			"items": {
+				"skull": [{"who": "inner", "text": "(…방패째로 꿰뚫렸다. 카드 속 그 모습과, 똑같다.)"}],
+				"plate": [{"who": "inner", "text": "(피 묻은 판. 구멍마다 녹슨 창끝이 숨어 있다.)"}, {"who": "inner", "text": "(이 판들. 전부, 누군가를 기다리고 있다.)"}]},
+			"exits": {"north": {"title": "철창문", "desc": "철창이 반쯤 들려 있다. 그 너머에서 찬 바람이 분다."}}},
+		"ossuary": {"title": "기사단 납골당",
+			"intro": [{"who": "archer", "face": "archer_shocked", "text": "…석상들이 전부 창을 들고 있어요."}],
+			"appear": [{"who": "system", "text": "석상 사이에서, 창을 든 기사가 걸어 나온다."},
+				{"who": "warrior", "face": "warrior_rage", "text": "기사단 갑옷…! 원정대다. 아니— 원정대였던 것."}],
+			"exits": {"north": {"title": "위쪽 계단", "desc": "더 아래로 내려가는 계단. 3층이다.", "locked": "창 기사가 길을 막고 있다."}}},
+		"burnt_chapel": {"title": "불탄 예배당 회랑",
+			"intro": [{"who": "archer", "face": "archer_shocked", "text": "…탄내. 여기서 누가 태워졌어."}],
+			"items": {
+				"bow": [{"who": "archer", "face": "archer_grief", "text": "궁수였나 봐. 나처럼."}, {"who": "inner", "text": "(…불. 그녀의 카드와 같은 불.)"}]},
+			"exits": {"north": {"title": "타 버린 문", "desc": "문 너머에서 장작 타는 냄새가 난다."}}},
+		"pyre_court": {"title": "화형대 광장",
+			"intro": [{"who": "archer", "face": "archer_shocked", "text": "…화형대."}],
+			"appear": [{"who": "system", "text": "화형대 뒤에서 불을 든 사제가 돌아선다."},
+				{"who": "inner", "text": "(저 불이다. 카드 속에서 엘리안을 삼키던 불.)"}],
+			"exits": {"north": {"title": "위쪽 계단", "desc": "더 깊은 곳으로. 시험판은 여기까지.", "locked": "화형 사제가 길을 막고 있다."}}},
+	},
+
+	# 운명의 시도 (prototype-v2-spec.md 3.2·3.3)
+	"fate": {
+		"choiceTitle": "운명의 시도",
+		"choiceText": "{name}의 죽음이 왔다.",
+		"offer": "카드를 낸다 — {name}을(를) 바친다",
+		"defy": "거스른다 — 운명을 비튼다 (흉터 {n})",
+		"defyNote": "거스르면 살지만, 운명은 다음 층으로 미뤄져 더 잔혹하게 온다. 흉터 {n}장이 노엘 덱에 새겨진다.",
+		"gainInherit": "「{card}」 — 덱에 들어왔다",
+		"gainScar": "흉터 {n}장이 노엘의 손등에 새겨졌다",
+		"postponed": "운명이 미뤄졌다. 다음에는 더 잔혹하게 온다.",
+		# 운명마다: trap(시도가 온 순간) / offered(바친 뒤) / defied(거스른 뒤). lv2 는 2단계일 때
+		"warrior_pierce": {
+			"trap": [{"who": "inner", "text": "(지금이다. 이 창이, 그녀를 꿰뚫는다.)"}],
+			"trap2": [{"who": "inner", "text": "(또 왔다. 미뤄 둔 그 죽음이— 이번엔 꼬챙이가 되어.)"}],
+			"offered": [{"who": "archer", "face": "archer_shocked", "text": "브룬힐드!!"}, {"who": "inner", "text": "(…내가, 냈다.)"}],
+			"defied": [{"who": "inner", "text": "(손등이 찢어진다. 운명을 거스른 값이다.)"},
+				{"who": "warrior", "face": "warrior_shocked", "text": "…방금, 뭐였지. 노엘, 네가 날 당겼나?"},
+				{"who": "noel", "text": "……"}],
+		},
+		"archer_burn": {
+			"trap": [{"who": "inner", "text": "(…불길이, 엘리안에게.)"}, {"who": "inner", "text": "(지금이다. 이 불이 그녀를 태운다.)"}],
+			"offered": [{"who": "inner", "text": "(…내가, 냈다.)"}],
+			"defied": [{"who": "inner", "text": "(불길이 그녀 앞에서 갈라진다. 손등이 탄다.)"},
+				{"who": "archer", "face": "archer_shocked", "text": "…뜨거, 워…? 아니, 안 뜨거워. 노엘, 지금…"},
+				{"who": "noel", "text": "……"}],
+		},
+	},
+
+	# 데스신 자막 (game_data.gd deathScenes). lv2 는 2단계 죽음일 때 이 줄로 바뀐다
+	"deathScenes": {
+		"warrior_pierce": {
+			"lines": {"W1": [{"who": "warrior", "text": "…노엘, 물러—"}]},
+			"lv2": {"W1": [{"who": "warrior", "text": "……."}], "W2": [{"who": "system", "text": "꼬챙이에 꿰인 채, 그녀는 내려오지 못했다."}]},
+		},
+		"archer_burn": {
+			"lines": {"A1": [{"who": "archer", "text": "노엘—! 뜨거, 뜨거워…!"}]},
+			"lv2": {"A1": [{"who": "archer", "text": "……!!"}]},
+		},
+	},
+
+	# 전투 중 동료 사망 직후 남은 동료의 반응 (C8 처럼). 죽은 동료는 말하지 않는다
+	"reactionsBy": {
+		"warrior": [{"who": "archer", "faces": ["archer_shocked", "archer_grief"], "text": "브룬힐드!!", "pause": 1200}],
+		"archer": [{"who": "warrior", "faces": ["warrior_shocked", "warrior_grief"], "text": "…엘리안.", "pause": 1000}],
+	},
+
+	# 1층 끝 (빈 캠프 뒤 → 2층)
+	"chapter1": {
+		"title": "1층 끝",
+		"lines": ["세라피나는 돌아오지 않았다.", "남쪽 바다를 보자던 약속도."],
+		"inner": "…이번엔, 구할 수 있을까.",
+		"button": "아래로 — 2층",
+	},
+
+	# 시험판 끝 — 결과 요약
+	"result": {
+		"title": "시험판 끝",
+		"hero": "1층의 깊은 곳에서 짓밟혀 죽었다. (용사의 죽음)",
+		"offered": "{floor}층에서 노엘이 바쳤다 — 죽음 카드 Lv{lv}",
+		"alive": "살아 있다 — 운명은 미뤄졌다: {floor}층에서 Lv{lv}",
+		"saved": "운명을 모두 거슬러, 구했다.",
+		"noFate": "{name}에게는 아직 운명이 오지 않았다.",
+		"scars": "흉터 {n}장",
+		"inherits": "상속 카드: {list}",
+		"next": "다음 층에서는: {list}",
+		"nextItem": "{name} {lv}단계",
+		"nextNone": "쥐고 있는 운명이 없다.",
+		"again": "처음부터",
+		"floor2": "2층부터 다시",
+	},
+
 	# ───────────── 탑뷰 이동 시험판 (?scene=topdown) ─────────────
 	# 출구 설명은 위 explore.fork 의 갈림길 3택 문구를 그대로 쓴다
 	"topdown": {
@@ -424,5 +580,8 @@ const S := {
 		"helpTouch": "이동: 왼쪽 화면을 누른 채 끌기 · 조사: 물건을 탭하거나 가까이 가서 조사 버튼",
 		"btnInspect": "조사",
 		"btnEnter": "들어가기",
+		"exitLocked": "아직 갈 수 없다.",
+		# 처음 자유롭게 걸을 때 한 번 (1층 곁방)
+		"moveGuide": [{"who": "system", "text": "**이동**: WASD·방향키, 또는 가고 싶은 곳을 클릭합니다. 휴대폰은 왼쪽 화면을 누른 채 끌면 걷습니다.\n· 반짝이는 물건 가까이에서 탭·E 키: **조사**\n· 출구 앞에 서면 설명이 나오고, 한 번 더 누르면 나갑니다. 오른쪽 위 「지도」 버튼(M 키)으로 층 지도를 봅니다."}],
 	},
 }

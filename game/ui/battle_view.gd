@@ -33,6 +33,8 @@ var hot_ally := ""
 var hover_intent := ""
 var trembling := {}
 var motion_log: Array = []
+var fate_tint: ColorRect
+var fate_hold := ""        # 운명의 시도 중인 동료 (붉은 실을 최대로)
 var _t := 0.0
 
 
@@ -126,8 +128,9 @@ func enemy_box(id: String) -> Rect2:
 		var top := maxf(0.0, f.position.y)
 		return Rect2(maxf(0.0, f.position.x), top, minf(1920.0, f.size.x), float(LY().giant.bottom) - top)
 	var s: Dictionary = LY().enemySlots[int(e.slot)]
-	var w := float(s.h) * enemy_aspect(e.type)
-	return Rect2(float(s.x) - w / 2.0, float(s.feet) - float(s.h), w, float(s.h))
+	var eh := float(s.h) * float(D().enemies[e.type].get("scale", 1.0))
+	var w := eh * enemy_aspect(e.type)
+	return Rect2(float(s.x) - w / 2.0, float(s.feet) - eh, w, eh)
 
 
 func enemy_center(id: String) -> Vector2:
@@ -229,11 +232,20 @@ func build(st: Dictionary) -> void:
 	var ly := LY()
 	var b: Dictionary = st.battle
 	var bg := Sprite2D.new()
-	bg.texture = Assets.tex(ly.bg)
+	var enc_d: Dictionary = D().encounters[b.enc]
+	var bg_file: String = str(enc_d.get("bg", ly.bg))
+	bg.texture = Assets.tex(bg_file)
 	bg.centered = false
-	bg.scale = Vector2(1920, 1080) / Assets.size(ly.bg)
-	if D().encounters[b.enc].get("floor", 1) == 2 and b.kind != "giant":
+	bg.scale = Vector2(1920, 1080) / Assets.size(bg_file)
+	if enc_d.get("dim", false) and b.kind != "giant":
 		bg.modulate = Color(0.82, 0.78, 0.8)
+	# 운명의 시도: 시간이 멈춘 붉은 덮개 (fate_freeze)
+	fate_tint = ColorRect.new()
+	fate_tint.color = Color(0.5, 0.0, 0.05, 0.0)
+	fate_tint.size = Vector2(1920, 1080)
+	fate_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fate_tint.z_index = 25
+	layers.bg.add_child(fate_tint)
 	layers.bg.add_child(bg)
 	# 동료 뒷모습
 	for id in st.party.order:
@@ -333,9 +345,10 @@ func make_enemy(e: Dictionary) -> void:
 		foot = node
 	else:
 		var s: Dictionary = ly.enemySlots[int(e.slot)]
-		var w := float(s.h) * enemy_aspect(e.type)
+		var eh := float(s.h) * float(D().enemies[e.type].get("scale", 1.0))
+		var w := eh * enemy_aspect(e.type)
 		node.position = Vector2(float(s.x), float(s.feet))   # 기준점: 발 (transform-origin 50% 100%)
-		var spr := _sprite(D().enemies[e.type].sprite, Rect2(-w / 2.0, -float(s.h), w, float(s.h)))
+		var spr := _sprite(D().enemies[e.type].sprite, Rect2(-w / 2.0, -eh, w, eh))
 		node.add_child(spr)
 		layers.enemies.add_child(node)
 	enemies[e.id] = {"node": node}
@@ -497,7 +510,8 @@ func render_intent(id: String, it) -> void:
 	else:
 		box.set_attack(it)
 		var s: Dictionary = LY().enemySlots[int(e.slot)]
-		box.position = Vector2(float(s.x) - box.size.x / 2.0, float(s.feet) - float(s.h) - 50.0)
+		var eb := enemy_box(id)
+		box.position = Vector2(clampf(float(s.x) - box.size.x / 2.0, 8.0, 1912.0 - box.size.x), maxf(8.0, eb.position.y - 50.0))
 
 
 func highlight(enemy_ids, mode: String, ally_ids) -> void:
@@ -554,9 +568,18 @@ func _process(delta: float) -> void:
 
 # ───────── 붉은 실 ─────────
 func death_card_in_hand() -> Dictionary:
+	var all := death_cards_in_hand()
+	for a in all:
+		return {"uid": all[a], "ally": a}
+	return {}
+
+
+## 손패(와 들어 올린 카드)의 죽음 카드 전부: 동료 id → uid (브룬힐드가 살아 있으면 둘)
+func death_cards_in_hand() -> Dictionary:
 	var st: Dictionary = G.ctl.st
+	var out := {}
 	if vm.is_empty() or st.is_empty():
-		return {}
+		return out
 	var list: Array = vm.hand.duplicate()
 	if vm.ghost != "":
 		list.append(vm.ghost)
@@ -564,8 +587,8 @@ func death_card_in_hand() -> Dictionary:
 		if st.cards.has(u):
 			var d: Dictionary = D().cards[st.cards[u].id]
 			if d.kind == "death":
-				return {"uid": u, "ally": d.ally}
-	return {}
+				out[str(d.ally)] = u
+	return out
 
 
 func draw_threads(ci: CanvasItem) -> void:
@@ -581,21 +604,20 @@ func draw_threads(ci: CanvasItem) -> void:
 		var tp = hand.top_point(u)
 		if tp != null:
 			tops.append(tp)
-	var dc := death_card_in_hand()
+	var dcs := death_cards_in_hand()
 	var tension: float = vm.tension
 	var t := _t
-	var raised_death: bool = not dc.is_empty() and hand.raised.get("uid", "") == dc.uid
 	for idx in order.size():
 		var id: String = order[idx]
 		if vm.status.get(id, "ok") == "dead":
 			continue
 		var a := ally_anchor(id)
-		var taut: bool = not dc.is_empty() and dc.ally == id
-		if taut and raised_death:
+		var taut: bool = dcs.has(id)
+		if taut and hand.raised.get("uid", "") == dcs[id]:
 			continue   # 들어 올린 죽음 카드의 실은 카드 위 레이어에 그린다(draw_raised_thread)
 		var b = null
 		if taut:
-			b = hand.top_point(dc.uid)
+			b = hand.top_point(dcs[id])
 		if b == null:
 			if not tops.is_empty():
 				b = tops[int(round((tops.size() - 1) * idx / maxf(1.0, order.size() - 1.0)))]
@@ -603,7 +625,7 @@ func draw_threads(ci: CanvasItem) -> void:
 				b = Vector2(960, 760)
 		var m: Vector2 = (a + b) / 2.0
 		if taut:
-			draw_taut(ci, a, b, tension, idx, t)
+			draw_taut(ci, a, b, maxf(tension, 2.6 if fate_hold == id else 0.0), idx, t)
 		else:
 			var sag := 70.0 - tension * 6.0
 			var sway := sin(t * 0.9 + idx * 1.7) * 10.0
@@ -611,7 +633,7 @@ func draw_threads(ci: CanvasItem) -> void:
 			UI.glow_curve(ci, a, m + Vector2(sway, sag), b, 1.5 + tension * 0.2, Color(0.9, 0.12, 0.19, dim), 3.0 if FX.low else 7.0)
 	if vm.broken != null:
 		var sw0 := sin(t * 1.6) * 8.0
-		var hb := ally_anchor("hero")
+		var hb := ally_anchor(str(vm.broken.get("ally", "hero")))
 		UI.glow_curve(ci, hb + Vector2(0, -16), hb + Vector2(12 + sw0 * 0.4, 30), hb + Vector2(18 + sw0, 74), 1.6, Color(0.63, 0.05, 0.1, 0.6), 4.0)
 
 
@@ -633,10 +655,10 @@ func draw_raised_thread(ci: CanvasItem) -> void:
 	var st: Dictionary = G.ctl.st
 	if vm.is_empty() or st.is_empty() or st.battle == null or not G.ctl.in_battle or hand.raised.is_empty():
 		return
-	var dc := death_card_in_hand()
-	if dc.is_empty() or hand.raised.uid != dc.uid or vm.status.get(dc.ally) == "dead":
-		return
-	draw_taut(ci, ally_anchor(dc.ally), hand.raise_top_point(), vm.tension, st.party.order.find(dc.ally), _t)
+	var dcs := death_cards_in_hand()
+	for a in dcs:
+		if hand.raised.uid == dcs[a] and vm.status.get(a) != "dead":
+			draw_taut(ci, ally_anchor(a), hand.raise_top_point(), vm.tension, st.party.order.find(a), _t)
 
 
 ## 카드에 걸린 채 끊어져 늘어진 실 (카드 위에 그린다)
@@ -875,8 +897,8 @@ func _on_play(e: Dictionary) -> void:
 			g.taut = 1.0
 		vm.pull = 1.0
 		render()
-		if allies.has("hero"):
-			trembling["hero"] = true
+		if allies.has(str(d.ally)):
+			trembling[str(d.ally)] = true
 		await hand.raise_card(e.uid, g, true)
 		vm.pull = 2.0
 		hand.set_tremble(float(T.deathTremble))
@@ -1043,8 +1065,25 @@ func _on_enemyAct(e: Dictionary) -> void:
 		await FX.wait(maxf(60.0, float(D().timing.enemyAttack) - 440.0))
 	elif e.kind == "shadow":
 		await giant_shadow()
+	elif e.kind == "aoe" and vm.kind != "giant":
+		await fire_wave(e.enemy)
 	elif e.kind == "aoe":
 		await pillar_collapse()
+	elif e.kind == "blocked":
+		var bc := enemy_center(e.enemy)
+		enemy_lunge(e.enemy)
+		await FX.wait(260)
+		FX.float_text(bc.x, bc.y + 80, G.ui("blocked"), "immune")
+		FX.burst(bc.x, bc.y + 120, {"count": 18, "colors": ["#c9c9c9", "#ff6b76"], "speed": 260, "life": 500, "size": 3})
+		await FX.wait(300)
+	elif e.kind == "fate":
+		# 운명의 불길: 사제가 몸을 젖히고 불길이 그 동료를 향한다 → 닿는 순간 멈춘다(fateTrial)
+		var tp := target_point(e.target)
+		var ec := enemy_center(e.enemy)
+		enemy_lunge(e.enemy)
+		await FX.wait(200)
+		await FX.streak(ec.x, ec.y, tp.x, tp.y - 40, {"color": "#ff7a2a", "width": 10, "dur": 420})
+		FX.burst(tp.x, tp.y - 40, {"count": 40, "colors": ["#ff3a1e", "#ff9a2a", "#ffe08a"], "speed": 200, "life": 700, "size": 5, "gravity": -160})
 	elif e.kind == "stomp":
 		await giant_stomp()
 
@@ -1063,6 +1102,76 @@ func _on_weaken(e: Dictionary) -> void:
 	if r != null:
 		FX.float_text(r.get_center().x, r.position.y - 10, "-" + str(e.amount), "small")
 	await FX.wait(200)
+
+
+## 화형 사제의 「불길」(모두에게): 아군 쪽에 불길이 번진다
+func fire_wave(enemy_id: String) -> void:
+	enemy_lunge(enemy_id)
+	await FX.wait(220)
+	FX.flash("#ff5a1e", 260, 0.35)
+	FX.shake(12, 500)
+	for id in allies:
+		if vm.status.get(id) == "ok":
+			var p := target_point(id)
+			FX.burst(p.x, p.y + 40, {"count": 36, "colors": ["#ff3a1e", "#ff9a2a", "#ffe08a"], "speed": 240, "life": 800, "size": 5, "gravity": -260})
+	FX.burst(960, 1000, {"count": 40, "colors": ["#ff3a1e", "#ff9a2a"], "speed": 300, "life": 700, "size": 5, "gravity": -300})
+	await FX.wait(380)
+
+
+## 운명의 시도: 시간이 멈춘다(붉게), 그 동료의 실이 최대로 팽팽 / 풀기
+func fate_freeze(who: String, on: bool) -> void:
+	if fate_tint == null:
+		return
+	fate_hold = who if on else ""
+	if on:
+		trembling[who] = true
+		FX.shake(5, 300)
+	else:
+		trembling.erase(who)
+	var a := FX.anim(500 if on else 350, [{"a": fate_tint.color.a}, {"a": 0.42 if on else 0.0}], func(v): if is_instance_valid(fate_tint): fate_tint.color.a = v.a, {"node": fate_tint})
+	await FX.until(a)
+
+
+func _on_fateTrial(_e: Dictionary) -> void:
+	await FX.wait(150)
+
+
+## 거스름(전투): 불길이 그 동료 주위에서 갈라진다
+func _on_fateDefied(e: Dictionary) -> void:
+	var p := target_point(str(e.who))
+	FX.flash("#ff2a3c", 200, 0.4)
+	FX.shake(10, 360)
+	for s in [-1, 1]:
+		FX.burst(p.x + s * 60, p.y - 20, {"count": 30, "colors": ["#ff3a1e", "#ff9a2a", "#ffe08a"], "speed": 340, "angle": PI / 2 - s * 1.2, "spread": 0.8, "life": 700, "size": 5, "gravity": -100})
+	if allies.has(str(e.who)):
+		flash_node(allies[str(e.who)].body)
+	FX.float_text(p.x, p.y + 60, G.ui("defied"), "immune")
+	await FX.wait(500)
+
+
+## 「꿰뚫린 방패」: 막고 되돌린다
+func _on_reflect(e: Dictionary) -> void:
+	var r = intent_rect(str(e.enemy))
+	var c: Vector2 = r.get_center() if r != null else enemy_center(str(e.enemy))
+	var ec := enemy_center(str(e.enemy))
+	FX.burst(c.x, c.y, {"count": 24, "colors": ["#ffd36b", "#ff6b76"], "speed": 300, "life": 500, "size": 3, "gravity": 0, "shape": "line"})
+	await FX.streak(960, 760, ec.x, ec.y, {"color": "#ffcf6a", "width": 6, "dur": 220})
+	FX.shake(8, 240)
+
+
+## 흉터: 손에 든 채 턴이 끝나 노엘 HP 가 준다
+func _on_scarBurn(e: Dictionary) -> void:
+	var c: CardView = hand.cards.get(e.uid)
+	if c:
+		var p := c.center()
+		FX.burst(p.x, p.y, {"count": 18, "colors": ["#7a0010", "#ff3a4a"], "speed": 140, "life": 600, "size": 3, "gravity": -80})
+		FX.anim(500, [{"b": 2.2}, {"b": 1.0}], func(v): if is_instance_valid(c): c.bright = v.b, {"node": c})
+	await FX.wait(250)
+
+
+func _on_fateGuard(e: Dictionary) -> void:
+	var c := enemy_center(str(e.enemy))
+	FX.float_text(c.x, c.y - 40, G.ui("fateGuard"), "immune")
 
 
 func _on_giantTrigger(e: Dictionary) -> void:
@@ -1334,18 +1443,23 @@ func trample_strike() -> void:
 
 
 # ───────── 용사의 죽음: 컷신(C1~C6) → 전투 화면 복귀(C7) ─────────
-func death_sequence(_e: Dictionary) -> void:
+func death_sequence(e: Dictionary) -> void:
 	var cs: Dictionary = D().cutscene
+	var who: String = str(e.get("ally", "hero"))
+	var key: String = "hero" if who == "hero" or str(e.get("fate", "")) == "" else str(e.fate)
 	G.dialog.clear()
-	G.scenes.cutscene()     # 컷신 화면이 곧바로 덮는다
+	G.scenes.cutscene(key, int(e.get("lv", 1)))     # 컷신 화면이 곧바로 덮는다
 	# 컷신 뒤에서: 들어 올렸던 손을 내리고 죽음 카드를 원래 손패 자리로 (C7에서 그 자리에서 재가 된다)
 	hand.raise_reset()
+	fate_hold = ""
+	if fate_tint:
+		fate_tint.color.a = 0.0
 	await G.scenes.cutscene_done
 	G.ctl.note("death: back to battle")
 	vm.pull = 0.0
-	vm.status.hero = "dead"
-	trembling.erase("hero")
-	vm.broken = {"uid": "", "at": hand.top_point(vm.ghost)}
+	vm.status[who] = "dead"
+	trembling.erase(who)
+	vm.broken = {"uid": "", "at": hand.top_point(vm.ghost), "ally": who}
 	render()
 	# 마녀의 손·손패 위에 튄 피 (C7)
 	blood.spray({"count": 3, "x0": 620, "x1": 820, "y0": 890, "y1": 1030, "min": 60, "max": 120, "seed": 4242})
@@ -1370,8 +1484,8 @@ func death_sequence(_e: Dictionary) -> void:
 			await FX.wait(float(cs.ashDuration) / steps)
 
 
-## C8: 남은 동료의 반응 (굳고 떨림 + 짧은 대사)
-func reactions() -> void:
+## C8: 남은 동료의 반응 (굳고 떨림 + 짧은 대사). dead: 죽은 동료 (세라피나 = 대본 그대로, 그 밖 = reactionsBy)
+func reactions(dead := "hero") -> void:
 	var cs: Dictionary = D().cutscene
 	var st: Dictionary = G.ctl.st
 	var who := []
@@ -1383,7 +1497,13 @@ func reactions() -> void:
 	stop.timeout.connect(func():
 		for id in who:
 			trembling.erase(id))
-	await G.dialog.say(G.S.reactions)
+	var lines: Array = G.S.reactions if dead == "hero" else G.S.reactionsBy.get(dead, [])
+	var keep := []
+	for ln in lines:
+		var a = st.party.allies.get(str(ln.get("who", "")))
+		if a == null or a.status != "dead":
+			keep.append(ln)
+	await G.dialog.say(keep)
 	for id in who:
 		trembling.erase(id)
 	# 피 자국은 조금 옅어진 채 남는다 (손패를 읽을 수 있게)
@@ -1607,6 +1727,8 @@ class IntentBox extends Control:
 		"attack": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M6 26 L22 10 L25 4 L28 7 L22 10\" stroke=\"#ff6b76\" stroke-width=\"3\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 18 L14 24 M5 27 L9 23\" stroke=\"#ddd\" stroke-width=\"3\" stroke-linecap=\"round\"/></svg>",
 		"shadow": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><ellipse cx=\"16\" cy=\"20\" rx=\"13\" ry=\"6\" fill=\"#000\" stroke=\"#777\" stroke-width=\"2\"/><path d=\"M8 4 C10 12 22 12 24 4\" stroke=\"#888\" stroke-width=\"2\" fill=\"none\"/></svg>",
 		"aoe": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"11\" y=\"2\" width=\"10\" height=\"20\" fill=\"#888\" transform=\"rotate(18 16 12)\"/><g fill=\"#aaa\"><circle cx=\"7\" cy=\"26\" r=\"3\"/><circle cx=\"16\" cy=\"28\" r=\"2.5\"/><circle cx=\"25\" cy=\"25\" r=\"3\"/></g></svg>",
+		"fate": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M16 2 C22 10 26 14 24 22 C22 29 10 29 8 22 C6 15 12 12 16 2Z\" fill=\"#ff3a1e\"/><path d=\"M16 12 C19 16 20 19 19 23 C18 26 14 26 13 23 C12 20 14 17 16 12Z\" fill=\"#ffe08a\"/><path d=\"M2 30 Q16 20 30 30\" stroke=\"#ff2a3c\" stroke-width=\"2\" fill=\"none\"/></svg>",
+		"fire": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M16 3 C21 10 25 14 23 21 C21 28 11 28 9 21 C7 15 12 11 16 3Z\" fill=\"#ff7a2a\"/><path d=\"M16 13 C18 16 19 19 18 22 C17 25 15 25 14 22 C13 19 15 17 16 13Z\" fill=\"#ffe08a\"/></svg>",
 		"stomp": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M10 12 C9 18 9 26 15 29 C21 31 24 27 23 21 C22 16 22 12 22 10 C22 7 11 7 10 12Z\" fill=\"#ff3346\"/><circle cx=\"10\" cy=\"6\" r=\"2.5\" fill=\"#ff3346\"/><circle cx=\"14.5\" cy=\"4\" r=\"2.4\" fill=\"#ff3346\"/><circle cx=\"19\" cy=\"4\" r=\"2.2\" fill=\"#ff3346\"/><circle cx=\"22.5\" cy=\"6\" r=\"2\" fill=\"#ff3346\"/></svg>",
 	}
 
@@ -1654,7 +1776,37 @@ class IntentBox extends Control:
 			return
 		it = v.duplicate(true)
 		_clear_parts()
+		if v.kind == "fate":
+			# 운명의 불길 → 엘리안 · 치명 · 옮기기 불가
+			icon.texture = Assets.svg("intent_fate", ICON.fate, 2.0)
+			_add(str(v.get("label", "")), 24, Color("#ffd0a0"), "sans_black")
+			_add("→", 20, Color("#ffb0a0"))
+			_add(G.name_of(v.target), 24, Color("#ffffff"), "sans_black")
+			_add(G.ui("lethal"), 18, Color("#ff6b76"), "sans_bold")
+			_add(G.ui("noRedirect"), 16, Color("#ffcf7a"), "sans")
+			_layout(52)
+			queue_redraw()
+			return
+		if v.get("blocked", false):
+			icon.texture = Assets.svg("intent_attack", ICON.attack, 2.0)
+			_add(G.ui("blocked"), 22, Color("#9be59b"), "sans_black")
+			if not v.get("by", []).is_empty():
+				_add("(" + str(v.by[-1]) + ")", 16, Color("#ffcf7a"), "sans")
+			_layout(48)
+			queue_redraw()
+			return
+		if v.kind == "aoe":
+			icon.texture = Assets.svg("intent_fire", ICON.fire, 2.0)
+			_add(str(v.get("label", "")), 22, Color("#ffd0d4"), "sans_bold")
+			_add(str(v.value), 30, Color("#ff6b76"), "sans_black")
+			_add("→", 20, Color("#b9a0a4"))
+			_add(G.ui("allTargets"), 20, Color("#f0dede"))
+			_layout(48)
+			queue_redraw()
+			return
 		icon.texture = Assets.svg("intent_attack", ICON.attack, 2.0)
+		if str(v.get("label", "")) != "":
+			_add(str(v.label), 18, Color("#d9b9bd"), "sans_bold")
 		var dmg := Rules.intent_damage(v)
 		_add(str(dmg), 30, Color("#9be59b") if dmg < int(v.value) else Color("#ff6b76"), "sans_black")
 		_add("→", 20, Color("#b9a0a4"))
@@ -1699,7 +1851,7 @@ class IntentBox extends Control:
 
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
-		var lethal: bool = giant and it != null and it.get("lethal", false)
+		var lethal: bool = it != null and it.get("lethal", false)
 		var bg := Color(0.24, 0, 0.024, 0.9) if lethal else Color(0.04, 0.024, 0.03, 0.85)
 		var border := Color("#8a1a24") if giant else Color("#6e2a31")
 		var glow := 0.0

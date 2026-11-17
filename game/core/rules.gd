@@ -10,6 +10,11 @@
 ##   st.run          회차(1부터). 죽음 카드의 잠금(lockedUntil)은 rules.deathLockRuns 회차까지만 걸린다
 ##   st.party.deathCards  노엘이 쥔 죽음 카드 uid (덱과 따로. 전투마다 처음부터 손패에 보존된다)
 ##   st.progress     지도: { floor, room, visited:[] }
+##   st.fates        운명 [{id, who, method, floor, level, alive, result, triedFloor, card, defied}] (fate-design.md, prototype-v2-spec.md 4.1)
+##                   alive: 아직 정해지지 않은 운명(그 동료가 살아 있고 바치지도 구하지도 않음). result: "" | offered(바침) | saved(구함)
+##                   triedFloor: 운명의 시도가 온 층(층마다 운명 하나당 한 번). card: 노엘이 쥔 죽음 카드 uid (카드 인스턴스의 lv = 운명 레벨)
+##   st.fateLog      운명 기록 [{fate, who, level, floor, result: offered|defied, scars}] — 결과 요약 화면
+##   카드 인스턴스 lv: 레벨(Lv1·Lv2…). 카드 정의 "levels" 의 같은 키(text·effects·target·cost)를 덮어쓴다. 훈련 강화(up)는 Lv2 로 보인다
 ##
 ## 규칙 함수는 상태를 바꾸고, 화면이 연출할 이벤트 배열을 돌려준다.
 class_name Rules
@@ -65,37 +70,74 @@ static func new_card(st: Dictionary, id: String, extra := {}) -> String:
 	return c.uid
 
 
+static var _lvcache := {}
+
+
+## 레벨이 반영된 카드 정의 (lv 2 이상이면 "levels" 의 같은 키를 덮어쓴 사본)
+static func def_lv(id: String, lv := 1) -> Dictionary:
+	var base: Dictionary = D().cards[id]
+	if lv <= 1 or not base.has("levels") or not base.levels.has(str(lv)):
+		return base
+	var k := id + "@" + str(lv)
+	if _lvcache.has(k):
+		return _lvcache[k]
+	var m := base.duplicate()
+	var o: Dictionary = base.levels[str(lv)]
+	for key in o:
+		m[key] = o[key]
+	_lvcache[k] = m
+	return m
+
+
 static func def(st: Dictionary, uid: String) -> Dictionary:
-	return D().cards[st.cards[uid].id]
+	var c: Dictionary = st.cards[uid]
+	return def_lv(c.id, int(c.get("lv", 1)))
 
 
 static func is_up(st: Dictionary, uid: String) -> bool:
 	return st.cards.has(uid) and bool(st.cards[uid].get("up", false)) and D().upgrades.has(st.cards[uid].id)
 
 
-## 카드 인스턴스의 효과(훈련으로 강화된 카드는 강화 효과)
+## 카드 인스턴스의 레벨 (lv 가 있으면 그것, 훈련으로 강화된 카드는 2, 그 밖은 1)
+static func level(st: Dictionary, uid: String) -> int:
+	if not st.cards.has(uid):
+		return 1
+	var c: Dictionary = st.cards[uid]
+	if c.has("lv"):
+		return int(c.lv)
+	return 2 if is_up(st, uid) else 1
+
+
+## 카드 인스턴스의 효과(훈련으로 강화된 카드는 강화 효과, 레벨이 있는 카드는 그 레벨의 효과)
 static func effects_of(st: Dictionary, uid: String) -> Array:
 	var id: String = st.cards[uid].id
 	if is_up(st, uid):
 		return D().upgrades[id].effects
-	return D().cards[id].effects
+	return def(st, uid).effects
 
 
-static func effects_for(id: String, up := false) -> Array:
+static func effects_for(id: String, up := false, lv := 1) -> Array:
 	if up and D().upgrades.has(id):
 		return D().upgrades[id].effects
-	return D().cards[id].effects
+	return def_lv(id, lv).effects
 
 
-## 카드 이름 (강화되면 이름 옆 +)
-static func card_name(id: String, up := false) -> String:
-	return D().cards[id].name + ("+" if up and D().upgrades.has(id) else "")
+## 레벨 표시가 붙는 카드인가 (죽음·상속 카드는 늘, 그 밖은 Lv2 이상일 때만)
+static func shows_level(id: String, lv: int) -> bool:
+	return lv >= 2 or str(D().cards[id].kind) in ["death", "inherit"]
+
+
+## 카드 이름 (강화·레벨이 있으면 이름 옆 Lv — 카드 강화는 + 대신 Lv 로 표기한다)
+static func card_name(id: String, up := false, lv := 1) -> String:
+	if up and D().upgrades.has(id):
+		lv = maxi(lv, 2)
+	return str(D().cards[id].name) + (" Lv%d" % lv if shows_level(id, lv) else "")
 
 
 ## 카드 설명문: {dmg} {all} {draw} {self} {weaken} {div} → 효과 수치
-static func card_values(id: String, up := false) -> Dictionary:
+static func card_values(id: String, up := false, lv := 1) -> Dictionary:
 	var v := {}
-	for e in effects_for(id, up):
+	for e in effects_for(id, up, lv):
 		match e.type:
 			"damage": v.dmg = e.amount
 			"damageAll": v.all = e.amount
@@ -109,9 +151,9 @@ static func card_values(id: String, up := false) -> Dictionary:
 
 
 ## wrap: 수치를 감쌀 함수(선택, 화면에서 강조용) — Callable(String) -> String
-static func card_text(id: String, up := false, wrap := Callable()) -> String:
-	var v := card_values(id, up)
-	var s: String = D().cards[id].get("text", "")
+static func card_text(id: String, up := false, wrap := Callable(), lv := 1) -> String:
+	var v := card_values(id, up, lv)
+	var s: String = def_lv(id, lv).get("text", "")
 	var re := RegEx.new()
 	re.compile("\\{(\\w+)\\}")
 	var out := ""
@@ -138,7 +180,7 @@ static func new_game(seed = null) -> Dictionary:
 	else:
 		sd = int(seed) & M32
 	var st := {"seed": sd, "rng": sd if sd != 0 else 1, "nextUid": 1, "cards": {}, "party": {}, "battle": null, "run": 1,
-		"flags": {}, "progress": {"floor": 1, "room": "camp", "visited": ["camp"]}}
+		"flags": {}, "progress": {"floor": 1, "room": "camp", "visited": ["camp"]}, "fates": [], "fateLog": []}
 	var p := {
 		"witch": {"hp": d.party.witch.hp, "maxHp": d.party.witch.hp},
 		"allies": {}, "order": d.party.order.duplicate(), "deck": [], "deathCards": []}
@@ -191,13 +233,19 @@ static func hittable(st: Dictionary) -> Array:
 	return list
 
 
+## 패배: 노엘 HP 0, 또는 살아 있는 동료가 있는데 모두 쓰러짐 (동료를 모두 바쳐 노엘 혼자 남으면 노엘 HP 만 본다)
 static func is_defeat(st: Dictionary) -> bool:
 	if int(st.party.witch.hp) <= 0:
 		return true
+	var living := 0
 	for id in st.party.order:
-		if is_ok(st, id):
+		var a = ally(st, id)
+		if a == null or a.status == "dead":
+			continue
+		living += 1
+		if a.status == "ok":
 			return false
-	return true
+	return living > 0
 
 
 # ───────── 전투 시작 ─────────
@@ -207,7 +255,8 @@ static func start_battle(st: Dictionary, enc_id: String) -> Array:
 	var b := {
 		"enc": enc_id, "kind": enc.kind, "turn": 0, "phase": "start", "energy": 0,
 		"draw": shuffle(st, st.party.deck.duplicate()), "hand": [], "discard": [], "exhaust": [],
-		"free": {}, "enemies": [], "result": null, "shadow": 0, "giantTriggered": false, "lastPlayedIndex": -1, "unlocked": {}}
+		"free": {}, "enemies": [], "result": null, "shadow": 0, "giantTriggered": false, "lastPlayedIndex": -1, "unlocked": {},
+		"actQueue": [], "awaitFate": null}
 	st.battle = b
 	# 죽음 카드는 전투 처음부터 손패에 있다(보존 — 버려지지 않고 한 칸을 차지한다)
 	for u in st.party.get("deathCards", []):
@@ -313,9 +362,28 @@ static func _pick_target(st: Dictionary) -> String:
 static func _roll_intents(st: Dictionary) -> void:
 	var b: Dictionary = st.battle
 	var enc: Dictionary = D().encounters[b.enc]
+	var fx = enc.get("fateIntents", {}).get(str(b.turn))
 	for e in b.enemies:
 		if not e.alive:
 			e.intent = null
+			continue
+		# 운명의 시도: 그 운명이 살아 있고 이 층에서 아직 오지 않았으면 이 적의 예고가 운명이 된다(치명, 옮기기 불가)
+		if fx != null and str(fx.enemy) == str(e.id):
+			var f = fate_by_id(st, str(fx.fate))
+			if f != null and f.alive and int(f.get("triedFloor", 0)) != floor_now(st):
+				e.intent = {"kind": "fate", "label": str(fx.label), "fate": f.id, "target": f.who, "value": 0, "lethal": true,
+					"redirectable": false, "by": [], "level": int(f.level)}
+				continue
+		var tdef: Dictionary = D().enemies[e.type]
+		if tdef.has("pattern"):
+			var pat: Array = tdef.pattern
+			var p: Dictionary = pat[(maxi(1, int(b.turn)) - 1) % pat.size()]
+			if p.kind == "aoe":
+				e.intent = {"kind": "aoe", "label": str(p.label), "value": int(p.value), "hitsWitch": bool(p.get("hitsWitch", true)),
+					"target": "all", "detail": "", "redirectable": false, "by": []}
+			else:
+				e.intent = {"kind": "attack", "label": str(p.get("label", "")), "value": int(p.value), "reduce": 0, "halve": false, "div": 1,
+					"target": _target_by(st, str(p.get("target", "random"))), "by": [], "redirectable": true}
 			continue
 		if b.kind == "giant":
 			var cd: Array = enc.countdown
@@ -342,6 +410,19 @@ static func _roll_intents(st: Dictionary) -> void:
 		e.intent = {"kind": "attack", "value": value, "reduce": 0, "halve": false, "div": 1, "target": target, "by": [], "redirectable": true}
 
 
+## 예고 대상 고르기: random(가중치) | highest(HP 가 가장 높은 서 있는 동료, 없으면 노엘)
+static func _target_by(st: Dictionary, how: String) -> String:
+	if how == "highest":
+		var best := ""
+		var bh := -1
+		for id in st.party.order:
+			if is_ok(st, id) and int(ally(st, id).hp) > bh:
+				bh = int(ally(st, id).hp)
+				best = id
+		return best if best != "" else "witch"
+	return _pick_target(st)
+
+
 static func _intents_event(st: Dictionary) -> Dictionary:
 	var arr := []
 	for e in st.battle.enemies:
@@ -351,7 +432,7 @@ static func _intents_event(st: Dictionary) -> Dictionary:
 
 ## 예고된 공격의 최종 피해
 static func intent_damage(intent) -> int:
-	if intent == null:
+	if intent == null or intent.get("blocked", false):
 		return 0
 	if intent.kind != "attack":
 		return int(intent.get("value", 0))
@@ -400,7 +481,7 @@ static func start_turn(st: Dictionary) -> Array:
 			ev.append({"t": "addCard", "uid": uid, "reason": "turnStart", "hand": b.hand.duplicate()})
 	var retained := 0
 	for u in b.hand:
-		if def(st, u).get("retain", false):
+		if def(st, u).get("retain", false) and (def(st, u).kind != "death" or bool(d.get("fateRules", {}).get("deathCardTakesSlot", true))):
 			retained += 1
 	var n: int = maxi(0, int(d.rules.drawPerTurn) - retained)
 	var sh: Dictionary = enc.get("scriptedHands", {})
@@ -471,7 +552,33 @@ static func can_play(st: Dictionary, uid: String) -> Dictionary:
 		return _no("에너지가 부족하다")
 	if c.target != "none" and valid_targets(st, uid).is_empty():
 		return _no("대상이 없다")
+	if c.target == "none" and _has_effect(effects_of(st, uid), "reflect") and reflectable_enemies(st).is_empty():
+		return _no("대상이 없다")
 	return {"ok": true}
+
+
+static func _has_effect(effs: Array, t: String) -> bool:
+	for e in effs:
+		if e.type == t:
+			return true
+	return false
+
+
+## 「꿰뚫린 방패」로 막을 수 있는 예고인가 (옮길 수 있는 공격 · 운명이 아닌 광역. 이미 막은 것 제외)
+static func reflectable(it) -> bool:
+	if it == null or it.get("blocked", false):
+		return false
+	return (it.kind == "attack" and bool(it.get("redirectable", true))) or (it.kind == "aoe" and not bool(it.get("lethal", false)))
+
+
+static func reflectable_enemies(st: Dictionary) -> Array:
+	var out := []
+	if st.battle == null:
+		return out
+	for e in alive_enemies(st):
+		if not e.immune and reflectable(e.intent):
+			out.append(e.id)
+	return out
 
 
 static func _redirect_effect(effs: Array):
@@ -493,6 +600,8 @@ static func valid_targets(st: Dictionary, uid: String) -> Array:
 			out.append(e.id)
 		return out
 	if c.target == "intent":
+		if _has_effect(effects_of(st, uid), "reflect"):
+			return reflectable_enemies(st)
 		var rd = _redirect_effect(effects_of(st, uid))
 		for e in alive_enemies(st):
 			var it = e.intent
@@ -545,6 +654,10 @@ static func _hit_enemy(st: Dictionary, e: Dictionary, amount: int, src_uid: Stri
 			return
 		ev.append({"t": "damage", "who": {"enemy": e.id}, "amount": 0, "immune": true, "hp": null, "src": src_id})
 		return
+	# 운명을 맡은 적(화형 사제): 그 운명의 시도가 오기 전에는 쓰러지지 않는다 (디버그 승리는 제외)
+	if src_uid != "" and amount >= int(e.hp) and _fate_pending_for(st, str(e.id)):
+		amount = maxi(0, int(e.hp) - 1)
+		ev.append({"t": "fateGuard", "enemy": e.id})
 	e.hp = maxi(0, int(e.hp) - amount)
 	ev.append({"t": "damage", "who": {"enemy": e.id}, "amount": amount, "hp": e.hp, "src": src_id})
 	if int(e.hp) <= 0:
@@ -567,6 +680,24 @@ static func _hit_ally(st: Dictionary, who: String, amount: int, ev: Array, cause
 	if int(a.hp) <= 0:
 		a.status = "down"
 		ev.append({"t": "allyDown", "ally": who})
+
+
+## 이 적이 맡은 운명의 시도가 아직 오지 않았는가 (encounters.fateIntents)
+static func _fate_pending_for(st: Dictionary, enemy_id: String) -> bool:
+	var b = st.battle
+	if b == null:
+		return false
+	var e = enemy(st, enemy_id)
+	if e == null or not bool(D().enemies[e.type].get("fateGuard", false)):
+		return false
+	var fi: Dictionary = D().encounters[b.enc].get("fateIntents", {})
+	for k in fi:
+		if str(fi[k].enemy) != enemy_id:
+			continue
+		var f = fate_by_id(st, str(fi[k].fate))
+		if f != null and f.alive and int(f.get("triedFloor", 0)) != floor_now(st):
+			return true
+	return false
 
 
 static func _check_defeat(st: Dictionary, ev: Array) -> bool:
@@ -621,7 +752,7 @@ static func play(st: Dictionary, uid: String, target := {}) -> Dictionary:
 	b.energy = int(b.energy) - cst
 	b.lastPlayedIndex = b.hand.find(uid)
 	b.hand.remove_at(b.lastPlayedIndex)
-	ev.append({"t": "play", "uid": uid, "id": st.cards[uid].id, "up": is_up(st, uid), "target": target.duplicate(true), "cost": cst,
+	ev.append({"t": "play", "uid": uid, "id": st.cards[uid].id, "up": is_up(st, uid), "lv": level(st, uid), "target": target.duplicate(true), "cost": cst,
 		"energy": b.energy, "hand": b.hand.duplicate(), "handIndex": b.lastPlayedIndex})
 	for eff in effects_of(st, uid):
 		_apply_effect(st, uid, c, eff, target, ev)
@@ -641,7 +772,7 @@ static func play(st: Dictionary, uid: String, target := {}) -> Dictionary:
 
 
 static func _apply_effect(st: Dictionary, uid: String, c: Dictionary, eff: Dictionary, target: Dictionary, ev: Array) -> void:
-	var b: Dictionary = st.battle
+	var b = st.battle
 	var d := D()
 	match eff.type:
 		"damage":
@@ -683,7 +814,18 @@ static func _apply_effect(st: Dictionary, uid: String, c: Dictionary, eff: Dicti
 				a.status = "dead"
 				a.hp = 0
 				st.party.deathCards.erase(uid)
-				ev.append({"t": "allyDeath", "ally": eff.ally, "cause": "deathCard", "card": st.cards[uid].id, "handIndex": b.lastPlayedIndex})
+				var lv := level(st, uid)
+				# 이 죽음 카드에 걸린 운명은 '바침'으로 끝난다
+				for f in st.get("fates", []):
+					if f.who == eff.ally and f.alive:
+						f.alive = false
+						f.result = "offered"
+						f.offeredLevel = lv
+						f.offeredFloor = floor_now(st)
+						f.triedFloor = floor_now(st)
+						st.fateLog.append({"fate": f.id, "who": f.who, "level": lv, "floor": floor_now(st), "result": "offered", "scars": 0})
+				ev.append({"t": "allyDeath", "ally": eff.ally, "cause": "deathCard", "card": st.cards[uid].id, "lv": lv,
+					"fate": str(c.get("fate", "")), "handIndex": b.lastPlayedIndex if b != null else -1})
 		"relicize":
 			var changes := []
 			for u in st.cards:
@@ -695,13 +837,37 @@ static func _apply_effect(st: Dictionary, uid: String, c: Dictionary, eff: Dicti
 					card.erase("up")
 			ev.append({"t": "relicize", "ally": eff.ally, "changes": changes})
 		"addCard":
-			var nu := new_card(st, eff.card)
+			var extra := {}
+			if str(eff.get("lvFrom", "")) == "source":
+				extra.lv = level(st, uid)
+			var nu := new_card(st, eff.card, extra)
 			if eff.get("permanent", false):
 				st.party.deck.append(nu)
+			if b == null:
+				# 전투 밖(탐사 중 운명의 시도에서 바침): 덱에만 들어간다
+				ev.append({"t": "gainCard", "uid": nu, "id": eff.card, "lv": int(extra.get("lv", 1))})
+				return
 			if eff.get("freeThisTurn", false):
 				b.free[nu] = b.turn
-			_add_to_hand(st, nu, b.lastPlayedIndex if eff.get("at", "") == "source" else null)
-			ev.append({"t": "addCard", "uid": nu, "reason": "effect", "free": bool(eff.get("freeThisTurn", false)), "hand": b.hand.duplicate()})
+			_add_to_hand(st, nu, b.lastPlayedIndex if eff.get("at", "") == "source" and int(b.lastPlayedIndex) >= 0 else null)
+			ev.append({"t": "addCard", "uid": nu, "reason": "effect", "free": bool(eff.get("freeThisTurn", false)), "hand": b.hand.duplicate(),
+				"lv": int(extra.get("lv", 1))})
+		"reflect":
+			# 「꿰뚫린 방패」: 예고된 공격을 막고(피해 0) 그 피해만큼 그 적에게 되돌린다
+			var list := []
+			if eff.get("all", false):
+				list = reflectable_enemies(st)
+			elif target.has("enemy") and reflectable_enemies(st).has(target.enemy):
+				list = [target.enemy]
+			for eid in list:
+				var en = enemy(st, eid)
+				var amt: int = int(en.intent.value) if en.intent.kind == "aoe" else intent_damage(en.intent)
+				en.intent.blocked = true
+				if en.intent.has("by"):
+					en.intent.by.append(str(c.name))
+				ev.append({"t": "reflect", "enemy": eid, "amount": amt})
+				ev.append(_intents_event(st))
+				_hit_enemy(st, en, amt, uid, ev)
 		_:
 			push_error("알 수 없는 효과: " + str(eff.type))
 
@@ -713,6 +879,12 @@ static func end_turn(st: Dictionary) -> Array:
 	if b == null or b.phase != "player" or b.result != null:
 		return ev
 	b.phase = "enemy"
+	# 흉터: 손에 든 채 턴이 끝나면 노엘 HP 가 준다
+	for u in b.hand:
+		var sd: Dictionary = def(st, u)
+		if sd.has("endTurnSelf"):
+			ev.append({"t": "scarBurn", "uid": u})
+			_hit_ally(st, "witch", int(sd.endTurnSelf), ev, "scar")
 	var keep := []
 	var gone := []
 	for u in b.hand:
@@ -720,22 +892,57 @@ static func end_turn(st: Dictionary) -> Array:
 	b.hand = keep
 	b.discard = b.discard + gone
 	ev.append({"t": "discardHand", "uids": gone, "hand": keep.duplicate()})
+	if _check_defeat(st, ev):
+		return ev
 	ev.append({"t": "enemyPhase"})
-	for e in b.enemies.duplicate():
-		if not e.alive or e.intent == null:
+	b.actQueue = []
+	for e in b.enemies:
+		if e.alive and e.intent != null:
+			b.actQueue.append(e.id)
+	_run_queue(st, ev)
+	return ev
+
+
+## 적이 차례로 행동한다. 운명의 시도가 오면 거기서 멈춘다(b.awaitFate) → fate_trial_choice → resume_enemy_phase
+static func _run_queue(st: Dictionary, ev: Array) -> void:
+	var b: Dictionary = st.battle
+	while not b.actQueue.is_empty():
+		if b.result != null:
+			return
+		var e = enemy(st, str(b.actQueue.pop_front()))
+		if e == null or not e.alive or e.intent == null:
 			continue
 		_perform_intent(st, e, ev)
-		if b.result != null:
-			break
+		if b.awaitFate != null:
+			return
 	if b.result == null:
 		_check_defeat(st, ev)
+
+
+## 운명의 시도 뒤 남은 적의 행동을 잇는다
+static func resume_enemy_phase(st: Dictionary) -> Array:
+	var ev := []
+	if st.battle == null or st.battle.result != null or st.battle.awaitFate != null:
+		return ev
+	_run_queue(st, ev)
 	return ev
 
 
 static func _perform_intent(st: Dictionary, e: Dictionary, ev: Array) -> void:
 	var b: Dictionary = st.battle
 	var it: Dictionary = e.intent
+	if it.get("blocked", false):
+		ev.append({"t": "enemyAct", "enemy": e.id, "kind": "blocked"})
+		return
 	match it.kind:
+		"fate":
+			var f = fate_by_id(st, str(it.fate))
+			if f == null or not f.alive:
+				return
+			f.triedFloor = floor_now(st)
+			b.awaitFate = {"fate": f.id, "enemy": e.id, "who": f.who, "level": int(f.level)}
+			ev.append({"t": "enemyAct", "enemy": e.id, "kind": "fate", "target": f.who})
+			ev.append({"t": "fateTrial", "fate": f.id, "enemy": e.id, "who": f.who, "level": int(f.level)})
 		"attack":
 			var amount := intent_damage(it)
 			var target: String = it.target
@@ -805,6 +1012,185 @@ static func finish_battle(st: Dictionary) -> Array:
 			st.cards.erase(u)
 	st.battle = null
 	return ev
+
+
+# ───────── 운명 (fate-design.md · prototype-v2-spec.md 4.1) ─────────
+static func floor_now(st: Dictionary) -> int:
+	return int(st.get("progress", {}).get("floor", 1))
+
+
+static func fate_by_id(st: Dictionary, id: String):
+	for f in st.get("fates", []):
+		if f.id == id:
+			return f
+	return null
+
+
+static func fate_of(st: Dictionary, who: String):
+	for f in st.get("fates", []):
+		if f.who == who and f.alive:
+			return f
+	return null
+
+
+## 아직 정해지지 않은 운명들 (운명 표시·전투 손패)
+static func active_fates(st: Dictionary) -> Array:
+	return st.get("fates", []).filter(func(f): return f.alive)
+
+
+## 새 운명: 그 동료의 죽음 카드(Lv1)가 노엘 손에 들어온다. 반환: 죽음 카드 uid ("" = 이미 죽었거나 운명이 있음)
+static func add_fate(st: Dictionary, fate_id: String, floor := -1) -> String:
+	var fd: Dictionary = D().fates[fate_id]
+	var a = ally(st, fd.who)
+	if a == null or a.status == "dead" or fate_of(st, fd.who) != null or fate_by_id(st, fate_id) != null:
+		return ""
+	var uid := new_card(st, fd.card, {"lv": 1})
+	st.party.deathCards.append(uid)
+	st.fates.append({"id": fate_id, "who": fd.who, "method": fd.method, "floor": floor if floor > 0 else floor_now(st) + 1, "level": 1,
+		"alive": true, "result": "", "triedFloor": 0, "card": uid, "defied": 0})
+	return uid
+
+
+## 바친다: 운명의 시도에서 노엘이 죽음 카드를 낸다 → 그 동료 사망 → 유품 → 상속 카드(같은 Lv).
+## 전투 중이면 손패에서 낸 것과 같고(상속 카드는 손패로), 탐사 중이면 덱에만 들어간다
+static func offer_fate(st: Dictionary, fate_id: String) -> Array:
+	var ev := []
+	var f = fate_by_id(st, fate_id)
+	if f == null or not f.alive or not st.cards.has(f.card):
+		return ev
+	var uid: String = f.card
+	var b = st.battle
+	if b != null:
+		b.lastPlayedIndex = b.hand.find(uid)
+		if b.lastPlayedIndex >= 0:
+			b.hand.remove_at(b.lastPlayedIndex)
+		ev.append({"t": "play", "uid": uid, "id": st.cards[uid].id, "up": false, "lv": level(st, uid), "target": {}, "cost": 0,
+			"energy": b.energy, "hand": b.hand.duplicate(), "handIndex": b.lastPlayedIndex, "byFate": true})
+	var c := def(st, uid)
+	for eff in c.effects:
+		_apply_effect(st, uid, c, eff, {}, ev)
+	if b != null:
+		b.exhaust.append(uid)
+		if b.result == null:
+			_check_defeat(st, ev)
+	ev.append({"t": "fateOffered", "fate": fate_id, "who": f.who, "level": int(f.get("offeredLevel", f.level))})
+	return ev
+
+
+## 거스른다: 카드를 내지 않는다 → 그 동료는 살고, 노엘 덱에 흉터가 들어온다(그 순간). 전투 중이면 뽑을 더미에도 섞는다
+static func defy_fate(st: Dictionary, fate_id: String) -> Array:
+	var f = fate_by_id(st, fate_id)
+	if f == null or not f.alive:
+		return []
+	var fd: Dictionary = D().fates[fate_id]
+	f.triedFloor = floor_now(st)
+	f.defied = int(f.get("defied", 0)) + 1
+	var scars: Array = fd.scars
+	var n: int = int(scars[clampi(int(f.level) - 1, 0, scars.size() - 1)])
+	var uids := []
+	for i in n:
+		var u := new_card(st, "scar")
+		st.party.deck.append(u)
+		if st.battle != null:
+			st.battle.draw.insert(rint(st, st.battle.draw.size() + 1), u)
+		uids.append(u)
+	st.fateLog.append({"fate": fate_id, "who": f.who, "level": int(f.level), "floor": floor_now(st), "result": "defied", "scars": n})
+	return [{"t": "fateDefied", "fate": fate_id, "who": f.who, "level": int(f.level), "scars": uids}]
+
+
+## 전투 중 운명의 시도에서 고른 것 (offer | defy)
+static func fate_trial_choice(st: Dictionary, choice: String) -> Array:
+	var b = st.battle
+	if b == null or b.awaitFate == null:
+		return []
+	var af: Dictionary = b.awaitFate
+	b.awaitFate = null
+	var e = enemy(st, str(af.enemy))
+	if e != null:
+		e.intent = null
+	var ev: Array = offer_fate(st, str(af.fate)) if choice == "offer" else defy_fate(st, str(af.fate))
+	ev.append(_intents_event(st))
+	return ev
+
+
+## 흉터 장수 (덱)
+static func scar_count(st: Dictionary) -> int:
+	var n := 0
+	for u in st.party.deck:
+		if st.cards.has(u) and st.cards[u].id == "scar":
+			n += 1
+	return n
+
+
+## 층을 살아서 내려간다: 이 층(또는 지난 층)의 운명은 레벨 +1·다음 층으로 미뤄지고 문구가 바뀐다. 마지막 단계를 넘기면 구함
+static func descend(st: Dictionary) -> Array:
+	var ev := []
+	var fl := floor_now(st)
+	for f in st.get("fates", []):
+		if not f.alive:
+			continue
+		var a = ally(st, f.who)
+		if a == null or a.status == "dead":
+			f.alive = false
+			continue
+		if int(f.floor) > fl:
+			continue
+		var mx := int(D().fates[f.id].get("maxLevel", 3))
+		if int(f.level) >= mx:
+			f.alive = false
+			f.result = "saved"
+			st.party.deathCards.erase(f.card)
+			ev.append({"t": "fateSaved", "fate": f.id, "who": f.who})
+			continue
+		f.level = int(f.level) + 1
+		f.floor = fl + 1
+		if st.cards.has(f.card):
+			st.cards[f.card].lv = f.level
+		ev.append({"t": "fateLevelUp", "fate": f.id, "who": f.who, "level": f.level, "floor": f.floor, "uid": f.card})
+	st.progress.floor = fl + 1
+	return ev
+
+
+## 살아 있는 모두 HP 회복 (쓰러진 동료도 일어난다). [임시] 새 층에 들어설 때
+static func heal_all(st: Dictionary) -> void:
+	st.party.witch.hp = st.party.witch.maxHp
+	for id in st.party.order:
+		var a: Dictionary = st.party.allies[id]
+		if a.status == "dead":
+			continue
+		a.status = "ok"
+		a.hp = a.maxHp
+
+
+## 시험·바로 가기용: 튜토리얼(1층)을 끝낸 상태 — 세라피나 사망(유품·짓밟힘), 브룬힐드 관통 Lv1 (2층)
+static func state_after_tutorial(seed = null, sera := "none") -> Dictionary:
+	var st := new_game(seed)
+	for u in st.party.deathCards.duplicate():
+		var c := def(st, u)
+		if c.get("ally", "") == "hero":
+			var ev := []
+			for eff in c.effects:
+				_apply_effect(st, u, c, eff, {}, ev)
+			st.cards.erase(u)
+	st.flags.sera = sera
+	st.progress.floor = 1
+	add_fate(st, "warrior_pierce", 2)
+	descend(st)
+	st.progress.room = "f2corridor"
+	return st
+
+
+## 시험·바로 가기용: 2층을 끝낸 상태 (brun: alive = 거스름 → 3층에서 Lv2 / dead = 바침), 엘리안 화형 Lv1 (3층)
+static func state_floor3(seed = null, brun := "alive") -> Dictionary:
+	var st := state_after_tutorial(seed)
+	if brun == "dead":
+		offer_fate(st, "warrior_pierce")
+	else:
+		defy_fate(st, "warrior_pierce")
+	add_fate(st, "archer_burn", 3)
+	descend(st)
+	st.progress.room = "f3chapel"
+	return st
 
 
 # ───────── 갈림길: 휴식 / 훈련 (tutorial-flow.md 2장) ─────────

@@ -99,6 +99,65 @@ func show_omen(cfg: Dictionary) -> void:
 	await FX.wait(float(cfg.get("hold", 900)))
 
 
+## 흐리던 카드가 또렷해진다 (다음 죽음이 누구인지 보인다 — 빈 캠프·2층 계단)
+## cfg: {card: 카드 id, taut: [동료]} — 그 카드는 노엘이 쥔 죽음 카드여야 한다(fate: 로 먼저 넣는다)
+func sharpen(cfg: Dictionary) -> void:
+	var st: Dictionary = G.ctl.st
+	var cid: String = cfg.get("card", "")
+	var uid := ""
+	for u in st.party.get("deathCards", []):
+		if st.cards[u].id == cid:
+			uid = u
+	if uid == "" or not showing:
+		return
+	var o := _conf()
+	var old := card
+	card = CardView.new()
+	rig.add_child(card)
+	card.setup_face(st, uid)
+	card.set_rect(Vector2(o.cardX, o.cardY), float(o.get("cardK", 1.4)), true)
+	card.smooth = false
+	card.apply_blur(1.0)
+	card.alpha = 0.0
+	G.ctl.note("omen sharpen " + cid)
+	var nc := card
+	var a := FX.anim(1600, [{"b": 1.0, "a": 0.0}, {"o": 0.3, "b": 0.85, "a": 1.0}, {"b": 0.0, "a": 1.0}], func(v):
+		if is_instance_valid(nc):
+			nc.apply_blur(v.b)
+			nc.alpha = v.a
+		if is_instance_valid(old):
+			old.alpha = 1.0 - v.a, {"node": self, "easing": "ease-in-out", "key": "omen_sharp"})
+	await FX.until(a)
+	if is_instance_valid(old):
+		old.queue_free()
+	faint = []
+	taut = cfg.get("taut", [])
+	tension = 0.0
+	FX.flash("#5a0010", 400, 0.35)
+	FX.anim(800, [{"t": 0.0}, {"t": 1.0}], func(v): tension = v.t, {"node": self, "key": "omen_t"})
+	await FX.wait(float(cfg.get("hold", 900)))
+
+
+## 살아서 내려간 운명: 카드가 Lv2 로 바뀐다 (붉게 타오르며 문구가 바뀜) — Rules.descend 뒤에
+func level_up() -> void:
+	if card == null or not showing:
+		return
+	var st: Dictionary = G.ctl.st
+	var c := card
+	G.ctl.note("omen levelup")
+	var a := FX.anim(500, [{"b": 1.0}, {"b": 2.8}], func(v): if is_instance_valid(c): c.bright = v.b, {"node": self})
+	await FX.until(a)
+	if is_instance_valid(c):
+		c.build(st)
+	var p := c.center() + rig.position
+	FX.flash("#7a0010", 420, 0.5)
+	FX.shake(10, 420)
+	FX.burst(p.x, p.y, {"count": 50, "colors": ["#ff2a3c", "#7a0010", "#ffb0b6"], "speed": 360, "life": 900, "size": 4, "gravity": 0})
+	var b := FX.anim(900, [{"b": 2.8}, {"b": 1.0}], func(v): if is_instance_valid(c): c.bright = v.b, {"node": self, "easing": "ease-out"})
+	await FX.until(b)
+	await FX.wait(600)
+
+
 ## 카드가 손 안으로 가라앉듯 사라진다
 func hide_omen() -> void:
 	if not showing:

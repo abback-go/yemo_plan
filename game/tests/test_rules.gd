@@ -104,6 +104,7 @@ func _init() -> void:
 	t_relic_clears_up()
 	t_data()
 	t_topdown()
+	t_fate_v2()
 	print("rules: %d passed, failures: %d" % [passes, fails])
 	quit(1 if fails > 0 else 0)
 
@@ -238,7 +239,7 @@ func t_normal_complete() -> void:
 
 # 2층: 광신도 2 → 1명 남으면 발이 내려와 짓밟음
 func t_floor2_giant() -> void:
-	var st := normal_battle(7, "floor2")
+	var st := normal_battle(7, "deep")
 	var two: bool = st.battle.enemies.size() == 2
 	var r := Rules.play(st, find_in_hand(st, "holy_slash") if find_in_hand(st, "holy_slash") != "" else give_card(st, "holy_slash"), {"enemy": "c1"})
 	var trig := {}
@@ -249,7 +250,7 @@ func t_floor2_giant() -> void:
 
 
 func t_floor2_all() -> void:
-	var st := normal_battle(7, "floor2")
+	var st := normal_battle(7, "deep")
 	Rules.debug_set_hp(st, "c1", 3)
 	Rules.debug_set_hp(st, "c3", 3)
 	var r := Rules.play(st, give_card(st, "vanguard"), {})
@@ -302,7 +303,7 @@ func t_locked_persist() -> void:
 	var win: bool = st.battle.result == "win"
 	Rules.finish_battle(st)
 	var kept: bool = st.cards.has(death) and st.party.deathCards == [death] and st.party.deck.size() == 15 and not st.party.deck.has(death)
-	Rules.start_battle(st, "floor2")
+	Rules.start_battle(st, "deep")
 	var in_hand: bool = st.battle.hand == [death]
 	Rules.start_turn(st)
 	var h := hand_ids(st)
@@ -453,8 +454,8 @@ func t_train() -> void:
 		b.hand.append(u)
 	Rules.debug_set_hp(st, "c1", 18)
 	var r := Rules.play(st, u, {"enemy": "c1"})
-	check("훈련: 후보 3장(서로 다름) → 1장만 강화(+), 피해 14 → 18", c.size() == 3 and uniq and in_table and u != "" and ups.size() == 1
-		and Rules.card_name("holy_slash", true) == "성검 베기+" and Rules.card_text("holy_slash", true) == "적 1명에게 18 피해" and r.ok and not Rules.enemy(st, "c1").alive and st.flags.upgraded == "holy_slash", str(c))
+	check("훈련: 후보 3장(서로 다름) → 1장만 강화(Lv2), 피해 14 → 18", c.size() == 3 and uniq and in_table and u != "" and ups.size() == 1
+		and Rules.card_name("holy_slash", true) == "성검 베기 Lv2" and Rules.card_text("holy_slash", true) == "적 1명에게 18 피해" and r.ok and not Rules.enemy(st, "c1").alive and st.flags.upgraded == "holy_slash", str(c))
 
 
 func t_cover_up() -> void:
@@ -612,6 +613,165 @@ func t_topdown() -> void:
 	var v1 := TopdownNav.stick_to_vec(Vector2(0.3, 0), sc.dead, sc.min)
 	var v2 := TopdownNav.stick_to_vec(Vector2(0, -2.0), sc.dead, sc.min)
 	check("탑뷰 조이스틱: 가운데는 0, 조금 기울이면 느리게, 끝까지 기울이면 최대", v0 == Vector2.ZERO and v1.length() > 0.0 and v1.length() < 0.6 and v1.x > 0 and absf(v2.length() - 1.0) < 0.001 and v2.y < 0, "%s %s %s" % [v0, v1, v2])
+
+
+# ───────── 1차 시험판 v2: 운명 (prototype-v2-spec.md 0장·4장) ─────────
+func _deck_ids(st: Dictionary) -> Array:
+	return st.party.deck.map(func(u): return st.cards[u].id)
+
+
+func _deck_lv(st: Dictionary, id: String) -> int:
+	for u in st.party.deck:
+		if st.cards[u].id == id:
+			return Rules.level(st, u)
+	return 0
+
+
+func t_fate_v2() -> void:
+	# 튜토리얼 끝: 세라피나 사망, 브룬힐드 관통 Lv1 (2층)
+	var st := Rules.state_after_tutorial(7)
+	var f = Rules.fate_of(st, "warrior")
+	check("v2 튜토리얼 끝: 브룬힐드 운명 Lv1·2층, 죽음 카드 1장, 세라피나 사망·짓밟힘",
+		f != null and f.level == 1 and f.floor == 2 and Rules.floor_now(st) == 2 and st.party.deathCards.size() == 1
+		and st.cards[st.party.deathCards[0]].id == "warrior_death" and st.party.allies.hero.status == "dead" and _deck_ids(st).has("trample")
+		and not _deck_ids(st).has("holy_slash") and _deck_ids(st).has("broken_sword"))
+	check("v2 카드 레벨 표기: 죽음 카드 Lv1, 훈련 강화는 Lv2 (+ 아님)",
+		Rules.card_name("warrior_death", false, 1) == "전사의 죽음 Lv1" and Rules.card_name("holy_slash", true) == "성검 베기 Lv2"
+		and Rules.card_name("snipe") == "저격" and Rules.card_text("warrior_death", false, Callable(), 1) == "브룬힐드는 2층에서 관통당해 죽는다.")
+	# ① 바친다 (탐사 중): 죽음 → 유품 → 상속 카드(같은 Lv)
+	var a := st.duplicate(true)
+	var ev := Rules.offer_fate(a, "warrior_pierce")
+	var fa = Rules.fate_by_id(a, "warrior_pierce")
+	check("v2 바침(필드): 브룬힐드 사망, 감싸기·방패 강타 → 유품, 「꿰뚫린 방패」 Lv1 덱에, 운명 끝(offered)",
+		a.party.allies.warrior.status == "dead" and not _deck_ids(a).has("cover") and _deck_ids(a).has("warrior_shard") and _deck_ids(a).has("warrior_last_bash")
+		and _deck_lv(a, "pierced_shield") == 1 and a.party.deathCards.is_empty() and not fa.alive and fa.result == "offered" and has_ev(ev, "allyDeath") and has_ev(ev, "gainCard")
+		and Rules.scar_count(a) == 0)
+	# ② 거스른다: 살고, 흉터 1장이 그 순간 덱에
+	var b := st.duplicate(true)
+	var ev2 := Rules.defy_fate(b, "warrior_pierce")
+	var fb = Rules.fate_by_id(b, "warrior_pierce")
+	check("v2 거스름: 브룬힐드 생존, 흉터 1장(그 순간 덱에), 운명은 살아 있음(이 층 시도 끝)",
+		b.party.allies.warrior.status == "ok" and Rules.scar_count(b) == 1 and fb.alive and int(fb.triedFloor) == 2 and has_ev(ev2, "fateDefied")
+		and b.party.deathCards.size() == 1)
+	# ③ 살아서 내려가면 Lv2 · 문구 교체 · 3층
+	var add := Rules.add_fate(b, "archer_burn", 3)
+	var ev3 := Rules.descend(b)
+	var wc: String = fb.card
+	check("v2 층 내려감: 브룬힐드 운명 Lv2·3층, 카드 Lv2·문구 교체 / 새 운명 엘리안 화형 Lv1 그대로",
+		fb.level == 2 and fb.floor == 3 and Rules.level(b, wc) == 2 and Rules.def(b, wc).text == "브룬힐드는 3층에서 꼬챙이에 꿰여 매달려 죽는다."
+		and Rules.fate_of(b, "archer").level == 1 and Rules.fate_of(b, "archer").floor == 3 and add != "" and has_ev(ev3, "fateLevelUp") and Rules.floor_now(b) == 3
+		and b.party.deathCards.size() == 2)
+	# 흉터 장수: 1단계 1 / 2단계 1 / 3단계 2
+	var c3 := b.duplicate(true)
+	Rules.defy_fate(c3, "warrior_pierce")
+	var n2 := Rules.scar_count(c3)
+	Rules.descend(c3)
+	Rules.defy_fate(c3, "warrior_pierce")
+	check("v2 흉터 장수: 1단계 1 · 2단계 1 · 3단계 2", n2 == 2 and Rules.scar_count(c3) == 4, "%d %d" % [n2, Rules.scar_count(c3)])
+	# ④ 브룬힐드가 살아 있으면 두 죽음 카드가 모두 손에 (드로우 5 − 2)
+	var s3 := Rules.state_floor3(7, "alive")
+	Rules.start_battle(s3, "pyre")
+	Rules.start_turn(s3)
+	var hd := hand_ids(s3)
+	check("v2 3층(브룬힐드 생존): 첫 턴 손패에 두 죽음 카드 + 새로 3장, 비용 0",
+		hd.has("warrior_death") and hd.has("archer_death") and hd.size() == 5 and Rules.cost(s3, find_in_hand(s3, "archer_death")) == 0, str(hd))
+	var s3d := Rules.state_floor3(7, "dead")
+	Rules.start_battle(s3d, "pyre")
+	Rules.start_turn(s3d)
+	var hd2 := hand_ids(s3d)
+	check("v2 3층(브룬힐드 사망): 엘리안 죽음 카드 1장 + 새로 4장, 「꿰뚫린 방패」 Lv1 덱에",
+		hd2.has("archer_death") and not hd2.has("warrior_death") and hd2.size() == 5 and _deck_lv(s3d, "pierced_shield") == 1, str(hd2))
+	# ⑤ 전투 중 운명의 시도: 2턴 화형 사제 「운명의 불길 → 엘리안」(옮기기 불가) → 멈춤 → 거스름
+	var p := s3.duplicate(true)
+	Rules.end_turn(p)
+	Rules.start_turn(p)
+	var pi = Rules.enemy(p, "p1").intent
+	var ok_int: bool = pi.kind == "fate" and pi.target == "archer" and not pi.redirectable and pi.lethal
+	var vt := Rules.valid_targets(p, give_card(p, "fate_shift"))
+	var evt := Rules.end_turn(p)
+	check("v2 운명의 불길: 2턴 예고(엘리안, 치명, 옮기기 불가) → 적 차례에 멈춤(awaitFate)",
+		ok_int and not vt.has("p1") and has_ev(evt, "fateTrial") and p.battle.awaitFate != null, str(pi))
+	var hp_a: int = p.party.allies.archer.hp
+	var evd := Rules.fate_trial_choice(p, "defy")
+	var evr := Rules.resume_enemy_phase(p)
+	check("v2 운명의 불길 거스름: 엘리안 생존(피해 0) · 흉터 +1 · 남은 적 행동 이어짐",
+		p.party.allies.archer.status != "dead" and p.party.allies.archer.hp == hp_a and Rules.scar_count(p) == Rules.scar_count(s3) + 1
+		and has_ev(evd, "fateDefied") and p.battle.awaitFate == null and Rules.fate_of(p, "archer").triedFloor == 3)
+	# 바침: 상속 「타버린 활」 Lv1 → 덱 영구 + 손패에 바로
+	var q := s3.duplicate(true)
+	Rules.end_turn(q)
+	Rules.start_turn(q)
+	Rules.end_turn(q)
+	var evo := Rules.fate_trial_choice(q, "offer")
+	check("v2 운명의 불길 바침: 엘리안 사망 · 「타버린 활」 Lv1 덱 + 손패 · 저격 → 유품",
+		q.party.allies.archer.status == "dead" and hand_ids(q).has("burnt_bow") and _deck_lv(q, "burnt_bow") == 1 and _deck_ids(q).has("archer_arrow")
+		and has_ev(evo, "allyDeath") and not hand_ids(q).has("archer_death"))
+	# 손패의 죽음 카드를 직접 내도 같다: 브룬힐드 Lv2 → 「꿰뚫린 방패」 Lv2 (예고 모두 막기)
+	var r := s3.duplicate(true)
+	var wu := find_in_hand(r, "warrior_death")
+	var rr := Rules.play(r, wu, {})
+	var ps := find_in_hand(r, "pierced_shield")
+	check("v2 죽음 카드 Lv2 직접 냄: 브룬힐드 사망 · 「꿰뚫린 방패」 Lv2 손패(대상 없음)",
+		rr.ok and r.party.allies.warrior.status == "dead" and ps != "" and Rules.level(r, ps) == 2 and Rules.def(r, ps).target == "none"
+		and Rules.fate_by_id(r, "warrior_pierce").result == "offered")
+	var e_before := {}
+	for e in Rules.alive_enemies(r):
+		e_before[e.id] = e.hp
+	var rp := Rules.play(r, ps, {})
+	var all_blocked := true
+	for e in Rules.alive_enemies(r):
+		if not e.intent.get("blocked", false):
+			all_blocked = false
+	check("v2 「꿰뚫린 방패」 Lv2: 예고된 공격 모두 막고 각 피해만큼 되돌림", rp.ok and all_blocked and Rules.enemy(r, "c1").hp < int(e_before.c1), str(e_before))
+	# Lv1: 공격 1개만
+	var r1 := s3d.duplicate(true)
+	r1.party.witch.hp = 99
+	r1.party.allies.archer.hp = 99
+	Rules.end_turn(r1)
+	Rules.start_turn(r1)
+	Rules.end_turn(r1)
+	Rules.fate_trial_choice(r1, "defy")
+	Rules.resume_enemy_phase(r1)
+	Rules.start_turn(r1)
+	var sh2 := give_card(r1, "pierced_shield")
+	var c1hp: int = Rules.enemy(r1, "c1").hp
+	var dmg: int = Rules.intent_damage(Rules.enemy(r1, "c1").intent)
+	var rp1 := Rules.play(r1, sh2, {"enemy": "c1"})
+	check("v2 「꿰뚫린 방패」 Lv1: 공격 1개 막음(피해 0) + 그만큼 되돌림",
+		rp1.ok and Rules.intent_damage(Rules.enemy(r1, "c1").intent) == 0 and Rules.enemy(r1, "c1").hp == maxi(0, c1hp - dmg) and dmg > 0, "%d %d" % [c1hp, dmg])
+	# 흉터: 손에 든 채 턴이 끝나면 노엘 HP -1, 낼 수 없음
+	var sc := Rules.state_after_tutorial(3)
+	Rules.defy_fate(sc, "warrior_pierce")
+	Rules.start_battle(sc, "ossuary")
+	Rules.start_turn(sc)
+	var su := give_card(sc, "scar")
+	var whp: int = sc.party.witch.hp
+	var cp := Rules.can_play(sc, su)
+	var evs := Rules.end_turn(sc)
+	var scar_hits := 0
+	for e in evs:
+		if e.t == "damage" and e.get("cause", "") == "scar":
+			scar_hits += 1
+	check("v2 흉터: 낼 수 없음 · 손에 든 채 턴 끝 → 노엘 HP -1", not cp.ok and scar_hits >= 1 and has_ev(evs, "scarBurn"))
+	# 화형 사제는 운명의 시도가 오기 전에는 쓰러지지 않는다
+	var g := Rules.state_floor3(7, "dead")
+	Rules.start_battle(g, "pyre")
+	Rules.start_turn(g)
+	var bs := give_card(g, "broken_sword")
+	Rules.enemy(g, "p1").hp = 10
+	Rules.play(g, bs, {"enemy": "p1"})
+	check("v2 화형 사제: 운명의 시도 전에는 HP 1 에서 버팀", Rules.enemy(g, "p1").alive and Rules.enemy(g, "p1").hp == 1)
+	# 동료를 모두 바쳐 노엘 혼자 남아도 노엘 HP 가 남으면 패배가 아니다
+	var lone := Rules.state_floor3(7, "dead")
+	lone.party.allies.archer.status = "dead"
+	check("v2 패배 조건: 동료가 모두 죽고 노엘 혼자면 노엘 HP 로만 판단", not Rules.is_defeat(lone))
+	# 데이터: 운명 표, 카드 그림 등록
+	var okd := true
+	for fid in D.fates:
+		var fd: Dictionary = D.fates[fid]
+		if not (D.cards.has(fd.card) and D.cards.has(fd.inherit) and D.cards[fd.card].kind == "death" and fd.scars.size() == 3):
+			okd = false
+	check("v2 데이터: 운명 표의 죽음·상속 카드, 흉터 장수", okd)
 
 
 func _collect(v, out: Array) -> void:

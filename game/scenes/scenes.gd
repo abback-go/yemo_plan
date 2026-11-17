@@ -8,6 +8,10 @@ signal cutscene_done
 var current: Node = null
 var current_name := ""
 var cut := {}
+var cut_root: Control = null   # 컷신(데스신)은 지금 장면(탑뷰 등)을 지우지 않고 그 위에 덮는다
+var cut_key := "hero"
+var cut_level := 1
+var overlays: Array = []        # 운명 선택·카드 획득 등 지금 장면 위에 뜬 화면
 var cut_log: Array = []
 var _waiters: Array = []
 
@@ -21,10 +25,25 @@ func clear() -> void:
 		current.queue_free()
 	current = null
 	current_name = ""
+	if cut_root != null and is_instance_valid(cut_root):
+		cut_root.queue_free()
+	cut_root = null
+	for o in overlays:
+		if is_instance_valid(o):
+			o.queue_free()
+	overlays = []
 	for w in _waiters:
 		w.finish()
 	_waiters = []
 	cut = {}
+
+
+## 컷신·운명 선택 등 지금 장면 위에 덮인 화면이 있는가 (탑뷰 입력을 멈춘다)
+func overlay_open() -> bool:
+	for o in overlays:
+		if is_instance_valid(o) and o.is_inside_tree():
+			return true
+	return cut_root != null and is_instance_valid(cut_root)
 
 
 func mount(node: Node, name: String) -> void:
@@ -147,7 +166,7 @@ func topdown() -> void:
 	G.ctl.in_battle = false
 	G.view.clear()
 	var t := TopdownScene.new()
-	t.setup()
+	t.setup("fork", {"trial": true})
 	mount(t, "topdown")
 	await t.run()
 
@@ -155,6 +174,10 @@ func topdown() -> void:
 # ───────── 용사 사망 컷신 C1~C6 ─────────
 func _cut_lines(c: Dictionary) -> Array:
 	var out := []
+	if cut_key != "hero":
+		var dl: Dictionary = G.S.deathScenes.get(cut_key, {})
+		var lv_lines: Dictionary = dl.get("lv%d" % cut_level, {})
+		return lv_lines.get(c.id, dl.get("lines", {}).get(c.id, []))
 	for ln in G.S.cutLines.get(c.id, []):
 		if ln.get("sera", false):
 			var key := str(G.ctl.st.flags.get("sera", "none"))
@@ -165,8 +188,11 @@ func _cut_lines(c: Dictionary) -> Array:
 	return out
 
 
-func cutscene() -> void:
-	var cs: Dictionary = GameData.D.cutscene
+## 데스신. key: hero(세라피나 C1~C6) | warrior_pierce | archer_burn (game_data.gd deathScenes), level: 그 죽음 카드의 Lv (2 이상이면 더 어둡게·창/불 덧그림)
+func cutscene(key := "hero", level := 1) -> void:
+	cut_key = key
+	cut_level = level
+	var cs: Dictionary = GameData.D.cutscene if key == "hero" else GameData.D.deathScenes[key]
 	var root := Control.new()
 	root.size = Vector2(1920, 1080)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -215,12 +241,26 @@ func cutscene() -> void:
 	hint.position = Vector2(1620, 1030)
 	hint.size = Vector2(270, 30)
 	root.add_child(hint)
-	mount(root, "cutscene")
+	# 2단계 이상의 죽음: 같은 그림을 더 어둡게 + 창(관통) / 불(화형) 덧그림 + 불씨
+	var extra := DeathOverlay.new()
+	extra.kind = str(cs.get("overlay", ""))
+	extra.level = level
+	extra.visible = level >= 2 and extra.kind != ""
+	box.add_child(extra)
+	if level >= 2:
+		img.modulate = Color(0.68, 0.6, 0.62)
+	if cut_root != null and is_instance_valid(cut_root):
+		cut_root.queue_free()
+	add_child(root)
+	cut_root = root
+	current_name = "cutscene" if current == null else current_name
+	G.ctl.note("scene cutscene " + key + " lv" + str(level))
 	cut = {"root": root, "holder": holder, "box": box, "img": img, "shade": shade, "black": black, "lens": lens, "pool": pool, "sub": sub, "waiter": null, "image": ""}
-	var pi := pool.pool(float(cs.pool.x0), float(cs.pool.x1), float(cs.pool.y), 5)
+	var pd: Dictionary = cs.get("pool", GameData.D.cutscene.pool)
+	var pi := pool.pool(float(pd.x0), float(pd.x1), float(pd.y), 5)
 	cut_log = []
 	for c in cs.cuts:
-		if current != root:
+		if cut_root != root:
 			return
 		cut_log.append(c.id)
 		G.ctl.note("cut " + str(c.id))
@@ -236,8 +276,8 @@ func cutscene() -> void:
 					pool.items = []
 					FX.anim(float(c.duration), [{"a": lens.modulate.a}, {"a": 0.45}], func(v): lens.modulate.a = v.a, {"node": lens})
 				await _image_cut(c)
-	G.ctl.note("cut end " + str(current == root))
-	if current != root:
+	G.ctl.note("cut end " + str(cut_root == root))
+	if cut_root != root:
 		return
 	_subtitle({})
 	FX.anim(400, [{"a": lens.modulate.a}, {"a": 0.0}], func(v): lens.modulate.a = v.a, {"node": lens})
@@ -300,6 +340,15 @@ func _image_cut(c: Dictionary) -> void:
 		FX.shake_node(cut.holder, 3, float(c.duration), 0.2)
 	else:
 		_shade(0, 300)
+	# 데스신 첫 컷: 흰 섬광 → 강한 흔들림 → 화면(마녀의 눈)에 피가 튄다
+	if c.get("impact", false):
+		FX.flash("#ffffff", 240, 1)
+		FX.shake_node(cut.holder, 34, 700)
+		var lens0: BloodLayer = cut.lens
+		lens0.modulate.a = 1.0
+		lens0.spray({"count": 3, "min": 140, "max": 260, "x0": 300, "x1": 1500, "y0": 150, "y1": 700, "seed": 17 + cut_level, "stagger": 40})
+		lens0.spray({"count": 6, "min": 40, "max": 100, "seed": 29, "stagger": 25})
+		FX.anim(float(c.duration), [{"a": 1.0}, {"a": 0.55}], func(v): if is_instance_valid(lens0): lens0.modulate.a = v.a, {"node": lens0})
 	await _black(0.0, 700.0 if c.id == "C1" else 250.0)
 	var lines := _cut_lines(c)
 	if lines.is_empty():
@@ -385,8 +434,12 @@ func close_cutscene(delay := 0.0) -> void:
 	var root: Control = cut.root
 	var a := FX.anim(700, [{"a": 1.0}, {"a": 0.0}], func(v): if is_instance_valid(root): root.modulate.a = v.a, {"node": root})
 	await FX.until(a)
-	if current == root:
-		clear()
+	if cut_root == root:
+		root.queue_free()
+		cut_root = null
+		cut = {}
+		if current == null:
+			current_name = ""
 
 
 # ───────── 탈출 → (빈 캠프) ─────────
@@ -486,17 +539,18 @@ func wipe(kind: String) -> void:
 	p.size = Vector2(1920, 50)
 	root.add_child(p)
 	var done := DialogBox.Waiter.new()
-	_waiters.append(done)
 	var b := UI.button(w.button, 30, func(): done.finish())
 	b.fit(Vector2(50, 14))
 	b.position = Vector2(960 - b.size.x / 2.0, 600)
 	b.name = "retry"
 	root.add_child(b)
 	mount(root, "wipe")
+	_waiters.append(done)   # mount 가 앞 장면의 기다림을 모두 끝내므로 그 뒤에 넣는다
 	FX.fade(0, 500)
 	if G.autoguide:
 		get_tree().create_timer(1.0).timeout.connect(done.finish)
-	await done.done
+	if not done.finished:
+		await done.done
 	if current == root:
 		clear()
 
@@ -622,3 +676,384 @@ class GlassShatter extends Control:
 			var loop := pts.duplicate()
 			loop.append(pts[0])
 			draw_polyline(loop, Color(1, 0.85, 0.85, 0.5 * (1.0 - kk)), 1.5, true)
+
+
+# ───────── 1차 시험판 v2: 운명의 시도 · 카드 획득 · 층 끝 · 결과 요약 ─────────
+## 지금 장면 위에 덮는 화면을 단다 (탑뷰·전투를 지우지 않는다)
+func _overlay(root: Control, name: String) -> void:
+	root.z_index = 5
+	add_child(root)
+	overlays.append(root)
+	G.ctl.note("overlay " + name)
+
+
+func _overlay_close(root: Control, ms := 300.0) -> void:
+	if not is_instance_valid(root):
+		return
+	var a := FX.anim(ms, [{"a": root.modulate.a}, {"a": 0.0}], func(v): if is_instance_valid(root): root.modulate.a = v.a, {"node": root})
+	await FX.until(a)
+	overlays.erase(root)
+	if is_instance_valid(root):
+		root.queue_free()
+
+
+## 자동 진행·시험: 운명의 시도에서 고를 것 (?fates=offer,defy,… 차례대로 / 없으면 defy)
+var fate_auto: Array = []
+var fate_auto_i := 0
+var fate_picker: Dictionary = {}
+
+
+func _auto_fate() -> String:
+	if fate_auto.is_empty() and G.params.has("fates"):
+		fate_auto = str(G.params.fates).split(",", false)
+	if fate_auto_i < fate_auto.size():
+		fate_auto_i += 1
+		return str(fate_auto[fate_auto_i - 1])
+	return "defy"
+
+
+## 운명의 시도 선택 화면: 죽음 카드(Lv)와 두 버튼 [카드를 낸다 — {이름}을(를) 바친다] [거스른다 — 운명을 비튼다 (흉터 n)]. 반환: offer | defy
+func fate_choice(fate: Dictionary) -> String:
+	var st: Dictionary = G.ctl.st
+	var F: Dictionary = G.S.fate
+	var u := minf(FX.ui, 1.45)
+	var root := Control.new()
+	root.size = Vector2(1920, 1080)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := UI.tex_rect(UI.grad([[0, Color(0.25, 0.0, 0.03, 0.55)], [0.7, Color(0.08, 0.0, 0.01, 0.85)], [1, Color(0, 0, 0, 0.92)]], "radial", 128, 128, Vector2(0.4, 0.5), 0.75), Rect2(0, 0, 1920, 1080))
+	root.add_child(dim)
+	var cv := CardView.new()
+	root.add_child(cv)
+	cv.setup_face(st, str(fate.card))
+	var ck := 1.75
+	var cpos := Vector2(300, 540 - CardView.H * ck / 2.0)
+	cv.set_rect(cpos + Vector2(0, 60), ck, true)
+	cv.smooth = false
+	cv.taut = 1.0
+	var name: String = G.name_of(str(fate.who))
+	var n_scar: int = int(GameData.D.fates[fate.id].scars[clampi(int(fate.level) - 1, 0, 2)])
+	var t1 := UI.label(str(F.choiceTitle), int(30 * u), Color("#ff9aa4"), "serif_bold", HORIZONTAL_ALIGNMENT_LEFT, 6)
+	t1.position = Vector2(860, 230)
+	t1.size = Vector2(1000, 50)
+	root.add_child(t1)
+	var t2 := UI.label(str(F.choiceText).replace("{name}", name), int(36 * u), Color("#f6e7c8"), "serif_bold", HORIZONTAL_ALIGNMENT_LEFT, 6)
+	t2.position = Vector2(860, 230 + 56 * u)
+	t2.size = Vector2(1000, 60)
+	t2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(t2)
+	var w := DialogBox.Waiter.new()
+	var picked := ["defy"]
+	var y := 430.0 + 40.0 * (u - 1.0)
+	var btns := []
+	for opt in [["offer", str(F.offer).replace("{name}", name)], ["defy", str(F.defy).replace("{n}", str(n_scar))]]:
+		var val: String = opt[0]
+		var b := UI.button(opt[1], int(32 * u), func():
+			picked[0] = val
+			w.finish(), "serif_bold")
+		b.style_kind = "choice"
+		b.name = "fate_" + val
+		b.set_meta("value", val)
+		b.fit(Vector2(70, 24))
+		b.size.x = maxf(b.size.x, 860)
+		b.lbl.size = b.size
+		b.position = Vector2(860, y)
+		y += b.size.y + 36
+		root.add_child(b)
+		btns.append(b)
+	var sub := UI.label(str(F.defyNote).replace("{n}", str(n_scar)), int(22 * u), Color("#c9a9ad"), "sans", HORIZONTAL_ALIGNMENT_LEFT)
+	sub.position = Vector2(866, y + 4)
+	sub.size = Vector2(980, 40)
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(sub)
+	root.modulate.a = 0.0
+	_overlay(root, "fateChoice")
+	fate_picker = {"root": root, "btns": btns, "waiter": w, "picked": picked}
+	FX.anim(350, [{"a": 0.0}, {"a": 1.0}], func(v): if is_instance_valid(root): root.modulate.a = v.a, {"node": root})
+	FX.anim(500, [{"y": 60.0}, {"y": 0.0}], func(v): if is_instance_valid(cv): cv.set_rect(cpos + Vector2(0, v.y), ck, true), {"node": cv, "easing": "ease-out"})
+	G.ctl.note("fate choice " + str(fate.id) + " lv" + str(fate.level))
+	if G.autoguide or G.params.has("fates"):
+		var choice := _auto_fate()
+		get_tree().create_timer(FX.ms(900) / 1000.0).timeout.connect(func():
+			picked[0] = choice
+			w.finish())
+	if not w.finished:
+		await w.done
+	fate_picker = {}
+	G.ctl.note("fate pick " + str(picked[0]))
+	await _overlay_close(root, 250)
+	return picked[0]
+
+
+## 시험: 운명 선택 화면에서 고른다
+func pick_fate(value: String) -> bool:
+	if fate_picker.is_empty():
+		return false
+	fate_picker.picked[0] = value
+	fate_picker.waiter.finish()
+	return true
+
+
+## 카드 획득 연출(상속 카드·흉터): 카드가 떠오르며 커졌다가 덱(왼쪽 아래)으로 들어간다. kind: inherit | scar
+func card_gain(uids: Array, kind := "inherit", caption := "") -> void:
+	var st: Dictionary = G.ctl.st
+	if uids.is_empty():
+		return
+	var u := minf(FX.ui, 1.45)
+	var root := Control.new()
+	root.size = Vector2(1920, 1080)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(0.03, 0.0, 0.01, 0.6)
+	dim.size = root.size
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(dim)
+	var views := []
+	var ck := 1.25
+	var gap := 50.0
+	var total := uids.size() * CardView.W * ck + (uids.size() - 1) * gap
+	for i in uids.size():
+		if not st.cards.has(uids[i]):
+			continue
+		var cv := CardView.new()
+		root.add_child(cv)
+		cv.setup_face(st, str(uids[i]))
+		cv.smooth = false
+		cv.glow = 1.0 if kind == "inherit" else 0.0
+		cv.taut = 0.8 if kind == "scar" else 0.0
+		views.append({"cv": cv, "x": 960 - total / 2.0 + i * (CardView.W * ck + gap)})
+	var id0: String = st.cards[uids[0]].id if st.cards.has(uids[0]) else ""
+	var txt: String = str(G.S.fate.gainScar).replace("{n}", str(uids.size())) if kind == "scar" else \
+		str(G.S.fate.gainInherit).replace("{card}", Rules.card_name(id0, false, Rules.level(st, str(uids[0]))))
+	if caption != "":
+		txt = caption
+	var lab := UI.label(txt, int(34 * u), Color("#ffb6bd") if kind == "scar" else Color("#ffe2a8"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, 8)
+	lab.position = Vector2(0, 850)
+	lab.size = Vector2(1920, 60)
+	root.add_child(lab)
+	var w := DialogBox.Waiter.new()
+	root.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed:
+			root.accept_event()
+			w.finish())
+	_overlay(root, "cardGain " + kind)
+	G.ctl.note("card gain %s %s" % [kind, id0])
+	var y0 := 540.0 - CardView.H * ck / 2.0 - 40.0
+	var a := FX.anim(700, [{"k": 0.5, "y": 220.0, "a": 0.0}, {"o": 0.6, "k": 1.08, "y": -10.0, "a": 1.0}, {"k": 1.0, "y": 0.0, "a": 1.0}], func(v):
+		for vv in views:
+			if is_instance_valid(vv.cv):
+				var kk: float = ck * v.k
+				vv.cv.set_rect(Vector2(vv.x + CardView.W * (ck - kk) / 2.0, y0 + v.y + CardView.H * (ck - kk) / 2.0), kk, true)
+				vv.cv.alpha = v.a, {"node": root, "easing": "ease-out"})
+	FX.flash("#ffffff" if kind == "inherit" else "#7a0010", 300, 0.4)
+	FX.burst(960, 520, {"count": 50, "colors": ["#ff2a3c", "#7a0010", "#ffb0b6"] if kind == "inherit" else ["#7a0010", "#3a0006"], "speed": 380, "life": 900, "size": 4, "gravity": 0})
+	await FX.until(a)
+	get_tree().create_timer(FX.ms(2200) / 1000.0).timeout.connect(w.finish)
+	if not w.finished:
+		await w.done
+	if kind == "note":
+		await _overlay_close(root, 350)
+		return
+	# 덱(왼쪽 아래)으로 날아 들어간다
+	var b := FX.anim(450, [{"k": 0.0}, {"k": 1.0}], func(v):
+		for vv in views:
+			if is_instance_valid(vv.cv):
+				var kk: float = lerpf(ck, 0.2, v.k)
+				vv.cv.set_rect(Vector2(lerpf(vv.x, 120.0, v.k), lerpf(y0, 980.0, v.k)), kk, true)
+				vv.cv.alpha = 1.0 - v.k * 0.6, {"node": root, "easing": "ease-in"})
+	await FX.until(b)
+	await _overlay_close(root, 200)
+
+
+## 층 끝 화면 (1층 끝 → 2층): 제목·문구, 버튼을 누르면 끝난다
+func chapter(conf: Dictionary) -> void:
+	G.view.clear()
+	var u := minf(FX.ui, 1.4)
+	var root := Control.new()
+	root.size = Vector2(1920, 1080)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	var bk := ColorRect.new()
+	bk.color = Color.BLACK
+	bk.size = root.size
+	root.add_child(bk)
+	var h := UI.label(str(conf.title), int(76 * u), Color("#e9dcde"), "serif_wide", HORIZONTAL_ALIGNMENT_CENTER)
+	h.position = Vector2(0, 250)
+	h.size = Vector2(1920, 110)
+	root.add_child(h)
+	var y := 400.0
+	var ps := []
+	for ln in conf.get("lines", []):
+		var p := UI.label(str(ln), int(34 * u), Color("#bfb2b4"), "serif", HORIZONTAL_ALIGNMENT_CENTER)
+		p.position = Vector2(0, y)
+		p.size = Vector2(1920, 60)
+		p.modulate.a = 0.0
+		root.add_child(p)
+		ps.append(p)
+		y += 64 * u
+	if conf.has("inner"):
+		var inner := UI.label(str(conf.inner), int(34 * u), Color("#d8a9b4"), "serif", HORIZONTAL_ALIGNMENT_CENTER)
+		inner.position = Vector2(0, y + 30)
+		inner.size = Vector2(1920, 60)
+		inner.modulate.a = 0.0
+		root.add_child(inner)
+		ps.append(inner)
+	var w := DialogBox.Waiter.new()
+	var b := UI.button(str(conf.button), int(32 * u), func(): w.finish())
+	b.fit(Vector2(64, 16))
+	b.position = Vector2(960 - b.size.x / 2.0, y + 150)
+	b.modulate.a = 0.0
+	b.name = "next"
+	root.add_child(b)
+	mount(root, "chapter")
+	G.ctl.stage = "chapter"
+	FX.fade(0, 400)
+	for i in ps.size():
+		var p: Control = ps[i]
+		FX.anim(1000, [{"a": 0.0}, {"a": 1.0}], func(v): if is_instance_valid(p): p.modulate.a = v.a, {"node": p, "delay": 400 + i * 1000})
+	FX.anim(800, [{"a": 0.0}, {"a": 1.0}], func(v): if is_instance_valid(b): b.modulate.a = v.a, {"node": b, "delay": 400 + ps.size() * 1000})
+	if G.autoguide:
+		get_tree().create_timer(FX.ms(1500) / 1000.0).timeout.connect(w.finish)
+	await w.done
+	await FX.fade(1, 500)
+	if current == root:
+		clear()
+
+
+## 시험판 끝 — 결과 요약: 누가 죽고 누가 살았는지, 죽음 카드 Lv, 흉터 장수, 얻은 상속 카드, 다음 층에서 올 운명. [처음부터] [2층부터 다시]
+func result() -> void:
+	G.ctl.in_battle = false
+	G.view.clear()
+	G.dialog.clear()
+	var st: Dictionary = G.ctl.st
+	var R: Dictionary = G.S.result
+	var u := minf(FX.ui, 1.35)
+	var root := Control.new()
+	root.size = Vector2(1920, 1080)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	var bg := UI.tex_rect(UI.grad([[0, Color("#1d0609")], [0.6, Color("#080304")], [1, Color("#000000")]], "radial", 256, 256, Vector2(0.5, 0.35), 0.8), Rect2(0, 0, 1920, 1080))
+	root.add_child(bg)
+	var h := UI.label(str(R.title), int(64 * u), Color("#efe3e5"), "serif_wide", HORIZONTAL_ALIGNMENT_CENTER, 10)
+	h.position = Vector2(0, 60)
+	h.size = Vector2(1920, 90)
+	root.add_child(h)
+	var x := 960.0 - 860.0
+	var y := 190.0
+	# 동료마다 한 줄
+	var rows := []
+	for who in ["hero", "warrior", "archer"]:
+		var a: Dictionary = st.party.allies[who]
+		var f = null
+		for ff in st.fates:
+			if ff.who == who:
+				f = ff
+		var line := ""
+		if who == "hero":
+			line = str(R.hero)
+		elif f == null:
+			line = str(R.noFate).replace("{name}", G.name_of(who))
+		elif f.result == "offered":
+			line = str(R.offered).replace("{name}", G.name_of(who)).replace("{lv}", str(f.get("offeredLevel", f.level))).replace("{floor}", str(f.get("offeredFloor", f.floor)))
+		elif f.result == "saved":
+			line = str(R.saved).replace("{name}", G.name_of(who))
+		else:
+			line = str(R.alive).replace("{name}", G.name_of(who)).replace("{lv}", str(f.level)).replace("{floor}", str(f.floor))
+		rows.append({"who": who, "dead": a.status == "dead", "text": line})
+	for r in rows:
+		var face := TextureRect.new()
+		face.texture = Assets.face_tex(r.who, null, true)
+		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face.position = Vector2(x, y)
+		face.size = Vector2(96, 96) * u
+		face.modulate = Color(0.35, 0.3, 0.3) if r.dead else Color.WHITE
+		root.add_child(face)
+		var nm := UI.label(G.name_of(r.who) + ("  †" if r.dead else ""), int(30 * u), Color("#c9a0a6") if r.dead else Color("#f6e7c8"), "serif_bold")
+		nm.position = Vector2(x + 120 * u, y + 4)
+		nm.size = Vector2(1500, 44)
+		root.add_child(nm)
+		var tl := UI.label(str(r.text), int(25 * u), Color("#d8c9cb"), "sans")
+		tl.position = Vector2(x + 120 * u, y + 46 * u)
+		tl.size = Vector2(1560 - 120 * u, 40)
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		root.add_child(tl)
+		y += 118 * u
+	# 흉터 · 상속 카드
+	var inh := []
+	for uid in st.party.deck:
+		if st.cards.has(uid) and GameData.D.cards[st.cards[uid].id].kind == "inherit":
+			inh.append(Rules.card_name(st.cards[uid].id, false, Rules.level(st, uid)))
+	var summary := str(R.scars).replace("{n}", str(Rules.scar_count(st))) + "     " + str(R.inherits).replace("{list}", ", ".join(inh) if not inh.is_empty() else "—")
+	var sl := UI.label(summary, int(27 * u), Color("#ffcf8a"), "sans_bold")
+	sl.position = Vector2(x, y + 6)
+	sl.size = Vector2(1720, 44)
+	root.add_child(sl)
+	y += 60 * u
+	# 다음 층에서 올 운명
+	var nxt := []
+	for f in Rules.active_fates(st):
+		nxt.append(str(R.nextItem).replace("{name}", G.name_of(f.who)).replace("{lv}", str(int(f.level) + 1)))
+	var nl := UI.label(str(R.next).replace("{list}", " / ".join(nxt) if not nxt.is_empty() else str(R.nextNone)), int(27 * u), Color("#ff9aa4"), "serif_bold")
+	nl.position = Vector2(x, y + 6)
+	nl.size = Vector2(1720, 44)
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(nl)
+	y += 80 * u
+	var b1 := UI.button(str(R.again), int(30 * u), func(): G.ctl.start_tutorial())
+	b1.fit(Vector2(56, 14))
+	b1.name = "again"
+	var b2 := UI.button(str(R.floor2), int(30 * u), func(): G.ctl.jump("floor2"))
+	b2.fit(Vector2(56, 14))
+	b2.name = "floor2"
+	var by := minf(y + 10, 1080 - 30 - b1.size.y)
+	b1.position = Vector2(960 - b1.size.x - 30, by)
+	b2.position = Vector2(960 + 30, by)
+	root.add_child(b1)
+	root.add_child(b2)
+	mount(root, "result")
+	G.ctl.stage = "result"
+	G.ctl.note("result")
+	if G.params.has("quit-on-end"):
+		get_tree().create_timer(1.0).timeout.connect(func(): get_tree().quit(0))
+	FX.fade(0, 500)
+
+
+## 2단계 이상의 죽음 덧그림 (데스신 그림 위): 창(관통) 여러 자루 / 불길, 그리고 떠오르는 불씨
+class DeathOverlay extends Node2D:
+	var kind := ""
+	var level := 2
+	var _t := 0.0
+	var embers := []
+
+	func _ready() -> void:
+		position = Vector2(-960, -540)
+		for i in 60:
+			embers.append({"x": randf() * 1920.0, "y": randf() * 1080.0, "s": 2.0 + randf() * 4.0, "v": 40.0 + randf() * 120.0, "ph": randf() * TAU})
+
+	func _process(d: float) -> void:
+		_t += d
+		queue_redraw()
+
+	func _draw() -> void:
+		if kind == "spears":
+			# 바닥에서 솟은 창 몇 자루 (그림 위쪽까지 비스듬히)
+			var spears := [[520, 1080, 610, 160], [760, 1080, 790, 90], [1180, 1080, 1120, 120], [1400, 1080, 1330, 220], [960, 1080, 980, 40], [300, 1080, 420, 300]]
+			for s in spears:
+				var a := Vector2(s[0], s[1])
+				var b := Vector2(s[2], s[3])
+				draw_line(a, b, Color(0.05, 0.03, 0.03, 0.85), 16.0, true)
+				draw_line(a, b, Color(0.42, 0.36, 0.34, 0.95), 9.0, true)
+				var dirv := (b - a).normalized()
+				var nrm := Vector2(-dirv.y, dirv.x)
+				var tip := PackedVector2Array([b + dirv * 70.0, b + nrm * 16.0, b - nrm * 16.0])
+				draw_colored_polygon(tip, Color(0.75, 0.72, 0.7, 0.95))
+				draw_line(b + dirv * 70.0, b - dirv * 10.0, Color(0.55, 0.0, 0.05, 0.9), 5.0, true)
+		elif kind == "fire":
+			for i in 14:
+				var x := 60.0 + i * 140.0
+				var hgt := 240.0 + 120.0 * sin(_t * 5.0 + i * 1.7)
+				var pts := PackedVector2Array([Vector2(x - 90, 1080), Vector2(x - 30 + 20 * sin(_t * 7 + i), 1080 - hgt), Vector2(x + 20, 1080 - hgt * 0.6), Vector2(x + 90, 1080)])
+				draw_colored_polygon(pts, Color(1.0, 0.35, 0.05, 0.33))
+			draw_rect(Rect2(0, 0, 1920, 1080), Color(0.6, 0.12, 0.0, 0.18))
+		# 불씨
+		for e in embers:
+			var y := fposmod(float(e.y) - _t * float(e.v), 1080.0)
+			var x2 := float(e.x) + sin(_t * 1.3 + float(e.ph)) * 20.0
+			draw_circle(Vector2(x2, y), float(e.s), Color(1, 0.55 + 0.3 * sin(_t * 9 + float(e.ph)), 0.15, 0.75))

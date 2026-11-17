@@ -116,14 +116,15 @@ func build(st: Dictionary) -> void:
 	_state_key = ""
 	var card: Dictionary = st.cards[uid]
 	card_id = card.id
-	var d: Dictionary = GameData.D.cards[card.id]
+	var d: Dictionary = Rules.def(st, uid)
 	var up: bool = Rules.is_up(st, uid)
+	var lv: int = Rules.level(st, uid)
 	var kind: String = d.kind
 	var tone: String = d.owner if kind in ["witch", "ally"] else kind
 	var bgc := {"witch": Color("#170e18"), "hero": Color("#181a22"), "warrior": Color("#1b1510"), "archer": Color("#121b13"),
-		"death": Color("#040304"), "inherit": Color("#1c0305"), "relic": Color("#161616"), "wound": Color("#140a0b")}
-	if kind == "wound":
-		tone = "wound"
+		"death": Color("#040304"), "inherit": Color("#1c0305"), "relic": Color("#161616"), "wound": Color("#140a0b"), "scar": Color("#0e0405")}
+	if kind == "wound" or kind == "scar":
+		tone = kind
 	var s := K
 	var bg := UI.panel(UI.box(bgc.get(tone, Color("#15161b")), Color.TRANSPARENT, int(14 * s)))
 	bg.size = face.size
@@ -132,16 +133,26 @@ func build(st: Dictionary) -> void:
 	# 그림 창
 	var art_rect := Rect2(Vector2(22, 24) * s, Vector2(201, 204) * s)
 	var art_file: String = GameData.D.cardArtImg.get(card.id, "")
-	var at: Texture2D = Assets.tex(art_file) if art_file != "" and Assets.ok(art_file) else Assets.svg("art_" + card.id, CardArt.SVG.get(card.id, CardArt.SVG.curse_flame), 2.0)
+	var svg_id: String = card.id if CardArt.SVG.has(card.id) else str({"shield": "cover", "bash": "shield_bash", "arrows": "suppress", "arrow": "snipe"}.get(str(d.art), "curse_flame"))
+	var at: Texture2D = Assets.tex(art_file) if art_file != "" and Assets.ok(art_file) else Assets.svg("art_" + svg_id, CardArt.SVG[svg_id], 2.0)
 	var art := UI.cover_rect(at, art_rect)
 	if kind == "relic":
 		art.material = _tint_mat(1)
 	face.add_child(art)
 	_parts.art = art
+	# 2단계 이상의 죽음 카드: 같은 그림에 창(관통)·불(화형) 덧그림 + 붉은 테두리 강화 (코드)
+	if kind == "death" and lv >= 2:
+		var ov := Control.new()
+		ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ov.position = art_rect.position
+		ov.size = art_rect.size
+		var fate_kind: String = str(GameData.D.fates.get(str(d.get("fate", "")), {}).get("method", ""))
+		ov.draw.connect(_draw_death_lv.bind(ov, fate_kind, lv))
+		face.add_child(ov)
 	# 프레임
 	if Assets.ok("card_frame.png"):
 		var fr := UI.tex_rect(Assets.tex("card_frame.png"), Rect2(Vector2.ZERO, face.size))
-		var mode: int = {"relic": 1, "death": 2, "inherit": 3}.get(kind, 0)
+		var mode: int = {"relic": 1, "death": 2, "inherit": 3, "scar": 2}.get(kind, 0)
 		if mode > 0:
 			fr.material = _tint_mat(mode)
 		face.add_child(fr)
@@ -159,16 +170,20 @@ func build(st: Dictionary) -> void:
 		face.add_child(tp)
 		tx += tp.size.x / s + 4
 	# 이름
-	var name_col: Color = {"death": Color("#ff6b76"), "inherit": Color("#ffb0b6"), "relic": Color("#d8d8d8"), "wound": Color("#c98a90")}.get(kind, Color("#f4ead6"))
-	var nm := UI.label(Rules.card_name(card.id, up), int(20 * s), name_col, "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, int(3 * s))
+	var name_col: Color = {"death": Color("#ff6b76"), "inherit": Color("#ffb0b6"), "relic": Color("#d8d8d8"), "wound": Color("#c98a90"), "scar": Color("#ff8a90")}.get(kind, Color("#f4ead6"))
+	var nm := UI.label(Rules.card_name(card.id, up, lv), int(20 * s), name_col, "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, int(3 * s))
 	nm.position = Vector2(10, 241) * s
 	nm.size = Vector2(220, 30) * s
 	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	if up:
+	if up or (lv >= 2 and kind != "death"):
 		nm.add_theme_color_override("font_color", Color("#ffe28a"))
+	elif kind == "death" and lv >= 2:
+		nm.add_theme_color_override("font_color", Color("#ff3a4a"))
+	if nm.get_combined_minimum_size().x > 220 * s:
+		nm.add_theme_font_size_override("font_size", int(17 * s))
 	face.add_child(nm)
 	# 설명
-	var small: bool = kind in ["death", "inherit"]
+	var small: bool = kind in ["death", "inherit", "scar"]
 	var fs := 13.5 if small else 15.0
 	var cc := CenterContainer.new()
 	cc.position = Vector2(24, 270) * s
@@ -178,7 +193,7 @@ func build(st: Dictionary) -> void:
 	rt.add_theme_font_size_override("bold_font_size", int((fs + 2) * s))
 	rt.custom_minimum_size = Vector2(192, 0) * s
 	rt.add_theme_constant_override("line_separation", int(-1 * s))
-	var txt := Rules.card_text(card.id, up, func(v): return "[b][color=#ffcf6a]" + v + "[/color][/b]")
+	var txt := Rules.card_text(card.id, up, func(v): return "[b][color=#ffcf6a]" + v + "[/color][/b]", lv)
 	rt.text = "[center]" + txt + "[/center]"
 	cc.add_child(rt)
 	face.add_child(cc)
@@ -189,6 +204,7 @@ func build(st: Dictionary) -> void:
 		"relic": owner = G.ui("ownerRelic", {"name": _owner_name(d.owner)})
 		"inherit": owner = G.ui("ownerInherit", {"name": _owner_name(d.get("from"))})
 		"wound": owner = G.ui("ownerWound", {"name": _owner_name(card.get("woundOf", ""))})
+		"scar": owner = G.ui("ownerScar")
 		_: owner = _owner_name(d.owner)
 	var ocol: Color = {"hero": Color("#cfd3dd"), "warrior": Color("#c9a985"), "archer": Color("#9fc38f"), "witch": Color("#c79ab0")}.get(str(d.owner), Color("#a8a2a0"))
 	var ow := UI.label(owner, int(11 * s), ocol, "sans_bold", HORIZONTAL_ALIGNMENT_CENTER)
@@ -196,7 +212,7 @@ func build(st: Dictionary) -> void:
 	ow.size = Vector2(240, 16) * s
 	face.add_child(ow)
 	# 비용
-	if kind != "wound":
+	if kind != "wound" and kind != "scar":
 		var cost := Panel.new()
 		cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cost.position = Vector2(15, 16) * s
@@ -228,6 +244,36 @@ func build(st: Dictionary) -> void:
 		face.add_child(lock)
 		_parts.lock = lock
 	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+
+## Lv2 이상 죽음 카드 덧그림: 그림 창 안에 창(관통) 또는 불길(화형), 두꺼운 붉은 테두리
+func _draw_death_lv(c: Control, method: String, lv: int) -> void:
+	var s := K
+	var sz := c.size
+	if method == "pierce":
+		var spears := [[0.2, 1.0, 0.32, 0.12], [0.5, 1.0, 0.5, 0.02], [0.8, 1.0, 0.68, 0.16], [0.05, 1.0, 0.22, 0.4], [0.95, 1.0, 0.82, 0.38]]
+		for i in mini(spears.size(), 2 + lv):
+			var sp: Array = spears[i]
+			var a := Vector2(sp[0], sp[1]) * sz
+			var b := Vector2(sp[2], sp[3]) * sz
+			c.draw_line(a, b, Color(0.08, 0.05, 0.05, 0.9), 6 * s, true)
+			c.draw_line(a, b, Color(0.55, 0.5, 0.48, 1), 3 * s, true)
+			var dv := (b - a).normalized()
+			var nv := Vector2(-dv.y, dv.x)
+			c.draw_colored_polygon(PackedVector2Array([b + dv * 14 * s, b + nv * 4 * s, b - nv * 4 * s]), Color(0.85, 0.82, 0.8))
+			c.draw_line(b + dv * 12 * s, b - dv * 6 * s, Color(0.6, 0.0, 0.06, 0.95), 2 * s, true)
+	elif method == "burn":
+		for i in 6:
+			var x := sz.x * (0.08 + i * 0.17)
+			var h := sz.y * (0.35 + 0.12 * ((i * 37) % 5) / 4.0)
+			c.draw_colored_polygon(PackedVector2Array([Vector2(x - 22 * s, sz.y), Vector2(x, sz.y - h), Vector2(x + 22 * s, sz.y)]), Color(1, 0.4, 0.05, 0.55))
+			c.draw_colored_polygon(PackedVector2Array([Vector2(x - 10 * s, sz.y), Vector2(x, sz.y - h * 0.6), Vector2(x + 10 * s, sz.y)]), Color(1, 0.85, 0.3, 0.6))
+	c.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.35, 0.0, 0.03, 0.18))
+	c.draw_rect(Rect2(Vector2.ZERO, sz), Color(1, 0.1, 0.18, 0.95), false, 4 * s)
+	var f := Assets.font("serif_black")
+	var tag := "Lv%d" % lv
+	c.draw_style_box(UI.box(Color(0.35, 0.0, 0.04, 0.95), Color("#ff6b76"), int(6 * s), int(1 * s)), Rect2(Vector2(sz.x - 52 * s, 6 * s), Vector2(46 * s, 24 * s)))
+	c.draw_string(f, Vector2(sz.x - 52 * s, 25 * s), tag, HORIZONTAL_ALIGNMENT_CENTER, 46 * s, int(17 * s), Color.WHITE)
 
 
 ## 잠금 덮개: 어둠 + 카드를 감은 붉은 실 + 자물쇠

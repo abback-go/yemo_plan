@@ -32,15 +32,22 @@ var choice_btns: Array = []
 var _t := 0.0
 var _fire_low := false
 var _waiting := false
+var overlay := false
 
 
-func setup(name: String) -> void:
+## o.overlay: 탑뷰 맵 위에 띄운다(배경 그림 없이, 아래쪽만 어둡게) — 캠프·빈 캠프
+func setup(name: String, o := {}) -> void:
 	scene_name = name
+	overlay = bool(o.get("overlay", false))
 	lines = G.S.camp if name == "camp" else G.S.events.get(name, [])
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	size = Vector2(1920, 1080)
 	var conf: Dictionary = GameData.D.vnScenes.get(name, {"bg": "bg_camp.png"})
-	bg = _bg_rect(conf.bg, conf.get("bgZoom"))
+	if overlay:
+		conf = {"bg": ""}
+		bg = UI.tex_rect(UI.grad([[0, Color(0, 0, 0, 0.0)], [0.45, Color(0, 0, 0, 0.12)], [1, Color(0, 0, 0, 0.72)]], "v", 4, 128), Rect2(0, 0, 1920, 1080))
+	else:
+		bg = _bg_rect(conf.bg, conf.get("bgZoom"))
 	add_child(bg)
 	bg2 = TextureRect.new()
 	bg2.visible = false
@@ -74,7 +81,7 @@ func setup(name: String) -> void:
 	title_l = UI.label(tt, 26, Color("#d9c9b8"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, 6)
 	title_l.position = Vector2(560, 34)
 	title_l.size = Vector2(800, 40)
-	title_l.visible = tt != "" and name != "camp"
+	title_l.visible = tt != "" and name != "camp" and not overlay
 	add_child(title_l)
 	omen = OmenView.new()
 	omen.vn = self
@@ -359,6 +366,14 @@ func play_lines(list: Array) -> void:
 			box.visible = false
 			await omen.show_omen(ln.omen)
 			continue
+		if ln.has("omen_sharpen"):
+			box.visible = false
+			await omen.sharpen(ln.omen_sharpen)
+			continue
+		if ln.has("omen_levelup"):
+			box.visible = false
+			await omen.level_up()
+			continue
 		if ln.has("omen_end"):
 			await omen.hide_omen()
 			continue
@@ -431,7 +446,21 @@ func pick_choice(value: String) -> bool:
 
 func do_call(what: String) -> void:
 	var st: Dictionary = G.ctl.st
+	# 새 운명: "fate:운명id" → 그 동료의 죽음 카드(Lv1)가 노엘 손에 (game_data.gd fatePlan)
+	if what.begins_with("fate:"):
+		var fid := what.substr(5)
+		for p in GameData.D.fatePlan:
+			if p.fate == fid:
+				Rules.add_fate(st, fid, int(p.floor))
+		G.ctl.note("fate add " + fid)
+		return
 	match what:
+		"descend":
+			G.ctl.descend_events = Rules.descend(st)
+			G.ctl.note("descend → %d층" % Rules.floor_now(st))
+		"heal":
+			if bool(GameData.D.fateRules.get("healOnFloor", true)):
+				Rules.heal_all(st)
 		"rest":
 			Rules.apply_rest(st)
 			G.ctl.note("rest")
