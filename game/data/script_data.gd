@@ -510,7 +510,7 @@ const S := {
 	"fate": {
 		"choiceTitle": "운명의 시도",
 		"choiceText": "{name}의 죽음이 왔다.",
-		"offer": "카드를 낸다 — {name}을(를) 바친다",
+		"offer": "카드를 낸다 — {name}{을} 바친다",
 		"defy": "거스른다 — 운명을 비튼다 (흉터 {n})",
 		"defyNote": "거스르면 살지만, 운명은 다음 층으로 미뤄져 더 잔혹하게 온다. 흉터 {n}장이 노엘 덱에 새겨진다.",
 		"gainInherit": "「{card}」 — 덱에 들어왔다",

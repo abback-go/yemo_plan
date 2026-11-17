@@ -769,7 +769,7 @@ func fate_choice(fate: Dictionary) -> String:
 	var picked := ["defy"]
 	var y := 430.0 + 40.0 * (u - 1.0)
 	var btns := []
-	for opt in [["offer", str(F.offer).replace("{name}", name)], ["defy", str(F.defy).replace("{n}", str(n_scar))]]:
+	for opt in [["offer", str(F.offer).replace("{name}", name).replace("{을}", _eul(name))], ["defy", str(F.defy).replace("{n}", str(n_scar))]]:
 		var val: String = opt[0]
 		var b := UI.button(opt[1], int(32 * u), func():
 			picked[0] = val
@@ -1065,6 +1065,16 @@ func result() -> void:
 	FX.fade(0, 500)
 
 
+## 목적격 조사: 마지막 글자에 받침이 있으면 「을」, 없으면 「를」
+static func _eul(word: String) -> String:
+	if word.is_empty():
+		return "를"
+	var c := word.unicode_at(word.length() - 1)
+	if c < 0xAC00 or c > 0xD7A3:
+		return "를"
+	return "을" if (c - 0xAC00) % 28 != 0 else "를"
+
+
 ## 2단계 이상의 죽음 덧그림 (데스신 그림 위): 창(관통) 여러 자루 / 불길, 그리고 떠오르는 불씨
 class DeathOverlay extends Node2D:
 	var kind := ""
@@ -1083,27 +1093,25 @@ class DeathOverlay extends Node2D:
 
 	func _draw() -> void:
 		if kind == "spears":
-			# 바닥에서 비스듬히 솟은 굵은 창 (나무 자루 + 잎 모양 쇠 날 + 날에 묻은 피)
+			# 바닥에서 비스듬히 솟은 굵은 창 — 그림 앞(카메라 가까이)에 선 어두운 실루엣 + 붉은 가장자리 빛 + 날에 묻은 피
 			var spears := [[380, 1080, 640, 290], [720, 1080, 770, 150], [1520, 1080, 1270, 230], [1180, 1080, 1090, 400], [180, 1080, 460, 520]]
 			for sp in spears:
 				var a := Vector2(sp[0], sp[1])
 				var b := Vector2(sp[2], sp[3])
 				var dv := (b - a).normalized()
 				var nv := Vector2(-dv.y, dv.x)
-				draw_line(a, b, Color(0.04, 0.02, 0.02, 0.92), 24.0, true)
-				draw_line(a, b, Color(0.3, 0.22, 0.17, 1.0), 15.0, true)
-				draw_line(a + nv * 3.0, b + nv * 3.0, Color(0.5, 0.4, 0.32, 0.8), 4.0, true)
-				var tip := PackedVector2Array([b + dv * 150.0, b + nv * 30.0 + dv * 20.0, b - dv * 14.0, b - nv * 30.0 + dv * 20.0])
-				var out := PackedVector2Array([b + dv * 160.0, b + nv * 36.0 + dv * 20.0, b - dv * 20.0, b - nv * 36.0 + dv * 20.0])
-				draw_colored_polygon(out, Color(0.05, 0.03, 0.03, 0.95))
-				draw_colored_polygon(tip, Color(0.62, 0.62, 0.66, 1.0))
-				draw_line(b - dv * 8.0, b + dv * 140.0, Color(0.85, 0.85, 0.9, 0.9), 3.0, true)
+				draw_line(a, b, Color(0.03, 0.015, 0.015, 0.97), 22.0, true)
+				draw_line(a + nv * 8.0, b + nv * 8.0, Color(0.6, 0.1, 0.07, 0.5), 3.0, true)
+				var out := PackedVector2Array([b + dv * 165.0, b + nv * 34.0 + dv * 22.0, b - dv * 18.0, b - nv * 34.0 + dv * 22.0])
+				draw_colored_polygon(out, Color(0.06, 0.04, 0.045, 0.98))
+				draw_line(b + nv * 34.0 + dv * 22.0, b + dv * 165.0, Color(0.78, 0.3, 0.24, 0.75), 3.0, true)
+				draw_line(b - dv * 6.0, b + dv * 150.0, Color(0.2, 0.15, 0.16, 0.9), 2.0, true)
 				# 날 아래쪽 절반에 피가 흘러내린다
-				var blood := PackedVector2Array([b + dv * 70.0 + nv * 18.0, b + nv * 30.0 + dv * 20.0, b - dv * 14.0, b - nv * 24.0 + dv * 18.0, b + dv * 60.0 - nv * 12.0])
-				draw_colored_polygon(blood, Color(0.5, 0.0, 0.04, 0.85))
+				var blood := PackedVector2Array([b + dv * 80.0 + nv * 16.0, b + nv * 32.0 + dv * 22.0, b - dv * 16.0, b - nv * 26.0 + dv * 20.0, b + dv * 66.0 - nv * 12.0])
+				draw_colored_polygon(blood, Color(0.38, 0.0, 0.03, 0.92))
 				for k in 3:
 					var d0 := b - dv * (20.0 + k * 40.0) + nv * (8.0 - k * 6.0)
-					draw_line(d0, d0 + Vector2(0, 30.0 + 20.0 * sin(_t * 2.0 + k)), Color(0.45, 0.0, 0.03, 0.8), 5.0, true)
+					draw_line(d0, d0 + Vector2(0, 30.0 + 20.0 * sin(_t * 2.0 + k)), Color(0.34, 0.0, 0.03, 0.85), 5.0, true)
 		elif kind == "fire":
 			for i in 14:
 				var x := 60.0 + i * 140.0
