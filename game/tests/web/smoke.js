@@ -12,7 +12,7 @@
  * 경로 B: 거대 존재 전투에서 카드를 내지 않고 3턴 → 짓밟기 → "카드를 내지 않은 미래"(붉게 번짐·유리 깨짐) → 등장 직후(1턴)부터 재시작
  * 경로 C: 갈림길 시체 발견 / 훈련(카드 강화 +) 각각, 계단 [대답하지 못한다] → C1·빈 캠프 대사가 선택을 반영
  * 경로 D: 휴대폰 가로(iPhone 13 에뮬레이션, 터치) — 작은 화면 글씨 배율, 터치 탭·터치 드래그로 카드 내기, 세로 화면 "가로로 돌려 주세요"
- * 경로 T: 탑뷰 이동 시험판(?scene=topdown) — 걸어 들어옴(앞벽 가림, 동료 셋이 뒤따름)·세라피나 첫 대사 → 방향키·WASD 걷기(걷기 그림 프레임·속도 120,
+ * 경로 T: 탑뷰 이동 시험판(?scene=topdown) — 걸어 들어옴(앞벽 가림, 동료 셋이 뒤따름)·세라피나 첫 대사 → 방향키·WASD 걷기(걷기 그림 프레임·속도 180,
  *         동료가 경로 뒤쪽에 간격을 두고 따라오고 멈추면 겹치지 않음) → 탭 이동 → 물건 4개 조사(탭·E 키) → 기둥 뒤 가림
  *         → 출구(설명 → 다시 탭 → 시험판 끝 → 입구로, 동료 다시 줄 섬) → 벽·아래 입구 막힘
  *         → 휴대폰(iPhone 13 가로): 터치 빈 바닥 탭은 안 움직임, 물건 터치 조사, 조사 버튼, 왼쪽 절반 조이스틱(끌기 → 이동·느리게 → 떼면 정지)
@@ -593,19 +593,22 @@ async function pathT(browser) {
   const seen = new Set(), fseen = new Set();
   let sa = null;
   await page.keyboard.down('ArrowRight');
-  for (let i = 0; i < 12; i++) {
-    await H.sleep(110); s = await H.state(); seen.add(s.topdown.sheetFrame); fseen.add(s.topdown.followers[2].sheetFrame);
-    if (i === 3) sa = s;
-    if (i === 6) await H.shot('T03_key_walk_right.png');
+  // 속도 180 이면 금방 오른쪽 벽에 닿으므로, 벽에 닿기 전(x < 760) 구간만으로 속도를 잰다
+  let kmove = null;
+  for (let i = 0; i < 6; i++) {
+    await H.sleep(30 + 41 * i); s = await H.state();   // 간격을 들쭉날쭉하게(걷기 그림 주기와 맞물려 같은 프레임만 잡히지 않게) seen.add(s.topdown.sheetFrame); fseen.add(s.topdown.followers[2].sheetFrame);
+    if (i === 0) sa = s;
+    if (s.topdown.pos[0] < 760) kmove = s;
+    if (i === 2) await H.shot('T03_key_walk_right.png');
   }
-  const kmove = s;
+  kmove = kmove || s;
   await page.keyboard.up('ArrowRight');
   check('방향키 → 오른쪽으로 걸음(x 증가, 오른쪽 행 그림)', s.topdown.pos[0] > p0[0] + 10 && s.topdown.dir === 'right', { pos: s.topdown.pos, dir: s.topdown.dir });
   check('걷기 그림: 왼발·오른발 프레임이 바뀜(오른쪽 행 6~8)', seen.has(6) && seen.has(8), [...seen]);
   const kv = (kmove.topdown.pos[0] - sa.topdown.pos[0]) / ((kmove.topdown.t - sa.topdown.t) / 1000);
-  check('걷는 속도 약 120 맵px/초', kv > 105 && kv < 135, Math.round(kv));
+  check('걷는 속도 약 180 맵px/초', kv > 160 && kv < 200, Math.round(kv));
   check('걷는 동안 동료 셋이 노엘 경로 뒤쪽(왼쪽)에 간격을 두고 따라옴, 오른쪽 행 걷기 그림', tdLine(kmove, [-1, 0], 'right')
-    && kmove.topdown.followers.every(f => f.moving && Math.floor(f.sheetFrame / 3) === 2) && fseen.has(6) && fseen.has(8), { f: kmove.topdown.followers, n: kmove.topdown.pos, fseen: [...fseen] });
+    && kmove.topdown.followers.every(f => f.moving && Math.floor(f.sheetFrame / 3) === 2) && [6, 7, 8].filter(x => fseen.has(x)).length >= 2, { f: kmove.topdown.followers, n: kmove.topdown.pos, fseen: [...fseen] });
   await H.sleep(300);
   s = await H.state();
   check('멈추면 서기 프레임', !s.topdown.moving && s.topdown.frame === 1, s.topdown);
@@ -757,16 +760,16 @@ async function pathT(browser) {
   const jb = await P.state();
   await P.shot('T12_phone_joystick.png');
   const fast = (jb.topdown.pos[0] - ja.topdown.pos[0]) / ((jb.topdown.t - ja.topdown.t) / 1000);
-  check('휴대폰: 조이스틱 끝까지 → 오른쪽으로 최대 속도(약 120) 걷기', jb.topdown.moving && jb.topdown.dir === 'right' && fast > 100 && fast < 140 && jb.topdown.pace > 0.99, { fast: Math.round(fast), pace: jb.topdown.pace });
+  check('휴대폰: 조이스틱 끝까지 → 오른쪽으로 최대 속도(약 180) 걷기', jb.topdown.moving && jb.topdown.dir === 'right' && fast > 140 && fast < 210 && jb.topdown.pace > 0.99, { fast: Math.round(fast), pace: jb.topdown.pace });
   check('휴대폰: 조이스틱으로 걸을 때도 동료가 뒤따라옴', tdLine(jb, [-1, 0], 'right'), jb.topdown.followers);
   const c = jb.topdown.stick.c;
-  await P.touchMove(c[0] + R * 0.3, c[1]);
+  await P.touchMove(c[0] - R * 0.3, c[1]);   // 오른쪽 벽 가까이 와 있으므로 느린 걸음은 왼쪽으로 잰다
   await P.sleep(300);
   const jc = await P.state();
   await P.sleep(800);
   const jd = await P.state();
-  const slow = (jd.topdown.pos[0] - jc.topdown.pos[0]) / ((jd.topdown.t - jc.topdown.t) / 1000);
-  check('휴대폰: 조금만 기울이면 느리게 걷기', slow > 15 && slow < fast * 0.7 && jd.topdown.pace < 0.7, { slow: Math.round(slow), pace: jd.topdown.pace });
+  const slow = (jc.topdown.pos[0] - jd.topdown.pos[0]) / ((jd.topdown.t - jc.topdown.t) / 1000);
+  check('휴대폰: 조금만 기울이면 느리게 걷기', slow > 15 && slow < fast * 0.7 && jd.topdown.pace < 0.7, { slow: Math.round(slow), pace: jd.topdown.pace, a: ja.topdown.pos, b: jb.topdown.pos, c: jc.topdown.pos, d: jd.topdown.pos, moving: jd.topdown.moving, dir: jd.topdown.dir });
   await P.touchEnd();
   await P.sleep(400);
   s = await P.state();

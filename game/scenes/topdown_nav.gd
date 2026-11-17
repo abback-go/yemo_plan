@@ -34,9 +34,9 @@ func _init(conf: Dictionary, map_size: Vector2i) -> void:
 	grid.region = Rect2i(0, 0, ceili(map_size.x / float(cell)), ceili(map_size.y / float(cell)))
 	grid.cell_size = Vector2(cell, cell)
 	grid.offset = Vector2(cell / 2.0, cell / 2.0)
-	grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
-	grid.default_compute_heuristic = AStarGrid2D.HEURISTIC_OCTILE
-	grid.default_estimate_heuristic = AStarGrid2D.HEURISTIC_OCTILE
+	grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER   # 4방향 이동만(대각선 없음)
+	grid.default_compute_heuristic = AStarGrid2D.HEURISTIC_MANHATTAN
+	grid.default_estimate_heuristic = AStarGrid2D.HEURISTIC_MANHATTAN
 	grid.update()
 	for y in grid.region.size.y:
 		for x in grid.region.size.x:
@@ -112,20 +112,32 @@ func find_path(from: Vector2, to: Vector2) -> PackedVector2Array:
 		return out
 	var pts: Array = [from]
 	for id in ids:
-		pts.append(center(id))
+		_add_axis(pts, center(id))
 	if can_stand(to):
-		pts.append(to)
-	# 직선으로 갈 수 있는 데까지 건너뛴다 (격자 모양으로 꺾이지 않게)
-	var cur: Vector2 = from
-	var i := 1
-	while i < pts.size():
-		var j := i
-		while j + 1 < pts.size() and line_ok(cur, pts[j + 1]):
-			j += 1
-		out.append(pts[j])
-		cur = pts[j]
-		i = j + 1
+		_add_axis(pts, to)
+	# 가로·세로 구간만 남기고, 같은 방향으로 이어지는 점은 합친다 (4방향 이동)
+	for i in range(1, pts.size()):
+		var q: Vector2 = pts[i]
+		if out.size() >= 1:
+			var pa: Vector2 = pts[i - 2] if i >= 2 else from
+			var pb: Vector2 = pts[i - 1]
+			if (is_equal_approx(pa.x, pb.x) and is_equal_approx(pb.x, q.x)) or (is_equal_approx(pa.y, pb.y) and is_equal_approx(pb.y, q.y)):
+				out[out.size() - 1] = q
+				continue
+		out.append(q)
 	return out
+
+
+## 마지막 점에서 q 로 가로·세로로만 가도록, 둘 다 다르면 꺾이는 점을 끼운다(설 수 있는 쪽)
+func _add_axis(pts: Array, q: Vector2) -> void:
+	var a: Vector2 = pts[pts.size() - 1]
+	if a.distance_squared_to(q) < 0.0001:
+		return
+	if not is_equal_approx(a.x, q.x) and not is_equal_approx(a.y, q.y):
+		var c1 := Vector2(q.x, a.y)
+		var c2 := Vector2(a.x, q.y)
+		pts.append(c1 if line_ok(a, c1) and line_ok(c1, q) else c2)
+	pts.append(q)
 
 
 ## p 에서 d 만큼 움직인다. 막히면 가로·세로 한쪽으로만 미끄러진다. 반환: 새 발끝
@@ -137,11 +149,6 @@ func move(p: Vector2, d: Vector2) -> Vector2:
 		return p + Vector2(d.x, 0)
 	if d.y != 0.0 and can_stand(p + Vector2(0, d.y)):
 		return p + Vector2(0, d.y)
-	# 비스듬한 벽: 45도 돌린 쪽으로 미끄러진다
-	for a in [PI / 4.0, -PI / 4.0]:
-		var r := d.rotated(a) * 0.7
-		if can_stand(p + r):
-			return p + r
 	return p
 
 
@@ -161,6 +168,19 @@ static func face_dir(cur: String, d: Vector2) -> String:
 	if ax >= ay:
 		return "left" if d.x < 0 else "right"
 	return "up" if d.y < 0 else "down"
+
+
+## 움직임 d 를 가로 또는 세로 한쪽으로만 (대각선 이동 없음). 길이(빠르기)는 그대로
+static func snap4(cur: String, d: Vector2) -> Vector2:
+	if d == Vector2.ZERO:
+		return d
+	var f := face_dir(cur, d)
+	var l := d.length()
+	match f:
+		"left": return Vector2(-l, 0)
+		"right": return Vector2(l, 0)
+		"up": return Vector2(0, -l)
+	return Vector2(0, l)
 
 
 ## v: 받침 반지름을 1로 한 손가락 위치. 조금 기울이면 min 빠르기, 끝까지 기울이면 1

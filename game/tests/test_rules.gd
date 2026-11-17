@@ -549,6 +549,18 @@ func t_topdown() -> void:
 			through = true
 		cur = q
 	check("탑뷰: 탭 이동 경로가 장애물을 뚫지 않는다", not through)
+	# 4방향 이동: 탭 이동 경로의 모든 구간이 가로 또는 세로, 조이스틱도 한쪽으로만
+	var diag := []
+	for tgt in [Vector2(170, 420), Vector2(700, 200), Vector2(120, 470)]:
+		var c4 := entry
+		for q in nav.find_path(entry, tgt):
+			if absf(q.x - c4.x) > 0.01 and absf(q.y - c4.y) > 0.01:
+				diag.append([c4, q])
+			c4 = q
+	var s1 := TopdownNav.snap4("right", Vector2(0.8, -0.6))
+	var s2 := TopdownNav.snap4("up", Vector2(0.6, -0.8))
+	check("탑뷰: 4방향 이동 — 탭 경로에 대각선 구간 없음, 조이스틱은 가로·세로 한쪽으로만",
+		diag.is_empty() and s1.y == 0.0 and s1.x > 0.99 and s2.x == 0.0 and s2.y < -0.99, str(diag))
 	# 벽 쪽으로 계속 걸어도 바닥 안에 머문다
 	var p2 := entry
 	for i in 400:
@@ -568,7 +580,7 @@ func t_topdown() -> void:
 		if im == null or im.get_size() != Vector2i(216, 288):
 			sheets_ok = false
 	check("탑뷰 동료: 세라피나 → 브룬힐드 → 엘리안, 시트 216×288", ids == ["seraphina", "brunhild", "elian"] and sheets_ok, str(ids))
-	check("탑뷰 동료 간격 16~40 맵px, 속도 120", float(C.followGap) >= 16.0 and float(C.followGap) <= 40.0 and float(C.speed) == 120.0)
+	check("탑뷰 동료 간격 16~40 맵px, 속도 180", float(C.followGap) >= 16.0 and float(C.followGap) <= 40.0 and float(C.speed) == 180.0)
 	var gap := float(C.followGap)
 	var rest := []
 	for i in 3:

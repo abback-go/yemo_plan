@@ -36,6 +36,7 @@ var dir := "up"
 var frame := 1
 var moving := false
 var walk_t := 0.0
+var held: Array = []       # 누르고 있는 방향키 (누른 순서). 마지막 것 하나로만 걷는다
 var pace := 1.0            # 지금 걷는 빠르기 비율 (조이스틱을 덜 기울이면 1보다 작다)
 var stick := {}            # 조이스틱을 누른 손가락 {"i": 터치 번호, "c": 가운데, "p": 손가락, "drag": 끌었는가} (무대 좌표)
 var btn_flash := 0.0
@@ -320,17 +321,20 @@ func _cam_target() -> Vector2:
 	return out
 
 
+## 키보드: 누르고 있는 방향 중 가장 나중에 누른 하나로만 걷는다 (4방향, 대각선 없음)
 func _key_dir() -> Vector2:
-	var v := Vector2.ZERO
-	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
-		v.x -= 1
-	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
-		v.x += 1
-	if Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP):
-		v.y -= 1
-	if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN):
-		v.y += 1
-	return v
+	var keys := {"left": [KEY_A, KEY_LEFT], "right": [KEY_D, KEY_RIGHT], "up": [KEY_W, KEY_UP], "down": [KEY_S, KEY_DOWN]}
+	for name in keys:
+		var on := false
+		for kc in keys[name]:
+			on = on or Input.is_physical_key_pressed(kc)
+		if on and not held.has(name):
+			held.append(name)
+		elif not on and held.has(name):
+			held.erase(name)
+	if held.is_empty():
+		return Vector2.ZERO
+	return {"left": Vector2.LEFT, "right": Vector2.RIGHT, "up": Vector2.UP, "down": Vector2.DOWN}[held[held.size() - 1]]
 
 
 func _face(d: Vector2) -> void:
@@ -555,7 +559,7 @@ func stick_r() -> float:
 func stick_vec() -> Vector2:
 	if stick.is_empty():
 		return Vector2.ZERO
-	return TopdownNav.stick_to_vec((stick.p - stick.c) / stick_r(), float(C.stick.dead), float(C.stick.min))
+	return TopdownNav.snap4(dir, TopdownNav.stick_to_vec((stick.p - stick.c) / stick_r(), float(C.stick.dead), float(C.stick.min)))
 
 
 ## 조사 버튼 자리 (무대 좌표, 오른쪽 아래). 터치 화면·자유 이동 중에만
