@@ -29,7 +29,8 @@ extends Object
 const S := {
 	"meta": {
 		"title": "죽음을 보는 마녀",
-		"subtitle": "(가제) · 튜토리얼",
+		"subtitle": "(가제) · 1차 시험판",
+		"fromFloor2": "2층부터", "fromFloor3": "3층부터",
 		"startButton": "시작",
 		"note": "마우스·터치로 플레이 · 휴대폰은 가로 화면",
 	},
@@ -165,9 +166,9 @@ const S := {
 			{"who": "system", "text": "**위쪽 세 출구 중 하나를 고르세요.** 출구 앞에 서면 그 길의 설명이 나옵니다. 한 번 더 누르면(E·스페이스) 들어갑니다. 고르지 않은 길로는 돌아갈 수 없습니다."}]},
 
 		# ── 1차 시험판 v2: 2·3층 (prototype-v2-spec.md 3.2·3.3, 4.2) ──
-		{"id": "v2_death_any", "on": "battleStart", "enc": "ossuary", "lines": [
+		{"id": "v2_death_any", "on": "deathInHand", "lines": [
 			{"who": "system", "text": "**손패의 죽음 카드는 언제든 낼 수 있습니다.** 내면 그 동료는 그 자리에서 죽고, 그 죽음이 「상속」 카드가 되어 손에 들어옵니다.\n· 죽음 카드는 버려지지 않고 손패에 남아, 그 장수만큼 덜 뽑습니다."}]},
-		{"id": "v2_two_cards", "on": "battleStart", "enc": "pyre", "lines": [
+		{"id": "v2_two_cards", "on": "twoDeathCards", "lines": [
 			{"who": "system", "text": "**살아 있는 동료의 죽음 카드는 모두 손에 들어옵니다.** 두 장이면 두 장 모두 — 그만큼 덜 뽑습니다."}]},
 		{"id": "v2_fate_fire", "on": "fateIntent", "lines": [
 			{"who": "system", "text": "**운명의 시도가 예고되었습니다.** 「운명의 불길」은 피해를 옮길 수 없습니다. 적의 차례에 불길이 닿는 순간, 바칠지 거스를지 고릅니다."}]},

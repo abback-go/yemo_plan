@@ -92,6 +92,25 @@ func title() -> void:
 	b.position = Vector2(960 - b.size.x / 2.0, 640)
 	b.name = "start"
 	root.add_child(b)
+	# 시험판: 2층·3층부터 바로 (사용자가 운명 흐름만 다시 해 볼 수 있게)
+	var jx := 960.0
+	var jbs := []
+	for j in [["floor2", m.get("fromFloor2", "2층부터")], ["floor3", m.get("fromFloor3", "3층부터")]]:
+		var sc: String = j[0]
+		var jb := UI.button(str(j[1]), 24, func(): G.ctl.jump(sc), "sans_bold")
+		jb.style_kind = "small"
+		jb.fit(Vector2(36, 10))
+		jb.name = "from_" + sc
+		root.add_child(jb)
+		jbs.append(jb)
+	var tw := 0.0
+	for jb in jbs:
+		tw += jb.size.x
+	tw += 24.0 * (jbs.size() - 1)
+	jx = 960.0 - tw / 2.0
+	for jb in jbs:
+		jb.position = Vector2(jx, 640 + b.size.y + 40)
+		jx += jb.size.x + 24.0
 	var note := UI.label(m.note, 22, Color("#7d6f72"), "sans", HORIZONTAL_ALIGNMENT_CENTER)
 	note.position = Vector2(0, 1000)
 	note.size = Vector2(1920, 40)
@@ -785,6 +804,27 @@ func fate_choice(fate: Dictionary) -> String:
 		await w.done
 	fate_picker = {}
 	G.ctl.note("fate pick " + str(picked[0]))
+	for b in btns:
+		b.disabled = true
+	if picked[0] == "offer":
+		FX.flash("#ffffff", 200, 0.3)
+		var a1 := FX.anim(420, [{"y": 0.0, "b": 1.0}, {"y": -60.0, "b": 2.2}], func(v):
+			if is_instance_valid(cv):
+				cv.set_rect(cpos + Vector2(0, v.y), ck, true)
+				cv.bright = v.b, {"node": cv, "easing": "ease-out"})
+		await FX.until(a1)
+	else:
+		# 노엘이 카드를 움켜쥔다: 카드가 구겨지듯 좁아지며 떨리고, 붉은 실이 튕긴다
+		FX.flash("#ff2a3c", 220, 0.45)
+		FX.shake(10, 380)
+		var c0 := cpos + Vector2(CardView.W, CardView.H) * ck / 2.0
+		var a2 := FX.anim(460, [{"k": 1.0}, {"o": 0.5, "k": 0.82}, {"k": 0.9}], func(v):
+			if is_instance_valid(cv):
+				var kk: float = ck * v.k
+				cv.set_rect(c0 - Vector2(CardView.W, CardView.H) * kk / 2.0 + Vector2(randf_range(-6, 6), randf_range(-4, 4)), kk, true)
+				cv.taut = 1.0 + (1.0 - v.k) * 4.0, {"node": cv})
+		FX.burst(c0.x, c0.y - 120, {"count": 30, "colors": ["#ff2a3c", "#ff8a90"], "speed": 420, "life": 600, "size": 3, "gravity": 0, "shape": "line"})
+		await FX.until(a2)
 	await _overlay_close(root, 250)
 	return picked[0]
 
@@ -799,7 +839,7 @@ func pick_fate(value: String) -> bool:
 
 
 ## 카드 획득 연출(상속 카드·흉터): 카드가 떠오르며 커졌다가 덱(왼쪽 아래)으로 들어간다. kind: inherit | scar
-func card_gain(uids: Array, kind := "inherit", caption := "") -> void:
+func card_gain(uids: Array, kind := "inherit", caption := "", sub := "") -> void:
 	var st: Dictionary = G.ctl.st
 	if uids.is_empty():
 		return
@@ -835,6 +875,11 @@ func card_gain(uids: Array, kind := "inherit", caption := "") -> void:
 	lab.position = Vector2(0, 850)
 	lab.size = Vector2(1920, 60)
 	root.add_child(lab)
+	if sub != "":
+		var sl := UI.label(sub, int(26 * u), Color("#c9c9c9"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, 6)
+		sl.position = Vector2(0, 850 + 60 * u)
+		sl.size = Vector2(1920, 44)
+		root.add_child(sl)
 	var w := DialogBox.Waiter.new()
 	root.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed:

@@ -2,6 +2,8 @@
 ## 휴대폰 세로면 "가로로 돌려 주세요". 작은 화면이면 대사·안내·카드 확대 글씨를 키운다(FX.update_screen).
 ## 주소 뒤 옵션(웹): ?seed=7 · ?speed=4 · ?scene=giant(바로 시작) · ?test=1(시험 훅) · ?autoguide=1 · ?guides=reset · ?run=2
 ##   ?scene=topdown — 픽셀아트 탑뷰 이동 시험판(튜토리얼 흐름과 따로, scenes/topdown.gd)
+##   1차 시험판 v2 바로 가기: ?scene=camp | cult | fork | deep | emptycamp | floor2 | ossuary | f2stairs | floor3&brun=alive|dead | pyre | result
+##   ?fates=offer,defy,… (운명의 시도 자동 선택, 순서대로) · ?followers=0 (동료 따라 걷기 끔 — 운명의 시도 때만 나타남)
 extends Node
 
 var stage: Node2D

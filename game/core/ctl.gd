@@ -414,10 +414,15 @@ func field_fate(t: TopdownScene, fate_id: String, my: int) -> void:
 		await t.fate_clear(true)
 		await t.say(L.offered)
 		var gain := []
+		var relic_n := 0
 		for e in ev:
 			if e.t == "gainCard":
 				gain.append(e.uid)
-		await G.scenes.card_gain(gain, "inherit")
+			if e.t == "relicize":
+				relic_n = e.changes.size()
+		var sub := G.ui("relic", {"name": G.name_of(str(f.who)), "n": relic_n}) if relic_n > 0 else ""
+		await G.scenes.card_gain(gain, "inherit", "", sub)
+		t.fate_trap_fade()
 	else:
 		var ev2 := Rules.defy_fate(st, fate_id)
 		await t.fate_defy_fx()
@@ -461,6 +466,17 @@ func battle(enc: String, from_snapshot := false, my := -1) -> bool:
 	if from_snapshot and enc == "giant":
 		await G.guide.fire("restart", {})
 	await G.guide.fire("battleStart", {"enc": enc})
+	if not _alive(my):
+		return false
+	# 손에 낼 수 있는 죽음 카드가 있으면 (2·3층) 그 안내, 두 장이면 두 장 안내
+	var ndc := 0
+	for u in st.battle.hand:
+		if Rules.def(st, u).kind == "death" and not Rules.is_locked(st, u):
+			ndc += 1
+	if ndc > 0:
+		await G.guide.fire("deathInHand", {"n": ndc})
+	if ndc > 1:
+		await G.guide.fire("twoDeathCards", {"n": ndc})
 	if not _alive(my):
 		return false
 	await begin_turn()
@@ -696,7 +712,7 @@ func jump(scene: String, opts := {}) -> void:
 
 ## 바로 가기용: 세라피나가 죽은 뒤(빈 캠프 직전) 상태 — 유품·짓밟힘
 func _tutorial_done_state(with_fate: bool) -> void:
-	var s := Rules.state_after_tutorial(seed)
+	var s := Rules.state_after_tutorial(seed, str(st.get("flags", {}).get("sera", "none")))
 	if not with_fate:
 		# 빈 캠프에서 운명이 들어오므로 지운다
 		s.fates = []

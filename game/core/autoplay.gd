@@ -50,7 +50,7 @@ func _process(delta: float) -> void:
 		var d := Rules.def(st, u)
 		if d.kind == "death":
 			continue
-		if d.kind == "relic" and int(st.party.witch.hp) <= 6:
+		if d.kind == "relic" and int(st.party.witch.hp) <= 8:
 			continue   # 노엘 HP 가 낮으면 유품(HP 소모)은 아낀다
 		if d.target == "none":
 			c.play_card(u, {})

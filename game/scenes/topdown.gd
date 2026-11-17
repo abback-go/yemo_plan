@@ -145,6 +145,9 @@ func setup(id := "fork", o := {}) -> void:
 		var w := _walker(str(FOLLOW[fid].sheet), [36, 70])
 		var f := {"id": fid, "ally": FOLLOW[fid].ally, "node": w[0], "spr": w[1], "pos": trail.at(foot, _gap(i)), "dir": dir, "frame": 1, "walk_t": 0.0,
 			"moving": false, "free": false}
+		# ?followers=0: 동료 따라 걷기를 끈다(보이지 않게). 운명의 시도 때만 그 동료가 나타난다
+		if G.params.get("followers", "") == "0":
+			w[0].visible = false
 		if seats.has(fid):
 			var s: Array = seats[fid]
 			f.pos = Vector2(float(s[0]), float(s[1]))
@@ -734,9 +737,39 @@ func leave(id: String) -> void:
 		mode = "free"
 
 
-## 나가는 연출: 출구 쪽으로 몇 걸음 → 어두워짐
+## 철창문이 위로 들린다 (맵 그림의 철창 자리를 잘라 위로 밀어 올리고, 그 뒤는 어두운 통로)
+func open_gate(exit_id: String) -> void:
+	var g: Array = C.get("gates", {}).get(exit_id, [])
+	if g.is_empty():
+		return
+	var r := Rect2(float(g[0]), float(g[1]), float(g[2]), float(g[3]))
+	var dark := ColorRect.new()
+	dark.color = Color(0.03, 0.02, 0.03)
+	dark.position = r.position
+	dark.size = r.size
+	world.add_child(dark)
+	world.move_child(dark, 1)
+	var bars := Sprite2D.new()
+	bars.texture = map_tex
+	bars.centered = false
+	bars.region_enabled = true
+	bars.region_rect = r
+	bars.position = r.position
+	world.add_child(bars)
+	world.move_child(bars, 2)
+	FX.shake(3, 900)
+	var a := FX.anim(900, [{"d": 0.0}, {"d": r.size.y - 6.0}], func(v):
+		if is_instance_valid(bars):
+			bars.region_rect = Rect2(r.position.x, r.position.y + v.d, r.size.x, r.size.y - v.d), {"node": self, "easing": "ease-in-out"})
+	await FX.until(a)
+
+
+## 나가는 연출: 출구 쪽으로 몇 걸음 → 어두워짐 (철창문이면 먼저 들린다)
 func walk_out(to = null) -> void:
 	mode = "event"
+	if exit_sel != "" and C.get("gates", {}).has(exit_sel):
+		await open_gate(exit_sel)
+		to = [foot.x, foot.y - 30.0]
 	var target: Vector2 = foot if to == null else _v(to)
 	if foot.distance_to(target) > 1.0:
 		moving = true
@@ -1034,6 +1067,7 @@ func fate_trap(fid: String) -> void:
 	var f := follower(fid)
 	if f.is_empty():
 		return
+	f.node.visible = true
 	var spr := Sprite2D.new()
 	spr.texture = Assets.tex("td_trap_spike.png")
 	spr.hframes = 3
@@ -1097,6 +1131,26 @@ func fate_defy_fx() -> void:
 			f.spr.modulate = Color.WHITE
 			await FX.wait(110)
 	await FX.wait(200)
+
+
+## 바친 뒤 남겨 둔 창 함정이 바닥으로 가라앉고 핏자국만 남는다 (뒤따르던 동료가 그 자리에 서므로)
+func fate_trap_fade() -> void:
+	for c in fxl.get_children():
+		if c is Sprite2D and c.texture == Assets.tex("td_trap_spike.png"):
+			var s: Sprite2D = c
+			var at := s.position
+			var stain := Node2D.new()
+			stain.position = at + Vector2(0, -8)
+			stain.draw.connect(func():
+				for i in 7:
+					var o := Vector2(cos(i * 2.1) * 9.0, sin(i * 1.7) * 3.0)
+					stain.draw_circle(o, 5.0 + (i % 3) * 2.0, Color(0.35, 0.0, 0.03, 0.7))
+				stain.draw_circle(Vector2.ZERO, 7.0, Color(0.45, 0.0, 0.04, 0.8)))
+			fxl.add_child(stain)
+			fxl.move_child(stain, 0)
+			var tw := get_tree().create_tween()
+			tw.tween_property(s, "modulate:a", 0.0, FX.ms(600) / 1000.0)
+			tw.tween_callback(s.queue_free)
 
 
 ## 운명 연출을 걷는다(붉은 덮개·실). keep_trap: 바친 뒤 피 묻은 창은 바닥에 남긴다

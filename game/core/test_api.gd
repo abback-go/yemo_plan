@@ -265,6 +265,18 @@ func geom(kind: String, id: String) -> Dictionary:
 					mp = Vector2(conf.at[0], conf.at[1])
 				var sp: Vector2 = td.to_stage(mp)
 				return {"x": sp.x, "y": sp.y}
+		"mapClose":
+			var tdm = G.scenes.current
+			if tdm is TopdownScene and tdm.hud and tdm.hud.map != null:
+				var mr: Rect2 = tdm.hud.map.close_btn.get_global_rect()
+				return {"x": mr.get_center().x, "y": mr.get_center().y}
+		"fateBtn":
+			# 운명의 시도 선택 화면의 버튼 (offer | defy)
+			if not G.scenes.fate_picker.is_empty():
+				for fb in G.scenes.fate_picker.btns:
+					if str(fb.get_meta("value", "")) == id:
+						var fr: Rect2 = fb.get_global_rect()
+						return {"x": fr.get_center().x, "y": fr.get_center().y, "w": fr.size.x, "h": fr.size.y}
 		"button":
 			var cur2 = G.scenes.current
 			if cur2:

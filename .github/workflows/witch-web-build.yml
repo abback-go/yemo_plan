@@ -80,15 +80,24 @@ jobs:
           ~/godot/godot --headless --path . --script res://tests/test_rules.gd 2>&1 | tee /tmp/rules.txt
           grep -q "failures: 0" /tmp/rules.txt
 
-      - name: Headless auto-play (full tutorial, and wipe → rewind → restart)
+      # 1차 시험판 v2: 처음부터 끝(결과 요약)까지 2경로(거대 존재 전멸 → 되감기 포함) + 2층부터 운명 3경로
+      #   ① 2층 바침 → 3층 엘리안 바침 ② 2층 거스름 → 3층 브룬힐드 Lv2 거스름 + 엘리안 거스름 ③ 2층 거스름 → 3층 브룬힐드 Lv2 바침 (--fates 는 운명의 시도 순서대로)
+      - name: Headless auto-play (start → result, fate paths ①②③)
         if: ${{ inputs.full }}
         run: |
           cd game
-          for args in "--path=rest --choice=smile --autoplay" "--path=train --train=snipe --choice=silent --autoplay=wipe"; do
-            timeout 300 ~/godot/godot --headless --path . -- --scene=camp --speed=10 --autoguide --guides=reset --trace --quit-on-end $args > /tmp/auto.txt 2>&1 || true
-            grep -E "battle|path|choice|rewind|ending|SCRIPT ERROR|ERROR" /tmp/auto.txt | grep -v "] ev " | tail -40
-            grep -q "] ending" /tmp/auto.txt
-            ! grep -E "SCRIPT ERROR|^ERROR" /tmp/auto.txt
+          : > /tmp/auto.txt
+          for args in "--scene=camp --path=rest --choice=smile --fates=offer,offer --autoplay" \
+                      "--scene=camp --path=train --train=snipe --choice=silent --fates=defy,defy,defy --autoplay=wipe" \
+                      "--scene=floor2 --fates=offer,offer --autoplay" \
+                      "--scene=floor2 --fates=defy,defy,defy --autoplay" \
+                      "--scene=floor2 --fates=defy,offer,defy --autoplay"; do
+            echo "=== $args"
+            timeout 400 ~/godot/godot --headless --path . -- --speed=10 --autoguide --guides=reset --trace --quit-on-end $args > /tmp/auto1.txt 2>&1 || true
+            cat /tmp/auto1.txt >> /tmp/auto.txt
+            grep -E "step |battle |path |choice|rewind|fate pick|win |wipe|result|SCRIPT ERROR|ERROR" /tmp/auto1.txt | grep -v "] ev " | tail -40
+            grep -q "] result" /tmp/auto1.txt
+            ! grep -E "SCRIPT ERROR|^ERROR" /tmp/auto1.txt
           done
 
       - name: Export web build
