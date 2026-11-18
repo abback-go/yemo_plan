@@ -17,7 +17,7 @@ func _ready() -> void:
 		return
 	_win = JavaScriptBridge.get_interface("window")
 	_obj = JavaScriptBridge.create_object("Object")
-	for name in ["state", "jump", "play", "endTurn", "advance", "pickPath", "choose", "train", "openMap", "closeMap", "winBattle", "geom", "handCut", "resetGuides", "setSpeed", "tapStart", "again",
+	for name in ["state", "jump", "play", "endTurn", "advance", "pickPath", "choose", "train", "openMap", "closeMap", "winBattle", "enemyHp", "geom", "handCut", "resetGuides", "setSpeed", "tapStart", "again",
 			"fate", "tdGo", "tdConfirm"]:
 		var cb := JavaScriptBridge.create_callback(_call.bind(name))
 		_cbs.append(cb)
@@ -89,6 +89,14 @@ func _call(args: Array, name: String) -> void:
 			r = {"ok": true}
 		"winBattle":
 			r = win_battle()
+		"enemyHp":
+			# 시험용: 적 HP 를 정한다 (집행자를 먼저 쓰러뜨리는 경로 확인)
+			var eh = Rules.enemy(G.ctl.st, str(_arg(args, 0, ""))) if G.ctl.st.get("battle") != null else null
+			if eh != null:
+				eh.hp = int(_arg(args, 1, 1))
+				G.view.sync_from_state(G.ctl.st)
+				G.view.render()
+			r = {"ok": eh != null}
 		"geom":
 			r = geom(str(_arg(args, 0, "")), str(_arg(args, 1, "")))
 		"handCut":

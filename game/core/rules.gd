@@ -256,7 +256,7 @@ static func start_battle(st: Dictionary, enc_id: String) -> Array:
 		"enc": enc_id, "kind": enc.kind, "turn": 0, "phase": "start", "energy": 0,
 		"draw": shuffle(st, st.party.deck.duplicate()), "hand": [], "discard": [], "exhaust": [],
 		"free": {}, "enemies": [], "result": null, "shadow": 0, "giantTriggered": false, "lastPlayedIndex": -1, "unlocked": {},
-		"actQueue": [], "awaitFate": null}
+		"actQueue": [], "awaitFate": null, "fateQueue": []}
 	st.battle = b
 	# 죽음 카드는 전투 처음부터 손패에 있다(보존 — 버려지지 않고 한 칸을 차지한다)
 	for u in st.party.get("deathCards", []):
@@ -654,16 +654,16 @@ static func _hit_enemy(st: Dictionary, e: Dictionary, amount: int, src_uid: Stri
 			return
 		ev.append({"t": "damage", "who": {"enemy": e.id}, "amount": 0, "immune": true, "hp": null, "src": src_id})
 		return
-	# 운명을 맡은 적(화형 사제): 그 운명의 시도가 오기 전에는 쓰러지지 않는다 (디버그 승리는 제외)
-	if src_uid != "" and amount >= int(e.hp) and _fate_pending_for(st, str(e.id)):
-		amount = maxi(0, int(e.hp) - 1)
-		ev.append({"t": "fateGuard", "enemy": e.id})
 	e.hp = maxi(0, int(e.hp) - amount)
 	ev.append({"t": "damage", "who": {"enemy": e.id}, "amount": amount, "hp": e.hp, "src": src_id})
 	if int(e.hp) <= 0:
 		e.alive = false
 		e.intent = null
 		ev.append({"t": "enemyDie", "enemy": e.id})
+		# 운명을 집행할 적(encounters.fateIntents)이 그 전에 쓰러지면: 쓰러지는 그 순간 운명의 시도가 온다 (디버그 승리는 제외)
+		if src_uid != "":
+			for fid in _fates_pending_for(st, str(e.id)):
+				st.battle.fateQueue.append({"fate": fid, "enemy": str(e.id)})
 
 
 static func _hit_ally(st: Dictionary, who: String, amount: int, ev: Array, cause := "attack") -> void:
@@ -682,22 +682,40 @@ static func _hit_ally(st: Dictionary, who: String, amount: int, ev: Array, cause
 		ev.append({"t": "allyDown", "ally": who})
 
 
-## 이 적이 맡은 운명의 시도가 아직 오지 않았는가 (encounters.fateIntents)
-static func _fate_pending_for(st: Dictionary, enemy_id: String) -> bool:
+## 이 적이 집행할 운명 중 아직 오지 않은 것 (encounters.fateIntents, 턴 순서)
+static func _fates_pending_for(st: Dictionary, enemy_id: String) -> Array:
+	var out := []
 	var b = st.battle
 	if b == null:
-		return false
-	var e = enemy(st, enemy_id)
-	if e == null or not bool(D().enemies[e.type].get("fateGuard", false)):
-		return false
+		return out
 	var fi: Dictionary = D().encounters[b.enc].get("fateIntents", {})
-	for k in fi:
-		if str(fi[k].enemy) != enemy_id:
+	var turns := fi.keys().map(func(k): return int(k))
+	turns.sort()
+	for t in turns:
+		var x: Dictionary = fi[str(t)]
+		if str(x.enemy) != enemy_id:
 			continue
-		var f = fate_by_id(st, str(fi[k].fate))
+		var f = fate_by_id(st, str(x.fate))
 		if f != null and f.alive and int(f.get("triedFloor", 0)) != floor_now(st):
-			return true
-	return false
+			out.append(f.id)
+	return out
+
+
+## 줄 선 운명의 시도(집행자가 쓰러져 온 것)를 하나 꺼내 시작한다: b.awaitFate
+static func _start_next_fate(st: Dictionary, ev: Array) -> void:
+	var b = st.battle
+	if b == null or b.awaitFate != null or b.result != null:
+		return
+	while not b.fateQueue.is_empty():
+		var q: Dictionary = b.fateQueue.pop_front()
+		var f = fate_by_id(st, str(q.fate))
+		if f == null or not f.alive or int(f.get("triedFloor", 0)) == floor_now(st):
+			continue
+		f.triedFloor = floor_now(st)
+		b.awaitFate = {"fate": f.id, "enemy": str(q.enemy), "who": f.who, "level": int(f.level), "byDeath": true}
+		ev.append({"t": "enemyAct", "enemy": str(q.enemy), "kind": "fate", "target": f.who, "fate": f.id, "dying": true})
+		ev.append({"t": "fateTrial", "fate": f.id, "enemy": str(q.enemy), "who": f.who, "level": int(f.level), "byDeath": true})
+		return
 
 
 static func _check_defeat(st: Dictionary, ev: Array) -> bool:
@@ -712,7 +730,7 @@ static func _check_defeat(st: Dictionary, ev: Array) -> bool:
 static func _check_enemies(st: Dictionary, ev: Array) -> void:
 	var b: Dictionary = st.battle
 	var enc: Dictionary = D().encounters[b.enc]
-	if b.result != null:
+	if b.result != null or b.awaitFate != null or not b.fateQueue.is_empty():
 		return
 	var alive := alive_enemies(st)
 	# 광신도가 giantTriggerAlive 명 이하로 남으면(한 번에 모두 쓰러져도) 거대 존재가 짓밟는다
@@ -764,6 +782,7 @@ static func play(st: Dictionary, uid: String, target := {}) -> Dictionary:
 		b.discard.append(uid)
 	if b.result == null:
 		_check_defeat(st, ev)
+	_start_next_fate(st, ev)
 	if b.result == null:
 		_check_enemies(st, ev)
 	if b.result == null and int(b.energy) <= 0:
@@ -924,6 +943,10 @@ static func resume_enemy_phase(st: Dictionary) -> Array:
 	var ev := []
 	if st.battle == null or st.battle.result != null or st.battle.awaitFate != null:
 		return ev
+	if st.battle.phase == "player":
+		_check_defeat(st, ev)
+		_check_enemies(st, ev)
+		return ev
 	_run_queue(st, ev)
 	return ev
 
@@ -941,7 +964,7 @@ static func _perform_intent(st: Dictionary, e: Dictionary, ev: Array) -> void:
 				return
 			f.triedFloor = floor_now(st)
 			b.awaitFate = {"fate": f.id, "enemy": e.id, "who": f.who, "level": int(f.level)}
-			ev.append({"t": "enemyAct", "enemy": e.id, "kind": "fate", "target": f.who})
+			ev.append({"t": "enemyAct", "enemy": e.id, "kind": "fate", "target": f.who, "fate": f.id})
 			ev.append({"t": "fateTrial", "fate": f.id, "enemy": e.id, "who": f.who, "level": int(f.level)})
 		"attack":
 			var amount := intent_damage(it)
@@ -1110,6 +1133,7 @@ static func fate_trial_choice(st: Dictionary, choice: String) -> Array:
 		e.intent = null
 	var ev: Array = offer_fate(st, str(af.fate)) if choice == "offer" else defy_fate(st, str(af.fate))
 	ev.append(_intents_event(st))
+	_start_next_fate(st, ev)
 	return ev
 
 

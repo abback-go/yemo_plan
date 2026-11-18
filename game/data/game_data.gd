@@ -184,13 +184,13 @@ const D := {
 		"giant": {"name": "거대한 존재", "hp": null, "immune": true, "retreatOn": "trample", "sprite": "spr_giant_foot.png"},
 		# 1차 시험판 v2 [임시 수치 — 2명(노엘+엘리안)으로도 이길 수 있게, 3명이면 조금 여유]
 		# pattern: 턴마다 차례로 도는 예고 (kind attack: target random | highest(HP 가장 높은 동료) / kind aoe: 모두에게)
-		# scale: 전투 화면에서 적 자리 높이의 배율 / fateGuard: 이 적이 맡은 운명의 시도가 오기 전에는 HP 1 아래로 내려가지 않는다
+		# scale: 전투 화면에서 적 자리 높이의 배율
 		"spear_knight": {"name": "창 기사", "hp": 36, "sprite": "spr_cult_knight.png", "scale": 1.22,
 			"pattern": [
 				{"kind": "attack", "label": "찌르기", "value": 7, "target": "random"},
 				{"kind": "attack", "label": "관통 돌진", "value": 10, "target": "highest"},
 			]},
-		"pyre_priest": {"name": "화형 사제", "hp": 46, "sprite": "spr_pyre_priest.png", "scale": 1.22, "fateGuard": true,
+		"pyre_priest": {"name": "화형 사제", "hp": 46, "sprite": "spr_pyre_priest.png", "scale": 1.22,
 			"pattern": [
 				{"kind": "aoe", "label": "불길", "value": 3, "hitsWitch": true},
 				{"kind": "attack", "label": "화염", "value": 6, "target": "random"},
@@ -240,17 +240,19 @@ const D := {
 			# 죽음 카드는 1층부터 손패에 있다(startingDeathCards). 이 전투 1턴 시작에 잠금이 풀린다(lockedUntil)
 		},
 		# ───── 1차 시험판 v2 ─────
-		# bg: 전투 배경 / fateIntents: {턴: {enemy, fate, label}} — 그 운명이 살아 있고 이 층에서 아직 시도되지 않았으면 그 턴 예고가 운명의 시도가 된다
+		# bg: 전투 배경 / fateIntents: {턴: {enemy, fate, label}} — 그 운명이 살아 있고 이 층에서 아직 시도되지 않았으면 그 턴 예고가 운명의 시도가 된다.
+		#   그 적(집행자)이 그 전에 쓰러지면 쓰러지는 순간 운명의 시도가 온다 (2026-11-18 결정: 운명의 시도는 전투 안에서만)
 		"ossuary": {
 			"kind": "normal", "floor": 2, "bg": "bg_ossuary.png",
 			"enemies": [{"id": "c1", "type": "cultist", "slot": 0}, {"id": "k1", "type": "spear_knight", "slot": 1}],
 			"attackRange": [3, 5],
+			"fateIntents": {"2": {"enemy": "k1", "fate": "warrior_pierce", "label": "운명의 관통"}},
 		},
 		"pyre": {
 			"kind": "normal", "floor": 3, "bg": "bg_pyre_court.png",
 			"enemies": [{"id": "p1", "type": "pyre_priest", "slot": 1}, {"id": "c1", "type": "cultist", "slot": 2}],
 			"attackRange": [3, 5],
-			"fateIntents": {"2": {"enemy": "p1", "fate": "archer_burn", "label": "운명의 불길"}},
+			"fateIntents": {"2": {"enemy": "p1", "fate": "archer_burn", "label": "운명의 불길"}, "3": {"enemy": "p1", "fate": "warrior_pierce", "label": "운명의 꼬챙이"}},
 		},
 	},
 
@@ -338,7 +340,7 @@ const D := {
 			{"n": 4, "locked": true},
 		],
 		# 방: floor, col(가로 칸), row(세로 칸, 1층 갈림길 3갈래), icon
-		# deathMark: 붉은 실 표식 — true 면 늘(튜토리얼: 거대 존재 자리), 운명 id 면 그 운명이 살아 있고 그 층일 때만 (누구의 것인지는 밝히지 않는다)
+		# deathMark: 붉은 실 표식 — true 면 늘(튜토리얼: 거대 존재 자리), 운명 id(또는 그 배열)면 그 운명이 살아 있고 그 층일 때만 (누구의 것인지는 밝히지 않는다)
 		"rooms": {
 			"camp": {"floor": 1, "col": 0, "row": 1, "icon": "camp"},
 			"hall": {"floor": 1, "col": 1, "row": 1, "icon": "sword"},
@@ -348,11 +350,11 @@ const D := {
 			"train": {"floor": 1, "col": 3, "row": 2, "icon": "swords"},
 			"stairs": {"floor": 1, "col": 4, "row": 1, "icon": "stairs"},
 			"deep": {"floor": 1, "col": 5, "row": 1, "icon": "question", "deathMark": "hero"},
-			"f2corridor": {"floor": 2, "col": 0, "row": 0, "icon": "question", "deathMark": "warrior_pierce"},
-			"f2ossuary": {"floor": 2, "col": 1, "row": 0, "icon": "sword"},
+			"f2corridor": {"floor": 2, "col": 0, "row": 0, "icon": "question"},
+			"f2ossuary": {"floor": 2, "col": 1, "row": 0, "icon": "sword", "deathMark": "warrior_pierce"},
 			"f2stairs": {"floor": 2, "col": 2, "row": 0, "icon": "stairs"},
-			"f3chapel": {"floor": 3, "col": 0, "row": 0, "icon": "question", "deathMark": "warrior_pierce"},
-			"f3pyre": {"floor": 3, "col": 1, "row": 0, "icon": "sword", "deathMark": "archer_burn"},
+			"f3chapel": {"floor": 3, "col": 0, "row": 0, "icon": "question"},
+			"f3pyre": {"floor": 3, "col": 1, "row": 0, "icon": "sword", "deathMark": ["archer_burn", "warrior_pierce"]},
 			"f3stairs": {"floor": 3, "col": 2, "row": 0, "icon": "stairs"},
 		},
 		"links": [["camp", "hall"], ["hall", "fork"], ["fork", "corpse"], ["fork", "rest"], ["fork", "train"],

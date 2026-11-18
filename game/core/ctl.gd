@@ -313,20 +313,23 @@ func _step_f2corridor(my: int) -> bool:
 	if not _td_ok(t, my):
 		return false
 	await t.say(t.T.intro)
-	return await _fate_map(t, ["fate"], "warrior_pierce", my)
+	return await _omen_map(t, my)
 
 
-## 맵을 걸으며 운명의 트리거(있으면)를 지나 출구로
-func _fate_map(t: TopdownScene, trigs: Array, fate_id: String, my: int) -> bool:
-	var f = Rules.fate_by_id(st, fate_id)
-	if f != null and f.alive and int(f.floor) == Rules.floor_now(st) and int(f.get("triedFloor", 0)) != Rules.floor_now(st):
-		t.arm(trigs)
+## 맵을 걸어 출구로. 걷는 길 중간(트리거 omen)에서 이 층 운명의 전조를 노엘 속마음으로 한 번 (운명의 시도는 전투 안에서만 — 2026-11-18)
+func _omen_map(t: TopdownScene, my: int) -> bool:
+	var lines := _omen_lines(t.map_id)
+	if not lines.is_empty():
+		t.arm(["omen"])
 	while true:
 		var ev := await _wait_event(t, my)
 		if ev.is_empty():
 			return false
 		if ev.type == "trigger":
-			await field_fate(t, fate_id, my)
+			stage = "omen:" + t.map_id
+			note("omen " + t.map_id)
+			await t.say(lines)
+			stage = "td:" + t.map_id
 			if not _td_ok(t, my):
 				return false
 			continue
@@ -334,6 +337,16 @@ func _fate_map(t: TopdownScene, trigs: Array, fate_id: String, my: int) -> bool:
 			await t.walk_out()
 			return _alive(my)
 	return false
+
+
+## 이 맵에서 비칠 전조: 이 층에 살아 있는 운명마다 (script_data maps.<맵>.omen.<fate id>)
+func _omen_lines(map_id: String) -> Array:
+	var om: Dictionary = G.S.maps.get(map_id, {}).get("omen", {})
+	var out := []
+	for f in Rules.active_fates(st):
+		if int(f.floor) == Rules.floor_now(st) and om.has(f.id):
+			out.append_array(om[f.id])
+	return out
 
 
 func _step_f2ossuary(my: int) -> bool:
@@ -366,7 +379,7 @@ func _step_f3chapel(my: int) -> bool:
 	if not _td_ok(t, my):
 		return false
 	await t.say(t.T.intro)
-	return await _fate_map(t, ["fate"], "warrior_pierce", my)
+	return await _omen_map(t, my)
 
 
 func _step_f3pyre(my: int) -> bool:
@@ -388,62 +401,6 @@ func _step_result(my: int) -> bool:
 	await FX.fade(1, 500)
 	G.scenes.result()
 	return _alive(my)
-
-
-# ───────── 운명의 시도 (필드: 탑뷰에서) ─────────
-## 함정 판 철컥 → 시간 정지(붉게) → 속마음 → [바친다]/[거스른다]
-## 바친다: 창이 솟음 → 데스신 → 동료가 줄에서 빠짐 → 대사 → 상속 카드(같은 Lv) / 거스른다: 창이 부서짐 → 흉터 → 대사 → "운명이 미뤄졌다"
-func field_fate(t: TopdownScene, fate_id: String, my: int) -> void:
-	var f = Rules.fate_by_id(st, fate_id)
-	if f == null or not f.alive or int(f.get("triedFloor", 0)) == Rules.floor_now(st):
-		return
-	var fid := t.follower_of_ally(str(f.who))
-	if t.follower(fid).is_empty():
-		return
-	stage = "fate:" + fate_id
-	note("fate trial field " + fate_id + " lv" + str(f.level))
-	var L: Dictionary = G.S.fate[fate_id]
-	await t.fate_trap(fid)
-	if not _td_ok(t, my):
-		return
-	await t.say(L.trap2 if int(f.level) >= 2 and L.has("trap2") else L.trap)
-	await G.guide.fire("fateFirst", {})
-	var choice := await G.scenes.fate_choice(f)
-	if not _td_ok(t, my):
-		return
-	var lv := int(f.level)
-	if choice == "offer":
-		await t.fate_spikes()
-		var ev := Rules.offer_fate(st, fate_id)
-		await G.scenes.cutscene(fate_id, lv)
-		if not _td_ok(t, my):
-			return
-		t.remove_follower(fid)
-		await G.scenes.close_cutscene(300)
-		await t.fate_clear(true)
-		await t.say(L.offered)
-		var gain := []
-		var relic_n := 0
-		for e in ev:
-			if e.t == "gainCard":
-				gain.append(e.uid)
-			if e.t == "relicize":
-				relic_n = e.changes.size()
-		var sub := G.ui("relic", {"name": G.name_of(str(f.who)), "n": relic_n}) if relic_n > 0 else ""
-		await G.scenes.card_gain(gain, "inherit", "", sub)
-		t.fate_trap_fade()
-		# 상속 카드 안내(전투 중 바친 것과 같은 안내)
-		await G.guide.fire("afterDeath", {"card": str(GameData.D.fates[fate_id].card)})
-	else:
-		var ev2 := Rules.defy_fate(st, fate_id)
-		await t.fate_defy_fx()
-		await t.fate_clear()
-		var scars: Array = ev2[0].scars if not ev2.is_empty() else []
-		await G.scenes.card_gain(scars, "scar")
-		await t.say(L.defied)
-		await G.scenes.card_gain([f.card], "note", str(G.S.fate.postponed))
-		await G.guide.fire("scarFirst", {})
-	stage = "td:" + t.map_id
 
 
 # ───────── 전투 ─────────
@@ -541,9 +498,15 @@ func play_card(uid: String, target := {}) -> Dictionary:
 		return res
 	G.input.end_drag()
 	note("play " + id + " " + str(target))
+	var my := flow
 	await G.view.play_events(res.events)
 	G.guide.fire("cardPlayed", {"enc": st.battle.enc if st.battle != null else "", "card": id})
 	await _after_deaths(res.events)
+	# 운명을 집행할 적을 먼저 쓰러뜨렸다: 쓰러지는 그 순간 운명의 시도가 온다
+	while _alive(my) and st.battle != null and st.battle.result == null and st.battle.awaitFate != null:
+		await battle_fate(my)
+	if not _alive(my):
+		return res
 	if st.battle != null and st.battle.result == null:
 		_set_busy(false)
 	elif st.battle != null:
@@ -584,16 +547,19 @@ func end_turn() -> void:
 	await begin_turn()
 
 
-## 전투 중 운명의 시도 (3층 화형 사제 「운명의 불길 → 엘리안」)
+## 전투 중 운명의 시도 (2층 창 기사 「운명의 관통」, 3층 화형 사제 「운명의 불길」「운명의 꼬챙이」)
+## 운명의 시도는 전투 안에서만 온다(2026-11-18). 집행자가 먼저 쓰러졌으면(byDeath) 그 순간에 온다
 func battle_fate(my: int) -> void:
 	var af: Dictionary = st.battle.awaitFate
 	var f = Rules.fate_by_id(st, str(af.fate))
 	var L: Dictionary = G.S.fate.get(str(af.fate), {})
-	note("fate trial battle " + str(af.fate) + " lv" + str(af.level))
+	note("fate trial battle " + str(af.fate) + " lv" + str(af.level) + (" byDeath" if af.get("byDeath", false) else ""))
 	var prev_stage := stage
 	stage = "fate:" + str(af.fate)
 	await G.view.fate_freeze(str(af.who), true)
-	await G.dialog.say(L.get("trap", []))
+	if af.get("byDeath", false):
+		await G.dialog.say(G.S.fate.dying)
+	await G.dialog.say(L.trap2 if int(af.level) >= 2 and L.has("trap2") else L.get("trap", []))
 	await G.guide.fire("fateFirst", {})
 	if not _alive(my):
 		return

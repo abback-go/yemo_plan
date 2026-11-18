@@ -91,7 +91,7 @@ jobs:
                       "--scene=camp --path=train --train=snipe --choice=silent --fates=defy,defy,defy --autoplay=wipe" \
                       "--scene=floor2 --fates=offer,offer --autoplay" \
                       "--scene=floor2 --fates=defy,defy,defy --autoplay" \
-                      "--scene=floor2 --fates=defy,offer,defy --autoplay"; do
+                      "--scene=floor2 --fates=defy,defy,offer --autoplay"; do
             echo "=== $args"
             timeout 400 ~/godot/godot --headless --path . -- --speed=10 --autoguide --guides=reset --trace --quit-on-end $args > /tmp/auto1.txt 2>&1 || true
             cat /tmp/auto1.txt >> /tmp/auto.txt

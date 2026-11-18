@@ -34,7 +34,7 @@
 - 규칙: `core/rules.gd` 운명(st.fates·add_fate·offer_fate·defy_fate·descend·fate_trial_choice·resume_enemy_phase), 카드 레벨(lv, def_lv), 흉터, 「꿰뚫린 방패」 되돌리기, 운명의 불길 예고, 화형 사제 fateGuard, 상태 만들기(state_after_tutorial·state_floor3)
 - 화면: `scenes/scenes.gd` fate_choice(바친다/거스른다)·card_gain(상속·흉터·운명 문구)·chapter(1층 끝)·result(결과 요약)·데스신(cutscene(key, level), Lv2 덧그림) / `ui/battle_view.gd` 운명 정지(fate_freeze)·불길·막힘·두 죽음 카드 실·전투 배경·적 배율
 - 바로 가기: `?scene=camp|cult|fork|deep|emptycamp|floor2|ossuary|f2stairs|floor3&brun=alive|dead|pyre|result|topdown|giant|normal`, 자동 선택 `?fates=offer,defy,…`(운명의 시도 순서대로)
-- 헤드리스 3경로: `godot --headless --path game -- --scene=floor2 --speed=10 --autoguide --autoplay --fates=offer,offer --quit-on-end --trace` (② defy,defy,defy ③ defy,offer,defy), 처음부터: `--scene=camp --path=rest --choice=smile --fates=offer,offer`
+- 헤드리스 3경로: `godot --headless --path game -- --scene=floor2 --speed=10 --autoguide --autoplay --fates=offer,offer --quit-on-end --trace` (② defy,defy,defy ③ defy,defy,offer — 3층은 2턴 엘리안 → 3턴 브룬힐드 순서), 처음부터: `--scene=camp --path=rest --choice=smile --fates=offer,offer`
 
 ### v2 완료
 - [x] 규칙·데이터: 운명·레벨·흉터·상속 2종·유품(전사)·창 기사·화형 사제·전투 2개 + 규칙 테스트 v2 18개(전체 72)

@@ -152,8 +152,10 @@ func _draw() -> void:
 		elif str(dm) == "hero":
 			show_mark = st.party.allies.hero.status != "dead"
 		else:
-			var fm = Rules.fate_by_id(st, str(dm))
-			show_mark = fm != null and fm.alive and int(fm.floor) == int(r.floor)
+			for fmid in (dm if dm is Array else [dm]):
+				var fm = Rules.fate_by_id(st, str(fmid))
+				if fm != null and fm.alive and int(fm.floor) == int(r.floor):
+					show_mark = true
 		if show_mark:
 			Icons.death_mark(self, p + Vector2(46, -40), 16.0, _t, 0.5)
 	# 범례

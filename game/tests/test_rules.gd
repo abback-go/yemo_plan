@@ -754,14 +754,50 @@ func t_fate_v2() -> void:
 		if e.t == "damage" and e.get("cause", "") == "scar":
 			scar_hits += 1
 	check("v2 흉터: 낼 수 없음 · 손에 든 채 턴 끝 → 노엘 HP -1", not cp.ok and scar_hits >= 1 and has_ev(evs, "scarBurn"))
-	# 화형 사제는 운명의 시도가 오기 전에는 쓰러지지 않는다
-	var g := Rules.state_floor3(7, "dead")
-	Rules.start_battle(g, "pyre")
+	# 운명의 시도는 전투 안에서만 (2026-11-18): 2층 납골당 2턴 창 기사 「운명의 관통 → 브룬힐드」
+	var o := Rules.state_after_tutorial(7)
+	Rules.start_battle(o, "ossuary")
+	Rules.start_turn(o)
+	var o1 = Rules.enemy(o, "k1").intent
+	Rules.end_turn(o)
+	Rules.start_turn(o)
+	var o2 = Rules.enemy(o, "k1").intent
+	check("v2 2층 납골당: 1턴은 보통 예고, 2턴 창 기사 「운명의 관통 → 브룬힐드」(치명·옮기기 불가)",
+		o1.kind != "fate" and o2.kind == "fate" and o2.target == "warrior" and o2.label == "운명의 관통" and not o2.redirectable, str(o2))
+	# 집행자를 먼저 쓰러뜨리면 쓰러지는 그 순간 운명의 시도가 온다 — 다른 적이 다 쓰러져도 승리는 그 뒤
+	var g := Rules.state_after_tutorial(7)
+	Rules.start_battle(g, "ossuary")
 	Rules.start_turn(g)
-	var bs := give_card(g, "broken_sword")
-	Rules.enemy(g, "p1").hp = 10
-	Rules.play(g, bs, {"enemy": "p1"})
-	check("v2 화형 사제: 운명의 시도 전에는 HP 1 에서 버팀", Rules.enemy(g, "p1").alive and Rules.enemy(g, "p1").hp == 1)
+	Rules.enemy(g, "c1").alive = false
+	Rules.enemy(g, "k1").hp = 5
+	var rg := Rules.play(g, give_card(g, "broken_sword"), {"enemy": "k1"})
+	var trial_now: bool = has_ev(rg.events, "fateTrial") and g.battle.awaitFate != null and g.battle.awaitFate.get("byDeath", false) and g.battle.result == null
+	Rules.fate_trial_choice(g, "defy")
+	var rres := Rules.resume_enemy_phase(g)
+	check("v2 집행자(창 기사)를 먼저 쓰러뜨림: 그 순간 운명의 시도(거스름 → 흉터), 승리는 시도 뒤",
+		trial_now and Rules.scar_count(g) == 1 and g.battle.result == "win" and has_ev(rres, "battleEnd") and Rules.fate_of(g, "warrior").triedFloor == 2)
+	# 3층(브룬힐드 생존): 화형 사제가 2턴 엘리안, 3턴 브룬힐드 Lv2 — 사제를 1턴에 쓰러뜨리면 둘이 차례로
+	var qq := Rules.state_floor3(7, "alive")
+	Rules.start_battle(qq, "pyre")
+	Rules.start_turn(qq)
+	Rules.enemy(qq, "p1").hp = 5
+	Rules.play(qq, give_card(qq, "broken_sword"), {"enemy": "p1"})
+	var first := str(qq.battle.awaitFate.fate) if qq.battle.awaitFate != null else ""
+	Rules.fate_trial_choice(qq, "defy")
+	var second := str(qq.battle.awaitFate.fate) if qq.battle.awaitFate != null else ""
+	var lv2 := int(qq.battle.awaitFate.level) if qq.battle.awaitFate != null else 0
+	Rules.fate_trial_choice(qq, "offer")
+	Rules.resume_enemy_phase(qq)
+	check("v2 3층 화형 사제를 1턴에 쓰러뜨림: 엘리안 → 브룬힐드 Lv2 차례로 운명의 시도, 끝나면 전투 계속",
+		first == "archer_burn" and second == "warrior_pierce" and lv2 == 2 and qq.party.allies.warrior.status == "dead" and qq.party.allies.archer.status != "dead"
+		and qq.battle.awaitFate == null and qq.battle.result == null and Rules.scar_count(qq) == Rules.scar_count(s3) + 1, "%s %s %d" % [first, second, lv2])
+	# 3층 3턴: 브룬힐드 Lv2 「운명의 꼬챙이」 (2턴 엘리안 시도 뒤)
+	var r3 := p.duplicate(true)
+	if r3.battle.result == null and r3.battle.phase == "player":
+		Rules.end_turn(r3)
+	Rules.start_turn(r3)
+	var t3 = Rules.enemy(r3, "p1").intent
+	check("v2 3층 3턴: 화형 사제 「운명의 꼬챙이 → 브룬힐드」 Lv2", t3 != null and t3.kind == "fate" and t3.target == "warrior" and int(t3.level) == 2, str(t3))
 	# 동료를 모두 바쳐 노엘 혼자 남아도 노엘 HP 가 남으면 패배가 아니다
 	var lone := Rules.state_floor3(7, "dead")
 	lone.party.allies.archer.status = "dead"

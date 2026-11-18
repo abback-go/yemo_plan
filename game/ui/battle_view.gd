@@ -1077,13 +1077,23 @@ func _on_enemyAct(e: Dictionary) -> void:
 		FX.burst(bc.x, bc.y + 120, {"count": 18, "colors": ["#c9c9c9", "#ff6b76"], "speed": 260, "life": 500, "size": 3})
 		await FX.wait(300)
 	elif e.kind == "fate":
-		# 운명의 불길: 사제가 몸을 젖히고 불길이 그 동료를 향한다 → 닿는 순간 멈춘다(fateTrial)
+		# 운명 공격: 집행자가 몸을 젖히고(쓰러지는 중이면 그 자리에서) 불길·창이 그 동료를 향한다 → 닿는 순간 멈춘다(fateTrial)
 		var tp := target_point(e.target)
 		var ec := enemy_center(e.enemy)
-		enemy_lunge(e.enemy)
-		await FX.wait(200)
-		await FX.streak(ec.x, ec.y, tp.x, tp.y - 40, {"color": "#ff7a2a", "width": 10, "dur": 420})
-		FX.burst(tp.x, tp.y - 40, {"count": 40, "colors": ["#ff3a1e", "#ff9a2a", "#ffe08a"], "speed": 200, "life": 700, "size": 5, "gravity": -160})
+		var pierce := _fate_method(e) == "pierce"
+		if e.get("dying", false):
+			FX.flash("#ff2a3c", 220, 0.3)
+			await FX.wait(260)
+		else:
+			enemy_lunge(e.enemy)
+			await FX.wait(200)
+		if pierce:
+			FX.shake(10, 320)
+			await FX.streak(ec.x, ec.y, tp.x, tp.y - 40, {"color": "#e4e2ea", "width": 8, "dur": 260})
+			FX.burst(tp.x, tp.y - 40, {"count": 34, "colors": ["#d8d8e0", "#ff2a3c", "#7a0010"], "speed": 280, "life": 600, "size": 4, "gravity": 200, "shape": "line"})
+		else:
+			await FX.streak(ec.x, ec.y, tp.x, tp.y - 40, {"color": "#ff7a2a", "width": 10, "dur": 420})
+			FX.burst(tp.x, tp.y - 40, {"count": 40, "colors": ["#ff3a1e", "#ff9a2a", "#ffe08a"], "speed": 200, "life": 700, "size": 5, "gravity": -160})
 	elif e.kind == "stomp":
 		await giant_stomp()
 
@@ -1136,13 +1146,20 @@ func _on_fateTrial(_e: Dictionary) -> void:
 	await FX.wait(150)
 
 
-## 거스름(전투): 불길이 그 동료 주위에서 갈라진다
+## 운명의 방식 (pierce | burn): 이벤트의 fate id 로
+func _fate_method(e: Dictionary) -> String:
+	var fd = D().fates.get(str(e.get("fate", "")))
+	return str(fd.method) if fd != null else "burn"
+
+
+## 거스름(전투): 불길(창)이 그 동료 주위에서 갈라진다(부서진다)
 func _on_fateDefied(e: Dictionary) -> void:
 	var p := target_point(str(e.who))
 	FX.flash("#ff2a3c", 200, 0.4)
 	FX.shake(10, 360)
+	var cols: Array = ["#d8d8e0", "#8a8a96", "#ff2a3c"] if _fate_method(e) == "pierce" else ["#ff3a1e", "#ff9a2a", "#ffe08a"]
 	for s in [-1, 1]:
-		FX.burst(p.x + s * 60, p.y - 20, {"count": 30, "colors": ["#ff3a1e", "#ff9a2a", "#ffe08a"], "speed": 340, "angle": PI / 2 - s * 1.2, "spread": 0.8, "life": 700, "size": 5, "gravity": -100})
+		FX.burst(p.x + s * 60, p.y - 20, {"count": 30, "colors": cols, "speed": 340, "angle": PI / 2 - s * 1.2, "spread": 0.8, "life": 700, "size": 5, "gravity": -100})
 	if allies.has(str(e.who)):
 		flash_node(allies[str(e.who)].body)
 	FX.float_text(p.x, p.y + 60, G.ui("defied"), "immune")
@@ -1167,11 +1184,6 @@ func _on_scarBurn(e: Dictionary) -> void:
 		FX.burst(p.x, p.y, {"count": 18, "colors": ["#7a0010", "#ff3a4a"], "speed": 140, "life": 600, "size": 3, "gravity": -80})
 		FX.anim(500, [{"b": 2.2}, {"b": 1.0}], func(v): if is_instance_valid(c): c.bright = v.b, {"node": c})
 	await FX.wait(250)
-
-
-func _on_fateGuard(e: Dictionary) -> void:
-	var c := enemy_center(str(e.enemy))
-	FX.float_text(c.x, c.y - 40, G.ui("fateGuard"), "immune")
 
 
 func _on_giantTrigger(e: Dictionary) -> void:
@@ -1728,6 +1740,7 @@ class IntentBox extends Control:
 		"shadow": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><ellipse cx=\"16\" cy=\"20\" rx=\"13\" ry=\"6\" fill=\"#000\" stroke=\"#777\" stroke-width=\"2\"/><path d=\"M8 4 C10 12 22 12 24 4\" stroke=\"#888\" stroke-width=\"2\" fill=\"none\"/></svg>",
 		"aoe": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"11\" y=\"2\" width=\"10\" height=\"20\" fill=\"#888\" transform=\"rotate(18 16 12)\"/><g fill=\"#aaa\"><circle cx=\"7\" cy=\"26\" r=\"3\"/><circle cx=\"16\" cy=\"28\" r=\"2.5\"/><circle cx=\"25\" cy=\"25\" r=\"3\"/></g></svg>",
 		"fate": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M16 2 C22 10 26 14 24 22 C22 29 10 29 8 22 C6 15 12 12 16 2Z\" fill=\"#ff3a1e\"/><path d=\"M16 12 C19 16 20 19 19 23 C18 26 14 26 13 23 C12 20 14 17 16 12Z\" fill=\"#ffe08a\"/><path d=\"M2 30 Q16 20 30 30\" stroke=\"#ff2a3c\" stroke-width=\"2\" fill=\"none\"/></svg>",
+		"fate_pierce": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M16 1 L21 11 L17.5 13 L17.5 27 L14.5 27 L14.5 13 L11 11Z\" fill=\"#d8d8e0\"/><path d=\"M16 6 L18.5 11 L13.5 11Z\" fill=\"#ff2a3c\"/><rect x=\"14.5\" y=\"13\" width=\"3\" height=\"14\" fill=\"#6a4a36\"/><path d=\"M2 30 Q16 20 30 30\" stroke=\"#ff2a3c\" stroke-width=\"2\" fill=\"none\"/></svg>",
 		"fire": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M16 3 C21 10 25 14 23 21 C21 28 11 28 9 21 C7 15 12 11 16 3Z\" fill=\"#ff7a2a\"/><path d=\"M16 13 C18 16 19 19 18 22 C17 25 15 25 14 22 C13 19 15 17 16 13Z\" fill=\"#ffe08a\"/></svg>",
 		"stomp": "<svg viewBox=\"0 0 32 32\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M10 12 C9 18 9 26 15 29 C21 31 24 27 23 21 C22 16 22 12 22 10 C22 7 11 7 10 12Z\" fill=\"#ff3346\"/><circle cx=\"10\" cy=\"6\" r=\"2.5\" fill=\"#ff3346\"/><circle cx=\"14.5\" cy=\"4\" r=\"2.4\" fill=\"#ff3346\"/><circle cx=\"19\" cy=\"4\" r=\"2.2\" fill=\"#ff3346\"/><circle cx=\"22.5\" cy=\"6\" r=\"2\" fill=\"#ff3346\"/></svg>",
 	}
@@ -1777,8 +1790,12 @@ class IntentBox extends Control:
 		it = v.duplicate(true)
 		_clear_parts()
 		if v.kind == "fate":
-			# 운명의 불길 → 엘리안 · 치명 · 옮기기 불가
-			icon.texture = Assets.svg("intent_fate", ICON.fate, 2.0)
+			# 운명의 불길 → 엘리안 · 치명 · 옮기기 불가 (관통 운명은 창 아이콘)
+			var fdm = GameData.D.fates.get(str(v.get("fate", "")))
+			if fdm != null and str(fdm.method) == "pierce":
+				icon.texture = Assets.svg("intent_fate_pierce", ICON.fate_pierce, 2.0)
+			else:
+				icon.texture = Assets.svg("intent_fate", ICON.fate, 2.0)
 			_add(str(v.get("label", "")), 28, Color("#ffd0a0"), "sans_black")
 			_add("→", 22, Color("#ffb0a0"))
 			_add(G.name_of(v.target), 28, Color("#ffffff"), "sans_black")

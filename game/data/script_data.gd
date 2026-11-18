@@ -53,7 +53,7 @@ const S := {
 		"mapHere": "지금 여기", "mapMarkHint": "붉은 실 표식",
 		"pathTapAgain": "한 번 더 누르면 들어갑니다",
 		"trainTitle": "강화할 카드를 고르세요", "trainHint": "고른 카드 1장이 강화된다 (Lv1 → Lv2)", "tapClose": "탭하면 닫힘", "ownerScar": "흉터 · 운명을 거스른 값",
-		"blocked": "막힘", "defied": "운명을 거슬렀다", "fateGuard": "…아직이다", "lethal": "치명", "noRedirect": "옮기기 불가", "allTargets": "모두",
+		"blocked": "막힘", "defied": "운명을 거슬렀다", "lethal": "치명", "noRedirect": "옮기기 불가", "allTargets": "모두",
 		"resultOk": "확인", "rotate": "가로로 돌려 주세요", "rotateSub": "이 게임은 가로 화면(16:9)으로 플레이합니다",
 		"loading": "불러오는 중…",
 		# 카드 아래쪽 주인 표시
@@ -171,7 +171,7 @@ const S := {
 		{"id": "v2_two_cards", "on": "twoDeathCards", "lines": [
 			{"who": "system", "text": "**살아 있는 동료의 죽음 카드는 모두 손에 들어옵니다.** 두 장이면 두 장 모두 — 그만큼 덜 뽑습니다."}]},
 		{"id": "v2_fate_fire", "on": "fateIntent", "lines": [
-			{"who": "system", "text": "**운명의 시도가 예고되었습니다.** 「운명의 불길」은 피해를 옮길 수 없습니다. 적의 차례에 불길이 닿는 순간, 바칠지 거스를지 고릅니다."}]},
+			{"who": "system", "text": "**운명의 시도가 예고되었습니다.** 운명 공격은 피해를 옮길 수 없습니다. 적의 차례에 그 공격이 닿는 순간, 바칠지 거스를지 고릅니다.\n· 그 전에 손패의 죽음 카드를 직접 내도 됩니다.\n· 예고한 적을 먼저 쓰러뜨려도, 쓰러지는 그 순간 운명이 옵니다."}]},
 		{"id": "v2_fate_first", "on": "fateFirst", "lines": [
 			{"who": "system", "text": "**운명의 시도** — 고르세요.\n· **바친다**(죽음 카드를 낸다): 그 동료는 그 자리에서 죽고, 그 죽음이 「상속」 카드가 되어 노엘의 덱에 들어옵니다.\n· **거스른다**(카드를 내지 않는다): 그 동료는 살지만 노엘 덱에 「흉터」가 새겨지고, 운명은 다음 층으로 미뤄져 더 잔혹하게(Lv 이 올라) 다시 옵니다."}]},
 		{"id": "v2_scar", "on": "scarFirst", "lines": [
@@ -482,6 +482,9 @@ const S := {
 			"items": {
 				"skull": [{"who": "inner", "text": "(…방패째로 꿰뚫렸다. 카드 속 그 모습과, 똑같다.)"}],
 				"plate": [{"who": "inner", "text": "(피 묻은 판. 구멍마다 녹슨 창끝이 숨어 있다.)"}, {"who": "inner", "text": "(이 판들. 전부, 누군가를 기다리고 있다.)"}]},
+			# 전조 [임시]: 회랑 중간을 지날 때 한 번 — 이 층에 살아 있는 운명마다 (운명의 시도는 전투 안에서만)
+			"omen": {"warrior_pierce": [{"who": "inner", "text": "(창이 박힌 바닥, 꿰인 기사들. …이 층이다.)"},
+				{"who": "inner", "text": "(브룬힐드의 죽음은 이 아래에서, 창을 들고 기다린다.)"}]},
 			"exits": {"north": {"title": "철창문", "desc": "철창이 반쯤 들려 있다. 그 너머에서 찬 바람이 분다."}}},
 		"ossuary": {"title": "기사단 납골당",
 			"items": {
@@ -495,6 +498,8 @@ const S := {
 			"intro": [{"who": "archer", "face": "archer_shocked", "text": "…탄내. 여기서 누가 태워졌어."}],
 			"items": {
 				"bow": [{"who": "archer", "face": "archer_grief", "text": "궁수였나 봐. 나처럼."}, {"who": "inner", "text": "(…불. 그녀의 카드와 같은 불.)"}]},
+			"omen": {"warrior_pierce": [{"who": "inner", "text": "(그을린 기둥마다 쇠꼬챙이. 미뤄 둔 그 죽음이, 이 층에서 다시 온다.)"}],
+				"archer_burn": [{"who": "inner", "text": "(그리고 이 탄내. 엘리안의 불도, 이 층에 있다.)"}]},
 			"exits": {"north": {"title": "타 버린 문", "desc": "문 너머에서 장작 타는 냄새가 난다."}}},
 		"pyre_court": {"title": "화형대 광장",
 			"items": {
@@ -516,6 +521,8 @@ const S := {
 		"gainInherit": "「{card}」 — 덱에 들어왔다",
 		"gainScar": "흉터 {n}장이 노엘의 손등에 새겨졌다",
 		"postponed": "운명이 미뤄졌다. 다음에는 더 잔혹하게 온다.",
+		# 집행자를 먼저 쓰러뜨렸을 때: 쓰러지는 그 순간 운명이 온다
+		"dying": [{"who": "inner", "text": "(쓰러지면서도— 운명은 멈추지 않는다.)"}],
 		# 운명마다: trap(시도가 온 순간) / offered(바친 뒤) / defied(거스른 뒤). lv2 는 2단계일 때
 		"warrior_pierce": {
 			"trap": [{"who": "inner", "text": "(지금이다. 이 창이, 그녀를 꿰뚫는다.)"}],

@@ -180,7 +180,11 @@ function helpers(page, tag) {
   H.tdLeave = async id => {
     await H.until(s => s.topdown && s.topdown.mode === 'free' && !s.dialogBusy && !s.guideOpen, 60000, '자유 이동(' + id + ')', async s => { if (s.guideOpen || s.dialogBusy) await H.W('advance'); });
     await H.W('tdGo', 'exit:' + id);
-    await H.until(s => s.topdown && s.topdown.exit === id && s.topdown.path === 0 && !s.topdown.moving, 40000, '출구 ' + id);
+    // 가는 길에 전조 대사가 뜨면 넘기고 다시 걷는다
+    await H.until(s => s.topdown && s.topdown.exit === id && s.topdown.path === 0 && !s.topdown.moving, 40000, '출구 ' + id, async s => {
+      if (s.guideOpen || s.dialogBusy) { await H.W('advance'); return; }
+      if (s.topdown && s.topdown.mode === 'free' && s.topdown.path === 0 && !s.topdown.moving && s.topdown.exit !== id) await H.W('tdGo', 'exit:' + id);
+    });
     await H.W('tdConfirm');
   };
   H.tdTrigger = async id => {
@@ -808,7 +812,7 @@ async function pathT(browser) {
 
 // ───────── 경로 F: 1차 시험판 v2 — 2·3층 운명 흐름 + 휴대폰 터치 ─────────
 async function pathF(browser) {
-  say('경로 F: 2층 브룬힐드 운명(필드, 바침) → 납골당 → 계단(엘리안 운명) → 3층 → 화형대(전투 중 운명, 거스름) → 결과 → 3층 Lv2(PC, 거스름·바침)');
+  say('경로 F: 2층(전조 → 납골당 전투 2턴 「운명의 관통」 바침) → 계단(엘리안 운명) → 3층 → 화형대(운명의 불길 거스름) → 결과 → 3층 PC(두 운명이 한 전투에: 엘리안 거스름 → 브룬힐드 Lv2 바침) → 집행자를 먼저 쓰러뜨림');
   const dev = devices['iPhone 13 landscape'] || { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
   const ctx = await browser.newContext({ ...dev });
   const page = await ctx.newPage();
@@ -816,8 +820,8 @@ async function pathF(browser) {
   await H.open('scene=floor2&guides=reset');
   let s = await H.advanceAll(s => s.topdown && s.topdown.map === 'spike_corridor' && s.topdown.mode === 'free' && !s.dialogBusy && !s.guideOpen, 60000, '2층 회랑');
   await H.shot('F01_phone_corridor.png');
-  check('2층 회랑: 운명 표시(「전사의 죽음 Lv1」)·지도 버튼, 동료 둘(브룬힐드·엘리안)', s.topdown.hud.cards.length === 1 && s.topdown.hud.cards[0].id === 'warrior_death' && s.topdown.hud.cards[0].lv === 1
-    && s.topdown.followers.map(f => f.id).join() === 'brunhild,elian', s.topdown.hud);
+  check('2층 회랑: 운명 표시(「전사의 죽음 Lv1」)·지도 버튼, 동료 둘(브룬힐드·엘리안), 전조 트리거만 켜짐', s.topdown.hud.cards.length === 1 && s.topdown.hud.cards[0].id === 'warrior_death' && s.topdown.hud.cards[0].lv === 1
+    && s.topdown.followers.map(f => f.id).join() === 'brunhild,elian' && s.topdown.armed.join() === 'omen', { hud: s.topdown.hud, armed: s.topdown.armed });
   // 운명 표시 카드를 터치 → 크게 보기 → 터치로 닫기
   const hc = s.topdown.hud.cards[0].rect;
   await H.touchTap(hc[0] + hc[2] / 2, hc[1] + hc[3] / 2);
@@ -835,51 +839,59 @@ async function pathF(browser) {
   await H.touchEnd();
   s = await H.state();
   check('휴대폰 조이스틱(위로 끌기) → 위로 걸음', s.topdown.pos[1] < p0[1] - 10, { from: p0, to: s.topdown.pos });
-  // 회랑 중간 → 함정 판 철컥 → 시간 정지 → 선택
-  await H.tdTrigger('fate');
-  s = await H.until(s => s.topdown && s.topdown.trap >= 0 && s.topdown.tint > 0.25, 30000, '함정');
-  await H.shot('F03_phone_trap_timestop.png');
-  check('운명의 시도(필드): 브룬힐드 발밑 함정 + 화면이 붉게 멈춤', s.stage === 'fate:warrior_pierce' && s.topdown.trap === 0 && s.topdown.tint > 0.25, { stage: s.stage, trap: s.topdown.trap });
-  s = await H.advanceAll(s => s.fatePicker, 30000, '선택 화면');
+  // 회랑 중간: 운명의 시도 없이 전조(노엘 속마음)만
+  await H.tdTrigger('omen');
+  s = await H.until(s => has(s, /이 층이다/), 30000, '전조');
+  await H.sleep(700);
+  await H.shot('F03_phone_omen.png');
+  s = await H.advanceAll(s => s.topdown.mode === 'free' && !s.dialogBusy, 30000, '전조 끝');
+  check('필드: 운명의 시도·선택 화면 없이 전조 대사만, 브룬힐드 생존·흉터 0', !s.fatePicker && s.party.allies.warrior.status === 'ok' && s.scars === 0 && s.fates[0].triedFloor === 0
+    && has(s, /창을 들고 기다린다/), s.fates);
+  // 납골당 → 창 기사 전투: 2턴에 운명의 관통
+  await H.tdLeave('north');
+  s = await H.until(s => s.topdown && s.topdown.map === 'ossuary', 30000, '납골당');
+  await H.tdTrigger('altar');
+  s = await H.advanceAll(s => s.stage === 'battle:ossuary' && s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 60000, '납골당 전투');
+  await H.shot('F04_phone_ossuary_battle.png');
+  const oh = s.battle.hand.map(c => c.id);
+  check('납골당 1턴: 창 기사 + 광신도, 손패에 브룬힐드 죽음 카드 + 새로 4장', s.battle.enemies.some(e => e.id === 'k1') && oh.includes('warrior_death') && oh.length === 5, oh);
+  await H.W('endTurn');
+  s = await H.advanceAll(s => s.battle && s.battle.turn === 2 && s.battle.phase === 'player' && !s.busy && !s.guideOpen && !s.dialogBusy, 60000, '2턴');
+  const ki = s.battle.enemies.find(e => e.id === 'k1').intent;
+  await H.shot('F05_phone_fate_pierce_intent.png');
+  check('2턴 예고: 창 기사 「운명의 관통 → 브룬힐드」 치명·옮기기 불가', ki && ki.kind === 'fate' && ki.target === 'warrior' && ki.label === '운명의 관통' && !ki.redirectable && ki.lethal, ki);
+  await H.W('endTurn');
+  s = await H.until(s => s.fatePicker, 60000, '운명의 시도(납골당)', async s => { if (s.guideOpen || s.dialogBusy) await H.W('advance'); });
   await H.sleep(600);
-  await H.shot('F04_phone_fate_choice.png');
+  await H.shot('F06_phone_fate_choice.png');
   const ob = await H.W('geom', 'fateBtn', 'offer');
   check('선택 화면: [카드를 낸다 — 브룬힐드를 바친다] [거스른다 (흉터 1)]', ob && ob.x > 0 && ob.h >= 40, ob);
   await H.touchTap(ob.x, ob.y);
   s = await H.until(s => (s.cutLog || []).includes('W1'), 20000, '데스신');
   await H.sleep(1200);
-  await H.shot('F05_phone_death_pierced.png');
-  s = await H.advanceAll(s => (s.log || []).some(l => /^card gain inherit pierced_shield/.test(l)), 60000, '상속 카드');
-  await H.sleep(900);
-  await H.shot('F06_phone_inherit_card.png');
-  s = await H.advanceAll(s => s.topdown && s.topdown.mode === 'free' && !s.overlay && !s.dialogBusy, 60000, '바친 뒤');
+  await H.shot('F07_phone_death_pierced.png');
+  s = await H.advanceAll(s => s.battle && s.battle.hand.some(c => c.id === 'pierced_shield') && !s.busy && !s.dialogBusy && !s.guideOpen, 90000, '꿰뚫린 방패');
+  await H.shot('F08_phone_inherit_hand.png');
   const fw = s.fates.find(f => f.who === 'warrior');
-  check('바침: 데스신(W1·W2) → 브룬힐드 사망·줄에서 빠짐 → 「꿰뚫린 방패」 Lv1 → 운명 표시 사라짐',
-    s.cutLog.includes('W2') && s.party.allies.warrior.status === 'dead' && fw.result === 'offered' && s.topdown.followers.map(f => f.id).join() === 'elian'
-    && s.topdown.hud.cards.length === 0 && has(s, /내가, 냈다/) && s.scars === 0, { fw, f: s.topdown.followers });
-  // 납골당 → 창 기사
-  await H.tdLeave('north');
-  s = await H.until(s => s.topdown && s.topdown.map === 'ossuary', 30000, '납골당');
-  await H.tdTrigger('altar');
-  s = await H.advanceAll(s => s.stage === 'battle:ossuary' && s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 60000, '납골당 전투');
-  await H.shot('F07_phone_ossuary_battle.png');
-  check('납골당 전투: 창 기사(관통 돌진·찌르기 예고) + 광신도, 배경 납골당', s.battle.enemies.some(e => e.id === 'k1') && s.battle.enemies.every(e => e.intent), s.battle.enemies);
+  check('바침(전투): 데스신 → 브룬힐드 사망 → 「꿰뚫린 방패」 Lv1 손패, 흉터 0',
+    s.cutLog.includes('W2') && s.party.allies.warrior.status === 'dead' && fw.result === 'offered' && s.battle.hand.find(c => c.id === 'pierced_shield').lv === 1 && s.scars === 0, { fw });
   await H.W('winBattle');
   s = await H.advanceAll(s => s.topdown && s.topdown.map === 'ossuary' && s.topdown.mode === 'free', 60000, '이긴 뒤');
+  check('전투 뒤 탑뷰: 브룬힐드는 줄에서 빠짐', s.topdown.followers.map(f => f.id).join() === 'elian', s.topdown.followers);
   await H.tdLeave('north');
   // 계단: 새 운명
   s = await H.advanceAll(s => s.fates && s.fates.some(f => f.who === 'archer') && s.vn && s.vn.omen, 90000, '엘리안 운명');
   await H.sleep(2600);
-  await H.shot('F08_phone_stairs_archer.png');
+  await H.shot('F09_phone_stairs_archer.png');
   const fa = s.fates.find(f => f.who === 'archer');
-  check('2층 계단: 브룬힐드가 없으니 엘리안 화형 Lv1(3층)만, 3층으로', fa.level === 1 && fa.floor === 3 && has(s, /브룬힐드 다음은, 엘리안/) || (fa.level === 1 && fa.floor === 3), fa);
+  check('2층 계단: 브룬힐드가 없으니 엘리안 화형 Lv1(3층)만', fa.level === 1 && fa.floor === 3, fa);
   s = await H.advanceAll(s => s.topdown && s.topdown.map === 'burnt_chapel' && s.topdown.mode === 'free' && !s.dialogBusy, 90000, '3층');
-  check('3층 불탄 예배당: 브룬힐드 운명이 없으니 필드 운명의 시도가 꺼져 있다', s.progress.floor === 3 && s.topdown.armed.length === 0, s.topdown.armed);
+  check('3층 불탄 예배당: 전조 트리거만(엘리안)', s.progress.floor === 3 && s.topdown.armed.join() === 'omen', s.topdown.armed);
   // 타 버린 활: 터치로 조사
   await H.W('tdGo', 'item:bow');
   s = await H.until(s => s.topdown.inspecting === 'bow' || has(s, /궁수였나 봐/), 30000, '활 조사');
   await H.sleep(800);
-  await H.shot('F09_phone_bow.png');
+  await H.shot('F10_phone_bow.png');
   s = await H.advanceAll(s => s.topdown.mode === 'free' && !s.dialogBusy, 30000, '조사 끝');
   check('조사: 타 버린 활 → 엘리안 대사 + 노엘 속마음', has(s, /궁수였나 봐/) && has(s, /그녀의 카드와 같은 불/));
   await H.tdLeave('north');
@@ -891,17 +903,18 @@ async function pathF(browser) {
   await H.W('endTurn');
   s = await H.advanceAll(s => s.battle && s.battle.turn === 2 && s.battle.phase === 'player' && !s.busy && !s.guideOpen && !s.dialogBusy, 60000, '2턴');
   const pi = s.battle.enemies.find(e => e.id === 'p1').intent;
-  await H.shot('F10_phone_fate_fire_intent.png');
+  await H.shot('F11_phone_fate_fire_intent.png');
   check('2턴 예고: 「운명의 불길 → 엘리안」 치명·옮기기 불가', pi && pi.kind === 'fate' && pi.target === 'archer' && !pi.redirectable && pi.lethal, pi);
   await H.W('endTurn');
   s = await H.until(s => s.fatePicker, 60000, '전투 중 운명의 시도', async s => { if (s.guideOpen || s.dialogBusy) await H.W('advance'); });
   await H.sleep(500);
-  await H.shot('F11_phone_battle_fate_choice.png');
   const db = await H.W('geom', 'fateBtn', 'defy');
   await H.touchTap(db.x, db.y);
   s = await H.advanceAll(s => s.battle && s.battle.turn === 3 && s.battle.phase === 'player' && !s.busy && !s.guideOpen && !s.dialogBusy, 90000, '거스른 뒤 3턴');
   await H.shot('F12_phone_after_defy.png');
-  check('거스름(전투): 엘리안 생존 · 흉터 1장 · 운명은 미뤄짐(이 층 시도 끝)', s.party.allies.archer.status !== 'dead' && s.scars === 1 && s.fates.find(f => f.who === 'archer').alive && s.fates.find(f => f.who === 'archer').triedFloor === 3, { a: s.party.allies.archer, scars: s.scars });
+  const p3i = s.battle.enemies.find(e => e.id === 'p1').intent;
+  check('거스름(전투): 엘리안 생존 · 흉터 1장 · 운명은 미뤄짐, 브룬힐드가 없으니 3턴 운명 공격 없음', s.party.allies.archer.status !== 'dead' && s.scars === 1 && s.fates.find(f => f.who === 'archer').alive
+    && s.fates.find(f => f.who === 'archer').triedFloor === 3 && !(p3i && p3i.kind === 'fate'), { a: s.party.allies.archer, scars: s.scars, p3i });
   await H.W('winBattle');
   s = await H.advanceAll(s => s.topdown && s.topdown.map === 'pyre_court' && s.topdown.mode === 'free', 60000, '이긴 뒤');
   await H.tdLeave('north');
@@ -914,36 +927,73 @@ async function pathF(browser) {
   s = await H.until(s => s.topdown && s.topdown.map === 'spike_corridor', 30000, '2층부터 다시');
   check('「2층부터 다시」 → 2층 회랑, 브룬힐드 살아 있고 운명 Lv1', s.party.allies.warrior.status === 'ok' && s.fates.length === 1 && s.fates[0].level === 1);
   await ctx.close();
-  // PC: 3층에서 브룬힐드 Lv2 시도 → 바침(2단계 데스신) / 두 죽음 카드
+  // PC: 3층(브룬힐드 생존) — 두 운명이 화형대 한 전투에: 2턴 엘리안(거스름) → 3턴 브룬힐드 Lv2(바침) → 손패의 엘리안 카드를 직접 냄
   const page2 = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const H2 = helpers(page2, 'F2');
   await H2.open('scene=floor3&brun=alive&guides=reset');
   s = await H2.advanceAll(s => s.topdown && s.topdown.map === 'burnt_chapel' && s.topdown.mode === 'free' && !s.dialogBusy, 60000, '3층');
   check('3층(브룬힐드 생존): 운명 표시 둘(전사 Lv2·궁수 Lv1)', s.topdown.hud.cards.length === 2 && s.topdown.hud.cards.some(c => c.id === 'warrior_death' && c.lv === 2), s.topdown.hud.cards);
+  await H2.tdTrigger('omen');
+  s = await H2.until(s => has(s, /쇠꼬챙이/), 30000, '전조 둘');
+  s = await H2.advanceAll(s => s.topdown.mode === 'free' && !s.dialogBusy, 30000, '전조 끝');
   await H2.shot('F14_chapel_two_fates.png');
-  await H2.tdTrigger('fate');
-  s = await H2.advanceAll(s => s.fatePicker, 60000, 'Lv2 선택');
-  await H2.sleep(500);
-  await H2.shot('F15_choice_lv2.png');
-  const ob2 = await H2.W('geom', 'fateBtn', 'offer');
-  await H2.click(ob2.x, ob2.y);
-  s = await H2.until(s => (s.cutLog || []).includes('W1'), 20000, 'Lv2 데스신');
-  await H2.sleep(1500);
-  await H2.shot('F16_death_lv2.png');
-  s = await H2.advanceAll(s => s.topdown && s.topdown.mode === 'free' && !s.overlay && !s.dialogBusy, 90000, '바친 뒤');
-  check('브룬힐드 Lv2 바침: 사망, 결과 offered Lv2 (「꿰뚫린 방패」 Lv2)', s.party.allies.warrior.status === 'dead' && s.fates.find(f => f.who === 'warrior').result === 'offered', s.fates);
+  check('예배당 전조: 브룬힐드·엘리안 둘 다 (선택 화면 없음)', has(s, /쇠꼬챙이/) && has(s, /엘리안의 불도/) && !s.fatePicker && s.scars === 1);
   await H2.tdLeave('north');
   s = await H2.until(s => s.topdown && s.topdown.map === 'pyre_court', 30000, '화형대');
   await H2.tdTrigger('pyre');
   s = await H2.advanceAll(s => s.stage === 'battle:pyre' && s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 60000, '전투');
-  // 손패의 죽음 카드를 직접 낸다 (미리 바침)
+  const h2 = s.battle.hand;
+  check('화형대 1턴: 두 죽음 카드(전사 Lv2·궁수 Lv1) + 새로 3장', h2.length === 5 && h2.some(c => c.id === 'warrior_death' && c.lv === 2) && h2.some(c => c.id === 'archer_death' && c.lv === 1), h2.map(c => c.id + c.lv));
+  await H2.W('endTurn');
+  s = await H2.until(s => s.fatePicker, 90000, '2턴 엘리안 시도', async s => {
+    if (s.guideOpen || s.dialogBusy) await H2.W('advance');
+    else if (s.battle && s.battle.turn === 2 && s.battle.phase === 'player' && !s.busy) await H2.W('endTurn');
+  });
+  await H2.sleep(400);
+  const dbt = await H2.W('geom', 'fateBtn', 'defy');
+  await H2.click(dbt.x, dbt.y);
+  s = await H2.advanceAll(s => s.battle && s.battle.turn === 3 && s.battle.phase === 'player' && !s.busy && !s.guideOpen && !s.dialogBusy, 90000, '3턴');
+  const t3 = s.battle.enemies.find(e => e.id === 'p1').intent;
+  await H2.shot('F15_pyre_t3_spear_intent.png');
+  check('3턴 예고: 화형 사제 「운명의 꼬챙이 → 브룬힐드」 Lv2', t3 && t3.kind === 'fate' && t3.target === 'warrior' && t3.level === 2, t3);
+  await H2.W('endTurn');
+  s = await H2.until(s => s.fatePicker, 60000, '3턴 브룬힐드 시도', async s => { if (s.guideOpen || s.dialogBusy) await H2.W('advance'); });
+  await H2.sleep(500);
+  await H2.shot('F16_choice_lv2.png');
+  const ob2 = await H2.W('geom', 'fateBtn', 'offer');
+  await H2.click(ob2.x, ob2.y);
+  s = await H2.until(s => (s.cutLog || []).includes('W1'), 20000, 'Lv2 데스신');
+  await H2.sleep(1500);
+  await H2.shot('F17_death_lv2.png');
+  s = await H2.advanceAll(s => s.battle && s.battle.hand.some(c => c.id === 'pierced_shield') && !s.busy && !s.dialogBusy && !s.guideOpen, 90000, '바친 뒤');
+  check('브룬힐드 Lv2 바침(전투): 사망, 「꿰뚫린 방패」 Lv2 손패', s.party.allies.warrior.status === 'dead' && s.fates.find(f => f.who === 'warrior').result === 'offered'
+    && s.battle.hand.find(c => c.id === 'pierced_shield').lv === 2, s.battle.hand.map(c => c.id + c.lv));
+  // 손패의 죽음 카드를 직접 낸다
+  s = await H2.until(s => s.battle && s.battle.phase === 'player' && !s.busy && !s.dialogBusy && !s.guideOpen, 60000, '내 차례', async s => { if (s.guideOpen || s.dialogBusy) await H2.W('advance'); });
   await H2.W('play', 'archer_death', '');
   s = await H2.until(s => (s.cutLog || []).includes('A1'), 30000, '화형 데스신');
   await H2.sleep(1500);
-  await H2.shot('F17_death_archer.png');
+  await H2.shot('F18_death_archer.png');
   s = await H2.advanceAll(s => s.battle && s.battle.hand.some(c => c.id === 'burnt_bow') && !s.busy && !s.dialogBusy && !s.guideOpen, 90000, '타버린 활');
-  await H2.shot('F18_burnt_bow_hand.png');
+  await H2.shot('F19_burnt_bow_hand.png');
   check('죽음 카드를 직접 냄: 엘리안 사망 → 「타버린 활」 Lv1 손패, 노엘 혼자여도 전투 계속', s.party.allies.archer.status === 'dead' && s.battle && !s.battle.result && s.battle.hand.find(c => c.id === 'burnt_bow').lv === 1, s.battle.hand.map(c => c.id + c.lv));
+  // 집행자를 먼저 쓰러뜨리면: 쓰러지는 순간 운명의 시도 (2층 납골당, 1턴)
+  await H2.open('scene=ossuary&guides=reset');
+  s = await H2.until(s => s.stage === 'battle:ossuary' && s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 90000, '납골당 전투(PC)', async s => {
+    if (s.guideOpen || s.dialogBusy || s.vn) await H2.W('advance');
+    else if (s.topdown && s.topdown.mode === 'free') await H2.W('tdGo', 'trigger:altar');
+  });
+  await H2.W('enemyHp', 'k1', 3);
+  const atk = s.battle.hand.find(c => c.playable && ['holy_slash', 'snipe', 'suppress', 'shield_bash', 'curse_flame', 'broken_sword'].includes(c.id));
+  await H2.W('play', atk.id, JSON.stringify({ enemy: 'k1' }));
+  s = await H2.until(s => s.fatePicker, 30000, '쓰러지며 온 운명', async s => { if (s.guideOpen || s.dialogBusy) await H2.W('advance'); });
+  await H2.sleep(500);
+  await H2.shot('F20_executor_down_choice.png');
+  check('집행자(창 기사)를 1턴에 쓰러뜨림 → 그 순간 운명의 시도 + 전조 대사', (s.log || []).some(l => /fate trial battle warrior_pierce lv1 byDeath/.test(l)) && has(s, /쓰러지면서도/), s.log.slice(-6));
+  const dd = await H2.W('geom', 'fateBtn', 'defy');
+  await H2.click(dd.x, dd.y);
+  s = await H2.advanceAll(s => s.battle && s.battle.phase === 'player' && !s.busy && !s.guideOpen && !s.dialogBusy && !s.fatePicker && !s.overlay, 60000, '거스른 뒤');
+  check('쓰러지며 온 시도 거스름: 브룬힐드 생존·흉터 1, 전투 계속(광신도)', s.party.allies.warrior.status !== 'dead' && s.scars === 1 && !s.battle.result, { scars: s.scars });
   await page2.close();
 }
 
