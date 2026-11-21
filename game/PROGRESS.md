@@ -98,3 +98,11 @@
 - CI 전체 검증의 헤드리스 자동 진행은 이제 **6경로**(`.github/workflows/witch-web-build.yml`).
 - 결과(2026-11-22): 약 950판(보상 빼기 전 `f518d6a` 200판 포함) — 막힘 1개(위, 고침) 말고 시간 초과·스크립트 에러·결과 미도달 0, 같은 시드 반복 29묶음 모두 같음.
   같은 시드 180판 전멸: 옛 자동 진행 616 → 고친 기본 100 → careful 13(화형대·운명 모두 거스른 경로만). 전체 검증: check-scripts 38 ok · test_rules 90 통과 · 헤드리스 6경로 결과 도달·에러 0 · 스모크 A~F+S 106 통과·콘솔 에러 0.
+
+## 추가 개선 (밤샘 계획 5, 2026-11-22)
+- 브랜치 `overnight-5-polish`(`ddef4c8` 위, 푸시 안 함). 판단은 DECISIONS.md 「추가 개선(밤샘 5)」.
+- 고친 것: 데스신 뒤 「용사의 죽음」·「짓밟힘」의 'Lv1' 숨김(레벨이 오를 수 없는 운명만 — `Rules.shows_level`) · `?scene=` 바로 가기 판은 저장하지 않음(`--save`/`?save=1` 로만) · 휴대폰에서 화면 위 안내 상자가 메뉴 단추(누르는 영역)를 피함 · `tools/__pycache__` 추적 뺌.
+- 정리(행동 그대로, 하나씩 커밋·전후 시험): 안 쓰는 문구 8·상수 2 · `Rules.reward_choices` → `trade_choices` · killAlly 운명 찾기 → `fate_of` · `game/tools/split_hands.py`(새 손 그림을 옛 그림으로 덮어쓰는 도구) 지움 · `tools/fix_imports.py` 탑뷰 처리 지움 · **`core/rules_map.gd`(`MapRules`)**: 지도·랜턴·어둠·방에서 얻는 카드·휴식·훈련 규칙을 rules.gd 에서 나눔(1,580 → 1,372줄).
+- 안 쓰는 그림: 없음(조사 결과는 DECISIONS.md).
+- 문서: `game/README.md` 새로, 옛 문서 5개 → `docs/archive/`(목록 `docs/archive/README.md`), `docs/status.md` 짧게(옛 전체판은 archive), 낡은 문구(세라피나 데스신 새 6컷·옛 승리 보상 설명) 고침.
+- 시험(2026-11-22, `fbb9953`): check-scripts 39 ok · test_rules 91 통과 · CI 와 같은 헤드리스 6경로 모두 결과 요약까지 에러 0(전멸 0/1/0/1/0/0, 시드 무작위, 자동 저장 줄 0) · 웹 내보내기(index.pck 23.0MB) + 스모크 A~F + S 109 통과·실패 0·브라우저 콘솔 에러 0(1087초). 나누기 전·뒤 같은 시드 자동 진행 6쌍 같음.
