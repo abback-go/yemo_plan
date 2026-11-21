@@ -89,3 +89,28 @@
   2. 3턴 「짓밟기」가 세라피나 말고 다른 동료·노엘에게도 피해를 주는가? (지금: 없음)
   3. 강적의 희귀 보상을 무엇으로? (지금: 강화된 Lv2 기본 카드)
   4. 2층부터의 "규칙 있는 무작위" 지도는 아직 없다(2·3층은 정해진 장면 순서).
+
+## 버티컬 슬라이스 — 전투 배치·새 그림 (2026-11-22, vertical-slice.md 5-9)
+- **배경마다 전투 배치**: `game_data.gd battleLayouts`(gallery·prayer·vault·deepest)가 `layout` 의 같은 키를 덮어쓴다(사전은 한 단계 합침). 전투는 `encounters.<전투>.layout` 으로 고른다. `BattleView.LY()` 가 지금 전투의 합친 배치를 돌려준다. 2·3층(옛 배경)은 `layout.enemySlots` 옛 값 그대로.
+  - 값: 장례 회랑 발 y 556·높이 270·x 705/960/1215(목업 v3), 기도실 발 588(둥근 단 앞 가장자리 — 배경 그림에서 잼, 목업 없음), 무덤지기의 방 가운데 발 642·높이 440(목업 vault), 가장 깊은 곳 발 674·높이 268·x 765/960/1170(목업 deepest)·거대한 발 너비 1100·아랫변 640(목업 foot).
+  - 동료 뒷모습 기본: x 520/960/1420, top 610/636/604, 높이 790/770/800(5-9 범위 안). 가장 깊은 곳은 top +30.
+  - **[판단] 적 HP 막대를 머리 위로**(`enemyHp: "above"`, 예고는 그 위): 새 배치는 동료 머리(y 600~640)가 적 발(y 556) 바로 아래라, 발밑 HP 막대가 가운데 동료(세라피나) HP 막대와 겹쳤다.
+  - **[판단] 전투 중 안내 상자를 화면 맨 위로**(`guideBattleY: 18`): 예전엔 적 줄 바로 아래(y 396)였는데, 새 배치에서는 그 자리가 적 몸통이라 적·예고를 가렸다. 맨 위(18~약 200)는 예고(약 y 200~)보다 위.
+- **동료 행동 자세 그림을 쓰지 않음**(`layout.poses: {}`): 옛 동작 그림(spr_*_back_attack·guard)을 새 뒷모습에 겹치면 그림체가 달라 보여서. 공격 때 앞으로 튀어 나가는 움직임(코드)은 그대로. 새 동작 그림은 움직임 비교 시험(6장) 뒤에.
+- **새 그림 들여오기**: `tools/vs_import.py`(크로마 배경 → `tools/remove_bg.py`, 그 뒤 가장자리 4px 디스필을 한 번 더, 화면 크기에 맞춰 줄임, 표정 스탠딩은 같은 캔버스). 어두운 배경 위 확인 그림으로 테두리 번짐을 봤다(엘리안 마젠타 포함 — 눈에 띄는 번짐 없음, 아이의 가는 머리카락 끝만 살짝 올리브).
+  | 원본 `art/raw/vs/` | 게임 `game/assets/` | 비고 |
+  |---|---|---|
+  | 01·05·06 뒷모습 | `spr_hero_back.png`·`spr_warrior_back.png`·`spr_archer_back.png` | 같은 이름으로 바꿈, 높이 1100 |
+  | 08_cultist | `spr_cultist.png` | 높이 640 |
+  | 40_gravekeeper | `spr_gravekeeper.png` | 높이 900, 옛 창 기사 그림 대신 |
+  | 41_giant_foot | `spr_giant_foot.png` | 같은 이름, 위가 잘린 그림 그대로(화면 위에서 매달림), 어둡게 하던 것 → 거의 그대로(tint 0.9) |
+  | 09_noel_hands | `ui_witch_hands.png` + `ui_witch_hand_left/right.png`(x 836 에서 나눔) | 캔버스 1672×941 그대로 — 옛 카드 자리(slots)와 겹쳐 보니 손 자세가 같아 그대로 맞음 |
+  | 09_noel_hand_raise | `ui_witch_hand_raise.png` | 캔버스 그대로, `ui_witch_hand_raise.json` 카드 자리와 겹쳐 확인(엄지가 카드 아래 가장자리) — 규칙 테스트 "손 들기 카드 자리 = json" 통과 |
+  | 11_card_back | `card_back.png` | 뒤집힌 죽음 카드 + 손에 쥔 덱 뒷면(예전 코드 그림 대신) |
+  | 12_intent_icons | `intent_attack/fate/hidden.png` | 셋으로 잘라 160px. 광역·그림자·짓밟기 아이콘은 아직 코드 그림 |
+  | 07·15~27 배경·CG | `bg_vs_*.webp`·`cg_vs_*.webp` | 원본 webp 그대로(약 1672×941, 화면을 덮게 늘림) |
+  | 28~31·32~35·36~38 스탠딩 | `stand_hero_{calm,smile,determined,shocked}`·`stand_warrior_{smirk,stern,shocked,grief}`·`stand_archer_{cold,shocked,grief}.png` | 표정마다 같은 캔버스(37 은 1535 → 위에 1px 채움), 높이 1100 |
+  | 43_buried_child | `stand_child.png` | 순장된 자의 방 [꺼낸다] 때 VN 스탠딩 |
+  - 대본 표정 이름 → 그림: `hero_calm/smile/determined/shocked`, `warrior_smirk/stern/shocked/grief`, `archer_cold/shocked/grief` 는 바로 맞는다. 그림이 없는 표정(2·3층의 `warrior_rage`·`archer_smile`·`archer_hollow`)은 스탠딩을 바꾸지 않고 얼굴은 기본 스탠딩에서 자른다. VN 에서 표정 줄이 오면 그 인물 스탠딩이 0.22초 겹쳐 바뀐다(`VnScene.set_expression`).
+  - 아직 승인 전이라 옛 그림 그대로: 노엘 스탠딩(`stand_witch.png`), 카드 틀·카드 그림, 컷인, UI, 2·3층 배경·적.
+  - 쓰지 않게 되어 `game/assets` 에서 지운 옛 그림: `bg_camp.png`, `ev_corpse_witch.png`, `ev_rest_night.png`, `face_*.png` 12장, `stand_hero/warrior/archer.png`, `spr_*_back_attack.png`·`spr_warrior_back_guard.png`(원본은 `prototype/assets/` 에 있다).

@@ -43,7 +43,8 @@ func _init() -> void:
 
 ## 뒷면 카드 (마녀가 쥔 덱)
 func setup_back() -> void:
-	tex = Assets.svg("card_back", CardArt.SVG.__back, 2.0)
+	var bf: String = str(GameData.D.get("cardBackImg", ""))
+	tex = Assets.tex(bf) if Assets.ok(bf) else Assets.svg("card_back", CardArt.SVG.__back, 2.0)
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 

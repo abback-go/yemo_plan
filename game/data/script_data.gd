@@ -5,7 +5,7 @@
 ## ── 줄(대사) 형식 ──────────────────────────────────────────────
 ##  비주얼노벨 장면(캠프·방·빈 캠프): {"speaker", "text", "face"?, "show"?, "tag"?}
 ##    speaker: hero | warrior | archer | noel | inner(노엘 속마음) | narr(내레이션) | system(안내 상자) | 그 밖(names 의 이름: cultist·gravekeeper·keeper·child)
-##    face: 표정 그림 이름(예: "hero_smile" → face_hero_smile.png). 그림이 없으면 얼굴 칸 없이(대사창은 스탠딩에서 잘라 쓴 얼굴)
+##    face: 표정 이름(예: "hero_smile" → 스탠딩이 stand_hero_smile.png 로 바뀌고 얼굴도 거기서). 그림이 없으면 스탠딩은 그대로(대사창은 기본 스탠딩의 얼굴)
 ##    show: 등장 인물과 자리 {"hero": "C", ...} (자리: FL L C R FR). {} = 모두 퇴장
 ##    tag: 그 인물 스탠딩에 이름표를 붙인다(파티 소개). "" = 이름표를 뗀다
 ##    text 가 없는 줄은 show·tag 만 바꾸고 넘어간다(대본의 [연출] — 인물이 움직이는 순간)
@@ -226,7 +226,7 @@ const S := {
 			{"speaker": "warrior", "face": "warrior_stern", "text": "이 탑에서 '사람'이면 다행이고."},
 			{"key": "buried", "choice": [
 				{"text": "꺼낸다", "value": "open", "lines": [
-					{"speaker": "narr", "text": "못을 뽑다가 손이 찢어졌다. 안에는 잠옷 차림의 아이가 있다."},
+					{"show": {"archer": "FL", "child": "C", "warrior": "FR"}, "speaker": "narr", "text": "못을 뽑다가 손이 찢어졌다. 안에는 잠옷 차림의 아이가 있다."},
 					{"speaker": "child", "text": "자고 있었는데… 눈 떠 보니까 깜깜했어요."},
 					{"speaker": "archer", "face": "archer_cold", "text": "위로 올라가요. 계단 보이죠. 뒤돌아보지 말고요."},
 					{"call": "buried"}]},
@@ -274,7 +274,7 @@ const S := {
 		"stall": [
 			{"speaker": "narr", "text": "관 뚜껑 위에 초와 카드를 늘어놓은 늙은 묘지기."},
 			{"speaker": "keeper", "text": "돈은 필요 없어. 여긴 장례 탑이라. 피를 조금 받지."},
-			{"show": {"warrior": "C"}, "speaker": "warrior", "face": "warrior_smirk", "text": "장사 방식이 마음에 드네. 마녀님이 내."},
+			{"show": {"warrior": "R"}, "speaker": "warrior", "face": "warrior_smirk", "text": "장사 방식이 마음에 드네. 마녀님이 내."},
 			{"speaker": "system", "text": "**거래 — 노엘의 HP를 대가로 카드나 촛불을 얻습니다.**"},
 			{"key": "trade", "choice": [
 				{"text": "카드 — HP 4", "value": "card", "hpCost": 4, "lines": [{"call": "trade:card"}]},

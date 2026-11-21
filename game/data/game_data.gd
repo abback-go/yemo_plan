@@ -210,7 +210,7 @@ const D := {
 	# ───────────── 적 ─────────────
 	"enemies": {
 		"cultist": {"name": "광신도", "hp": 14, "sprite": "spr_cultist.png"},
-		"giant": {"name": "거대한 존재", "hp": null, "immune": true, "retreatOn": "trample", "sprite": "spr_giant_foot.png"},
+		"giant": {"name": "거대한 존재", "hp": null, "immune": true, "retreatOn": "trample", "sprite": "spr_giant_foot.png", "tint": [0.92, 0.9, 0.9]},
 		# 1차 시험판 v2 [임시 수치 — 2명(노엘+엘리안)으로도 이길 수 있게, 3명이면 조금 여유]
 		# pattern: 턴마다 차례로 도는 예고 (kind attack: target random | highest(HP 가장 높은 동료) / kind aoe: 모두에게)
 		# scale: 전투 화면에서 적 자리 높이의 배율
@@ -224,8 +224,8 @@ const D := {
 				{"kind": "aoe", "label": "불길", "value": 3, "hitsWitch": true},
 				{"kind": "attack", "label": "화염", "value": 6, "target": "random"},
 			]},
-		# 버티컬 슬라이스 1층 강적 (대본 v3 3.2) [임시 수치·그림: 무덤지기 그림이 아직 없어 창 기사 그림을 어둡게(tint) 쓴다]
-		"gravekeeper": {"name": "무덤지기", "hp": 34, "sprite": "spr_cult_knight.png", "scale": 1.32, "tint": [0.62, 0.58, 0.56],
+		# 버티컬 슬라이스 1층 강적 (대본 v3 3.2) [임시 수치]. 그림 40번(무덤지기) — 크기는 battleLayouts.vault 의 자리 높이(약 440)
+		"gravekeeper": {"name": "무덤지기", "hp": 34, "sprite": "spr_gravekeeper.png",
 			"pattern": [
 				{"kind": "attack", "label": "관 뚜껑 내려치기", "value": 8, "target": "random"},
 				{"kind": "attack", "label": "짓누르기", "value": 10, "target": "highest"},
@@ -238,7 +238,7 @@ const D := {
 		# floorEnd: true 면 층 끝 전투 — 그 층에서 전조를 보았으면 어둠이 와도 가려지지 않는다. 운명 공격 예고는 언제나 보인다
 		# 1층 장례 회랑 전투 ①: 광신도 3명. 완전히 끝나는 전투(거대 존재 없음). 배경은 직전 VN 장면과 같게(bg)
 		"normal": {
-			"kind": "normal", "floor": 1, "bg": "bg_cathedral.png",
+			"kind": "normal", "floor": 1, "bg": "bg_vs_funeral_gallery.webp", "layout": "gallery",
 			"enemies": [{"id": "c1", "type": "cultist", "slot": 0}, {"id": "c2", "type": "cultist", "slot": 1}, {"id": "c3", "type": "cultist", "slot": 2}],
 			"attackRange": [5, 6],            # 광신도 공격 5~6
 			"giantTriggerAlive": null,        # null = 거대 존재가 나오지 않는다
@@ -256,19 +256,19 @@ const D := {
 		},
 		# 1층 광신도 기도실(골라 들어가는 방, 전투): 광신도 2명 [임시 수치]
 		"prayer": {
-			"kind": "normal", "floor": 1, "bg": "bg_fork_crypt.png",
+			"kind": "normal", "floor": 1, "bg": "bg_vs_cult_prayer_room.webp", "layout": "prayer",
 			"enemies": [{"id": "c1", "type": "cultist", "slot": 0}, {"id": "c3", "type": "cultist", "slot": 2}],
 			"attackRange": [4, 6],
 		},
 		# 1층 무덤지기(기도실 안쪽, 강적) — 어둠의 영향을 받는다
 		"gravekeeper": {
-			"kind": "normal", "floor": 1, "bg": "bg_ossuary.png", "darkness": true, "elite": true,
+			"kind": "normal", "floor": 1, "bg": "bg_vs_gravekeeper_vault.webp", "layout": "vault", "darkness": true, "elite": true,
 			"enemies": [{"id": "g1", "type": "gravekeeper", "slot": 1}],
 			"attackRange": [6, 8],
 		},
 		# 1층 가장 깊은 곳(층 끝): 광신도 2 → 1명 남으면 발이 내려와 짓밟음 → 거대한 발 보스 전투
 		"deep": {
-			"kind": "normal", "floor": 1, "dim": true, "darkness": true, "floorEnd": true,
+			"kind": "normal", "floor": 1, "bg": "bg_vs_deepest_hall.webp", "layout": "deepest", "darkness": true, "floorEnd": true,
 			"enemies": [{"id": "c1", "type": "cultist", "slot": 0}, {"id": "c3", "type": "cultist", "slot": 2}],
 			"attackRange": [5, 6],
 			"giantTriggerAlive": 1,
@@ -280,7 +280,7 @@ const D := {
 		# 거대한 발 — 보스 전투(대본 v3 5.2). HP 는 「???」, 공격은 흠집만 낸다(immune).
 		# 3턴 「짓밟기」 = 세라피나의 운명(hero_stomp): 손패의 뒤집힌 카드가 저절로 뒤집히고 → 데스신 → 받아들임(튜토리얼은 거스를 수 없음)
 		"giant": {
-			"kind": "giant", "floor": 1, "darkness": true, "floorEnd": true,
+			"kind": "giant", "floor": 1, "bg": "bg_vs_deepest_hall.webp", "layout": "deepest", "darkness": true, "floorEnd": true,
 			"enemies": [{"id": "giant", "type": "giant", "slot": "giant"}],
 			# 3턴 카운트다운 (마지막 항목이 계속 반복). fate: 그 운명이 살아 있으면 이 행동이 운명의 시도가 된다(어둠에서도 늘 보임)
 			"countdown": [
@@ -330,23 +330,23 @@ const D := {
 	# ───────────── 비주얼노벨 장면(방마다)의 배경 ─────────────
 	# 대사는 script_data.gd (camp / events.<장면>). bgZoom: 배경 그림의 한 곳(focus)을 scale 배로 확대해 보여 준다(같은 그림 재사용)
 	# emptyBedroll: 빈 캠프에서 비어 있는 침낭 자리(1920×1080 기준) — 코드로 차가운 빛·그늘을 얹는다
-	# [임시] 버티컬 슬라이스 배경(docs/prompts/vs_assets.md B01~B13)이 아직 없어 기존 그림을 대신 쓴다. 그림이 오면 bg 파일 이름만 바꾼다.
+	# 버티컬 슬라이스 배경(art/raw/vs → game/assets/bg_vs_*·cg_vs_*, tools/vs_import.py). 2·3층은 아직 옛 그림.
 	#   전투가 있는 방은 전투 배경(encounters.<전투>.bg)과 같은 그림을 써서 대화하던 배경 그대로 전투가 시작되게 한다(vertical-slice.md 3장)
 	"vnScenes": {
-		"camp": {"bg": "bg_camp.png", "fire": true},                                        # 곁방(캠프) — B01
-		"corridor": {"bg": "bg_cathedral.png"},                                             # 장례 회랑 — 전투 ① (P07)
-		"hall": {"bg": "bg_fork_crypt.png"},                                                # 안치 홀(지도) — B03
-		"prayer": {"bg": "bg_fork_crypt.png"},                                              # 광신도 기도실 — B06 (전투 배경 겸용)
-		"gravekeeper": {"bg": "bg_ossuary.png"},                                            # 무덤지기의 방 — B07 (강적 전투 배경 겸용)
-		"buried": {"bg": "bg_ossuary.png", "bgZoom": {"scale": 1.5, "focus": [700, 560]}},  # 순장된 자의 방 — B08
-		"corpse": {"bg": "ev_corpse_witch.png"},                                            # 핏자국 통로 끝(죽은 마녀) — B09
-		"chapel": {"bg": "bg_fork_crypt.png", "bgZoom": {"scale": 1.6, "focus": [960, 430]}, "fire": true},   # 촛불 예배당 — B10
-		"training": {"bg": "bg_fork_crypt.png", "bgZoom": {"scale": 1.55, "focus": [1560, 470]}},             # 무너진 훈련장 — B11
-		"stall": {"bg": "bg_ossuary.png", "bgZoom": {"scale": 1.45, "focus": [1300, 520]}},                  # 묘지기의 좌판 — B12
-		"footprints": {"bg": "bg_cathedral.png", "bgZoom": {"scale": 1.5, "focus": [960, 700]}},             # 발자국 방 — B13
-		"stairs": {"bg": "bg_stairs_descent.png"},                                          # 계단 앞 홀 — B04
-		"deep": {"bg": "bg_cathedral.png"},                                                 # 가장 깊은 곳 — B05 (광신도·보스 전투 겸용)
-		"emptycamp": {"bg": "bg_camp.png", "fire": true, "fireLow": true, "emptyBedroll": [1350, 640]},     # 빈 곁방 — B02
+		"camp": {"bg": "bg_vs_camp.webp", "fire": true},                                    # 곁방(캠프) — 15
+		"corridor": {"bg": "bg_vs_funeral_gallery.webp"},                                   # 장례 회랑 — 07 (전투 ① 배경 겸용)
+		"hall": {"bg": "bg_vs_ossuary_hall.webp"},                                          # 안치 홀(지도) — 17
+		"prayer": {"bg": "bg_vs_cult_prayer_room.webp"},                                    # 광신도 기도실 — 20 (전투 배경 겸용)
+		"gravekeeper": {"bg": "bg_vs_gravekeeper_vault.webp"},                              # 무덤지기의 방 — 21 (강적 전투 배경 겸용)
+		"buried": {"bg": "bg_vs_buried_coffin_room.webp"},                                  # 순장된 자의 방 — 22 (아이: stand_child, 43)
+		"corpse": {"bg": "cg_vs_dead_witch.webp"},                                          # 핏자국 통로 끝(죽은 마녀) — 23
+		"chapel": {"bg": "bg_vs_candle_chapel.webp"},                                       # 촛불 예배당 — 24
+		"training": {"bg": "bg_vs_training_hall.webp"},                                     # 무너진 훈련장 — 25
+		"stall": {"bg": "cg_vs_grave_merchant.webp"},                                       # 묘지기의 좌판 — 26 (묘지기는 그림 안에)
+		"footprints": {"bg": "bg_vs_footprint_room.webp"},                                  # 발자국 방 — 27
+		"stairs": {"bg": "bg_vs_stair_landing.webp"},                                       # 계단 앞 홀 — 18
+		"deep": {"bg": "bg_vs_deepest_hall.webp"},                                          # 가장 깊은 곳 — 19 (광신도·보스 전투 겸용)
+		"emptycamp": {"bg": "bg_vs_camp_empty.webp", "fire": true, "fireLow": true},        # 빈 곁방 — 16 (빈 침낭은 그림에 있다)
 		# 2·3층 (탑뷰를 없애고 VN 장면 + 전투로 — 이야기·그림은 아직 시험판 v2 그대로)
 		"f2corridor": {"bg": "bg_cathedral.png", "bgZoom": {"scale": 1.3, "focus": [960, 600]}},
 		"f2ossuary": {"bg": "bg_ossuary.png"},
@@ -442,29 +442,33 @@ const D := {
 		"bloodRemain": 0.6,        # C7 피 자국이 옅어진 뒤 남는 진하기
 	},
 
-	# 대사창 작은 얼굴: 스탠딩 그림에서 얼굴 부분 (원본 픽셀 좌표 중심, 한 변 크기)
+	# 대사창 작은 얼굴: 기본 스탠딩 그림에서 얼굴 부분 (그림 픽셀 좌표 중심, 한 변 크기) — 그 표정 그림이 없을 때
+	# 세라피나·브룬힐드·엘리안은 새 스탠딩(그림체 D, 표정별 같은 캔버스 614·646·568×1100 — tools/vs_import.py), 노엘은 아직 옛 그림
 	"faces": {
-		"hero": {"img": "stand_hero.png", "cx": 322, "cy": 125, "size": 190},
-		"warrior": {"img": "stand_warrior.png", "cx": 255, "cy": 112, "size": 190},
-		"archer": {"img": "stand_archer.png", "cx": 335, "cy": 112, "size": 190},
+		"hero": {"img": "stand_hero_calm.png", "cx": 268, "cy": 80, "size": 150},
+		"warrior": {"img": "stand_warrior_smirk.png", "cx": 290, "cy": 64, "size": 150},
+		"archer": {"img": "stand_archer_cold.png", "cx": 282, "cy": 80, "size": 140},
 		"noel": {"img": "stand_witch.png", "cx": 250, "cy": 118, "size": 190},
 	},
-	# 표정 그림 (대사의 face: "hero_smile" → face_hero_smile.png). 정면 상반신(약 435×887)에서 얼굴 부분
+	# 표정 그림 (대사의 face: "hero_smile" → stand_hero_smile.png — 표정마다 전신 스탠딩). 얼굴은 crop 으로 잘라 쓴다.
+	# 그림이 없는 표정(warrior_rage·archer_smile·archer_hollow 등)은 스탠딩을 바꾸지 않고, 얼굴은 faces(기본 스탠딩)에서
 	"expressions": {
-		"file": "face_{name}.png",
+		"file": "stand_{name}.png",
 		"crop": {
-			"hero": {"cx": 220, "cy": 270, "size": 360},
-			"archer": {"cx": 215, "cy": 280, "size": 360},
-			"warrior": {"cx": 220, "cy": 270, "size": 360},
+			"hero": {"cx": 268, "cy": 80, "size": 150},
+			"archer": {"cx": 282, "cy": 80, "size": 140},
+			"warrior": {"cx": 290, "cy": 64, "size": 150},
 		},
-		# 대화창의 큰 얼굴(어깨까지 조금 더 넓게)
+		# VN 대화창의 큰 얼굴(어깨까지 조금 더 넓게)
 		"cropLarge": {
-			"hero": {"cx": 220, "cy": 300, "size": 470},
-			"archer": {"cx": 215, "cy": 310, "size": 470},
-			"warrior": {"cx": 220, "cy": 300, "size": 470},
+			"hero": {"cx": 268, "cy": 104, "size": 220},
+			"archer": {"cx": 282, "cy": 104, "size": 210},
+			"warrior": {"cx": 290, "cy": 90, "size": 220},
 		},
 	},
-	"standing": {"hero": "stand_hero.png", "warrior": "stand_warrior.png", "archer": "stand_archer.png", "noel": "stand_witch.png"},
+	# VN 기본 스탠딩 (표정 줄이 오면 expressions.file 의 그림으로 바꾼다 — vn.gd). child: 순장된 자의 방의 아이
+	"standing": {"hero": "stand_hero_calm.png", "warrior": "stand_warrior_smirk.png", "archer": "stand_archer_cold.png", "noel": "stand_witch.png",
+		"child": "stand_child.png"},
 
 	# ───────────── 화면 배치 (1920×1080 기준 좌표) ─────────────
 	"layout": {
@@ -511,21 +515,22 @@ const D := {
 		# from: 쥘 때 아래에서 올라오는 거리, 취소하면 이만큼 내려가며 사라진다. 확정하면 이 손이 그대로 커지며 세운 손(raise)이 된다.
 		"grip": {"scale": 0.55, "x": 520, "y": 440, "from": [0, 300]},
 		# 동료 행동 자세(뒷모습). 기본 자세와 같은 배율로, 발끝(그림 아래 가운데)을 맞춰 겹친다. dx·dy: 미세 조정(화면 px)
-		"poses": {
-			"hero": {"attack": {"img": "spr_hero_back_attack.png", "dx": 30, "dy": 0}},
-			"archer": {"attack": {"img": "spr_archer_back_attack.png", "dx": 20, "dy": 0}},
-			"warrior": {"guard": {"img": "spr_warrior_back_guard.png", "dx": -30, "dy": 0}},
-		},
+		# 동료 행동 자세 그림 — 새 뒷모습(그림체 D)에 맞는 동작 그림은 움직임 비교 시험(vertical-slice.md 6장) 뒤에 뽑는다.
+		# 그때까지는 비워 둔다(옛 동작 그림을 새 뒷모습에 겹치면 그림체가 달라 보여서). 예: "hero": {"attack": {"img": …, "dx": 30, "dy": 0}}
+		"poses": {},
 		"card": {"w": 240, "h": 360},
 		"playZoneY": 610,        # 대상 없는 카드: 이 선보다 위에서 놓으면 사용
 		# 동료 뒷모습: x(가운데), top(머리 위), h(그림 높이), anchor(붉은 실이 나오는 등 위치, 그림 비율)
+		# 새 뒷모습(그림체 D) 기준 — vertical-slice.md 5-9: top 600~640, 높이 740~800, x 520·960·1420 (배경마다 battleLayouts 로 바꿀 수 있다)
 		"allies": {
-			"archer": {"img": "spr_archer_back.png", "x": 290, "top": 440, "h": 960, "anchor": [0.50, 0.24]},
-			"hero": {"img": "spr_hero_back.png", "x": 960, "top": 392, "h": 820, "anchor": [0.50, 0.165]},
-			"warrior": {"img": "spr_warrior_back.png", "x": 1640, "top": 428, "h": 990, "anchor": [0.55, 0.22]},
+			"archer": {"img": "spr_archer_back.png", "x": 520, "top": 610, "h": 790, "anchor": [0.50, 0.22]},
+			"hero": {"img": "spr_hero_back.png", "x": 960, "top": 636, "h": 770, "anchor": [0.50, 0.2]},
+			"warrior": {"img": "spr_warrior_back.png", "x": 1420, "top": 604, "h": 800, "anchor": [0.55, 0.2]},
 		},
 		"allyHpOffset": 34,
-		# 적: x(가운데), feet(발 y), h(그림 높이). 광신도 그림은 2:3
+		# 적 HP 막대 자리: feet(발밑) | above(머리 위 — 예고는 그 위). 새 배치는 동료 머리가 적 발 바로 아래라 above
+		"enemyHp": "feet",
+		# 적: x(가운데), feet(발 y), h(그림 높이). 옛 배경(2·3층 bg_ossuary·bg_pyre_court) 기준 — 새 배경은 battleLayouts
 		"enemySlots": [
 			{"x": 700, "feet": 352, "h": 232},
 			{"x": 960, "feet": 316, "h": 232},
@@ -540,6 +545,29 @@ const D := {
 		"discardPile": {"x": 1574, "y": 1034},
 		"dialog": {"x": 24, "y": 20, "w": 580, "h": 132},
 		"guideBattleY": 396,     # 전투 중 안내 상자의 위쪽 y (적·예고 줄 바로 아래)
+	},
+
+	# ───────────── 전투 배치 — 배경마다 (vertical-slice.md 5-9, 목업 reference/mockups/vs_battle_mock_*.png) ─────────────
+	# 전투(encounters.<전투>.layout)가 이름을 고르면 layout 의 같은 키를 덮어쓴다(사전은 한 단계 합침: giant 처럼 일부 키만 줘도 된다).
+	# 배경마다 단 윗면 높이가 달라 적 발 높이(feet)를 여기 둔다. 동료 자리는 layout.allies 기본값(5-9).
+	# guideBattleY: 새 배치는 적이 화면 가운데(발 y 550~680)라 안내 상자를 화면 맨 위로 (적·예고를 가리지 않게)
+	"battleLayouts": {
+		# 장례 회랑(07): 단 윗면 ≈ 화면 높이 50% — 목업 v3
+		"gallery": {"enemySlots": [{"x": 705, "feet": 556, "h": 270}, {"x": 960, "feet": 556, "h": 270}, {"x": 1215, "feet": 556, "h": 270}],
+			"enemyHp": "above", "guideBattleY": 18},
+		# 광신도 기도실(20): 둥근 단 앞 가장자리 ≈ 585
+		"prayer": {"enemySlots": [{"x": 700, "feet": 588, "h": 270}, {"x": 960, "feet": 588, "h": 270}, {"x": 1220, "feet": 588, "h": 270}],
+			"enemyHp": "above", "guideBattleY": 18},
+		# 무덤지기의 방(21): 강적 약 440 px, 발 ≈ 640 — 목업 vault
+		"vault": {"enemySlots": [{"x": 700, "feet": 640, "h": 300}, {"x": 948, "feet": 642, "h": 440}, {"x": 1220, "feet": 640, "h": 300}],
+			"enemyHp": "above", "guideBattleY": 18},
+		# 가장 깊은 곳(19): 단 윗면이 더 낮아 발 ≈ 675 — 목업 deepest. 거대한 발은 너비 약 1100, 아랫변 ≈ 640 — 목업 foot
+		"deepest": {"enemySlots": [{"x": 765, "feet": 674, "h": 268}, {"x": 960, "feet": 674, "h": 268}, {"x": 1170, "feet": 674, "h": 268}],
+			"giant": {"w": 1100, "bottom": 640, "feetY": 452, "intentY": 368}, "allies": {
+				"archer": {"img": "spr_archer_back.png", "x": 520, "top": 640, "h": 790, "anchor": [0.50, 0.22]},
+				"hero": {"img": "spr_hero_back.png", "x": 960, "top": 664, "h": 770, "anchor": [0.50, 0.2]},
+				"warrior": {"img": "spr_warrior_back.png", "x": 1420, "top": 634, "h": 800, "anchor": [0.55, 0.2]}},
+			"enemyHp": "above", "guideBattleY": 18},
 	},
 
 	# 대화·연출 속도 (ms)
@@ -605,6 +633,8 @@ const D := {
 		"warrior_death": "card_art_warrior_death.png", "archer_death": "card_art_archer_death.png",
 		"pierced_shield": "card_art_pierced_shield.png", "burnt_bow": "card_art_burnt_bow.png", "scar": "card_art_scar.png",
 		"nameless_card": "card_art_nameless_card.png", "small_charm": "card_art_small_charm.png"},
-	# 카드 뒷면 그림 (손패의 뒤집힌 죽음 카드, vs_assets.md 11). 없으면 코드로 그린 뒷면
+	# 카드 뒷면 그림 (손패의 뒤집힌 죽음 카드·손에 쥔 덱, vs_assets.md 11). 없으면 코드로 그린 뒷면
 	"cardBackImg": "card_back.png",
+	# 예고 아이콘 그림 (vs_assets.md 12: 공격 · 운명 공격 · 가려짐). 없는 종류(광역·그림자·짓밟기)는 코드로 그린 아이콘
+	"intentIcons": {"attack": "intent_attack.png", "fate": "intent_fate.png", "fate_pierce": "intent_fate.png", "hidden": "intent_hidden.png"},
 }

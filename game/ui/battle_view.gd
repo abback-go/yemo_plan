@@ -36,14 +36,35 @@ var motion_log: Array = []
 var fate_tint: ColorRect
 var fate_hold := ""        # 운명의 시도 중인 동료 (붉은 실을 최대로)
 var _t := 0.0
+var _ly := {}              # 지금 전투의 배치: layout 에 battleLayouts[encounters.<전투>.layout] 을 덮어쓴 것 (build 에서 정함)
 
 
 func D() -> Dictionary:
 	return GameData.D
 
 
+## 화면 배치. 전투 중이면 그 전투 배경의 배치(battleLayouts)를 덮어쓴 것 — 적 발 높이·동료 자리·거대한 발·안내 상자 높이가 배경마다 다르다
 func LY() -> Dictionary:
-	return GameData.D.layout
+	return _ly if not _ly.is_empty() else GameData.D.layout
+
+
+## 전투(enc)의 배치: layout + battleLayouts[enc.layout] (사전 값은 한 단계 합친다)
+static func layout_for(enc_id: String) -> Dictionary:
+	var base: Dictionary = GameData.D.layout
+	var name := str(GameData.D.encounters.get(enc_id, {}).get("layout", ""))
+	var ov: Dictionary = GameData.D.get("battleLayouts", {}).get(name, {})
+	if ov.is_empty():
+		return base
+	var out := base.duplicate()
+	for k in ov:
+		if ov[k] is Dictionary and base.get(k) is Dictionary:
+			var m: Dictionary = base[k].duplicate()
+			for kk in ov[k]:
+				m[kk] = ov[k][kk]
+			out[k] = m
+		else:
+			out[k] = ov[k]
+	return out
 
 
 func _ready() -> void:
@@ -200,6 +221,7 @@ func ally_at(p: Vector2) -> String:
 
 # ───────── 화면 구성 ─────────
 func clear() -> void:
+	_ly = {}
 	for n in ["bg", "enemies", "foot", "allies", "hud"]:
 		for c in layers[n].get_children():
 			c.queue_free()
@@ -230,15 +252,16 @@ func build(st: Dictionary) -> void:
 	clear()
 	visible = true
 	layers.foot.z_index = 15
-	var ly := LY()
 	var b: Dictionary = st.battle
+	_ly = layout_for(str(b.enc))
+	var ly := LY()
 	var bg := Sprite2D.new()
 	var enc_d: Dictionary = D().encounters[b.enc]
 	var bg_file: String = str(enc_d.get("bg", ly.bg))
 	bg.texture = Assets.tex(bg_file)
 	bg.centered = false
 	bg.scale = Vector2(1920, 1080) / Assets.size(bg_file)
-	if enc_d.get("dim", false) and b.kind != "giant":
+	if enc_d.get("dim", false) and b.kind != "giant":   # (옛 배경을 어둡게 쓰던 전투)
 		bg.modulate = Color(0.82, 0.78, 0.8)
 	# 운명의 시도: 시간이 멈춘 붉은 덮개 (fate_freeze)
 	fate_tint = ColorRect.new()
@@ -359,7 +382,12 @@ func make_enemy(e: Dictionary) -> void:
 	# HP
 	var hp := EnemyHp.new()
 	hp.giant = str(e.slot) == "giant"
-	hp.position = Vector2(ly.giant.cx, ly.giant.feetY) if hp.giant else Vector2(ly.enemySlots[int(e.slot)].x, float(ly.enemySlots[int(e.slot)].feet) + 6.0)
+	if hp.giant:
+		hp.position = Vector2(ly.giant.cx, ly.giant.feetY)
+	else:
+		var es: Dictionary = ly.enemySlots[int(e.slot)]
+		var top := float(es.feet) - float(es.h) * float(D().enemies[e.type].get("scale", 1.0))
+		hp.position = Vector2(es.x, top - 30.0 if str(ly.get("enemyHp", "feet")) == "above" else float(es.feet) + 6.0)
 	layers.hud.add_child(hp)
 	hp_enemy[e.id] = hp
 	var it := IntentBox.new()
@@ -377,7 +405,8 @@ func _make_foot() -> Node2D:
 	var node := Node2D.new()
 	node.position = r.position
 	var spr := _sprite(D().enemies.giant.sprite, Rect2(Vector2.ZERO, r.size))
-	spr.modulate = Color(0.72, 0.72, 0.72)
+	var gt = D().enemies.giant.get("tint")
+	spr.modulate = Color(gt[0], gt[1], gt[2]) if gt is Array else Color.WHITE
 	node.add_child(spr)
 	layers.foot.add_child(node)
 	return node
@@ -515,7 +544,8 @@ func render_intent(id: String, it) -> void:
 		box.set_attack(it)
 		var s: Dictionary = LY().enemySlots[int(e.slot)]
 		var eb := enemy_box(id)
-		box.position = Vector2(clampf(float(s.x) - box.size.x / 2.0, 8.0, 1912.0 - box.size.x), maxf(8.0, eb.position.y - 50.0))
+		var above := 30.0 + 56.0 if str(LY().get("enemyHp", "feet")) == "above" else 50.0   # HP 막대가 머리 위면 예고는 그 위
+		box.position = Vector2(clampf(float(s.x) - box.size.x / 2.0, 8.0, 1912.0 - box.size.x), maxf(8.0, eb.position.y - above))
 
 
 func highlight(enemy_ids, mode: String, ally_ids) -> void:
@@ -1802,6 +1832,13 @@ class IntentBox extends Control:
 	func _process(d: float) -> void:
 		_t += d
 
+	## 예고 아이콘: 그림(game_data intentIcons)이 있으면 그 그림, 없으면 코드로 그린 SVG
+	func _icon(key: String, svg_key: String) -> Texture2D:
+		var f := str(GameData.D.get("intentIcons", {}).get(key, ""))
+		if f != "" and Assets.ok(f):
+			return Assets.tex(f)
+		return Assets.svg("intent_" + svg_key, ICON.get(svg_key, ICON.attack), 2.0)
+
 	func _clear_parts() -> void:
 		for p in parts:
 			p.queue_free()
@@ -1832,7 +1869,7 @@ class IntentBox extends Control:
 
 	## 어둠에 가려진 예고: 「?」만 보인다 (무엇을 누구에게 할지 모른다 — 규칙은 그대로)
 	func _set_hidden(v: Dictionary, h: float) -> void:
-		icon.texture = Assets.svg("intent_hidden", ICON.hidden, 2.0)
+		icon.texture = _icon("hidden", "hidden")
 		_add(G.ui("hidden"), 30, Color("#b8a8ae"), "sans_black")
 		if v.get("blocked", false):
 			_add(G.ui("canceled") if v.get("canceled", false) else G.ui("blocked"), 20, Color("#9be59b"), "sans_black")
@@ -1854,9 +1891,9 @@ class IntentBox extends Control:
 			# 운명의 불길 → 엘리안 · 치명 · 옮기기 불가 (관통 운명은 창 아이콘)
 			var fdm = GameData.D.fates.get(str(v.get("fate", "")))
 			if fdm != null and str(fdm.method) == "pierce":
-				icon.texture = Assets.svg("intent_fate_pierce", ICON.fate_pierce, 2.0)
+				icon.texture = _icon("fate_pierce", "fate_pierce")
 			else:
-				icon.texture = Assets.svg("intent_fate", ICON.fate, 2.0)
+				icon.texture = _icon("fate", "fate")
 			_add(str(v.get("label", "")), 28, Color("#ffd0a0"), "sans_black")
 			_add("→", 22, Color("#ffb0a0"))
 			_add(G.name_of(v.target), 28, Color("#ffffff"), "sans_black")
@@ -1866,7 +1903,7 @@ class IntentBox extends Control:
 			queue_redraw()
 			return
 		if v.get("blocked", false):
-			icon.texture = Assets.svg("intent_attack", ICON.attack, 2.0)
+			icon.texture = _icon("attack", "attack")
 			_add(G.ui("canceled") if v.get("canceled", false) else G.ui("blocked"), 22, Color("#9be59b"), "sans_black")
 			if not v.get("by", []).is_empty():
 				_add("(" + str(v.by[-1]) + ")", 16, Color("#ffcf7a"), "sans")
@@ -1882,7 +1919,7 @@ class IntentBox extends Control:
 			_layout(48)
 			queue_redraw()
 			return
-		icon.texture = Assets.svg("intent_attack", ICON.attack, 2.0)
+		icon.texture = _icon("attack", "attack")
 		if str(v.get("label", "")) != "":
 			_add(str(v.label), 18, Color("#d9b9bd"), "sans_bold")
 		var dmg := Rules.intent_damage(v)

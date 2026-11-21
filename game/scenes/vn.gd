@@ -42,7 +42,7 @@ func setup(name: String, o := {}) -> void:
 	lines = G.S.camp if name == "camp" else G.S.events.get(name, [])
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	size = Vector2(1920, 1080)
-	var conf: Dictionary = GameData.D.vnScenes.get(name, {"bg": "bg_camp.png"})
+	var conf: Dictionary = GameData.D.vnScenes.get(name, {"bg": "bg_vs_camp.webp"})
 	if overlay:
 		conf = {"bg": ""}
 		bg = UI.tex_rect(UI.grad([[0, Color(0, 0, 0, 0.0)], [0.45, Color(0, 0, 0, 0.12)], [1, Color(0, 0, 0, 0.72)]], "v", 4, 128), Rect2(0, 0, 1920, 1080))
@@ -74,6 +74,7 @@ func setup(name: String, o := {}) -> void:
 		tr.modulate.a = 0.0
 		tr.visible = false
 		tr.set_meta("on", false)
+		tr.set_meta("file", file)
 		add_child(tr)
 		stands[k] = tr
 	# 이벤트 제목 (위쪽 작게)
@@ -301,9 +302,39 @@ func _dim_speakers(sp: String) -> void:
 		tr.self_modulate = Color.WHITE if lit else Color(0.5, 0.48, 0.5)
 
 
+## 표정 스탠딩: 그 인물의 스탠딩을 표정 그림(expressions.file, 예: stand_hero_smile.png)으로 바꾼다 — 짧게 겹쳐 바뀐다.
+## 표정마다 같은 캔버스(아래 가운데 기준)라 자리는 그대로. 그림이 없는 표정이면 바꾸지 않는다
+func set_expression(who: String, face: String) -> void:
+	if not stands.has(who):
+		return
+	var file := Assets.expression_file(face)
+	if not Assets.ok(file):
+		return
+	var tr: TextureRect = stands[who]
+	if str(tr.get_meta("file", "")) == file:
+		return
+	tr.set_meta("file", file)
+	if tr.visible and tr.modulate.a > 0.05:
+		var old := TextureRect.new()
+		old.texture = tr.texture
+		old.expand_mode = tr.expand_mode
+		old.stretch_mode = tr.stretch_mode
+		old.position = tr.position
+		old.size = tr.size
+		old.self_modulate = tr.self_modulate
+		old.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(old)
+		move_child(old, tr.get_index() + 1)
+		var an := FX.anim(220, [{"a": 1.0}, {"a": 0.0}], func(v): if is_instance_valid(old): old.modulate.a = v.a, {"node": old})
+		an.finished.connect(func(): if is_instance_valid(old): old.queue_free())
+	tr.texture = Assets.tex(file)
+
+
 ## 한 줄을 보여 주고 탭을 기다린다
 func show_line(ln: Dictionary) -> void:
 	var sp: String = ln.get("speaker", "narr")
+	if ln.has("face"):
+		set_expression("noel" if sp == "inner" else sp, str(ln.face))
 	_dim_speakers(sp)
 	var nm := ""
 	if sp == "inner":
