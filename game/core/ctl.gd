@@ -115,13 +115,13 @@ func _step_camp(my: int) -> bool:
 
 ## 1. 장례 회랑 — VN → 같은 배경에서 전투 ① (정해진 길, 촛불은 타지 않는다)
 func _step_corridor(my: int) -> bool:
-	Rules.enter_room(st, "corridor")
+	MapRules.enter_room(st, "corridor")
 	return await _room("corridor", my)
 
 
 ## 2. 안치 홀 — VN 뒤 지도가 열린다 (지도·촛불 안내는 _step_map 의 처음에)
 func _step_hall(my: int) -> bool:
-	Rules.enter_room(st, "hall")
+	MapRules.enter_room(st, "hall")
 	stage = "vn:hall"
 	await G.scenes.vn("hall")
 	return _alive(my)
@@ -147,7 +147,7 @@ func _step_map(my: int) -> bool:
 		var id := await fm.run()
 		if not _alive(my):
 			return false
-		var r := Rules.enter_room(st, id)
+		var r := MapRules.enter_room(st, id)
 		if not r.ok:
 			continue
 		autosave("map", id)
@@ -166,7 +166,7 @@ func _step_map(my: int) -> bool:
 			return false
 		if not await _room(id, my):
 			return false
-		if bool(Rules.room_def(st, id).get("end", false)):
+		if bool(MapRules.room_def(st, id).get("end", false)):
 			return true
 	return false
 
@@ -174,7 +174,7 @@ func _step_map(my: int) -> bool:
 ## 방 하나: VN 장면(대사·사건·휴식·훈련·거래·전조는 VN 안의 call) → 전투가 있으면 같은 배경에서 전투
 ## → 강적이면 이기고 카드 1장을 얻는다(winCard). 전투 승리 뒤 '카드 3장 중 1장' 보상 화면은 2026-11-21 사용자 지시로 뺐다
 func _room(id: String, my: int) -> bool:
-	var R := Rules.room_def(st, id)
+	var R := MapRules.room_def(st, id)
 	stage = "room:" + id
 	note("room " + id)
 	if G.S.events.has(id):
@@ -182,7 +182,7 @@ func _room(id: String, my: int) -> bool:
 		await G.scenes.vn(id)
 		if not _alive(my):
 			return false
-	if id == str(Rules.map_def(st).get("end", "deep")):
+	if id == str(MapRules.map_def(st).get("end", "deep")):
 		return await _deep(my)
 	if R.has("enc"):
 		var won := await battle(str(R.enc), false, my)
@@ -197,7 +197,7 @@ func _room(id: String, my: int) -> bool:
 ## 강적을 이기면 [기본안 2026-11-21]: 고르는 화면 없이 목록(rewards.<pool>)의 카드 1장이 강화된 채 바로 덱에 들어온다.
 ## 순장된 자의 방·핏자국 통로 끝처럼 '얻는' 연출(카드 획득 화면 + 「○○ — 덱에 들어왔다」)
 func _win_card(pool: String, my: int) -> void:
-	var u := Rules.win_card(st, pool)
+	var u := MapRules.win_card(st, pool)
 	if u == "" or not _alive(my):
 		return
 	var id: String = st.cards[u].id
@@ -522,7 +522,7 @@ func _battle_summary() -> String:
 ## 지도의 방 하나를 마치고 지도로 (층의 끝 방이면 빈 곁방으로)
 func _room_then_map(room: String, my: int) -> void:
 	if await _room(room, my) and _alive(my):
-		if bool(Rules.room_def(st, room).get("end", false)):
+		if bool(MapRules.room_def(st, room).get("end", false)):
 			await run_from("emptycamp", my)
 		else:
 			await run_from("map", my)
@@ -597,10 +597,10 @@ func jump(scene: String, opts := {}) -> void:
 	new_game()
 	var brun := str(opts.get("brun", G.params.get("brun", "alive")))
 	var room := scene.trim_prefix("room:")
-	if room != scene or (Rules.room_def(st, room).size() > 0 and not room in ["camp", "corridor", "hall"]):
+	if room != scene or (MapRules.room_def(st, room).size() > 0 and not room in ["camp", "corridor", "hall"]):
 		# 지도의 방 하나부터: 그 방까지 지나온 상태(안치 홀까지 + 필요하면 기도실·계단 앞 홀)로 만들고, 그 방 → 지도로
 		_prep_map(room)
-		Rules.enter_room(st, room)
+		MapRules.enter_room(st, room)
 		autosave("map", room)
 		await _room_then_map(room, my)
 		return
@@ -612,14 +612,14 @@ func jump(scene: String, opts := {}) -> void:
 		"corridor", "normal":
 			await run_from("corridor", my)
 		"hall":
-			Rules.enter_room(st, "corridor")
+			MapRules.enter_room(st, "corridor")
 			await run_from("hall", my)
 		"map":
 			_prep_map("")
 			await run_from("map", my)
 		"giant":
 			_prep_map("deep")
-			Rules.enter_room(st, "deep")
+			MapRules.enter_room(st, "deep")
 			if await battle("giant", false, my) and _alive(my):
 				await FX.fade(1, 600)
 				if st.battle != null:
@@ -644,7 +644,7 @@ func jump(scene: String, opts := {}) -> void:
 ## 바로 가기용: 지도를 그 방 앞까지 지나온 상태로 (지도 안내는 본 것으로)
 func _prep_map(room: String) -> void:
 	for r in ["corridor", "hall"]:
-		Rules.enter_room(st, r)
+		MapRules.enter_room(st, r)
 	st.flags.mapSeen = true
 	var need := []
 	if room == "gravekeeper":
@@ -652,7 +652,7 @@ func _prep_map(room: String) -> void:
 	elif room in ["chapel", "training", "footprints", "deep"]:
 		need = ["stairs"]
 	for r in need:
-		Rules.enter_room(st, r)
+		MapRules.enter_room(st, r)
 	# 시험용: ?darkness=N (이 층의 어둠 단계) · ?omen=1 (전조를 본 상태)
 	if G.params.has("darkness"):
 		st.progress.darkness = int(G.params.darkness)

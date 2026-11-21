@@ -140,7 +140,7 @@ func state() -> Dictionary:
 	if cur is FloorMap:
 		var rooms := {}
 		for id in cur.rooms():
-			rooms[id] = Rules.room_state(st, id)
+			rooms[id] = MapRules.room_state(st, id)
 		s.map = {"rooms": rooms, "sel": cur.sel, "busy": cur._busy, "enter": cur.enter_btn.visible}
 	var pk := _picker()
 	if pk != null:

@@ -476,7 +476,7 @@ func t_rest() -> void:
 	Rules.debug_set_hp(st, "archer", 4)
 	Rules.debug_set_hp(st, "witch", 9)
 	Rules.finish_battle(st)
-	Rules.apply_rest(st)
+	MapRules.apply_rest(st)
 	var p: Dictionary = st.party
 	check("휴식: 최대 HP 동료 +3·마녀 +2, 전원 회복", p.witch.maxHp == 17 and p.witch.hp == 17 and p.allies.archer.maxHp == 15 and p.allies.archer.hp == 15
 		and p.allies.hero.maxHp == 33 and p.allies.hero.hp == 33 and p.allies.warrior.hp == 27, JSON.stringify(p.allies))
@@ -485,10 +485,10 @@ func t_rest() -> void:
 # 훈련: 후보 3장(서로 다름) 중 1장 강화 → 그 카드 1장만 강화, 이름 옆 +, 강화 수치로 동작
 func t_train() -> void:
 	var st := Rules.new_game(7)
-	var c := Rules.train_candidates(st)
+	var c := MapRules.train_candidates(st)
 	var uniq := count_of(c).size() == c.size()
 	var in_table := c.all(func(x): return D.upgrades.has(x))
-	var u := Rules.upgrade_card(st, "holy_slash")
+	var u := MapRules.upgrade_card(st, "holy_slash")
 	var ups: Array = st.party.deck.filter(func(x): return st.cards[x].get("up", false))
 	Rules.start_battle(st, "normal")
 	Rules.start_turn(st)
@@ -517,7 +517,7 @@ func t_cover_up() -> void:
 
 func t_relic_clears_up() -> void:
 	var st := Rules.new_game(7)
-	var u := Rules.upgrade_card(st, "holy_slash")
+	var u := MapRules.upgrade_card(st, "holy_slash")
 	Rules.start_battle(st, "giant")
 	Rules.start_turn(st)
 	Rules.offer_fate(st, "hero_stomp")
@@ -770,14 +770,14 @@ func t_fate_v2() -> void:
 # ───────── 버티컬 슬라이스: 지도·촛불·어둠 (vertical-slice.md 5장 튜토리얼 지도 초안) ─────────
 func _map_state(seed := 7) -> Dictionary:
 	var st := Rules.new_game(seed)
-	Rules.enter_room(st, "corridor")
-	Rules.enter_room(st, "hall")
+	MapRules.enter_room(st, "corridor")
+	MapRules.enter_room(st, "hall")
 	return st
 
 
 func t_map() -> void:
 	var st := Rules.new_game(7)
-	var M := Rules.map_def(st)
+	var M := MapRules.map_def(st)
 	var spine_ok: bool = M.rooms.has("camp") and M.rooms.has("corridor") and M.rooms.has("hall") and M.rooms.has("stairs") and M.rooms.has("deep") and str(M.end) == "deep"
 	var opt := 0
 	for id in M.rooms:
@@ -785,22 +785,22 @@ func t_map() -> void:
 			opt += 1
 	check("지도: 정해진 길(곁방·장례 회랑·안치 홀·계단 앞 홀·가장 깊은 곳) + 골라 들어가는 방 8개", spine_ok and opt == 8, str(opt))
 	var c0: int = st.progress.candles
-	Rules.enter_room(st, "corridor")
-	Rules.enter_room(st, "hall")
+	MapRules.enter_room(st, "corridor")
+	MapRules.enter_room(st, "hall")
 	check("지도: 랜턴을 받기 전에 지나온 방(장례 회랑·안치 홀)은 촛불이 타지 않는다", c0 == 4 and st.progress.candles == 4 and st.progress.visited.has("hall"))
 	var lk := {}
 	for id in ["prayer", "buried", "corpse", "stall", "stairs", "gravekeeper", "chapel", "training", "footprints", "deep"]:
-		lk[id] = Rules.room_state(st, id)
+		lk[id] = MapRules.room_state(st, id)
 	check("지도: 안치 홀에 붙은 방만 열림 — 무덤지기는 기도실 안쪽, 예배당·훈련장·발자국 방·가장 깊은 곳은 계단 앞 홀 뒤",
 		lk.prayer == "open" and lk.buried == "open" and lk.corpse == "open" and lk.stall == "open" and lk.stairs == "open"
 		and lk.gravekeeper == "locked" and lk.chapel == "locked" and lk.training == "locked" and lk.footprints == "locked" and lk.deep == "locked"
-		and not Rules.enter_room(st, "deep").ok, str(lk))
-	Rules.enter_room(st, "prayer")
-	var g_open := Rules.room_state(st, "gravekeeper") == "open"
-	Rules.enter_room(st, "stairs")
-	var d_open := Rules.room_state(st, "deep") == "open" and Rules.room_state(st, "chapel") == "open"
+		and not MapRules.enter_room(st, "deep").ok, str(lk))
+	MapRules.enter_room(st, "prayer")
+	var g_open := MapRules.room_state(st, "gravekeeper") == "open"
+	MapRules.enter_room(st, "stairs")
+	var d_open := MapRules.room_state(st, "deep") == "open" and MapRules.room_state(st, "chapel") == "open"
 	var c1: int = st.progress.candles
-	var back := Rules.enter_room(st, "hall")
+	var back := MapRules.enter_room(st, "hall")
 	check("지도: 지나간 방은 공짜로 지나간다(촛불 그대로), 기도실을 지나면 무덤지기·계단 앞 홀을 지나면 깊은 곳이 열린다",
 		g_open and d_open and back.ok and not back.first and st.progress.candles == c1 and c1 == 2 and st.progress.room == "hall")
 
@@ -809,12 +809,12 @@ func t_candles() -> void:
 	var st := _map_state()
 	var seq := []
 	for id in ["prayer", "buried", "corpse", "stall"]:
-		var r := Rules.enter_room(st, id)
+		var r := MapRules.enter_room(st, id)
 		seq.append(int(r.candles))
 	var d0: int = st.progress.darkness
-	var r5 := Rules.enter_room(st, "stairs")
-	var r6 := Rules.enter_room(st, "gravekeeper")
-	var r7 := Rules.enter_room(st, "prayer")
+	var r5 := MapRules.enter_room(st, "stairs")
+	var r6 := MapRules.enter_room(st, "gravekeeper")
+	var r7 := MapRules.enter_room(st, "prayer")
 	check("촛불: 처음 들어가는 방마다 1개(4 → 0), 다 탄 뒤 처음 들어가는 방마다 어둠 +1, 지나간 방은 그대로",
 		seq == [3, 2, 1, 0] and d0 == 0 and r5.dark == 1 and r6.dark == 1 and st.progress.darkness == 2 and r7.dark == 0 and not r7.first, str(seq))
 
@@ -824,12 +824,12 @@ func t_darkness() -> void:
 	st.progress.darkness = 1
 	var lv := {}
 	for enc in ["normal", "prayer", "gravekeeper", "deep", "giant", "ossuary"]:
-		lv[enc] = Rules.darkness_level(st, enc)
+		lv[enc] = MapRules.darkness_level(st, enc)
 	check("어둠: 층 끝 전투(깊은 곳·거대한 발)·강적 전투에만 — 일반 전투·2층은 가려지지 않는다",
 		lv.normal == 0 and lv.prayer == 0 and lv.gravekeeper == 1 and lv.deep == 1 and lv.giant == 1 and lv.ossuary == 0, str(lv))
 	st.progress.omen = true
 	check("전조를 보면 그 층 끝 전투는 어둠이 와도 가려지지 않는다(강적 전투는 그대로)",
-		Rules.darkness_level(st, "deep") == 0 and Rules.darkness_level(st, "giant") == 0 and Rules.darkness_level(st, "gravekeeper") == 1)
+		MapRules.darkness_level(st, "deep") == 0 and MapRules.darkness_level(st, "giant") == 0 and MapRules.darkness_level(st, "gravekeeper") == 1)
 	st.progress.omen = false
 	# 어둠 단계만큼 예고가 '?'
 	var counts := []
@@ -869,7 +869,7 @@ func t_darkness() -> void:
 
 func t_lantern_carry() -> void:
 	var st := _map_state()
-	Rules.enter_room(st, "prayer")
+	MapRules.enter_room(st, "prayer")
 	st.progress.darkness = 3
 	st.progress.omen = true
 	Rules.descend(st)
@@ -895,7 +895,7 @@ func t_rewards() -> void:
 		no_reward and plain and win_rooms == ["gravekeeper"] and str(rooms.gravekeeper.type) == "elite" and not D.rewards.has("rare") and not D.rewards.has("rareUp"), str(win_rooms))
 	# 묘지기의 좌판(거래) 후보: 3장, 서로 다른 카드, 강화되지 않은 카드. 죽은 동료의 카드는 빠진다
 	var st := Rules.new_game(7)
-	var c := Rules.trade_choices(st, "common")
+	var c := MapRules.trade_choices(st, "common")
 	var ids_c := c.map(func(x): return x.id)
 	var uniq := count_of(ids_c).size() == 3
 	var in_pool: bool = ids_c.all(func(x): return D.rewards.common.has(x)) and c.all(func(x): return not x.up)
@@ -903,7 +903,7 @@ func t_rewards() -> void:
 	for sd in range(1, 41):
 		var g := Rules.new_game(sd)
 		g.party.allies.warrior.status = "dead"
-		var gc := Rules.trade_choices(g, "common")
+		var gc := MapRules.trade_choices(g, "common")
 		if gc.size() != 3:
 			dead_ok = false
 		for it in gc:
@@ -913,7 +913,7 @@ func t_rewards() -> void:
 	# 무덤지기(강적)를 이기면 [기본안]: 고르지 않고 희귀 목록(rewards.elite)의 카드 1장이 강화된 채(Lv2) 바로 덱에
 	var e := Rules.new_game(7)
 	var n0: int = e.party.deck.size()
-	var u := Rules.win_card(e, str(rooms.gravekeeper.winCard))
+	var u := MapRules.win_card(e, str(rooms.gravekeeper.winCard))
 	var eid: String = str(e.cards[u].id) if e.cards.has(u) else ""
 	var got_ok: bool = u != "" and e.party.deck.size() == n0 + 1 and e.party.deck.has(u) and D.rewards.elite.has(eid) and Rules.is_up(e, u) and Rules.level(e, u) == 2
 	# 여러 시드: 언제나 희귀 목록·강화된 카드 1장, 죽은 동료(브룬힐드, 짝수 시드는 세라피나도)의 카드는 나오지 않는다
@@ -925,7 +925,7 @@ func t_rewards() -> void:
 		if sd % 2 == 0:
 			g.party.allies.hero.status = "dead"
 		var d0: int = g.party.deck.size()
-		var gu := Rules.win_card(g)
+		var gu := MapRules.win_card(g)
 		if gu == "" or g.party.deck.size() != d0 + 1:
 			all_ok = false
 			continue
@@ -941,22 +941,22 @@ func t_rewards() -> void:
 func t_trade_event() -> void:
 	var st := Rules.new_game(7)
 	var w0: int = st.party.witch.hp
-	var ok_c := Rules.trade(st, "card", {"id": "snipe"})
+	var ok_c := MapRules.trade(st, "card", {"id": "snipe"})
 	var w1: int = st.party.witch.hp
-	var ok_k := Rules.trade(st, "candle")
+	var ok_k := MapRules.trade(st, "candle")
 	check("거래: 카드 — 노엘 HP 4, 촛불 1개 — HP 2 (촛불 +1)", ok_c and w1 == w0 - 4 and ok_k and st.party.witch.hp == w1 - 2 and st.progress.candles == 5
 		and _deck_ids(st).count("snipe") == 3)
 	st.party.witch.hp = 4
-	var no_c := Rules.trade(st, "card", {"id": "snipe"})
+	var no_c := MapRules.trade(st, "card", {"id": "snipe"})
 	st.party.witch.hp = 2
-	var no_k := Rules.trade(st, "candle")
+	var no_k := MapRules.trade(st, "candle")
 	st.party.witch.hp = 15
 	st.progress.candles = 8
-	var full := Rules.trade(st, "candle")
+	var full := MapRules.trade(st, "candle")
 	check("거래: HP 가 대가 이하이면 못 산다, 촛불은 최대 8개", not no_c and not no_k and not full and st.party.witch.hp == 15)
 	var b := Rules.new_game(7)
 	b.party.witch.hp = 2
-	Rules.hurt_witch(b, int(D.buried.hp))
+	MapRules.hurt_witch(b, int(D.buried.hp))
 	check("사건(꺼낸다): 노엘 HP −2 (1 아래로는 줄지 않음)", b.party.witch.hp == 1 and D.buried.card == "small_charm" and D.corpse.card == "nameless_card")
 
 
@@ -1070,15 +1070,15 @@ func _same(a, b) -> bool:
 func _save_states() -> Array:
 	var a := Rules.new_game(7)
 	for r in ["corridor", "hall", "buried", "prayer"]:
-		Rules.enter_room(a, r)
+		MapRules.enter_room(a, r)
 	a.flags.buried = "open"
-	Rules.gain_card(a, "small_charm")
+	MapRules.gain_card(a, "small_charm")
 	var b := Rules.new_game(11)
 	Rules.start_battle(b, "normal")
 	Rules.start_turn(b)
 	b.party.allies.archer.status = "down"
 	Rules.finish_battle(b)
-	Rules.enter_room(b, "corridor")
+	MapRules.enter_room(b, "corridor")
 	var c := Rules.state_floor3(5, "alive")
 	return [["map", "prayer", a], ["hall", "", b], ["f3chapel", "", c]]
 

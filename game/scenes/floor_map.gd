@@ -28,7 +28,7 @@ var _busy := false         # 안내 중에는 방을 고를 수 없다
 
 func setup(state: Dictionary) -> void:
 	st = state
-	M = Rules.map_def(st)
+	M = MapRules.map_def(st)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	size = Vector2(1920, 1080)
 	var f := Vector2(PANEL.position.x + 30, 0)
@@ -116,7 +116,7 @@ func _auto() -> void:
 	var plan: Array = str(G.params.get("rooms", "")).split(",", false)
 	plan.append_array(["stairs", str(M.get("end", "deep"))])
 	for id in plan:
-		if Rules.room_state(st, id) == "open":
+		if MapRules.room_state(st, id) == "open":
 			_confirm(id)
 			return
 
@@ -153,13 +153,13 @@ func select(id: String) -> void:
 func _confirm(id: String) -> void:
 	if id == "" or _busy:
 		return
-	var stt := Rules.room_state(st, id)
+	var stt := MapRules.room_state(st, id)
 	if stt == "locked":
 		FX.toast(str(G.S.map.locked))
 		return
 	if stt == "visited":
 		if st.progress.room != id:
-			Rules.enter_room(st, id)
+			MapRules.enter_room(st, id)
 			G.ctl.note("map move " + id)
 			_refresh()
 		return
@@ -170,7 +170,7 @@ func _confirm(id: String) -> void:
 
 ## 시험: 그 방으로 바로 들어간다(들어갈 수 있으면)
 func pick(id: String) -> bool:
-	if Rules.room_state(st, id) == "locked":
+	if MapRules.room_state(st, id) == "locked":
 		return false
 	_busy = false
 	_confirm(id)
@@ -188,7 +188,7 @@ func _refresh() -> void:
 		info_cost.text = ""
 	else:
 		var R: Dictionary = rooms()[show]
-		var stt := Rules.room_state(st, show)
+		var stt := MapRules.room_state(st, show)
 		info_name.text = room_name(show)
 		info_type.text = str(G.S.map.types.get(str(R.type), ""))
 		info_desc.text = str(G.S.map.rooms.get(show, {}).get("desc", ""))
@@ -273,7 +273,7 @@ func _draw() -> void:
 	for id in rooms():
 		var R: Dictionary = rooms()[id]
 		var c := room_pos(id)
-		var stt := Rules.room_state(st, id)
+		var stt := MapRules.room_state(st, id)
 		var icon: String = str(GameData.D.roomTypes.get(str(R.type), {}).get("icon", "question"))
 		var a2 := 1.0
 		if stt == "locked":

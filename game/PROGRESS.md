@@ -5,7 +5,7 @@
 
 ## 구조 (버티컬 슬라이스, 2026-11-22)
 - `data/game_data.gd`(수치·지도·랜턴·방에서 얻는 카드·배치·배경별 전투 배치 battleLayouts·VN 대화창 vnBox·그림 대응) · `data/script_data.gd`(대본 v3: 대사·안내·선택지·지도 문구)
-- `core/`: `rules.gd`(전투·운명·지도·촛불·어둠·방에서 얻는 카드 규칙) · `ctl.gd`(장면 흐름: 곁방 → 회랑 → 안치 홀 → 지도 거점 → 방 → 가장 깊은 곳 → 빈 캠프 → 2·3층, 자동 저장·이어하기) · `save_game.gd`(user://save.json) · `game_settings.gd`(user://settings.cfg: 화면·글자 속도) · `guide.gd` · `fx.gd`(일시정지하면 멈추는 연출 시계) · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
+- `core/`: `rules.gd`(전투·운명 규칙) · `rules_map.gd`(지도·촛불·어둠·방에서 얻는 카드·휴식·훈련 규칙 — 2026-11-22 rules.gd 에서 나눔) · `ctl.gd`(장면 흐름: 곁방 → 회랑 → 안치 홀 → 지도 거점 → 방 → 가장 깊은 곳 → 빈 캠프 → 2·3층, 자동 저장·이어하기) · `save_game.gd`(user://save.json) · `game_settings.gd`(user://settings.cfg: 화면·글자 속도) · `guide.gd` · `fx.gd`(일시정지하면 멈추는 연출 시계) · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
 - `ui/`: `game_menu.gd`(메뉴 단추·일시정지·설정·확인 창) · `battle_view.gd`(전투 화면·연출·HUD, 배치는 `LY()`) · `hand.gd` · `card_view.gd`(뒤집힌 카드·뒤집기) · `card_pick.gd`(카드 고르기: 거래·훈련) · `battle_input.gd`(동료 대상 카드) · `dialog_box.gd` · `cutin.gd` · `blood.gd` · `icons.gd`(지도 아이콘) · `btn.gd` · `card_art.gd` · `shaders/`
 - `scenes/`: `scenes.gd`(타이틀·컷신·전멸·운명 선택·카드 획득·층 끝·결과) · `vn.gd`(VN 장면·표정 스탠딩·양피지 대화창) · `floor_map.gd`(지도 거점) · `omen.gd`(죽음 카드 떠오름)
 - 그림: `tools/vs_import.py`(art/raw/vs → game/assets: 크로마 배경 제거 soft 100 + 번짐 정리 + 크기 줄임), 대응표는 DECISIONS.md
