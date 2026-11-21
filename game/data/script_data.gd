@@ -341,7 +341,7 @@ const S := {
 		# ── 2층 (탑뷰 대신 VN 장면 — 대사는 시험판 v2 [임시] 그대로) ──
 		"f2corridor": [
 			{"show": {"warrior": "L", "archer": "R"}, "speaker": "warrior", "face": "warrior_stern", "text": "바닥이 수상하다. 내 뒤로 붙어."},
-			{"speaker": "archer", "face": "archer_shocked", "text": "…저 해골들, 다 창에 꿰여 있어."},
+			{"speaker": "archer", "face": "archer_shocked", "text": "…저 해골들, 다 창에 꿰여 있어요."},
 			# 전조: 노엘 속마음 (운명의 시도는 전투 안에서만 — 2026-11-18)
 			{"show": {}, "speaker": "inner", "text": "창이 박힌 바닥, 꿰인 기사들. …이 층이다."},
 			{"speaker": "inner", "text": "브룬힐드의 죽음은 이 아래에서, 창을 들고 기다린다."},
@@ -378,7 +378,7 @@ const S := {
 		],
 		# ── 3층 ──
 		"f3chapel": [
-			{"show": {"archer": "C"}, "speaker": "archer", "face": "archer_shocked", "text": "…탄내. 여기서 누가 태워졌어."},
+			{"show": {"archer": "C"}, "speaker": "archer", "face": "archer_shocked", "text": "…탄내. 여기서 누가 태워졌어요."},
 			{"if": {"brun": "alive"}, "show": {}, "speaker": "inner", "text": "그을린 기둥마다 쇠꼬챙이. 미뤄 둔 그 죽음이, 이 층에서 다시 온다."},
 			{"show": {}, "speaker": "inner", "text": "그리고 이 탄내. 엘리안의 불도, 이 층에 있다."},
 		],
@@ -470,14 +470,14 @@ const S := {
 			"trap2": [{"who": "inner", "text": "또 왔다. 미뤄 둔 그 죽음이— 이번엔 꼬챙이가 되어."}],
 			"offered": [{"who": "archer", "face": "archer_shocked", "text": "브룬힐드!!"}, {"who": "inner", "text": "…막지 않았다."}],
 			"defied": [{"who": "inner", "text": "손등이 찢어진다. 운명을 거스른 값이다."},
-				{"who": "warrior", "face": "warrior_shocked", "text": "…방금, 뭐였지. 노엘, 네가 날 당겼나?"},
+				{"who": "warrior", "face": "warrior_shocked", "text": "…방금, 뭐였지. 마녀님이 날 당겼나?"},
 				{"who": "noel", "text": "……"}],
 		},
 		"archer_burn": {
 			"trap": [{"who": "inner", "text": "…불길이, 엘리안에게."}, {"who": "inner", "text": "지금이다. 이 불이 그녀를 태운다."}],
 			"offered": [{"who": "inner", "text": "…막지 않았다."}],
 			"defied": [{"who": "inner", "text": "불길이 그녀 앞에서 갈라진다. 손등이 탄다."},
-				{"who": "archer", "face": "archer_shocked", "text": "…뜨거, 워…? 아니, 안 뜨거워. 노엘, 지금…"},
+				{"who": "archer", "face": "archer_shocked", "text": "…뜨거, 워…? 아니, 안 뜨거워요. 노엘, 지금…"},
 				{"who": "noel", "text": "……"}],
 		},
 	},
@@ -485,7 +485,7 @@ const S := {
 	# 데스신 자막 (game_data.gd deathScenes). lv2 는 2단계 죽음일 때 이 줄로 바뀐다
 	"deathScenes": {
 		"warrior_pierce": {
-			"lines": {"W1": [{"who": "warrior", "text": "…노엘, 물러—"}]},
+			"lines": {"W1": [{"who": "warrior", "text": "…마녀님, 물러—"}]},
 			"lv2": {"W1": [{"who": "warrior", "text": "……"}], "W2": [{"who": "system", "text": "꼬챙이에 꿰인 채, 그녀는 내려오지 못했다."}]},
 		},
 		"archer_burn": {
