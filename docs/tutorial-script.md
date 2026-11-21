@@ -1,5 +1,7 @@
 # 튜토리얼 대본 (v0.6 — 사용자 검토 반영)
 
+> 2026-11-21: 세계관·대본을 새로 짜기로 해 이 대본은 대체되었다 → [`tutorial-script-vs.md`](tutorial-script-vs.md). 시험판 v2(지금 Godot 판) 기록으로 둔다.
+
 - 작성일: 2026-11-15
 - 근거: [`tutorial-flow.md`](tutorial-flow.md) 흐름, [`combat-system.md`](combat-system.md) 규칙, HTML `prototype/js/data.js`의 기존 대사(v0.1)
 - 이번에 바뀌는 것
