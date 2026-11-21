@@ -18,9 +18,9 @@
 |---|---|---|---|
 | **1단계 — 움직임 비교 시험 (A·B·C 중 방식 결정)** ||||
 | 1 | 세라피나 뒷모습 기본 | P01 | 시험 공통 바탕 |
-| 2 | 세라피나 「성검 베기」 준비 자세 + 휘두른 자세(2장) | P02-1·P02-2 | 시험 A |
-| 3 | 세라피나 「성검 베기」 6프레임 시트 | P03 | 시험 B |
-| 4 | 세라피나 부위 분리 시트 | P04 | 시험 C |
+| 2 | ~~세라피나 「성검 베기」 준비·휘두름~~ | — | **없앰 (2026-11-22)**: 뒷모습 공격 자세는 손 좌우·팔·동작이 3번 연속 무너짐 → 시험 A는 서 있는 그림 + 코드 연출만 |
+| 3 | ~~6프레임 시트~~ | — | **건너뜀 (2026-11-22)**: 같은 문제가 예상됨 |
+| 4 | 세라피나 부위 분리 시트(1번 자세 그대로) | P04 | 시험 C |
 | **2단계 — 전투 화면 목업 (1장을 완성본 품질로)** ||||
 | 5 | 브룬힐드 뒷모습 기본 | P05 | |
 | 6 | 엘리안 뒷모습 기본 | P06 | 마젠타 배경 |
@@ -141,14 +141,27 @@ Layout: one row of 6 equal cells, the character at the same scale and on the sam
 Keep the face not visible in all frames. Identical armor, bandages, braid, ribbon, cape and sword in every frame. Background: plain flat solid pure green (#00FF00), no grid lines, no numbers, no text.
 ```
 
-### P04 세라피나 부위 분리 시트 (시험 C: 뼈대 애니메이션)
-- 첨부: P01 결과 · 같은 대화창
+### P04 세라피나 부위 분리 시트 (시험 C: 뼈대 애니메이션) [2026-11-22 다시 씀]
+- 첨부: 통과한 1번 그림 `art/raw/vs/01_seraphina_back_base.webp` 한 장 · 새 대화창
+- 새 자세를 그리는 게 아니라 1번 자세를 그대로 나누기만 한다. 칼 든 오른팔(어깨·팔꿈치 회전으로 베기), 망토·땋은 머리(흔들림), 몸통(앞으로 기울기)을 움직인다.
 ```
-Using this image as the exact character and style reference, create a cutout-animation parts sheet of the same rear view, for rigging in a 2D game engine.
+Using the attached image, create a cutout-animation parts sheet of exactly this character in exactly this pose, for rigging in a 2D game engine. Do not invent a new pose, do not redesign anything: every part must look exactly as it does in the attached image, at the same size, in the same style and colors.
 
-Draw each body part as a separate piece, laid out with clear empty space between the pieces (no piece touching another): head with the braid and ribbon; torso with the armor and tabard; the cape as one whole piece, including the part that is normally hidden behind the body; right upper arm; right forearm with the hand; left upper arm; left forearm with the hand; the sacred longsword alone; right thigh; right lower leg with the greave; left thigh; left lower leg with the greave. Paint the areas that would be hidden by overlap completely, so parts can rotate at the joints without gaps. All pieces at the same scale as each other, in the same style and colors.
+Separate the figure into these pieces and lay them out on one sheet with clear empty space between them, no piece touching or overlapping another:
+1. Head: the back of her head with the hair and the crimson ribbon bow, without the braid.
+2. Braid: the long braid with its crimson tie, from where it leaves the head to its loose tip.
+3. Cape: the whole crimson cape as one piece, from the shoulders to the torn hem, including the area normally hidden under the braid, painted complete.
+4. Torso: what is under the cape — the back of the breastplate, the bare lower back, the bandaged hips and the tops of the thighs, painted complete as if the cape were removed.
+5. Left pauldron and 6. right pauldron, each as its own piece.
+7. Right upper arm, from the shoulder to the elbow.
+8. Right forearm with the gauntleted hand gripping the sacred longsword, and the whole sword, together as one piece (winged gold guard, red gem, crimson ribbon, crimson thread on the wrist).
+9. Left upper arm, from the shoulder to the elbow.
+10. Left forearm with the gauntleted fist.
+11. Left leg and 12. right leg, each from the top of the thigh down to the heeled boot, with the backs of the greaves visible, painted complete including the parts normally hidden under the cape.
 
-Background: plain flat solid pure green (#00FF00), no labels, no text.
+Extend every piece slightly past its joint with a rounded end (at the shoulders, elbows and hips) so the pieces can rotate at the joints without gaps. Keep all pieces upright, in the same orientation as in the attached image.
+
+Background: plain flat solid pure green (#00FF00) across the whole sheet, one even color, no paper texture, no shadow. No labels, no numbers, no lines, no arrows, no skeleton, no text.
 ```
 
 ### P05 브룬힐드 뒷모습 — 기본
