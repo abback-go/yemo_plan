@@ -404,6 +404,9 @@ Using the attached image only as a reference for the art style, draw a visual no
 ## 카드 그림 공통 (44~60)
 - 첨부: 기준 그림 · 같은 대화창에서 이어 뽑기. 카드 틀의 위 창에 들어가는 정사각형 그림(지금 게임 800×800).
 - 캐릭터가 나오는 카드는 그 캐릭터의 그림체 D 시안을 함께 첨부해도 된다.
+- (2026-11-22 1차 결과 반영) **장면이 있는 카드는 탑 안**(지하 납골당·회랑·돌기둥·뼈 벽감·쇠 랜턴): 하늘·달·성당·바깥 폐허를 쓰지 않는다고 적는다 — 기준 그림의 달·성당을 따라 그려 45·49에 하늘과 성당이 나왔다.
+- **캐릭터가 나오면** 그 캐릭터 시안을 첨부하고 생김새를 프롬프트에 적는다 — 45·46에서 브룬힐드 자리에 짧은 금발 남자 기사가 나왔다.
+- **적이 나오면** 광신도 모습(짙은 숯색 너덜 후드 로브, 붕대 감은 팔, 붉은 끈 허리띠, 뼈 장식)을 적는다 — 47에 밝은 로브가 나왔다.
 
 ## 44. 성검 베기
 ```
@@ -413,13 +416,28 @@ Using the attached image as the style reference, draw a square 1:1 card illustra
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a silver-armored holy knight with a long silver braid and a crimson cape stepping forward at the head of a small party, sword raised, seen from slightly behind. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
 ```
+### 45 다시 뽑기 (1차 `45_card_vanguard_v1`: 오른쪽이 짧은 금발 남자 기사, 망토 뒤에 금 십자가, 하늘·성당·창병 군대)
+- 첨부 3장: 기준 그림 · `style_D_brunhild_v5.webp` · `style_D_elian_v1.webp` · 같은 대화창
+```
+Using the attached images as references — the first for the art style and for the holy knight, the second for the black knight, the third for the elf archer — draw a square 1:1 card illustration, full bleed, no border, no text. Low angle from slightly behind: the holy knight from the first image (long silver braid tied with crimson ribbons, a crimson bow at the top of her head, silver plate armor, a torn crimson cape with no cross or emblem on it) strides forward at the head of the party, raising her sword with the winged gold guard and red gem high in her right hand. A step behind her on the right, the black knight from the second image: a woman with long straight black hair and blunt bangs, in black plate armor with fine silver filigree, carrying her tall black tower shield with silver thorns and a small bouquet tied with a crimson ribbon. A step behind on the left, the elf archer from the third image: long wavy blonde hair with a braided crown and white feathers, pointed ears, a white fur collar on a dark green cloak, a white bow and a quiver. They are deep underground in a vast crypt: massive stone arches, walls of bone-filled niches, hanging iron lanterns; no sky, no moon, no outdoor buildings. Ahead of them in the gloom stand a few hooded cultists in tattered charcoal robes. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson, and the archer's green cloak stays muted.
+```
 ## 46. 감싸기
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a massive black tower shield with silver thorn filigree and a bouquet of dried straw-colored wildflowers taking a heavy blow, sparks and petals scattering, protecting a smaller figure behind it. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
 ```
+### 46 수정 (1차 `46_card_cover_v1`: 방패 든 사람이 짧은 금발·은색 갑옷 → 브룬힐드로)
+- 첨부 2장: 46번 1차 결과(첫째) · `style_D_brunhild_v5.webp`(둘째) · 같은 대화창
+```
+Edit the first attached image. Use the second attached image only for the knight's look. The knight peeking over the shield is the woman in the second image, Brunhild: long, straight black hair with blunt bangs, amber-gold eyes, and black plate armor with fine silver thorn-and-flower filigree, with a torn crimson scarf at her neck. Replace the short pale hair and the silver armor with these. Keep everything else exactly the same: the shield and its silver thorns, the bouquet with the crimson ribbon, the sparks, the petals, the composition and the art style.
+```
 ## 47. 방패 강타
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: the edge of a massive black tower shield slamming forward into a hooded figure, ink impact lines. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
+```
+### 47 수정 (1차 `47_card_shield_bash_v1`: 갑옷이 은갈색, 맞는 적의 로브가 밝음)
+- 첨부: 47번 1차 결과 · 같은 대화창
+```
+Edit the attached image. Change only two things: 1) the armored shoulder and arm on the left become black plate armor, dark iron with fine silver filigree, matching the black shield; 2) the hooded figure being struck wears a tattered charcoal-gray hooded robe instead of the pale one, keeping the bandaged arm and the crimson threads. Keep the shield, the bouquet, the impact burst, the composition and the art style exactly the same.
 ```
 ## 48. 저격
 ```
@@ -428,6 +446,11 @@ Using the attached image as the style reference, draw a square 1:1 card illustra
 ## 49. 견제 사격
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: three white-fletched arrows in flight in a fan, striking the ground in front of hooded figures and driving them back. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
+```
+### 49 수정 (1차 `49_card_suppressing_fire_v1`: 뒤에 하늘·성당·바깥 폐허)
+- 첨부: 49번 1차 결과 · 같은 대화창
+```
+Edit the attached image. Change only the background behind the hooded figures: replace the sky, the cathedral and the outdoor ruins with a dark underground crypt — massive stone arches, walls of bone-filled niches, a few hanging iron lanterns; no sky, no moon, no buildings. The torn crimson banners stay, hanging from the arches. Keep the three arrows, the hooded figures, the burst of stone where the arrows strike, the composition and the art style exactly the same.
 ```
 ## 50. 저주의 불꽃
 ```
