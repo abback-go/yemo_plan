@@ -11,6 +11,71 @@
 
 ---
 
+## 전체 목록 — 튜토리얼(장례 탑 1층) 기준, 번호 순서대로 뽑는다 [2026-11-22]
+근거: 대본 v3에 나오는 장면·인물·카드·화면. 2·3층 그림은 튜토리얼이 끝난 뒤 따로 목록을 만든다. 세라피나 데스신 6컷은 이미 있다(`reference/deathscene/seraphina_*`).
+
+| # | 그림 | 프롬프트 | 비고 |
+|---|---|---|---|
+| **1단계 — 움직임 비교 시험 (A·B·C 중 방식 결정)** ||||
+| 1 | 세라피나 뒷모습 기본 | P01 | 시험 공통 바탕 |
+| 2 | 세라피나 「성검 베기」 포즈 | P02 | 시험 A |
+| 3 | 세라피나 「성검 베기」 6프레임 시트 | P03 | 시험 B |
+| 4 | 세라피나 부위 분리 시트 | P04 | 시험 C |
+| **2단계 — 전투 화면 목업 (1장을 완성본 품질로)** ||||
+| 5 | 브룬힐드 뒷모습 기본 | P05 | |
+| 6 | 엘리안 뒷모습 기본 | P06 | 마젠타 배경 |
+| 7 | 전투 배경 — 장례 회랑 | P07 | |
+| 8 | 광신도 | P08 | |
+| 9 | 노엘의 손(1인칭) | P09 | |
+| 10 | 카드 틀 | P10 | |
+| 11 | 카드 뒷면(뒤집힌 카드) | P11 | 손패의 세라피나 죽음 카드 |
+| 12 | 예고 아이콘 3종(공격·운명 공격·가려짐) | P12 | |
+| **3단계 — 전투 동작 (1단계에서 고른 방식으로)** ||||
+| 13 | 브룬힐드 「감싸기」 동작 | P05 아래 | |
+| 14 | 엘리안 「저격」 동작 | P06 아래 | |
+| **4단계 — 배경 (VN·전투)** ||||
+| 15 | 곁방(캠프, 밤) | B01 | |
+| 16 | 빈 곁방 | B02 | 15를 고쳐서 |
+| 17 | 안치 홀(지도) | B03 | |
+| 18 | 계단 앞 홀 | B04 | |
+| 19 | 가장 깊은 곳 | B05 | 광신도·보스 전투 겸용 |
+| 20 | 광신도 기도실 | B06 | 전투 배경 겸용 |
+| 21 | 무덤지기의 방 | B07 | 강적 전투 배경 겸용 |
+| 22 | 순장된 자의 방 | B08 | |
+| 23 | 핏자국 통로 끝(죽은 마녀) | B09 | CG |
+| 24 | 촛불 예배당 | B10 | |
+| 25 | 무너진 훈련장 | B11 | |
+| 26 | 묘지기의 좌판 | B12 | CG |
+| 27 | 발자국 방 | B13 | |
+| **5단계 — 스탠딩·표정** ||||
+| 28~31 | 세라피나 기본(calm) + smile·determined·shocked | 스탠딩 | |
+| 32~35 | 브룬힐드 기본(smirk) + stern·shocked·grief | 스탠딩 | |
+| 36~38 | 엘리안 기본(cold) + shocked·grief | 스탠딩 | 마젠타 배경 |
+| 39 | 노엘 기본 | 스탠딩 | |
+| **6단계 — 적·인물** ||||
+| 40 | 무덤지기(강적) | 적·인물 | |
+| 41 | 거대한 발(보스) | 적·인물 | |
+| 42 | 묘지기(상인) | 적·인물 | B12에 들어가면 생략 가능 |
+| 43 | 아이(순장된 자) | 적·인물 | |
+| **7단계 — 카드 그림 16장** ||||
+| 44~59 | 성검 베기 · 선봉 · 감싸기 · 방패 강타 · 저격 · 견제 사격 · 저주의 불꽃 · 운명 전가 · 대신 받기 · 죽음의 예지 · 상처 · 짓밟힘 · 부러진 성검 · 이름 없는 마녀의 카드 · 작은 손의 부적 · 용사의 죽음 | 카드 그림 | 「전사의 죽음」(브룬힐드)은 2층 목록에서 |
+| **8단계 — 컷인 5장** ||||
+| 60~64 | 성검 베기 · 저격 · 감싸기 · 저주의 불꽃 · 짓밟힘 | 컷인 | |
+| **9단계 — UI** ||||
+| 65 | 대화창 | UI | |
+| 66 | 이름표 | UI | |
+| 67 | 선택지 버튼 | UI | |
+| 68 | 지도 바탕(양피지) | UI | |
+| 69 | 지도 아이콘 7종 | UI | |
+| 70 | 랜턴 촛불 | UI | |
+| 71 | 턴 종료 버튼 | UI | |
+| 72 | 에너지 표시 | UI | |
+| 73 | 타이틀 | — | 이야기·로고가 정해진 뒤 |
+
+- 합계 72장(+ 타이틀). 1단계 결과에 따라 13·14번과 컷인의 방식이 바뀔 수 있다.
+
+---
+
 ## 1단계 — 움직임 비교 시험 + 전투 화면 목업
 
 ### P01 세라피나 뒷모습 — 기본 (움직임 시험 A·B·C 공통 바탕)
@@ -137,6 +202,24 @@ Frame: an aged parchment card with a thin inked border of thorny vines and small
 Outside the card, the background is plain flat solid pure green (#00FF00).
 ```
 
+### P11 카드 뒷면
+- 첨부: `style_D_seraphina_anchor.webp` · P10과 같은 대화창
+```
+Using the attached image only as an art style reference, design the back side of a card for the same dark fantasy card game. Vertical card, 5:7 ratio, centered, front view, flat (no perspective, no shadow).
+
+Art style: a dark fairy-tale picture book: delicate ink linework, faded watercolor, parchment; the only vivid color is deep crimson.
+
+Design: aged dark parchment with a thin inked border of thorny vines; in the center a closed eye drawn in ink, with a single crimson thread wound around the card several times and tied in a small knot. No text, no numbers, no letters.
+
+Outside the card, the background is plain flat solid pure green (#00FF00).
+```
+
+### P12 예고 아이콘 3종
+- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창(이후 UI도 이 대화창에서)
+```
+Using the attached image only as an art style reference, draw three small game UI icons in one row with clear space between them, each inside a small round parchment disc with a thin inked border: 1) a single dagger (a normal attack), 2) a spear wrapped in a crimson thread (a fated attack), 3) an ink blot hiding a symbol, with a question mark (a hidden intent). Delicate ink linework, faded watercolor, the only vivid color deep crimson. No text, no numbers. Background: plain flat solid pure green (#00FF00).
+```
+
 ---
 
 ## 2단계 — 튜토리얼(장례 탑 1층) 나머지
@@ -192,12 +275,22 @@ Using the attached image only as an art style reference, draw a small square car
 ```
 - `[CARD SUBJECT]` 목록(1층): 성검 베기 `a sacred longsword with a winged gold guard cutting a crimson arc` · 선봉 `a silver-armored knight stepping forward with a sword raised` · 감싸기 `a black tower shield with dried wildflowers taking a blow` · 방패 강타 `a black tower shield slamming forward` · 저격 `a white longbow at full draw, a single arrow` · 견제 사격 `three arrows in flight` · 저주의 불꽃 `a pale hand releasing a crimson flame` · 운명 전가 `a crimson thread being pulled from one figure to another` · 대신 받기 `a witch's hand catching a blade` · 죽음의 예지 `a witch's eye reflected in a card` · 상처 `a torn bandage stained crimson` · 짓밟힘 `a colossal footprint pressed into stone` · 부러진 성검 `a broken sacred longsword with a crimson ribbon` · 이름 없는 마녀의 카드 `a single unburnt card among burnt ones` · 작은 손의 부적 `a small child's hand holding a charm` · 용사의 죽음 `a silver braid with a crimson ribbon lying under a vast shadow`
 
+### 컷인 (대표 카드를 낼 때, 가로 띠)
+- 첨부: 세라피나·짓밟힘은 기준 그림, 감싸기는 브룬힐드 시안, 저격은 엘리안 시안, 저주의 불꽃은 노엘 시안 · 같은 캐릭터는 스탠딩과 같은 대화창
+```
+Using the attached image as the reference for both the art style and the character, draw a dramatic action cut-in for a card game: a wide 21:9 horizontal strip, a close, dynamic shot of [ACTION]. Delicate, slightly rough ink linework with faded watercolor washes; strong ink speed lines; the only vivid color deep crimson. Full bleed, no border, no text.
+```
+- `[ACTION]`: 성검 베기 `Seraphina slashing her sacred longsword in a crimson arc, her braid and cape flying` · 저격 `Elian at full draw, the arrow released, her eye narrowed along the shaft` · 감싸기 `Brunhild stepping in front with her black tower shield as a blow crashes into it, dried wildflowers scattering` · 저주의 불꽃 `Noel's pale hand releasing a crimson flame, crimson threads around her fingers` · 짓밟힘 `the silhouette of a colossal foot slamming down, cracked stone and dust bursting upward` (짓밟힘은 배경을 비워 노엘 손만 넣어도 됨)
+
 ### UI (1장씩, 초록 배경, 글자 없음)
 - 대화창 `a wide dark parchment dialogue box with a thin thorny-vine border and small crimson roses at the corners`
 - 이름표 `a small parchment name plate with a crimson ribbon`
 - 선택지 버튼 `a horizontal parchment button with a thin inked border`
 - 지도 아이콘 7종(한 장에 한 줄로) `seven small round inked icons in one row: crossed swords, a skull, a question mark, a candle flame, two crossed spears, a coffin with coins, an eye`
+- 지도 바탕 `a blank sheet of aged parchment, 16:9, faint ink stains and a thin thorny-vine border, nothing drawn in the middle` (배경은 초록 대신 종이 자체로 꽉 채움)
 - 랜턴 촛불 `a small black iron lantern holding four white candles, front view`
+- 턴 종료 버튼 `a round crimson wax seal with a thorn pattern, front view`
+- 에너지 표시 `an empty round black iron frame with thorns, holding a crimson gem in the center, front view`
 - 각 문장 앞에 `Using the attached image only as an art style reference, draw a game UI element: ` 를, 뒤에 `No text, no letters. Background: plain flat solid pure green (#00FF00).` 를 붙인다.
 
 ### 타이틀 (스팀 상점 그림 겸용) — 마지막에
