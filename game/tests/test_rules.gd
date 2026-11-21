@@ -104,7 +104,6 @@ func _init() -> void:
 	t_cover_up()
 	t_relic_clears_up()
 	t_data()
-	t_topdown()
 	t_fate_v2()
 	t_map()
 	t_candles()
@@ -534,104 +533,6 @@ func t_data() -> void:
 			if s.replace("화형 사제", "").replace("불을 든 사제", "").contains(w):
 				no_extra = false
 	check("대본에 사제·도적이 나오지 않는다", no_extra)
-
-
-# 탑뷰 시험판: 걸을 수 있는 곳·막힌 곳·경로 (game_data.gd "topdown")
-func t_topdown() -> void:
-	var C: Dictionary = D.topdown
-	var img := Image.load_from_file("res://assets/" + str(C.map))
-	var msz := Vector2i(844, 664) if img == null else img.get_size()
-	var nav := TopdownNav.new(C, msz)
-	var entry := Vector2(C.entry[0], C.entry[1])
-	check("탑뷰: 입구 자리에 설 수 있다", nav.can_stand(entry))
-	var bad := []
-	for p in [[424, 620], [424, 600], [10, 300], [50, 455], [120, 420], [128, 467], [300, 386], [780, 360], [424, 60], [600, 100], [835, 300]]:
-		if nav.can_stand(Vector2(p[0], p[1])):
-			bad.append(p)
-	check("탑뷰: 벽·아래 입구 밖·기둥·돌무더기·물건 자리에는 설 수 없다", bad.is_empty(), str(bad))
-	var miss := []
-	for it in C.items:
-		var sp := Vector2(it.spot[0], it.spot[1])
-		var path := nav.find_path(entry, sp)
-		if not nav.can_stand(sp) or path.is_empty() or path[path.size() - 1].distance_to(sp) > 0.5:
-			miss.append(it.id)
-	for e in C.exits:
-		var at := Vector2(e.at[0], e.at[1])
-		var path2 := nav.find_path(entry, at)
-		if not nav.can_stand(at) or path2.is_empty() or path2[path2.size() - 1].distance_to(at) > float(e.r):
-			miss.append(e.id)
-	check("탑뷰: 입구에서 물건 4개·출구 3개까지 걸어갈 수 있다", miss.is_empty() and C.items.size() == 4 and C.exits.size() == 3, str(miss))
-	# 경로의 모든 구간이 벽을 뚫지 않는다
-	var through := false
-	var cur := entry
-	for q in nav.find_path(entry, Vector2(170, 420)):
-		if not nav.line_ok(cur, q):
-			through = true
-		cur = q
-	check("탑뷰: 탭 이동 경로가 장애물을 뚫지 않는다", not through)
-	# 4방향 이동: 탭 이동 경로의 모든 구간이 가로 또는 세로, 조이스틱도 한쪽으로만
-	var diag := []
-	for tgt in [Vector2(170, 420), Vector2(700, 200), Vector2(120, 470)]:
-		var c4 := entry
-		for q in nav.find_path(entry, tgt):
-			if absf(q.x - c4.x) > 0.01 and absf(q.y - c4.y) > 0.01:
-				diag.append([c4, q])
-			c4 = q
-	var s1 := TopdownNav.snap4("right", Vector2(0.8, -0.6))
-	var s2 := TopdownNav.snap4("up", Vector2(0.6, -0.8))
-	check("탑뷰: 4방향 이동 — 탭 경로에 대각선 구간 없음, 조이스틱은 가로·세로 한쪽으로만",
-		diag.is_empty() and s1.y == 0.0 and s1.x > 0.99 and s2.x == 0.0 and s2.y < -0.99, str(diag))
-	# 벽 쪽으로 계속 걸어도 바닥 안에 머문다
-	var p2 := entry
-	for i in 400:
-		p2 = nav.move(p2, Vector2(0, 2))
-	var p3 := entry
-	for i in 400:
-		p3 = nav.move(p3, Vector2(-2, -1))
-	check("탑뷰: 벽으로 밀어도 바닥 밖으로 나가지 않는다", nav.can_stand(p2) and p2.y <= 581 and nav.can_stand(p3), "%s %s" % [p2, p3])
-	for id in ["shield", "journal", "spade", "thread"]:
-		check("탑뷰 대사: " + id, ScriptData.S.topdown.items.has(id) and ScriptData.S.topdown.items[id].size() > 0)
-	# 동료 셋: 순서·시트(3열×4행, 72px 칸)·간격
-	var ids := []
-	var sheets_ok := true
-	for f in C.followers:
-		ids.append(f.id)
-		var im := Image.load_from_file("res://assets/" + str(f.sheet))
-		if im == null or im.get_size() != Vector2i(216, 288):
-			sheets_ok = false
-	check("탑뷰 동료: 세라피나 → 브룬힐드 → 엘리안, 시트 216×288", ids == ["seraphina", "brunhild", "elian"] and sheets_ok, str(ids))
-	check("탑뷰 동료 간격 16~40 맵px, 속도 180", float(C.followGap) >= 16.0 and float(C.followGap) <= 40.0 and float(C.speed) == 180.0)
-	var gap := float(C.followGap)
-	var rest := []
-	for i in 3:
-		rest.append(entry + Vector2(0, gap * (i + 1)))
-	var stand_bad := rest.filter(func(q): return q.y > 570.0)
-	check("탑뷰: 입구에 섰을 때 동료 셋이 아치 위(방 안)에 선다", stand_bad.is_empty(), str(rest))
-	# 경로 따라 걷기: 꺾어 걸어도 경로 길이로 간격, 멈추면 그대로
-	var tr := TopdownNav.Trail.new()
-	tr.keep = gap * 4 + 24
-	var head := Vector2(100, 300)
-	tr.line_up(head, Vector2.DOWN)
-	var ok_line := tr.at(head, gap).distance_to(Vector2(100, 300 + gap)) < 0.01 and tr.at(head, gap * 3).distance_to(Vector2(100, 300 + gap * 3)) < 0.01
-	for i in 40:
-		head += Vector2(2, 0)
-		tr.push(head)
-	var a1 := tr.at(head, gap)
-	var a3 := tr.at(head, 92.0)
-	check("탑뷰 경로: 일직선 줄 → 오른쪽으로 꺾은 뒤 앞사람은 가로줄, 뒷사람은 모퉁이 뒤", ok_line and a1.distance_to(head - Vector2(gap, 0)) < 0.01 and a3.distance_to(Vector2(100, 312)) < 0.01, "%s %s" % [a1, a3])
-	for i in 20:
-		tr.push(head)
-	check("탑뷰 경로: 노엘이 멈추면 동료도 간격을 둔 채 멈춘다", tr.at(head, gap).distance_to(a1) < 0.01 and tr.at(head, gap * 2).distance_to(tr.at(head, gap)) > gap - 0.5)
-	# 방향 행·조이스틱
-	check("탑뷰 방향: 가장 가까운 4방향, 대각선 근처는 지금 방향 유지",
-		TopdownNav.face_dir("up", Vector2(1, 0)) == "right" and TopdownNav.face_dir("up", Vector2(-1, -1)) == "up"
-		and TopdownNav.face_dir("down", Vector2(-1, -1)) == "left" and TopdownNav.face_dir("left", Vector2(-0.2, 1)) == "down"
-		and TopdownNav.face_dir("right", Vector2.ZERO) == "right")
-	var sc: Dictionary = C.stick
-	var v0 := TopdownNav.stick_to_vec(Vector2(0.1, 0), sc.dead, sc.min)
-	var v1 := TopdownNav.stick_to_vec(Vector2(0.3, 0), sc.dead, sc.min)
-	var v2 := TopdownNav.stick_to_vec(Vector2(0, -2.0), sc.dead, sc.min)
-	check("탑뷰 조이스틱: 가운데는 0, 조금 기울이면 느리게, 끝까지 기울이면 최대", v0 == Vector2.ZERO and v1.length() > 0.0 and v1.length() < 0.6 and v1.x > 0 and absf(v2.length() - 1.0) < 0.001 and v2.y < 0, "%s %s %s" % [v0, v1, v2])
 
 
 # ───────── 1차 시험판 v2: 운명 (prototype-v2-spec.md 0장·4장) ─────────

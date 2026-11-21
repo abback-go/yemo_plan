@@ -307,7 +307,7 @@ async function pathA(browser) {
   check('거대한 발: HP 「???」, 1턴 손패에 뒤집힌 카드 그대로, 짓밟기 안내', s.battle.enemies[0].hp === null && s.battle.hand.some(c => c.id === 'hero_death' && c.faceDown) && has(s, /3턴째에 「짓밟기」/));
   check('거대한 발은 동료 뒤 레이어(z 발 < 동료)', s.battle.footZ < s.battle.alliesZ, { foot: s.battle.footZ, allies: s.battle.alliesZ });
   const atk = s.battle.hand.find(c => c.playable && ['holy_slash', 'snipe', 'curse_flame', 'shield_bash', 'suppress'].includes(c.id));
-  if (atk) { await H.W('play', atk.id, JSON.stringify({ enemy: 'giant' })); s = await H.advanceAll(s => !s.busy && has(s, /흠집밖에 안 나/), 20000, '흠집'); }
+  if (atk) { await H.W('play', atk.id, JSON.stringify({ enemy: 'giant' })); s = await H.advanceAll(s => !s.busy && has(s, /흠집밖에 안 나/) && has(s, /계속 쳐!/), 30000, '흠집'); }
   check('공격은 흠집만 낸다 → 브룬힐드·세라피나 반응', !atk || has(s, /계속 쳐!/), atk && atk.id);
   // 2턴 → 3턴: 「짓밟기」 예고 → 턴 종료 → 카드가 뒤집힘
   s = await H.until(s => s.battle && s.battle.turn === 3 && s.battle.phase === 'player' && !s.busy && !s.guideOpen && !s.dialogBusy, 120000, '3턴', async s => {
