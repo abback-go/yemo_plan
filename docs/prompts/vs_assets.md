@@ -236,17 +236,28 @@ Design: a gaunt figure in a long ash-gray funeral shroud, the hood pulled low so
 Background: plain flat solid pure green (#00FF00), one even color, no paper texture, no floor, no cast shadow; no green reflections on the figure.
 ```
 
-### P09 노엘의 손 (1인칭, 전투 화면 아래)
-- 첨부: `style_D_noel_v1.webp` · 새 대화창
+### P09 노엘의 손 (1인칭, 전투 화면 아래) [2026-11-22 다시 씀]
+- 방식: **지금 손 그림(`game/assets/ui_witch_hands.png`, `ui_witch_hand_raise.png`)의 자세·위치를 그대로 두고 그림체·옷만 바꾼다.** `game/ui/hand.gd`가 손 그림 속 '엄지와 손가락 사이 틈'에 카드를 끼우므로, 위치가 바뀌면 코드 수치를 다시 맞춰야 한다. 기준: `art/raw/vs/ref/09_ref_hands_green.png`, `09_ref_hand_raise_green.png`(지금 손 그림을 초록 배경으로).
+- **붉은 실은 손가락 길이만큼 짧게** — 동료 등에서 손패로 이어지는 실은 코드가 그린다(1차에서 실이 화면 위로 길게 뻗어 실패).
+- P09-1 두 손 — 첨부: `09_ref_hands_green.png` + `style_D_noel_v1.webp` · 새 대화창
 ```
-Using the attached image as the reference for both the art style and the character, draw the first-person hands of Noel the witch for the bottom of a card game screen, as if the viewer is Noel looking down at her own hands.
+Redraw the first attached image in the art style and costume of the second attached image. This is a first-person view of the witch Noel's own two hands at the bottom of a card game screen.
 
-Art style: a dark fairy-tale picture book illustration — delicate, slightly rough ink linework with faded watercolor washes; the only vivid color is deep crimson.
+KEEP EXACTLY THE SAME AS THE FIRST IMAGE
+The canvas size, the position, size, angle and pose of both hands, every finger, and the empty gap between each thumb and its fingers where game cards will be inserted later. The hands hold nothing: leave those gaps empty. Do not draw any cards.
 
-Content: two slender pale hands seen from the viewer's own point of view, entering from the bottom edge. The left hand holds a fanned spread of five old blank playing cards (blank faces, no symbols). The right hand is raised slightly, empty, ready to pick a card. Black lace fingerless gloves, the cuffs of torn black bell sleeves at the wrists, a few thin crimson threads wound around the fingers of the right hand and trailing off upward out of frame.
+CHANGE
+- Art style: the second image's style — delicate, slightly rough ink linework with fine hatching and faded watercolor washes; pale skin; the only vivid color is deep crimson. Not anime, not 3D.
+- Costume: black lace fingerless gloves reaching up the forearms, and the cuffs of torn, sheer black bell sleeves at the wrists and forearms, as in the second image.
+- Several thin crimson threads are wound around the fingers and thumb of the right hand (on the right side of the image). Each thread ends in a short loose end, only about the length of a finger, hanging just beyond the fingertips. Nothing in the upper part of the image.
 
-Composition: 16:9 landscape, the hands occupy only the lower half; the upper half is empty. Background: plain flat solid pure green (#00FF00), no shadow, no green reflections.
+BACKGROUND
+Plain flat solid pure green (#00FF00), one even color, no shadow, no green reflections on the hands.
+
+AVOID
+Moving or resizing the hands, cards or any object in the hands, extra fingers, a third hand, red threads on the left hand, long threads running across the image, text, watermark, signature.
 ```
+- P09-2 카드를 세워 든 오른손 — P09-1이 통과한 뒤 같은 대화창에서 `09_ref_hand_raise_green.png`를 첨부해 같은 방식으로(프롬프트는 그때).
 
 ### P10 카드 틀
 - 첨부: `style_D_seraphina_anchor.webp` · 새 대화창
