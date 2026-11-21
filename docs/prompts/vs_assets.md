@@ -107,10 +107,15 @@ Face visible or head turned, front-side details on her back, a cross or emblem o
 ```
 - 브룬힐드(P05)·엘리안(P06) 뒷모습도 같은 틀(보이는 것 위→아래, 겹침 순서, 안 보이는 것)로 바꿔 쓴다 — 뽑기 직전에 다시 쓴다.
 
-### P02 세라피나 뒷모습 — 「성검 베기」 공격 포즈 (시험 A: 포즈 2장 + 코드 연출)
+### P02 세라피나 뒷모습 — 「성검 베기」 공격 포즈 (시험 A: 포즈 2장 + 코드 연출) [2026-11-22 다시 씀]
 - 첨부: P01 결과 · 같은 대화창
 ```
-Edit this image: keep the same character, the same art style, the same camera angle, the same scale and the same position in the frame. Change only the pose: she lunges forward and swings the sacred longsword diagonally from upper right to lower left at the peak of the strike, her weight on the front foot, the braid and the crimson cape flaring behind her from the motion. Her face is still not visible. Keep the plain flat pure green (#00FF00) background.
+Edit this image: keep the same character, the same art style, the same camera (directly behind her at shoulder height), the same scale, and keep her centered with her feet on the same ground line. Change only the pose, to the end of a powerful diagonal slash:
+- She has stepped forward with her left foot (on the left side of the image), knee bent; her right leg is extended behind her with the heel lifted.
+- Her torso twists toward the left. Her right arm, the sword arm, has swung across her body from upper right to lower left, so the sacred longsword now extends out beyond the left side of her body, low and forward, with the whole blade clearly visible against the background.
+- Her left arm swings back and out for balance.
+- The braid and the cape swing to the right from the motion, but the cape still covers her back, waist, buttocks and thighs.
+She is still seen from behind: no part of her face is visible, only the backs of the greaves show below the cape, and no knee caps are visible. Keep the crimson thread on her right wrist and the ribbon on the sword. Keep the plain flat pure green (#00FF00) background.
 ```
 
 ### P03 세라피나 「성검 베기」 프레임 시트 (시험 B)
