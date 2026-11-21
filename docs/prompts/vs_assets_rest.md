@@ -501,6 +501,11 @@ Using the attached image as the style reference, draw a square 1:1 card illustra
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a colossal footprint pressed deep into a cracked stone floor, seen from above, a torn crimson ribbon caught at its edge, dust settling. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. No body, no gore. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
 ```
+### 55 수정 (1차 `55_card_trampled_v1`: 발가락 자국이 6개)
+- 첨부: 55번 1차 결과 · 같은 대화창
+```
+Edit the attached image. Change only the toes of the footprint: it must have exactly five toe prints — one big toe and four smaller toes, each smaller toward the outside — not six. Keep the shape of the sole, the cracked stone floor, the crimson ribbon, the dust, the composition and the art style exactly the same.
+```
 ## 56. 부러진 성검 (세라피나 유품)
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a sacred longsword with a winged gold guard and a red gem, its blade snapped in two, lying on stone with a crimson ribbon still tied at the guard. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
