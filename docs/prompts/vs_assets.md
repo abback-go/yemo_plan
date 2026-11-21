@@ -203,8 +203,8 @@ Avoid: face visible, looking back, extra fingers, text, watermark, signature.
 ### P07 전투 배경 — 장례 회랑 [2026-11-22 다시 씀 — 잔혹동화 그림책 강조]
 - 첨부: `style_D_seraphina_anchor.webp` · 새 대화창 (기준 그림의 **배경**(폐허 성당·가시·달·까마귀) 처리 방식을 따르게 함)
 - 반영: 지금 전투 화면 배치(적 셋은 위쪽 절반 중간 거리, 동료 머리는 화면 중간, 아래 1/3은 손패). 넓은 회랑. 3:2로 받아 16:9로 자름.
-- 잔혹동화로 보이게 하는 장치: 그림책 무대 같은 대칭 구도·살짝 비뚤고 과장된 건축 / 아름다움+죽음(관에서 기어 나오는 가시, 돌 틈의 붉은 장미) / 천진한 물건 하나(아이 신발 한 짝, 뚜껑 안쪽 긁힌 자국) — 고어 없이 / 게임 모티프(붉은 장례 리본, 까마귀) / 캐릭터보다 느슨한 선, 중간 거리 밝게.
-- 이 '잔혹동화 장치' 문단을 2단계 배경(B01~B13)에도 같이 쓴다. **모든 탑 안 배경은 지하 — 하늘·달 금지**(1차에서 기준 그림의 달을 따라 그림). **전투 배경은 적이 설 높은 단(윗면이 화면 위에서 약 1/3)** 필수 — 지금 전투 배치에서 적 발이 화면 위 약 30% 높이(`game_data.gd` `enemySlots` feet 316~352/1080)라서.
+- **[2026-11-22 사용자 정정] '잔혹동화'는 그림체를 유지하라는 뜻이다** — 소품(아이 신발, 긁힌 자국, 관에서 나온 장미 등)을 일부러 넣으라는 게 아니다. 배경 프롬프트에서 힘을 줄 곳은 `ART STYLE` 문단(캐릭터와 같은 잉크 선·해칭·번지는 수채·양피지 결·세피아, 붉은색만 선명, 그림책 삽화처럼 살짝 비뚤고 과장된 건축, 캐릭터보다 느슨한 선)이고, `SCENE`에는 그 장소에 필요한 것만 적는다. (1차 장례 회랑의 장치들은 잘 어울려서 그대로 둔다.)
+- 2단계 배경(B01~B13)도 P07의 `ART STYLE` 문단을 그대로 쓴다. **모든 탑 안 배경은 지하 — 하늘·달 금지**(1차에서 기준 그림의 달을 따라 그림). **전투 배경은 적이 설 높은 단(윗면이 화면 위에서 약 1/3)** 필수 — 지금 전투 배치에서 적 발이 화면 위 약 30% 높이(`game_data.gd` `enemySlots` feet 316~352/1080)라서.
 ```
 Using the attached image as the style reference, draw a background for a card game battle screen in exactly the same art style as the ruined cathedral, thorns and crows behind the character in the reference. Ignore the character, the moon, the sky and the decorative border: this place is deep underground, so there is no sky and no moon, only a dark vaulted stone ceiling. Wide landscape, full bleed, no border, no people, no text. The image will be cropped to 16:9, so keep the top and bottom edges free of important details.
 
