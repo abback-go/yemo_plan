@@ -345,8 +345,9 @@ BACKGROUND
 Plain flat solid pure green (#00FF00), one even color, no border, no paper texture, no floor, no cast shadow; no green reflections on her.
 
 AVOID
-Long threads running across the image, extra fingers, a different outfit from the reference, text, watermark, signature.
+Long threads running across the image, see-through fabric showing the background color, any green tint on the clothes, extra fingers, a different outfit from the reference, text, watermark, signature.
 ```
+- [2026-11-22] 1차에서 반투명 시폰·소매 끝에 초록 배경이 비쳐 칠해짐(색이 섞여 지워지지 않음) → 프롬프트 CHARACTER 끝에 `All the sheer chiffon and sleeves are painted as opaque smoky charcoal-black fabric: no background color shows through them.`를 넣는다. 노엘 컷인(64번) 등 반투명 옷이 있는 그림 모두 같음.
 
 ---
 
