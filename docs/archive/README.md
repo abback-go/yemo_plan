@@ -8,3 +8,4 @@
 - [`prototype-scope.md`](prototype-scope.md) — HTML 전투 프로토타입 범위 v0.1(2026-11-15). Godot 판으로 옮겨 끝남.
 - [`asset-list.md`](asset-list.md) — HTML 프로토타입 튜토리얼 그림 목록(궁수가 죽는다고 가정하던 때). 지금 그림 목록은 [`../art-todo.md`](../art-todo.md)·[`../prompts/vs_assets.md`](../prompts/vs_assets.md).
 - [`image-prompts.md`](image-prompts.md) — HTML 프로토타입 그림 프롬프트(확정본). 지금 그림 프롬프트는 [`../prompts/vs_assets.md`](../prompts/vs_assets.md)·[`../prompts/vs_assets_rest.md`](../prompts/vs_assets_rest.md).
+- [`status-2026-11-22-full.md`](status-2026-11-22-full.md) — `docs/status.md` 를 짧게 줄이기 전 전체(5-2장 결정 요약·그림 진행·옛 시험판 v2 기록·도구 설명). 지금 상태는 [`../status.md`](../status.md).
