@@ -1,7 +1,11 @@
 """버티컬 슬라이스 승인 그림(art/raw/vs/*.webp)을 게임 그림(game/assets/)으로 옮긴다.
 
-- 크로마 배경(초록 #00FF00 · 엘리안은 마젠타 #FF00FF)은 tools/remove_bg.py 로 지운다(디스필 포함).
-- 그 뒤 가장자리 몇 px 의 얇은 초록/마젠타 번짐을 한 번 더 뺀다(edge_despill) — 어두운 배경 위에서 테두리가 비치지 않게.
+- 크로마 배경(초록 #00FF00 · 엘리안은 마젠타 #FF00FF)은 tools/remove_bg.py 로 지운다(디스필 포함) — **--soft 100**(SOFT).
+  remove_bg.py 기본값(soft 150)은 크로마 모드에서 키 색과 거리 150 안의 중간색(회색 갑옷·갈색 얼룩·피부 그늘)을 몸 안쪽에서도
+  반투명으로 만든다(2026-11-22 측정: 안쪽 반투명 12~35%). remove_bg.py 는 고치지 않고(사용자 결정 전) 여기서 soft 를 낮춘다.
+- 그 뒤 투명한 곳에서 3px 안쪽의 남은 번짐을 뺀다(edge_fringe): 초록 키 — G > max(R,B)+40 이면 G = max(R,B),
+  마젠타 키(엘리안) — min(R,B) > G+40 이면 R·B 를 G+40 쪽으로(엘리안 망토의 초록은 건드리지 않는다).
+- 확인(interior_partial): 알파>0 영역을 9px MinFilter 로 깎은 안쪽에서 반투명(0<알파<255) 픽셀 비율 — 약 0% 여야 한다.
 - 크기는 화면에 그려지는 크기에 맞춰 줄인다(웹 빌드 크기·메모리). 배경(16:9)은 원본(약 1672×941) 그대로 webp 로 복사.
 - 표정이 여러 장인 스탠딩은 같은 캔버스(아래 가운데 기준)로 맞춰 자른다 → 표정을 바꿔도 몸이 흔들리지 않는다.
 대응표는 MAP 아래 · game/DECISIONS.md. 확인 그림(어두운 배경 위): --check 폴더
@@ -14,7 +18,7 @@ import sys
 import tempfile
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -67,22 +71,26 @@ BGS = {
 ICONS = ('12_intent_icons', ['intent_attack.png', 'intent_fate.png', 'intent_hidden.png'], 160)
 
 
+SOFT = 100   # remove_bg.py --soft (기본 150 은 몸 안쪽 중간색까지 반투명으로 만든다)
+REPORT = {}  # 파일 → 안쪽 반투명 비율(%)
+
+
 def keyed(name, keep_canvas):
-    """remove_bg.py 로 배경을 지운 RGBA 그림"""
+    """remove_bg.py(--soft SOFT)로 배경을 지운 RGBA 그림 + 남은 테두리 번짐 제거"""
     tmp = os.path.join(tempfile.mkdtemp(), name + '.png')
-    remove_bg.remove_bg(os.path.join(RAW, name + '.webp'), tmp, None, None, 0, keep_canvas, 0)
+    remove_bg.remove_bg(os.path.join(RAW, name + '.webp'), tmp, None, SOFT, 0, keep_canvas, 0)
     im = Image.open(tmp).convert('RGBA')
     bg = remove_bg.estimate_bg(Image.open(os.path.join(RAW, name + '.webp')).convert('RGB').load(), *Image.open(os.path.join(RAW, name + '.webp')).size)
-    return edge_despill(im, bg)
+    return edge_fringe(im, bg)
 
 
-def edge_despill(im, bg, radius=4):
-    """투명한 곳에서 radius px 안쪽 테두리의 크로마 번짐을 뺀다 (초록: G ≤ max(R,B) · 마젠타: R·B 를 G 쪽으로)"""
+def edge_fringe(im, bg, radius=3, over=40):
+    """투명한 곳에서 radius px 안쪽의 남은 크로마 번짐: 초록 키 — G > max(R,B)+over 이면 G = max(R,B) /
+    마젠타 키 — min(R,B) > G+over 이면 R·B 를 G+over 까지 내린다 (엘리안 망토 같은 그림 속 초록은 마젠타 키라 건드리지 않음)"""
     a = np.asarray(im).astype(np.int32).copy()
     alpha = a[..., 3]
-    near = alpha < 255
-    m = near.copy()
-    for _ in range(radius):  # radius 만큼 넓힌다(4방향)
+    m = alpha == 0
+    for _ in range(radius):  # 투명한 곳을 radius 만큼 넓힌 테두리 띠
         g = m.copy()
         g[1:, :] |= m[:-1, :]
         g[:-1, :] |= m[1:, :]
@@ -93,14 +101,33 @@ def edge_despill(im, bg, radius=4):
     r, gg, b = a[..., 0], a[..., 1], a[..., 2]
     if bg[1] > bg[0] and bg[1] > bg[2]:  # 초록
         cap = np.maximum(r, b)
-        gg[m] = np.minimum(gg[m], cap[m])
+        hit = m & (gg > cap + over)
+        gg[hit] = cap[hit]
     else:  # 마젠타
-        s = np.minimum(r, b) - gg
+        s = np.minimum(r, b) - (gg + over)
         s = np.where(m & (s > 0), s, 0)
         r -= s
         b -= s
     a[..., 0], a[..., 1], a[..., 2] = r, gg, b
     return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
+
+
+def interior_partial(im):
+    """알파>0 영역을 9px MinFilter 로 깎은 안쪽에서 반투명 픽셀 비율(%)과 가장 낮은 알파"""
+    al = im.getchannel('A')
+    inner = al.point(lambda v: 255 if v > 0 else 0).filter(ImageFilter.MinFilter(9))
+    A = np.asarray(al)
+    I = np.asarray(inner) > 0
+    n = int(I.sum())
+    if n == 0:
+        return 0.0, 255
+    part = I & (A < 255)
+    return 100.0 * int(part.sum()) / n, int(A[I].min())
+
+
+def save(im, out):
+    im.save(os.path.join(OUT, out))
+    REPORT[out] = interior_partial(im)
 
 
 def fit_h(im, max_h):
@@ -112,12 +139,12 @@ def fit_h(im, max_h):
 def do_sprite(name):
     out, max_h, keep = SPRITES[name]
     im = fit_h(keyed(name, keep), max_h)
-    im.save(os.path.join(OUT, out))
+    save(im, out)
     if name == '09_noel_hands':
         # 코드는 왼손·오른손을 x=836 에서 나눈 두 장을 쓴다 (layout.hand.splitX)
         w, h = im.size
-        im.crop((0, 0, 836, h)).save(os.path.join(OUT, 'ui_witch_hand_left.png'))
-        im.crop((836, 0, w, h)).save(os.path.join(OUT, 'ui_witch_hand_right.png'))
+        save(im.crop((0, 0, 836, h)), 'ui_witch_hand_left.png')
+        save(im.crop((836, 0, w, h)), 'ui_witch_hand_right.png')
     return [out]
 
 
@@ -137,7 +164,7 @@ def do_stands(who):
         box = bb if box is None else (min(box[0], bb[0]), min(box[1], bb[1]), max(box[2], bb[2]), max(box[3], bb[3]))
     outs = []
     for im, out in ims:
-        fit_h(im.crop(box), STAND_H).save(os.path.join(OUT, out))
+        save(fit_h(im.crop(box), STAND_H), out)
         outs.append(out)
     return outs
 
@@ -154,7 +181,7 @@ def do_icons():
         s = max(part.size)
         sq = Image.new('RGBA', (s, s), (0, 0, 0, 0))
         sq.paste(part, ((s - part.width) // 2, (s - part.height) // 2))
-        sq.resize((size, size), Image.LANCZOS).save(os.path.join(OUT, out))
+        save(sq.resize((size, size), Image.LANCZOS), out)
         res.append(out)
     return res
 
@@ -190,4 +217,6 @@ if __name__ == '__main__':
             shutil.copyfile(os.path.join(RAW, n + '.webp'), os.path.join(OUT, out))
     if a.check:
         check([f for f in done if f.endswith('.png')], a.check)
+    for f, (pct, mn) in REPORT.items():
+        print('안쪽 반투명 %-28s %6.2f%%  최소 알파 %d' % (f, pct, mn))
     print('done', len(done), done)
