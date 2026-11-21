@@ -5,6 +5,8 @@
 ## 2층: 창 함정 회랑(VN·전조) → 기사단 납골당(VN → 창 기사 전투, 운명의 시도: 받아들인다/거스른다) → 계단(Lv업·새 운명: 엘리안)
 ## 3층: 불탄 예배당 회랑(VN·전조) → 화형대 광장(VN → 화형 사제 전투) → 결과 요약
 ## 전멸: 어느 전투든 전멸 화면 → 그 전투 처음부터 (튜토리얼의 "카드를 내지 않은 미래" 되감기는 없앴다 — 2026-11-21)
+## 자동 저장(core/save_game.gd): 흐름의 단계(곁방·장례 회랑·안치 홀·빈 곁방·1층 끝·2·3층 장면)와 지도의 방에 들어갈 때.
+##   이어하기는 마지막으로 들어간 곳의 처음부터. 결과 요약(시험판 끝)에 닿으면 저장을 지운다. --nosave(?nosave=1)면 쓰지도 읽지도 않는다
 class_name Ctl
 extends Node
 
@@ -75,6 +77,10 @@ func run_from(step: String, my: int) -> void:
 		var s: String = STEPS[k]
 		stage = s
 		note("step " + s)
+		if s == "result":
+			clear_save()
+		elif s != "map":
+			autosave(s)   # 지도는 방마다(_step_map)
 		var ok := false
 		match s:
 			"camp": ok = await _step_camp(my)
@@ -144,6 +150,7 @@ func _step_map(my: int) -> bool:
 		var r := Rules.enter_room(st, id)
 		if not r.ok:
 			continue
+		autosave("map", id)
 		note("enter %s burned=%s dark=%d candles=%d darkness=%d" % [id, r.burned, int(r.dark), int(r.candles), int(r.darkness)])
 		# 촛불이 타는 것(또는 어둠이 깊어지는 것)을 지도 위에서 보여 준다
 		if is_instance_valid(fm):
@@ -499,6 +506,67 @@ func after_result(my: int) -> bool:
 	return false
 
 
+## 지도의 방 하나를 마치고 지도로 (층의 끝 방이면 빈 곁방으로)
+func _room_then_map(room: String, my: int) -> void:
+	if await _room(room, my) and _alive(my):
+		if bool(Rules.room_def(st, room).get("end", false)):
+			await run_from("emptycamp", my)
+		else:
+			await run_from("map", my)
+
+
+# ───────── 자동 저장 · 이어하기 ─────────
+func saving() -> bool:
+	return not G.params.has("nosave")
+
+
+## 지금 상태를 저장한다. step: STEPS 의 단계 이름(지도의 방이면 "map" + room)
+func autosave(step: String, room := "") -> void:
+	if not saving() or st.is_empty():
+		return
+	var ok := SaveGame.write_text(SaveGame.pack(st, step, room, G.guide.done))
+	note("save %s%s%s" % [step, (" " + room) if room != "" else "", "" if ok else " (실패)"])
+
+
+func clear_save() -> void:
+	if saving():
+		SaveGame.clear()
+		note("save cleared")
+
+
+## 이어 할 저장 ({} = 없음)
+func load_save() -> Dictionary:
+	return SaveGame.read() if saving() else {}
+
+
+## 이어하기: 저장한 방·장면의 처음부터. 지도의 방이면 그 방(촛불은 이미 탄 상태) → 지도
+func continue_game() -> bool:
+	var sv := load_save()
+	if sv.is_empty():
+		return false
+	flow += 1
+	var my := flow
+	note("continue %s %s" % [sv.step, sv.room])
+	await FX.fade(1, 300)
+	if not _alive(my):
+		return true
+	G.dialog.clear()
+	G.scenes.clear()
+	G.view.clear()
+	G.input.cancel_drag()
+	in_battle = false
+	busy = false
+	snaps = {}
+	st = sv.st
+	G.guide.reset()
+	G.guide.done = sv.guide.duplicate()
+	if sv.step == "map":
+		await _room_then_map(str(sv.room), my)
+	else:
+		await run_from(str(sv.step), my)
+	return true
+
+
 # ───────── 시험용 바로 가기 ─────────
 ## scene: title | camp | corridor(=normal) | hall | map | room:<방 id>(또는 방 id: prayer · gravekeeper · buried · corpse · chapel · training · stall
 ##        · footprints · stairs · deep) | giant | emptycamp | floor2 | ossuary | f2stairs | floor3 (brun=alive|dead) | pyre | result
@@ -518,11 +586,8 @@ func jump(scene: String, opts := {}) -> void:
 		# 지도의 방 하나부터: 그 방까지 지나온 상태(안치 홀까지 + 필요하면 기도실·계단 앞 홀)로 만들고, 그 방 → 지도로
 		_prep_map(room)
 		Rules.enter_room(st, room)
-		if await _room(room, my) and _alive(my):
-			if bool(Rules.room_def(st, room).get("end", false)):
-				await run_from("emptycamp", my)
-			else:
-				await run_from("map", my)
+		autosave("map", room)
+		await _room_then_map(room, my)
 		return
 	match scene:
 		"title":

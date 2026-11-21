@@ -84,6 +84,7 @@ jobs:
       #   ① 장례 탑 1층 방 8개 모두(--rooms 순서대로) → 2·3층 모두 거스름 ② 방 5개(촛불이 다 타 층 끝 전투에 어둠 2단계) → 받아들임
       #   ③ 방 없이 정해진 길만 → 2층 거스름 → 3층 엘리안 거스름·브룬힐드 Lv2 받아들임 ④ 2층부터 모두 받아들임 ⑤ 2층부터 모두 거스름
       #   (--reward=skip 은 묘지기의 좌판에서 카드를 사지 않는 것 — 전투 승리 뒤 카드 보상은 2026-11-21 사용자 지시로 뺐다. 로그의 "win card" 는 무덤지기를 이기고 얻은 카드)
+      #   (--nosave: 자동 저장·설정 파일을 쓰지도 읽지도 않는다 — 남은 저장이 시험 결과를 바꾸지 않게)
       - name: Headless auto-play (start → result, room/fate paths)
         if: ${{ inputs.full }}
         run: |
@@ -95,7 +96,7 @@ jobs:
                       "--scene=floor2 --fates=offer,offer --autoplay" \
                       "--scene=floor2 --fates=defy,defy,defy --autoplay"; do
             echo "=== $args"
-            timeout 400 ~/godot/godot --headless --path . -- --speed=10 --autoguide --guides=reset --trace --quit-on-end $args > /tmp/auto1.txt 2>&1 || true
+            timeout 400 ~/godot/godot --headless --path . -- --speed=10 --autoguide --guides=reset --nosave --trace --quit-on-end $args > /tmp/auto1.txt 2>&1 || true
             cat /tmp/auto1.txt >> /tmp/auto.txt
             grep -E "step |battle |enter |choice|win card|trade|fate pick|win |wipe|result|SCRIPT ERROR|ERROR" /tmp/auto1.txt | grep -v "] ev " | tail -40
             grep -q "] result" /tmp/auto1.txt

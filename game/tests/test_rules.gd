@@ -114,6 +114,7 @@ func _init() -> void:
 	t_nameless()
 	t_charm()
 	t_retry_hp()
+	t_save()
 	print("rules: %d passed, failures: %d" % [passes, fails])
 	quit(1 if fails > 0 else 0)
 
@@ -995,3 +996,130 @@ func _collect(v, out: Array) -> void:
 	elif v is Array:
 		for x in v:
 			_collect(x, out)
+
+
+# ───────── 자동 저장 · 이어하기 (core/save_game.gd) ─────────
+func _has_float(v) -> bool:
+	if v is float:
+		return true
+	if v is Dictionary:
+		for k in v:
+			if _has_float(v[k]):
+				return true
+	elif v is Array:
+		for x in v:
+			if _has_float(x):
+				return true
+	return false
+
+
+## 비교용: 키·값의 StringName(코드에서 d.key = … 로 넣은 키)을 String 으로 (JSON 은 둘을 구분하지 않고, 사전 찾기도 둘을 같게 본다)
+func _plain(v):
+	if v is StringName:
+		return str(v)
+	if v is Dictionary:
+		var out := {}
+		for k in v:
+			out[str(k) if k is StringName else k] = _plain(v[k])
+		return out
+	if v is Array:
+		return v.map(func(x): return _plain(x))
+	return v
+
+
+func _same(a, b) -> bool:
+	return var_to_str(_plain(a)) == var_to_str(_plain(b))
+
+
+## 저장할 만한 상태 몇 가지: 지도의 방에 막 들어감(촛불 탐) / 전투를 마치고 카드가 바뀜 / 2층을 거스르고 3층(흉터·운명·플래그)
+func _save_states() -> Array:
+	var a := Rules.new_game(7)
+	for r in ["corridor", "hall", "buried", "prayer"]:
+		Rules.enter_room(a, r)
+	a.flags.buried = "open"
+	Rules.gain_card(a, "small_charm")
+	var b := Rules.new_game(11)
+	Rules.start_battle(b, "normal")
+	Rules.start_turn(b)
+	b.party.allies.archer.status = "down"
+	Rules.finish_battle(b)
+	Rules.enter_room(b, "corridor")
+	var c := Rules.state_floor3(5, "alive")
+	return [["map", "prayer", a], ["hall", "", b], ["f3chapel", "", c]]
+
+
+func t_save() -> void:
+	var all_same := true
+	var ints := true
+	var no_float := true
+	for it in _save_states():
+		var st: Dictionary = it[2]
+		var want: Dictionary = st.duplicate(true)
+		want.battle = null
+		no_float = no_float and not _has_float(want)
+		var sv := SaveGame.unpack(SaveGame.pack(st, it[0], it[1], {"n_win": true}))
+		var same: bool = not sv.is_empty() and sv.step == it[0] and sv.room == it[1] and sv.guide == {"n_win": true} and _same(sv.st, want)
+		if not same:
+			print("    다름: ", it[0], " ", it[1])
+		all_same = all_same and same
+		if not sv.is_empty():
+			ints = ints and sv.st.rng is int and sv.st.nextUid is int and sv.st.party.witch.hp is int and sv.st.progress.candles is int
+	check("저장 → 불러오기 왕복: 상태(파티·덱·카드·흉터·운명·촛불·지난 방·플래그·층·난수)·단계·방·안내 기록이 그대로", all_same)
+	check("저장 상태에는 실수 값이 없고, 불러온 숫자는 정수로 돌아온다(JSON)", no_float and ints)
+	# 불러온 상태로 이어서 하면 원래 상태와 같은 판이 된다(난수·덱 순서까지)
+	var a: Dictionary = _save_states()[0][2]
+	var a2: Dictionary = SaveGame.unpack(SaveGame.pack(a, "map", "prayer")).st
+	Rules.start_battle(a, "prayer")
+	Rules.start_turn(a)
+	Rules.start_battle(a2, "prayer")
+	Rules.start_turn(a2)
+	check("불러온 상태로 전투를 시작하면 원래 상태와 손패·예고가 같다", hand_ids(a) == hand_ids(a2) and var_to_str(a.battle.enemies) == var_to_str(a2.battle.enemies), str(hand_ids(a2)))
+	# 파일로 쓰고 읽기 · 지우기
+	var path := "user://test_save_rules.json"
+	var c: Dictionary = _save_states()[2][2]
+	var w_ok := SaveGame.write_text(SaveGame.pack(c, "f3chapel"), path)
+	var r := SaveGame.read(path)
+	SaveGame.clear(path)
+	check("파일에 쓰고 다시 읽기 → 같은 상태, 지우면 저장 없음", w_ok and not r.is_empty() and _same(r.st, c) and SaveGame.read(path).is_empty() and not FileAccess.file_exists(path))
+	# 버전이 다르거나 깨진 저장은 '저장 없음' (에러 없이)
+	var good := SaveGame.pack(c, "f3chapel")
+	var j := JSON.new()
+	j.parse(good)
+	var d: Dictionary = j.data
+	d.version = SaveGame.VERSION + 1
+	var bad_ver := JSON.stringify(d)
+	check("버전이 다른 저장은 불러오지 않는다", SaveGame.unpack(bad_ver).is_empty() and not SaveGame.unpack(good).is_empty())
+	d.version = SaveGame.VERSION
+	var broken := {
+		"반쯤 잘린 파일": good.substr(0, good.length() / 2),
+		"빈 파일": "",
+		"JSON 이 아님": "죽음을 보는 마녀{{",
+		"배열": "[1, 2, 3]",
+	}
+	var d2: Dictionary = d.duplicate(true)
+	d2.st.erase("party")
+	broken["상태의 키가 빠짐"] = JSON.stringify(d2)
+	var d3: Dictionary = d.duplicate(true)
+	d3.st.cards[d3.st.cards.keys()[0]].id = "no_such_card"
+	broken["없는 카드"] = JSON.stringify(d3)
+	var d4: Dictionary = d.duplicate(true)
+	d4.step = "map"
+	d4.room = "no_such_room"
+	broken["지도에 없는 방"] = JSON.stringify(d4)
+	var d5: Dictionary = d.duplicate(true)
+	d5.step = "battle"
+	broken["모르는 단계"] = JSON.stringify(d5)
+	var d6: Dictionary = d.duplicate(true)
+	d6.st.rng = "x"
+	broken["난수가 숫자가 아님"] = JSON.stringify(d6)
+	var bad_ok := true
+	for k in broken:
+		if not SaveGame.unpack(broken[k]).is_empty():
+			bad_ok = false
+			print("    불러와짐: ", k)
+	SaveGame.write_text(broken["반쯤 잘린 파일"], path)
+	var from_file := SaveGame.read(path)
+	SaveGame.clear(path)
+	check("깨진 저장(잘림·빈 파일·JSON 아님·키 빠짐·없는 카드·없는 방·모르는 단계)은 '저장 없음'", bad_ok and from_file.is_empty())
+	check("없는 저장 파일을 읽으면 '저장 없음'", SaveGame.read("user://no_such_save_file.json").is_empty())
+

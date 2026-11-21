@@ -5,6 +5,7 @@
 ##             | giant | emptycamp | floor2 | ossuary | f2stairs | floor3&brun=alive|dead | pyre | result
 ##   자동 진행(--autoguide --autoplay): --rooms=방,방… (지도에서 들를 방 순서) · --choice=값,… · --reward=카드|skip(묘지기의 좌판에서 살 카드 — 전투 승리 보상은 2026-11-21 에 뺐다) · --train=카드
 ##   · ?fates=accept(=offer),defy,… (운명의 시도 자동 선택, 순서대로)
+##   · ?nosave=1 / --nosave: 자동 저장·설정 파일을 쓰지도 읽지도 않는다(시험 실행 — 남은 저장이 결과를 바꾸지 않게) · ?continue=1: 타이틀 없이 이어하기
 extends Node
 
 var stage: Node2D
@@ -129,6 +130,8 @@ func _ready() -> void:
 	_on_resize()
 	if G.params.has("scene"):
 		ctl.jump(str(G.params.scene))
+	elif G.params.has("continue") and not ctl.load_save().is_empty():
+		ctl.continue_game()   # 시험용: 타이틀을 거치지 않고 이어하기 (?continue=1 / --continue)
 	else:
 		scenes.title()
 
