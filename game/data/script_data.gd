@@ -355,7 +355,7 @@ const S := {
 		"f2stairs": [
 			{"speaker": "narr", "text": "계단은 더 깊이 이어진다. 아래에서 탄내가 올라온다."},
 			{"if": {"brun": "alive"}, "show": {"warrior": "L", "archer": "C", "noel": "FR"}, "speaker": "warrior", "face": "warrior_stern", "text": "…아까 그 창. 한 뼘만 더 왔으면 끝이었다."},
-			{"if": {"brun": "alive"}, "speaker": "archer", "face": "archer_smile", "text": "운이 좋았던 거예요. 그쵸, 노엘?"},
+			{"if": {"brun": "alive"}, "speaker": "archer", "face": "archer_smile", "text": "운이 좋았던 거예요. 그렇죠, 노엘?"},
 			{"if": {"brun": "alive"}, "omen": {"card": "warrior_death", "clarity": 1.0, "taut": ["warrior"], "dim": 0.3}},
 			{"if": {"brun": "alive"}, "speaker": "inner", "text": "운이 아니다. 미뤘을 뿐이다."},
 			{"call": "descend"},
