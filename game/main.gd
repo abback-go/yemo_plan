@@ -153,6 +153,10 @@ func _ready() -> void:
 ## 일시정지 메뉴의 「타이틀로」: 진행 중인 장면·연출을 모두 버리고 게임 화면을 새로 만든 뒤 타이틀을 연다(진행은 마지막 자동 저장까지만)
 func restart_to_title() -> void:
 	get_tree().paused = false
+	# 진행 중이던 흐름을 먼저 끝낸다(흐름 번호를 올리면 ctl 의 기다리던 루프·단계가 스스로 빠져나온다)
+	G.ctl.flow += 1
+	G.ctl.in_battle = false
+	G.ctl.busy = false
 	FX.reset()
 	G.go_title = true
 	get_tree().reload_current_scene()

@@ -312,9 +312,10 @@ func battle(enc: String, from_snapshot := false, my := -1) -> bool:
 	if not _alive(my):
 		return false
 	await begin_turn()
-	# 전투가 끝날 때까지 기다린다 (카드·턴 종료는 입력이 진행)
+	# 전투가 끝날 때까지 기다린다 (카드·턴 종료는 입력이 진행). 프레임은 G(자동 로드)에서 기다린다 —
+	# 타이틀로 돌아가며 이 노드가 트리에서 빠진 프레임에 get_tree() 가 null 이 되어 같은 프레임 안에서 끝없이 돌지 않게
 	while _alive(my) and in_battle and st.battle != null and st.battle.enc == enc and not result_ready:
-		await get_tree().process_frame
+		await G.get_tree().process_frame
 	if not _alive(my) or st.battle == null or st.battle.enc != enc:
 		return false
 	return await after_result(my)

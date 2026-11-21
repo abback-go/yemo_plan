@@ -424,10 +424,10 @@ func _wait_tap() -> void:
 	if G.autoguide:
 		# 자동 시험: 글자가 다 나온 뒤 잠시 머물고 넘어간다
 		while typing and not skip:
-			await get_tree().process_frame
+			await G.get_tree().process_frame   # 트리에서 빠진 뒤에도 프레임을 기다리게 (ctl.gd battle 과 같은 이유)
 		var t0 := FX.now_ms()
 		while FX.now_ms() - t0 < FX.ms(600) and not skip:
-			await get_tree().process_frame
+			await G.get_tree().process_frame
 		_waiting = false
 		return
 	await tapped

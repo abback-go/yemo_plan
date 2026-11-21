@@ -21,7 +21,7 @@
  * 경로 S: 기본 기능 — 타이틀(저장이 없으면 이어하기 꺼짐, 웹은 끝내기 없음) → 설정(전체 화면 켜고 끄기·글자 속도) 열고 닫기(Esc) → 시작
  *         → 일시정지(Esc: 대사·연출이 멈춤) → 계속 → 장례 회랑에 들어감(자동 저장) → 새로고침 → 이어하기(설정도 남음) → 같은 방의 처음
  *         → 일시정지 → 타이틀로(확인) → 시작(저장이 지워진다는 확인 → 취소 → 처음부터) / 휴대폰: 타이틀·설정·메뉴 단추로 일시정지
- *         / 카드 연출·데스신 도중 일시정지 → 멈춘 동안 그대로 → 계속하면 이어서 끝남
+ *         / 카드 연출·데스신 도중 일시정지 → 멈춘 동안 그대로 → 계속하면 이어서 끝남 / 카드 연출 도중 타이틀로 → 에러 없이 타이틀
  *   경로만 고르기: node smoke.js <주소> <폴더> AB   (기본: ABCDEFS 전부)
  * 통과 조건: 모든 확인 통과 + 브라우저 콘솔 에러 0 (Godot 의 ERROR / SCRIPT ERROR 포함)
  * (탑뷰 시험판 경로 T 는 탑뷰 코드와 함께 없앴다 — 2026-11-21, game/DECISIONS.md)
@@ -911,6 +911,27 @@ async function pathS(browser) {
   await Q.click(g.x, g.y);
   s = await Q.until(s => s.stage === 'vn:emptycamp' || s.scene === 'vn:emptycamp', 180000, '데스신 → 빈 곁방');
   check('「계속」 → 데스신 C1~C6 이 이어져 끝나고 빈 곁방으로', ['C1', 'C2', 'C3a', 'C3b', 'C4', 'C6'].every(c => s.cutLog.includes(c)) && s.party.allies.hero.status === 'dead', s.cutLog);
+  // 카드 연출 도중 「타이틀로」: 진행 중이던 전투 흐름을 버리고 타이틀 (콘솔 에러 없이 — 마지막의 콘솔 에러 확인도 함께 본다)
+  await Q.open('scene=corridor&autoguide=1&nosave=1');
+  s = await Q.until(s => s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 120000, '전투 1턴(타이틀로)');
+  await Q.W('setSpeed', 0.3);
+  await Q.W('play', 'curse_flame', JSON.stringify({ enemy: 'c1' }));
+  await Q.sleep(500);
+  await page3.keyboard.press('Escape');
+  await Q.until(s => s.menu.panel === 'pause', 5000, '연출 중 일시정지');
+  g = await Q.W('geom', 'button', 'toTitle');
+  await Q.click(g.x, g.y);
+  await Q.until(s => s.menu.panel === 'confirm', 5000, '타이틀로 확인');
+  g = await Q.W('geom', 'button', 'yes');
+  await Q.click(g.x, g.y);
+  await Q.sleep(1500);
+  await page3.waitForFunction(() => window.__witchReady === true, null, { timeout: 30000 });
+  await Q.until(s => s.scene === 'title', 20000, '연출 도중 타이틀로');
+  await Q.sleep(1500);
+  s = await Q.state();
+  check('카드 연출 도중 일시정지 → 타이틀로: 전투 흐름이 멈추고 타이틀(전투·대사 없음, 에러 없음)', s.scene === 'title' && !s.inBattle && !s.dialogBusy && !s.menu.treePaused
+    && !errors.some(e => /^S3/.test(e)), errors.slice(-3));
+  await Q.W('setSpeed', 1);
   await ctx3.close();
 }
 
