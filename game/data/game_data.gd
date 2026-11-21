@@ -13,11 +13,11 @@ const D := {
 	"rules": {
 		"energyPerTurn": 3,
 		"drawPerTurn": 5,          # 죽음 카드(보존)가 손에 있으면 그 장수만큼 덜 뽑는다 (튜토리얼은 1층부터 4장)
-		"retainPos": "right",      # 보존 카드(죽음 카드) 자리: right(맨 오른쪽, 대본 v0.5) | middle(HTML 판)
-		"deathLockRuns": 1,        # 이 회차까지는 죽음 카드의 잠금(lockedUntil)이 걸린다. 2회차부터 미리 낼 수 있게 하려면 1 그대로, 잠그려면 99
+		"retainPos": "right",      # 보존 카드(죽음 카드) 자리: right(맨 오른쪽, 대본 v3 "손패 맨 오른쪽") | middle(HTML 판)
 		"maxHand": 10,             # 손패 상한 (넘치면 더 뽑지 않음)
 		"guardRound": "floor",     # 감싸기 '절반' 반올림: floor | ceil
 		"downedReviveHp": 1,       # 전투 후 쓰러진 동료가 복귀하는 HP
+		"retryWitchHp": 6,         # [임시] 전멸 뒤 그 전투를 처음부터 다시 할 때 노엘 HP 가 이보다 낮으면 이만큼으로 (HP 가 낮은 채 시작해 계속 지는 막힘 방지 — DECISIONS.md)
 		# 적이 대상을 고를 때 가중치 (스크립트 예고가 없는 턴)
 		"targetWeights": {"witch": 1, "hero": 1, "warrior": 1, "archer": 1},
 	},
@@ -62,22 +62,23 @@ const D := {
 		"suppress": {"name": "견제 사격", "kind": "ally", "owner": "archer", "cost": 1, "target": "enemy", "art": "arrows",
 			"effects": [{"type": "damage", "amount": 3}, {"type": "weaken", "amount": 4}], "text": "적 1명에게 {dmg} 피해 + 그 적의 이번 공격 피해 -{weaken}"},
 
-		# 죽음 카드 (6.3) — 비용 0, 손패 보존, 사용 시 용사 사망 → 유품 변환 → 짓밟힘 획득
+		# 죽음 카드 — 2026-11-21 컨셉 변경(vertical-slice.md 5장): 동료의 죽음을 **미리 보여 주는** 카드. 낼 수 없다(unplayable).
+		# 손패에 보존되어 한 칸을 차지한다. 운명의 죽음이 실제로 일어나면(받아들임) effects 가 실행된다:
+		# 그 동료 사망 → 그 동료 카드는 유품으로 → 상속 카드(그 죽음의 힘)가 덱에. 카드를 내서 죽이는 방식은 없앴다.
+		# 튜토리얼의 세라피나 카드는 뒤집힌 채(카드 인스턴스 faceDown) 손패에 있다가 3턴 「짓밟기」 순간 저절로 뒤집힌다(대본 v3 5.2)
 		"hero_death": {"name": "용사의 죽음", "kind": "death", "ally": "hero", "owner": "witch", "cost": 0, "target": "none", "art": "deathface",
-			"retain": true, "exhaust": true,
-			# 1회차에는 거대 존재 전투(전투 종류 "giant") 1턴 시작까지 잠겨 낼 수 없다 (대본 v0.5 1.1)
-			"lockedUntil": "giant",
+			"retain": true, "exhaust": true, "unplayable": true, "fate": "hero_stomp",
 			"effects": [
 				{"type": "killAlly", "ally": "hero"},
 				{"type": "relicize", "ally": "hero"},
-				{"type": "addCard", "card": "trample", "permanent": true, "freeThisTurn": true, "at": "source"},
+				{"type": "addCard", "card": "trample", "permanent": true, "at": "source"},
 			],
-			"text": "세라피나는 성당 가장 깊은 곳에서 짓밟혀 죽는다.",   # 대본 v0.6 1장(캠프에서 보이는 카드 문구)
-			"tags": ["보존", "사용 시 짓밟힘 획득"]},
+			"text": "세라피나는 1층 가장 깊은 곳에서 짓밟혀 죽는다.",   # 대본 v3 5.4
+			"tags": ["예지"]},
 
 		# 상속 카드
 		"trample": {"name": "짓밟힘", "kind": "inherit", "owner": "witch", "from": "hero", "cost": 2, "target": "none", "art": "foot",
-			"effects": [{"type": "damageAll", "amount": 15}], "text": "모든 적에게 {all} 피해\n획득한 턴에는 비용 0",
+			"effects": [{"type": "damageAll", "amount": 15}], "text": "모든 적에게 {all} 피해",
 			"tags": ["상속"]},
 
 		# 유품 카드 (용사)
@@ -98,9 +99,11 @@ const D := {
 
 		# ───── 1차 시험판 v2: 운명(prototype-v2-spec.md 4.3) [임시 수치] ─────
 		# 카드 인스턴스의 lv(레벨)에 따라 "levels" 의 같은 키를 덮어쓴다 (text·effects·target·cost·tags). 레벨 키는 문자열 "2", "3".
-		# 죽음 카드: 그 동료가 사망 → 그 동료 카드는 유품으로 → 상속 카드(같은 Lv)를 덱에 영구 1장 + 이번 전투 손패에 바로 1장
+		# 죽음 카드(낼 수 없음): 운명을 받아들이면 그 동료가 사망 → 그 동료 카드는 유품으로 → 상속 카드(같은 Lv)를 덱에 영구 1장 + 이번 전투 손패에 바로 1장
+		# maskText: 아직 방식이 보이지 않을 때(빈 캠프의 다음 죽음 예고, 대본 v3 6장) 카드에 대신 보이는 번진 문구
 		"warrior_death": {"name": "전사의 죽음", "kind": "death", "ally": "warrior", "owner": "witch", "cost": 0, "target": "none", "art": "deathface",
-			"retain": true, "exhaust": true, "fate": "warrior_pierce",
+			"retain": true, "exhaust": true, "unplayable": true, "fate": "warrior_pierce",
+			"maskText": "브룬힐드는 ……에서 …… 죽는다.",
 			"effects": [
 				{"type": "killAlly", "ally": "warrior"},
 				{"type": "relicize", "ally": "warrior"},
@@ -111,9 +114,9 @@ const D := {
 				"2": {"text": "브룬힐드는 3층에서 꼬챙이에 꿰여 매달려 죽는다."},
 				"3": {"text": "브룬힐드는 4층에서 수십 개의 창에 꿰여 죽는다."},
 			},
-			"tags": ["보존", "사용 시 「꿰뚫린 방패」"]},
+			"tags": ["예지", "죽으면 「꿰뚫린 방패」"]},
 		"archer_death": {"name": "궁수의 죽음", "kind": "death", "ally": "archer", "owner": "witch", "cost": 0, "target": "none", "art": "deathface",
-			"retain": true, "exhaust": true, "fate": "archer_burn",
+			"retain": true, "exhaust": true, "unplayable": true, "fate": "archer_burn",
 			"effects": [
 				{"type": "killAlly", "ally": "archer"},
 				{"type": "relicize", "ally": "archer"},
@@ -124,7 +127,7 @@ const D := {
 				"2": {"text": "엘리안은 4층에서 산 채로 불길에 휩싸여 죽는다."},
 				"3": {"text": "엘리안은 5층에서 재가 될 때까지 타 죽는다."},
 			},
-			"tags": ["보존", "사용 시 「타버린 활」"]},
+			"tags": ["예지", "죽으면 「타버린 활」"]},
 		# 상속 카드 (죽음 카드와 같은 Lv)
 		"pierced_shield": {"name": "꿰뚫린 방패", "kind": "inherit", "owner": "witch", "from": "warrior", "cost": 1, "target": "intent", "art": "shield",
 			"effects": [{"type": "reflect", "all": false}], "text": "예고된 공격 1개를 막고(피해 0)\n그 피해만큼 되돌린다",
@@ -142,6 +145,15 @@ const D := {
 			"effects": [{"type": "weaken", "amount": 8}, {"type": "selfDamage", "amount": 1}], "text": "적 1명의 이번 공격 피해 -{weaken}\n노엘 HP -{self}"},
 		"warrior_last_bash": {"name": "브룬힐드의 마지막 강타", "kind": "relic", "owner": "warrior", "cost": 1, "target": "enemy", "art": "bash",
 			"effects": [{"type": "damage", "amount": 12}, {"type": "selfDamage", "amount": 2}], "text": "적 1명에게 {dmg} 피해\n노엘 HP -{self}"},
+
+		# ───── 버티컬 슬라이스 1층 방 보상 (대본 v3 3장) [임시 수치] ─────
+		# 핏자국 통로 끝(시체)의 카드: 예고 하나를 지운다(그 공격은 일어나지 않는다). 운명 공격은 지울 수 없다. 대가 노엘 HP. 전투마다 한 번(낸 뒤 그 전투에서 사라짐 = exhaust)
+		"nameless_card": {"name": "이름 없는 마녀의 카드", "kind": "witch", "owner": "witch", "cost": 0, "target": "intent", "art": "nameless",
+			"exhaust": true, "effects": [{"type": "cancelIntent"}, {"type": "selfDamage", "amount": 3}],
+			"text": "예고 하나를 지운다\n(운명 공격은 못 지움)\n노엘 HP -{self}", "tags": ["전투마다 한 번"]},
+		# 순장된 자의 방(사건, 꺼낸다): 아이가 쥐고 있던 부적. target ally: 동료 위로 끌어 놓는다
+		"small_charm": {"name": "작은 손의 부적", "kind": "witch", "owner": "witch", "cost": 1, "target": "ally", "art": "charm",
+			"effects": [{"type": "heal", "amount": 4}], "text": "동료 하나 HP {heal} 회복"},
 	},
 
 	# 동료가 죽으면 그 동료의 카드가 이것으로 바뀐다 (강화 표시는 사라진다)
@@ -162,8 +174,25 @@ const D := {
 		["snipe", 2], ["suppress", 1],
 	],
 
-	# 노엘이 처음부터 쥐고 있는 죽음 카드 (사흘 전부터 비친 세라피나의 죽음 — 대본 1장)
-	"startingDeathCards": ["hero_death"],
+	# 처음부터 걸려 있는 운명 (대본 v3: 세라피나의 죽음 카드는 손패에 뒤집힌 채로만 — 무엇인지는 죽기 직전까지 보여 주지 않는다)
+	# faceDown: 그 죽음 카드를 뒤집힌 채로 든다(낼 수 없음, 손패 한 칸 차지). 운명의 순간 저절로 뒤집힌다
+	"startingFates": [{"fate": "hero_stomp", "floor": 1, "faceDown": true}],
+
+	# ───────────── 전투 보상 (대본 v3 1·3장, vertical-slice.md 5장 방 종류) [임시] ─────────────
+	# common: 일반 전투 — 3장 중 1장(넘길 수 있음). rare: 강적 — 희귀 3장 중 1장.
+	# [임시] 희귀 카드가 아직 없어 강화표(upgrades)의 카드를 Lv2(강화된 채)로 준다(rareUp). 새 카드가 생기면 목록만 바꾼다.
+	"rewards": {
+		"choices": 3,
+		"common": ["curse_flame", "fate_shift", "take_hit", "foresight", "holy_slash", "vanguard", "cover", "shield_bash", "snipe", "suppress"],
+		"rare": ["holy_slash", "snipe", "cover", "curse_flame"],
+		"rareUp": true,
+	},
+	# 묘지기의 좌판(거래, 대본 v3 3.7) [수치 임시]: 노엘의 HP를 대가로 카드(3장 중 1장) 또는 촛불. HP 가 대가 이하이면 고를 수 없다
+	"trade": {"cardHp": 4, "candleHp": 2, "candles": 1},
+	# 순장된 자의 방(사건, 대본 v3 3.3) [임시]: 꺼내면 노엘 HP −2(1 아래로는 줄지 않음) + 「작은 손의 부적」
+	"buried": {"hp": 2, "card": "small_charm"},
+	# 핏자국 통로 끝(시체, 대본 v3 3.4): 「이름 없는 마녀의 카드」
+	"corpse": {"card": "nameless_card"},
 
 	# ───────────── 훈련: 카드 강화 (tutorial-flow.md 2.3) [제안] ─────────────
 	# 후보 4종 중 무작위 3장을 보여 주고 1장 선택. 덱에서 그 카드 1장만 강화된다(이름 옆 +).
@@ -195,13 +224,21 @@ const D := {
 				{"kind": "aoe", "label": "불길", "value": 3, "hitsWitch": true},
 				{"kind": "attack", "label": "화염", "value": 6, "target": "random"},
 			]},
+		# 버티컬 슬라이스 1층 강적 (대본 v3 3.2) [임시 수치·그림: 무덤지기 그림이 아직 없어 창 기사 그림을 어둡게(tint) 쓴다]
+		"gravekeeper": {"name": "무덤지기", "hp": 34, "sprite": "spr_cult_knight.png", "scale": 1.32, "tint": [0.62, 0.58, 0.56],
+			"pattern": [
+				{"kind": "attack", "label": "관 뚜껑 내려치기", "value": 8, "target": "random"},
+				{"kind": "attack", "label": "짓누르기", "value": 10, "target": "highest"},
+			]},
 	},
 
 	# ───────────── 전투 (7장 + tutorial-flow.md) ─────────────
 	"encounters": {
-		# 1층 일반 전투: 광신도 3명. 완전히 끝나는 전투(거대 존재 없음) [tutorial-flow 2]
+		# darkness: true 면 어둠(촛불이 다 탄 뒤 방마다 깊어짐)에 예고 일부가 '?'로 가려진다 — 층 끝 전투·강적 전투 (vertical-slice.md 5장)
+		# floorEnd: true 면 층 끝 전투 — 그 층에서 전조를 보았으면 어둠이 와도 가려지지 않는다. 운명 공격 예고는 언제나 보인다
+		# 1층 장례 회랑 전투 ①: 광신도 3명. 완전히 끝나는 전투(거대 존재 없음). 배경은 직전 VN 장면과 같게(bg)
 		"normal": {
-			"kind": "normal", "floor": 1,
+			"kind": "normal", "floor": 1, "bg": "bg_cathedral.png",
 			"enemies": [{"id": "c1", "type": "cultist", "slot": 0}, {"id": "c2", "type": "cultist", "slot": 1}, {"id": "c3", "type": "cultist", "slot": 2}],
 			"attackRange": [5, 6],            # 광신도 공격 5~6
 			"giantTriggerAlive": null,        # null = 거대 존재가 나오지 않는다
@@ -217,9 +254,21 @@ const D := {
 				2: ["fate_shift", "cover", "snipe", "holy_slash"],
 			},
 		},
-		# 2층 전투: 광신도 2 → 1명 남으면 발이 내려와 짓밟음 → 거대 존재 전투
+		# 1층 광신도 기도실(골라 들어가는 방, 전투): 광신도 2명 [임시 수치]
+		"prayer": {
+			"kind": "normal", "floor": 1, "bg": "bg_fork_crypt.png",
+			"enemies": [{"id": "c1", "type": "cultist", "slot": 0}, {"id": "c3", "type": "cultist", "slot": 2}],
+			"attackRange": [4, 6],
+		},
+		# 1층 무덤지기(기도실 안쪽, 강적) — 어둠의 영향을 받는다
+		"gravekeeper": {
+			"kind": "normal", "floor": 1, "bg": "bg_ossuary.png", "darkness": true, "elite": true,
+			"enemies": [{"id": "g1", "type": "gravekeeper", "slot": 1}],
+			"attackRange": [6, 8],
+		},
+		# 1층 가장 깊은 곳(층 끝): 광신도 2 → 1명 남으면 발이 내려와 짓밟음 → 거대한 발 보스 전투
 		"deep": {
-			"kind": "normal", "floor": 1, "dim": true,
+			"kind": "normal", "floor": 1, "dim": true, "darkness": true, "floorEnd": true,
 			"enemies": [{"id": "c1", "type": "cultist", "slot": 0}, {"id": "c3", "type": "cultist", "slot": 2}],
 			"attackRange": [5, 6],
 			"giantTriggerAlive": 1,
@@ -228,16 +277,17 @@ const D := {
 			},
 			"scriptedHands": {},
 		},
+		# 거대한 발 — 보스 전투(대본 v3 5.2). HP 는 「???」, 공격은 흠집만 낸다(immune).
+		# 3턴 「짓밟기」 = 세라피나의 운명(hero_stomp): 손패의 뒤집힌 카드가 저절로 뒤집히고 → 데스신 → 받아들임(튜토리얼은 거스를 수 없음)
 		"giant": {
-			"kind": "giant", "floor": 2,
+			"kind": "giant", "floor": 1, "darkness": true, "floorEnd": true,
 			"enemies": [{"id": "giant", "type": "giant", "slot": "giant"}],
-			# 3턴 카운트다운 (마지막 항목이 계속 반복)
+			# 3턴 카운트다운 (마지막 항목이 계속 반복). fate: 그 운명이 살아 있으면 이 행동이 운명의 시도가 된다(어둠에서도 늘 보임)
 			"countdown": [
 				{"kind": "shadow", "label": "그림자", "detail": "행동 없음"},
 				{"kind": "aoe", "label": "기둥 붕괴", "value": 5, "hitsWitch": true, "detail": "아군 전원"},
-				{"kind": "stomp", "label": "짓밟기", "detail": "전원 사망", "lethal": true},
+				{"kind": "stomp", "label": "짓밟기", "detail": "모두에게 큰 피해", "lethal": true, "fate": "hero_stomp"},
 			],
-			# 죽음 카드는 1층부터 손패에 있다(startingDeathCards). 이 전투 1턴 시작에 잠금이 풀린다(lockedUntil)
 		},
 		# ───── 1차 시험판 v2 ─────
 		# bg: 전투 배경 / fateIntents: {턴: {enemy, fate, label}} — 그 운명이 살아 있고 이 층에서 아직 시도되지 않았으면 그 턴 예고가 운명의 시도가 된다.
@@ -260,7 +310,10 @@ const D := {
 	# 운명 = {누가, 방식, 층, 레벨}. 런 상태 st.fates 에 [{id, who, method, floor, level, alive, result, triedFloor, card}] 로 들어간다.
 	# scars: 거스를 때 들어오는 흉터 장수 [1단계, 2단계, 3단계] / maxLevel 단계를 다 넘기면 구함
 	# 시험판에서는 대상·방식·층을 아래 fatePlan 으로 고정한다(원래는 무작위 — 나중에 이 표를 무작위로 만들면 된다)
+	# noDefy: 거스를 수 없다(튜토리얼 — 선택 없이 받아들임) / endsBattle: 받아들인 뒤 전투가 끝난다(일행이 물러남)
 	"fates": {
+		"hero_stomp": {"who": "hero", "method": "stomp", "card": "hero_death", "inherit": "trample", "scars": [1, 1, 2], "maxLevel": 1,
+			"noDefy": true, "endsBattle": true},
 		"warrior_pierce": {"who": "warrior", "method": "pierce", "card": "warrior_death", "inherit": "pierced_shield", "scars": [1, 1, 2], "maxLevel": 3},
 		"archer_burn": {"who": "archer", "method": "burn", "card": "archer_death", "inherit": "burnt_bow", "scars": [1, 1, 2], "maxLevel": 3},
 	},
@@ -274,17 +327,32 @@ const D := {
 		"healOnFloor": true,          # [임시] 새 층에 들어설 때(빈 캠프·2층 계단) 살아 있는 모두 HP 회복
 	},
 
-	# ───────────── 비주얼노벨 장면(캠프·이벤트·빈 캠프)의 배경 ─────────────
-	# 대사는 script_data.gd. bgZoom: 배경 그림의 한 곳(focus)을 scale 배로 확대해 보여 준다(같은 그림 재사용)
+	# ───────────── 비주얼노벨 장면(방마다)의 배경 ─────────────
+	# 대사는 script_data.gd (camp / events.<장면>). bgZoom: 배경 그림의 한 곳(focus)을 scale 배로 확대해 보여 준다(같은 그림 재사용)
 	# emptyBedroll: 빈 캠프에서 비어 있는 침낭 자리(1920×1080 기준) — 코드로 차가운 빛·그늘을 얹는다
+	# [임시] 버티컬 슬라이스 배경(docs/prompts/vs_assets.md B01~B13)이 아직 없어 기존 그림을 대신 쓴다. 그림이 오면 bg 파일 이름만 바꾼다.
+	#   전투가 있는 방은 전투 배경(encounters.<전투>.bg)과 같은 그림을 써서 대화하던 배경 그대로 전투가 시작되게 한다(vertical-slice.md 3장)
 	"vnScenes": {
-		"camp": {"bg": "bg_camp.png", "fire": true},
-		"corpse": {"bg": "ev_corpse_witch.png"},
-		"rest": {"bg": "bg_fork_crypt.png", "bgZoom": {"scale": 1.6, "focus": [960, 430]}, "fire": true},
-		"train": {"bg": "bg_fork_crypt.png", "bgZoom": {"scale": 1.55, "focus": [1560, 470]}},
-		"stairs": {"bg": "bg_stairs_descent.png"},
-		"emptycamp": {"bg": "bg_camp.png", "fire": true, "fireLow": true, "emptyBedroll": [1350, 640]},
+		"camp": {"bg": "bg_camp.png", "fire": true},                                        # 곁방(캠프) — B01
+		"corridor": {"bg": "bg_cathedral.png"},                                             # 장례 회랑 — 전투 ① (P07)
+		"hall": {"bg": "bg_fork_crypt.png"},                                                # 안치 홀(지도) — B03
+		"prayer": {"bg": "bg_fork_crypt.png"},                                              # 광신도 기도실 — B06 (전투 배경 겸용)
+		"gravekeeper": {"bg": "bg_ossuary.png"},                                            # 무덤지기의 방 — B07 (강적 전투 배경 겸용)
+		"buried": {"bg": "bg_ossuary.png", "bgZoom": {"scale": 1.5, "focus": [700, 560]}},  # 순장된 자의 방 — B08
+		"corpse": {"bg": "ev_corpse_witch.png"},                                            # 핏자국 통로 끝(죽은 마녀) — B09
+		"chapel": {"bg": "bg_fork_crypt.png", "bgZoom": {"scale": 1.6, "focus": [960, 430]}, "fire": true},   # 촛불 예배당 — B10
+		"training": {"bg": "bg_fork_crypt.png", "bgZoom": {"scale": 1.55, "focus": [1560, 470]}},             # 무너진 훈련장 — B11
+		"stall": {"bg": "bg_ossuary.png", "bgZoom": {"scale": 1.45, "focus": [1300, 520]}},                  # 묘지기의 좌판 — B12
+		"footprints": {"bg": "bg_cathedral.png", "bgZoom": {"scale": 1.5, "focus": [960, 700]}},             # 발자국 방 — B13
+		"stairs": {"bg": "bg_stairs_descent.png"},                                          # 계단 앞 홀 — B04
+		"deep": {"bg": "bg_cathedral.png"},                                                 # 가장 깊은 곳 — B05 (광신도·보스 전투 겸용)
+		"emptycamp": {"bg": "bg_camp.png", "fire": true, "fireLow": true, "emptyBedroll": [1350, 640]},     # 빈 곁방 — B02
+		# 2·3층 (탑뷰를 없애고 VN 장면 + 전투로 — 이야기·그림은 아직 시험판 v2 그대로)
+		"f2corridor": {"bg": "bg_cathedral.png", "bgZoom": {"scale": 1.3, "focus": [960, 600]}},
+		"f2ossuary": {"bg": "bg_ossuary.png"},
 		"f2stairs": {"bg": "bg_stairs_descent.png"},
+		"f3chapel": {"bg": "bg_fork_crypt.png", "bgZoom": {"scale": 1.3, "focus": [960, 500]}},
+		"f3pyre": {"bg": "bg_pyre_court.png"},
 	},
 	# VN 캠프 등에서의 스탠딩 자리(가로 위치) / 높이 / 위쪽 y
 	"vn": {"slots": {"FL": 250, "L": 600, "C": 960, "R": 1320, "FR": 1670}, "standH": 1010, "standTop": 120},
@@ -329,37 +397,45 @@ const D := {
 		"walk": {"duration": 2600, "zoom": 2.1, "steps": 5, "bob": 12, "sway": 5.0, "fadeAt": 0.72, "allyShrink": 0.32},
 	},
 
-	# ───────────── 지도 ─────────────
-	# 왼쪽 가장자리의 세로 층 표시 + 열면 크게 보이는 층·방 지도. deathMark: 마녀만 보는 죽음 표식(장소 기한)
-	"map": {
-		# 층 이름·방 이름은 대본(script_data.gd "map")에 있다. 지금 층보다 깊은 층은 잠겨(???) 보인다
-		"floors": [
-			{"n": 1},
-			{"n": 2},
-			{"n": 3},
-			{"n": 4, "locked": true},
-		],
-		# 방: floor, col(가로 칸), row(세로 칸, 1층 갈림길 3갈래), icon
-		# deathMark: 붉은 실 표식 — true 면 늘(튜토리얼: 거대 존재 자리), 운명 id(또는 그 배열)면 그 운명이 살아 있고 그 층일 때만 (누구의 것인지는 밝히지 않는다)
-		"rooms": {
-			"camp": {"floor": 1, "col": 0, "row": 1, "icon": "camp"},
-			"hall": {"floor": 1, "col": 1, "row": 1, "icon": "sword"},
-			"fork": {"floor": 1, "col": 2, "row": 1, "icon": "fork"},
-			"corpse": {"floor": 1, "col": 3, "row": 0, "icon": "question"},
-			"rest": {"floor": 1, "col": 3, "row": 1, "icon": "flame"},
-			"train": {"floor": 1, "col": 3, "row": 2, "icon": "swords"},
-			"stairs": {"floor": 1, "col": 4, "row": 1, "icon": "stairs"},
-			"deep": {"floor": 1, "col": 5, "row": 1, "icon": "question", "deathMark": "hero"},
-			"f2corridor": {"floor": 2, "col": 0, "row": 0, "icon": "question"},
-			"f2ossuary": {"floor": 2, "col": 1, "row": 0, "icon": "sword", "deathMark": "warrior_pierce"},
-			"f2stairs": {"floor": 2, "col": 2, "row": 0, "icon": "stairs"},
-			"f3chapel": {"floor": 3, "col": 0, "row": 0, "icon": "question"},
-			"f3pyre": {"floor": 3, "col": 1, "row": 0, "icon": "sword", "deathMark": ["archer_burn", "warrior_pierce"]},
-			"f3stairs": {"floor": 3, "col": 2, "row": 0, "icon": "stairs"},
+	# ───────────── 지도·랜턴 (vertical-slice.md 5장 '층 구조'·'튜토리얼 지도 초안', 대본 v3 2장) [제안·시험 수치] ─────────────
+	# 지도 화면이 거점: 방을 눌러 들어간다. 처음 들어가는 방마다 랜턴의 촛불이 하나 탄다(지나간 방은 공짜).
+	# 촛불이 0개일 때 처음 들어가는 방마다 어둠이 한 단계 깊어진다 → 어둠 단계만큼 층 끝 전투·강적 전투의 예고가 '?'로 가려진다(운명 공격은 늘 보임).
+	# 층마다 새로 perFloor 개를 받고 남은 촛불은 다음 층으로 넘긴다(최대 max 개). 어둠은 층이 바뀌면 풀린다.
+	"lantern": {"perFloor": 4, "max": 8},
+	"darkness": {"perRoom": 1},
+	# 방 종류 → 지도 아이콘 (docs/prompts/vs_assets.md 69: 교차한 칼·해골·물음표·촛불·교차한 창·관과 동전·눈)
+	"roomTypes": {
+		"battle": {"icon": "swords"}, "elite": {"icon": "skull"}, "event": {"icon": "question"}, "rest": {"icon": "flame"},
+		"train": {"icon": "spears"}, "trade": {"icon": "coffin"}, "omen": {"icon": "eye"},
+		"camp": {"icon": "camp"}, "hub": {"icon": "fork"}, "stairs": {"icon": "stairs"}, "boss": {"icon": "foot"},
+	},
+	# 층 지도 (튜토리얼 1층은 고정 지도. 2층부터는 규칙 있는 무작위 — 아직 없음, 2·3층은 정해진 장면 순서)
+	# rooms: type(방 종류) · pos(지도 위 자리, 1920×1080 — 오른쪽 x 1440~ 은 랜턴·방 설명 칸) · candle(false 면 촛불이 타지 않음: 랜턴을 받기 전에 지나온 방)
+	#        spine(정해진 길) · enc(전투) · reward(전투 뒤 보상: common | rare) · end(이 방이 층의 끝)
+	# links: 이어진 방. 지나간(들어간 적 있는) 방과 이어진 방만 들어갈 수 있다. 무덤지기는 기도실 안쪽(기도실에서만)
+	# [제안] 골라 들어가는 방 8개를 안치 홀·계단 앞 홀에 나눠 붙였다(문서는 "안치 홀·계단 앞 홀에 붙음"까지만 정함 — DECISIONS.md)
+	"floorMaps": {
+		"1": {
+			"start": "hall", "end": "deep",
+			"rooms": {
+				"camp": {"type": "camp", "pos": [760, 112], "candle": false, "spine": true},
+				"corridor": {"type": "battle", "pos": [760, 228], "candle": false, "spine": true, "enc": "normal", "reward": "common"},
+				"hall": {"type": "hub", "pos": [760, 372], "candle": false, "spine": true},
+				"prayer": {"type": "battle", "pos": [440, 300], "enc": "prayer", "reward": "common"},
+				"gravekeeper": {"type": "elite", "pos": [190, 205], "enc": "gravekeeper", "reward": "rare"},
+				"buried": {"type": "event", "pos": [1085, 282]},
+				"corpse": {"type": "event", "pos": [395, 488]},
+				"stall": {"type": "trade", "pos": [1160, 452]},
+				"stairs": {"type": "stairs", "pos": [760, 622], "spine": true},
+				"chapel": {"type": "rest", "pos": [430, 735]},
+				"training": {"type": "train", "pos": [1095, 735]},
+				"footprints": {"type": "omen", "pos": [1290, 590]},
+				"deep": {"type": "boss", "pos": [760, 885], "spine": true, "end": true},
+			},
+			"links": [["camp", "corridor"], ["corridor", "hall"], ["hall", "prayer"], ["prayer", "gravekeeper"], ["hall", "buried"],
+				["hall", "corpse"], ["hall", "stall"], ["hall", "stairs"], ["stairs", "chapel"], ["stairs", "training"],
+				["stairs", "footprints"], ["stairs", "deep"]],
 		},
-		"links": [["camp", "hall"], ["hall", "fork"], ["fork", "corpse"], ["fork", "rest"], ["fork", "train"],
-			["corpse", "stairs"], ["rest", "stairs"], ["train", "stairs"], ["stairs", "deep"], ["deep", "f2corridor"],
-			["f2corridor", "f2ossuary"], ["f2ossuary", "f2stairs"], ["f2stairs", "f3chapel"], ["f3chapel", "f3pyre"], ["f3pyre", "f3stairs"]],
 	},
 
 	# ───────────── 데스신 (1차 시험판 v2) — 자막은 script_data.gd deathScenes ─────────────
@@ -382,7 +458,7 @@ const D := {
 	"cutscene": {
 		"cuts": [
 			# 컷의 자막(대사)은 대본(script_data.gd "cutLines")에 있다
-			{"id": "C1", "image": "cut_hero_reverse.png", "duration": 7400, "zoom": [1.0, 1.06]},   # 대사 3줄
+			{"id": "C1", "image": "cut_hero_reverse.png", "duration": 4600, "zoom": [1.0, 1.06]},   # 대사 1줄 (대본 v3 5.3 — 그림은 아직 기존 컷)
 			{"id": "C2", "image": "cut_hero_reach.png", "duration": 2600, "zoom": [1.04, 1.12]},
 			{"id": "C3", "code": "impact", "duration": 3200},          # 흰 섬광 → 암전 → 강한 흔들림 → 피 튐(화면 위)
 			{"id": "C4", "image": "cut_hero_crushed.png", "duration": 1600},
@@ -451,7 +527,7 @@ const D := {
 			# 오른손이 빠질 때 함께 가져가는 덱 덮개(뒷면 카드) 자리 — 오른손 그림의 잘린 자리를 가린다
 			"rightBacks": [2, 3, 4],
 			"rightOut": [140, 560],   # 오른손이 빠져 내려가는 거리(x, y)
-			"lockSink": 18,           # 잠긴 죽음 카드가 손패에서 가라앉아 보이는 깊이(px)
+			"lockSink": 18,           # 뒤집힌 죽음 카드가 손패에서 가라앉아 보이는 깊이(px)
 		},
 		# 카드를 낼 때 오른손이 카드 한 장을 세워 드는 그림 (ui_witch_hand_raise.png, 원본 1672×941)
 		# quad: 그 카드 자리의 네 모서리 [왼위, 오위, 오아래, 왼아래] — assets/ui_witch_hand_raise.json 값과 같아야 한다(테스트로 확인)
@@ -560,7 +636,10 @@ const D := {
 	# 아직 없는 그림(흉터)도 미리 등록해 둔다 — 파일이 생기면 이름만 맞추면 바로 바뀐다(없으면 코드로 그린 그림)
 	"cardArtImg": {"hero_death": "card_art_hero_death.png", "trample": "card_art_trample.png",
 		"warrior_death": "card_art_warrior_death.png", "archer_death": "card_art_archer_death.png",
-		"pierced_shield": "card_art_pierced_shield.png", "burnt_bow": "card_art_burnt_bow.png", "scar": "card_art_scar.png"},
+		"pierced_shield": "card_art_pierced_shield.png", "burnt_bow": "card_art_burnt_bow.png", "scar": "card_art_scar.png",
+		"nameless_card": "card_art_nameless_card.png", "small_charm": "card_art_small_charm.png"},
+	# 카드 뒷면 그림 (손패의 뒤집힌 죽음 카드, vs_assets.md 11). 없으면 코드로 그린 뒷면
+	"cardBackImg": "card_back.png",
 
 	# ───────────── 탑뷰 이동 시험판 (?scene=topdown, 기존 튜토리얼 흐름과 따로) ─────────────
 	# 좌표는 모두 맵 그림의 실제 픽셀(td_f1_fork.png 844×664). 화면에는 zoom 배(정수)로 확대해 Nearest 로 그린다.

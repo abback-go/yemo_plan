@@ -1,4 +1,5 @@
-## icons.gd — 탐색·지도에 쓰는 아이콘을 코드로 그린다 (휴식=불꽃, 이벤트=물음표, 전투=칼, 훈련=교차한 칼, 계단, 캠프, 갈림길)
+## icons.gd — 지도에 쓰는 아이콘을 코드로 그린다 (전투=교차한 칼, 강적=해골, 사건=물음표, 휴식=불꽃, 훈련=교차한 창, 거래=관과 동전, 전조=눈,
+## 계단, 캠프, 홀(갈림길), 층의 끝=발)
 ## 돌판(층 표시)·둥근 테두리·죽음 표식(붉은 실 매듭)도 여기서 그린다.
 class_name Icons
 extends Object
@@ -51,6 +52,59 @@ static func draw(ci: CanvasItem, kind: String, c: Vector2, r: float, col := Colo
 			ci.draw_line(c, c + Vector2(-r * 0.6, -r * 0.6), cc, w, true)
 			ci.draw_line(c, c + Vector2(0, -r * 0.75), cc, w, true)
 			ci.draw_line(c, c + Vector2(r * 0.6, -r * 0.6), cc, w, true)
+		# ── 버티컬 슬라이스 지도 아이콘 (vs_assets.md 69 — 그림이 오기 전 코드로 그린 임시) ──
+		"skull":
+			# 강적: 해골 (둥근 머리 + 턱 + 눈구멍)
+			ci.draw_circle(c + Vector2(0, -r * 0.12), r * 0.52, cc)
+			ci.draw_rect(Rect2(c + Vector2(-r * 0.3, r * 0.2), Vector2(r * 0.6, r * 0.38)), cc)
+			var hole := Color(0.1, 0.02, 0.03, a)
+			ci.draw_circle(c + Vector2(-r * 0.2, -r * 0.12), r * 0.14, hole)
+			ci.draw_circle(c + Vector2(r * 0.2, -r * 0.12), r * 0.14, hole)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, r * 0.04), c + Vector2(-r * 0.07, r * 0.18), c + Vector2(r * 0.07, r * 0.18)]), hole)
+			for k in 3:
+				ci.draw_line(c + Vector2(-r * 0.18 + k * r * 0.18, r * 0.36), c + Vector2(-r * 0.18 + k * r * 0.18, r * 0.58), hole, maxf(1.0, w * 0.5), true)
+		"spears":
+			# 훈련: 교차한 창 두 자루
+			for sgn in [-1.0, 1.0]:
+				var d := Vector2.from_angle(-PI / 2 + sgn * PI / 4.6)
+				var tip := c + d * r * 0.9
+				var butt := c - d * r * 0.8
+				ci.draw_line(butt, tip - d * r * 0.25, Color(0.62, 0.45, 0.3, a), w, true)
+				var nn := Vector2(-d.y, d.x)
+				ci.draw_colored_polygon(PackedVector2Array([tip, tip - d * r * 0.32 + nn * r * 0.13, tip - d * r * 0.32 - nn * r * 0.13]), cc)
+		"coffin":
+			# 거래: 관 + 동전
+			var cp := PackedVector2Array([c + Vector2(-r * 0.22, -r * 0.75), c + Vector2(r * 0.22, -r * 0.75), c + Vector2(r * 0.4, -r * 0.35),
+				c + Vector2(r * 0.26, r * 0.7), c + Vector2(-r * 0.26, r * 0.7), c + Vector2(-r * 0.4, -r * 0.35)])
+			var loop := cp.duplicate()
+			loop.append(cp[0])
+			ci.draw_polyline(loop, cc, w, true)
+			ci.draw_line(c + Vector2(0, -r * 0.45), c + Vector2(0, r * 0.2), cc, w * 0.8, true)
+			ci.draw_line(c + Vector2(-r * 0.18, -r * 0.22), c + Vector2(r * 0.18, -r * 0.22), cc, w * 0.8, true)
+			for k in 2:
+				var cc2 := c + Vector2(r * 0.55, r * 0.35 + k * r * 0.22)
+				ci.draw_circle(cc2, r * 0.2, Color(0.85, 0.68, 0.3, a))
+				ci.draw_arc(cc2, r * 0.2, 0, TAU, 16, Color(0.4, 0.28, 0.1, a), 1.2, true)
+		"eye":
+			# 전조: 눈
+			var up := PackedVector2Array()
+			var dn := PackedVector2Array()
+			for i in 17:
+				var t := float(i) / 16.0
+				var x := lerpf(-r * 0.85, r * 0.85, t)
+				var yy := sin(t * PI) * r * 0.45
+				up.append(c + Vector2(x, -yy))
+				dn.append(c + Vector2(x, yy))
+			ci.draw_polyline(up, cc, w, true)
+			ci.draw_polyline(dn, cc, w, true)
+			ci.draw_circle(c, r * 0.26, Color(0.85, 0.12, 0.18, a))
+			ci.draw_circle(c, r * 0.1, Color(0.05, 0.0, 0.01, a))
+		"foot":
+			# 층의 끝(거대한 발): 발바닥 + 발가락
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.32, -r * 0.2), c + Vector2(r * 0.36, -r * 0.22), c + Vector2(r * 0.3, r * 0.5),
+				c + Vector2(0, r * 0.78), c + Vector2(-r * 0.3, r * 0.5)]), cc)
+			for k in 4:
+				ci.draw_circle(c + Vector2(-r * 0.32 + k * r * 0.22, -r * 0.48 + absf(k - 1.5) * r * 0.08), r * (0.13 - k * 0.012), cc)
 		_:
 			ci.draw_circle(c, r * 0.3, cc)
 
@@ -68,7 +122,7 @@ static func _sword(ci: CanvasItem, c: Vector2, r: float, ang: float, col: Color,
 
 ## 길 위의 둥근 아이콘 테두리 (목업 11: 어두운 원 + 금 테두리 + 위아래 작은 마름모)
 static func medallion(ci: CanvasItem, c: Vector2, r: float, kind: String, hot := 0.0, a := 1.0) -> void:
-	var red := kind == "swords" or kind == "sword"
+	var red := kind in ["swords", "sword", "skull", "foot"]
 	var rim := Color("#c9a24a") if not red else Color("#c94a4a")
 	if hot > 0:
 		for i in 4:

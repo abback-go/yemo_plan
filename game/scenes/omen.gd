@@ -1,6 +1,6 @@
-## omen.gd — 죽음 카드가 노엘의 손 위로 떠오르는 연출 (캠프·계단·빈 캠프).
-##  · 캠프·계단: 「용사의 죽음」이 또렷하게 떠오른다(카드 문구까지 읽힌다). 세라피나 쪽 붉은 실이 팽팽해진다.
-##  · 빈 캠프: 누구인지 알아볼 수 없을 만큼 흐린 카드. 실은 특정 동료에게 걸리지 않고 남은 둘 쪽이 아주 희미하게 떨릴 뿐.
+## omen.gd — 죽음 카드가 노엘의 손 위로 떠오르는 연출 (빈 캠프·2층 계단).
+##  · 빈 캠프(대본 v3 6장): 얼굴은 브룬힐드, 문구는 번져 읽히지 않는다(mask — 카드의 maskText). 브룬힐드 쪽 붉은 실이 팽팽해진다.
+##  · 2층 계단: 흐린 카드(누구인지 알아볼 수 없음) → 또렷해짐(sharpen), 살아서 내려간 운명은 Lv2 로(level_up).
 ## 손 그림은 전투의 '카드를 세워 든 오른손'(ui_witch_hand_raise.png)을 그대로 쓴다. 배치는 game_data.gd "omen".
 class_name OmenView
 extends Node2D
@@ -66,6 +66,7 @@ func show_omen(cfg: Dictionary) -> void:
 		uid = "tmp_omen"
 		st.cards[uid] = {"uid": uid, "id": cid}
 	if cid != "":
+		card.masked = bool(cfg.get("mask", false))   # 얼굴은 보이고 문구는 번져 읽히지 않는다(대본 v3 6장)
 		card.setup_face(st, uid)
 		if uid == "tmp_omen":
 			st.cards.erase(uid)

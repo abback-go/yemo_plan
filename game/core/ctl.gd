@@ -1,14 +1,14 @@
-## ctl.gd — 장면 흐름과 전투 진행 (1차 시험판 v2: 탑뷰 탐사 + 1인칭 카드 전투 + 운명).
-## 1층(튜토리얼): 곁방(캠프 대화) → 광신도의 회랑(의식 원 → 전투) → 갈림길(출구 하나 → 이벤트 → 계단 대화)
-##   → 1층의 깊은 곳(광신도 → 거대 존재 → 죽음 카드 → 탈출) → 빈 캠프(다음 운명: 브룬힐드) → 1층 끝
-## 2층: 창 함정 회랑(운명의 시도: 브룬힐드 관통 Lv1, 필드) → 기사단 납골당(창 기사 전투) → 계단(Lv업·새 운명: 엘리안)
-## 3층: 불탄 예배당 회랑(브룬힐드가 살았다면 Lv2 시도) → 화형대 광장(화형 사제 전투, 2턴 엘리안 운명의 시도) → 결과 요약
-## 전멸: 1층 광신도·2·3층은 그 전투 처음부터 / 거대 존재는 "카드를 내지 않은 미래"(붉게 번짐 → 유리 깨짐 → 등장 직후부터)
+## ctl.gd — 장면 흐름과 전투 진행 (버티컬 슬라이스: 배경 위 비주얼노벨 장면 + 지도 거점 + 1인칭 카드 전투 + 운명).
+## 1층(튜토리얼, 대본 v3 — 장례 탑 1층): 곁방(캠프) → 장례 회랑(VN → 전투 ① → 카드 보상) → 안치 홀(VN → 지도·촛불 안내)
+##   → 지도: 골라 들어가는 방 8개(전투·강적·사건·휴식·훈련·거래·전조) · 계단 앞 홀 → 가장 깊은 곳(광신도 → 거대한 발 →
+##   3턴 「짓밟기」: 뒤집힌 카드가 뒤집힘 → 데스신 → 사망 직후 안내) → 빈 캠프(다음 죽음: 브룬힐드) → 1층 끝
+## 2층: 창 함정 회랑(VN·전조) → 기사단 납골당(VN → 창 기사 전투, 운명의 시도: 받아들인다/거스른다) → 계단(Lv업·새 운명: 엘리안)
+## 3층: 불탄 예배당 회랑(VN·전조) → 화형대 광장(VN → 화형 사제 전투) → 결과 요약
+## 전멸: 어느 전투든 전멸 화면 → 그 전투 처음부터 (튜토리얼의 "카드를 내지 않은 미래" 되감기는 없앴다 — 2026-11-21)
 class_name Ctl
 extends Node
 
-const STEPS := ["camp", "cult", "fork", "deep", "emptycamp", "chapter1", "f2corridor", "f2ossuary", "f2stairs", "f3chapel", "f3pyre", "result"]
-const FOLLOWER_OF := {"hero": "seraphina", "warrior": "brunhild", "archer": "elian"}
+const STEPS := ["camp", "corridor", "hall", "map", "emptycamp", "chapter1", "f2corridor", "f2ossuary", "f2stairs", "f3chapel", "f3pyre", "result"]
 
 var st := {}
 var busy := false
@@ -20,7 +20,6 @@ var log: Array = []
 var stage := ""           # 지금 단계 이름 (시험용)
 var result_ready := false # 카드·턴 종료 연출이 끝나고 전투 결과를 처리할 차례
 var descend_events: Array = []
-var td: TopdownScene = null   # 지금 탑뷰 장면
 
 
 func note(s: String) -> void:
@@ -79,221 +78,170 @@ func run_from(step: String, my: int) -> void:
 		var ok := false
 		match s:
 			"camp": ok = await _step_camp(my)
-			"cult": ok = await _step_cult(my)
-			"fork": ok = await _step_fork(my)
-			"deep": ok = await _step_deep(my)
-			"emptycamp": ok = await _step_emptycamp(my)
+			"corridor": ok = await _step_corridor(my)
+			"hall": ok = await _step_hall(my)
+			"map": ok = await _step_map(my)
+			"emptycamp": ok = await _step_vn("emptycamp", my)
 			"chapter1": ok = await _step_chapter1(my)
-			"f2corridor": ok = await _step_f2corridor(my)
-			"f2ossuary": ok = await _step_f2ossuary(my)
+			"f2corridor": ok = await _step_vn("f2corridor", my)
+			"f2ossuary": ok = await _step_vn_battle("f2ossuary", "ossuary", my)
 			"f2stairs": ok = await _step_f2stairs(my)
-			"f3chapel": ok = await _step_f3chapel(my)
-			"f3pyre": ok = await _step_f3pyre(my)
+			"f3chapel": ok = await _step_vn("f3chapel", my)
+			"f3pyre": ok = await _step_vn_battle("f3pyre", "pyre", my)
 			"result": ok = await _step_result(my)
 		if not ok or not _alive(my):
 			return
 
 
+## 2·3층처럼 지도가 없는 곳: 지나온 곳만 기록 (결과 요약·시험용)
 func _visit(room: String) -> void:
 	st.progress.room = room
 	if not st.progress.visited.has(room):
 		st.progress.visited.append(room)
 
 
-## 따라 걷는 동료 (살아 있는 사람만, 순서: 세라피나 · 브룬힐드 · 엘리안)
-func party_followers() -> Array:
-	var out := []
-	for id in ["hero", "warrior", "archer"]:
-		if st.party.allies.has(id) and st.party.allies[id].status != "dead":
-			out.append(FOLLOWER_OF[id])
-	return out
-
-
-## 탑뷰 맵을 연다 (지금 장면을 바꾼다)
-func td_open(map_id: String, o := {}) -> TopdownScene:
-	in_battle = false
-	G.view.clear()
-	G.dialog.clear()
-	if not o.has("party"):
-		o.party = party_followers()
-	var t := TopdownScene.new()
-	t.setup(map_id, o)
-	G.scenes.mount(t, "td:" + map_id)
-	td = t
-	stage = "td:" + map_id
-	return t
-
-
-func _td_ok(t: TopdownScene, my: int) -> bool:
-	return _alive(my) and is_instance_valid(t) and t.is_inside_tree()
-
-
-## 사건(트리거·출구)을 기다린다. want: 기다리는 트리거 id 들(없으면 출구만)
-func _wait_event(t: TopdownScene, my: int) -> Dictionary:
-	if not _td_ok(t, my):
-		return {}
-	var ev: Dictionary = await t.next_event()
-	if not _td_ok(t, my):
-		return {}
-	return ev
-
-
-## 트리거에 들어서면 전투 → 이긴 뒤 같은 자리에서 맵을 다시 열고 출구로. 반환: 다시 연 맵(null = 흐름이 끊김)
-func _battle_on_map(t: TopdownScene, map_id: String, trig: String, enc: String, my: int, hide := []) -> TopdownScene:
-	t.arm([trig])
-	while true:
-		var ev := await _wait_event(t, my)
-		if ev.is_empty():
-			return null
-		if ev.type == "trigger" and ev.id == trig:
-			break
-	var at := [t.foot.x, t.foot.y]
-	var dir := t.dir
-	var appear: Array = t.T.get("appear", [])
-	var grp: String = hide[0] if not hide.is_empty() else "enemies"
-	if t.npcs.size() > 0 and not appear.is_empty():
-		await t.npc_walk_out(grp)
-		if not _td_ok(t, my):
-			return null
-	await t.npc_alert(grp)
-	if not _td_ok(t, my):
-		return null
-	if not appear.is_empty():
-		await t.say(appear)
-	if not _alive(my):
-		return null
-	await FX.fade(1, 450)
-	var won := await battle(enc, false, my)
-	if not won or not _alive(my):
-		return null
-	await FX.fade(1, 400)
-	var t2 := td_open(map_id, {"at": at, "dir": dir, "hide": hide})
-	await t2.run()
-	return t2
-
-
-## 출구까지 기다렸다가 나간다
-func _leave_by_exit(t: TopdownScene, my: int) -> bool:
-	while true:
-		var ev := await _wait_event(t, my)
-		if ev.is_empty():
-			return false
-		if ev.type == "exit":
-			await t.walk_out()
-			return _alive(my)
-	return false
-
-
-# ───────── 1층 ─────────
+# ───────── 1층 (대본 v3) ─────────
 func _step_camp(my: int) -> bool:
-	_visit("camp")
-	var C: Dictionary = MapsData.M.camp
-	var t := td_open("camp", {"at": C.start, "dir": str(C.dir), "seated": true})
-	await t.run()
-	if not _td_ok(t, my):
-		return false
-	await t.play_vn("camp")
-	if not _td_ok(t, my):
-		return false
-	await G.dialog.say(G.S.topdown.moveGuide)
-	return await _leave_by_exit(t, my)
-
-
-func _step_cult(my: int) -> bool:
-	_visit("hall")
-	var t := td_open("cult_hall")
-	t.locked_exits = ["east"]
-	await t.run()
-	if not _td_ok(t, my):
-		return false
-	await t.say(t.T.intro)
-	var t2 := await _battle_on_map(t, "cult_hall", "circle", "normal", my, ["cultists"])
-	if t2 == null:
-		return false
-	return await _leave_by_exit(t2, my)
-
-
-func _step_fork(my: int) -> bool:
-	_visit("fork")
-	var t := td_open("fork")
-	await t.run()
-	if not _td_ok(t, my):
-		return false
-	# 처음 지도가 열릴 때 (대본 3.1)
-	if not st.flags.get("mapSeen", false):
-		st.flags.mapSeen = true
-		await FX.wait(300)
-		await t.hud.open_map_first()
-		if not _td_ok(t, my):
-			return false
-	await G.guide.fire("exploreShown", {"explore": "fork"})
-	var ev := await _wait_event(t, my)
-	if ev.is_empty():
-		return false
-	st.flags.path = ev.id
-	note("path " + str(ev.id))
-	await t.walk_out()
-	if not _alive(my):
-		return false
-	_visit(str(ev.id))
-	stage = "event:" + str(ev.id)
-	await G.scenes.vn(str(ev.id))
-	if not _alive(my):
-		return false
-	_visit("stairs")
-	stage = "stairs"
-	await G.scenes.vn("stairs")
+	stage = "vn:camp"
+	await G.scenes.vn("camp")
 	return _alive(my)
 
 
-func _step_deep(my: int) -> bool:
-	_visit("deep")
-	var t := td_open("deep_hall")
-	await t.run()
-	if not _td_ok(t, my):
-		return false
-	await t.say(t.T.intro)
-	t.arm(["altar"])
-	while true:
-		var ev := await _wait_event(t, my)
-		if ev.is_empty():
+## 1. 장례 회랑 — VN → 같은 배경에서 전투 ① → 카드 보상 (정해진 길, 촛불은 타지 않는다)
+func _step_corridor(my: int) -> bool:
+	Rules.enter_room(st, "corridor")
+	return await _room("corridor", my)
+
+
+## 2. 안치 홀 — VN 뒤 지도가 열린다 (지도·촛불 안내는 _step_map 의 처음에)
+func _step_hall(my: int) -> bool:
+	Rules.enter_room(st, "hall")
+	stage = "vn:hall"
+	await G.scenes.vn("hall")
+	return _alive(my)
+
+
+## 지도 거점: 방을 골라 들어간다 → 방 → 다시 지도. 층의 끝 방(가장 깊은 곳)을 마치면 끝
+func _step_map(my: int) -> bool:
+	while _alive(my):
+		var fm := FloorMap.new()
+		fm.setup(st)
+		G.view.clear()
+		in_battle = false
+		G.scenes.mount(fm, "map")
+		stage = "map"
+		await FX.fade(0, 400)
+		if not _alive(my) or not is_instance_valid(fm):
 			return false
-		if ev.type == "trigger":
-			break
-	await t.npc_alert("cultists")
-	if not _td_ok(t, my):
-		return false
-	await FX.fade(1, 450)
-	var ok := await battle("deep", false, my)   # 광신도 → 거대 존재 → 죽음 카드 → 물러남
-	if not ok or not _alive(my):
-		return false
-	# 탈출
-	stage = "escape"
-	await G.dialog.say(G.S.escape.lines)
-	if not _alive(my):
-		return false
-	await G.scenes.escape()
-	if not _alive(my):
-		return false
+		if not bool(st.flags.get("mapSeen", false)):
+			st.flags.mapSeen = true
+			await fm.intro()
+			if not _alive(my) or not is_instance_valid(fm):
+				return false
+		var id := await fm.run()
+		if not _alive(my):
+			return false
+		var r := Rules.enter_room(st, id)
+		if not r.ok:
+			continue
+		note("enter %s burned=%s dark=%d candles=%d darkness=%d" % [id, r.burned, int(r.dark), int(r.candles), int(r.darkness)])
+		# 촛불이 타는 것(또는 어둠이 깊어지는 것)을 지도 위에서 보여 준다
+		if is_instance_valid(fm):
+			fm.sel = ""
+			fm._refresh()
+		if r.burned:
+			FX.toast(str(G.S.map.burned).replace("{n}", str(r.candles)), 1400)
+		elif int(r.dark) > 0:
+			FX.toast(str(G.S.map.darker).replace("{n}", str(r.darkness)), 1600)
+		await FX.wait(650)
+		await FX.fade(1, 400)
+		if not _alive(my):
+			return false
+		if not await _room(id, my):
+			return false
+		if bool(Rules.room_def(st, id).get("end", false)):
+			return true
+	return false
+
+
+## 방 하나: VN 장면(대사·사건·휴식·훈련·거래·전조는 VN 안의 call) → 전투가 있으면 같은 배경에서 전투 → 보상
+func _room(id: String, my: int) -> bool:
+	var R := Rules.room_def(st, id)
+	stage = "room:" + id
+	note("room " + id)
+	if G.S.events.has(id):
+		stage = "vn:" + id
+		await G.scenes.vn(id)
+		if not _alive(my):
+			return false
+	if id == str(Rules.map_def(st).get("end", "deep")):
+		return await _deep(my)
+	if R.has("enc"):
+		var won := await battle(str(R.enc), false, my)
+		if not won or not _alive(my):
+			return false
+		if R.has("reward"):
+			await _reward(str(R.reward), my)
+		await _leave_battle()
+	return _alive(my)
+
+
+## 전투 보상: 카드 3장 중 1장(넘길 수 있음). rare = 강적의 희귀 보상
+func _reward(pool: String, my: int) -> void:
+	var items := Rules.reward_choices(st, pool)
+	if items.is_empty():
+		return
+	stage = "reward:" + pool
+	var title := G.ui("rareTitle") if pool == "rare" else G.ui("rewardTitle")
+	var i := await G.scenes.card_pick(items, title, G.ui("rewardHint"), G.ui("rewardSkip"), str(G.params.get("reward", "")))
+	if not _alive(my) or i < 0:
+		note("reward skip")
+		return
+	var it: Dictionary = items[i]
+	Rules.gain_card(st, str(it.id), bool(it.get("up", false)))
+	note("reward " + str(it.id) + (" up" if it.get("up", false) else ""))
+	FX.toast(G.ui("gainCard", {"card": Rules.card_name(str(it.id), bool(it.get("up", false)))}), 1600)
+	await FX.wait(500)
+
+
+func _leave_battle() -> void:
+	await FX.fade(1, 500)
 	if st.battle != null:
 		Rules.finish_battle(st)
 	in_battle = false
 	G.view.clear()
-	return true
+	G.scenes.clear()
 
 
-func _step_emptycamp(my: int) -> bool:
-	_visit("camp")
-	stage = "emptycamp"
-	var C: Dictionary = MapsData.M.camp
-	var t := td_open("camp", {"at": C.start, "dir": str(C.dir), "seated": true})
-	await t.run()
-	if not _td_ok(t, my):
+## 5. 가장 깊은 곳 (층 끝): 광신도 전투 → 1명 남으면 발이 내려옴 → 거대한 발 보스 전투 → 세라피나의 운명 → 물러남
+func _deep(my: int) -> bool:
+	var ok := await battle("deep", false, my)
+	if not ok or not _alive(my):
 		return false
-	await t.play_vn("emptycamp")   # 끝에 다음 운명(브룬힐드 관통 Lv1)이 또렷해진다
-	if not _alive(my):
+	await FX.fade(1, 900)
+	if st.battle != null:
+		Rules.finish_battle(st)
+	in_battle = false
+	G.view.clear()
+	return _alive(my)
+
+
+## VN 장면 하나 (빈 캠프·2·3층 장면)
+func _step_vn(name: String, my: int) -> bool:
+	_visit(name)
+	stage = "vn:" + name
+	await G.scenes.vn(name)
+	return _alive(my)
+
+
+## VN 장면 → 같은 배경에서 전투 (2층 납골당·3층 화형대)
+func _step_vn_battle(name: String, enc: String, my: int) -> bool:
+	if not await _step_vn(name, my):
 		return false
-	await FX.fade(1, 700)
+	var won := await battle(enc, false, my)
+	if not won or not _alive(my):
+		return false
+	await _leave_battle()
 	return _alive(my)
 
 
@@ -305,95 +253,9 @@ func _step_chapter1(my: int) -> bool:
 	return true
 
 
-# ───────── 2층 ─────────
-func _step_f2corridor(my: int) -> bool:
-	_visit("f2corridor")
-	var t := td_open("spike_corridor")
-	await t.run()
-	if not _td_ok(t, my):
-		return false
-	await t.say(t.T.intro)
-	return await _omen_map(t, my)
-
-
-## 맵을 걸어 출구로. 걷는 길 중간(트리거 omen)에서 이 층 운명의 전조를 노엘 속마음으로 한 번 (운명의 시도는 전투 안에서만 — 2026-11-18)
-func _omen_map(t: TopdownScene, my: int) -> bool:
-	var lines := _omen_lines(t.map_id)
-	if not lines.is_empty():
-		t.arm(["omen"])
-	while true:
-		var ev := await _wait_event(t, my)
-		if ev.is_empty():
-			return false
-		if ev.type == "trigger":
-			stage = "omen:" + t.map_id
-			note("omen " + t.map_id)
-			await t.say(lines)
-			stage = "td:" + t.map_id
-			if not _td_ok(t, my):
-				return false
-			continue
-		if ev.type == "exit":
-			await t.walk_out()
-			return _alive(my)
-	return false
-
-
-## 이 맵에서 비칠 전조: 이 층에 살아 있는 운명마다 (script_data maps.<맵>.omen.<fate id>)
-func _omen_lines(map_id: String) -> Array:
-	var om: Dictionary = G.S.maps.get(map_id, {}).get("omen", {})
-	var out := []
-	for f in Rules.active_fates(st):
-		if int(f.floor) == Rules.floor_now(st) and om.has(f.id):
-			out.append_array(om[f.id])
-	return out
-
-
-func _step_f2ossuary(my: int) -> bool:
-	_visit("f2ossuary")
-	var t := td_open("ossuary")
-	t.locked_exits = ["north"]
-	await t.run()
-	if not _td_ok(t, my):
-		return false
-	await t.say(t.T.intro)
-	var t2 := await _battle_on_map(t, "ossuary", "altar", "ossuary", my, ["enemies"])
-	if t2 == null:
-		return false
-	return await _leave_by_exit(t2, my)
-
-
 func _step_f2stairs(my: int) -> bool:
-	_visit("f2stairs")
 	st.flags.brun = "dead" if st.party.allies.warrior.status == "dead" else "alive"
-	stage = "f2stairs"
-	await G.scenes.vn("f2stairs")   # 살아서 내려간 운명 Lv2 · 새 운명(엘리안 화형 Lv1) · 3층
-	return _alive(my)
-
-
-# ───────── 3층 ─────────
-func _step_f3chapel(my: int) -> bool:
-	_visit("f3chapel")
-	var t := td_open("burnt_chapel")
-	await t.run()
-	if not _td_ok(t, my):
-		return false
-	await t.say(t.T.intro)
-	return await _omen_map(t, my)
-
-
-func _step_f3pyre(my: int) -> bool:
-	_visit("f3pyre")
-	var t := td_open("pyre_court")
-	t.locked_exits = ["north"]
-	await t.run()
-	if not _td_ok(t, my):
-		return false
-	await t.say(t.T.intro)
-	var t2 := await _battle_on_map(t, "pyre_court", "pyre", "pyre", my, ["enemies"])
-	if t2 == null:
-		return false
-	return await _leave_by_exit(t2, my)
+	return await _step_vn("f2stairs", my)   # 살아서 내려간 운명 Lv2 · 새 운명(엘리안 화형 Lv1) · 3층
 
 
 func _step_result(my: int) -> bool:
@@ -404,14 +266,13 @@ func _step_result(my: int) -> bool:
 
 
 # ───────── 전투 ─────────
-## 반환: 이겼으면(또는 거대 존재가 물러나 끝났으면) true
+## 반환: 이겼으면(또는 거대한 발 앞에서 물러나 끝났으면) true
 func battle(enc: String, from_snapshot := false, my := -1) -> bool:
 	if my < 0:
 		flow += 1
 		my = flow
 	G.dialog.clear()
 	G.scenes.clear()
-	td = null
 	G.input.cancel_drag()
 	if from_snapshot and snaps.has(enc):
 		st = Rules.restore(snaps[enc], st.rng)
@@ -427,24 +288,24 @@ func battle(enc: String, from_snapshot := false, my := -1) -> bool:
 	busy = true
 	G.view.build(st)
 	in_battle = true
-	note("battle " + enc + (" (restart)" if from_snapshot else ""))
+	note("battle " + enc + (" (restart)" if from_snapshot else "") + (" darkness=%d" % int(st.battle.darkness) if int(st.battle.darkness) > 0 else ""))
 	await FX.fade(0, 500)
 	if not _alive(my):
 		return false
-	if from_snapshot and enc == "giant":
-		await G.guide.fire("restart", {})
 	await G.guide.fire("battleStart", {"enc": enc})
 	if not _alive(my):
 		return false
-	# 손에 낼 수 있는 죽음 카드가 있으면 (2·3층) 그 안내, 두 장이면 두 장 안내
+	# 손에 든 (앞면) 죽음 카드: 낼 수 없는 '미리 보는' 카드라는 안내, 두 장이면 두 장 안내 (2·3층). 뒤집힌 카드는 1턴 안내가 맡는다
 	var ndc := 0
 	for u in st.battle.hand:
-		if Rules.def(st, u).kind == "death" and not Rules.is_locked(st, u):
+		if Rules.def(st, u).kind == "death" and not Rules.is_face_down(st, u):
 			ndc += 1
 	if ndc > 0:
 		await G.guide.fire("deathInHand", {"n": ndc})
 	if ndc > 1:
 		await G.guide.fire("twoDeathCards", {"n": ndc})
+	if int(st.battle.darkness) > 0:
+		await G.guide.fire("darkness", {"enc": enc})
 	if not _alive(my):
 		return false
 	await begin_turn()
@@ -468,14 +329,6 @@ func begin_turn() -> void:
 	_set_busy(false)
 
 
-## 잠긴 죽음 카드를 끌거나 눌렀다 → 손패로 돌아가고 속마음 (대본 2장, 매번)
-func locked_try(uid: String) -> void:
-	note("locked " + str(st.cards[uid].id))
-	G.view.render()
-	G.dialog.drop_pending()
-	G.dialog.say(G.S.lockedTry)
-
-
 func play_card(uid: String, target := {}) -> Dictionary:
 	if busy or st.is_empty() or st.battle == null or G.dialog.guide_open():
 		G.input.cancel_drag()
@@ -483,10 +336,7 @@ func play_card(uid: String, target := {}) -> Dictionary:
 	var chk := Rules.can_play(st, uid)
 	if not chk.ok:
 		G.input.cancel_drag()
-		if chk.get("locked", false):
-			locked_try(uid)
-		else:
-			FX.toast(reason_text(chk.reason))
+		FX.toast(reason_text(chk.reason))
 		return chk
 	_set_busy(true)
 	var id: String = st.cards[uid].id
@@ -501,7 +351,6 @@ func play_card(uid: String, target := {}) -> Dictionary:
 	var my := flow
 	await G.view.play_events(res.events)
 	G.guide.fire("cardPlayed", {"enc": st.battle.enc if st.battle != null else "", "card": id})
-	await _after_deaths(res.events)
 	# 운명을 집행할 적을 먼저 쓰러뜨렸다: 쓰러지는 그 순간 운명의 시도가 온다
 	while _alive(my) and st.battle != null and st.battle.result == null and st.battle.awaitFate != null:
 		await battle_fate(my)
@@ -514,7 +363,7 @@ func play_card(uid: String, target := {}) -> Dictionary:
 	return res
 
 
-## 죽음 카드로 동료가 죽었으면: 남은 동료의 반응(C8) → 사망 직후 안내
+## 운명의 죽음이 일어난 뒤: 남은 동료의 반응(C8) → 사망 직후 안내
 func _after_deaths(events: Array) -> void:
 	for e in events:
 		if e.t == "allyDeath":
@@ -547,8 +396,10 @@ func end_turn() -> void:
 	await begin_turn()
 
 
-## 전투 중 운명의 시도 (2층 창 기사 「운명의 관통」, 3층 화형 사제 「운명의 불길」「운명의 꼬챙이」)
-## 운명의 시도는 전투 안에서만 온다(2026-11-18). 집행자가 먼저 쓰러졌으면(byDeath) 그 순간에 온다
+## 전투 중 운명의 시도. 운명의 시도는 전투 안에서만 온다(2026-11-18). 집행자가 먼저 쓰러졌으면(byDeath) 그 순간에 온다
+##  · 거스를 수 없는 운명(튜토리얼의 세라피나, 대본 v3 5.2~5.4): 화면이 멈춘다 → 손패의 뒤집힌 카드가 저절로 뒤집힌다 → "알고 있었는데."
+##    → 데스신 → 노엘의 손에 남은 카드(이제야 문구가 보인다) → 죽음 카드·상속·유품 안내 → 동료 반응 → 물러남(전투 끝)
+##  · 그 밖(2·3층): 받아들인다(죽음이 일어남: 상속 + 유품) / 거스른다(산다: 흉터 — 붉은 실은 나중)
 func battle_fate(my: int) -> void:
 	var af: Dictionary = st.battle.awaitFate
 	var f = Rules.fate_by_id(st, str(af.fate))
@@ -556,6 +407,10 @@ func battle_fate(my: int) -> void:
 	note("fate trial battle " + str(af.fate) + " lv" + str(af.level) + (" byDeath" if af.get("byDeath", false) else ""))
 	var prev_stage := stage
 	stage = "fate:" + str(af.fate)
+	if not Rules.can_defy(str(af.fate)):
+		await _fate_tutorial(af, f, L, my)
+		stage = prev_stage
+		return
 	await G.view.fate_freeze(str(af.who), true)
 	if af.get("byDeath", false):
 		await G.dialog.say(G.S.fate.dying)
@@ -589,6 +444,33 @@ func battle_fate(my: int) -> void:
 	await G.view.play_events(ev3)
 
 
+func _fate_tutorial(af: Dictionary, f, L: Dictionary, my: int) -> void:
+	var who := str(af.who)
+	var uid: String = str(f.card) if f != null else ""
+	await G.view.fate_freeze(who, true)
+	# 손패 맨 오른쪽의 뒤집힌 카드가 저절로 뒤집힌다 — 세라피나의 얼굴
+	await G.view.play_events(Rules.flip_card(st, uid))
+	await G.dialog.say(L.get("trap", []))   # 속마음: 알고 있었는데. (안내 상자는 띄우지 않는다)
+	if not _alive(my):
+		return
+	note("fate accept (no choice) " + str(af.fate))
+	var ev := Rules.fate_trial_choice(st, "offer")
+	await G.view.play_events(ev)   # 카드가 들려 실이 팽팽 → 데스신 → 유품 → 「짓밟힘」
+	await G.view.fate_freeze(who, false)
+	if not _alive(my):
+		return
+	# 5.4 노엘의 손에 남은 카드. 이제야 문구가 보인다
+	if st.cards.has(uid):
+		var cid: String = st.cards[uid].id
+		var cap := str(G.S.deathCardShown).replace("{card}", Rules.card_name(cid)).replace("{text}", Rules.card_text(cid))
+		await G.scenes.card_gain([uid], "note", cap)
+		await G.guide.fire("afterDeath", {"card": cid})
+	if not _alive(my):
+		return
+	await G.view.reactions(who)
+	await G.view.play_events(Rules.fate_end_battle(st, str(af.fate)))
+
+
 ## 전투 결과 처리. 이겼으면(물러났으면) true
 func after_result(my: int) -> bool:
 	var b: Dictionary = st.battle
@@ -597,7 +479,7 @@ func after_result(my: int) -> bool:
 			note("giant appears")
 			return await battle("giant", false, my)
 		"retreat":
-			note("retreat → escape")
+			note("retreat")
 			return true
 		"win":
 			note("win " + str(b.enc))
@@ -609,14 +491,7 @@ func after_result(my: int) -> bool:
 			await G.view.play_events(ev)
 			return true
 		"lose":
-			note("wipe " + str(b.kind))
-			if b.kind == "giant":
-				# 카드를 내지 않은 미래 (대본 5.7): 붉게 번진 화면이 유리처럼 깨지고 되돌아간다
-				await G.scenes.rewind()
-				if not _alive(my):
-					return false
-				in_battle = false
-				return await battle("giant", true, my)
+			note("wipe " + str(b.enc))
 			await FX.fade(1, 600)
 			G.dialog.clear()
 			in_battle = false
@@ -629,8 +504,8 @@ func after_result(my: int) -> bool:
 
 
 # ───────── 시험용 바로 가기 ─────────
-## scene: title | camp | cult | normal | fork | corpse | rest | train | stairs | deep | giant | emptycamp
-##        | floor2 (2층 회랑) | ossuary | f2stairs | floor3 (3층, brun=alive|dead) | pyre | result | topdown (갈림길 탑뷰 시험판)
+## scene: title | camp | corridor(=normal) | hall | map | room:<방 id>(또는 방 id: prayer · gravekeeper · buried · corpse · chapel · training · stall
+##        · footprints · stairs · deep) | giant | emptycamp | floor2 | ossuary | f2stairs | floor3 (brun=alive|dead) | pyre | result
 func jump(scene: String, opts := {}) -> void:
 	flow += 1
 	var my := flow
@@ -641,39 +516,46 @@ func jump(scene: String, opts := {}) -> void:
 	busy = false
 	FX.set_fade(0)
 	new_game()
-	if opts.has("sera"):
-		st.flags.sera = opts.sera
 	var brun := str(opts.get("brun", G.params.get("brun", "alive")))
+	var room := scene.trim_prefix("room:")
+	if room != scene or (Rules.room_def(st, room).size() > 0 and not room in ["camp", "corridor", "hall"]):
+		# 지도의 방 하나부터: 그 방까지 지나온 상태(안치 홀까지 + 필요하면 기도실·계단 앞 홀)로 만들고, 그 방 → 지도로
+		_prep_map(room)
+		Rules.enter_room(st, room)
+		if await _room(room, my) and _alive(my):
+			if bool(Rules.room_def(st, room).get("end", false)):
+				await run_from("emptycamp", my)
+			else:
+				await run_from("map", my)
+		return
 	match scene:
 		"title":
 			G.scenes.title()
 		"camp":
 			await start_tutorial()
-		"cult", "fork", "deep", "emptycamp":
-			if scene == "emptycamp":
-				_tutorial_done_state(false)
-			await run_from(scene, my)
-		"normal":
-			_visit("hall")
-			if await battle("normal", false, my):
-				await run_from("fork", my)
-		"corpse", "rest", "train":
-			st.flags.path = scene
-			stage = "event:" + scene
-			await G.scenes.vn(scene)
-			if _alive(my):
-				await G.scenes.vn("stairs")
-			if _alive(my):
-				await run_from("deep", my)
-		"stairs":
-			await G.scenes.vn("stairs")
-			if _alive(my):
-				await run_from("deep", my)
+		"corridor", "normal":
+			await run_from("corridor", my)
+		"hall":
+			Rules.enter_room(st, "corridor")
+			await run_from("hall", my)
+		"map":
+			_prep_map("")
+			await run_from("map", my)
 		"giant":
-			if await battle("giant", false, my):
-				await G.scenes.escape()
+			_prep_map("deep")
+			Rules.enter_room(st, "deep")
+			if await battle("giant", false, my) and _alive(my):
+				await FX.fade(1, 600)
+				if st.battle != null:
+					Rules.finish_battle(st)
+				in_battle = false
+				G.view.clear()
+				await run_from("emptycamp", my)
+		"emptycamp":
+			_tutorial_done_state()
+			await run_from("emptycamp", my)
 		"floor2", "ossuary", "f2stairs":
-			st = Rules.state_after_tutorial(seed, str(opts.get("sera", "none")))
+			st = Rules.state_after_tutorial(seed)
 			await run_from({"floor2": "f2corridor", "ossuary": "f2ossuary", "f2stairs": "f2stairs"}[scene], my)
 		"floor3", "pyre":
 			st = Rules.state_floor3(seed, brun)
@@ -681,19 +563,26 @@ func jump(scene: String, opts := {}) -> void:
 		"result":
 			st = Rules.state_floor3(seed, brun)
 			await run_from("result", my)
-		"ending":
-			await run_from("chapter1", my)
-		"topdown":
-			stage = "topdown"
-			await G.scenes.topdown()
 
 
-## 바로 가기용: 세라피나가 죽은 뒤(빈 캠프 직전) 상태 — 유품·짓밟힘
-func _tutorial_done_state(with_fate: bool) -> void:
-	var s := Rules.state_after_tutorial(seed, str(st.get("flags", {}).get("sera", "none")))
-	if not with_fate:
-		# 빈 캠프에서 운명이 들어오므로 지운다
-		s.fates = []
-		s.party.deathCards = []
-		s.progress.floor = 1
+## 바로 가기용: 지도를 그 방 앞까지 지나온 상태로 (지도 안내는 본 것으로)
+func _prep_map(room: String) -> void:
+	for r in ["corridor", "hall"]:
+		Rules.enter_room(st, r)
+	st.flags.mapSeen = true
+	var need := []
+	if room == "gravekeeper":
+		need = ["prayer"]
+	elif room in ["chapel", "training", "footprints", "deep"]:
+		need = ["stairs"]
+	for r in need:
+		Rules.enter_room(st, r)
+
+
+## 바로 가기용: 세라피나가 죽은 뒤(빈 캠프 직전) 상태 — 유품·짓밟힘. 빈 캠프에서 브룬힐드의 운명이 들어온다
+func _tutorial_done_state() -> void:
+	var s := Rules.state_after_tutorial(seed)
+	s.fates = s.fates.filter(func(f): return f.id == "hero_stomp")
+	s.party.deathCards = []
+	s.progress.floor = 1
 	st = s

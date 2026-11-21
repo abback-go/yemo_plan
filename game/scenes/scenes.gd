@@ -1,5 +1,6 @@
-## scenes.gd — 타이틀 / 비주얼노벨(캠프·이벤트·계단·빈 캠프) / 탐색 / 용사 사망 컷신(C1~C6) / 탈출 / 종료 / 전멸 / 카드를 내지 않은 미래.
-## HTML 판 scenes.js 를 옮기고 탐색·이벤트·빈 캠프·되감기 연출을 더했다. 장면은 하나씩만 열린다(current).
+## scenes.gd — 타이틀 / 비주얼노벨(캠프·방·빈 캠프) / 용사 사망 컷신(C1~C6) / 전멸 / 운명의 시도·카드 획득·카드 고르기 / 층 끝 / 결과 요약.
+## HTML 판 scenes.js 를 옮겼다. 장면은 하나씩만 열린다(current) — 지도(FloorMap)도 장면 하나. 운명 선택·카드 획득·카드 고르기는 지금 장면 위에 덮는다.
+## (버티컬 슬라이스에서 탑뷰·1인칭 탐색·탈출 화면·"카드를 내지 않은 미래" 되감기는 없앴다 — DECISIONS.md)
 class_name Scenes
 extends Node2D
 
@@ -139,57 +140,6 @@ func vn(name: String) -> void:
 		clear()
 
 
-# ───────── 탐색 ─────────
-## 1층 전투 뒤: 걸어 들어가는 연출만 (고를 길 없음)
-func walk_in(place: String) -> void:
-	var e := ExploreScene.new()
-	e.setup(place)
-	mount(e, "explore:" + place)
-	await FX.fade(0, 500)
-	await FX.wait(700)
-	if current != e:
-		return
-	var to: Array = e.conf.get("walkTo", [960, 470])
-	await e.walk(Vector2(to[0], to[1]))
-	if current == e:
-		clear()
-
-
-## 길을 고르고 걸어 들어갈 때까지. 반환: 고른 길
-func explore(place: String) -> String:
-	var e := ExploreScene.new()
-	e.setup(place)
-	mount(e, "explore:" + place)
-	await FX.fade(0, 500)
-	if current != e:
-		return ""
-	# 처음 지도가 열릴 때 (대본 3.1)
-	if not G.ctl.st.flags.get("mapSeen", false):
-		G.ctl.st.flags.mapSeen = true
-		await FX.wait(300)
-		await e.open_map(true)
-		if current != e:
-			return ""
-	await G.guide.fire("exploreShown", {"explore": place})
-	if current != e:
-		return ""
-	var id: String = await e.choose()
-	G.ctl.note("path " + id)
-	if current == e:
-		clear()
-	return id
-
-
-# ───────── 탑뷰 이동 시험판 (?scene=topdown, 튜토리얼 흐름과 따로) ─────────
-func topdown() -> void:
-	G.ctl.in_battle = false
-	G.view.clear()
-	var t := TopdownScene.new()
-	t.setup("fork", {"trial": true})
-	mount(t, "topdown")
-	await t.run()
-
-
 # ───────── 용사 사망 컷신 C1~C6 ─────────
 func _cut_lines(c: Dictionary) -> Array:
 	var out := []
@@ -198,12 +148,7 @@ func _cut_lines(c: Dictionary) -> Array:
 		var lv_lines: Dictionary = dl.get("lv%d" % cut_level, {})
 		return lv_lines.get(c.id, dl.get("lines", {}).get(c.id, []))
 	for ln in G.S.cutLines.get(c.id, []):
-		if ln.get("sera", false):
-			var key := str(G.ctl.st.flags.get("sera", "none"))
-			for t in G.S.seraLast.get(key, G.S.seraLast.none):
-				out.append({"who": "hero", "text": t})
-		else:
-			out.append(ln)
+		out.append(ln)
 	return out
 
 
@@ -466,87 +411,7 @@ func close_cutscene(delay := 0.0) -> void:
 			current_name = ""
 
 
-# ───────── 탈출 → (빈 캠프) ─────────
-func escape() -> void:
-	await FX.fade(1, 900)
-	G.ctl.in_battle = false
-	G.dialog.clear()
-	var root := Control.new()
-	root.size = Vector2(1920, 1080)
-	root.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bk := ColorRect.new()
-	bk.color = Color.BLACK
-	bk.size = root.size
-	root.add_child(bk)
-	var t := UI.label(G.S.escape.title, 96, Color("#e9dcde"), "serif_wide", HORIZONTAL_ALIGNMENT_CENTER)
-	t.add_theme_constant_override("outline_size", 0)
-	t.position = Vector2(0, 470)
-	t.size = Vector2(1920, 140)
-	t.modulate.a = 0.0
-	root.add_child(t)
-	mount(root, "escape")
-	G.view.clear()
-	await FX.fade(0, 200)
-	var a := FX.anim(800, [{"a": 0.0}, {"a": 1.0}], func(v): t.modulate.a = v.a, {"node": t})
-	await FX.until(a)
-	await FX.wait(1900)
-	var b := FX.anim(800, [{"a": 1.0}, {"a": 0.0}], func(v): t.modulate.a = v.a, {"node": t})
-	await FX.until(b)
-	await FX.fade(1, 300)
-
-
-# ───────── 종료 ─────────
-func ending() -> void:
-	G.ctl.in_battle = false
-	G.view.clear()
-	var e: Dictionary = G.S.ending
-	var root := Control.new()
-	root.size = Vector2(1920, 1080)
-	root.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bk := ColorRect.new()
-	bk.color = Color.BLACK
-	bk.size = root.size
-	root.add_child(bk)
-	var u := minf(FX.ui, 1.4)
-	var h := UI.label(e.title, int(76 * u), Color("#e9dcde"), "serif_wide", HORIZONTAL_ALIGNMENT_CENTER)
-	h.position = Vector2(0, 250)
-	h.size = Vector2(1920, 110)
-	root.add_child(h)
-	var y := 400.0
-	var ps := []
-	for ln in e.lines:
-		var p := UI.label(ln, int(34 * u), Color("#bfb2b4"), "serif", HORIZONTAL_ALIGNMENT_CENTER)
-		p.position = Vector2(0, y)
-		p.size = Vector2(1920, 60)
-		p.modulate.a = 0.0
-		root.add_child(p)
-		ps.append(p)
-		y += 64 * u
-	var inner := UI.label(e.inner, int(34 * u), Color("#d8a9b4"), "serif", HORIZONTAL_ALIGNMENT_CENTER)
-	inner.position = Vector2(0, y + 30)
-	inner.size = Vector2(1920, 60)
-	inner.modulate.a = 0.0
-	root.add_child(inner)
-	ps.append(inner)
-	var b := UI.button(e.button, int(32 * u), func(): G.ctl.start_tutorial())
-	b.fit(Vector2(64, 16))
-	b.position = Vector2(960 - b.size.x / 2.0, y + 150)
-	b.modulate.a = 0.0
-	b.name = "again"
-	root.add_child(b)
-	mount(root, "ending")
-	G.ctl.stage = "ending"
-	G.ctl.note("ending")
-	if G.params.has("quit-on-end"):
-		get_tree().create_timer(1.0).timeout.connect(func(): get_tree().quit(0))
-	FX.fade(0, 400)
-	for i in ps.size():
-		var p: Control = ps[i]
-		FX.anim(1200, [{"a": 0.0}, {"a": 1.0}], func(v): if is_instance_valid(p): p.modulate.a = v.a, {"node": p, "delay": 500 + i * 1400})
-	FX.anim(1000, [{"a": 0.0}, {"a": 1.0}], func(v): if is_instance_valid(b): b.modulate.a = v.a, {"node": b, "delay": 500 + ps.size() * 1400})
-
-
-# ───────── 전멸 (1층·2층 광신도 전투) ─────────
+# ───────── 전멸 (어느 전투든 — 그 전투 처음부터) ─────────
 func wipe(kind: String) -> void:
 	var w: Dictionary = G.S.wipe.get(kind, G.S.wipe.normal)
 	var root := Control.new()
@@ -579,129 +444,6 @@ func wipe(kind: String) -> void:
 		clear()
 
 
-# ───────── 카드를 내지 않은 미래 (대본 5.7) ─────────
-## 짓밟기로 전멸 → 화면이 피처럼 붉게 번지다가 유리처럼 깨지며 거대 존재 전투 1턴 직전으로 돌아간다
-func rewind() -> void:
-	G.ctl.note("rewind")
-	G.dialog.clear()
-	var root := Control.new()
-	root.size = Vector2(1920, 1080)
-	root.mouse_filter = Control.MOUSE_FILTER_STOP
-	mount(root, "rewind")
-	var red := RedBleed.new()
-	root.add_child(red)
-	var a := FX.anim(1300, [{"k": 0.0}, {"k": 1.0}], func(v): red.k = v.k; red.queue_redraw(), {"node": red, "easing": "ease-in"})
-	await FX.until(a)
-	await FX.wait(300)
-	if current != root:
-		return
-	# 지금 화면을 찍어 유리 조각으로 깨뜨린다
-	var img: Image = null
-	if DisplayServer.get_name() != "headless":
-		await RenderingServer.frame_post_draw
-		img = get_viewport().get_texture().get_image()
-	var tex := ImageTexture.create_from_image(img) if img else null
-	var glass := GlassShatter.new()
-	glass.tex = tex
-	glass.vp_size = Vector2(img.get_size()) if img else Vector2(1920, 1080)
-	# 무대(1920×1080) → 찍은 그림 픽셀: 비율 유지(검은 여백) 배치와 같게
-	var vs := glass.vp_size
-	var sk := minf(vs.x / 1920.0, vs.y / 1080.0)
-	glass.stage_xf = Transform2D(0.0, Vector2(sk, sk), 0.0, (vs - Vector2(1920, 1080) * sk) / 2.0)
-	root.add_child(glass)
-	red.visible = false
-	var bk := ColorRect.new()
-	bk.color = Color.BLACK
-	bk.size = root.size
-	root.add_child(bk)
-	root.move_child(bk, 0)
-	FX.flash("#ffffff", 200, 0.5)
-	FX.shake(10, 300)
-	G.ctl.note("rewind glass")
-	var b := FX.anim(1400, [{"k": 0.0}, {"k": 1.0}], func(v): glass.k = v.k; glass.queue_redraw(), {"node": glass, "easing": "ease-in"})
-	await FX.until(b)
-	FX.set_fade(1)
-	if current == root:
-		clear()
-
-
-class RedBleed extends Control:
-	var k := 0.0
-	var blobs := []
-
-	func _ready() -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		size = Vector2(1920, 1080)
-		for i in 26:
-			blobs.append({"p": Vector2(randf() * 1920, randf() * 1080), "r": 120 + randf() * 260, "d": randf() * 0.5})
-
-	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0.45, 0.0, 0.04, 0.55 * k))
-		for b in blobs:
-			var kk := clampf((k - float(b.d)) / 0.5, 0.0, 1.0)
-			if kk <= 0:
-				continue
-			for i in 4:
-				draw_circle(b.p, float(b.r) * kk * (1.0 - i * 0.18), Color(0.5, 0.0, 0.05, 0.16))
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0.3, 0.0, 0.02, 0.4 * k * k))
-
-
-class GlassShatter extends Control:
-	var tex: Texture2D
-	var vp_size := Vector2(1920, 1080)
-	var stage_xf := Transform2D.IDENTITY
-	var k := 0.0
-	var shards := []
-
-	func _ready() -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		size = Vector2(1920, 1080)
-		# 깨지는 점(가운데 약간 위)에서 퍼지는 금 → 조각
-		var c := Vector2(960, 470)
-		var rings := [0.0, 140.0, 360.0, 700.0, 1300.0]
-		var spokes := 14
-		var pts := []
-		for ri in rings.size():
-			var row := []
-			for s in spokes:
-				var ang := s * TAU / spokes + (randf() - 0.5) * 0.25
-				var rr: float = rings[ri] * (0.85 + randf() * 0.3)
-				row.append(c + Vector2.from_angle(ang) * rr)
-			pts.append(row)
-		for ri in range(1, rings.size()):
-			for s in spokes:
-				var s2 := (s + 1) % spokes
-				var poly := PackedVector2Array([pts[ri - 1][s], pts[ri][s], pts[ri][s2], pts[ri - 1][s2]])
-				if ri == 1:
-					poly = PackedVector2Array([c, pts[1][s], pts[1][s2]])
-				var ctr := Vector2.ZERO
-				for p in poly:
-					ctr += p
-				ctr /= poly.size()
-				shards.append({"poly": poly, "c": ctr, "v": (ctr - c).normalized() * (200 + randf() * 600) + Vector2(0, -100 - randf() * 200), "rot": (randf() - 0.5) * 3.0, "d": randf() * 0.25})
-
-	func _draw() -> void:
-		if tex == null:
-			return
-		var inv := stage_xf
-		for sh in shards:
-			var kk := clampf((k - float(sh.d)) / (1.0 - float(sh.d)), 0.0, 1.0)
-			var off: Vector2 = sh.v * kk + Vector2(0, 900) * kk * kk
-			var rot: float = sh.rot * kk
-			var pts := PackedVector2Array()
-			var uvs := PackedVector2Array()
-			for p in sh.poly:
-				var q: Vector2 = (p - sh.c).rotated(rot) + sh.c + off
-				pts.append(q)
-				var sp: Vector2 = inv * p
-				uvs.append(Vector2(sp.x / vp_size.x, sp.y / vp_size.y))
-			var col := Color(1, 1, 1, 1.0 - kk * 0.8)
-			draw_polygon(pts, PackedColorArray([col, col, col, col].slice(0, pts.size())), uvs, tex)
-			var loop := pts.duplicate()
-			loop.append(pts[0])
-			draw_polyline(loop, Color(1, 0.85, 0.85, 0.5 * (1.0 - kk)), 1.5, true)
-
-
 # ───────── 1차 시험판 v2: 운명의 시도 · 카드 획득 · 층 끝 · 결과 요약 ─────────
 ## 지금 장면 위에 덮는 화면을 단다 (탑뷰·전투를 지우지 않는다)
 func _overlay(root: Control, name: String) -> void:
@@ -721,7 +463,7 @@ func _overlay_close(root: Control, ms := 300.0) -> void:
 		root.queue_free()
 
 
-## 자동 진행·시험: 운명의 시도에서 고를 것 (?fates=offer,defy,… 차례대로 / 없으면 defy)
+## 자동 진행·시험: 운명의 시도에서 고를 것 (?fates=offer(=accept),defy,… 차례대로 / 없으면 defy)
 var fate_auto: Array = []
 var fate_auto_i := 0
 var fate_picker: Dictionary = {}
@@ -732,11 +474,12 @@ func _auto_fate() -> String:
 		fate_auto = str(G.params.fates).split(",", false)
 	if fate_auto_i < fate_auto.size():
 		fate_auto_i += 1
-		return str(fate_auto[fate_auto_i - 1])
+		var v := str(fate_auto[fate_auto_i - 1])
+		return "offer" if v == "accept" else v
 	return "defy"
 
 
-## 운명의 시도 선택 화면: 죽음 카드(Lv)와 두 버튼 [카드를 낸다 — {이름}을(를) 바친다] [거스른다 — 운명을 비튼다 (흉터 n)]. 반환: offer | defy
+## 운명의 시도 선택 화면: 죽음 카드(Lv)와 두 버튼 [받아들인다 — {이름}의 죽음] [거스른다 — 운명을 비튼다 (흉터 n)]. 반환: offer(받아들임) | defy
 func fate_choice(fate: Dictionary) -> String:
 	var st: Dictionary = G.ctl.st
 	var F: Dictionary = G.S.fate
@@ -784,7 +527,7 @@ func fate_choice(fate: Dictionary) -> String:
 		y += b.size.y + 36
 		root.add_child(b)
 		btns.append(b)
-	var sub := UI.label(str(F.defyNote).replace("{n}", str(n_scar)), int(22 * u), Color("#c9a9ad"), "sans", HORIZONTAL_ALIGNMENT_LEFT)
+	var sub := UI.label(str(F.defyNote).replace("{n}", str(n_scar)).replace("{name}", name), int(22 * u), Color("#c9a9ad"), "sans", HORIZONTAL_ALIGNMENT_LEFT)
 	sub.position = Vector2(866, y + 4)
 	sub.size = Vector2(980, 40)
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -838,7 +581,25 @@ func pick_fate(value: String) -> bool:
 	return true
 
 
-## 카드 획득 연출(상속 카드·흉터): 카드가 떠오르며 커졌다가 덱(왼쪽 아래)으로 들어간다. kind: inherit | scar
+## 카드 고르기(전투 보상 3장 중 1장 — 지금 장면(전투 화면) 위에 덮는다). 반환: 고른 번호(-1 = 넘김). auto: 자동 진행에서 고를 것
+var picker: CardPick = null
+
+
+func card_pick(items: Array, title: String, hint := "", skip := "", auto := "") -> int:
+	var root := Control.new()
+	root.size = Vector2(1920, 1080)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	_overlay(root, "cardPick")
+	var pk := CardPick.new()
+	root.add_child(pk)
+	picker = pk
+	var i := await pk.run(items, title, hint, skip, auto)
+	picker = null
+	await _overlay_close(root, 250)
+	return i
+
+
+## 카드 획득 연출(상속 카드·흉터·방에서 얻은 카드): 카드가 떠오르며 커졌다가 덱(왼쪽 아래)으로 들어간다. kind: inherit | scar | note(보여 주기만)
 func card_gain(uids: Array, kind := "inherit", caption := "", sub := "") -> void:
 	var st: Dictionary = G.ctl.st
 	if uids.is_empty():

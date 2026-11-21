@@ -1,5 +1,6 @@
 ## 규칙 단위 테스트 (헤드리스) — prototype/tests/rules.test.js 를 옮기고, 이번에 더한 규칙(1층 완전 종료·2층·휴식·훈련)과
 ## 데이터 검사(글꼴에 대사 글자가 모두 있는지, 손 들기 카드 자리 = json)를 더했다.
+## 버티컬 슬라이스(2026-11-21): 뒤집힌 죽음 카드·운명(받아들인다/거스른다)·지도·촛불·어둠·방 보상 시험을 더했다.
 ##   cd game && godot --headless --import   (처음 한 번)
 ##   godot --headless --path game --script res://tests/test_rules.gd
 ## 마지막 줄 "rules: N passed, failures: M" — M 이 0 이어야 통과(종료 코드도 0).
@@ -87,10 +88,10 @@ func _init() -> void:
 	t_floor2_all()
 	t_endturn()
 	t_giant_hand()
-	t_locked_floor1()
-	t_locked_persist()
-	t_unlock_giant()
-	t_run2_unlocked()
+	t_face_down_floor1()
+	t_face_down_persist()
+	t_giant_stomp_fate()
+	t_death_unplayable()
 	t_immune()
 	t_countdown()
 	t_death()
@@ -105,6 +106,15 @@ func _init() -> void:
 	t_data()
 	t_topdown()
 	t_fate_v2()
+	t_map()
+	t_candles()
+	t_darkness()
+	t_lantern_carry()
+	t_rewards()
+	t_trade_event()
+	t_nameless()
+	t_charm()
+	t_retry_hp()
 	print("rules: %d passed, failures: %d" % [passes, fails])
 	quit(1 if fails > 0 else 0)
 
@@ -279,8 +289,8 @@ func t_giant_hand() -> void:
 	check("거대 존재: 1턴에 죽음 카드 + 4장, 맨 오른쪽, 손패에 보존", ok1 and ok2 and st.battle.hand.size() == 5 and hand_ids(st).count("hero_death") == 1, str(h))
 
 
-# ───────── 잠긴 죽음 카드 (대본 v0.5 1.1) ─────────
-func t_locked_floor1() -> void:
+# ───────── 뒤집힌 죽음 카드 (대본 v3 1장, 2026-11-21 죽음 카드 컨셉 변경) ─────────
+func t_face_down_floor1() -> void:
 	var st := normal_battle()
 	var death := find_in_hand(st, "hero_death")
 	var chk := Rules.can_play(st, death)
@@ -290,13 +300,11 @@ func t_locked_floor1() -> void:
 	var kept: bool = hand_ids(st) == ["hero_death"]
 	Rules.start_turn(st)
 	var t2 := hand_ids(st)
-	var chk2 := Rules.can_play(st, death)
-	check("1층: 죽음 카드는 잠겨 낼 수 없다(손패에 남음·에너지 그대로), 턴이 끝나도 보존, 2턴도 4장 + 잠김",
-		not chk.ok and chk.get("locked", false) and not r.ok and still and kept and t2.size() == 5 and t2[4] == "hero_death"
-		and not chk2.ok and chk2.get("locked", false) and Rules.is_locked(st, death), str(t2))
+	check("1층: 세라피나의 죽음 카드는 뒤집힌 채 손패 맨 오른쪽(낼 수 없음·에너지 그대로), 턴이 끝나도 보존, 2턴도 4장 + 뒤집힘",
+		Rules.is_face_down(st, death) and not chk.ok and chk.reason == "낼 수 없는 카드" and not r.ok and still and kept and t2.size() == 5 and t2[4] == "hero_death"
+		and Rules.is_face_down(st, death), str(t2))
 
-
-func t_locked_persist() -> void:
+func t_face_down_persist() -> void:
 	var st := normal_battle()
 	var death := find_in_hand(st, "hero_death")
 	Rules.debug_win(st)
@@ -307,33 +315,45 @@ func t_locked_persist() -> void:
 	var in_hand: bool = st.battle.hand == [death]
 	Rules.start_turn(st)
 	var h := hand_ids(st)
-	var locked: bool = Rules.is_locked(st, death) and not Rules.can_play(st, death).ok
-	check("1층 승리 후에도 죽음 카드는 덱과 따로 남고, 2층 전투도 처음부터 손패(잠김) + 4장",
-		win and kept and in_hand and h.size() == 5 and h[4] == "hero_death" and locked, str(h))
+	check("1층 승리 후에도 죽음 카드는 덱과 따로 남고, 깊은 곳 전투도 처음부터 손패(뒤집힘) + 4장",
+		win and kept and in_hand and h.size() == 5 and h[4] == "hero_death" and Rules.is_face_down(st, death) and not Rules.can_play(st, death).ok, str(h))
 
-
-func t_unlock_giant() -> void:
-	var st := Rules.new_game(7)
-	Rules.start_battle(st, "giant")
+## 거대한 발 3턴 「짓밟기」 = 세라피나의 운명(거스를 수 없음): 운명의 시도 → 뒤집힘 → 받아들임(사망·유품·짓밟힘) → 전투가 끝남(물러남)
+func t_giant_stomp_fate() -> void:
+	var st := giant_battle()
 	var death := find_in_hand(st, "hero_death")
-	var before: bool = Rules.is_locked(st, death)
-	var ev := Rules.start_turn(st)
-	var unlock_ev := false
-	for e in ev:
-		if e.t == "unlock" and e.uid == death:
-			unlock_ev = true
-	check("거대 존재 전투 1턴 시작에 자물쇠가 풀린다(unlock 이벤트) → 낼 수 있다",
-		before and unlock_ev and not Rules.is_locked(st, death) and Rules.can_play(st, death).ok)
-
-
-func t_run2_unlocked() -> void:
-	var st := Rules.new_game(7)
-	st.run = 2
-	Rules.start_battle(st, "normal")
+	Rules.end_turn(st)
 	Rules.start_turn(st)
-	var death := find_in_hand(st, "hero_death")
-	check("2회차 이후(st.run > deathLockRuns)에는 잠금이 걸리지 않는다", not Rules.is_locked(st, death) and Rules.can_play(st, death).ok)
+	Rules.end_turn(st)
+	Rules.start_turn(st)
+	var it = Rules.enemy(st, "giant").intent
+	var ok_it: bool = it.kind == "stomp" and str(it.get("fate", "")) == "hero_stomp" and it.target == "all" and not Rules.hideable(it)
+	var ev := Rules.end_turn(st)
+	var trial: bool = has_ev(ev, "fateTrial") and st.battle.awaitFate != null and st.battle.awaitFate.who == "hero" and st.battle.result == null
+	var others_ok: bool = st.party.allies.warrior.hp > 0 and st.party.allies.archer.hp > 0 and st.party.witch.hp > 0
+	var no_defy: bool = Rules.defy_fate(st, "hero_stomp").is_empty() and not Rules.can_defy("hero_stomp")
+	var fl := Rules.flip_card(st, death)
+	var flipped: bool = has_ev(fl, "flip") and not Rules.is_face_down(st, death)
+	var ev2 := Rules.fate_trial_choice(st, "defy")   # 튜토리얼은 거스를 수 없다 → 늘 받아들인다
+	var all_ids := ids(st, st.cards.keys())
+	var tr := find_in_hand(st, "trample")
+	var dead: bool = st.party.allies.hero.status == "dead" and has_ev(ev2, "allyDeath") and all_ids.count("holy_slash") + all_ids.count("vanguard") == 0 \
+		and all_ids.count("broken_sword") == 2 and all_ids.count("last_charge") == 1 and tr != "" and st.party.deck.has(tr) and st.party.deathCards.is_empty() \
+		and Rules.fate_by_id(st, "hero_stomp").result == "offered" and Rules.scar_count(st) == 0
+	var ev3 := Rules.fate_end_battle(st, "hero_stomp")
+	check("거대한 발 3턴 「짓밟기」: 운명의 시도(세라피나, 다른 동료는 멀쩡) → 카드가 뒤집힘 → 거스를 수 없어 받아들임 → 사망·유품 3장·「짓밟힘」 → 물러남",
+		ok_it and trial and others_ok and no_defy and flipped and dead and has_ev(ev3, "retreat") and st.battle.result == "retreat", str(it))
 
+## 죽음 카드는 어느 층에서도 낼 수 없다 (미리 보여 주는 카드 — 카드를 내서 죽이는 방식은 없앴다)
+func t_death_unplayable() -> void:
+	var st := Rules.state_floor3(7, "alive")
+	Rules.start_battle(st, "pyre")
+	Rules.start_turn(st)
+	var bad := []
+	for u in st.battle.hand:
+		if Rules.def(st, u).kind == "death" and (Rules.can_play(st, u).ok or Rules.play(st, u, {}).ok):
+			bad.append(st.cards[u].id)
+	check("죽음 카드(2·3층 포함)는 낼 수 없다 — 손패 한 칸만 차지", bad.is_empty() and hand_ids(st).count("warrior_death") == 1 and hand_ids(st).count("archer_death") == 1, str(bad))
 
 func t_immune() -> void:
 	var st := giant_battle()
@@ -357,37 +377,35 @@ func t_countdown() -> void:
 	var hp: bool = st.party.witch.hp == 10 and st.party.allies.hero.hp == 25 and st.party.allies.archer.hp == 7
 	Rules.start_turn(st)
 	var k3: bool = Rules.enemy(st, "giant").intent.kind == "stomp"
-	var ev := Rules.end_turn(st)
+	# 세라피나의 운명이 이미 끝났다면(바로 가기 등) 짓밟기는 예전처럼 모두를 덮친다
+	var st2 := st.duplicate(true)
+	Rules.fate_by_id(st2, "hero_stomp").alive = false
+	Rules.enemy(st2, "giant").intent.erase("fate")
+	var ev := Rules.end_turn(st2)
 	var stomp := false
 	for e in ev:
 		if e.t == "battleEnd" and e.reason == "stomp":
 			stomp = true
-	check("거대 존재: 3턴 카운트다운 — 그림자 → 기둥 붕괴(전원 5) → 짓밟기(전멸)", k1 and s1 and k2 and hp and k3 and st.battle.result == "lose" and stomp)
-
+	check("거대한 발: 3턴 카운트다운 — 그림자 → 기둥 붕괴(전원 5) → 짓밟기 (운명이 없으면 전멸)", k1 and s1 and k2 and hp and k3 and st2.battle.result == "lose" and stomp)
 
 func t_death() -> void:
 	var st := giant_battle()
-	st.battle.energy = 0
 	var death := find_in_hand(st, "hero_death")
 	var idx: int = st.battle.hand.find(death)
-	var r := Rules.play(st, death, {})
-	var all_ids := ids(st, st.cards.keys())
+	var ev := Rules.offer_fate(st, "hero_stomp")
 	var tr := find_in_hand(st, "trample")
-	var ok: bool = r.ok and st.party.allies.hero.status == "dead" and all_ids.count("holy_slash") + all_ids.count("vanguard") == 0 \
-		and all_ids.count("broken_sword") == 2 and all_ids.count("last_charge") == 1 and tr != "" and st.battle.hand.find(tr) == idx \
-		and Rules.cost(st, tr) == 0 and st.party.deck.has(tr) and st.party.deck.size() == 16
-	var r2 := Rules.play(st, tr, {})
-	check("죽음 카드: 비용 0 → 용사 사망, 유품 3장, 짓밟힘(이번 턴 0) → 존재가 물러남", ok and r2.ok and has_ev(r2.events, "retreat") and st.battle.result == "retreat")
-
+	check("운명을 받아들임(전투 중): 세라피나 사망 → 죽음 카드 자리에 「짓밟힘」(비용 2), 덱에도 1장",
+		has_ev(ev, "allyDeath") and st.party.allies.hero.status == "dead" and tr != "" and st.battle.hand.find(tr) == idx and Rules.cost(st, tr) == 2
+		and st.party.deck.has(tr) and st.party.deck.size() == 16 and not st.battle.hand.has(death))
 
 func t_trample_cost() -> void:
 	var st := giant_battle()
-	Rules.play(st, find_in_hand(st, "hero_death"), {})
+	Rules.offer_fate(st, "hero_stomp")
 	var tr := find_in_hand(st, "trample")
+	var c0 := Rules.cost(st, tr)
 	Rules.end_turn(st)
 	Rules.start_turn(st)
-	check("짓밟힘: 획득한 다음 턴부터는 비용 2", Rules.cost(st, tr) == 2)
-
+	check("짓밟힘: 비용 2 (얻은 턴에도 공짜가 아니다 — 튜토리얼에서 내는 장면이 없어졌다)", c0 == 2 and Rules.cost(st, tr) == 2 and Rules.card_text("trample") == "모든 적에게 15 피해")
 
 func t_relic() -> void:
 	var st := Rules.new_game(3)
@@ -472,7 +490,7 @@ func t_relic_clears_up() -> void:
 	var u := Rules.upgrade_card(st, "holy_slash")
 	Rules.start_battle(st, "giant")
 	Rules.start_turn(st)
-	Rules.play(st, find_in_hand(st, "hero_death"), {})
+	Rules.offer_fate(st, "hero_stomp")
 	check("용사 사망 시 강화한 성검 베기도 유품(부러진 성검)이 되고 + 는 사라진다", st.cards[u].id == "broken_sword" and not st.cards[u].has("up"))
 
 
@@ -632,10 +650,10 @@ func t_fate_v2() -> void:
 	# 튜토리얼 끝: 세라피나 사망, 브룬힐드 관통 Lv1 (2층)
 	var st := Rules.state_after_tutorial(7)
 	var f = Rules.fate_of(st, "warrior")
-	check("v2 튜토리얼 끝: 브룬힐드 운명 Lv1·2층, 죽음 카드 1장, 세라피나 사망·짓밟힘",
+	check("v2 튜토리얼 끝: 브룬힐드 운명 Lv1·2층, 죽음 카드 1장, 세라피나 사망(운명 받아들임)·짓밟힘",
 		f != null and f.level == 1 and f.floor == 2 and Rules.floor_now(st) == 2 and st.party.deathCards.size() == 1
 		and st.cards[st.party.deathCards[0]].id == "warrior_death" and st.party.allies.hero.status == "dead" and _deck_ids(st).has("trample")
-		and not _deck_ids(st).has("holy_slash") and _deck_ids(st).has("broken_sword"))
+		and not _deck_ids(st).has("holy_slash") and _deck_ids(st).has("broken_sword") and Rules.fate_by_id(st, "hero_stomp").result == "offered")
 	check("v2 카드 레벨 표기: 죽음 카드 Lv1, 훈련 강화는 Lv2 (+ 아님)",
 		Rules.card_name("warrior_death", false, 1) == "전사의 죽음 Lv1" and Rules.card_name("holy_slash", true) == "성검 베기 Lv2"
 		and Rules.card_name("snipe") == "저격" and Rules.card_text("warrior_death", false, Callable(), 1) == "브룬힐드는 2층에서 관통당해 죽는다.")
@@ -643,7 +661,7 @@ func t_fate_v2() -> void:
 	var a := st.duplicate(true)
 	var ev := Rules.offer_fate(a, "warrior_pierce")
 	var fa = Rules.fate_by_id(a, "warrior_pierce")
-	check("v2 바침(필드): 브룬힐드 사망, 감싸기·방패 강타 → 유품, 「꿰뚫린 방패」 Lv1 덱에, 운명 끝(offered)",
+	check("v2 받아들임(전투 밖): 브룬힐드 사망, 감싸기·방패 강타 → 유품, 「꿰뚫린 방패」 Lv1 덱에, 운명 끝(offered)",
 		a.party.allies.warrior.status == "dead" and not _deck_ids(a).has("cover") and _deck_ids(a).has("warrior_shard") and _deck_ids(a).has("warrior_last_bash")
 		and _deck_lv(a, "pierced_shield") == 1 and a.party.deathCards.is_empty() and not fa.alive and fa.result == "offered" and has_ev(ev, "allyDeath") and has_ev(ev, "gainCard")
 		and Rules.scar_count(a) == 0)
@@ -703,17 +721,18 @@ func t_fate_v2() -> void:
 	Rules.end_turn(q)
 	Rules.start_turn(q)
 	Rules.end_turn(q)
-	var evo := Rules.fate_trial_choice(q, "offer")
-	check("v2 운명의 불길 바침: 엘리안 사망 · 「타버린 활」 Lv1 덱 + 손패 · 저격 → 유품",
+	var evo := Rules.fate_trial_choice(q, "accept")
+	check("v2 운명의 불길 받아들임: 엘리안 사망 · 「타버린 활」 Lv1 덱 + 손패 · 저격 → 유품",
 		q.party.allies.archer.status == "dead" and hand_ids(q).has("burnt_bow") and _deck_lv(q, "burnt_bow") == 1 and _deck_ids(q).has("archer_arrow")
 		and has_ev(evo, "allyDeath") and not hand_ids(q).has("archer_death"))
-	# 손패의 죽음 카드를 직접 내도 같다: 브룬힐드 Lv2 → 「꿰뚫린 방패」 Lv2 (예고 모두 막기)
+	# 죽음 카드는 낼 수 없다. 브룬힐드 Lv2 운명을 받아들이면 → 「꿰뚫린 방패」 Lv2 (예고 모두 막기)
 	var r := s3.duplicate(true)
 	var wu := find_in_hand(r, "warrior_death")
 	var rr := Rules.play(r, wu, {})
+	Rules.offer_fate(r, "warrior_pierce")
 	var ps := find_in_hand(r, "pierced_shield")
-	check("v2 죽음 카드 Lv2 직접 냄: 브룬힐드 사망 · 「꿰뚫린 방패」 Lv2 손패(대상 없음)",
-		rr.ok and r.party.allies.warrior.status == "dead" and ps != "" and Rules.level(r, ps) == 2 and Rules.def(r, ps).target == "none"
+	check("v2 죽음 카드 Lv2: 낼 수 없음 → 운명을 받아들이면 브룬힐드 사망 · 「꿰뚫린 방패」 Lv2 손패(대상 없음)",
+		not rr.ok and r.party.allies.warrior.status == "dead" and ps != "" and Rules.level(r, ps) == 2 and Rules.def(r, ps).target == "none"
 		and Rules.fate_by_id(r, "warrior_pierce").result == "offered")
 	var e_before := {}
 	for e in Rules.alive_enemies(r):
@@ -809,6 +828,217 @@ func t_fate_v2() -> void:
 		if not (D.cards.has(fd.card) and D.cards.has(fd.inherit) and D.cards[fd.card].kind == "death" and fd.scars.size() == 3):
 			okd = false
 	check("v2 데이터: 운명 표의 죽음·상속 카드, 흉터 장수", okd)
+
+
+# ───────── 버티컬 슬라이스: 지도·촛불·어둠 (vertical-slice.md 5장 튜토리얼 지도 초안) ─────────
+func _map_state(seed := 7) -> Dictionary:
+	var st := Rules.new_game(seed)
+	Rules.enter_room(st, "corridor")
+	Rules.enter_room(st, "hall")
+	return st
+
+
+func t_map() -> void:
+	var st := Rules.new_game(7)
+	var M := Rules.map_def(st)
+	var spine_ok: bool = M.rooms.has("camp") and M.rooms.has("corridor") and M.rooms.has("hall") and M.rooms.has("stairs") and M.rooms.has("deep") and str(M.end) == "deep"
+	var opt := 0
+	for id in M.rooms:
+		if not M.rooms[id].get("spine", false):
+			opt += 1
+	check("지도: 정해진 길(곁방·장례 회랑·안치 홀·계단 앞 홀·가장 깊은 곳) + 골라 들어가는 방 8개", spine_ok and opt == 8, str(opt))
+	var c0: int = st.progress.candles
+	Rules.enter_room(st, "corridor")
+	Rules.enter_room(st, "hall")
+	check("지도: 랜턴을 받기 전에 지나온 방(장례 회랑·안치 홀)은 촛불이 타지 않는다", c0 == 4 and st.progress.candles == 4 and st.progress.visited.has("hall"))
+	var lk := {}
+	for id in ["prayer", "buried", "corpse", "stall", "stairs", "gravekeeper", "chapel", "training", "footprints", "deep"]:
+		lk[id] = Rules.room_state(st, id)
+	check("지도: 안치 홀에 붙은 방만 열림 — 무덤지기는 기도실 안쪽, 예배당·훈련장·발자국 방·가장 깊은 곳은 계단 앞 홀 뒤",
+		lk.prayer == "open" and lk.buried == "open" and lk.corpse == "open" and lk.stall == "open" and lk.stairs == "open"
+		and lk.gravekeeper == "locked" and lk.chapel == "locked" and lk.training == "locked" and lk.footprints == "locked" and lk.deep == "locked"
+		and not Rules.enter_room(st, "deep").ok, str(lk))
+	Rules.enter_room(st, "prayer")
+	var g_open := Rules.room_state(st, "gravekeeper") == "open"
+	Rules.enter_room(st, "stairs")
+	var d_open := Rules.room_state(st, "deep") == "open" and Rules.room_state(st, "chapel") == "open"
+	var c1: int = st.progress.candles
+	var back := Rules.enter_room(st, "hall")
+	check("지도: 지나간 방은 공짜로 지나간다(촛불 그대로), 기도실을 지나면 무덤지기·계단 앞 홀을 지나면 깊은 곳이 열린다",
+		g_open and d_open and back.ok and not back.first and st.progress.candles == c1 and c1 == 2 and st.progress.room == "hall")
+
+
+func t_candles() -> void:
+	var st := _map_state()
+	var seq := []
+	for id in ["prayer", "buried", "corpse", "stall"]:
+		var r := Rules.enter_room(st, id)
+		seq.append(int(r.candles))
+	var d0: int = st.progress.darkness
+	var r5 := Rules.enter_room(st, "stairs")
+	var r6 := Rules.enter_room(st, "gravekeeper")
+	var r7 := Rules.enter_room(st, "prayer")
+	check("촛불: 처음 들어가는 방마다 1개(4 → 0), 다 탄 뒤 처음 들어가는 방마다 어둠 +1, 지나간 방은 그대로",
+		seq == [3, 2, 1, 0] and d0 == 0 and r5.dark == 1 and r6.dark == 1 and st.progress.darkness == 2 and r7.dark == 0 and not r7.first, str(seq))
+
+
+func t_darkness() -> void:
+	var st := _map_state()
+	st.progress.darkness = 1
+	var lv := {}
+	for enc in ["normal", "prayer", "gravekeeper", "deep", "giant", "ossuary"]:
+		lv[enc] = Rules.darkness_level(st, enc)
+	check("어둠: 층 끝 전투(깊은 곳·거대한 발)·강적 전투에만 — 일반 전투·2층은 가려지지 않는다",
+		lv.normal == 0 and lv.prayer == 0 and lv.gravekeeper == 1 and lv.deep == 1 and lv.giant == 1 and lv.ossuary == 0, str(lv))
+	st.progress.omen = true
+	check("전조를 보면 그 층 끝 전투는 어둠이 와도 가려지지 않는다(강적 전투는 그대로)",
+		Rules.darkness_level(st, "deep") == 0 and Rules.darkness_level(st, "giant") == 0 and Rules.darkness_level(st, "gravekeeper") == 1)
+	st.progress.omen = false
+	# 어둠 단계만큼 예고가 '?'
+	var counts := []
+	for d in [0, 1, 2, 5]:
+		var s2 := st.duplicate(true)
+		s2.progress.darkness = d
+		Rules.start_battle(s2, "deep")
+		Rules.start_turn(s2)
+		var n := 0
+		for e in s2.battle.enemies:
+			if e.intent != null and e.intent.get("hidden", false):
+				n += 1
+		counts.append(n)
+	check("어둠 단계마다 예고 1개가 '?'로 가려진다 (광신도 2명: 0·1·2·2)", counts == [0, 1, 2, 2], str(counts))
+	# 운명 공격 예고는 어둠에서도 보인다 — 거대한 발 3턴 「짓밟기」
+	var g := st.duplicate(true)
+	g.progress.darkness = 9
+	Rules.start_battle(g, "giant")
+	Rules.start_turn(g)
+	var t1h: bool = Rules.enemy(g, "giant").intent.get("hidden", false)
+	Rules.end_turn(g)
+	Rules.start_turn(g)
+	Rules.end_turn(g)
+	Rules.start_turn(g)
+	var t3 = Rules.enemy(g, "giant").intent
+	check("운명 공격(「짓밟기」) 예고는 어둠에서도 가려지지 않는다 (1턴 그림자는 가려짐)", t1h and t3.kind == "stomp" and not t3.get("hidden", false), str(t3))
+	# 가려진 예고도 규칙은 그대로: 피해가 그대로 들어온다
+	var h := st.duplicate(true)
+	h.progress.darkness = 2
+	Rules.start_battle(h, "deep")
+	Rules.start_turn(h)
+	var aw: int = h.party.allies.archer.hp
+	var wr: int = h.party.allies.warrior.hp
+	Rules.end_turn(h)
+	check("가려진 예고도 그대로 실행된다 (1턴: 엘리안 6·브룬힐드 5)", h.party.allies.archer.hp == aw - 6 and h.party.allies.warrior.hp == wr - 5)
+
+
+func t_lantern_carry() -> void:
+	var st := _map_state()
+	Rules.enter_room(st, "prayer")
+	st.progress.darkness = 3
+	st.progress.omen = true
+	Rules.descend(st)
+	var a: bool = st.progress.candles == 7 and st.progress.darkness == 0 and not st.progress.omen and st.progress.visited.is_empty() and Rules.floor_now(st) == 2
+	st.progress.candles = 6
+	Rules.descend(st)
+	check("다음 층: 남은 촛불 + 4개(최대 8), 어둠·전조는 풀린다", a and st.progress.candles == 8, str(st.progress))
+
+
+# ───────── 방 보상 (대본 v3 1·3장) ─────────
+func t_rewards() -> void:
+	var st := Rules.new_game(7)
+	var c := Rules.reward_choices(st, "common")
+	var ids_c := c.map(func(x): return x.id)
+	var uniq := count_of(ids_c).size() == 3
+	var in_pool: bool = ids_c.all(func(x): return D.rewards.common.has(x)) and c.all(func(x): return not x.up)
+	var r := Rules.reward_choices(st, "rare")
+	var rare_ok: bool = r.size() == 3 and r.all(func(x): return D.rewards.rare.has(x.id) and x.up)
+	var n0: int = st.party.deck.size()
+	var u := Rules.gain_card(st, r[0].id, true)
+	check("전투 보상: 3장 중 1장(서로 다른 카드), 강적은 희귀(강화된 Lv2) 3장 — 고르면 덱에",
+		c.size() == 3 and uniq and in_pool and rare_ok and st.party.deck.size() == n0 + 1 and Rules.level(st, u) == 2, str(ids_c))
+
+
+func t_trade_event() -> void:
+	var st := Rules.new_game(7)
+	var w0: int = st.party.witch.hp
+	var ok_c := Rules.trade(st, "card", {"id": "snipe"})
+	var w1: int = st.party.witch.hp
+	var ok_k := Rules.trade(st, "candle")
+	check("거래: 카드 — 노엘 HP 4, 촛불 1개 — HP 2 (촛불 +1)", ok_c and w1 == w0 - 4 and ok_k and st.party.witch.hp == w1 - 2 and st.progress.candles == 5
+		and _deck_ids(st).count("snipe") == 3)
+	st.party.witch.hp = 4
+	var no_c := Rules.trade(st, "card", {"id": "snipe"})
+	st.party.witch.hp = 2
+	var no_k := Rules.trade(st, "candle")
+	st.party.witch.hp = 15
+	st.progress.candles = 8
+	var full := Rules.trade(st, "candle")
+	check("거래: HP 가 대가 이하이면 못 산다, 촛불은 최대 8개", not no_c and not no_k and not full and st.party.witch.hp == 15)
+	var b := Rules.new_game(7)
+	b.party.witch.hp = 2
+	Rules.hurt_witch(b, int(D.buried.hp))
+	check("사건(꺼낸다): 노엘 HP −2 (1 아래로는 줄지 않음)", b.party.witch.hp == 1 and D.buried.card == "small_charm" and D.corpse.card == "nameless_card")
+
+
+func t_nameless() -> void:
+	var st := normal_battle()
+	var u := give_card(st, "nameless_card")
+	var c0 := Rules.cost(st, u)
+	var vt := Rules.valid_targets(st, u)
+	var whp: int = st.party.witch.hp
+	var ahp: int = st.party.allies.archer.hp
+	var r := Rules.play(st, u, {"enemy": "c3"})
+	var it = Rules.enemy(st, "c3").intent
+	var gone: bool = st.battle.exhaust.has(u) and not st.battle.discard.has(u) and not st.battle.hand.has(u)
+	Rules.end_turn(st)
+	check("「이름 없는 마녀의 카드」: 비용 0, 예고 하나를 지운다(그 공격은 일어나지 않음), 노엘 HP −3, 이 전투에서 사라짐",
+		c0 == 0 and vt.size() == 3 and r.ok and it.blocked and Rules.intent_damage(it) == 0 and st.party.witch.hp == whp - 3 and st.party.allies.archer.hp == ahp and gone)
+	# 운명 공격은 지울 수 없다 (2층 2턴 「운명의 관통」)
+	var o := Rules.state_after_tutorial(7)
+	Rules.start_battle(o, "ossuary")
+	Rules.start_turn(o)
+	Rules.end_turn(o)
+	Rules.start_turn(o)
+	var nu := give_card(o, "nameless_card")
+	var vto := Rules.valid_targets(o, nu)
+	check("「이름 없는 마녀의 카드」: 운명 공격 예고는 지울 수 없다", not vto.has("k1") and not Rules.play(o, nu, {"enemy": "k1"}).ok, str(vto))
+	# 거대한 발의 「기둥 붕괴」(운명이 아닌 광역)는 지울 수 있고, 「짓밟기」(운명)는 못 지운다
+	var g := giant_battle()
+	Rules.end_turn(g)
+	Rules.start_turn(g)
+	var gu := give_card(g, "nameless_card")
+	var can2: bool = Rules.valid_targets(g, gu).has("giant")
+	Rules.play(g, gu, {"enemy": "giant"})
+	var w2: int = g.party.witch.hp
+	Rules.end_turn(g)
+	var no_hit: bool = g.party.witch.hp == w2 and g.party.allies.hero.hp == 30
+	Rules.start_turn(g)
+	var gu2 := give_card(g, "nameless_card")
+	check("「이름 없는 마녀의 카드」: 「기둥 붕괴」는 지워진다, 「짓밟기」(운명)는 못 지운다", can2 and no_hit and not Rules.valid_targets(g, gu2).has("giant"))
+
+
+func t_charm() -> void:
+	var st := normal_battle()
+	st.party.allies.archer.hp = 5
+	st.party.allies.warrior.hp = 23
+	var u := give_card(st, "small_charm")
+	var r := Rules.play(st, u, {"ally": "archer"})
+	var u2 := give_card(st, "small_charm")
+	Rules.play(st, u2, {"ally": "warrior"})
+	Rules.debug_set_hp(st, "hero", 0)
+	var u3 := give_card(st, "small_charm")
+	var vt := Rules.valid_targets(st, u3)
+	check("「작은 손의 부적」: 비용 1, 동료 하나 HP 4 회복(최대 HP 까지), 쓰러진 동료·노엘은 대상이 아니다",
+		r.ok and st.party.allies.archer.hp == 9 and st.party.allies.warrior.hp == 24 and st.battle.energy == 1 and not vt.has("hero") and not vt.has("witch")
+		and not Rules.play(st, u3, {"ally": "witch"}).ok and Rules.card_text("small_charm") == "동료 하나 HP 4 회복", str(vt))
+
+
+func t_retry_hp() -> void:
+	var st := Rules.new_game(7)
+	st.party.witch.hp = 2
+	Rules.start_battle(st, "giant")
+	var snap := Rules.snapshot(st)
+	var st2 := Rules.restore(snap, st.rng)
+	check("전멸 뒤 다시 하기: 노엘 HP 가 낮으면 retryWitchHp(6)로 — 계속 지는 막힘 방지", st2.party.witch.hp == int(D.rules.retryWitchHp))
 
 
 func _collect(v, out: Array) -> void:

@@ -23,6 +23,8 @@ var glow := 0.0          # 낼 수 있음(금빛 테두리)
 var taut := 0.0          # 죽음 카드가 팽팽(붉은 빛)
 var shadow := 0.0        # 확대했을 때 그림자
 var omen_blur := 0.0     # 0 = 또렷, 1 = 누구인지 알아볼 수 없음 (빈 캠프의 다음 죽음 카드)
+var masked := false      # 죽음 카드 문구 대신 maskText (방식이 아직 안 보인다 — 빈 캠프의 브룬힐드 카드, 대본 v3 6장). setup_face 전에 정한다
+var flip_k := 1.0        # 뒤집기 연출: 가로 폭 배율(1 = 그대로, 0 = 옆으로 선 카드)
 var _parts := {}
 var _state_key := ""
 var _blur_mat: ShaderMaterial
@@ -194,6 +196,8 @@ func build(st: Dictionary) -> void:
 	rt.custom_minimum_size = Vector2(192, 0) * s
 	rt.add_theme_constant_override("line_separation", int(-1 * s))
 	var txt := Rules.card_text(card.id, up, func(v): return "[b][color=#ffcf6a]" + v + "[/color][/b]", lv)
+	if masked and d.has("maskText"):
+		txt = UI.esc(str(d.maskText))
 	rt.text = "[center]" + txt + "[/center]"
 	cc.add_child(rt)
 	face.add_child(cc)
@@ -211,8 +215,8 @@ func build(st: Dictionary) -> void:
 	ow.position = Vector2(0, 360 - 16 - 16) * s
 	ow.size = Vector2(240, 16) * s
 	face.add_child(ow)
-	# 비용
-	if kind != "wound" and kind != "scar":
+	# 비용 (낼 수 없는 카드 — 상처·흉터·죽음 카드 — 에는 없다)
+	if kind != "wound" and kind != "scar" and kind != "death":
 		var cost := Panel.new()
 		cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cost.position = Vector2(15, 16) * s
@@ -234,15 +238,23 @@ func build(st: Dictionary) -> void:
 	blk.visible = false
 	face.add_child(blk)
 	_parts.block = blk
-	# 잠금(죽음 카드, 1회차): 어둡게 가라앉히고 붉은 실을 감고 자물쇠
-	if d.has("lockedUntil"):
-		var lock := Control.new()
-		lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		lock.size = face.size
-		lock.draw.connect(_draw_lock.bind(lock))
-		lock.visible = false
-		face.add_child(lock)
-		_parts.lock = lock
+	# 뒤집힌 카드(튜토리얼의 세라피나 죽음 카드): 앞면을 덮는 뒷면 + 감긴 붉은 실 (대본 v3 1장 "뒷면만 보이고 붉은 실이 감겨 있다")
+	if kind == "death":
+		var back := Control.new()
+		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		back.size = face.size
+		var bf: String = str(GameData.D.get("cardBackImg", ""))
+		var bt: Texture2D = Assets.tex(bf) if Assets.ok(bf) else Assets.svg("card_back", CardArt.SVG.__back, 2.0)
+		var btr := UI.tex_rect(bt, Rect2(Vector2.ZERO, face.size))
+		back.add_child(btr)
+		var th := Control.new()
+		th.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		th.size = face.size
+		th.draw.connect(_draw_wrap.bind(th))
+		back.add_child(th)
+		back.visible = bool(card.get("faceDown", false))
+		face.add_child(back)
+		_parts.back = back
 	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
@@ -276,30 +288,20 @@ func _draw_death_lv(c: Control, method: String, lv: int) -> void:
 	c.draw_string(f, Vector2(sz.x - 52 * s, 25 * s), tag, HORIZONTAL_ALIGNMENT_CENTER, 46 * s, int(17 * s), Color.WHITE)
 
 
-## 잠금 덮개: 어둠 + 카드를 감은 붉은 실 + 자물쇠
-func _draw_lock(c: Control) -> void:
+## 뒤집힌 카드에 감긴 붉은 실 (대각선 세 가닥 — 카드 가장자리를 넘어 감긴 느낌)
+func _draw_wrap(c: Control) -> void:
 	var s := K
-	c.draw_rect(Rect2(Vector2.ZERO, c.size), Color(0, 0, 0, 0.5))
 	var red := Color(0.86, 0.08, 0.16, 0.95)
-	# 대각선으로 감긴 실 세 가닥 (카드 가장자리를 넘어 감긴 느낌으로 끝에 매듭)
 	var lines := [[Vector2(-4, 70), Vector2(244, 150)], [Vector2(-4, 230), Vector2(244, 120)], [Vector2(-4, 300), Vector2(244, 320)]]
 	for ln in lines:
 		var a: Vector2 = ln[0] * s
 		var b: Vector2 = ln[1] * s
 		c.draw_line(a, b, Color(0.3, 0, 0.04, 0.8), 6 * s, true)
 		c.draw_line(a, b, red, 3 * s, true)
-	# 자물쇠
-	var ctr := Vector2(120, 168) * s
-	var body := Rect2(ctr + Vector2(-30, -8) * s, Vector2(60, 46) * s)
-	c.draw_arc(ctr + Vector2(0, -10) * s, 20 * s, PI, TAU, 24, Color("#8a6a3a"), 8 * s, true)
-	c.draw_arc(ctr + Vector2(0, -10) * s, 20 * s, PI, TAU, 24, Color("#d9b46a"), 4 * s, true)
-	var sb := UI.box(Color("#3a2410"), Color("#d9b46a"), int(6 * s), int(3 * s))
-	c.draw_style_box(sb, body)
-	c.draw_circle(ctr + Vector2(0, 10) * s, 6 * s, Color("#0a0405"))
-	c.draw_rect(Rect2(ctr + Vector2(-2.5, 12) * s, Vector2(5, 14) * s), Color("#0a0405"))
+	c.draw_circle(Vector2(120, 136) * s, 7 * s, Color(0.6, 0.02, 0.08, 0.95))
 
 
-## 상태 표시(비용·낼 수 있음·쓰러짐·잠김). 바뀐 것이 있을 때만 앞면을 다시 그린다
+## 상태 표시(비용·낼 수 있음·쓰러짐·뒤집힘). 바뀐 것이 있을 때만 앞면을 다시 그린다
 func refresh(st: Dictionary) -> void:
 	if vp == null or not st.cards.has(uid):
 		return
@@ -308,7 +310,7 @@ func refresh(st: Dictionary) -> void:
 	var d := Rules.def(st, uid)
 	var b = st.battle
 	var blocked := Rules.owner_blocked(st, uid) if b != null else ""
-	var locked := Rules.is_locked(st, uid)
+	var locked := Rules.is_face_down(st, uid)
 	var cost := Rules.cost(st, uid) if b != null else int(d.cost)
 	var poor: bool = b != null and b.phase == "player" and cost > int(b.energy) and not d.get("unplayable", false)
 	var key := "%s|%d|%s|%s|%s" % [blocked, cost, poor, locked, Rules.is_up(st, uid)]
@@ -333,9 +335,8 @@ func refresh(st: Dictionary) -> void:
 	_parts.bg.modulate = Color(0.5, 0.5, 0.5) if dark else Color.WHITE
 	_parts.block.visible = dark
 	_parts.block.text = (G.ui("down") if blocked.contains("쓰러진") else G.ui("unusable")) if dark else ""
-	if _parts.has("lock"):
-		_parts.lock.visible = locked
-		_parts.lock.queue_redraw()
+	if _parts.has("back"):
+		_parts.back.visible = locked
 	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
@@ -412,6 +413,11 @@ func _draw() -> void:
 	if tex == null or corners.size() != 4 or alpha <= 0.001:
 		return
 	var q := corners
+	if flip_k < 0.999:
+		# 뒤집기: 세로 가운데 선을 축으로 가로 폭을 줄인다
+		var tm := (corners[0] + corners[1]) / 2.0
+		var bm := (corners[3] + corners[2]) / 2.0
+		q = PackedVector2Array([tm + (corners[0] - tm) * flip_k, tm + (corners[1] - tm) * flip_k, bm + (corners[2] - bm) * flip_k, bm + (corners[3] - bm) * flip_k])
 	# 확대 그림자
 	if shadow > 0:
 		var c := (q[0] + q[2]) / 2.0
