@@ -527,6 +527,12 @@ Using the attached image as the style reference, draw a square 1:1 card illustra
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a long silver braid tied with a crimson ribbon lying on cracked stone under the vast shadow of something enormous above. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. No body, no gore. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
 ```
 
+### 60 수정 (1차 `60_card_hero_death_v1`: 그림자가 기둥 두 개 달린 덩어리 모양이라 '위에서 내려오는 발'로 읽히지 않음)
+- 첨부: 60번 1차 결과 · 같은 대화창
+```
+Edit the attached image. Change only the shadow: make it the clear, vast shadow of a single colossal bare foot hovering high above, cast straight down as the shape of its sole — one heel and exactly five toes — covering most of the floor, its edge just reaching the braid. Keep the braid, the crimson ribbon, the cracked stone floor, the petals, the composition and the art style exactly the same.
+```
+
 ---
 
 ## 컷인 공통 (61~65)
