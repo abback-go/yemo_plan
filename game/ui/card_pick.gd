@@ -83,7 +83,7 @@ func run(items: Array, title: String, hint := "", skip := "", auto := "") -> int
 	FX.anim(300, [{"a": 0.0}, {"a": 1.0}], func(v): if is_instance_valid(self): modulate.a = v.a, {"node": self})
 	G.ctl.note("pick " + ",".join(items.map(func(x): return str(x.id))))
 	if G.autoguide:
-		get_tree().create_timer(0.3).timeout.connect(func():
+		get_tree().create_timer(0.3, false).timeout.connect(func():
 			if _w.finished:
 				return
 			var want := auto

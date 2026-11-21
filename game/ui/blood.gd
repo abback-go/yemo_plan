@@ -90,7 +90,7 @@ func spray(o: Dictionary) -> void:
 		var sd := int(r.call() * 100000) + 1
 		var delay := float(o.get("stagger", 0)) * i
 		if delay > 0:
-			get_tree().create_timer(FX.ms(delay) / 1000.0).timeout.connect(func(): splat(x, y, sz, sd))
+			get_tree().create_timer(FX.ms(delay) / 1000.0, false).timeout.connect(func(): splat(x, y, sz, sd))
 		else:
 			splat(x, y, sz, sd)
 

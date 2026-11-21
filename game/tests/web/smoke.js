@@ -18,7 +18,11 @@
  * 경로 E: 느린 속도 연출 스크린샷 (손 들기 중간·컷인·동료 타격)
  * 경로 F: 2·3층 운명 — 휴대폰: 납골당 「운명의 관통」 받아들임(데스신·상속) → 계단 → 화형대 「운명의 불길」 거스름(흉터) → 결과 → 2층부터 다시
  *         / PC: 3층 두 운명(엘리안 거스름 → 브룬힐드 Lv2 받아들임), 죽음 카드는 끌어도 못 냄, 집행자를 먼저 쓰러뜨림
- *   경로만 고르기: node smoke.js <주소> <폴더> AB   (기본: ABCDEF 전부)
+ * 경로 S: 기본 기능 — 타이틀(저장이 없으면 이어하기 꺼짐, 웹은 끝내기 없음) → 설정(전체 화면 켜고 끄기·글자 속도) 열고 닫기(Esc) → 시작
+ *         → 일시정지(Esc: 대사·연출이 멈춤) → 계속 → 장례 회랑에 들어감(자동 저장) → 새로고침 → 이어하기(설정도 남음) → 같은 방의 처음
+ *         → 일시정지 → 타이틀로(확인) → 시작(저장이 지워진다는 확인 → 취소 → 처음부터) / 휴대폰: 타이틀·설정·메뉴 단추로 일시정지
+ *         / 카드 연출·데스신 도중 일시정지 → 멈춘 동안 그대로 → 계속하면 이어서 끝남 / 카드 연출 도중 타이틀로 → 에러 없이 타이틀
+ *   경로만 고르기: node smoke.js <주소> <폴더> AB   (기본: ABCDEFS 전부)
  * 통과 조건: 모든 확인 통과 + 브라우저 콘솔 에러 0 (Godot 의 ERROR / SCRIPT ERROR 포함)
  * (탑뷰 시험판 경로 T 는 탑뷰 코드와 함께 없앴다 — 2026-11-21, game/DECISIONS.md)
  */
@@ -158,6 +162,13 @@ function helpers(page, tag) {
     const inHand = b.length === 4 && b[1] >= 470 && b[3] <= 1080 && b[0] >= 200 && b[2] <= 1720;
     return { ok: s.handDragMode === 'aim' && s.handLifted === '' && s.handGrip === uid && s.handsNow <= 2 && inHand,
       detail: { mode: s.handDragMode, lifted: s.handLifted, grip: s.handGrip, uid, hands: s.handsNow, box: b.map(v => Math.round(v)) } };
+  };
+  // 두 단추(geom: 가운데 x·y, 크기 w·h — 무대 px)가 겹치는가. 누르는 영역은 Btn 처럼 실제 화면 44px 이상으로 넓혀 본다
+  H.overlap = (a, b, css) => {
+    const need = 44 / Math.max(0.05, css || 1);
+    const box = g => { const w = Math.max(g.w || 0, need), h = Math.max(g.h || 0, need); return [g.x - w / 2, g.y - h / 2, g.x + w / 2, g.y + h / 2]; };
+    const p = box(a), q = box(b);
+    return p[0] < q[2] && q[0] < p[2] && p[1] < q[3] && q[1] < p[3];
   };
   H.handsOk = async label => {
     const s = await H.state();
@@ -494,6 +505,19 @@ async function pathD(browser) {
   for (let i = 0; i < 6; i++) { await H.touchTap(960, 300); await H.sleep(150); }
   await H.sleep(500);
   await H.shot('D01_phone_camp_text.png');
+  // 메뉴 단추(오른쪽 위): 건너뛰기 단추와 누르는 영역(실제 화면 44px 이상)까지 겹치지 않고, 터치로 일시정지 → 계속
+  s = await H.state();
+  {
+    const mb = await H.W('geom', 'button', 'menu'), sk = await H.W('geom', 'button', 'skip');
+    check('휴대폰 곁방: 메뉴 단추가 건너뛰기 단추와 겹치지 않음(누르는 영역 포함)', mb.x && sk.x && !H.overlap(mb, sk, s.cssScale), { mb, sk });
+    await H.touchTap(mb.x, mb.y);
+    s = await H.until(s => s.menu.paused && s.menu.panel === 'pause', 5000, '터치로 일시정지');
+    await H.shot('D01b_phone_pause.png');
+    const rb = await H.W('geom', 'button', 'resume');
+    await H.touchTap(rb.x, rb.y);
+    s = await H.until(s => !s.menu.paused && !s.menu.treePaused, 5000, '계속');
+    check('휴대폰: 메뉴 단추 터치 → 일시정지 → 「계속」', s.menu.corner && s.scene === 'vn:camp');
+  }
   await H.open('scene=corridor&guides=reset');
   await H.until(s => s.stage === 'battle:normal' && s.battle && s.battle.turn === 1 && s.guideOpen, 90000, '안내', async s => { if (s.vn || (s.dialogBusy && !s.guideOpen) || (s.guideOpen && (!s.battle || s.battle.turn < 1))) await H.touchTap(960, 560); });
   await H.sleep(800);
@@ -533,11 +557,21 @@ async function pathD(browser) {
   const h = await H.handsOk('휴대폰');
   check('휴대폰에서도 손은 둘 이하', h.ok, h.detail);
   await H.shot('D04_phone_battle.png');
+  {
+    const mb = await H.W('geom', 'button', 'menu'), et = await H.W('geom', 'endTurn');
+    check('휴대폰 전투: 메뉴 단추가 보이고 턴 종료 단추와 겹치지 않음', mb.x && !H.overlap(mb, { x: et.x, y: et.y, w: 200, h: 90 }, s.cssScale), { mb, et });
+  }
   // 지도: 터치 두 번으로 방에 들어간다
   await H.open('scene=map&guides=reset');
   s = await H.until(s => s.scene === 'map' && s.map && !s.map.busy, 30000, '지도');
   await H.sleep(500);
   await H.shot('D05_phone_map.png');
+  {
+    s = await H.state();
+    const mb = await H.W('geom', 'button', 'menu');
+    // 지도에서는 오른쪽 칸(층 이름 줄) 오른쪽 끝 — 칸 안, 이름 줄 아래 선(y 124) 위
+    check('휴대폰 지도: 메뉴 단추가 오른쪽 칸의 층 이름 줄 안', mb.x && mb.x - mb.w / 2 >= 1440 && mb.x + mb.w / 2 <= 1880 && mb.y - mb.h / 2 >= 40 && mb.y + mb.h / 2 <= 124, mb);
+  }
   const rc = await H.W('geom', 'room', 'chapel');
   const rs = await H.W('geom', 'room', 'stairs');
   await H.touchTap(rc.x, rc.y);
@@ -703,11 +737,209 @@ async function pathF(browser) {
   await page2.close();
 }
 
+// ───────── 경로 S: 기본 기능 — 타이틀·설정·일시정지·자동 저장·이어하기 (웹: 새로고침 뒤 이어하기) ─────────
+async function pathS(browser) {
+  say('경로 S: 타이틀(이어하기 꺼짐) → 설정(전체 화면·글자 속도, Esc 로 닫기) → 시작 → 일시정지(Esc, 멈춤) → 계속 → 장례 회랑(자동 저장) → 새로고침 → 이어하기 → 같은 방'
+    + ' → 일시정지 → 타이틀로(확인) → 시작(저장 지움 확인: 취소 → 처음부터) / 휴대폰: 타이틀·설정·메뉴 단추로 일시정지');
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  const H = helpers(page, 'S');
+  const clickBtn = async id => { const g = await H.W('geom', 'button', id); if (!g || g.x === undefined) throw new Error('단추 없음: ' + id); await H.click(g.x, g.y); return g; };
+  await H.open('guides=reset');
+  let s = await H.until(s => s.scene === 'title', 30000, '타이틀');
+  await H.sleep(600);
+  await H.shot('S01_title_no_save.png');
+  const gq = await H.W('geom', 'button', 'quit'), gc = await H.W('geom', 'button', 'continue');
+  check('타이틀: 시작·이어하기·설정, 웹에서는 끝내기 없음, 메뉴 단추 없음', (await H.W('geom', 'button', 'start')).x > 0 && (await H.W('geom', 'button', 'settings')).x > 0 && !gq.x && !s.menu.corner, { gq });
+  check('저장이 없으면 이어하기가 흐리고 꺼져 있음', !s.menu.hasSave && gc.disabled === true && !s.menu.continueEnabled, gc);
+  await H.click(gc.x, gc.y);
+  await H.sleep(800);
+  s = await H.state();
+  check('꺼진 이어하기를 눌러도 타이틀 그대로', s.scene === 'title' && s.menu.panel === '');
+  // 설정: 전체 화면(웹은 단추를 누른 그 처리 안에서 요청) 켜고 끄기 · 글자 속도
+  await clickBtn('settings');
+  s = await H.until(s => s.menu.panel === 'settings', 5000, '설정 열림');
+  await H.sleep(500);
+  await H.shot('S02_settings.png');
+  check('설정: 화면(창·전체 화면)·글자 속도(느림·보통·빠름·즉시)·닫기, 소리 항목 없음', ['display_windowed', 'display_fullscreen', 'speed_slow', 'speed_normal', 'speed_fast', 'speed_instant', 'close'].every(b => s.menu.buttons.includes(b)) && s.menu.buttons.length === 7, s.menu.buttons);
+  await clickBtn('display_fullscreen');
+  const fsOn = await page.waitForFunction(() => !!document.fullscreenElement, null, { timeout: 8000 }).then(() => true, () => false);
+  s = await H.until(s => s.menu.fullscreen || !fsOn, 5000, '전체 화면');
+  await H.sleep(800);
+  await clickBtn('display_windowed');
+  const fsOff = await page.waitForFunction(() => !document.fullscreenElement, null, { timeout: 8000 }).then(() => true, () => false);
+  s = await H.until(s => !s.menu.fullscreen, 5000, '창');
+  check('웹: 「전체 화면」 클릭 → 브라우저 전체 화면, 「창」 → 돌아옴', fsOn && fsOff, { fsOn, fsOff });
+  await clickBtn('speed_fast');
+  s = await H.until(s => s.menu.textSpeed === 'fast', 5000, '글자 속도');
+  check('글자 속도 「빠름」 → 대사 글자 속도 2배', s.menu.cps === 76, s.menu.cps);
+  await page.keyboard.press('Escape');
+  s = await H.until(s => s.menu.panel === '', 5000, 'Esc 로 설정 닫기');
+  check('Esc 로 설정을 닫으면 타이틀(일시정지 아님)', s.scene === 'title' && !s.menu.paused);
+  // 시작 → 곁방(자동 저장) → Esc 일시정지
+  await clickBtn('start');
+  s = await H.until(s => s.scene === 'vn:camp' && s.vn && s.vn.line >= 0, 15000, '곁방');
+  check('저장이 없으면 확인 없이 시작 → 곁방, 들어가며 자동 저장', s.menu.panel === '' && s.menu.hasSave && s.menu.saveStep === 'camp' && s.menu.corner, s.menu);
+  await H.sleep(300);
+  await page.keyboard.press('Escape');
+  s = await H.until(s => s.menu.paused && s.menu.panel === 'pause', 5000, 'Esc 일시정지');
+  const line0 = s.vn.line, log0 = (s.log || []).length, typing0 = s.vn.typing;
+  await H.sleep(500);
+  await H.shot('S03_pause.png');
+  await H.sleep(1200);
+  s = await H.state();
+  check('Esc → 일시정지(계속·설정·타이틀로): 멈춘 동안 대사·진행이 그대로', s.menu.treePaused && s.vn.line === line0 && (s.log || []).length === log0 && s.vn.typing === typing0
+    && ['resume', 'settings', 'toTitle'].every(b => s.menu.buttons.includes(b)), { line0, line: s.vn.line, log0, log: (s.log || []).length });
+  await clickBtn('settings');
+  s = await H.until(s => s.menu.panel === 'settings', 5000, '일시정지 → 설정');
+  check('일시정지에서 설정(같은 화면) — 글자 속도가 「빠름」으로 남아 있음', s.menu.treePaused && s.menu.textSpeed === 'fast');
+  await clickBtn('close');
+  s = await H.until(s => s.menu.panel === 'pause', 5000, '설정 닫기 → 일시정지');
+  await clickBtn('resume');
+  s = await H.until(s => !s.menu.paused && !s.menu.treePaused && s.menu.panel === '', 5000, '계속');
+  check('「계속」 → 이어짐', s.scene === 'vn:camp');
+  // 장례 회랑(방)에 들어가면 자동 저장 → 새로고침 → 이어하기
+  s = await H.advanceAll(s => s.scene === 'vn:corridor' && s.vn && s.vn.line >= 1, 90000, '장례 회랑');
+  check('장례 회랑에 들어가면 자동 저장(장례 탑 1층 · 장례 회랑)', s.menu.saveStep === 'corridor' && /장례 회랑/.test(s.menu.place), s.menu);
+  await H.sleep(2000);   // 웹: user:// 가 브라우저 저장소(IndexedDB)에 옮겨 적힐 시간
+  await H.open('');
+  s = await H.until(s => s.scene === 'title', 30000, '새로고침 뒤 타이틀');
+  await H.sleep(600);
+  await H.shot('S04_title_continue.png');
+  check('새로고침 뒤 타이틀: 이어하기 켜짐 + 저장한 곳, 설정(글자 속도)도 남음', s.menu.continueEnabled && s.menu.saveStep === 'corridor' && s.menu.textSpeed === 'fast', s.menu);
+  await clickBtn('continue');
+  s = await H.until(s => s.scene === 'vn:corridor' && s.vn, 20000, '이어하기');
+  check('이어하기 → 같은 방(장례 회랑)의 처음부터', s.vn.line <= 1 && s.progress.room === 'corridor' && (s.log || []).some(l => /^continue corridor/.test(l)), { line: s.vn.line, room: s.progress.room });
+  // 일시정지 → 타이틀로 (확인 한 번)
+  await page.keyboard.press('Escape');
+  await H.until(s => s.menu.panel === 'pause', 5000, '일시정지');
+  await clickBtn('toTitle');
+  s = await H.until(s => s.menu.panel === 'confirm', 5000, '타이틀로 확인');
+  await H.sleep(300);
+  await H.shot('S05_to_title_confirm.png');
+  check('타이틀로: 「진행은 마지막 자동 저장까지만 남습니다」 확인 창', s.menu.buttons.includes('yes') && s.menu.buttons.includes('no'));
+  await clickBtn('no');
+  s = await H.until(s => s.menu.panel === 'pause', 5000, '취소 → 일시정지');
+  await clickBtn('toTitle');
+  await H.until(s => s.menu.panel === 'confirm', 5000, '다시 확인');
+  await clickBtn('yes');
+  await H.sleep(1500);
+  await page.waitForFunction(() => window.__witchReady === true, null, { timeout: 30000 });
+  s = await H.until(s => s.scene === 'title', 20000, '타이틀로 돌아감');
+  check('확인 → 타이틀(일시정지 풀림), 저장은 장례 회랑 그대로', !s.menu.paused && !s.menu.treePaused && s.menu.continueEnabled && s.menu.saveStep === 'corridor', s.menu);
+  // 저장이 있을 때 시작: 저장이 지워진다는 확인 → 취소 → 다시 → 처음부터
+  await clickBtn('start');
+  s = await H.until(s => s.menu.panel === 'confirm', 5000, '새로 시작 확인');
+  await H.sleep(300);
+  await H.shot('S06_new_game_confirm.png');
+  await clickBtn('no');
+  s = await H.until(s => s.menu.panel === '', 5000, '취소');
+  check('저장이 있으면 시작 전에 확인 → 취소하면 타이틀·저장 그대로', s.scene === 'title' && s.menu.saveStep === 'corridor');
+  await clickBtn('start');
+  await H.until(s => s.menu.panel === 'confirm', 5000, '새로 시작 확인 2');
+  await clickBtn('yes');
+  s = await H.until(s => s.scene === 'vn:camp', 15000, '처음부터');
+  check('확인하면 처음부터(곁방), 저장은 곁방으로 새로', s.menu.saveStep === 'camp' && s.progress.room === 'camp', s.menu);
+  await ctx.close();
+  // 휴대폰(iPhone 13 가로): 타이틀·설정·메뉴 단추로 일시정지 (스크린샷)
+  const dev = devices['iPhone 13 landscape'] || { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true };
+  const ctx2 = await browser.newContext({ ...dev });
+  const page2 = await ctx2.newPage();
+  const P = helpers(page2, 'S2');
+  await P.open('guides=reset');
+  s = await P.until(s => s.scene === 'title', 30000, '휴대폰 타이틀');
+  await P.sleep(600);
+  await P.shot('S11_phone_title.png');
+  let g = await P.W('geom', 'button', 'settings');
+  await P.touchTap(g.x, g.y);
+  s = await P.until(s => s.menu.panel === 'settings', 5000, '휴대폰 설정');
+  await P.sleep(600);
+  await P.shot('S12_phone_settings.png');
+  g = await P.W('geom', 'button', 'close');
+  await P.touchTap(g.x, g.y);
+  await P.until(s => s.menu.panel === '', 5000, '휴대폰 설정 닫기');
+  g = await P.W('geom', 'button', 'start');
+  await P.touchTap(g.x, g.y);
+  s = await P.until(s => s.scene === 'vn:camp' && s.menu.corner, 15000, '휴대폰 곁방');
+  await P.sleep(400);
+  g = await P.W('geom', 'button', 'menu');
+  await P.touchTap(g.x, g.y);
+  s = await P.until(s => s.menu.paused && s.menu.panel === 'pause', 5000, '휴대폰 일시정지');
+  await P.sleep(400);
+  await P.shot('S13_phone_pause.png');
+  check('휴대폰: 타이틀 설정 열고 닫기 → 시작 → 메뉴 단추 터치로 일시정지', s.menu.treePaused);
+  await ctx2.close();
+  // 연출 도중 일시정지: 카드 연출(손 들기·컷인·타격) · 데스신 — 멈춘 동안 그대로, 「계속」하면 이어서 끝난다
+  const ctx3 = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+  const page3 = await ctx3.newPage();
+  const Q = helpers(page3, 'S3');
+  await Q.open('scene=corridor&autoguide=1&nosave=1');
+  s = await Q.until(s => s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 120000, '전투 1턴');
+  const c1hp = s.battle.enemies.find(e => e.id === 'c1').hp;
+  await Q.W('setSpeed', 0.3);
+  await Q.W('play', 'curse_flame', JSON.stringify({ enemy: 'c1' }));
+  await Q.sleep(500);
+  g = await Q.W('geom', 'button', 'menu');
+  await Q.click(g.x, g.y);
+  s = await Q.until(s => s.menu.paused, 5000, '카드 연출 중 일시정지');
+  const frozen = JSON.stringify([s.busy, s.raiseLog, s.cutinLog, s.motionLog, s.battle.enemies.map(e => e.hp), s.log.length]);
+  await Q.sleep(500);
+  await Q.shot('S20_pause_during_card.png');
+  await Q.sleep(2000);
+  s = await Q.state();
+  const still = JSON.stringify([s.busy, s.raiseLog, s.cutinLog, s.motionLog, s.battle.enemies.map(e => e.hp), s.log.length]);
+  check('카드 연출 도중 메뉴 단추(클릭) → 일시정지: 멈춘 동안 연출·전투 상태가 그대로', s.busy && still === frozen, { frozen, still });
+  await page3.keyboard.press('Escape');
+  s = await Q.until(s => !s.menu.paused, 5000, 'Esc 로 계속');
+  await Q.W('setSpeed', 1);
+  s = await Q.until(s => !s.busy, 60000, '카드 연출 끝');
+  const c1 = s.battle.enemies.find(e => e.id === 'c1');
+  check('Esc 로 계속 → 카드 연출이 이어서 끝남(저주의 불꽃 컷인·피해)', s.cutinLog.includes('curse_flame') && (!c1.alive || c1.hp < c1hp), { hp: c1.hp, c1hp });
+  // 데스신 도중 (거대한 발 3턴 짓밟기 → 세라피나): 자동 진행으로 데스신까지
+  await Q.open('scene=giant&autoguide=1&autoplay=1&nosave=1');
+  s = await Q.until(s => s.scene === 'cutscene' && (s.cutLog || []).length >= 1, 240000, '데스신');
+  await Q.sleep(600);
+  await page3.keyboard.press('Escape');
+  s = await Q.until(s => s.menu.paused, 5000, '데스신 일시정지');
+  const cut0 = JSON.stringify([s.cutLog, s.log.length, (s.dialog || []).length]);
+  await Q.sleep(500);
+  await Q.shot('S21_pause_during_death_scene.png');
+  await Q.sleep(3000);
+  s = await Q.state();
+  check('데스신 도중 Esc → 일시정지: 멈춘 동안 컷이 넘어가지 않음', s.scene === 'cutscene' && JSON.stringify([s.cutLog, s.log.length, (s.dialog || []).length]) === cut0, { cut0, now: s.cutLog });
+  g = await Q.W('geom', 'button', 'resume');
+  await Q.click(g.x, g.y);
+  s = await Q.until(s => s.stage === 'vn:emptycamp' || s.scene === 'vn:emptycamp', 180000, '데스신 → 빈 곁방');
+  check('「계속」 → 데스신 C1~C6 이 이어져 끝나고 빈 곁방으로', ['C1', 'C2', 'C3a', 'C3b', 'C4', 'C6'].every(c => s.cutLog.includes(c)) && s.party.allies.hero.status === 'dead', s.cutLog);
+  // 카드 연출 도중 「타이틀로」: 진행 중이던 전투 흐름을 버리고 타이틀 (콘솔 에러 없이 — 마지막의 콘솔 에러 확인도 함께 본다)
+  await Q.open('scene=corridor&autoguide=1&nosave=1');
+  s = await Q.until(s => s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 120000, '전투 1턴(타이틀로)');
+  await Q.W('setSpeed', 0.3);
+  await Q.W('play', 'curse_flame', JSON.stringify({ enemy: 'c1' }));
+  await Q.sleep(500);
+  await page3.keyboard.press('Escape');
+  await Q.until(s => s.menu.panel === 'pause', 5000, '연출 중 일시정지');
+  g = await Q.W('geom', 'button', 'toTitle');
+  await Q.click(g.x, g.y);
+  await Q.until(s => s.menu.panel === 'confirm', 5000, '타이틀로 확인');
+  g = await Q.W('geom', 'button', 'yes');
+  await Q.click(g.x, g.y);
+  await Q.sleep(1500);
+  await page3.waitForFunction(() => window.__witchReady === true, null, { timeout: 30000 });
+  await Q.until(s => s.scene === 'title', 20000, '연출 도중 타이틀로');
+  await Q.sleep(1500);
+  s = await Q.state();
+  check('카드 연출 도중 일시정지 → 타이틀로: 전투 흐름이 멈추고 타이틀(전투·대사 없음, 에러 없음)', s.scene === 'title' && !s.inBattle && !s.dialogBusy && !s.menu.treePaused
+    && !errors.some(e => /^S3/.test(e)), errors.slice(-3));
+  await Q.W('setSpeed', 1);
+  await ctx3.close();
+}
+
 (async () => {
   const browser = await launch();
   const t0 = Date.now();
-  const only = process.argv[4] || 'ABCDEF';
-  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE], ['F', pathF]]) {
+  const only = process.argv[4] || 'ABCDEFS';
+  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE], ['F', pathF], ['S', pathS]]) {
     if (!only.includes(name)) continue;
     try { await fn(browser); } catch (e) { check('경로 ' + name + ' 진행', false, e.message); }
   }

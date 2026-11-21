@@ -163,7 +163,7 @@ func play(card_id: String) -> void:
 				chr.modulate.a = v.a, {"node": chr}))
 	if heavy:
 		# 무거운 컷인: 들어오는 순간 핏빛 섬광과 흔들림
-		get_tree().create_timer(dur * t_in * 0.8 / 1000.0).timeout.connect(func():
+		get_tree().create_timer(dur * t_in * 0.8 / 1000.0, false).timeout.connect(func():
 			if not active.is_empty() and active.root == root:
 				FX.flash("#5a0010", 380, 0.55)
 				FX.shake(14, 420))
@@ -179,6 +179,6 @@ func play(card_id: String) -> void:
 			active = {}
 		w.finish()
 	active = {"id": card_id, "root": root, "finish": finish}
-	get_tree().create_timer(dur / 1000.0).timeout.connect(finish)
+	get_tree().create_timer(dur / 1000.0, false).timeout.connect(finish)
 	if not w.finished:
 		await w.done

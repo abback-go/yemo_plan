@@ -60,8 +60,34 @@ func _ready() -> void:
 	low = touch
 
 
+## 연출 시계(ms). 일시정지(game_menu.gd)한 동안은 멈춘다 — 다시 이으면 애니메이션이 멈춘 자리부터 이어진다
 func now_ms() -> float:
-	return Time.get_ticks_usec() / 1000.0
+	var t := Time.get_ticks_usec() / 1000.0
+	if _paused_at >= 0.0:
+		t = _paused_at
+	return t - _paused_total
+
+
+var _paused_at := -1.0
+var _paused_total := 0.0
+
+
+func set_paused(on: bool) -> void:
+	var t := Time.get_ticks_usec() / 1000.0
+	if on and _paused_at < 0.0:
+		_paused_at = t
+	elif not on and _paused_at >= 0.0:
+		_paused_total += t - _paused_at
+		_paused_at = -1.0
+
+
+## 타이틀로 돌아가며 게임 화면을 새로 만들기 전에: 남은 연출을 끝내지 않고 버린다(기다리던 쪽은 함께 사라진다)
+func reset() -> void:
+	set_paused(false)
+	anims = []
+	particles = []
+	overlays = []
+	_toast_timer = null
 
 
 func ms(v: float) -> float:
@@ -74,7 +100,7 @@ func wait(v: float) -> void:
 	if t <= 0.0:
 		await get_tree().process_frame
 		return
-	await get_tree().create_timer(t / 1000.0).timeout
+	await get_tree().create_timer(t / 1000.0, false).timeout
 
 
 ## 애니메이션이 끝날 때까지 (이미 끝났으면 바로)
@@ -336,7 +362,7 @@ func toast(text: String, dur := 1400.0) -> void:
 	toast_box.visible = true
 	toast_box.reset_size()
 	toast_box.position = Vector2(960 - toast_box.size.x * toast_box.scale.x * 0.5, 560)
-	var tm := get_tree().create_timer(dur / 1000.0)
+	var tm := get_tree().create_timer(dur / 1000.0, false)
 	_toast_timer = tm
 	tm.timeout.connect(func(): if _toast_timer == tm and toast_box: toast_box.visible = false)
 

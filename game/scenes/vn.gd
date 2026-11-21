@@ -122,8 +122,8 @@ func setup(name: String, o := {}) -> void:
 	if name == "camp" or name == "emptycamp":
 		skip_btn = UI.button(G.ui("skip"), 22, func(): _on_skip(), "sans_bold")
 		skip_btn.style_kind = "small"
+		skip_btn.name = "skip"
 		skip_btn.fit(Vector2(22, 8))
-		skip_btn.position = Vector2(1920 - 130 - skip_btn.size.x, 30)
 		add_child(skip_btn)
 	relayout()
 	box.visible = false
@@ -151,6 +151,11 @@ func _bg_rect(file: String, zoom) -> TextureRect:
 
 
 func relayout() -> void:
+	if skip_btn != null:
+		# 오른쪽 위 메뉴 단추(game_menu.gd)와 누르는 영역(실제 화면 44px 이상)이 겹치지 않게 그 왼쪽에 둔다
+		var need := 44.0 / maxf(0.05, FX.css_scale)
+		var right := minf(1920.0 - 130.0, G.menu.corner_left() - 8.0) if G.menu != null else 1920.0 - 130.0
+		skip_btn.position = Vector2(right - skip_btn.size.x - maxf(0.0, (need - skip_btn.size.x) / 2.0), 30)
 	var u := minf(FX.ui, 1.6)
 	var fs := int(34 * u)
 	var h := 230.0 + (u - 1.0) * 160.0
@@ -228,7 +233,7 @@ func _process(delta: float) -> void:
 		var base := 0.55 if _fire_low else 1.0
 		fire.modulate.a = base * (0.7 + 0.3 * (0.5 + 0.5 * sin(_t * TAU / 4.8)) + randf_range(-0.04, 0.04))
 	if typing:
-		shown += delta * float(GameData.D.timing.typeCharsPerSec) * FX.speed
+		shown += delta * GameSettings.chars_per_sec() * FX.speed
 		text_l.visible_characters = int(shown)
 		if shown >= full_len:
 			typing = false
@@ -419,10 +424,10 @@ func _wait_tap() -> void:
 	if G.autoguide:
 		# 자동 시험: 글자가 다 나온 뒤 잠시 머물고 넘어간다
 		while typing and not skip:
-			await get_tree().process_frame
+			await G.get_tree().process_frame   # 트리에서 빠진 뒤에도 프레임을 기다리게 (ctl.gd battle 과 같은 이유)
 		var t0 := FX.now_ms()
 		while FX.now_ms() - t0 < FX.ms(600) and not skip:
-			await get_tree().process_frame
+			await G.get_tree().process_frame
 		_waiting = false
 		return
 	await tapped
@@ -516,7 +521,7 @@ func choose(opts: Array) -> Dictionary:
 		choice_btns.append(b)
 	if G.autoguide:
 		# 자동 진행: --choice=값,값… 중 이 선택지에 있는 첫 값, 없으면 고를 수 있는 첫 선택지
-		get_tree().create_timer(0.3).timeout.connect(func():
+		get_tree().create_timer(0.3, false).timeout.connect(func():
 			if w.finished:
 				return
 			var want: Array = str(G.params.get("choice", "")).split(",", false)

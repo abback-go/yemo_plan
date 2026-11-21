@@ -4,6 +4,8 @@
 ##   state() · jump(scene, opts) · play(cardId, target) · endTurn() · advance() · choose(value) · pick(cardId|"skip") (카드 고르기: 거래·훈련)
 ##   room(id) (지도: 그 방으로 바로 들어감) · winBattle() · enemyHp(id, hp) · geom(kind, id) · handCut() · resetGuides() · setSpeed(n) · fate(offer|defy)
 ##   geom: card · enemy · intent · ally · endTurn · room(지도의 방) · enter(지도의 들어간다 버튼) · pick(카드 고르기의 카드, "skip" = 넘기기) · fateBtn · button
+##         · button 은 메뉴 판(일시정지·설정·확인 창 — game_menu.gd)이 열려 있으면 거기서 먼저 찾는다. 메뉴 단추는 button "menu"
+##   state().menu: 일시정지·열린 판·자동 저장·설정 (일시정지 중에도 부를 수 있다 — 이 훅은 JS 에서 바로 불린다)
 class_name TestApi
 extends Node
 
@@ -25,6 +27,12 @@ func _ready() -> void:
 	_win.witch = _obj
 	_win.__witchReady = true
 	_out({"ok": true})
+
+
+## 타이틀로(게임 화면을 새로 만듦): 새 훅이 붙을 때까지 시험 쪽이 기다리게
+func _exit_tree() -> void:
+	if _win:
+		_win.__witchReady = false
 
 
 func _out(v) -> void:
@@ -105,6 +113,7 @@ func state() -> Dictionary:
 		"handLifted": G.view.hand.lifted_uid, "handDragMode": G.view.hand.drag_mode,
 		"handGrip": G.view.hand.grip.get("uid", ""), "handGripBox": _grip_box(), "handRightOut": G.view.hand.right_out,
 	}
+	s.menu = _menu_state()
 	if st.is_empty():
 		return s
 	s.flags = st.flags
@@ -205,6 +214,17 @@ func _play_then_result(ev: Array) -> void:
 	G.ctl.result_ready = true
 
 
+## 메뉴·저장·설정 상태 (시험용)
+func _menu_state() -> Dictionary:
+	var m: GameMenu = G.menu
+	var sv: Dictionary = G.ctl.load_save()
+	var cont = G.scenes.current.find_child("continue", true, false) if G.scenes.current_name == "title" else null
+	return {"paused": m.paused, "treePaused": get_tree().paused, "panel": m.panel, "corner": m.corner.visible,
+		"hasSave": not sv.is_empty(), "saveStep": sv.get("step", ""), "saveRoom": sv.get("room", ""), "place": GameMenu.place_of(sv),
+		"textSpeed": GameSettings.text_speed, "fullscreen": GameSettings.is_fullscreen(), "cps": GameSettings.chars_per_sec(),
+		"continueEnabled": cont != null and not cont.disabled, "buttons": m.buttons.keys()}
+
+
 ## 화면 좌표(무대 1920×1080) — 실제 터치·드래그 시험용
 func geom(kind: String, id: String) -> Dictionary:
 	var v: BattleView = G.view
@@ -256,12 +276,16 @@ func geom(kind: String, id: String) -> Dictionary:
 						var fr: Rect2 = fb.get_global_rect()
 						return {"x": fr.get_center().x, "y": fr.get_center().y, "w": fr.size.x, "h": fr.size.y}
 		"button":
+			var mb = G.menu.buttons.get(id) if G.menu.panel != "" else (G.menu.corner if id == "menu" and G.menu.corner.visible else null)
+			if mb is Control and is_instance_valid(mb):
+				var mr: Rect2 = mb.get_global_rect()
+				return {"x": mr.get_center().x, "y": mr.get_center().y, "w": mr.size.x, "h": mr.size.y, "disabled": mb.disabled}
 			var cur2 = G.scenes.current
 			if cur2:
 				var n = cur2.find_child(id, true, false)
 				if n is Control:
 					var gr: Rect2 = n.get_global_rect()
-					return {"x": gr.get_center().x, "y": gr.get_center().y}
+					return {"x": gr.get_center().x, "y": gr.get_center().y, "w": gr.size.x, "h": gr.size.y, "disabled": n is Btn and n.disabled}
 				if cur2 is VnScene:
 					for b in cur2.choice_btns:
 						if str(b.get_meta("value", "")) == id:

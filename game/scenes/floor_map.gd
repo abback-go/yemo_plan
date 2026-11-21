@@ -101,7 +101,7 @@ func intro() -> void:
 ## 방을 고를 때까지 기다린다. 반환: 들어갈 방 id (처음 들어가는 방)
 func run() -> String:
 	if G.autoguide:
-		get_tree().create_timer(FX.ms(700) / 1000.0).timeout.connect(_auto)
+		get_tree().create_timer(FX.ms(700) / 1000.0, false).timeout.connect(_auto)
 	var id = await chosen
 	return str(id)
 
@@ -111,7 +111,7 @@ func _auto() -> void:
 	if not is_inside_tree():
 		return
 	if _busy or G.dialog.is_busy():
-		get_tree().create_timer(0.3).timeout.connect(_auto)
+		get_tree().create_timer(0.3, false).timeout.connect(_auto)
 		return
 	var plan: Array = str(G.params.get("rooms", "")).split(",", false)
 	plan.append_array(["stairs", str(M.get("end", "deep"))])

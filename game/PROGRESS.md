@@ -5,17 +5,18 @@
 
 ## 구조 (버티컬 슬라이스, 2026-11-22)
 - `data/game_data.gd`(수치·지도·랜턴·방에서 얻는 카드·배치·배경별 전투 배치 battleLayouts·VN 대화창 vnBox·그림 대응) · `data/script_data.gd`(대본 v3: 대사·안내·선택지·지도 문구)
-- `core/`: `rules.gd`(전투·운명·지도·촛불·어둠·방에서 얻는 카드 규칙) · `ctl.gd`(장면 흐름: 곁방 → 회랑 → 안치 홀 → 지도 거점 → 방 → 가장 깊은 곳 → 빈 캠프 → 2·3층) · `guide.gd` · `fx.gd` · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
-- `ui/`: `battle_view.gd`(전투 화면·연출·HUD, 배치는 `LY()`) · `hand.gd` · `card_view.gd`(뒤집힌 카드·뒤집기) · `card_pick.gd`(카드 고르기: 거래·훈련) · `battle_input.gd`(동료 대상 카드) · `dialog_box.gd` · `cutin.gd` · `blood.gd` · `icons.gd`(지도 아이콘) · `btn.gd` · `card_art.gd` · `shaders/`
+- `core/`: `rules.gd`(전투·운명·지도·촛불·어둠·방에서 얻는 카드 규칙) · `ctl.gd`(장면 흐름: 곁방 → 회랑 → 안치 홀 → 지도 거점 → 방 → 가장 깊은 곳 → 빈 캠프 → 2·3층, 자동 저장·이어하기) · `save_game.gd`(user://save.json) · `game_settings.gd`(user://settings.cfg: 화면·글자 속도) · `guide.gd` · `fx.gd`(일시정지하면 멈추는 연출 시계) · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
+- `ui/`: `game_menu.gd`(메뉴 단추·일시정지·설정·확인 창) · `battle_view.gd`(전투 화면·연출·HUD, 배치는 `LY()`) · `hand.gd` · `card_view.gd`(뒤집힌 카드·뒤집기) · `card_pick.gd`(카드 고르기: 거래·훈련) · `battle_input.gd`(동료 대상 카드) · `dialog_box.gd` · `cutin.gd` · `blood.gd` · `icons.gd`(지도 아이콘) · `btn.gd` · `card_art.gd` · `shaders/`
 - `scenes/`: `scenes.gd`(타이틀·컷신·전멸·운명 선택·카드 획득·층 끝·결과) · `vn.gd`(VN 장면·표정 스탠딩·양피지 대화창) · `floor_map.gd`(지도 거점) · `omen.gd`(죽음 카드 떠오름)
 - 그림: `tools/vs_import.py`(art/raw/vs → game/assets: 크로마 배경 제거 soft 100 + 번짐 정리 + 크기 줄임), 대응표는 DECISIONS.md
-- 시험: `tests/test_rules.gd`(규칙·데이터 80개) · `tests/web/smoke.js`(Playwright 경로 A~F)
+- 시험: `tests/test_rules.gd`(규칙·데이터·저장 88개) · `tests/web/smoke.js`(Playwright 경로 A~F + S 기본 기능)
 
 ## 로컬 검증 방법
 - `godot --headless --path game --import` 두 번 → `godot --headless --path game -- --check-scripts` → `godot --headless --path game --script res://tests/test_rules.gd`
-- 헤드리스 자동 진행(CI 와 같은 5경로는 `.github/workflows/witch-web-build.yml`): `godot --headless --path game -- --scene=camp --speed=10 --autoguide --autoplay --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy --trace --quit-on-end`
-- 웹: export "Web" → `python3 -m http.server` → `node game/tests/web/smoke.js http://localhost:8000/ shots` (경로만: 뒤에 `AB` 등)
-- 바로 가기: `?scene=camp|corridor|hall|map|room:<방>|giant|emptycamp|floor2|floor3|result`, 시험용 `&darkness=N&omen=1`
+- 헤드리스 자동 진행(CI 와 같은 5경로는 `.github/workflows/witch-web-build.yml`): `godot --headless --path game -- --scene=camp --speed=10 --autoguide --nosave --autoplay --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy --trace --quit-on-end`
+  - `--nosave`: 자동 저장·설정 파일을 쓰지도 읽지도 않는다(남은 저장이 시험을 바꾸지 않게). 저장이 있는 채로 이어하기를 헤드리스로 보려면 `--nosave` 없이 돌리다 끊고 `--continue` 로 다시(같은 `--rooms` 등)
+- 웹: export "Web" → `python3 tools/web_sw_patch.py <빌드 폴더>` → `python3 -m http.server` → `node game/tests/web/smoke.js http://localhost:8000/ shots` (경로만: 뒤에 `AB` 등, 기본 ABCDEFS)
+- 바로 가기: `?scene=camp|corridor|hall|map|room:<방>|giant|emptycamp|floor2|floor3|result`, 시험용 `&darkness=N&omen=1`, `?nosave=1`, `?continue=1`(타이틀 없이 이어하기)
 
 ## 완료
 - [x] 골격 가져옴 + 대본 v0.6 + 잠긴 죽음 카드 규칙(1층부터 손패 맨 오른쪽, 4장 드로우, 거대 존재 1턴 해제) + 규칙 테스트 37개
@@ -79,4 +80,5 @@
 - 아직 옛 그림: 카드 틀, 컷인, 지도·랜턴·전투 HUD, 2·3층 배경·적·카드 그림. 세라피나 데스신은 기존 컷.
 - 노엘 스탠딩: 39 v1 로 **임시** 교체(2026-11-21, 비치는 천의 초록 물듦을 몸 전체 디스필 G = min(G, (R+B)/2) 로 없앰 — DECISIONS.md). 고친 39 가 오면 `python3 tools/vs_import.py --only noel` 로 같은 이름에 다시 만들고 `faces.noel` 얼굴 자리를 다시 잰다.
 - 손패와 세라피나 겹침: 배치 A(손패 +240 내림)·B(세라피나 top 430)는 사용자가 거절, **C 승인·적용**(손 무리 80%·카드 윗변 약 746·동료 셋 50 올림·회랑에서만 세라피나 HP 판 머리 오른쪽) — 값은 DECISIONS.md 열린 질문 항목.
+- **기본 기능(밤샘 계획 1, 2026-11-22)**: 타이틀(시작 / 이어하기 / 설정 / 끝내기 — 웹은 끝내기 없음), 설정(창·전체 화면, 글자 속도 느림·보통·빠름·즉시 — `user://settings.cfg`), 일시정지(Esc·오른쪽 위 메뉴 단추: 계속 / 설정 / 타이틀로 — 연출·데스신 도중에도 멈춤), 자동 저장(방·단계에 들어갈 때 `user://save.json`, 버전 1) → 이어하기는 그 방의 처음부터, 결과 요약에서 지움. 자세한 것은 DECISIONS.md 「기본 기능」.
 - 다음 할 일: 판단이 필요한 것(DECISIONS.md 열린 질문 — 촛불 소비 범위, 짓밟기 피해, 희귀 보상(무덤지기 기본안 확인)), 남은 그림 들여오기, 동작 그림(움직임 비교 시험 뒤)

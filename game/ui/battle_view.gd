@@ -1007,7 +1007,7 @@ func _on_aoe(e: Dictionary) -> void:
 	var i := 0
 	for en in Rules.alive_enemies(st):
 		var c := enemy_center(en.id)
-		get_tree().create_timer(FX.ms(i * 90) / 1000.0).timeout.connect(func(): FX.slash(c.x, c.y, {"len": 220, "width": 10, "color": "#ffffff", "ang": -0.6, "count": 2}))
+		get_tree().create_timer(FX.ms(i * 90) / 1000.0, false).timeout.connect(func(): FX.slash(c.x, c.y, {"len": 220, "width": 10, "color": "#ffffff", "ang": -0.6, "count": 2}))
 		i += 1
 	FX.shake(10, 360)
 	await FX.wait(260)
@@ -1341,8 +1341,8 @@ func ally_strike(id: String, pose: String, to: Vector2) -> Dictionary:
 			if is_instance_valid(act):
 				act.modulate.a = v.a
 				body.modulate.a = 1.0 - v.a, {"node": act})
-		get_tree().create_timer(FX.ms(w + bl) / 1000.0).timeout.connect(func(): _afterimage(id, act, 0.0))
-		get_tree().create_timer(FX.ms(w + bl + s * 0.5) / 1000.0).timeout.connect(func(): _afterimage(id, act, 0.5))
+		get_tree().create_timer(FX.ms(w + bl) / 1000.0, false).timeout.connect(func(): _afterimage(id, act, 0.0))
+		get_tree().create_timer(FX.ms(w + bl + s * 0.5) / 1000.0, false).timeout.connect(func(): _afterimage(id, act, 0.5))
 	var hit := FX.anim(w + bl + s, [{"x": 0.0}, {"x": 1.0}], Callable())
 	hit.finished.connect(func(): if not FX.reduced: FX.shake(5, 160))
 	return {"hit": hit, "done": main}
@@ -1585,7 +1585,7 @@ func reactions(dead := "hero") -> void:
 		if st.party.allies[id].status != "dead":
 			who.append(id)
 			trembling[id] = true
-	var stop := get_tree().create_timer(FX.ms(float(cs.reactionTremble)) / 1000.0)
+	var stop := get_tree().create_timer(FX.ms(float(cs.reactionTremble)) / 1000.0, false)
 	stop.timeout.connect(func():
 		for id in who:
 			trembling.erase(id))

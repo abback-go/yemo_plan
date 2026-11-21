@@ -5,6 +5,8 @@
 ##             | giant | emptycamp | floor2 | ossuary | f2stairs | floor3&brun=alive|dead | pyre | result
 ##   자동 진행(--autoguide --autoplay): --rooms=방,방… (지도에서 들를 방 순서) · --choice=값,… · --reward=카드|skip(묘지기의 좌판에서 살 카드 — 전투 승리 보상은 2026-11-21 에 뺐다) · --train=카드
 ##   · ?fates=accept(=offer),defy,… (운명의 시도 자동 선택, 순서대로)
+##   · ?nosave=1 / --nosave: 자동 저장·설정 파일을 쓰지도 읽지도 않는다(시험 실행 — 남은 저장이 결과를 바꾸지 않게) · ?continue=1: 타이틀 없이 이어하기
+## 메뉴: 화면 오른쪽 위 메뉴 단추·Esc → 일시정지(계속 / 설정 / 타이틀로), 타이틀(시작 / 이어하기 / 설정 / 끝내기) — ui/game_menu.gd
 extends Node
 
 var stage: Node2D
@@ -19,6 +21,9 @@ var test_api: TestApi
 func _ready() -> void:
 	G.read_params()
 	G.main = self
+	GameSettings.persist = not G.params.has("nosave")
+	GameSettings.load_file()
+	GameSettings.apply_display()
 	if G.params.has("check-scripts"):
 		var fails: int = CheckScripts.new().run()
 		get_tree().quit(1 if fails > 0 else 0)
@@ -108,6 +113,13 @@ func _ready() -> void:
 	fade.z_index = 950
 	stage.add_child(fade)
 	FX.fade_rect = fade
+	# 메뉴 단추·일시정지·설정·확인 창: 암전보다 위(검은 화면에서도 보인다), "가로로 돌려 주세요"보다 아래.
+	# 누르기는 나무 순서(뒤에 붙인 것이 먼저)로 정해지므로 돌려 주세요 안내 바로 앞에 붙인다
+	var menu := GameMenu.new()
+	menu.name = "Menu"
+	menu.z_index = 1500
+	stage.add_child(menu)
+	G.menu = menu
 	_make_rotate_hint()
 	var ctl := Ctl.new()
 	ctl.name = "Ctl"
@@ -127,10 +139,27 @@ func _ready() -> void:
 		add_child(AutoPlay.new())
 	get_viewport().size_changed.connect(_on_resize)
 	_on_resize()
-	if G.params.has("scene"):
+	if G.go_title:
+		G.go_title = false
+		scenes.title()
+	elif G.params.has("scene"):
 		ctl.jump(str(G.params.scene))
+	elif G.params.has("continue") and not ctl.load_save().is_empty():
+		ctl.continue_game()   # 시험용: 타이틀을 거치지 않고 이어하기 (?continue=1 / --continue)
 	else:
 		scenes.title()
+
+
+## 일시정지 메뉴의 「타이틀로」: 진행 중인 장면·연출을 모두 버리고 게임 화면을 새로 만든 뒤 타이틀을 연다(진행은 마지막 자동 저장까지만)
+func restart_to_title() -> void:
+	get_tree().paused = false
+	# 진행 중이던 흐름을 먼저 끝낸다(흐름 번호를 올리면 ctl 의 기다리던 루프·단계가 스스로 빠져나온다)
+	G.ctl.flow += 1
+	G.ctl.in_battle = false
+	G.ctl.busy = false
+	FX.reset()
+	G.go_title = true
+	get_tree().reload_current_scene()
 
 
 func _fx_on_top() -> bool:
