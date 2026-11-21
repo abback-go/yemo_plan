@@ -37,6 +37,7 @@ var fate_tint: ColorRect
 var fate_hold := ""        # 운명의 시도 중인 동료 (붉은 실을 최대로)
 var _t := 0.0
 var _ly := {}              # 지금 전투의 배치: layout 에 battleLayouts[encounters.<전투>.layout] 을 덮어쓴 것 (build 에서 정함)
+var anim: BattleAnim = null # 움직임 시험 ?anim=a|c (ui/battle_anim.gd). 옵션이 없으면 null — 기본 화면 그대로
 
 
 func D() -> Dictionary:
@@ -222,6 +223,7 @@ func ally_at(p: Vector2) -> String:
 # ───────── 화면 구성 ─────────
 func clear() -> void:
 	_ly = {}
+	anim = null
 	for n in ["bg", "enemies", "foot", "allies", "hud"]:
 		for c in layers[n].get_children():
 			c.queue_free()
@@ -254,6 +256,7 @@ func build(st: Dictionary) -> void:
 	layers.foot.z_index = 15
 	var b: Dictionary = st.battle
 	_ly = layout_for(str(b.enc))
+	anim = BattleAnim.create(self)
 	var ly := LY()
 	var bg := Sprite2D.new()
 	var enc_d: Dictionary = D().encounters[b.enc]
@@ -328,6 +331,8 @@ func _make_ally(st: Dictionary, id: String) -> void:
 		pose.add_child(act)
 		acts[pname] = act
 	allies[id] = {"node": node, "pose": pose, "body": body, "acts": acts, "shades": shades, "box": box, "base": node.position}
+	if anim:
+		anim.setup_ally(id, allies[id], float(conf.top))
 	if a.status == "dead":
 		node.visible = false
 
@@ -378,6 +383,8 @@ func make_enemy(e: Dictionary) -> void:
 			spr.modulate = Color(tint[0], tint[1], tint[2])
 		node.add_child(spr)
 		layers.enemies.add_child(node)
+		if anim:
+			anim.setup_enemy(str(e.id), node)
 	enemies[e.id] = {"node": node}
 	# HP
 	var hp := EnemyHp.new()
@@ -593,11 +600,13 @@ func _process(delta: float) -> void:
 		var al: Dictionary = allies[id]
 		var i := maxi(0, order.find(id))
 		var ph := (_t * 1000.0 / float(br.period) + i * 0.37 + 0.11) * TAU
-		al.pose.position.y = -float(br.amp) * (0.5 - 0.5 * cos(ph)) if not FX.reduced else 0.0
+		al.pose.position.y = -float(br.amp) * (0.5 - 0.5 * cos(ph)) if not FX.reduced and not (anim and anim.has_ally(id)) else 0.0
 		if trembling.has(id):
 			al.pose.position += Vector2(randf_range(-2, 2), randf_range(-1, 1))
 		else:
 			al.pose.position.x = 0
+	if anim:
+		anim.tick()
 	layers.threads.queue_redraw()
 	# 확대·선택 강조(맥박)
 	for id in intents:
@@ -1027,6 +1036,8 @@ func _on_damage(e: Dictionary) -> void:
 		_hp_float(w, e.amount, "enemy")
 		if enemies.has(w.enemy):
 			flash_node(enemies[w.enemy].node)
+			if anim:
+				anim.hit_enemy(w.enemy)
 		if int(e.amount) >= 12:
 			FX.shake(9, 300)
 		render()
@@ -1107,7 +1118,7 @@ func _on_enemyAct(e: Dictionary) -> void:
 	if e.kind == "attack":
 		# 몸을 젖혔다가 달려든다 → 맞는 순간 베기 자국 (맞은 동료의 흔들림은 이어지는 damage 에서)
 		var tp := target_point(e.target)
-		var ln := enemy_lunge(e.enemy)
+		var ln := enemy_lunge(e.enemy, tp)
 		await FX.wait(ln)
 		FX.slash(tp.x, tp.y, {"len": 150, "width": 7, "color": "#ff4050", "ang": -0.8, "count": 3})
 		await FX.wait(maxf(60.0, float(D().timing.enemyAttack) - 440.0))
@@ -1304,6 +1315,8 @@ func ally_strike(id: String, pose: String, to: Vector2) -> Dictionary:
 		return {}
 	var m: Dictionary = D().motion
 	motion_log.append(id + ":" + pose)
+	if anim and anim.has_ally(id):
+		return anim.strike(id, to)
 	var al: Dictionary = allies[id]
 	var node: Node2D = al.node
 	var act: Node2D = al.acts.get(pose)
@@ -1375,6 +1388,9 @@ func _afterimage(id: String, act: Node2D, k: float) -> void:
 func ally_hurt(id: String) -> void:
 	if not allies.has(id):
 		return
+	if anim and anim.has_ally(id):
+		anim.hurt(id)
+		return
 	var h: Dictionary = D().motion.hurt
 	var p := float(h.power) * (0.3 if FX.reduced else 1.0)
 	var fr := [{"p": Vector2.ZERO}]
@@ -1389,10 +1405,12 @@ func ally_hurt(id: String) -> void:
 
 
 ## 적의 공격: 몸을 젖힘 → 달려듦(화면 앞쪽으로 커지며) → 제자리. 반환: 타격까지의 시간(ms)
-func enemy_lunge(id: String) -> float:
+func enemy_lunge(id: String, to := Vector2.INF) -> float:
 	var m: Dictionary = D().motion.enemy
 	if not enemies.has(id):
 		return 0.0
+	if anim and anim.has_enemy(id):
+		return anim.enemy_lunge(id, to)
 	var node: Node2D = enemies[id].node
 	var red := 0.3 if FX.reduced else 1.0
 	var T := float(m.windup) + float(m.rush) + float(m.back)

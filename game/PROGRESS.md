@@ -98,3 +98,14 @@
 - CI 전체 검증의 헤드리스 자동 진행은 이제 **6경로**(`.github/workflows/witch-web-build.yml`).
 - 결과(2026-11-22): 약 950판(보상 빼기 전 `f518d6a` 200판 포함) — 막힘 1개(위, 고침) 말고 시간 초과·스크립트 에러·결과 미도달 0, 같은 시드 반복 29묶음 모두 같음.
   같은 시드 180판 전멸: 옛 자동 진행 616 → 고친 기본 100 → careful 13(화형대·운명 모두 거스른 경로만). 전체 검증: check-scripts 38 ok · test_rules 90 통과 · 헤드리스 6경로 결과 도달·에러 0 · 스모크 A~F+S 106 통과·콘솔 에러 0.
+
+## 움직임 시험 두 안 (밤샘 계획 4, 2026-11-22)
+- 켜는 법: 웹 주소 뒤에 `?anim=a`(A′ 코드 효과 — 동료 뒷모습·적이 기울기·잉크 번짐·숨쉬기) 또는 `?anim=c`(C — 세라피나만 부위 뼈대). 다른 옵션과 함께 쓸 때는 `&anim=a`(예: `?scene=corridor&anim=c`). 헤드리스·데스크톱은 `-- --anim=a`·`-- --anim=c`. **옵션이 없으면 지금 화면 그대로**.
+- 파일: `ui/battle_anim.gd`(두 안의 연결·A′) · `ui/sera_rig.gd`(C 뼈대) · `ui/shaders/hit_ink.gdshader`(잉크 번짐) · `data/anim_rig.gd`(C 관절 배치, 자동 생성) · `assets/anim/sera_*.png`(C 부위 11장) · `tools/anim_parts.py`(부위 시트 → 부위 그림·배치: `python3 tools/anim_parts.py` 뒤 `--import`)
+- 방식·한계·비용, 사용자가 고를 것: DECISIONS.md 「움직임 시험 두 안」.
+- 비교 자료(저장소 밖, 세션 scratchpad 의 `vs_shots/`): 장례 회랑 전투 1턴 — 대기 → 세라피나 성검 베기 → 턴 종료(세라피나·엘리안 피격)를 기본·A′·C 로 같은 시드(7)에서 0.3배 속도로 녹화
+  - `anim_compare.webm`·`anim_compare_nohand.webm`: 세 안을 세로로 쌓은 15초 영상(손패 보임 / 손패 숨김 — 시험 훅 `hideHand`)
+  - `anim_compare_{idle,attack,hit}[_nohand].jpg`: 같은 장면 프레임 표(줄 = 기본·A′·C), `anim_c_fit.jpg`: C 부위 조립 ↔ 지금 뒷모습(비율 차이)
+  - `anim_{base,a,c}[_nohand]/`: 안마다 전체 녹화(`video/*.webm`)·스틸·구간 프레임. 만든 스크립트는 `scratchpad/verify_4/anim_shots.js`·`frames.py`·`compare.py`·`rig_fit.py`
+- 시험: 스모크 경로 M 추가(기본 경로 목록 `ABCDEFSM`) — `anim=a`·`anim=c` 로 장례 회랑 전투 한 판(실제 드래그로 성검 베기 → 승리), 연출 도중 일시정지하면 화면이 그대로, 콘솔 에러 0. 경로 M 만: `node game/tests/web/smoke.js <주소> <폴더> M`
+- 시험(2026-11-22, 이 작업 끝): check-scripts 42 ok · test_rules 88 통과 · CI 와 같은 헤드리스 5경로 모두 결과 요약까지 에러 0(전멸 1/0/4/3/1, 시드 무작위) · 헤드리스 경로 ①(처음부터, 방 8개)을 `--anim=a`·`--anim=c` 로 한 번씩 에러 0(전멸 0/1) · 웹 내보내기(index.pck 23.36MB) + 스모크 A~F + S + M 114항목 중 113 통과 — 실패 1건은 경로 C 도중 로컬 http 서버가 꺼졌다 다시 켜진 동안의 `net::ERR_FAILED` 2줄(브라우저 콘솔 에러 확인), 경로 C 만 다시 돌려 8 통과·콘솔 에러 0. 경로 M 9 통과.

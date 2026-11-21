@@ -20,7 +20,7 @@ func _ready() -> void:
 	_win = JavaScriptBridge.get_interface("window")
 	_obj = JavaScriptBridge.create_object("Object")
 	for name in ["state", "jump", "play", "endTurn", "advance", "choose", "pick", "train", "room", "winBattle", "enemyHp", "geom", "handCut", "resetGuides", "setSpeed",
-					"fate"]:
+					"fate", "hideHand"]:
 		var cb := JavaScriptBridge.create_callback(_call.bind(name))
 		_cbs.append(cb)
 		_obj.set(name, cb)
@@ -96,6 +96,10 @@ func _call(args: Array, name: String) -> void:
 		"fate":
 			# 운명의 시도 선택 화면에서 고른다 (offer | defy)
 			r = {"ok": G.scenes.pick_fate(str(_arg(args, 0, "defy")))}
+		"hideHand":
+			# 움직임 비교 자료(밤샘 계획 4)용: 손패·노엘 손을 숨겨 동료 뒷모습 전체를 본다 (true 숨김 / false 다시 보임)
+			G.view.hand.visible = not bool(_arg(args, 0, true))
+			r = {"ok": true}
 	_out(r)
 
 

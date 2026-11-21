@@ -22,7 +22,8 @@
  *         → 일시정지(Esc: 대사·연출이 멈춤) → 계속 → 장례 회랑에 들어감(자동 저장) → 새로고침 → 이어하기(설정도 남음) → 같은 방의 처음
  *         → 일시정지 → 타이틀로(확인) → 시작(저장이 지워진다는 확인 → 취소 → 처음부터) / 휴대폰: 타이틀·설정·메뉴 단추로 일시정지
  *         / 카드 연출·데스신 도중 일시정지 → 멈춘 동안 그대로 → 계속하면 이어서 끝남 / 카드 연출 도중 타이틀로 → 에러 없이 타이틀
- *   경로만 고르기: node smoke.js <주소> <폴더> AB   (기본: ABCDEFS 전부)
+ * 경로 M: 움직임 시험 두 안(밤샘 계획 4) — ?anim=a · ?anim=c 로 장례 회랑 전투를 끝까지(실제 드래그로 카드 내기 → 승리), 연출 도중 일시정지하면 화면이 멈춤, 콘솔 에러 0
+ *   경로만 고르기: node smoke.js <주소> <폴더> AB   (기본: ABCDEFSM 전부)
  * 통과 조건: 모든 확인 통과 + 브라우저 콘솔 에러 0 (Godot 의 ERROR / SCRIPT ERROR 포함)
  * (탑뷰 시험판 경로 T 는 탑뷰 코드와 함께 없앴다 — 2026-11-21, game/DECISIONS.md)
  */
@@ -935,11 +936,50 @@ async function pathS(browser) {
   await ctx3.close();
 }
 
+// ───────── 경로 M: 움직임 시험 두 안 (?anim=a 코드 효과 / ?anim=c 세라피나 부위 뼈대) ─────────
+async function pathM(browser) {
+  say('경로 M: 움직임 시험 ?anim=a · ?anim=c — 장례 회랑 전투 한 판(실제 드래그로 성검 베기 → 승리), 연출 도중 일시정지, 콘솔 에러 0');
+  for (const mode of ['a', 'c']) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+    const H = helpers(page, 'M' + mode);
+    const before = errors.length;
+    await H.open('scene=corridor&autoguide=1&nosave=1&anim=' + mode);
+    let s = await H.until(s => s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 120000, '전투 1턴 (anim=' + mode + ')');
+    await H.shot(`M_${mode}_01_turn1.png`);
+    const hs = await H.W('geom', 'card', 'holy_slash');
+    const en = await H.W('geom', 'enemy', 'c2');
+    await H.drag({ x: hs.x, y: hs.y }, { x: en.x, y: en.y }, 14);
+    s = await H.until(s => !s.busy, 20000, '성검 베기 끝');
+    check(`anim=${mode}: 성검 베기(실제 드래그) → 광신도 c2 쓰러짐, 세라피나 공격 움직임`,
+      !s.battle.enemies.find(e => e.id === 'c2').alive && s.motionLog.includes('hero:attack'), s.motionLog);
+    // 연출 도중 일시정지: 멈춘 동안 동료·적 자리 화면이 그대로(숨쉬기·뼈대·쏠림도 연출 시계와 함께 멈춤)
+    await H.W('setSpeed', 0.3);
+    await H.W('play', 'curse_flame', JSON.stringify({ enemy: 'c1' }));
+    await H.sleep(500);
+    await page.keyboard.press('Escape');
+    await H.until(s => s.menu && s.menu.paused, 5000, '일시정지');
+    await H.sleep(600);
+    const p0 = await page.screenshot({ clip: { x: 0, y: 150, width: 1280, height: 400 } });
+    await H.sleep(1500);
+    const p1 = await page.screenshot({ clip: { x: 0, y: 150, width: 1280, height: 400 } });
+    await H.shot(`M_${mode}_02_paused.png`);
+    check(`anim=${mode}: 연출 도중 일시정지 → 멈춘 동안 화면이 그대로`, Buffer.compare(p0, p1) === 0);
+    await page.keyboard.press('Escape');
+    await H.until(s => s.menu && !s.menu.paused, 5000, '계속');
+    await H.W('setSpeed', 1);
+    s = await H.fight(s => (s.log || []).includes('win normal'), 180000, '장례 회랑 승리 (anim=' + mode + ')');
+    await H.shot(`M_${mode}_03_win.png`);
+    check(`anim=${mode}: 장례 회랑 전투를 끝까지(승리)`, (s.log || []).includes('win normal'), (s.log || []).slice(-4));
+    check(`anim=${mode}: 콘솔 에러 0`, errors.length === before, errors.slice(before, before + 4).join(' | '));
+    await page.close();
+  }
+}
+
 (async () => {
   const browser = await launch();
   const t0 = Date.now();
-  const only = process.argv[4] || 'ABCDEFS';
-  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE], ['F', pathF], ['S', pathS]]) {
+  const only = process.argv[4] || 'ABCDEFSM';
+  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE], ['F', pathF], ['S', pathS], ['M', pathM]]) {
     if (!only.includes(name)) continue;
     try { await fn(browser); } catch (e) { check('경로 ' + name + ' 진행', false, e.message); }
   }
