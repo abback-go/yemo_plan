@@ -60,7 +60,7 @@ const S := {
 		"turn": "{n}턴", "giantTurn": "{n}턴 · 짓밟기까지 {left}", "enemyPhase": "적의 차례", "floorBattle": "{n}층",
 		"innerName": "노엘 (속마음)", "systemName": "안내", "skip": "건너뛰기 ▶▶", "cutHint": "탭: 다음", "tapNext": "탭: 다음 ▼",
 		"immune": "흠집만 난다", "reshuffle": "버림 더미를 섞어 새 덱으로", "handFull": "손패가 가득 찼다",
-		"allyDown": "{name} 쓰러짐", "relic": "{name}의 카드 {n}장이 유품이 되었다", "wound": "{name}의 카드 1장이 「상처」가 되었다",
+		"allyDown": "{name} 쓰러짐", "relic": "{name}의 카드 {n}장이 「유품」이 되었다", "wound": "{name}의 카드 1장이 「상처」가 되었다",
 		"pickAlly": "새로 맞을 아군을 고르세요 · 빈 곳: 취소", "dropHere": "놓으면 사용", "dragUp": "위로 끌어올려 사용",
 		"needIntent": "예고된 공격에 놓아야 한다", "needAlly": "동료 위에 놓아야 한다", "cantHere": "여기에는 낼 수 없다",
 		"trainTitle": "강화할 카드를 고르세요", "trainHint": "고른 카드 1장이 강화된다 (Lv1 → Lv2)", "tapClose": "탭하면 닫힘", "ownerScar": "흉터 · 운명을 거스른 값",
@@ -100,7 +100,7 @@ const S := {
 			{"who": "warrior", "face": "warrior_smirk", "text": "아가씨, 내 뒤로. 반은 내가 먹어 줄게."},
 			{"who": "archer", "face": "archer_cold", "text": "아가씨라고 하지 마세요."},
 			{"who": "inner", "text": "셋 다 엘리안한테 가. 하나는 옮겨야 돼."},
-			{"who": "system", "text": "**노엘의 싸움은 \"피해 옮기기\"입니다.**\n· 「운명 전가」: 예고 위에 놓고 새로 맞을 동료를 고른다.\n· 「대신 받기」: 노엘이 대신 맞는다.\n· 「감싸기」: 브룬힐드가 대신 맞되 피해는 절반."},
+			{"who": "system", "text": "**노엘의 싸움은 “피해 옮기기”입니다.**\n· 「운명 전가」: 예고 위에 놓고 새로 맞을 동료를 고른다.\n· 「대신 받기」: 노엘이 대신 맞는다.\n· 「감싸기」: 브룬힐드가 대신 맞되 피해는 절반."},
 			{"who": "system", "text": "엘리안의 HP는 12. **공격 하나라도 다른 사람에게 옮기세요.**"}]},
 		{"id": "n_redirect", "on": "redirect", "once": true, "lines": [
 			{"who": "hero", "face": "hero_smile", "text": "좋아, 그거야."}]},
@@ -234,7 +234,7 @@ const S := {
 		"buried": [
 			{"speaker": "narr", "text": "못이 박힌 관 하나. 안에서 두드리는 소리가 난다."},
 			{"show": {"archer": "L", "warrior": "R"}, "speaker": "archer", "face": "archer_shocked", "text": "안에 사람 있어요."},
-			{"speaker": "warrior", "face": "warrior_stern", "text": "이 탑에서 '사람'이면 다행이고."},
+			{"speaker": "warrior", "face": "warrior_stern", "text": "이 탑에서 ‘사람’이면 다행이고."},
 			{"key": "buried", "choice": [
 				{"text": "꺼낸다", "value": "open", "lines": [
 					{"show": {"archer": "FL", "child": "C", "warrior": "FR"}, "speaker": "narr", "text": "못을 뽑다가 손이 찢어졌다. 안에는 잠옷 차림의 아이가 있다."},
@@ -395,7 +395,7 @@ const S := {
 		"stairs": "계단 앞 홀", "deep": "가장 깊은 곳", "emptycamp": "곁방",
 		"f2corridor": "창 함정 회랑", "f2ossuary": "기사단 납골당", "f2stairs": "3층으로 내려가는 계단", "f3chapel": "불탄 예배당 회랑", "f3pyre": "화형대 광장"},
 	# 훈련 결과 한 줄 ({card} = 강화한 카드 이름, {summary} = 바뀐 수치)
-	"trainResult": "{card} 강화 — {summary}",
+	"trainResult": "「{card}」 강화 — {summary}",
 
 	# ───────────── 지도 (대본 v3 2장 · vertical-slice.md 튜토리얼 지도 초안) ─────────────
 	"map": {
@@ -454,29 +454,29 @@ const S := {
 		"choiceText": "{name}의 죽음이 왔다.",
 		"offer": "받아들인다 — {name}의 죽음",
 		"defy": "거스른다 — 운명을 비튼다 (흉터 {n})",
-		"defyNote": "받아들이면 그 죽음의 힘과 {name}의 유품이 손에 들어온다. 거스르면 살지만, 운명은 다음 층으로 미뤄져 더 잔혹하게 온다. 흉터 {n}장이 노엘 덱에 새겨진다.",
+		"defyNote": "받아들이면 그 죽음의 힘과 {name}의 유품이 손에 들어온다. 거스르면 살지만, 운명은 다음 층으로 미뤄져 더 잔혹하게 온다. 「흉터」 {n}장이 노엘 덱에 새겨진다.",
 		"gainInherit": "「{card}」 — 덱에 들어왔다",
-		"gainScar": "흉터 {n}장이 노엘의 손등에 새겨졌다",
+		"gainScar": "「흉터」 {n}장이 노엘의 손등에 새겨졌다",
 		"postponed": "운명이 미뤄졌다. 다음에는 더 잔혹하게 온다.",
 		# 집행자를 먼저 쓰러뜨렸을 때: 쓰러지는 그 순간 운명이 온다
-		"dying": [{"who": "inner", "text": "(쓰러지면서도— 운명은 멈추지 않는다.)"}],
+		"dying": [{"who": "inner", "text": "쓰러지면서도— 운명은 멈추지 않는다."}],
 		# 운명마다: trap(시도가 온 순간) / offered(받아들인 뒤) / defied(거스른 뒤). trap2 는 2단계일 때
 		# 세라피나(튜토리얼, 거스를 수 없음): 「짓밟기」가 내려오는 순간 손패의 뒤집힌 카드가 저절로 뒤집힌다 → 속마음 → 데스신 (대본 v3 5.2)
 		"hero_stomp": {
 			"trap": [{"who": "inner", "text": "알고 있었는데."}],
 		},
 		"warrior_pierce": {
-			"trap": [{"who": "inner", "text": "(지금이다. 이 창이, 그녀를 꿰뚫는다.)"}],
-			"trap2": [{"who": "inner", "text": "(또 왔다. 미뤄 둔 그 죽음이— 이번엔 꼬챙이가 되어.)"}],
-			"offered": [{"who": "archer", "face": "archer_shocked", "text": "브룬힐드!!"}, {"who": "inner", "text": "(…막지 않았다.)"}],
-			"defied": [{"who": "inner", "text": "(손등이 찢어진다. 운명을 거스른 값이다.)"},
+			"trap": [{"who": "inner", "text": "지금이다. 이 창이, 그녀를 꿰뚫는다."}],
+			"trap2": [{"who": "inner", "text": "또 왔다. 미뤄 둔 그 죽음이— 이번엔 꼬챙이가 되어."}],
+			"offered": [{"who": "archer", "face": "archer_shocked", "text": "브룬힐드!!"}, {"who": "inner", "text": "…막지 않았다."}],
+			"defied": [{"who": "inner", "text": "손등이 찢어진다. 운명을 거스른 값이다."},
 				{"who": "warrior", "face": "warrior_shocked", "text": "…방금, 뭐였지. 노엘, 네가 날 당겼나?"},
 				{"who": "noel", "text": "……"}],
 		},
 		"archer_burn": {
-			"trap": [{"who": "inner", "text": "(…불길이, 엘리안에게.)"}, {"who": "inner", "text": "(지금이다. 이 불이 그녀를 태운다.)"}],
-			"offered": [{"who": "inner", "text": "(…막지 않았다.)"}],
-			"defied": [{"who": "inner", "text": "(불길이 그녀 앞에서 갈라진다. 손등이 탄다.)"},
+			"trap": [{"who": "inner", "text": "…불길이, 엘리안에게."}, {"who": "inner", "text": "지금이다. 이 불이 그녀를 태운다."}],
+			"offered": [{"who": "inner", "text": "…막지 않았다."}],
+			"defied": [{"who": "inner", "text": "불길이 그녀 앞에서 갈라진다. 손등이 탄다."},
 				{"who": "archer", "face": "archer_shocked", "text": "…뜨거, 워…? 아니, 안 뜨거워. 노엘, 지금…"},
 				{"who": "noel", "text": "……"}],
 		},
@@ -486,7 +486,7 @@ const S := {
 	"deathScenes": {
 		"warrior_pierce": {
 			"lines": {"W1": [{"who": "warrior", "text": "…노엘, 물러—"}]},
-			"lv2": {"W1": [{"who": "warrior", "text": "……."}], "W2": [{"who": "system", "text": "꼬챙이에 꿰인 채, 그녀는 내려오지 못했다."}]},
+			"lv2": {"W1": [{"who": "warrior", "text": "……"}], "W2": [{"who": "system", "text": "꼬챙이에 꿰인 채, 그녀는 내려오지 못했다."}]},
 		},
 		"archer_burn": {
 			"lines": {"A1": [{"who": "archer", "text": "노엘—! 뜨거, 뜨거워…!"}]},
@@ -510,7 +510,7 @@ const S := {
 	# 시험판 끝 — 결과 요약
 	"result": {
 		"title": "시험판 끝",
-		"hero": "1층 가장 깊은 곳에서 짓밟혀 죽었다. (용사의 죽음)",
+		"hero": "1층 가장 깊은 곳에서 짓밟혀 죽었다. (「용사의 죽음」)",
 		"offered": "{floor}층에서 운명대로 죽었다 — 죽음 카드 Lv{lv}",
 		"alive": "살아 있다 — 운명은 미뤄졌다: {floor}층에서 Lv{lv}",
 		"saved": "운명을 모두 거슬러, 구했다.",
