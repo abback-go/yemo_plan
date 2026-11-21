@@ -418,9 +418,9 @@ const D := {
 		"1": {
 			"start": "hall", "end": "deep",
 			"rooms": {
-				"camp": {"type": "camp", "pos": [760, 112], "candle": false, "spine": true},
-				"corridor": {"type": "battle", "pos": [760, 228], "candle": false, "spine": true, "enc": "normal", "reward": "common"},
-				"hall": {"type": "hub", "pos": [760, 372], "candle": false, "spine": true},
+				"camp": {"type": "camp", "pos": [760, 98], "candle": false, "spine": true},
+				"corridor": {"type": "battle", "pos": [760, 238], "candle": false, "spine": true, "enc": "normal", "reward": "common"},
+				"hall": {"type": "hub", "pos": [760, 386], "candle": false, "spine": true},
 				"prayer": {"type": "battle", "pos": [440, 300], "enc": "prayer", "reward": "common"},
 				"gravekeeper": {"type": "elite", "pos": [190, 205], "enc": "gravekeeper", "reward": "rare"},
 				"buried": {"type": "event", "pos": [1085, 282]},

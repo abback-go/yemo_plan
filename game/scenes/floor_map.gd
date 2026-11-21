@@ -33,31 +33,31 @@ func setup(state: Dictionary) -> void:
 	size = Vector2(1920, 1080)
 	var f := Vector2(PANEL.position.x + 30, 0)
 	info_name = UI.label("", 34, Color("#f6e7c8"), "serif_bold")
-	info_name.position = f + Vector2(0, 572)
+	info_name.position = f + Vector2(0, 588)
 	info_name.size = Vector2(PANEL.size.x - 60, 48)
 	add_child(info_name)
 	info_type = UI.label("", 22, Color("#d9b46a"), "sans_bold")
-	info_type.position = f + Vector2(0, 622)
+	info_type.position = f + Vector2(0, 638)
 	info_type.size = Vector2(PANEL.size.x - 60, 30)
 	add_child(info_type)
 	info_desc = UI.label("", 24, Color("#e2d6cc"), "sans")
-	info_desc.position = f + Vector2(0, 660)
+	info_desc.position = f + Vector2(0, 674)
 	info_desc.size = Vector2(PANEL.size.x - 60, 110)
 	info_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(info_desc)
 	info_cost = UI.label("", 22, Color("#ffcf8a"), "sans_bold")
-	info_cost.position = f + Vector2(0, 776)
+	info_cost.position = f + Vector2(0, 786)
 	info_cost.size = Vector2(PANEL.size.x - 60, 60)
 	info_cost.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(info_cost)
 	enter_btn = UI.button(str(G.S.map.enter), 30, func(): _confirm(sel), "serif_bold")
 	enter_btn.fit(Vector2(60, 14))
-	enter_btn.position = Vector2(PANEL.get_center().x - enter_btn.size.x / 2.0, 850)
+	enter_btn.position = Vector2(PANEL.get_center().x - enter_btn.size.x / 2.0, 852)
 	enter_btn.name = "enter"
 	enter_btn.visible = false
 	add_child(enter_btn)
 	status_l = UI.label("", 22, Color("#ff9aa4"), "sans_bold")
-	status_l.position = f + Vector2(0, 470)
+	status_l.position = f + Vector2(0, 490)
 	status_l.size = Vector2(PANEL.size.x - 60, 80)
 	status_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status_l)
@@ -214,7 +214,7 @@ func _refresh() -> void:
 			enter_btn.set_text(str(G.S.map.move))
 			enter_btn.visible = true
 		enter_btn.fit(Vector2(60, 14))
-		enter_btn.position = Vector2(PANEL.get_center().x - enter_btn.size.x / 2.0, 850)
+		enter_btn.position = Vector2(PANEL.get_center().x - enter_btn.size.x / 2.0, 852)
 		enter_btn.pulse = stt == "open"
 	var lines := []
 	if int(p.darkness) > 0:
@@ -293,7 +293,7 @@ func _draw() -> void:
 			draw_arc(c, ROOM_R + 8, 0, TAU, 40, Color(0.85, 0.7, 0.4, 0.55), 2.0, true)
 		if p.room == id:
 			draw_arc(c, ROOM_R + 16 + 3 * sin(_t * 4.0), 0, TAU, 48, Color(1, 0.82, 0.5, 0.95), 3.0, true)
-			draw_string(lf, c + Vector2(-80, -ROOM_R - 26), str(G.S.map.here), HORIZONTAL_ALIGNMENT_CENTER, 160, 20, Color("#ffe2a8"))
+			draw_string(lf, c + Vector2(-ROOM_R - 186, 7), str(G.S.map.here), HORIZONTAL_ALIGNMENT_RIGHT, 160, 20, Color("#ffe2a8"))
 		if id == sel:
 			draw_arc(c, ROOM_R + 12, 0, TAU, 48, Color("#ffd36b"), 3.0, true)
 		var nm := room_name(id)
@@ -306,7 +306,7 @@ func _draw() -> void:
 	draw_string(f, PANEL.position + Vector2(30, 62), str(G.S.map.floors.get(Rules.floor_now(st), G.S.map.title)), HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Color("#f6e7c8"))
 	draw_rect(Rect2(PANEL.position + Vector2(24, 84), Vector2(PANEL.size.x - 48, 1)), Color(0.55, 0.2, 0.25, 0.6))
 	_draw_lantern(Vector2(PANEL.get_center().x, 300))
-	draw_rect(Rect2(PANEL.position + Vector2(24, 556), Vector2(PANEL.size.x - 48, 1)), Color(0.55, 0.2, 0.25, 0.6))
+	draw_rect(Rect2(Vector2(PANEL.position.x + 24, 575), Vector2(PANEL.size.x - 48, 1)), Color(0.55, 0.2, 0.25, 0.6))
 	# 범례 (아이콘 7종)
 	var types := ["battle", "elite", "event", "rest", "train", "trade", "omen"]
 	var fs := Assets.font("sans")

@@ -577,6 +577,11 @@ func _prep_map(room: String) -> void:
 		need = ["stairs"]
 	for r in need:
 		Rules.enter_room(st, r)
+	# 시험용: ?darkness=N (이 층의 어둠 단계) · ?omen=1 (전조를 본 상태)
+	if G.params.has("darkness"):
+		st.progress.darkness = int(G.params.darkness)
+	if G.params.has("omen"):
+		st.progress.omen = true
 
 
 ## 바로 가기용: 세라피나가 죽은 뒤(빈 캠프 직전) 상태 — 유품·짓밟힘. 빈 캠프에서 브룬힐드의 운명이 들어온다
