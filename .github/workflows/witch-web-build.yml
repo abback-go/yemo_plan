@@ -80,22 +80,23 @@ jobs:
           ~/godot/godot --headless --path . --script res://tests/test_rules.gd 2>&1 | tee /tmp/rules.txt
           grep -q "failures: 0" /tmp/rules.txt
 
-      # 1차 시험판 v2: 처음부터 끝(결과 요약)까지 2경로(거대 존재 전멸 → 되감기 포함) + 2층부터 운명 3경로
-      #   ① 2층 바침 → 3층 엘리안 바침 ② 2층 거스름 → 3층 브룬힐드 Lv2 거스름 + 엘리안 거스름 ③ 2층 거스름 → 3층 브룬힐드 Lv2 바침 (--fates 는 운명의 시도 순서대로)
-      - name: Headless auto-play (start → result, fate paths ①②③)
+      # 버티컬 슬라이스: 처음부터 끝(결과 요약)까지 3경로 + 2층부터 운명 2경로 (--fates 는 운명의 시도 순서대로, accept = 받아들인다)
+      #   ① 장례 탑 1층 방 8개 모두(--rooms 순서대로) → 2·3층 모두 거스름 ② 방 5개(촛불이 다 타 층 끝 전투에 어둠 2단계) → 받아들임
+      #   ③ 방 없이 정해진 길만 → 2층 거스름 → 3층 엘리안 거스름·브룬힐드 Lv2 받아들임 ④ 2층부터 모두 받아들임 ⑤ 2층부터 모두 거스름
+      - name: Headless auto-play (start → result, room/fate paths)
         if: ${{ inputs.full }}
         run: |
           cd game
           : > /tmp/auto.txt
-          for args in "--scene=camp --path=rest --choice=smile --fates=offer,offer --autoplay" \
-                      "--scene=camp --path=train --train=snipe --choice=silent --fates=defy,defy,defy --autoplay=wipe" \
+          for args in "--scene=camp --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy --autoplay" \
+                      "--scene=camp --rooms=prayer,buried,corpse,stall,chapel --choice=leave,candle --reward=skip --fates=accept,accept --autoplay" \
+                      "--scene=camp --rooms=none --fates=defy,defy,offer --autoplay" \
                       "--scene=floor2 --fates=offer,offer --autoplay" \
-                      "--scene=floor2 --fates=defy,defy,defy --autoplay" \
-                      "--scene=floor2 --fates=defy,defy,offer --autoplay"; do
+                      "--scene=floor2 --fates=defy,defy,defy --autoplay"; do
             echo "=== $args"
             timeout 400 ~/godot/godot --headless --path . -- --speed=10 --autoguide --guides=reset --trace --quit-on-end $args > /tmp/auto1.txt 2>&1 || true
             cat /tmp/auto1.txt >> /tmp/auto.txt
-            grep -E "step |battle |path |choice|rewind|fate pick|win |wipe|result|SCRIPT ERROR|ERROR" /tmp/auto1.txt | grep -v "] ev " | tail -40
+            grep -E "step |battle |enter |choice|reward|fate pick|win |wipe|result|SCRIPT ERROR|ERROR" /tmp/auto1.txt | grep -v "] ev " | tail -40
             grep -q "] result" /tmp/auto1.txt
             ! grep -E "SCRIPT ERROR|^ERROR" /tmp/auto1.txt
           done
