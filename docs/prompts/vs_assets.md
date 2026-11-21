@@ -18,7 +18,7 @@
 |---|---|---|---|
 | **1단계 — 움직임 비교 시험 (A·B·C 중 방식 결정)** ||||
 | 1 | 세라피나 뒷모습 기본 | P01 | 시험 공통 바탕 |
-| 2 | 세라피나 「성검 베기」 포즈 | P02 | 시험 A |
+| 2 | 세라피나 「성검 베기」 준비 자세 + 휘두른 자세(2장) | P02-1·P02-2 | 시험 A |
 | 3 | 세라피나 「성검 베기」 6프레임 시트 | P03 | 시험 B |
 | 4 | 세라피나 부위 분리 시트 | P04 | 시험 C |
 | **2단계 — 전투 화면 목업 (1장을 완성본 품질로)** ||||
@@ -107,15 +107,28 @@ Face visible or head turned, front-side details on her back, a cross or emblem o
 ```
 - 브룬힐드(P05)·엘리안(P06) 뒷모습도 같은 틀(보이는 것 위→아래, 겹침 순서, 안 보이는 것)로 바꿔 쓴다 — 뽑기 직전에 다시 쓴다.
 
-### P02 세라피나 뒷모습 — 「성검 베기」 공격 포즈 (시험 A: 포즈 2장 + 코드 연출) [2026-11-22 다시 씀]
-- 첨부: P01 결과 · 같은 대화창
+### P02 세라피나 뒷모습 — 「성검 베기」 2장: 준비 → 휘두름 (시험 A: 기본·준비·휘두름 3장 + 코드 연출) [2026-11-22 사용자 제안으로 두 장]
+- 이유: 예비 동작(준비)이 있어야 타격감이 산다. 두 손 잡기로 칼이 반대 손으로 넘어가는 실수를 막는다(한 손 포즈 시안은 칼이 왼손으로 넘어가 실패).
+
+**P02-1 준비 자세** — 첨부: **1번(서 있는) 그림을 다시 첨부** · 같은 대화창
 ```
-Edit this image: keep the same character, the same art style, the same camera (directly behind her at shoulder height), the same scale, and keep her centered with her feet on the same ground line. Change only the pose, to the end of a powerful diagonal slash:
-- She has stepped forward with her left foot (on the left side of the image), knee bent; her right leg is extended behind her with the heel lifted.
-- Her torso twists toward the left. Her right arm, the sword arm, has swung across her body from upper right to lower left, so the sacred longsword now extends out beyond the left side of her body, low and forward, with the whole blade clearly visible against the background.
-- Her left arm swings back and out for balance.
+Edit the attached standing image: keep the same character, the same art style, the same camera (directly behind her at shoulder height, normal lens, no low angle), the same scale and the same position, with her feet on the same ground line. Change only the pose, to the wind-up just before a two-handed slash:
+- She grips the sacred longsword with both hands: her right hand just below the winged guard, her left hand below it near the pommel.
+- Both hands are raised beside her right shoulder (on the right side of the image), elbows bent.
+- The blade points up and back over her right shoulder, angled out to the right, the tip high, the whole blade clearly visible against the background on the right side of the image.
+- Her torso twists slightly to the right. Her feet are planted a little wider than her shoulders, her left foot (on the left side of the image) slightly forward, knees slightly bent.
+- The cape hangs nearly still and still covers her back, waist, buttocks and thighs; the braid lies on top of the cape.
+She is still seen from behind: no part of her face is visible, only the backs of the greaves show below the cape, and no knee caps are visible. The crimson thread stays tied around her right wrist, and the crimson ribbon stays on the sword's guard. Keep the plain flat pure green (#00FF00) background.
+```
+
+**P02-2 휘두른 자세** — 첨부: P02-1 결과 · 같은 대화창
+```
+Edit the attached wind-up image: keep the same character, the same art style, the same camera, the same scale and the same position, with her feet on the same ground line. Change only the pose, to the instant right after the two-handed slash:
+- Both hands are still on the grip, right hand above left, now swung down beside her left hip (on the left side of the image).
+- The blade has cut diagonally from upper right to lower left and now points forward and down to the left, the whole blade clearly visible beyond the left side of her body.
+- Her torso twists to the left. Her left foot is planted forward with the knee bent; her right heel is lifted.
 - The braid and the cape swing to the right from the motion, but the cape still covers her back, waist, buttocks and thighs.
-She is still seen from behind: no part of her face is visible, only the backs of the greaves show below the cape, and no knee caps are visible. Keep the crimson thread on her right wrist and the ribbon on the sword. Keep the plain flat pure green (#00FF00) background.
+She is still seen from behind: no part of her face is visible, only the backs of the greaves show below the cape, and no knee caps are visible. The crimson thread stays tied around her right wrist. Keep the plain flat pure green (#00FF00) background.
 ```
 
 ### P03 세라피나 「성검 베기」 프레임 시트 (시험 B)
@@ -123,7 +136,7 @@ She is still seen from behind: no part of her face is visible, only the backs of
 ```
 Using this image as the exact character and style reference, create a horizontal sprite sheet of 6 animation frames of the same rear view performing one sword slash.
 
-Layout: one row of 6 equal cells, the character at the same scale and on the same ground line in every cell, the camera identical in every cell, nothing crossing cell borders. Frames: 1 ready stance, 2 raising the sword over the right shoulder, 3 wind-up with weight shifting back, 4 the diagonal slash from upper right to lower left at full speed, 5 follow-through with the cape flaring, 6 returning to the ready stance.
+Layout: one row of 6 equal cells, the character at the same scale and on the same ground line in every cell, the camera identical in every cell, nothing crossing cell borders. Frames: 1 ready stance, 2 raising the sword with both hands beside the right shoulder, 3 wind-up with the blade high over the right shoulder, 4 the two-handed diagonal slash from upper right to lower left at full speed, 5 follow-through with both hands beside the left hip and the cape swinging to the right, 6 returning to the ready stance. The sword is always in her right hand (with the left hand added on the grip in frames 2–5), and the cape always covers her back.
 
 Keep the face not visible in all frames. Identical armor, bandages, braid, ribbon, cape and sword in every frame. Background: plain flat solid pure green (#00FF00), no grid lines, no numbers, no text.
 ```
