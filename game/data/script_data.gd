@@ -154,7 +154,7 @@ const S := {
 		{"id": "v2_fate_fire", "on": "fateIntent", "lines": [
 			{"who": "system", "text": "**운명의 시도가 예고되었습니다.** 운명 공격은 피해를 옮길 수 없고, 어둠에도 가려지지 않습니다. 적의 차례에 그 공격이 닿는 순간, 받아들일지 거스를지 고릅니다.\n· 예고한 적을 먼저 쓰러뜨려도, 쓰러지는 그 순간 운명이 옵니다."}]},
 		{"id": "v2_fate_first", "on": "fateFirst", "lines": [
-			{"who": "system", "text": "**운명의 시도** — 고르세요.\n· **받아들인다**: 그 동료는 그 방식으로 죽고, 그 죽음의 힘(「상속」 카드)과 그 동료의 유품이 들어옵니다.\n· **거스른다**: 그 동료는 살지만 노엘 덱에 「흉터」가 새겨지고, 운명은 다음 층으로 미뤄져 더 잔혹하게(Lv 이 올라) 다시 옵니다."}]},
+			{"who": "system", "text": "**운명의 시도** — 고르세요.\n· **받아들인다**: 그 동료는 그 방식으로 죽고, 그 죽음의 힘(「상속」 카드)과 그 동료의 유품이 들어옵니다.\n· **거스른다**: 그 동료는 살지만 노엘 덱에 「흉터」가 새겨지고, 운명은 다음 층으로 미뤄져 더 잔혹하게(Lv이 올라) 다시 옵니다."}]},
 		{"id": "v2_scar", "on": "scarFirst", "lines": [
 			{"who": "system", "text": "**「흉터」**: 운명을 거스른 값. 낼 수 없고, 손에 든 채 턴이 끝나면 노엘 HP가 1 줄어듭니다. 이번 회차 내내 덱에 남습니다."}]},
 		{"id": "v2_after_w", "on": "afterDeath", "card": "warrior_death", "lines": [
@@ -361,7 +361,7 @@ const S := {
 			{"call": "descend"},
 			{"if": {"brun": "alive"}, "omen_levelup": true},
 			{"if": {"brun": "alive"}, "speaker": "inner", "text": "…카드가 바뀌었다. 3층. 이번엔— 꼬챙이."},
-			{"if": {"brun": "alive"}, "speaker": "system", "text": "**살아서 층을 내려가면 미뤄진 운명은 더 잔혹해집니다(Lv2).** 다음 층에서 다시 시도가 오고, 더 높은 Lv 에서 받아들이면 상속 카드도 같은 Lv 로 더 강해집니다."},
+			{"if": {"brun": "alive"}, "speaker": "system", "text": "**살아서 층을 내려가면 미뤄진 운명은 더 잔혹해집니다(Lv2).** 다음 층에서 다시 시도가 오고, 더 높은 Lv에서 받아들이면 상속 카드도 같은 Lv로 더 강해집니다."},
 			{"if": {"brun": "alive"}, "omen_end": true},
 			{"if": {"brun": "dead"}, "show": {"archer": "C", "noel": "FR"}, "speaker": "archer", "face": "archer_hollow", "text": "……"},
 			{"if": {"brun": "dead"}, "speaker": "archer", "face": "archer_grief", "text": "브룬힐드는… 제 등을 맡긴다고 했었는데."},
