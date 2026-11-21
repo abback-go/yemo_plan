@@ -443,6 +443,11 @@ Edit the attached image. Change only two things: 1) the armored shoulder and arm
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a white longbow with gold leaf inlay drawn to full draw, a single white-fletched arrow about to be released, a gloved hand in white lace at the string. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the vivid colors are deep crimson and a touch of emerald.
 ```
+### 48 수정 (1차 `48_card_snipe_v1`: 뒤에 하늘·성당·바깥 폐허)
+- 첨부: 48번 1차 결과 · 같은 대화창
+```
+Edit the attached image. Change only the background: replace the sky, the clouds, the cathedral and the outdoor ruins with a dark underground crypt — massive stone arches, walls of bone-filled niches, a few hanging iron lanterns; no sky, no moon, no buildings. The torn crimson banners stay, hanging from the arches. Keep the bow, the arrow, the lace-gloved hands, the green cloak, the crimson ribbons, the composition and the art style exactly the same.
+```
 ## 49. 견제 사격
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: three white-fletched arrows in flight in a fan, striking the ground in front of hooded figures and driving them back. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
@@ -456,45 +461,65 @@ Edit the attached image. Change only the background behind the hooded figures: r
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a pale hand in a black lace fingerless glove, crimson threads around its fingers, releasing a curling crimson flame shaped like thorny vines. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
 ```
+### 50 수정 (1차 `50_card_curse_flame_v1`: 손톱이 길고 뾰족함 — 09번 손·52번과 다름)
+- 첨부: 50번 1차 결과 · 같은 대화창
+```
+Edit the attached image. Change only the fingernails: short, natural, rounded nails instead of long pointed claws. Keep the hand, the black lace glove, the crimson threads, the thorny crimson flame, the composition and the art style exactly the same.
+```
 ## 51. 운명 전가
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a crimson thread being pulled by a witch's fingers from one small silhouetted figure to another, the path of an incoming blade bending along the thread. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
+```
+### 51 수정 (1차 `51_card_fate_shift_v1`: 손에 레이스 장갑 없음·붉은 소매·긴 손톱, 달과 하늘, 오른쪽 사람이 짧은 머리 남자)
+- 첨부: 51번 1차 결과 · 같은 대화창
+```
+Edit the attached image. Change three things only: 1) the witch's hand wears a black lace fingerless glove that covers the back of the hand up to the knuckles, her nails are short and natural, and her sleeve is sheer, smoky charcoal-black chiffon instead of the crimson and white cloth; 2) remove the moon, the clouds and the open sky: the two small figures stand on stone ledges in the darkness of a vast underground crypt, with faint stone arches in the gloom; 3) the small figure on the right is a woman with long hair and a cape. Keep the crimson thread and its path, the bending blade, the figure on the left, the composition and the art style the same.
 ```
 ## 52. 대신 받기
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a witch's pale hand in a black lace glove stretched out to catch a falling blade meant for someone else, the blade stopping at her palm, a thin line of crimson. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. No gore.
 ```
+### 52 수정 (1차 `52_card_take_hit_v1`: 뒤에 성당·바깥 폐허)
+- 첨부: 52번 1차 결과 · 같은 대화창
+```
+Edit the attached image. Change only the background: replace the sky, the clouds, the cathedral and the outdoor ruins with a dark underground crypt — massive stone arches, walls of bone-filled niches, a few hanging iron lanterns; no sky, no moon, no buildings. Keep the hand, the black lace glove, the crimson threads, the blade, the thin line of crimson, the sleeve, the composition and the art style exactly the same.
+```
 ## 53. 죽음의 예지
 ```
 Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a witch's crimson eye seen through the gap of a fan of old cards, a faint scene of the future reflected in the eye. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
 ```
+### 53 수정 — 선택 (1차 `53_card_foresight_v1`: 눈에 비친 장면에 붉은 달·첨탑. 게임 카드 크기에서 약 12px)
+- 첨부: 53번 1차 결과 · 같은 대화창
+```
+Edit the attached image. Change only the small scene reflected in the eye: replace the moon, the spires and the open sky with a dark underground hall of stone arches; keep the small lone figure and the crosses. Keep the eye, the hair, the hat, the cards, the hand, the composition and the art style exactly the same.
+```
 ## 54. 상처
 ```
-Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a torn, loosely wound bandage stained with a single spot of crimson, lying on cold stone. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. No gore.
+Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a torn, loosely wound bandage stained with a single spot of crimson, lying on cold stone. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. No gore. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
 ```
 ## 55. 짓밟힘 (상속 카드)
 ```
-Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a colossal footprint pressed deep into a cracked stone floor, seen from above, a torn crimson ribbon caught at its edge, dust settling. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. No body, no gore.
+Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a colossal footprint pressed deep into a cracked stone floor, seen from above, a torn crimson ribbon caught at its edge, dust settling. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. No body, no gore. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
 ```
 ## 56. 부러진 성검 (세라피나 유품)
 ```
-Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a sacred longsword with a winged gold guard and a red gem, its blade snapped in two, lying on stone with a crimson ribbon still tied at the guard. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
+Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a sacred longsword with a winged gold guard and a red gem, its blade snapped in two, lying on stone with a crimson ribbon still tied at the guard. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
 ```
 ## 57. 용사의 마지막 돌격 (세라피나 유품)
 ```
-Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: the faded, translucent silhouette of a holy knight with a long braid and a crimson cape charging forward one last time, drawn like a memory fading into the parchment. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
+Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: the faded, translucent silhouette of a holy knight with a long braid and a crimson cape charging forward one last time, drawn like a memory fading into the parchment. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
 ```
 ## 58. 이름 없는 마녀의 카드
 ```
-Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a single old playing card lying unburnt among a scatter of cards burnt black, a thin crimson thread across it; the picture on the unburnt card is too faded to read. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
+Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a single old playing card lying unburnt among a scatter of cards burnt black, a thin crimson thread across it; the picture on the unburnt card is too faded to read. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
 ```
 ## 59. 작은 손의 부적
 ```
-Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a small child's dusty hand holding out a little wooden charm on a crimson string. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson.
+Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a small child's dusty hand holding out a little wooden charm on a crimson string. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
 ```
 ## 60. 용사의 죽음 (세라피나 죽음 카드)
 ```
-Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a long silver braid tied with a crimson ribbon lying on cracked stone under the vast shadow of something enormous above. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. No body, no gore.
+Using the attached image as the style reference, draw a square 1:1 card illustration, full bleed, no border, no text: a long silver braid tied with a crimson ribbon lying on cracked stone under the vast shadow of something enormous above. Delicate, slightly rough ink linework with cross-hatching and faded watercolor in bone white, ash gray and sepia; the only vivid color is deep crimson. No body, no gore. The setting is deep underground inside the tower: no sky, no moon, no outdoor buildings.
 ```
 
 ---
