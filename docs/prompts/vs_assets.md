@@ -276,16 +276,20 @@ AVOID
 Moving or resizing the hand, a card or any object in the hand, extra fingers, a second hand, long threads running across the image, text, watermark, signature.
 ```
 
-### P10 카드 틀
-- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창
+### P10 카드 틀 [2026-11-22 다시 씀]
+- 방식: **지금 카드 틀(`game/assets/card_frame.png`)의 배치를 그대로 두고 그림체만 바꾼다.** `game/ui/card_view.gd`가 틀 속 빈 창에 그림(위 창: 22,24 / 201×204, 카드 240×360 기준)·비용 원(15,16 / 37×37)·이름·설명을 끼우므로 창 위치가 바뀌면 코드 수치를 다시 맞춰야 한다. 기준: `art/raw/vs/ref/10_ref_card_frame_green.png`.
+- 첨부: `10_ref_card_frame_green.png` + `style_D_seraphina_anchor.webp`(테두리 그림체 참고) · 새 대화창
 ```
-Using the attached image only as an art style reference, design an empty card frame for a dark fantasy card game. Vertical card, 5:7 ratio, centered, front view, flat (no perspective, no shadow).
+Redraw the first attached image, a card frame for a card game, in the style of the decorative thorn-and-rose border of the second attached image (ignore the character and the scene inside the second image).
 
-Art style: a dark fairy-tale picture book: delicate ink linework, faded watercolor, parchment; the only vivid color is deep crimson.
+KEEP EXACTLY THE SAME AS THE FIRST IMAGE
+The canvas size and proportions, the rounded outer outline, the round cost medallion at the top-left corner, the large upper window, the horizontal divider bar, and the lower window — the same positions, sizes and thicknesses. Everything that is green in the first image stays plain flat pure green (#00FF00): the inside of the cost medallion, the inside of both windows, and the area outside the card. Draw nothing inside the windows. No text, no numbers.
 
-Frame: an aged parchment card with a thin inked border of thorny vines and small crimson roses; a round cost medallion at the top-left corner (empty, no number); an empty art window in the upper 55%; an empty ribbon banner below the window for the card name; an empty text area at the bottom. No text, no numbers, no letters anywhere.
+CHANGE
+Draw the frame like the border of the second image: delicate, slightly rough black ink linework of thorny vines and small crimson roses over aged bone-white and sepia, with faded watercolor shading and a subtle parchment grain. A small crimson rose at each corner and at the center of the divider bar; thin thorny vines running along the frame. The cost medallion is a ring of ink-drawn thorns. The only vivid color is deep crimson.
 
-Outside the card, the background is plain flat solid pure green (#00FF00).
+AVOID
+Changing the layout, filling the windows, text, numbers, letters, a 3D metal look, watermark, signature.
 ```
 
 ### P11 카드 뒷면
