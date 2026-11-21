@@ -187,6 +187,7 @@ async function pathA(browser) {
   await H.sleep(900);
   await H.shot('A01_camp_party_intro.png');
   s = await H.advanceAll(s => s.stage === 'battle:normal' && s.battle && s.battle.turn === 1 && s.guideOpen, 120000, '장례 회랑 전투');
+  const deckStart = s.party.deck;   // 승리 뒤 덱 수와 비교 (승리를 알아챈 때는 이미 카드가 들어왔을 수 있어 전투 시작 때 잰다)
   check('곁방 대사(대본 v3) → 장례 회랑 VN → 같은 배경에서 전투 ①', has(s, /장례 탑이다/) && has(s, /바쳐라\. 탑은 죽음을 받고/) && has(s, /순서 잡아 줘/), (s.dialog || []).slice(-3));
   check('캠프에서 죽음 카드를 보여 주지 않는다(대본 v3)', !(s.log || []).some(l => /omen/.test(l)));
   s = await H.advanceAll(s => s.battle && s.battle.turn === 1 && !s.guideOpen && !s.dialogBusy && !s.busy, 60000, '1턴 안내');
@@ -250,9 +251,8 @@ async function pathA(browser) {
     check('운명 전가(실제 드래그 + 아군 클릭): 예고 대상이 브룬힐드로', s.battle.enemies.some(e => e.alive && e.intent && e.intent.target === 'warrior'), s.battle.enemies.map(e => e.intent && e.intent.target));
   }
   // 승리 뒤 '카드 3장 중 1장' 보상 화면은 없다(2026-11-21 사용자 지시로 뺌) → 승리 대사 뒤 바로 안치 홀, 덱 수 그대로
-  s = await H.fight(s => (s.log || []).includes('win normal'), 180000, '장례 회랑 승리');
-  const deck0 = s.party.deck;
-  let sawPick = !!s.picker;
+  let sawPick = false;
+  s = await H.fight(s => { if (s.picker) sawPick = true; return (s.log || []).includes('win normal'); }, 180000, '장례 회랑 승리');
   s = await H.until(s => s.stage === 'vn:hall' || s.scene === 'vn:hall', 60000, '안치 홀', async s => {
     if (s.picker) sawPick = true;
     if (s.guideOpen || s.dialogBusy) await H.W('advance');
@@ -261,7 +261,7 @@ async function pathA(browser) {
   await H.shot('A06_win_no_reward_hall.png');
   check('승리 대사(긁힌 거예요) 뒤 카드 보상 안내·고르기 화면 없이 안치 홀로', has(s, /긁힌 거예요/) && !has(s, /카드 3장 중 1장/) && !sawPick && !s.picker
     && !(s.log || []).some(l => /overlay cardPick|^reward|^win card|card gain/.test(l)), { sawPick, log: (s.log || []).slice(-8) });
-  check('장례 회랑 승리 뒤 덱 수 그대로(카드가 들어오지 않음)', s.party.deck === deck0, { before: deck0, after: s.party.deck });
+  check('장례 회랑 승리 뒤 덱 수 그대로(카드가 들어오지 않음)', s.party.deck === deckStart, { before: deckStart, after: s.party.deck });
   s = await H.advanceAll(s => s.scene === 'map' && s.guideOpen, 60000, '지도');
   await H.sleep(600);
   await H.shot('A07_map_first_guide.png');
@@ -442,9 +442,10 @@ async function pathC(browser) {
   await H.shot('C05_map_omen_seen.png');
   check('발자국 방(전조): 「전조를 보았습니다」 → 이 층 끝 전투는 가려지지 않음', s.progress.omen === true && has(s, /전조를 보았습니다/));
   await H.open('scene=room:prayer&guides=reset');
-  s = await H.fight(s => (s.log || []).includes('win prayer'), 180000, '기도실 전투 승리');
-  const d2 = s.party.deck;
-  let sawPick2 = !!s.picker;
+  s = await H.advanceAll(s => s.stage === 'battle:prayer' && s.battle, 90000, '기도실 전투 시작');
+  const d2 = s.party.deck;   // 전투 시작 때 덱 수
+  let sawPick2 = false;
+  s = await H.fight(s => { if (s.picker) sawPick2 = true; return (s.log || []).includes('win prayer'); }, 180000, '기도실 전투 승리');
   s = await H.until(s => s.scene === 'map', 60000, '기도실 → 지도', async s => {
     if (s.picker) sawPick2 = true;
     if (s.guideOpen || s.dialogBusy || s.vn) await H.W('advance');
@@ -455,9 +456,10 @@ async function pathC(browser) {
     && !(s.log || []).some(l => /overlay cardPick|^reward|^win card|card gain/.test(l)), { d2, d: s.party.deck, sawPick2 });
   // 무덤지기(강적) [기본안]: 고르는 화면 없이 희귀 목록의 카드 1장이 강화된 채 바로 덱에 (카드 획득 연출 + 「○○ Lv2 — 덱에 들어왔다」)
   await H.open('scene=room:gravekeeper&guides=reset');
-  s = await H.fight(s => (s.log || []).includes('win gravekeeper'), 240000, '무덤지기 승리');
-  const d3 = s.party.deck;
-  let sawPick3 = !!s.picker;
+  s = await H.advanceAll(s => s.stage === 'battle:gravekeeper' && s.battle, 90000, '무덤지기 전투 시작');
+  const d3 = s.party.deck;   // 전투 시작 때 덱 수 (승리와 카드 얻기는 거의 같은 순간이라 승리 때 재면 이미 +1)
+  let sawPick3 = false;
+  s = await H.fight(s => { if (s.picker) sawPick3 = true; return (s.log || []).includes('win gravekeeper'); }, 240000, '무덤지기 승리');
   s = await H.until(s => (s.log || []).some(l => /^card gain inherit /.test(l)), 30000, '무덤지기 → 카드 얻기', async s => {
     if (s.picker) sawPick3 = true;
     if (s.guideOpen || s.dialogBusy) await H.W('advance');
