@@ -12,15 +12,17 @@
 ---
 
 ## 전체 목록 — 튜토리얼(장례 탑 1층) 기준, 번호 순서대로 뽑는다 [2026-11-22]
+> **11번부터의 프롬프트 전체(번호 조정 포함)는 [`vs_assets_rest.md`](vs_assets_rest.md)** — 13·14 없앰, 카드 그림 17장(「용사의 마지막 돌격」 추가)이라 44~60 카드, 61~65 컷인, 66~73 UI, 74 타이틀. 아래 표와 2단계 문단은 옛 번호·초안.
+
 근거: 대본 v3에 나오는 장면·인물·카드·화면. 2·3층 그림은 튜토리얼이 끝난 뒤 따로 목록을 만든다. 세라피나 데스신 6컷은 이미 있다(`reference/deathscene/seraphina_*`).
 
 | # | 그림 | 프롬프트 | 비고 |
 |---|---|---|---|
 | **1단계 — 움직임 비교 시험 (A·B·C 중 방식 결정)** ||||
 | 1 | 세라피나 뒷모습 기본 | P01 | 시험 공통 바탕 |
-| 2 | 세라피나 「성검 베기」 포즈 | P02 | 시험 A |
-| 3 | 세라피나 「성검 베기」 6프레임 시트 | P03 | 시험 B |
-| 4 | 세라피나 부위 분리 시트 | P04 | 시험 C |
+| 2 | ~~세라피나 「성검 베기」 준비·휘두름~~ | — | **없앰 (2026-11-22)**: 뒷모습 공격 자세는 손 좌우·팔·동작이 3번 연속 무너짐 → 시험 A는 서 있는 그림 + 코드 연출만 |
+| 3 | ~~6프레임 시트~~ | — | **건너뜀 (2026-11-22)**: 같은 문제가 예상됨 |
+| 4 | 세라피나 부위 분리 시트(1번 자세 그대로) | P04 | 시험 C |
 | **2단계 — 전투 화면 목업 (1장을 완성본 품질로)** ||||
 | 5 | 브룬힐드 뒷모습 기본 | P05 | |
 | 6 | 엘리안 뒷모습 기본 | P06 | 마젠타 배경 |
@@ -78,26 +80,57 @@
 
 ## 1단계 — 움직임 비교 시험 + 전투 화면 목업
 
-### P01 세라피나 뒷모습 — 기본 (움직임 시험 A·B·C 공통 바탕)
-- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창
+### P01 세라피나 뒷모습 — 기본 (움직임 시험 A·B·C 공통 바탕) [2026-11-22 다시 씀]
+- 첨부: `style_D_seraphina_anchor.webp` 한 장 · **새 대화창**
+- 고친 이유: 앞모습 기준 그림 때문에 앞쪽 디테일(앞자락 십자가, 무릎 덮개)이 뒤에 그려지고, 망토가 몸 뒤로 펼쳐져 맨등이 보이거나 다리가 망토 위에 그려졌다. 같은 그림을 수정만 거듭하자 망토가 원뿔 모양으로 흐트러졌다 → 뒤에서 보이는 것을 위에서 아래로, 겹침 순서와 안 보이는 것까지 적는다.
 ```
-Using the attached image as the reference for both the art style and the character design, draw a single full-body rear view of Seraphina for a card game battle screen.
+Draw Seraphina, the holy knight from the attached reference, seen from directly behind, as a full-body game sprite for a card battle screen. The reference shows her from the front; this drawing shows her back, so draw the back side of every piece of her outfit. Do not copy front-side details onto her back.
 
-Art style: a dark fairy-tale picture book illustration — delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly. Match the attached reference exactly in linework and palette. Natural adult proportions, about 7.5 heads tall. Not anime, not chibi.
+ART STYLE
+Match the attached reference: delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson. Natural adult proportions, about 7.5 heads tall, legs not elongated. Not anime, not chibi.
 
-Character: Seraphina, a beautiful holy knight: silver-white plate armor with gold filigree, a bare waist (the breastplate ends below the chest), off-white bandages wrapped from her waist over her hips to the very top of her thighs like short bandage shorts, bare mid-thighs, armored greaves from just above the knees; a long silver braid with a crimson ribbon bow, a crimson cape and a crimson tabard with a gold cross, a sacred longsword with a winged gold guard, a red gem and a crimson ribbon.
+CAMERA AND POSE
+The camera stands a few meters behind her at the height of her shoulders, with a normal lens (no low angle, no wide-angle distortion). She faces directly away from the viewer, feet about shoulder-width apart, weight slightly on one leg, calm and ready. Her right arm (on the right side of the image) hangs at her side holding the sacred longsword point-down, the blade angled slightly outward; her left hand is a loose fist. Her head faces forward, away from the viewer: no part of her face is visible.
 
-Pose and camera: seen directly from behind, the camera just behind her and slightly above head height, looking a little downward. She faces away from the viewer toward an enemy in the distance, in a ready battle stance, the sacred longsword held low in her right hand, the cape hanging down her back. Her face is not visible. Vertical 2:3 composition, full figure from head to feet with a small even margin.
+WHAT IS VISIBLE FROM BEHIND, FROM TOP TO BOTTOM
+- The back of her head: silver hair pulled back, a crimson ribbon tied in a bow at the back of the head, and one long thick braid hanging straight down the center of her back, lying on top of the cape, ending at the small of her back with a crimson tie.
+- The backs of her silver-white pauldrons with gold filigree on both shoulders.
+- A long crimson cape fastened at both shoulders under the pauldrons. It is the layer closest to the viewer: it hangs straight down and covers her entire back, her waist, her buttocks and the backs of her thighs, ending in a torn, ragged hem at the middle of her calves. Between the shoulders and the hem, nothing of her body or legs is drawn on top of the cape.
+- Her armored arms hang outside the cape at her sides, showing the backs of the silver vambraces and gauntlets. A thin crimson thread is tied around her right wrist.
+- Below the cape's hem: the backs of her lower legs in silver-white greaves, showing the smooth calf plates and the backs of the ankles. Her knees face away from the viewer, so no knee caps or front knee plates are visible. Armored heeled boots seen from behind.
+- The sword in her right hand: a sacred longsword with a winged gold guard, a red gem and a crimson ribbon tied at the guard, the blade pointing down toward the ground.
+- Hidden in this view: her face, her front, the gold cross on her tabard, her bare waist and the bandages (all covered by the cape).
 
-Background: plain flat solid pure green (#00FF00), one even color, no paper texture, no gradient, no floor, no cast shadow; no green reflections on the figure.
+FRAMING AND BACKGROUND
+Vertical 2:3, the whole figure from the top of the head to the feet with a small even margin, centered. Background: plain flat solid pure green (#00FF00), one even color, no paper texture, no gradient, no floor, no cast shadow; no green light or reflections on her.
 
-Avoid: face visible, looking back over the shoulder, extra fingers, cape on one shoulder only, heavy magic effects, text, watermark, signature.
+AVOID
+Face visible or head turned, front-side details on her back, a cross or emblem on the back, knee caps or front knee plates visible from behind, legs drawn over the cape, the cape split open showing her back, a cone or dress-shaped cape, extra fingers, elongated legs, text, watermark, signature.
+```
+- 브룬힐드(P05)·엘리안(P06) 뒷모습도 같은 틀(보이는 것 위→아래, 겹침 순서, 안 보이는 것)로 바꿔 쓴다 — 뽑기 직전에 다시 쓴다.
+
+### P02 세라피나 뒷모습 — 「성검 베기」 2장: 준비 → 휘두름 (시험 A: 기본·준비·휘두름 3장 + 코드 연출) [2026-11-22 사용자 제안으로 두 장]
+- 이유: 예비 동작(준비)이 있어야 타격감이 산다. 두 손 잡기로 칼이 반대 손으로 넘어가는 실수를 막는다(한 손 포즈 시안은 칼이 왼손으로 넘어가 실패).
+
+**P02-1 준비 자세** — 첨부: **1번(서 있는) 그림을 다시 첨부** · 같은 대화창
+```
+Edit the attached standing image: keep the same character, the same art style, the same camera (directly behind her at shoulder height, normal lens, no low angle), the same scale and the same position, with her feet on the same ground line. Change only the pose, to the wind-up just before a two-handed slash:
+- She grips the sacred longsword with both hands: her right hand just below the winged guard, her left hand below it near the pommel.
+- Both hands are raised beside her right shoulder (on the right side of the image), elbows bent.
+- The blade points up and back over her right shoulder, angled out to the right, the tip high, the whole blade clearly visible against the background on the right side of the image.
+- Her torso twists slightly to the right. Her feet are planted a little wider than her shoulders, her left foot (on the left side of the image) slightly forward, knees slightly bent.
+- The cape hangs nearly still and still covers her back, waist, buttocks and thighs; the braid lies on top of the cape.
+She is still seen from behind: no part of her face is visible, only the backs of the greaves show below the cape, and no knee caps are visible. The crimson thread stays tied around her right wrist, and the crimson ribbon stays on the sword's guard. Keep the plain flat pure green (#00FF00) background.
 ```
 
-### P02 세라피나 뒷모습 — 「성검 베기」 공격 포즈 (시험 A: 포즈 2장 + 코드 연출)
-- 첨부: P01 결과 · 같은 대화창
+**P02-2 휘두른 자세** — 첨부: P02-1 결과 · 같은 대화창
 ```
-Edit this image: keep the same character, the same art style, the same camera angle, the same scale and the same position in the frame. Change only the pose: she lunges forward and swings the sacred longsword diagonally from upper right to lower left at the peak of the strike, her weight on the front foot, the braid and the crimson cape flaring behind her from the motion. Her face is still not visible. Keep the plain flat pure green (#00FF00) background.
+Edit the attached wind-up image: keep the same character, the same art style, the same camera, the same scale and the same position, with her feet on the same ground line. Change only the pose, to the instant right after the two-handed slash:
+- Both hands are still on the grip, right hand above left, now swung down beside her left hip (on the left side of the image).
+- The blade has cut diagonally from upper right to lower left and now points forward and down to the left, the whole blade clearly visible beyond the left side of her body.
+- Her torso twists to the left. Her left foot is planted forward with the knee bent; her right heel is lifted.
+- The braid and the cape swing to the right from the motion, but the cape still covers her back, waist, buttocks and thighs.
+She is still seen from behind: no part of her face is visible, only the backs of the greaves show below the cape, and no knee caps are visible. The crimson thread stays tied around her right wrist. Keep the plain flat pure green (#00FF00) background.
 ```
 
 ### P03 세라피나 「성검 베기」 프레임 시트 (시험 B)
@@ -105,19 +138,32 @@ Edit this image: keep the same character, the same art style, the same camera an
 ```
 Using this image as the exact character and style reference, create a horizontal sprite sheet of 6 animation frames of the same rear view performing one sword slash.
 
-Layout: one row of 6 equal cells, the character at the same scale and on the same ground line in every cell, the camera identical in every cell, nothing crossing cell borders. Frames: 1 ready stance, 2 raising the sword over the right shoulder, 3 wind-up with weight shifting back, 4 the diagonal slash from upper right to lower left at full speed, 5 follow-through with the cape flaring, 6 returning to the ready stance.
+Layout: one row of 6 equal cells, the character at the same scale and on the same ground line in every cell, the camera identical in every cell, nothing crossing cell borders. Frames: 1 ready stance, 2 raising the sword with both hands beside the right shoulder, 3 wind-up with the blade high over the right shoulder, 4 the two-handed diagonal slash from upper right to lower left at full speed, 5 follow-through with both hands beside the left hip and the cape swinging to the right, 6 returning to the ready stance. The sword is always in her right hand (with the left hand added on the grip in frames 2–5), and the cape always covers her back.
 
 Keep the face not visible in all frames. Identical armor, bandages, braid, ribbon, cape and sword in every frame. Background: plain flat solid pure green (#00FF00), no grid lines, no numbers, no text.
 ```
 
-### P04 세라피나 부위 분리 시트 (시험 C: 뼈대 애니메이션)
-- 첨부: P01 결과 · 같은 대화창
+### P04 세라피나 부위 분리 시트 (시험 C: 뼈대 애니메이션) [2026-11-22 다시 씀]
+- 첨부: 통과한 1번 그림 `art/raw/vs/01_seraphina_back_base.webp` 한 장 · 새 대화창
+- 새 자세를 그리는 게 아니라 1번 자세를 그대로 나누기만 한다. 칼 든 오른팔(어깨·팔꿈치 회전으로 베기), 망토·땋은 머리(흔들림), 몸통(앞으로 기울기)을 움직인다.
 ```
-Using this image as the exact character and style reference, create a cutout-animation parts sheet of the same rear view, for rigging in a 2D game engine.
+Using the attached image, create a cutout-animation parts sheet of exactly this character in exactly this pose, for rigging in a 2D game engine. Do not invent a new pose, do not redesign anything: every part must look exactly as it does in the attached image, at the same size, in the same style and colors.
 
-Draw each body part as a separate piece, laid out with clear empty space between the pieces (no piece touching another): head with the braid and ribbon; torso with the armor and tabard; the cape as one whole piece, including the part that is normally hidden behind the body; right upper arm; right forearm with the hand; left upper arm; left forearm with the hand; the sacred longsword alone; right thigh; right lower leg with the greave; left thigh; left lower leg with the greave. Paint the areas that would be hidden by overlap completely, so parts can rotate at the joints without gaps. All pieces at the same scale as each other, in the same style and colors.
+Separate the figure into these pieces and lay them out on one sheet with clear empty space between them, no piece touching or overlapping another:
+1. Head: the back of her head with the hair and the crimson ribbon bow, without the braid.
+2. Braid: the long braid with its crimson tie, from where it leaves the head to its loose tip.
+3. Cape: the whole crimson cape as one piece, from the shoulders to the torn hem, including the area normally hidden under the braid, painted complete.
+4. Torso: what is under the cape — the back of the breastplate, the bare lower back, the bandaged hips and the tops of the thighs, painted complete as if the cape were removed.
+5. Left pauldron and 6. right pauldron, each as its own piece.
+7. Right upper arm, from the shoulder to the elbow.
+8. Right forearm with the gauntleted hand gripping the sacred longsword, and the whole sword, together as one piece (winged gold guard, red gem, crimson ribbon, crimson thread on the wrist).
+9. Left upper arm, from the shoulder to the elbow.
+10. Left forearm with the gauntleted fist.
+11. Left leg and 12. right leg, each from the top of the thigh down to the heeled boot, with the backs of the greaves visible, painted complete including the parts normally hidden under the cape.
 
-Background: plain flat solid pure green (#00FF00), no labels, no text.
+Extend every piece slightly past its joint with a rounded end (at the shoulders, elbows and hips) so the pieces can rotate at the joints without gaps. Keep all pieces upright, in the same orientation as in the attached image.
+
+Background: plain flat solid pure green (#00FF00) across the whole sheet, one even color, no paper texture, no shadow. No labels, no numbers, no lines, no arrows, no skeleton, no text.
 ```
 
 ### P05 브룬힐드 뒷모습 — 기본
@@ -137,6 +183,8 @@ Avoid: face visible, looking back, shield on the right arm, short hair, extra fi
 ```
 - 감싸기 동작(시험에서 A가 뽑히면): 같은 대화창에서 `Edit this image: same character, camera, scale and position; change only the pose: she steps sideways and plants the tower shield firmly in front of her with both hands, bracing against a heavy blow, the scarf and hair swept by the impact. Keep the pure green background.`
 
+- **[2026-11-22] 브룬힐드 뒷모습은 이 새 틀로 뽑았다(1차 `art/raw/vs/05_brunhild_back_base.webp`).** 다음에 다시 뽑을 때 고칠 점: 허리띠 매듭은 앞쪽(뒤에서는 매듭 없는 띠), 갑옷 치마는 정강이 중간까지, 방패 테두리는 검은 칠 + 은 징, 꽃다발은 마른 볏짚색 줄기.
+
 ### P06 엘리안 뒷모습 — 기본
 - 첨부: `style_D_elian_v1.webp` · 새 대화창
 ```
@@ -154,16 +202,28 @@ Avoid: face visible, looking back, extra fingers, text, watermark, signature.
 ```
 - 저격 동작: 같은 대화창에서 `Edit this image: same character, camera, scale and position; change only the pose: she draws the white longbow to full draw, aiming straight ahead and slightly upward, the cloak swinging from the turn of her body. Keep the pure magenta background.`
 
-### P07 전투 배경 — 장례 회랑
-- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창
+### P07 전투 배경 — 장례 회랑 [2026-11-22 다시 씀 — 잔혹동화 그림책 강조]
+- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창 (기준 그림의 **배경**(폐허 성당·가시·달·까마귀) 처리 방식을 따르게 함)
+- 반영: 지금 전투 화면 배치(적 셋은 위쪽 절반 중간 거리, 동료 머리는 화면 중간, 아래 1/3은 손패). 넓은 회랑. 3:2로 받아 16:9로 자름.
+- **[2026-11-22 사용자 정정] '잔혹동화'는 그림체를 유지하라는 뜻이다** — 소품(아이 신발, 긁힌 자국, 관에서 나온 장미 등)을 일부러 넣으라는 게 아니다. 배경 프롬프트에서 힘을 줄 곳은 `ART STYLE` 문단(캐릭터와 같은 잉크 선·해칭·번지는 수채·양피지 결·세피아, 붉은색만 선명, 그림책 삽화처럼 살짝 비뚤고 과장된 건축, 캐릭터보다 느슨한 선)이고, `SCENE`에는 그 장소에 필요한 것만 적는다. (1차 장례 회랑의 장치들은 잘 어울려서 그대로 둔다.)
+- 2단계 배경(B01~B13)도 P07의 `ART STYLE` 문단을 그대로 쓴다. **모든 탑 안 배경은 지하 — 하늘·달 금지**(1차에서 기준 그림의 달을 따라 그림). **전투 배경은 적이 설 높은 단(윗면이 화면 위에서 약 1/3)** 필수 — 지금 전투 배치에서 적 발이 화면 위 약 30% 높이(`game_data.gd` `enemySlots` feet 316~352/1080)라서.
 ```
-Using the attached image only as an art style reference, draw a background for a card game battle screen. 16:9 landscape, full bleed, no border, no people, no text.
+Using the attached image as the style reference, draw a background for a card game battle screen in exactly the same art style as the ruined cathedral, thorns and crows behind the character in the reference. Ignore the character, the moon, the sky and the decorative border: this place is deep underground, so there is no sky and no moon, only a dark vaulted stone ceiling. Wide landscape, full bleed, no border, no people, no text. The image will be cropped to 16:9, so keep the top and bottom edges free of important details.
 
-Art style: a dark fairy-tale picture book illustration — delicate, slightly rough ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly; subtle parchment texture.
+ART STYLE: A DARK FAIRY-TALE PICTURE BOOK
+- The same hand-drawn look as the reference: delicate, slightly rough ink linework with fine cross-hatching in the shadows, faded watercolor washes that bleed softly at the edges, bone white, ash gray and sepia, on visible parchment grain.
+- The only vivid color is deep crimson, used sparingly as accents.
+- It must feel like a page from an old illustrated book of cruel fairy tales, not a realistic or painterly 3D scene: slightly crooked, exaggerated storybook architecture, gently leaning walls, niches that are a little too tall and narrow, a theatrical, almost symmetrical stage-like composition.
+- Use slightly lighter, looser linework than the characters so that the characters standing in front of it will stand out.
 
-Scene: a long funeral corridor deep underground, inside a funeral tower that grows downward into the earth. Both walls are lined with niches, each holding a stone coffin, stacked several rows high; every coffin lid has been pushed open from the inside. Dripping candle stubs on the ledges, scattered dried funeral flowers, a few crows perched on the coffins. The corridor recedes into darkness at the center.
+SCENE: THE FUNERAL GALLERY
+A wide funeral gallery deep underground, inside a funeral tower that grows downward into the earth, as wide as a chapel nave. Both side walls rise in tall, crooked tiers of niches, each holding a stone coffin. Every coffin lid has been pushed open from the inside and hangs askew, with faint scratch marks on the inner side of the lids. Crimson funeral ribbons are tied to the coffin handles. Thorny briars creep out of the open coffins and climb the walls; small crimson roses bloom from cracks in the stone. Dripping candle stubs with pale, dim flames on the ledges, dried funeral wreaths, a few crows perched on the coffins and watching. On the floor near one wall lies a single small child's shoe. The gallery recedes into darkness at the center.
 
-Composition for gameplay: the camera stands at about human eye height looking straight down the corridor. Keep the lower third of the image calm and dark (the player's hand of cards covers it) and leave open floor space in the middle distance where three enemies will stand.
+CAMERA AND COMPOSITION FOR GAMEPLAY
+The camera stands at human eye height looking straight down the gallery with a normal lens; the horizon line and the vanishing point sit at the center of the image. In the middle distance, a broad flight of wide, shallow stone steps rises across the whole width of the gallery to a raised stone platform whose flat top sits about one third of the way down from the top of the image: a wide, open, slightly brighter stage where three enemies will stand side by side, seen above the heads of the party in the foreground. Keep the lower third of the image simple and darker (the player's cards and the backs of three party members will cover it). The tall walls frame the image on the left and right.
+
+AVOID
+People, monsters, standing skeletons, corpses, blood pools, gore, photorealism, 3D render look, bright colors other than crimson, a narrow corridor, strong wide-angle distortion, text, watermark, signature.
 ```
 
 ### P08 광신도 (적)
@@ -178,28 +238,60 @@ Design: a gaunt figure in a long ash-gray funeral shroud, the hood pulled low so
 Background: plain flat solid pure green (#00FF00), one even color, no paper texture, no floor, no cast shadow; no green reflections on the figure.
 ```
 
-### P09 노엘의 손 (1인칭, 전투 화면 아래)
-- 첨부: `style_D_noel_v1.webp` · 새 대화창
+### P09 노엘의 손 (1인칭, 전투 화면 아래) [2026-11-22 다시 씀]
+- 방식: **지금 손 그림(`game/assets/ui_witch_hands.png`, `ui_witch_hand_raise.png`)의 자세·위치를 그대로 두고 그림체·옷만 바꾼다.** `game/ui/hand.gd`가 손 그림 속 '엄지와 손가락 사이 틈'에 카드를 끼우므로, 위치가 바뀌면 코드 수치를 다시 맞춰야 한다. 기준: `art/raw/vs/ref/09_ref_hands_green.png`, `09_ref_hand_raise_green.png`(지금 손 그림을 초록 배경으로).
+- **붉은 실은 손가락 길이만큼 짧게** — 동료 등에서 손패로 이어지는 실은 코드가 그린다(1차에서 실이 화면 위로 길게 뻗어 실패).
+- P09-1 두 손 — 첨부: `09_ref_hands_green.png` + `style_D_noel_v1.webp` · 새 대화창
 ```
-Using the attached image as the reference for both the art style and the character, draw the first-person hands of Noel the witch for the bottom of a card game screen, as if the viewer is Noel looking down at her own hands.
+Redraw the first attached image in the art style and costume of the second attached image. This is a first-person view of the witch Noel's own two hands at the bottom of a card game screen.
 
-Art style: a dark fairy-tale picture book illustration — delicate, slightly rough ink linework with faded watercolor washes; the only vivid color is deep crimson.
+KEEP EXACTLY THE SAME AS THE FIRST IMAGE
+The canvas size, the position, size, angle and pose of both hands, every finger, and the empty gap between each thumb and its fingers where game cards will be inserted later. The hands hold nothing: leave those gaps empty. Do not draw any cards.
 
-Content: two slender pale hands seen from the viewer's own point of view, entering from the bottom edge. The left hand holds a fanned spread of five old blank playing cards (blank faces, no symbols). The right hand is raised slightly, empty, ready to pick a card. Black lace fingerless gloves, the cuffs of torn black bell sleeves at the wrists, a few thin crimson threads wound around the fingers of the right hand and trailing off upward out of frame.
+CHANGE
+- Art style: the second image's style — delicate, slightly rough ink linework with fine hatching and faded watercolor washes; pale skin; the only vivid color is deep crimson. Not anime, not 3D.
+- Costume: black lace fingerless gloves reaching up the forearms, and the cuffs of torn, sheer black bell sleeves at the wrists and forearms, as in the second image.
+- Several thin crimson threads are wound around the fingers and thumb of the right hand (on the right side of the image). Each thread ends in a short loose end, only about the length of a finger, hanging just beyond the fingertips. Nothing in the upper part of the image.
 
-Composition: 16:9 landscape, the hands occupy only the lower half; the upper half is empty. Background: plain flat solid pure green (#00FF00), no shadow, no green reflections.
+BACKGROUND
+Plain flat solid pure green (#00FF00), one even color, no shadow, no green reflections on the hands.
+
+AVOID
+Moving or resizing the hands, cards or any object in the hands, extra fingers, a third hand, red threads on the left hand, long threads running across the image, text, watermark, signature.
+```
+- P09-2 카드를 세워 든 오른손 — 첨부: `09_ref_hand_raise_green.png` · P09-1과 같은 대화창
+```
+Redraw the attached image in exactly the same art style and costume as the two hands you just drew. This is the witch Noel's own right hand, seen in first person, raised to show a game card.
+
+KEEP EXACTLY THE SAME AS THE ATTACHED IMAGE
+The canvas size, the position, size, angle and pose of the hand and every finger, and the empty gap between the thumb and the fingers where a game card will be inserted later. The hand holds nothing: leave the gap empty. Do not draw a card.
+
+CHANGE
+- The same style as your previous image: delicate, slightly rough ink linework with fine hatching and faded watercolor washes; pale skin; the only vivid color is deep crimson.
+- The same black lace fingerless glove and torn, sheer black bell sleeve as the right hand in your previous image.
+- The same crimson threads wound around the fingers and thumb, each ending in a short loose end about the length of a finger. Nothing in the upper part of the image.
+
+BACKGROUND
+Plain flat solid pure green (#00FF00), one even color, no shadow, no green reflections on the hand.
+
+AVOID
+Moving or resizing the hand, a card or any object in the hand, extra fingers, a second hand, long threads running across the image, text, watermark, signature.
 ```
 
-### P10 카드 틀
-- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창
+### P10 카드 틀 [2026-11-22 다시 씀]
+- 방식: **지금 카드 틀(`game/assets/card_frame.png`)의 배치를 그대로 두고 그림체만 바꾼다.** `game/ui/card_view.gd`가 틀 속 빈 창에 그림(위 창: 22,24 / 201×204, 카드 240×360 기준)·비용 원(15,16 / 37×37)·이름·설명을 끼우므로 창 위치가 바뀌면 코드 수치를 다시 맞춰야 한다. 기준: `art/raw/vs/ref/10_ref_card_frame_green.png`.
+- 첨부: `10_ref_card_frame_green.png` + `style_D_seraphina_anchor.webp`(테두리 그림체 참고) · 새 대화창
 ```
-Using the attached image only as an art style reference, design an empty card frame for a dark fantasy card game. Vertical card, 5:7 ratio, centered, front view, flat (no perspective, no shadow).
+Redraw the first attached image, a card frame for a card game, in the style of the decorative thorn-and-rose border of the second attached image (ignore the character and the scene inside the second image).
 
-Art style: a dark fairy-tale picture book: delicate ink linework, faded watercolor, parchment; the only vivid color is deep crimson.
+KEEP EXACTLY THE SAME AS THE FIRST IMAGE
+The canvas size and proportions, the rounded outer outline, the round cost medallion at the top-left corner, the large upper window, the horizontal divider bar, and the lower window — the same positions, sizes and thicknesses. Everything that is green in the first image stays plain flat pure green (#00FF00): the inside of the cost medallion, the inside of both windows, and the area outside the card. Draw nothing inside the windows. No text, no numbers.
 
-Frame: an aged parchment card with a thin inked border of thorny vines and small crimson roses; a round cost medallion at the top-left corner (empty, no number); an empty art window in the upper 55%; an empty ribbon banner below the window for the card name; an empty text area at the bottom. No text, no numbers, no letters anywhere.
+CHANGE
+Draw the frame like the border of the second image: delicate, slightly rough black ink linework of thorny vines and small crimson roses over aged bone-white and sepia, with faded watercolor shading and a subtle parchment grain. A small crimson rose at each corner and at the center of the divider bar; thin thorny vines running along the frame. The cost medallion is a ring of ink-drawn thorns. The only vivid color is deep crimson.
 
-Outside the card, the background is plain flat solid pure green (#00FF00).
+AVOID
+Changing the layout, filling the windows, text, numbers, letters, a 3D metal look, watermark, signature.
 ```
 
 ### P11 카드 뒷면
@@ -232,7 +324,7 @@ Using the attached image only as an art style reference, draw three small game U
 | B02 | 빈 곁방 | B01 결과를 첨부해 `Edit this image: the same room; the fire is smaller and dimmer, one of the four bedrolls is still spread out but empty, the other three are rolled up. Change nothing else.` |
 | B03 | 안치 홀(지도) | `A great round hall underground, its walls lined with coffins stacked up to the ceiling, several dark archways leading off in different directions, a single shaft of pale light from far above.` |
 | B04 | 계단 앞 홀 | `A spiral staircase of worn stone descending into darkness, candles along the inner wall, faint red glow rising from far below.` |
-| B05 | 가장 깊은 곳 | `The deepest hall of the floor: a vast circular chamber with a bottomless pit in the middle, its rim carved with funeral prayers, cultists' candles around the edge, a cracked dome high above lost in darkness.` (보스 전투도 같은 배경) |
+| B05 | 가장 깊은 곳(집행자·보스 전투) | **세라피나 데스신과 같은 홀로 맞춘다 [2026-11-22 사용자 지시]** — 첨부: 기준 그림 + 데스신 C1(`reference/deathscene/seraphina_C1_last_words.webp`, 피 없는 컷). `The deepest hall of the floor, the same place as the second attached image: a vast ruined gothic hall underground, tall broken lancet arches and windows along both sides, a large rose window glowing deep crimson at the far end, dust hanging in the air, a few falling stone fragments, a cracked stone floor. A broad flight of wide steps rises to a raised stone dais in front of the rose window, where enemies will stand. No sky, no moon; the high vault is lost in darkness.` (카메라·배치 문단은 P07과 같게) — 대본 5.1의 '바닥 가운데 구멍'은 데스신 바닥과 맞지 않아 빼는 쪽으로 제안 중 |
 | B06 | 광신도 기도실 | `A small prayer room around a hole in the floor that drops into darkness, prayer mats and bone charms around it, candle wax pooled on the stones.` |
 | B07 | 무덤지기의 방 | `A narrow vault crowded with broken coffin lids leaning on the walls, a heavy iron grave-keeper's lantern hanging from a chain.` |
 | B08 | 순장된 자의 방 | `A cramped burial chamber with a single wooden coffin in the center, its lid nailed shut with many long iron nails.` |
