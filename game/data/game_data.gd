@@ -354,6 +354,11 @@ const D := {
 		"f3chapel": {"bg": "bg_fork_crypt.png", "bgZoom": {"scale": 1.3, "focus": [960, 500]}},
 		"f3pyre": {"bg": "bg_pyre_court.png"},
 	},
+	# VN 대화창 (art/raw/vs/66 → ui_dialog_box.png, 9조각 — 목업 reference/mockups/vs_dialog_mock.png)
+	# 상자 x·w·h(1920×1080), 9조각 모서리 여백(그림 px = 화면 px), 이름(진홍)·본문(먹색) — 양피지(평균 RGB 186,151,117) 위 대비: 본문 6.2:1, 이름 4.1:1(굵은 큰 글씨)
+	"vnBox": {"img": "ui_dialog_box.png", "x": 160, "w": 1600, "h": 230, "margin": [95, 62, 95, 62], "bottom": 30,
+		"nameX": 112, "nameY": 40, "textY": 84, "textRight": 112,
+		"nameColor": "#78141e", "textColor": "#2b1a12", "narrColor": "#3a2a22", "innerColor": "#4a2440", "nextColor": "#78141e"},
 	# VN 캠프 등에서의 스탠딩 자리(가로 위치) / 높이 / 위쪽 y
 	"vn": {"slots": {"FL": 250, "L": 600, "C": 960, "R": 1320, "FR": 1670}, "standH": 1010, "standTop": 120},
 
@@ -629,10 +634,15 @@ const D := {
 
 	# 카드 그림 파일 (카드 id → 파일). 있으면 코드로 그린 그림 대신 쓴다
 	# 아직 없는 그림(흉터)도 미리 등록해 둔다 — 파일이 생기면 이름만 맞추면 바로 바뀐다(없으면 코드로 그린 그림)
-	"cardArtImg": {"hero_death": "card_art_hero_death.png", "trample": "card_art_trample.png",
+	# 버티컬 슬라이스 카드 그림(art/raw/vs 44~60 → card_art_<카드 id>.jpg, 512 — tools/vs_import.py). 다음 판은 같은 이름으로 파일만 바꾼다
+	"cardArtImg": {"hero_death": "card_art_hero_death.jpg", "trample": "card_art_trample.jpg",
+		"holy_slash": "card_art_holy_slash.jpg", "vanguard": "card_art_vanguard.jpg", "cover": "card_art_cover.jpg",
+		"shield_bash": "card_art_shield_bash.jpg", "snipe": "card_art_snipe.jpg", "suppress": "card_art_suppress.jpg",
+		"curse_flame": "card_art_curse_flame.jpg", "fate_shift": "card_art_fate_shift.jpg", "take_hit": "card_art_take_hit.jpg",
+		"foresight": "card_art_foresight.jpg", "wound": "card_art_wound.jpg", "broken_sword": "card_art_broken_sword.jpg",
+		"last_charge": "card_art_last_charge.jpg", "nameless_card": "card_art_nameless_card.jpg", "small_charm": "card_art_small_charm.jpg",
 		"warrior_death": "card_art_warrior_death.png", "archer_death": "card_art_archer_death.png",
-		"pierced_shield": "card_art_pierced_shield.png", "burnt_bow": "card_art_burnt_bow.png", "scar": "card_art_scar.png",
-		"nameless_card": "card_art_nameless_card.png", "small_charm": "card_art_small_charm.png"},
+		"pierced_shield": "card_art_pierced_shield.png", "burnt_bow": "card_art_burnt_bow.png", "scar": "card_art_scar.png"},
 	# 카드 뒷면 그림 (손패의 뒤집힌 죽음 카드·손에 쥔 덱, vs_assets.md 11). 없으면 코드로 그린 뒷면
 	"cardBackImg": "card_back.png",
 	# 예고 아이콘 그림 (vs_assets.md 12: 공격 · 운명 공격 · 가려짐). 없는 종류(광역·그림자·짓밟기)는 코드로 그린 아이콘

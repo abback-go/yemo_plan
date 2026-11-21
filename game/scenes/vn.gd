@@ -15,6 +15,7 @@ var bedroll: Control
 var stands := {}
 var tags := {}
 var box: Control
+var frame: NinePatchRect   # 대화창 그림(9조각) — 없으면 코드로 그린 어두운 상자
 var face: TextureRect
 var name_plate: Control
 var name_l: Label
@@ -92,20 +93,31 @@ func setup(name: String, o := {}) -> void:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.draw.connect(_draw_box)
 	add_child(box)
+	var VB: Dictionary = GameData.D.get("vnBox", {})
+	if Assets.ok(str(VB.get("img", ""))):
+		frame = NinePatchRect.new()
+		frame.texture = Assets.tex(str(VB.img))
+		var mg: Array = VB.margin
+		frame.patch_margin_left = int(mg[0])
+		frame.patch_margin_top = int(mg[1])
+		frame.patch_margin_right = int(mg[2])
+		frame.patch_margin_bottom = int(mg[3])
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(frame)
 	face = TextureRect.new()
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(face)
-	text_l = UI.rich(34, Color("#f2ebe6"), "serif", "serif_bold")
+	text_l = UI.rich(34, _col("textColor", "#f2ebe6"), "serif", "serif_bold")
 	text_l.add_theme_constant_override("line_separation", 10)
 	box.add_child(text_l)
 	name_plate = Control.new()
 	name_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	name_plate.draw.connect(func(): name_plate.draw_style_box(UI.box(Color("#1a0a0e"), Color("#8c1a26"), 8, 1), Rect2(Vector2.ZERO, name_plate.size)))
+	name_plate.draw.connect(func(): if frame == null: name_plate.draw_style_box(UI.box(Color("#1a0a0e"), Color("#8c1a26"), 8, 1), Rect2(Vector2.ZERO, name_plate.size)))
 	box.add_child(name_plate)
-	name_l = UI.label("", 30, Color("#ffb6bd"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER)
+	name_l = UI.label("", 30, _col("nameColor", "#ffb6bd"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER if frame == null else HORIZONTAL_ALIGNMENT_LEFT)
 	name_plate.add_child(name_l)
-	next_l = UI.label("▼", 24, UI.RED, "sans_bold")
+	next_l = UI.label("▼", 24, _col("nextColor", "#b3121f"), "sans_bold")
 	box.add_child(next_l)
 	if name == "camp" or name == "emptycamp":
 		skip_btn = UI.button(G.ui("skip"), 22, func(): _on_skip(), "sans_bold")
@@ -115,6 +127,14 @@ func setup(name: String, o := {}) -> void:
 		add_child(skip_btn)
 	relayout()
 	box.visible = false
+
+
+## 대화창 색 (그림 대화창이면 vnBox 의 먹색·진홍, 없으면 예전 어두운 상자의 밝은 글씨)
+func _col(key: String, dark_box: String) -> Color:
+	var VB: Dictionary = GameData.D.get("vnBox", {})
+	if frame != null and VB.has(key):
+		return Color(str(VB[key]))
+	return Color(dark_box)
 
 
 func _bg_rect(file: String, zoom) -> TextureRect:
@@ -136,6 +156,28 @@ func relayout() -> void:
 	var h := 230.0 + (u - 1.0) * 160.0
 	box.position = Vector2(160 if u < 1.2 else 60, 1080 - 30 - h)
 	box.size = Vector2(1920 - box.position.x * 2, h)
+	if frame != null:
+		# 그림 대화창(9조각): 얼굴 칸 없이, 이름은 상자 안 위쪽에 진홍으로, 본문은 그 아래 먹색 (목업 vs_dialog_mock)
+		var VB: Dictionary = GameData.D.vnBox
+		frame.position = Vector2.ZERO
+		frame.size = box.size
+		face.visible = false
+		name_plate.visible = name_l.text != ""
+		var lx := float(VB.nameX)
+		text_l.add_theme_font_size_override("normal_font_size", fs)
+		text_l.add_theme_font_size_override("bold_font_size", fs)
+		name_l.add_theme_font_size_override("font_size", int(28 * u))
+		name_l.reset_size()
+		name_plate.size = name_l.get_combined_minimum_size()
+		name_plate.position = Vector2(lx, float(VB.nameY) * u)
+		name_l.size = name_plate.size
+		var ty := float(VB.textY) * u if name_plate.visible else float(VB.nameY) * u + 14.0
+		text_l.position = Vector2(lx, ty)
+		text_l.size = Vector2(box.size.x - lx - float(VB.textRight), 0)
+		text_l.custom_minimum_size = text_l.size
+		next_l.position = Vector2(box.size.x - 86, h - 58)
+		box.queue_redraw()
+		return
 	text_l.add_theme_font_size_override("normal_font_size", fs)
 	text_l.add_theme_font_size_override("bold_font_size", fs)
 	name_l.add_theme_font_size_override("font_size", int(30 * u))
@@ -157,6 +199,8 @@ func relayout() -> void:
 
 
 func _draw_box() -> void:
+	if frame != null:
+		return
 	var r := Rect2(Vector2.ZERO, box.size)
 	box.draw_style_box(UI.box(Color(0.03, 0.015, 0.025, 0.93), Color("#5a2a32"), 12, 1), r)
 	box.draw_rect(Rect2(6, 0, r.size.x - 12, 3), Color("#8c1a26"))
@@ -343,17 +387,17 @@ func show_line(ln: Dictionary) -> void:
 		nm = G.name_of(sp)
 	name_plate.visible = nm != ""
 	name_l.text = nm
-	var has_face: bool = ln.has("face") and Assets.ok(Assets.expression_file(ln.face))
+	var has_face: bool = ln.has("face") and Assets.ok(Assets.expression_file(ln.face)) and frame == null
 	face.visible = has_face
 	if has_face:
 		var who := "noel" if sp == "inner" else sp
 		face.texture = Assets.face_tex(who, ln.face, true)
 	var t := str(ln.text)
-	var col := Color("#f2ebe6")
+	var col := _col("textColor", "#f2ebe6")
 	if sp == "narr":
-		col = Color("#cfc6c0")
+		col = _col("narrColor", "#cfc6c0")
 	elif sp == "inner":
-		col = Color("#d8c0ce")
+		col = _col("innerColor", "#d8c0ce")
 		t = "(" + t + ")"
 	text_l.add_theme_color_override("default_color", col)
 	text_l.text = UI.esc(t)

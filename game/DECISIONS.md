@@ -115,3 +115,25 @@
   - 아직 승인 전이라 옛 그림 그대로: 노엘 스탠딩(`stand_witch.png`), 카드 틀·카드 그림, 컷인, UI, 2·3층 배경·적.
   - 쓰지 않게 되어 `game/assets` 에서 지운 옛 그림: `bg_camp.png`, `ev_corpse_witch.png`, `ev_rest_night.png`, `face_*.png` 12장, `stand_hero/warrior/archer.png`, `spr_*_back_attack.png`·`spr_warrior_back_guard.png`(원본은 `prototype/assets/` 에 있다).
 - **배경 제거 설정 (2026-11-22, 코디네이터 지시)**: `tools/remove_bg.py` 기본값(크로마 soft 150)은 몸 안쪽 중간색(회색 갑옷·갈색 얼룩·피부 그늘)까지 반투명으로 만들었다(안쪽 반투명 12~35%, 최소 알파 2). `remove_bg.py` 는 고치지 않고(사용자 결정 전) `tools/vs_import.py` 가 **`--soft 100`**(hard 는 기본 60)으로 부른다. 그 뒤 투명한 곳에서 3px 안쪽: 초록 키는 G > max(R,B)+40 이면 G = max(R,B), 엘리안(마젠타 키)은 min(R,B) > G+40 이면 R·B 를 G+40 까지(엘리안 망토의 초록은 건드리지 않음). 확인: 알파>0 영역을 9px MinFilter 로 깎은 안쪽의 반투명 비율 — 다시 처리한 26장 모두 0~1.1%(손 그림 0.3~1.1% 는 찢어진 소매 구멍 가장자리), 어두운 배경 위 합성으로 눈으로도 확인.
+- **VN 대화창 (66 승인, 2026-11-22)**: `66_ui_dialog_box` → `ui_dialog_box.png`(soft 100, 내용 상자로 자른 뒤 높이 230 → 899×230). `NinePatchRect` 9조각, 모서리 여백 좌우 95·위아래 62(그림 px = 화면 px), 상자 x 160·너비 1600·높이 230·아래 여백 30(목업 `vs_dialog_mock` 그대로, `game_data.gd vnBox`). 양피지(평균 RGB 186·151·117) 위 글자색: 본문 `#2b1a12`(6.2:1), 내레이션 `#3a2a22`(5.1:1), 노엘 속마음 `#4a2440`(4.8:1), 이름 `#78141e` 진홍(4.1:1, 굵은 큰 글씨 — 이름표 판 없이 상자 안 위쪽), 다음 표시 ▼ `#78141e`(예전 `#b3121f` 는 2.6:1). VN 대화창의 얼굴 칸은 목업에 없어 뺐다(표정은 스탠딩이 바뀌어 보인다). 전투 중 대사창(왼쪽 위 작은 상자, `ui/dialog_box.gd`)은 다른 부품이라 그대로 — 이름표 그림(67)은 사용자 결정 대기.
+- **카드 그림 (44~60, 2026-11-22)**: 불투명 정사각형이라 배경 제거 없이 512 로 줄여 `card_art_<카드 id>.jpg`(같은 이름으로 파일만 바꾸면 다음 판). `game_data.gd cardArtImg` 에 대응.
+  | 번호 | 카드 | 파일 | 상태 |
+  |---|---|---|---|
+  | 44 | 성검 베기 `holy_slash` | `card_art_holy_slash.jpg` | 승인 |
+  | 54 | 상처 `wound` | `card_art_wound.jpg` | 승인 |
+  | 56 | 부러진 성검 `broken_sword` | `card_art_broken_sword.jpg` | 승인 |
+  | 57 | 용사의 마지막 돌격 `last_charge` | `card_art_last_charge.jpg` | 승인 |
+  | 58 | 이름 없는 마녀의 카드 `nameless_card` | `card_art_nameless_card.jpg` | 승인 |
+  | 59 | 작은 손의 부적 `small_charm` | `card_art_small_charm.jpg` | 승인 |
+  | 45 | 선봉 `vanguard` | `card_art_vanguard.jpg` | **임시(v1)** |
+  | 46 | 감싸기 `cover` | `card_art_cover.jpg` | **임시(v1)** |
+  | 47 | 방패 강타 `shield_bash` | `card_art_shield_bash.jpg` | **임시(v1)** |
+  | 48 | 저격 `snipe` | `card_art_snipe.jpg` | **임시(v1)** |
+  | 49 | 견제 사격 `suppress` | `card_art_suppress.jpg` | **임시(v1)** |
+  | 50 | 저주의 불꽃 `curse_flame` | `card_art_curse_flame.jpg` | **임시(v1)** |
+  | 51 | 운명 전가 `fate_shift` | `card_art_fate_shift.jpg` | **임시(v1)** |
+  | 52 | 대신 받기 `take_hit` | `card_art_take_hit.jpg` | **임시(v1)** |
+  | 53 | 죽음의 예지 `foresight` | `card_art_foresight.jpg` | **임시(v1)** |
+  | 55 | 짓밟힘 `trample` | `card_art_trample.jpg` | **임시(v1)** (옛 `card_art_trample.png` 지움) |
+  | 60 | 용사의 죽음 `hero_death` | `card_art_hero_death.jpg` | **임시(v1)** (옛 `card_art_hero_death.png` 지움) |
+  - 게임에 없는 카드로 건너뛴 것: 없음(17장 모두 대응). 카드 틀(10)·컷인·2·3층 카드 그림(전사·궁수의 죽음, 꿰뚫린 방패, 타버린 활)은 옛 그림 그대로.

@@ -69,6 +69,19 @@ BGS = {
 }
 # 예고 아이콘 3종(한 줄에 셋: 공격 · 운명 공격 · 가려짐)
 ICONS = ('12_intent_icons', ['intent_attack.png', 'intent_fate.png', 'intent_hidden.png'], 160)
+# VN 대화창(9조각): 내용 상자로 잘라 높이 DIALOG_H 로 (목업 vs_dialog_mock: 1600×230, 모서리 여백 좌우 95·위아래 62 — game_data vnBox)
+DIALOG = ('66_ui_dialog_box', 'ui_dialog_box.png')
+DIALOG_H = 230
+# 카드 그림(불투명 정사각형 1254, 크로마 없음): 카드 틀의 그림 창(약 402×408)에 맞춰 512 로 줄인다. 이름은 카드 id 그대로(다음 판은 파일만 바꾸면 된다)
+CARD_ART = 512
+CARDS = {
+    '44_card_holy_slash': 'holy_slash', '45_card_vanguard_v1': 'vanguard', '46_card_cover_v1': 'cover',
+    '47_card_shield_bash_v1': 'shield_bash', '48_card_snipe_v1': 'snipe', '49_card_suppressing_fire_v1': 'suppress',
+    '50_card_curse_flame_v1': 'curse_flame', '51_card_fate_shift_v1': 'fate_shift', '52_card_take_hit_v1': 'take_hit',
+    '53_card_foresight_v1': 'foresight', '54_card_wound': 'wound', '55_card_trampled_v1': 'trample',
+    '56_card_broken_holy_sword': 'broken_sword', '57_card_last_charge': 'last_charge', '58_card_nameless_witch': 'nameless_card',
+    '59_card_small_hand_charm': 'small_charm', '60_card_hero_death_v1': 'hero_death',
+}
 
 
 SOFT = 100   # remove_bg.py --soft (기본 150 은 몸 안쪽 중간색까지 반투명으로 만든다)
@@ -186,6 +199,24 @@ def do_icons():
     return res
 
 
+def do_dialog():
+    name, out = DIALOG
+    im = keyed(name, False)
+    im = im.resize((round(im.width * DIALOG_H / im.height), DIALOG_H), Image.LANCZOS)
+    save(im, out)
+    return [out]
+
+
+def do_cards():
+    outs = []
+    for src, cid in CARDS.items():
+        im = Image.open(os.path.join(RAW, src + '.webp')).convert('RGB').resize((CARD_ART, CARD_ART), Image.LANCZOS)
+        out = 'card_art_%s.jpg' % cid
+        im.save(os.path.join(OUT, out), quality=90)
+        outs.append(out)
+    return outs
+
+
 def check(files, folder):
     """어두운 배경 위에 얹어 테두리 번짐을 눈으로 확인하는 그림"""
     os.makedirs(folder, exist_ok=True)
@@ -212,6 +243,10 @@ if __name__ == '__main__':
             done += do_stands(who)
     if not only or 'icons' in only:
         done += do_icons()
+    if not only or 'dialog' in only:
+        done += do_dialog()
+    if not only or 'cards' in only:
+        done += do_cards()
     if not only or 'bg' in only:
         for n, out in BGS.items():
             shutil.copyfile(os.path.join(RAW, n + '.webp'), os.path.join(OUT, out))
