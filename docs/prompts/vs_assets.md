@@ -3,7 +3,7 @@
 - 작성: 2026-11-21. 근거: [`../art-direction.md`](../art-direction.md)(그림체 D·캐릭터 묘사·ChatGPT 요령), [`../tutorial-script-vs.md`](../tutorial-script-vs.md) v3(장례 탑 1층), [`../vertical-slice.md`](../vertical-slice.md)(움직임 비교 시험).
 - 순서: **1단계(움직임 비교 시험 + 전투 화면 목업)부터.** 1단계 결과로 전투 그림을 뽑는 방식이 정해진다.
 - 공통 규칙
-  - **기준 그림 `reference/style/style_D_seraphina_anchor.webp`를 매번 첨부한다**(그림체 참고용). 캐릭터 그림은 그 캐릭터 시안도 함께 첨부.
+  - 첨부 [2026-11-22 고침]: **세라피나·배경·적·UI는 `reference/style/style_D_seraphina_anchor.webp` 한 장만**(기준 그림이 곧 그림체 D의 세라피나). **브룬힐드·엘리안·노엘은 각자의 그림체 D 시안 한 장만**(`style_D_brunhild_v5`·`style_D_elian_v1`·`style_D_noel_v1`) — 세라피나 기준 그림을 같이 붙이면 은발·붉은 망토가 섞일 수 있다. 애니메이션풍 `design_seraphina_v5_anime.webp`는 붙이지 않는다.
   - 캐릭터마다 **새 대화창**에서 시작한다. 같은 캐릭터의 포즈·표정 변형은 같은 대화창에서 결과 그림을 첨부해 "Edit this image"로.
   - 수정이 2~3번을 넘으면 얼굴·비율이 무너진다 → 새로 뽑는다.
   - 배경 제거용 단색: 초록(#00FF00). **엘리안은 초록 옷이라 마젠타(#FF00FF).** 받은 뒤 `tools/remove_bg.py`로 지운다.
@@ -14,11 +14,11 @@
 ## 1단계 — 움직임 비교 시험 + 전투 화면 목업
 
 ### P01 세라피나 뒷모습 — 기본 (움직임 시험 A·B·C 공통 바탕)
-- 첨부: `style_D_seraphina_anchor.webp`, `design_seraphina_v5_anime.webp` · 새 대화창
+- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창
 ```
-Using the attached images as references (the first for the art style, the second for the character design), draw a single full-body rear view of Seraphina for a card game battle screen.
+Using the attached image as the reference for both the art style and the character design, draw a single full-body rear view of Seraphina for a card game battle screen.
 
-Art style: a dark fairy-tale picture book illustration — delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly. Match the attached style reference exactly in linework and palette. Natural adult proportions, about 7.5 heads tall. Not anime, not chibi.
+Art style: a dark fairy-tale picture book illustration — delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly. Match the attached reference exactly in linework and palette. Natural adult proportions, about 7.5 heads tall. Not anime, not chibi.
 
 Character: Seraphina, a beautiful holy knight: silver-white plate armor with gold filigree, a bare waist (the breastplate ends below the chest), off-white bandages wrapped from her waist over her hips to the very top of her thighs like short bandage shorts, bare mid-thighs, armored greaves from just above the knees; a long silver braid with a crimson ribbon bow, a crimson cape and a crimson tabard with a gold cross, a sacred longsword with a winged gold guard, a red gem and a crimson ribbon.
 
@@ -56,11 +56,11 @@ Background: plain flat solid pure green (#00FF00), no labels, no text.
 ```
 
 ### P05 브룬힐드 뒷모습 — 기본
-- 첨부: `style_D_seraphina_anchor.webp`, `style_D_brunhild_v5.webp` · 새 대화창
+- 첨부: `style_D_brunhild_v5.webp` · 새 대화창
 ```
-Using the attached images as references (the first for the art style, the second for the character design), draw a single full-body rear view of Brunhild for a card game battle screen.
+Using the attached image as the reference for both the art style and the character design, draw a single full-body rear view of Brunhild for a card game battle screen.
 
-Art style: a dark fairy-tale picture book illustration — delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly. Match the attached style reference exactly in linework and palette. Natural adult proportions, about 7.5 heads tall. Not anime, not chibi.
+Art style: a dark fairy-tale picture book illustration — delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly. Match the attached reference exactly in linework and palette. Natural adult proportions, about 7.5 heads tall. Not anime, not chibi.
 
 Character: Brunhild, the tallest of the party, a black-knight beauty with long straight jet-black hair and blunt bangs (hime cut); black lacquered plate armor with silver wildflower-and-thorn filigree, rose-petal pauldrons, a flaring armored skirt, crimson lining, sash and scarf; a massive black tower shield with a bouquet of dried wildflowers and a crimson ribbon tied to it, on her left arm; a flanged mace in her right hand.
 
@@ -73,11 +73,11 @@ Avoid: face visible, looking back, shield on the right arm, short hair, extra fi
 - 감싸기 동작(시험에서 A가 뽑히면): 같은 대화창에서 `Edit this image: same character, camera, scale and position; change only the pose: she steps sideways and plants the tower shield firmly in front of her with both hands, bracing against a heavy blow, the scarf and hair swept by the impact. Keep the pure green background.`
 
 ### P06 엘리안 뒷모습 — 기본
-- 첨부: `style_D_seraphina_anchor.webp`, `style_D_elian_v1.webp` · 새 대화창
+- 첨부: `style_D_elian_v1.webp` · 새 대화창
 ```
-Using the attached images as references (the first for the art style, the second for the character design), draw a single full-body rear view of Elian for a card game battle screen.
+Using the attached image as the reference for both the art style and the character design, draw a single full-body rear view of Elian for a card game battle screen.
 
-Art style: a dark fairy-tale picture book illustration — delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly, plus the deep emerald of her cloak. Match the attached style reference exactly in linework and palette. Natural adult proportions, about 7.5 heads tall. Not anime, not chibi.
+Art style: a dark fairy-tale picture book illustration — delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly, plus the deep emerald of her cloak. Match the attached reference exactly in linework and palette. Natural adult proportions, about 7.5 heads tall. Not anime, not chibi.
 
 Character: Elian, an elven noble archer: golden-blonde hair in a crown braid with white feathers and pearls, a gold leaf circlet, pointed elf ears; a deep emerald velvet cloak with a white fur collar, an ivory lace bodice, a crimson sash, a short layered lace skirt to mid-thigh, over-the-knee boots, long gloves; a white longbow with gold inlay.
 
@@ -114,9 +114,9 @@ Background: plain flat solid pure green (#00FF00), one even color, no paper text
 ```
 
 ### P09 노엘의 손 (1인칭, 전투 화면 아래)
-- 첨부: `style_D_seraphina_anchor.webp`, `style_D_noel_v1.webp` · 새 대화창
+- 첨부: `style_D_noel_v1.webp` · 새 대화창
 ```
-Using the attached images as references (the first for the art style, the second for the character), draw the first-person hands of Noel the witch for the bottom of a card game screen, as if the viewer is Noel looking down at her own hands.
+Using the attached image as the reference for both the art style and the character, draw the first-person hands of Noel the witch for the bottom of a card game screen, as if the viewer is Noel looking down at her own hands.
 
 Art style: a dark fairy-tale picture book illustration — delicate, slightly rough ink linework with faded watercolor washes; the only vivid color is deep crimson.
 
@@ -160,9 +160,9 @@ Outside the card, the background is plain flat solid pure green (#00FF00).
 | B13 | 발자국 방 | `A room whose stone floor has sunk in the exact shape of a colossal bare footprint with clear toe marks; inside the print lie flattened, crushed suits of armor of a lost expedition.` |
 
 ### 스탠딩 (VN 장면) — 캐릭터마다 기본 1장 + 표정
-- 첨부: 기준 그림 + 그 캐릭터 시안 · 캐릭터마다 새 대화창
+- 첨부: 세라피나는 기준 그림, 나머지는 각자의 그림체 D 시안 한 장 · 캐릭터마다 새 대화창
 ```
-Using the attached images as references (the first for the art style, the second for the character design), draw a visual novel standing sprite of [CHARACTER]. Knee-up view, facing three-quarters toward the viewer, relaxed neutral pose, [EXPRESSION]. Vertical 2:3 composition with a small even margin above the head.
+Using the attached image as the reference for both the art style and the character design, draw a visual novel standing sprite of [CHARACTER]. Knee-up view, facing three-quarters toward the viewer, relaxed neutral pose, [EXPRESSION]. Vertical 2:3 composition with a small even margin above the head.
 
 Art style: a dark fairy-tale picture book illustration — delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson. Natural adult proportions, about 7.5 heads tall. Not anime, not chibi.
 
