@@ -522,6 +522,12 @@ async function pathD(browser) {
   await H.until(s => s.stage === 'battle:normal' && s.battle && s.battle.turn === 1 && s.guideOpen, 90000, '안내', async s => { if (s.vn || (s.dialogBusy && !s.guideOpen) || (s.guideOpen && (!s.battle || s.battle.turn < 1))) await H.touchTap(960, 560); });
   await H.sleep(800);
   await H.shot('D02_phone_guide_box.png');
+  {
+    // 화면 위 전체 폭 안내 상자의 오른쪽 위가 메뉴 단추(누르는 영역 포함)에 덮이면 안내를 넘기려던 탭이 일시정지를 연다
+    s = await H.state();
+    const gb = await H.W('geom', 'guide', ''), mb = await H.W('geom', 'button', 'menu');
+    check('휴대폰: 화면 위 안내 상자가 메뉴 단추(누르는 영역 포함)와 겹치지 않음', gb.x && mb.x && !H.overlap(gb, mb, s.cssScale), { gb, mb, css: s.cssScale });
+  }
   s = await H.until(s => s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 60000, '1턴', async s => { if (s.guideOpen || s.dialogBusy) await H.touchTap(960, 560); });
   check('안내 상자를 터치 탭으로 넘김', true);
   const hs = await H.W('geom', 'card', 'holy_slash');

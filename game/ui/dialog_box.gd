@@ -117,13 +117,19 @@ func relayout() -> void:
 		dlg.size = Vector2(w, 132)
 		dlg.position = Vector2(dock_x, 1080 - 26 - 132 * u)
 	var gw := minf(1180.0, 1840.0 / u)
-	guide.size = Vector2(gw, 150)
-	guide.scale = Vector2(u, u)
 	# 전투 중에는 적·예고를 가리지 않게 적 줄 바로 아래(화면 위쪽 절반)에, 그 밖에는 화면 맨 위에 띄운다
 	var gy := 18.0
 	if G.ctl and G.ctl.in_battle and not G.scenes.is_open():
 		gy = float(G.view.LY().get("guideBattleY", 396))   # 배경마다 (battleLayouts)
-	guide.position = Vector2(960 - gw * u / 2.0, gy)
+	var gx := 960 - gw * u / 2.0
+	# 오른쪽 위 메뉴 단추(누르는 영역)와 겹치면 상자 오른쪽 끝을 그 왼쪽까지 줄인다(휴대폰처럼 상자가 화면 폭을 거의 다 쓸 때)
+	if G.menu != null and G.menu.can_pause():
+		var cr: Rect2 = G.menu.corner_hit_rect()
+		if gy < cr.end.y and gx + gw * u > cr.position.x - 12.0:
+			gw = (cr.position.x - 12.0 - gx) / u
+	guide.size = Vector2(gw, 150)
+	guide.scale = Vector2(u, u)
+	guide.position = Vector2(gx, gy)
 	guide_title.position = Vector2(30, 14)
 	guide_text.position = Vector2(30, 52)
 	guide_text.size = Vector2(gw - 60, 0)

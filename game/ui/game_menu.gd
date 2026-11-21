@@ -78,6 +78,15 @@ func corner_left() -> float:
 	return r.position.x - maxf(0.0, (need - r.size.x) / 2.0)
 
 
+## 지금 메뉴 단추가 누르는 영역(무대 좌표, 지도면 지도 자리 — Btn._has_point 와 같게 실제 화면 44px 이상으로 넓힌 것).
+## 화면 위 전체 폭 안내 상자(dialog_box.gd)가 이 자리를 피한다 — 휴대폰에서 겹치면 안내를 넘기려던 탭이 일시정지를 열었다
+func corner_hit_rect() -> Rect2:
+	var r := _corner_rect(G.scenes != null and G.scenes.current is FloorMap)
+	var need := 44.0 / maxf(0.05, FX.css_scale)
+	var pad := Vector2(maxf(0.0, (need - r.size.x) / 2.0), maxf(0.0, (need - r.size.y) / 2.0))
+	return Rect2(r.position - pad, r.size + pad * 2.0)
+
+
 func can_pause() -> bool:
 	if G.scenes == null or G.ctl == null or G.main == null:
 		return false
