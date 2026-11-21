@@ -1166,7 +1166,10 @@ static func offer_fate(st: Dictionary, fate_id: String) -> Array:
 		_apply_effect(st, uid, c, eff, {}, ev)
 	if b != null:
 		b.exhaust.append(uid)
-		if b.result == null:
+		# 받아들이면 전투가 끝나는 운명(endsBattle — 튜토리얼의 세라피나)은 곧바로 물러남(fate_end_battle)이라 전멸로 치지 않는다.
+		# 예전에는 남은 동료가 모두 쓰러져 있으면(거대한 발 2턴 「기둥 붕괴」) 여기서 전멸 → 같은 상태로 다시 → 또 전멸이 끝없이 되풀이됐다
+		# (2026-11-22 자동 진행 대량 시험에서 찾음 — docs/balance-report.md)
+		if b.result == null and not bool(D().fates.get(fate_id, {}).get("endsBattle", false)):
 			_check_defeat(st, ev)
 	ev.append({"t": "fateOffered", "fate": fate_id, "who": f.who, "level": int(f.get("offeredLevel", f.level))})
 	return ev

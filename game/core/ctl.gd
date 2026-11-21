@@ -478,6 +478,7 @@ func _fate_tutorial(af: Dictionary, f, L: Dictionary, my: int) -> void:
 ## 전투 결과 처리. 이겼으면(물러났으면) true
 func after_result(my: int) -> bool:
 	var b: Dictionary = st.battle
+	note("battle end " + _battle_summary())
 	match str(b.result):
 		"giant":
 			note("giant appears")
@@ -505,6 +506,17 @@ func after_result(my: int) -> bool:
 			await FX.fade(1, 200)
 			return await battle(str(b.enc), true, my)
 	return false
+
+
+## 전투가 끝난 순간의 요약(--trace 기록용, 난이도 보고서 tools/batch_autoplay.py 가 읽는다): 전투·결과·턴·덱 장수·노엘과 동료 HP·상태
+func _battle_summary() -> String:
+	var b: Dictionary = st.battle
+	var s := "enc=%s result=%s turn=%d deck=%d witch=%d/%d" % [b.enc, str(b.result), int(b.turn), st.party.deck.size(),
+		int(st.party.witch.hp), int(st.party.witch.maxHp)]
+	for id in st.party.order:
+		var a: Dictionary = st.party.allies[id]
+		s += " %s=%d/%d:%s" % [id, int(a.hp), int(a.maxHp), str(a.status)]
+	return s
 
 
 ## 지도의 방 하나를 마치고 지도로 (층의 끝 방이면 빈 곁방으로)
@@ -646,6 +658,12 @@ func _prep_map(room: String) -> void:
 		st.progress.darkness = int(G.params.darkness)
 	if G.params.has("omen"):
 		st.progress.omen = true
+	# 시험용: ?hp=warrior:3,archer:4 (노엘 witch·동료 HP) — CI 헤드리스 경로 6(거대한 발 끝없는 전멸 되풀이 막힘 재현)
+	if G.params.has("hp"):
+		for kv in str(G.params.hp).split(",", false):
+			var p := kv.split(":")
+			if p.size() == 2:
+				Rules.debug_set_hp(st, p[0], int(p[1]))
 
 
 ## 바로 가기용: 세라피나가 죽은 뒤(빈 캠프 직전) 상태 — 유품·짓밟힘. 빈 캠프에서 브룬힐드의 운명이 들어온다

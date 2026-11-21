@@ -91,6 +91,7 @@ func _init() -> void:
 	t_face_down_floor1()
 	t_face_down_persist()
 	t_giant_stomp_fate()
+	t_giant_stomp_all_down()
 	t_death_unplayable()
 	t_immune()
 	t_countdown()
@@ -344,6 +345,34 @@ func t_giant_stomp_fate() -> void:
 	var ev3 := Rules.fate_end_battle(st, "hero_stomp")
 	check("거대한 발 3턴 「짓밟기」: 운명의 시도(세라피나, 다른 동료는 멀쩡) → 카드가 뒤집힘 → 거스를 수 없어 받아들임 → 사망·유품 3장·「짓밟힘」 → 물러남",
 		ok_it and trial and others_ok and no_defy and flipped and dead and has_ev(ev3, "retreat") and st.battle.result == "retreat", str(it))
+
+## 거대한 발: 브룬힐드·엘리안이 2턴 「기둥 붕괴」로 쓰러진 채 3턴 세라피나의 운명을 받아들여도 전멸이 아니라 물러남
+## (예전에는 전멸 → 같은 상태로 다시 → 또 전멸이 끝없이 되풀이됐다. 자동 진행 대량 시험 x1 시드 5 — tools/batch_autoplay.py)
+func t_giant_stomp_all_down() -> void:
+	var st := giant_battle()
+	st.party.allies.warrior.hp = 3
+	st.party.allies.archer.hp = 4
+	Rules.end_turn(st)
+	Rules.start_turn(st)
+	Rules.end_turn(st)   # 2턴 기둥 붕괴(전원 5)
+	var downed: bool = st.party.allies.warrior.status == "down" and st.party.allies.archer.status == "down" and st.battle.result == null
+	Rules.start_turn(st)
+	Rules.end_turn(st)   # 3턴 짓밟기 → 운명의 시도
+	var ev := Rules.fate_trial_choice(st, "offer")
+	var not_lost: bool = st.battle.result == null and not has_ev(ev, "battleEnd") and st.party.allies.hero.status == "dead"
+	var ev2 := Rules.fate_end_battle(st, "hero_stomp")
+	check("거대한 발: 동료 둘이 쓰러진 채 세라피나의 운명을 받아들여도 전멸이 아니라 물러남(끝없는 다시 하기 막힘 고침)",
+		downed and not_lost and has_ev(ev2, "retreat") and st.battle.result == "retreat", str(st.party.allies))
+	# 운명으로 전투가 끝나지 않는 2·3층은 그대로: 받아들인 뒤 남은 동료가 모두 쓰러져 있으면 전멸
+	var s2 := Rules.state_after_tutorial(7)
+	Rules.start_battle(s2, "ossuary")
+	Rules.start_turn(s2)
+	s2.party.allies.archer.hp = 0
+	s2.party.allies.archer.status = "down"
+	s2.battle.awaitFate = {"fate": "warrior_pierce", "enemy": "k1", "who": "warrior", "level": 1}
+	Rules.fate_trial_choice(s2, "offer")
+	check("2층 운명(전투가 이어짐)을 받아들여 남은 동료가 모두 쓰러져 있으면 그대로 전멸", s2.battle.result == "lose", str(s2.battle.result))
+
 
 ## 죽음 카드는 어느 층에서도 낼 수 없다 (미리 보여 주는 카드 — 카드를 내서 죽이는 방식은 없앴다)
 func t_death_unplayable() -> void:
