@@ -589,6 +589,11 @@ func t_fate_v2() -> void:
 	check("v2 카드 레벨 표기: 죽음 카드 Lv1, 훈련 강화는 Lv2 (+ 아님)",
 		Rules.card_name("warrior_death", false, 1) == "전사의 죽음 Lv1" and Rules.card_name("holy_slash", true) == "성검 베기 Lv2"
 		and Rules.card_name("snipe") == "저격" and Rules.card_text("warrior_death", false, Callable(), 1) == "브룬힐드는 2층에서 관통당해 죽는다.")
+	# 레벨이 오를 수 없는 운명(세라피나, maxLevel 1)의 죽음·상속 카드는 Lv 없이 — 대본 v3 5.4 「용사의 죽음」·「짓밟힘」. 2·3층 상속 카드는 Lv1 그대로
+	check("v2 카드 레벨 표기: 오를 수 없는 운명(maxLevel 1)은 Lv 없음 — 「용사의 죽음」·「짓밟힘」, 「꿰뚫린 방패 Lv1」·「궁수의 죽음 Lv1」은 그대로",
+		Rules.card_name("hero_death") == "용사의 죽음" and Rules.card_name("trample") == "짓밟힘"
+		and Rules.card_name("pierced_shield") == "꿰뚫린 방패 Lv1" and Rules.card_name("archer_death") == "궁수의 죽음 Lv1"
+		and Rules.card_name("burnt_bow", false, 2) == "타버린 활 Lv2")
 	# ① 바친다 (탐사 중): 죽음 → 유품 → 상속 카드(같은 Lv)
 	var a := st.duplicate(true)
 	var ev := Rules.offer_fate(a, "warrior_pierce")

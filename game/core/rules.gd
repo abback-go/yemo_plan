@@ -123,8 +123,16 @@ static func effects_for(id: String, up := false, lv := 1) -> Array:
 
 
 ## 레벨 표시가 붙는 카드인가 (죽음·상속 카드는 늘, 그 밖은 Lv2 이상일 때만)
+## 단, 레벨이 오를 수 없는 운명(maxLevel 1 — 튜토리얼 세라피나)의 죽음·상속 카드는 Lv 를 붙이지 않는다(대본 v3 5.4 「용사의 죽음」·「짓밟힘」)
 static func shows_level(id: String, lv: int) -> bool:
-	return lv >= 2 or str(D().cards[id].kind) in ["death", "inherit"]
+	if lv >= 2:
+		return true
+	if not str(D().cards[id].kind) in ["death", "inherit"]:
+		return false
+	for f in D().fates.values():
+		if str(f.card) == id or str(f.get("inherit", "")) == id:
+			return int(f.get("maxLevel", 3)) > 1
+	return true
 
 
 ## 카드 이름 (강화·레벨이 있으면 이름 옆 Lv — 카드 강화는 + 대신 Lv 로 표기한다)
