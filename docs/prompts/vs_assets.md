@@ -200,16 +200,23 @@ Avoid: face visible, looking back, extra fingers, text, watermark, signature.
 ```
 - 저격 동작: 같은 대화창에서 `Edit this image: same character, camera, scale and position; change only the pose: she draws the white longbow to full draw, aiming straight ahead and slightly upward, the cloak swinging from the turn of her body. Keep the pure magenta background.`
 
-### P07 전투 배경 — 장례 회랑
-- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창
+### P07 전투 배경 — 장례 회랑 [2026-11-22 다시 씀]
+- 첨부: `style_D_seraphina_anchor.webp`(그림체만) · 새 대화창
+- 반영: 지금 전투 화면 배치(적 셋은 위쪽 절반 중간 거리, 동료 머리는 화면 중간, 아래 1/3은 손패). '긴 회랑'은 좁아서 적·동료가 나란히 못 섬 → 본당만큼 넓은 회랑. ChatGPT는 3:2로 나오므로 받아서 16:9로 자른다.
 ```
-Using the attached image only as an art style reference, draw a background for a card game battle screen. 16:9 landscape, full bleed, no border, no people, no text.
+Using the attached image only as a reference for the art style (ignore the character and the border), draw a background for a card game battle screen. Wide landscape, full bleed, no border, no people, no creatures except crows, no text. The image will be cropped to 16:9, so keep the top and bottom edges free of important details.
 
-Art style: a dark fairy-tale picture book illustration — delicate, slightly rough ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly; subtle parchment texture.
+ART STYLE
+A dark fairy-tale picture book illustration: delicate, slightly rough ink linework with faded watercolor washes in bone white, ash gray and sepia, with a subtle parchment texture. The only vivid color is deep crimson, used sparingly (dried funeral flowers, a torn crimson cloth on one coffin). Candle flames are pale and dim.
 
-Scene: a long funeral corridor deep underground, inside a funeral tower that grows downward into the earth. Both walls are lined with niches, each holding a stone coffin, stacked several rows high; every coffin lid has been pushed open from the inside. Dripping candle stubs on the ledges, scattered dried funeral flowers, a few crows perched on the coffins. The corridor recedes into darkness at the center.
+SCENE
+A wide funeral gallery deep underground, inside a funeral tower that grows downward into the earth. The gallery is as wide as a chapel nave. Both side walls are lined with niches, each holding a stone coffin, stacked several rows high; every coffin lid has been pushed open from the inside and hangs askew. Dripping candle stubs on the ledges, dried funeral flowers scattered on the floor, a few crows perched on the coffins. The gallery recedes into darkness at the center of the image.
 
-Composition for gameplay: the camera stands at about human eye height looking straight down the corridor. Keep the lower third of the image calm and dark (the player's hand of cards covers it) and leave open floor space in the middle distance where three enemies will stand.
+CAMERA AND COMPOSITION FOR GAMEPLAY
+The camera stands at human eye height looking straight down the gallery, with a normal lens; the horizon line and the vanishing point sit at the center of the image. In the middle distance, leave a wide, open, evenly lit stretch of flagstone floor across the center of the image, where three enemies will stand side by side. Keep the lower third of the image simple and dark (the player's cards and the backs of three party members will cover it). The side walls frame the image on the left and right.
+
+AVOID
+People, monsters, skeletons standing up, blood pools, bright colors other than crimson, strong perspective distortion, a narrow corridor, text, watermark, signature.
 ```
 
 ### P08 광신도 (적)
