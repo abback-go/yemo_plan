@@ -4,12 +4,12 @@
 - CI: `.github/workflows/witch-web-build.yml` → gh-pages `godot/`(웹 빌드), `godot-ci/`(스크린샷·로그)
 
 ## 구조 (버티컬 슬라이스, 2026-11-22)
-- `data/game_data.gd`(수치·지도·랜턴·보상·배치·배경별 전투 배치 battleLayouts·VN 대화창 vnBox·그림 대응) · `data/script_data.gd`(대본 v3: 대사·안내·선택지·지도 문구)
-- `core/`: `rules.gd`(전투·운명·지도·촛불·어둠·보상 규칙) · `ctl.gd`(장면 흐름: 곁방 → 회랑 → 안치 홀 → 지도 거점 → 방 → 가장 깊은 곳 → 빈 캠프 → 2·3층) · `guide.gd` · `fx.gd` · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
-- `ui/`: `battle_view.gd`(전투 화면·연출·HUD, 배치는 `LY()`) · `hand.gd` · `card_view.gd`(뒤집힌 카드·뒤집기) · `card_pick.gd`(카드 고르기: 보상·거래·훈련) · `battle_input.gd`(동료 대상 카드) · `dialog_box.gd` · `cutin.gd` · `blood.gd` · `icons.gd`(지도 아이콘) · `btn.gd` · `card_art.gd` · `shaders/`
+- `data/game_data.gd`(수치·지도·랜턴·방에서 얻는 카드·배치·배경별 전투 배치 battleLayouts·VN 대화창 vnBox·그림 대응) · `data/script_data.gd`(대본 v3: 대사·안내·선택지·지도 문구)
+- `core/`: `rules.gd`(전투·운명·지도·촛불·어둠·방에서 얻는 카드 규칙) · `ctl.gd`(장면 흐름: 곁방 → 회랑 → 안치 홀 → 지도 거점 → 방 → 가장 깊은 곳 → 빈 캠프 → 2·3층) · `guide.gd` · `fx.gd` · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
+- `ui/`: `battle_view.gd`(전투 화면·연출·HUD, 배치는 `LY()`) · `hand.gd` · `card_view.gd`(뒤집힌 카드·뒤집기) · `card_pick.gd`(카드 고르기: 거래·훈련) · `battle_input.gd`(동료 대상 카드) · `dialog_box.gd` · `cutin.gd` · `blood.gd` · `icons.gd`(지도 아이콘) · `btn.gd` · `card_art.gd` · `shaders/`
 - `scenes/`: `scenes.gd`(타이틀·컷신·전멸·운명 선택·카드 획득·층 끝·결과) · `vn.gd`(VN 장면·표정 스탠딩·양피지 대화창) · `floor_map.gd`(지도 거점) · `omen.gd`(죽음 카드 떠오름)
 - 그림: `tools/vs_import.py`(art/raw/vs → game/assets: 크로마 배경 제거 soft 100 + 번짐 정리 + 크기 줄임), 대응표는 DECISIONS.md
-- 시험: `tests/test_rules.gd`(규칙·데이터 78개) · `tests/web/smoke.js`(Playwright 경로 A~F)
+- 시험: `tests/test_rules.gd`(규칙·데이터 80개) · `tests/web/smoke.js`(Playwright 경로 A~F)
 
 ## 로컬 검증 방법
 - `godot --headless --path game --import` 두 번 → `godot --headless --path game -- --check-scripts` → `godot --headless --path game --script res://tests/test_rules.gd`
@@ -75,7 +75,8 @@
 ## 버티컬 슬라이스 1단계 (2026-11-21~22) — 상태
 - 끝남: 대본 v3 흐름 전체, 지도·촛불·어둠·방 보상, 죽음 카드 컨셉 변경(뒤집힌 카드 → 3턴 짓밟기에 뒤집힘 → 데스신), 2·3층 VN + 전투, 탑뷰·1인칭 탐색 정리,
   CI 인자, 배경별 전투 배치(5-9), 승인된 새 그림(뒷모습·광신도·무덤지기·발·손·카드 뒷면·예고 아이콘·배경 14·스탠딩 표정 11·아이·VN 대화창·카드 그림 17)
+- **전투 승리 뒤 '카드 3장 중 1장' 보상 뺌**(2026-11-21 사용자 지시, 밤샘 계획 0-1): 장례 회랑·기도실은 이겨도 카드 없음. 무덤지기는 **기본안**(고르지 않고 희귀 목록 `rewards.elite` 에서 1장이 강화된 채 덱에). 묘지기의 좌판·무너진 훈련장은 그대로. 슬레이 더 스파이어와 비슷한 점·바꿀 제안은 `docs/originality-review.md`. 자세한 것은 DECISIONS.md 「전투 승리 보상 빼기」.
 - 아직 옛 그림: 카드 틀, 컷인, 지도·랜턴·전투 HUD, 2·3층 배경·적·카드 그림. 세라피나 데스신은 기존 컷.
 - 노엘 스탠딩: 39 v1 로 **임시** 교체(2026-11-21, 비치는 천의 초록 물듦을 몸 전체 디스필 G = min(G, (R+B)/2) 로 없앰 — DECISIONS.md). 고친 39 가 오면 `python3 tools/vs_import.py --only noel` 로 같은 이름에 다시 만들고 `faces.noel` 얼굴 자리를 다시 잰다.
 - 손패와 세라피나 겹침: 배치 A(손패 +240 내림)·B(세라피나 top 430)는 사용자가 거절, **C 승인·적용**(손 무리 80%·카드 윗변 약 746·동료 셋 50 올림·회랑에서만 세라피나 HP 판 머리 오른쪽) — 값은 DECISIONS.md 열린 질문 항목.
-- 다음 할 일: 판단이 필요한 것(DECISIONS.md 열린 질문 — 촛불 소비 범위, 짓밟기 피해, 희귀 보상), 남은 그림 들여오기, 동작 그림(움직임 비교 시험 뒤)
+- 다음 할 일: 판단이 필요한 것(DECISIONS.md 열린 질문 — 촛불 소비 범위, 짓밟기 피해, 희귀 보상(무덤지기 기본안 확인)), 남은 그림 들여오기, 동작 그림(움직임 비교 시험 뒤)
