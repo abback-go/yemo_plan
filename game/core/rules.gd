@@ -1376,7 +1376,7 @@ static func _card_pool(st: Dictionary, pool: String) -> Array:
 
 
 ## 묘지기의 좌판(거래 trade:card)의 카드 후보: [{id, up}] — 서로 다른 카드, 죽은 동료의 카드는 빠진다
-static func reward_choices(st: Dictionary, pool := "common", n := -1) -> Array:
+static func trade_choices(st: Dictionary, pool := "common", n := -1) -> Array:
 	if n < 0:
 		n = int(D().rewards.choices)
 	var ids := _card_pool(st, pool)

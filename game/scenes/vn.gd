@@ -598,7 +598,7 @@ func do_call(what: String) -> void:
 				G.ctl.note("trade candle")
 		"trade:card":
 			var T2: Dictionary = GameData.D.trade
-			var items := Rules.reward_choices(st, "common")
+			var items := Rules.trade_choices(st, "common")
 			var pk := CardPick.new()
 			add_child(pk)
 			var i := await pk.run(items, G.ui("tradeTitle", {"n": T2.cardHp}), "", G.ui("tradeSkip"), str(G.params.get("reward", "")))

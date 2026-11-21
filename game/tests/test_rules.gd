@@ -895,7 +895,7 @@ func t_rewards() -> void:
 		no_reward and plain and win_rooms == ["gravekeeper"] and str(rooms.gravekeeper.type) == "elite" and not D.rewards.has("rare") and not D.rewards.has("rareUp"), str(win_rooms))
 	# 묘지기의 좌판(거래) 후보: 3장, 서로 다른 카드, 강화되지 않은 카드. 죽은 동료의 카드는 빠진다
 	var st := Rules.new_game(7)
-	var c := Rules.reward_choices(st, "common")
+	var c := Rules.trade_choices(st, "common")
 	var ids_c := c.map(func(x): return x.id)
 	var uniq := count_of(ids_c).size() == 3
 	var in_pool: bool = ids_c.all(func(x): return D.rewards.common.has(x)) and c.all(func(x): return not x.up)
@@ -903,7 +903,7 @@ func t_rewards() -> void:
 	for sd in range(1, 41):
 		var g := Rules.new_game(sd)
 		g.party.allies.warrior.status = "dead"
-		var gc := Rules.reward_choices(g, "common")
+		var gc := Rules.trade_choices(g, "common")
 		if gc.size() != 3:
 			dead_ok = false
 		for it in gc:
