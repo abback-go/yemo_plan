@@ -14,9 +14,9 @@
 ## 로컬 검증 방법
 - `godot --headless --path game --import` 두 번 → `godot --headless --path game -- --check-scripts` → `godot --headless --path game --script res://tests/test_rules.gd`
 - 헤드리스 자동 진행(CI 와 같은 5경로는 `.github/workflows/witch-web-build.yml`): `godot --headless --path game -- --scene=camp --speed=10 --autoguide --nosave --autoplay --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy --trace --quit-on-end`
-  - `--nosave`: 자동 저장·설정 파일을 쓰지도 읽지도 않는다(남은 저장이 시험을 바꾸지 않게). 저장이 있는 채로 이어하기를 헤드리스로 보려면 `--nosave` 없이 돌리다 끊고 `--continue` 로 다시(같은 `--rooms` 등)
+  - `--nosave`: 자동 저장·설정 파일을 쓰지도 읽지도 않는다(남은 저장이 시험을 바꾸지 않게). `--scene=` 바로 가기로 연 판은 `--nosave` 를 붙이지 않아도 저장하지 않는다(2026-11-22 밤샘 5). 저장이 있는 채로 이어하기를 헤드리스로 보려면 `--nosave` 대신 `--save` 를 붙여 돌리다 끊고 `--continue` 로 다시(같은 `--rooms` 등)
 - 웹: export "Web" → `python3 tools/web_sw_patch.py <빌드 폴더>` → `python3 -m http.server` → `node game/tests/web/smoke.js http://localhost:8000/ shots` (경로만: 뒤에 `AB` 등, 기본 ABCDEFS)
-- 바로 가기: `?scene=camp|corridor|hall|map|room:<방>|giant|emptycamp|floor2|floor3|result`, 시험용 `&darkness=N&omen=1`, `?nosave=1`, `?continue=1`(타이틀 없이 이어하기)
+- 바로 가기: `?scene=camp|corridor|hall|map|room:<방>|giant|emptycamp|floor2|floor3|result`(바로 가기 판은 저장하지 않음 — `?save=1` 이면 저장), 시험용 `&darkness=N&omen=1`, `?nosave=1`, `?continue=1`(타이틀 없이 이어하기)
 
 ## 완료
 - [x] 골격 가져옴 + 대본 v0.6 + 잠긴 죽음 카드 규칙(1층부터 손패 맨 오른쪽, 4장 드로우, 거대 존재 1턴 해제) + 규칙 테스트 37개

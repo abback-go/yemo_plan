@@ -827,6 +827,15 @@ async function pathS(browser) {
   await page.waitForFunction(() => window.__witchReady === true, null, { timeout: 30000 });
   s = await H.until(s => s.scene === 'title', 20000, '타이틀로 돌아감');
   check('확인 → 타이틀(일시정지 풀림), 저장은 장례 회랑 그대로', !s.menu.paused && !s.menu.treePaused && s.menu.continueEnabled && s.menu.saveStep === 'corridor', s.menu);
+  // 개발용 바로 가기(?scene=)로 연 판은 --nosave 처럼: 들어간 방을 저장하지 않고 플레이어 저장(장례 회랑)·설정을 덮어쓰지 않는다
+  await H.open('scene=room:prayer&guides=reset');
+  s = await H.until(s => s.progress && s.progress.room === 'prayer' && s.scene !== '', 30000, '바로 가기: 기도실');
+  await H.sleep(2000);
+  s = await H.state();
+  check('바로 가기 판(?scene=room:prayer): 저장을 읽지도 쓰지도 않음(save 기록 없음)', !s.menu.hasSave && !(s.log || []).some(l => /^save /.test(l)), { menu: s.menu, log: (s.log || []).slice(0, 8) });
+  await H.open('');
+  s = await H.until(s => s.scene === 'title', 30000, '바로 가기 뒤 타이틀');
+  check('바로 가기 뒤 새로고침: 플레이어 저장은 장례 회랑·글자 속도 「빠름」 그대로', s.menu.continueEnabled && s.menu.saveStep === 'corridor' && s.menu.textSpeed === 'fast', s.menu);
   // 저장이 있을 때 시작: 저장이 지워진다는 확인 → 취소 → 다시 → 처음부터
   await clickBtn('start');
   s = await H.until(s => s.menu.panel === 'confirm', 5000, '새로 시작 확인');
