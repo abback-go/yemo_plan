@@ -67,6 +67,13 @@ BGS = {
     '26_cg_grave_merchant': 'cg_vs_grave_merchant.webp',
     '27_bg_footprint_room': 'bg_vs_footprint_room.webp',
 }
+# 세라피나 데스신 6컷(그림체 D, 승인 — reference/deathscene, 불투명 16:9 1672×941): 그대로 복사 → game_data cutscene.cuts
+DEATH_DIR = os.path.join(ROOT, 'reference', 'deathscene')
+DEATH = {
+    'seraphina_C1_last_words': 'cut_hero_c1.webp', 'seraphina_C2_reach': 'cut_hero_c2.webp',
+    'seraphina_C3a_first_stomp': 'cut_hero_c3a.webp', 'seraphina_C3b_go': 'cut_hero_c3b.webp',
+    'seraphina_C4_last_stomp': 'cut_hero_c4.webp', 'seraphina_C6_aftermath': 'cut_hero_c6.webp',
+}
 # 예고 아이콘 3종(한 줄에 셋: 공격 · 운명 공격 · 가려짐)
 ICONS = ('12_intent_icons', ['intent_attack.png', 'intent_fate.png', 'intent_hidden.png'], 160)
 # VN 대화창(9조각): 내용 상자로 잘라 높이 DIALOG_H 로 (목업 vs_dialog_mock: 1600×230, 모서리 여백 좌우 95·위아래 62 — game_data vnBox)
@@ -247,6 +254,10 @@ if __name__ == '__main__':
         done += do_dialog()
     if not only or 'cards' in only:
         done += do_cards()
+    if not only or 'death' in only:
+        for n, out in DEATH.items():
+            shutil.copyfile(os.path.join(DEATH_DIR, n + '.webp'), os.path.join(OUT, out))
+            done.append(out)
     if not only or 'bg' in only:
         for n, out in BGS.items():
             shutil.copyfile(os.path.join(RAW, n + '.webp'), os.path.join(OUT, out))

@@ -331,13 +331,13 @@ async function pathA(browser) {
   s = await H.until(s => s.scene === 'cutscene', 30000, '데스신', async s => { if (s.dialogBusy) await H.W('advance'); });
   await H.sleep(1400);
   await H.shot('A16_cut_C1.png');
-  s = await H.until(s => (s.cutLog || []).includes('C4'), 40000, 'C4');
+  s = await H.until(s => (s.cutLog || []).includes('C3b'), 40000, 'C3b');
   await H.sleep(800);
-  await H.shot('A17_cut_C4.png');
+  await H.shot('A17_cut_C3b.png');
   s = await H.until(s => (s.log || []).some(l => /card gain note hero_death/.test(l)), 60000, '카드 문구');
   await H.sleep(1200);
   await H.shot('A18_death_card_text.png');
-  check('데스신 C1~C6(대본 v3 대사) → 노엘의 손에 남은 카드(이제야 문구가 보인다)', ['C1', 'C2', 'C3', 'C4', 'C5', 'C6'].every(c => s.cutLog.includes(c)) && has(s, /어\? 잠깐, 이거—/) && has(s, /안 움직여/), s.cutLog);
+  check('데스신 C1~C6(대본 v3 대사) → 노엘의 손에 남은 카드(이제야 문구가 보인다)', ['C1', 'C2', 'C3a', 'C3b', 'C4', 'C6'].every(c => s.cutLog.includes(c)) && has(s, /어\? 잠깐, 이거—/) && has(s, /안 움직여/), s.cutLog);
   s = await H.advanceAll(s => s.stage === 'vn:emptycamp' || s.scene === 'vn:emptycamp', 90000, '빈 캠프');
   check('사망 직후: 죽음 카드·상속·유품 안내 → 엘리안·브룬힐드 반응 → 물러남 → 빈 캠프', has(s, /노엘만 보는 카드입니다/) && has(s, /대장! 대장!!/) && has(s, /또 내려와\. 뛰어!/) && s.party.allies.hero.status === 'dead', (s.dialog || []).slice(-4));
   check('세라피나는 거스를 수 없다(선택 화면 없음), 흉터 0', s.scars === 0 && (s.log || []).some(l => /fate accept \(no choice\) hero_stomp/.test(l)) && !(s.log || []).some(l => /fate choice hero/.test(l)));

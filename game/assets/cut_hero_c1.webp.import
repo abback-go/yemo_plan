@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://biyykqc7spb2f"
-path="res://.godot/imported/cut_hero_reverse.png-83cb4b3ad69ccad123640bdf12d5976e.ctex"
+uid="uid://5qckceoxw4k0"
+path="res://.godot/imported/cut_hero_c1.webp-44ddd6fe5db51273d9e879697557362a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/cut_hero_reverse.png"
-dest_files=["res://.godot/imported/cut_hero_reverse.png-83cb4b3ad69ccad123640bdf12d5976e.ctex"]
+source_file="res://assets/cut_hero_c1.webp"
+dest_files=["res://.godot/imported/cut_hero_c1.webp-44ddd6fe5db51273d9e879697557362a.ctex"]
 
 [params]
 

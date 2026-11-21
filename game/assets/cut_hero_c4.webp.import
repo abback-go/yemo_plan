@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://qhc60oiwbdv3"
-path="res://.godot/imported/cut_hero_reach.png-4fe985ffdd6810aebfe69c089422437a.ctex"
+uid="uid://c4a37jfll2puw"
+path="res://.godot/imported/cut_hero_c4.webp-4879558c75209d528124f8f6ddd8831d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/cut_hero_reach.png"
-dest_files=["res://.godot/imported/cut_hero_reach.png-4fe985ffdd6810aebfe69c089422437a.ctex"]
+source_file="res://assets/cut_hero_c4.webp"
+dest_files=["res://.godot/imported/cut_hero_c4.webp-4879558c75209d528124f8f6ddd8831d.ctex"]
 
 [params]
 

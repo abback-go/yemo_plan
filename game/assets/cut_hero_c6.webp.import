@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://0eab25h5tswo"
-path="res://.godot/imported/cut_hero_aftermath.png-5b58cc1a0aed333279f02d6200b7d952.ctex"
+uid="uid://c4iscr3uf8c53"
+path="res://.godot/imported/cut_hero_c6.webp-3ec695da2a28d03ff871e180ff92756a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/cut_hero_aftermath.png"
-dest_files=["res://.godot/imported/cut_hero_aftermath.png-5b58cc1a0aed333279f02d6200b7d952.ctex"]
+source_file="res://assets/cut_hero_c6.webp"
+dest_files=["res://.godot/imported/cut_hero_c6.webp-3ec695da2a28d03ff871e180ff92756a.ctex"]
 
 [params]
 

@@ -1,19 +1,21 @@
 # Godot 이식 진행 상황 (이어받기용)
 
-- 작업 브랜치: `cc/amazing-darwin-nesbwh` / Godot 4.7.2, `game/` 폴더 / 판단 기록: `game/DECISIONS.md`
+- 작업 브랜치: `cc/amazing-darwin-nesbwh`(버티컬 슬라이스 1단계는 워크트리 브랜치 `worktree-agent-a2d4531c64d0b3cf1`) / Godot 4.7.2, `game/` 폴더 / 판단 기록: `game/DECISIONS.md`
 - CI: `.github/workflows/witch-web-build.yml` → gh-pages `godot/`(웹 빌드), `godot-ci/`(스크린샷·로그)
 
-## 구조
-- `data/game_data.gd`(수치·배치·연출 시간) · `data/script_data.gd`(대본 v0.6: 대사·안내·선택지·문구 전부)
-- `core/`: `rules.gd`(전투 규칙, 잠긴 죽음 카드) · `ctl.gd`(장면 흐름) · `guide.gd`(안내 트리거) · `fx.gd`(애니메이션·입자) · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
-- `ui/`: `battle_view.gd`(전투 화면·연출·HUD) · `hand.gd`(두 손·세운 손) · `card_view.gd`(원근 카드) · `battle_input.gd` · `dialog_box.gd`(대사창·안내 상자) · `cutin.gd` · `blood.gd` · `icons.gd` · `btn.gd` · `card_art.gd` · `shaders/`
-- `scenes/`: `scenes.gd`(타이틀·컷신·탈출·종료·전멸·되감기) · `vn.gd`(캠프·이벤트·계단·빈 캠프) · `omen.gd`(죽음 카드 떠오름) · `explore.gd`(탐색·걷기) · `map_view.gd`(지도)
-- 시험: `tests/test_rules.gd`(규칙·데이터 53개) · `tests/web/smoke.js`(Playwright 경로 A~E, T=탑뷰 시험판)
+## 구조 (버티컬 슬라이스, 2026-11-22)
+- `data/game_data.gd`(수치·지도·랜턴·보상·배치·배경별 전투 배치 battleLayouts·VN 대화창 vnBox·그림 대응) · `data/script_data.gd`(대본 v3: 대사·안내·선택지·지도 문구)
+- `core/`: `rules.gd`(전투·운명·지도·촛불·어둠·보상 규칙) · `ctl.gd`(장면 흐름: 곁방 → 회랑 → 안치 홀 → 지도 거점 → 방 → 가장 깊은 곳 → 빈 캠프 → 2·3층) · `guide.gd` · `fx.gd` · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
+- `ui/`: `battle_view.gd`(전투 화면·연출·HUD, 배치는 `LY()`) · `hand.gd` · `card_view.gd`(뒤집힌 카드·뒤집기) · `card_pick.gd`(카드 고르기: 보상·거래·훈련) · `battle_input.gd`(동료 대상 카드) · `dialog_box.gd` · `cutin.gd` · `blood.gd` · `icons.gd`(지도 아이콘) · `btn.gd` · `card_art.gd` · `shaders/`
+- `scenes/`: `scenes.gd`(타이틀·컷신·전멸·운명 선택·카드 획득·층 끝·결과) · `vn.gd`(VN 장면·표정 스탠딩·양피지 대화창) · `floor_map.gd`(지도 거점) · `omen.gd`(죽음 카드 떠오름)
+- 그림: `tools/vs_import.py`(art/raw/vs → game/assets: 크로마 배경 제거 soft 100 + 번짐 정리 + 크기 줄임), 대응표는 DECISIONS.md
+- 시험: `tests/test_rules.gd`(규칙·데이터 78개) · `tests/web/smoke.js`(Playwright 경로 A~F)
 
 ## 로컬 검증 방법
 - `godot --headless --path game --import` 두 번 → `godot --headless --path game -- --check-scripts` → `godot --headless --path game --script res://tests/test_rules.gd`
-- 헤드리스 자동 진행: `godot --headless --path game -- --scene=camp --speed=10 --autoguide --autoplay --path=rest --choice=smile --trace --quit-on-end`
-- 웹: export "Web" → `python3 -m http.server` → `node game/tests/web/smoke.js http://localhost:8000/ shots`
+- 헤드리스 자동 진행(CI 와 같은 5경로는 `.github/workflows/witch-web-build.yml`): `godot --headless --path game -- --scene=camp --speed=10 --autoguide --autoplay --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy --trace --quit-on-end`
+- 웹: export "Web" → `python3 -m http.server` → `node game/tests/web/smoke.js http://localhost:8000/ shots` (경로만: 뒤에 `AB` 등)
+- 바로 가기: `?scene=camp|corridor|hall|map|room:<방>|giant|emptycamp|floor2|floor3|result`, 시험용 `&darkness=N&omen=1`
 
 ## 완료
 - [x] 골격 가져옴 + 대본 v0.6 + 잠긴 죽음 카드 규칙(1층부터 손패 맨 오른쪽, 4장 드로우, 거대 존재 1턴 해제) + 규칙 테스트 37개
@@ -70,23 +72,8 @@
 - 탑뷰 시험판: 기둥 뒤에 서면 노엘이 완전히 가려진다(실루엣 표시 없음). 가림 윤곽은 손으로 딴 다각형이라 가장자리 몇 px 오차. 휴대폰(DPR 3)에서는 무대 배율이 정수가 아니라 도트 폭이 1px 들쭉날쭉할 수 있음. 원본(좁은) 맵 비교용 `?map=small` 은 만들지 않음
 - 본 안내 기록이 브라우저 저장소에 남아 같은 브라우저에서는 다시 나오지 않음(의도). 다시 보려면 주소에 `?guides=reset`
 
-## 중단 지점 (2026-11-21, 버티컬 슬라이스 1단계 — 사용량 때문에 코디네이터 지시로 멈춤)
-- 작업 브랜치: `worktree-agent-a2d4531c64d0b3cf1` (`cc/amazing-darwin-nesbwh` 의 5b5932d 에서 빨리 감기로 시작). 푸시하지 않음.
-- **끝난 것** (커밋 df14966 + 이 커밋)
-  - 흐름: 곁방(VN) → 장례 회랑(VN → 전투 ① → 카드 보상) → 안치 홀(VN → 지도·촛불 안내) → 지도 거점(방 8개 + 계단 앞 홀) → 가장 깊은 곳(광신도 → 거대한 발) → 빈 캠프 → 1층 끝 → 2·3층(탑뷰 대신 VN + 전투) → 결과. `core/ctl.gd` 새로 씀
-  - 지도 화면 `scenes/floor_map.gd`(코드로 그린 임시 모양), 카드 고르기 `ui/card_pick.gd`(보상·거래·훈련), 지도 아이콘 7종(`ui/icons.gd`)
-  - 랜턴 촛불·어둠·전조·이월(최대 8), 방 보상(일반 3장 중 1장·강적 희귀=강화 Lv2[임시]·휴식·훈련·거래·사건·「이름 없는 마녀의 카드」·「작은 손의 부적」), 수치는 `data/game_data.gd`(lantern·darkness·floorMaps·rewards·trade·buried·corpse)
-  - 죽음 카드 컨셉 변경: 낼 수 없음, 세라피나 카드는 뒤집힌 채(faceDown) → 3턴 「짓밟기」(운명 hero_stomp, noDefy)에 저절로 뒤집힘 → "알고 있었는데." → 데스신(기존 컷, 대본 v3 자막) → 카드 문구 → 안내 → 반응 → 물러남. 2·3층 받아들인다/거스른다(흉터 유지). 잠금·되감기·웃어 준다 선택지 없앰
-  - 대본 v3 → `data/script_data.gd`, 전멸 뒤 다시 하기 노엘 HP 최소 6(`rules.retryWitchHp`, 막힘 방지 [임시]), 알림(toast)을 장면 위로(z 445)
-- **마지막으로 본 시험 결과**
-  - `--import` 2번 → `--check-scripts`: scripts 41 ok, failures 0 (tests 고친 뒤)
-  - `res://tests/test_rules.gd`: rules 95 passed, failures 0
-  - 헤드리스 자동 진행(에러 0, 모두 결과 요약까지): 처음부터(방 8개 모두, `--rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy`) · 처음부터(어둠 2단계, `--rooms=prayer,buried,corpse,stall,chapel --choice=leave,candle --reward=skip --fates=accept,accept`) · 처음부터 최소 길(`--rooms=none --fates=defy,defy,offer`, 거대한 발 전멸 1번 → 다시 하기로 통과) · `--scene=floor2 --fates=offer,offer` · `--scene=floor2 --fates=defy,defy,defy`
-  - 스모크(`tests/web/smoke.js` 새로 씀, 경로 ABCDEF — T 는 뺌): A 36/37(실패 1개는 테스트 기대값 잘못 — 가장 깊은 곳에서도 촛불이 타서 1+4=5, 고쳐 둠·다시 돌리지 않음) · B 5/5 · C 5개 통과 후 기도실 전투에서 시간 초과(botStep 이 전투 앞 VN 을 넘기지 않음 — 고쳐 둠·다시 돌리지 않음) · D·E·F 는 아직 못 돌림. 브라우저 콘솔 에러 0
-- **반쯤 된 것**: 지도 레이아웃 손봄(곁방·회랑·홀 간격, 「지금 여기」를 방 왼쪽으로, 오른쪽 칸 간격) — 웹 다시 내보내기·스크린샷 확인 안 함. 스모크 C~F 다시 돌리기
-- **다음 할 일**
-  1. 웹 내보내기 → 스모크 ABCDEF 전체 다시 돌리기(로컬: `python3 -m http.server`, `node game/tests/web/smoke.js http://localhost:8765/ <폴더>`), 지도 스크린샷 확인
-  2. 탑뷰·1인칭 탐색 지우기: `scenes/topdown.gd`·`topdown_nav.gd`·`explore.gd`·`map_view.gd`, `ui/fate_hud.gd`, `data/maps_data.gd`, `assets/td_*.png`, `game_data.gd` topdown·explore, `script_data.gd` 끝의 [정리 예정] 묶음, `test_rules.gd` t_topdown → DECISIONS.md 에 기록
-  3. CI(`.github/workflows/witch-web-build.yml`)의 헤드리스 자동 진행 인자를 새 흐름(--rooms 등)으로, 스모크 기본 경로 ABCDEF
-  4. DECISIONS.md 에 판단 기록 정리(아래 '열린 질문' 포함), PROGRESS.md 구조 갱신
-- **판단·열린 질문(DECISIONS.md 에 아직 안 옮김)**: 방 8개를 안치 홀(기도실→무덤지기·순장된 자의 방·핏자국 통로 끝·좌판)과 계단 앞 홀(예배당·훈련장·발자국 방)에 나눔 / 랜턴을 받기 전 방(곁방·회랑·안치 홀)은 촛불이 안 타고, 계단 앞 홀·가장 깊은 곳은 탐 / 어둠은 깊은 곳 광신도 전투와 거대한 발 전투 둘 다에 / 강적 희귀 보상 = 강화된 카드 / 짓밟기는 세라피나만 죽이고 다른 동료 피해 없음 / 거래 HP 가 대가 이하이면 못 고름 / 가려진 예고도 옮기기·지우기 가능 / 카드 문구가 보이는 장면은 데스신 뒤 재가 된 다음 큰 카드로 / 표정 그림이 없는 표정(warrior_smirk·archer_cold)은 얼굴 없이
+## 버티컬 슬라이스 1단계 (2026-11-21~22) — 상태
+- 끝남: 대본 v3 흐름 전체, 지도·촛불·어둠·방 보상, 죽음 카드 컨셉 변경(뒤집힌 카드 → 3턴 짓밟기에 뒤집힘 → 데스신), 2·3층 VN + 전투, 탑뷰·1인칭 탐색 정리,
+  CI 인자, 배경별 전투 배치(5-9), 승인된 새 그림(뒷모습·광신도·무덤지기·발·손·카드 뒷면·예고 아이콘·배경 14·스탠딩 표정 11·아이·VN 대화창·카드 그림 17)
+- 아직 옛 그림: 노엘 스탠딩, 카드 틀, 컷인, 지도·랜턴·전투 HUD, 2·3층 배경·적·카드 그림. 세라피나 데스신은 기존 컷.
+- 다음 할 일: 판단이 필요한 것(DECISIONS.md 열린 질문 — 촛불 소비 범위, 짓밟기 피해, 희귀 보상, 손패와 세라피나 겹침), 남은 그림 들여오기, 동작 그림(움직임 비교 시험 뒤)

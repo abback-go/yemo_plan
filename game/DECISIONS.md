@@ -136,4 +136,6 @@
   | 53 | 죽음의 예지 `foresight` | `card_art_foresight.jpg` | **임시(v1)** |
   | 55 | 짓밟힘 `trample` | `card_art_trample.jpg` | **임시(v1)** (옛 `card_art_trample.png` 지움) |
   | 60 | 용사의 죽음 `hero_death` | `card_art_hero_death.jpg` | **임시(v1)** (옛 `card_art_hero_death.png` 지움) |
+  - **열린 질문**: 5-9 배치(동료 top 600~640)에서는 가운데 세라피나가 손패 뒤에 거의 가려진다 — 목업의 "손패 자리"(어두운 상자)는 y≈700 아래인데 지금 손패 카드 윗변은 y≈610. 손패를 내릴지(카드 아래가 잘림·손 그림 자리 조정), 세라피나를 올릴지 판단 필요. 지금은 5-9 값 그대로.
   - 게임에 없는 카드로 건너뛴 것: 없음(17장 모두 대응). 카드 틀(10)·컷인·2·3층 카드 그림(전사·궁수의 죽음, 꿰뚫린 방패, 타버린 활)은 옛 그림 그대로.
+- **세라피나 데스신 새 6컷 (E2, 2026-11-22)**: `reference/deathscene/seraphina_*.webp`(그림체 D, 승인, 불투명 1672×941)를 그대로 `cut_hero_c1·c2·c3a·c3b·c4·c6.webp` 로 복사(`tools/vs_import.py --only death`). `cutscene.cuts` 를 대본 v3 5.3 순서로: C1(대사 "어? 잠깐, 이거—") → C2("노엘, 손—") → C3a(대사 없음, 컷이 바뀌는 순간 흰 섬광·강한 흔들림·화면에 피 튐 = 예전 C3 impact 를 이 그림 위에) → C3b("어, 팔이… 왜… 노엘, 이상해, 안 움직여…") → C4(대사 없음, 예전 C5 의 "grind" 내리찍기 움직임을 이 그림에) → C6(대사 없음). 컷 id 가 C1·C2·C3a·C3b·C4·C6 로 바뀌어 스모크 경로 A 확인도 고쳤다. 피 웅덩이(코드)는 C4 의 발가락 아래·뻗은 손 둘레(x 640~1480, y 950)로 옮겼고, C6 은 그림에 피 웅덩이가 있어 예전처럼 지운다. 옛 `cut_hero_reverse/reach/crushed/aftermath.png` 는 지웠다.

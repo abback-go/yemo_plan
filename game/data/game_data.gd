@@ -425,21 +425,21 @@ const D := {
 			]},
 	},
 
-	# ───────────── 용사 사망 컷신 (C1~C8) ─────────────
-	# duration: 자동 진행까지의 시간(ms). 클릭하면 바로 다음 컷.
+	# ───────────── 세라피나 데스신 — 세 번 밟힘 (대본 v3 5.3, 그림체 D 6컷: reference/deathscene → cut_hero_c*.webp) ─────────────
+	# duration: 자동 진행까지의 시간(ms). 클릭하면 바로 다음 컷. 컷의 자막(대사)은 script_data.gd "cutLines"
 	"cutscene": {
 		"cuts": [
-			# 컷의 자막(대사)은 대본(script_data.gd "cutLines")에 있다
-			{"id": "C1", "image": "cut_hero_reverse.png", "duration": 4600, "zoom": [1.0, 1.06]},   # 대사 1줄 (대본 v3 5.3 — 그림은 아직 기존 컷)
-			{"id": "C2", "image": "cut_hero_reach.png", "duration": 2600, "zoom": [1.04, 1.12]},
-			{"id": "C3", "code": "impact", "duration": 3200},          # 흰 섬광 → 암전 → 강한 흔들림 → 피 튐(화면 위)
-			{"id": "C4", "image": "cut_hero_crushed.png", "duration": 1600},
-			# C5: C4 그림 자체를 움직인다 — 살짝 들렸다가(위로) 세게 내리찍기 + 확대 펄스 + 강한 흔들림 × slams, 마지막에 비트는 회전 흔들림.
-			{"id": "C5", "code": "grind", "image": "cut_hero_crushed.png", "duration": 4400, "slams": 2, "lift": 46, "twistDeg": 2.2},
-			{"id": "C6", "image": "cut_hero_aftermath.png", "duration": 3600, "zoom": [1.08, 1.0]},
+			{"id": "C1", "image": "cut_hero_c1.webp", "duration": 4200, "zoom": [1.0, 1.06]},     # 돌아봄, 머리 위로 발 — "어? 잠깐, 이거—"
+			{"id": "C2", "image": "cut_hero_c2.webp", "duration": 2800, "zoom": [1.04, 1.12]},    # 손을 뻗음 — "노엘, 손—"
+			# C3a 첫 번째 밟힘: 컷이 바뀌는 순간 흰 섬광 → 강한 흔들림 → 화면(노엘의 눈)에 피가 튐 (impact) — 대사 없음
+			{"id": "C3a", "image": "cut_hero_c3a.webp", "duration": 2600, "zoom": [1.06, 1.0], "impact": true},
+			{"id": "C3b", "image": "cut_hero_c3b.webp", "duration": 4200, "zoom": [1.0, 1.05]},   # 엎드린 채 남은 손을 뻗음 — "어, 팔이… 왜… …"
+			# C4 마지막 밟힘: 그림 자체를 움직인다 — 살짝 들렸다가(위로) 세게 내리찍기 + 확대 펄스 + 강한 흔들림 × slams, 마지막에 비트는 회전 흔들림 — 대사 없음
+			{"id": "C4", "code": "grind", "image": "cut_hero_c4.webp", "duration": 4400, "slams": 2, "lift": 46, "twistDeg": 2.2},
+			{"id": "C6", "image": "cut_hero_c6.webp", "duration": 3600, "zoom": [1.08, 1.0]},     # 발이 들린 뒤 — 대사 없음(피 웅덩이는 그림에 있다)
 		],
-		# C5에서 피가 번지는 자리(화면 아래쪽 돌 틈, 1920×1080 기준) — 건틀릿 손 주변
-		"pool": {"x0": 560, "x1": 1380, "y": 880},
+		# C4(내리찍기)에서 피가 번지는 자리(1920×1080 기준) — 발가락 아래, 뻗은 손 둘레. C6 에서는 그림의 피 웅덩이가 있어 지운다
+		"pool": {"x0": 640, "x1": 1480, "y": 950},
 		"returnDelay": 600,
 		"ashDuration": 1600,
 		# C8 동료 반응 대사는 대본(script_data.gd "reactions")
