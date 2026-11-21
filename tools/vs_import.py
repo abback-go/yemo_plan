@@ -5,6 +5,7 @@
   반투명으로 만든다(2026-11-22 측정: 안쪽 반투명 12~35%). remove_bg.py 는 고치지 않고(사용자 결정 전) 여기서 soft 를 낮춘다.
 - 그 뒤 투명한 곳에서 3px 안쪽의 남은 번짐을 뺀다(edge_fringe): 초록 키 — G > max(R,B)+40 이면 G = max(R,B),
   마젠타 키(엘리안) — min(R,B) > G+40 이면 R·B 를 G+40 쪽으로(엘리안 망토의 초록은 건드리지 않는다).
+- FULL_DESPILL(노엘 39 v1 [임시]): 비치는 천에 물든 초록까지 몸 전체에서 G = min(G, (R+B)/2).
 - 확인(interior_partial): 알파>0 영역을 9px MinFilter 로 깎은 안쪽에서 반투명(0<알파<255) 픽셀 비율 — 약 0% 여야 한다.
 - 크기는 화면에 그려지는 크기에 맞춰 줄인다(웹 빌드 크기·메모리). 배경(16:9)은 원본(약 1672×941) 그대로 webp 로 복사.
 - 표정이 여러 장인 스탠딩은 같은 캔버스(아래 가운데 기준)로 맞춰 자른다 → 표정을 바꿔도 몸이 흔들리지 않는다.
@@ -48,8 +49,12 @@ STANDS = {
                 ('34_stand_brunhild_shocked', 'stand_warrior_shocked.png'), ('35_stand_brunhild_grief', 'stand_warrior_grief.png')],
     'archer': [('36_stand_elian_cold', 'stand_archer_cold.png'), ('37_stand_elian_shocked', 'stand_archer_shocked.png'),
                ('38_stand_elian_grief', 'stand_archer_grief.png')],
+    # [임시] 노엘 39 v1: 비치는 소매 끝·치마 단에 초록 배경이 비쳐 물들어 있다 → 몸 전체 디스필(FULL_DESPILL). 고친 39 가 오면 바꾼다
+    'noel': [('39_stand_noel_v1', 'stand_witch.png')],
 }
 STAND_H = 1100
+# 몸 전체에 초록 디스필(G = min(G, (R+B)/2))을 거는 그림 — 디자인에 초록이 없는 인물만(노엘)
+FULL_DESPILL = {'39_stand_noel_v1'}
 # 배경·CG (16:9): 원본 → 게임 파일 (그대로 복사)
 BGS = {
     '07_bg_funeral_gallery': 'bg_vs_funeral_gallery.webp',
@@ -101,7 +106,18 @@ def keyed(name, keep_canvas):
     remove_bg.remove_bg(os.path.join(RAW, name + '.webp'), tmp, None, SOFT, 0, keep_canvas, 0)
     im = Image.open(tmp).convert('RGBA')
     bg = remove_bg.estimate_bg(Image.open(os.path.join(RAW, name + '.webp')).convert('RGB').load(), *Image.open(os.path.join(RAW, name + '.webp')).size)
-    return edge_fringe(im, bg)
+    im = edge_fringe(im, bg)
+    return full_despill(im) if name in FULL_DESPILL else im
+
+
+def full_despill(im):
+    """몸 전체(알파>0) 초록 디스필: G = min(G, (R+B)/2) — 비치는 천 너머로 물든 초록을 없앤다(디자인에 초록이 없는 그림만).
+    G = min(G, max(R,B)) 는 물든 픽셀이 G≈R>B 인 올리브(예: 111,111,89)로 남아 여전히 초록빛으로 보였다(2026-11-21 확인) →
+    (R+B)/2 로 깎아 회갈색으로. 금색·황갈색(G > (R+B)/2)도 조금 깎이지만 임시 그림이라 받아들임(코디네이터 승인)"""
+    a = np.asarray(im).astype(np.int32).copy()
+    vis = a[..., 3] > 0
+    a[..., 1] = np.where(vis, np.minimum(a[..., 1], (a[..., 0] + a[..., 2]) // 2), a[..., 1])
+    return Image.fromarray(a.astype(np.uint8), 'RGBA')
 
 
 def edge_fringe(im, bg, radius=3, over=40):
@@ -183,8 +199,11 @@ def do_stands(who):
         bb = im.getbbox()
         box = bb if box is None else (min(box[0], bb[0]), min(box[1], bb[1]), max(box[2], bb[2]), max(box[3], bb[3]))
     outs = []
-    for im, out in ims:
-        save(fit_h(im.crop(box), STAND_H), out)
+    for (src, _), (im, out) in zip(STANDS[who], ims):
+        im = fit_h(im.crop(box), STAND_H)
+        if src in FULL_DESPILL:  # 줄일 때 투명한 곳의 초록이 가장자리로 섞여 들어온 것까지
+            im = full_despill(im)
+        save(im, out)
         outs.append(out)
     return outs
 

@@ -448,12 +448,13 @@ const D := {
 	},
 
 	# 대사창 작은 얼굴: 기본 스탠딩 그림에서 얼굴 부분 (그림 픽셀 좌표 중심, 한 변 크기) — 그 표정 그림이 없을 때
-	# 세라피나·브룬힐드·엘리안은 새 스탠딩(그림체 D, 표정별 같은 캔버스 614·646·568×1100 — tools/vs_import.py), 노엘은 아직 옛 그림
+	# 세라피나·브룬힐드·엘리안은 새 스탠딩(그림체 D, 표정별 같은 캔버스 614·646·568×1100 — tools/vs_import.py)
+	# 노엘은 [임시] 39 v1(500×1100, 모자 포함 — 고친 39 가 오면 같은 이름으로 바꾸고 얼굴 자리를 다시 잰다)
 	"faces": {
 		"hero": {"img": "stand_hero_calm.png", "cx": 268, "cy": 80, "size": 150},
 		"warrior": {"img": "stand_warrior_smirk.png", "cx": 290, "cy": 64, "size": 150},
 		"archer": {"img": "stand_archer_cold.png", "cx": 282, "cy": 80, "size": 140},
-		"noel": {"img": "stand_witch.png", "cx": 250, "cy": 118, "size": 190},
+		"noel": {"img": "stand_witch.png", "cx": 234, "cy": 150, "size": 130},
 	},
 	# 표정 그림 (대사의 face: "hero_smile" → stand_hero_smile.png — 표정마다 전신 스탠딩). 얼굴은 crop 으로 잘라 쓴다.
 	# 그림이 없는 표정(warrior_rage·archer_smile·archer_hollow 등)은 스탠딩을 바꾸지 않고, 얼굴은 faces(기본 스탠딩)에서

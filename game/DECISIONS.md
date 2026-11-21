@@ -111,8 +111,15 @@
   | 07·15~27 배경·CG | `bg_vs_*.webp`·`cg_vs_*.webp` | 원본 webp 그대로(약 1672×941, 화면을 덮게 늘림) |
   | 28~31·32~35·36~38 스탠딩 | `stand_hero_{calm,smile,determined,shocked}`·`stand_warrior_{smirk,stern,shocked,grief}`·`stand_archer_{cold,shocked,grief}.png` | 표정마다 같은 캔버스(37 은 1535 → 위에 1px 채움), 높이 1100 |
   | 43_buried_child | `stand_child.png` | 순장된 자의 방 [꺼낸다] 때 VN 스탠딩 |
+  | 39_stand_noel_v1 **[임시]** | `stand_witch.png`(같은 이름으로 바꿈) | 500×1100, 아래 「노엘 스탠딩 39 v1」 |
   - 대본 표정 이름 → 그림: `hero_calm/smile/determined/shocked`, `warrior_smirk/stern/shocked/grief`, `archer_cold/shocked/grief` 는 바로 맞는다. 그림이 없는 표정(2·3층의 `warrior_rage`·`archer_smile`·`archer_hollow`)은 스탠딩을 바꾸지 않고 얼굴은 기본 스탠딩에서 자른다. VN 에서 표정 줄이 오면 그 인물 스탠딩이 0.22초 겹쳐 바뀐다(`VnScene.set_expression`).
-  - 아직 승인 전이라 옛 그림 그대로: 노엘 스탠딩(`stand_witch.png`), 카드 틀·카드 그림, 컷인, UI, 2·3층 배경·적.
+  - 아직 승인 전이라 옛 그림 그대로: 카드 틀·카드 그림, 컷인, UI, 2·3층 배경·적. (노엘 스탠딩은 2026-11-21 에 39 v1 로 임시 교체 — 아래)
+- **노엘 스탠딩 39 v1 — [임시] (2026-11-21, 사용자 요청: 빨리 배포)**: `art/raw/vs/39_stand_noel_v1.webp`(1024×1536, 크로마 #00FF00) → `stand_witch.png`. 코드가 쓰는 노엘 표정 그림은 이 한 장뿐(VN `standing.noel`, 대사창·전투 HUD 얼굴 `faces.noel`). 고친 39 가 오면 `tools/vs_import.py --only noel` 로 같은 이름에 다시 만든다.
+  - 알려진 결함: 원본의 비치는 소매 끝·치마 단에 초록 배경이 비쳐 물들어 있다.
+  - 처리: `remove_bg.py --soft 100` → 가장자리 번짐 정리(edge_fringe) → **몸 전체 디스필 `G = min(G, (R+B)/2)`**(`FULL_DESPILL`, 노엘만 — 노엘 디자인에 초록이 없다) → 다른 스탠딩처럼 투명 여백을 잘라 높이 1100 으로 줄임(500×1100, 1.29MB → 0.83MB) → 줄일 때 투명한 곳의 초록이 가장자리로 섞인 것까지 디스필 한 번 더.
+  - 처음 지시한 `G = min(G, max(R,B))` 는 쓰지 않았다: 물든 픽셀이 G≈R>B 인 올리브(예: 111,111,89 — 오른쪽 치마 단의 29%, L\*a\*b\* a\* ≈ −1, 코르셋은 +11)로 남아 어두운·밝은 배경 모두에서 초록빛으로 보였다. `(R+B)/2` 로 깎으면 회갈색이 된다. 금색·황갈색(G > (R+B)/2)도 조금 깎이지만 임시 그림이라 받아들임(코디네이터 승인).
+  - 확인: 어두운·밝은 배경 위 합성으로 눈으로 봄(초록 없음, 비치는 천에 구멍 없음). 알파>0 영역을 9px MinFilter 로 깎은 안쪽의 반투명 0.24%(최소 알파 9).
+  - 얼굴 자리 `faces.noel` 은 새 그림에 맞춰 cx 234·cy 150·size 130(모자 챙 아래 얼굴 — 세라피나·엘리안 자르기와 비슷한 틀). VN 스탠딩은 모든 인물을 그림 높이 `vn.standH` 1010 으로 그리는데, 노엘 그림은 위 끝이 모자 끝이라(머리 위 약 110px 가 모자) 다른 인물보다 얼굴이 그만큼 낮고 몸이 작게 그려진다(그대로 둠).
   - 쓰지 않게 되어 `game/assets` 에서 지운 옛 그림: `bg_camp.png`, `ev_corpse_witch.png`, `ev_rest_night.png`, `face_*.png` 12장, `stand_hero/warrior/archer.png`, `spr_*_back_attack.png`·`spr_warrior_back_guard.png`(원본은 `prototype/assets/` 에 있다).
 - **배경 제거 설정 (2026-11-22, 코디네이터 지시)**: `tools/remove_bg.py` 기본값(크로마 soft 150)은 몸 안쪽 중간색(회색 갑옷·갈색 얼룩·피부 그늘)까지 반투명으로 만들었다(안쪽 반투명 12~35%, 최소 알파 2). `remove_bg.py` 는 고치지 않고(사용자 결정 전) `tools/vs_import.py` 가 **`--soft 100`**(hard 는 기본 60)으로 부른다. 그 뒤 투명한 곳에서 3px 안쪽: 초록 키는 G > max(R,B)+40 이면 G = max(R,B), 엘리안(마젠타 키)은 min(R,B) > G+40 이면 R·B 를 G+40 까지(엘리안 망토의 초록은 건드리지 않음). 확인: 알파>0 영역을 9px MinFilter 로 깎은 안쪽의 반투명 비율 — 다시 처리한 26장 모두 0~1.1%(손 그림 0.3~1.1% 는 찢어진 소매 구멍 가장자리), 어두운 배경 위 합성으로 눈으로도 확인.
 - **VN 대화창 (66 승인, 2026-11-22)**: `66_ui_dialog_box` → `ui_dialog_box.png`(soft 100, 내용 상자로 자른 뒤 높이 230 → 899×230). `NinePatchRect` 9조각, 모서리 여백 좌우 95·위아래 62(그림 px = 화면 px), 상자 x 160·너비 1600·높이 230·아래 여백 30(목업 `vs_dialog_mock` 그대로, `game_data.gd vnBox`). 양피지(평균 RGB 186·151·117) 위 글자색: 본문 `#2b1a12`(6.2:1), 내레이션 `#3a2a22`(5.1:1), 노엘 속마음 `#4a2440`(4.8:1), 이름 `#78141e` 진홍(4.1:1, 굵은 큰 글씨 — 이름표 판 없이 상자 안 위쪽), 다음 표시 ▼ `#78141e`(예전 `#b3121f` 는 2.6:1). VN 대화창의 얼굴 칸은 목업에 없어 뺐다(표정은 스탠딩이 바뀌어 보인다). 전투 중 대사창(왼쪽 위 작은 상자, `ui/dialog_box.gd`)은 다른 부품이라 그대로 — 이름표 그림(67)은 사용자 결정 대기.
