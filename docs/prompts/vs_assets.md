@@ -181,6 +181,8 @@ Avoid: face visible, looking back, shield on the right arm, short hair, extra fi
 ```
 - 감싸기 동작(시험에서 A가 뽑히면): 같은 대화창에서 `Edit this image: same character, camera, scale and position; change only the pose: she steps sideways and plants the tower shield firmly in front of her with both hands, bracing against a heavy blow, the scarf and hair swept by the impact. Keep the pure green background.`
 
+- **[2026-11-22] 브룬힐드 뒷모습은 이 새 틀로 뽑았다(1차 `art/raw/vs/05_brunhild_back_base.webp`).** 다음에 다시 뽑을 때 고칠 점: 허리띠 매듭은 앞쪽(뒤에서는 매듭 없는 띠), 갑옷 치마는 정강이 중간까지, 방패 테두리는 검은 칠 + 은 징, 꽃다발은 마른 볏짚색 줄기.
+
 ### P06 엘리안 뒷모습 — 기본
 - 첨부: `style_D_elian_v1.webp` · 새 대화창
 ```
