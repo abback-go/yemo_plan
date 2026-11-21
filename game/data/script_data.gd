@@ -33,7 +33,6 @@ const S := {
 		"title": "죽음을 보는 마녀",
 		"subtitle": "(가제) · 버티컬 슬라이스 시험판",
 		"fromFloor2": "2층부터", "fromFloor3": "3층부터",
-		"startButton": "시작",
 		"note": "마우스로 플레이 · PC 1920×1080 기준",
 	},
 	# 타이틀 메뉴 · 일시정지(Esc) · 설정 · 확인 창 (ui/game_menu.gd, scenes.gd title). {place} = 저장한 곳(층 · 방 이름)
@@ -57,17 +56,16 @@ const S := {
 	# 화면 곳곳의 짧은 문구
 	"ui": {
 		"endTurn": "턴 종료", "deck": "덱", "discard": "버림", "witchSub": "마녀 · 나", "down": "쓰러짐", "unusable": "사용 불가",
-		"turn": "{n}턴", "giantTurn": "{n}턴 · 짓밟기까지 {left}", "enemyPhase": "적의 차례", "floorBattle": "{n}층",
+		"turn": "{n}턴", "giantTurn": "{n}턴 · 짓밟기까지 {left}", "enemyPhase": "적의 차례",
 		"innerName": "노엘 (속마음)", "systemName": "안내", "skip": "건너뛰기 ▶▶", "cutHint": "탭: 다음", "tapNext": "탭: 다음 ▼",
 		"immune": "흠집만 난다", "reshuffle": "버림 더미를 섞어 새 덱으로", "handFull": "손패가 가득 찼다",
 		"allyDown": "{name} 쓰러짐", "relic": "{name}의 카드 {n}장이 「유품」이 되었다", "wound": "{name}의 카드 1장이 「상처」가 되었다",
 		"pickAlly": "새로 맞을 아군을 고르세요 · 빈 곳: 취소", "dropHere": "놓으면 사용", "dragUp": "위로 끌어올려 사용",
 		"needIntent": "예고된 공격에 놓아야 한다", "needAlly": "동료 위에 놓아야 한다", "cantHere": "여기에는 낼 수 없다",
-		"trainTitle": "강화할 카드를 고르세요", "trainHint": "고른 카드 1장이 강화된다 (Lv1 → Lv2)", "tapClose": "탭하면 닫힘", "ownerScar": "흉터 · 운명을 거스른 값",
+		"trainTitle": "강화할 카드를 고르세요", "trainHint": "고른 카드 1장이 강화된다 (Lv1 → Lv2)", "ownerScar": "흉터 · 운명을 거스른 값",
 		"blocked": "막힘", "canceled": "지워짐", "defied": "운명을 거슬렀다", "lethal": "치명", "noRedirect": "옮기기 불가", "allTargets": "모두",
 		"hidden": "?", "faceDown": "뒤집힌 카드",
-		"resultOk": "확인", "rotate": "가로로 돌려 주세요", "rotateSub": "이 게임은 가로 화면(16:9)으로 플레이합니다",
-		"loading": "불러오는 중…",
+		"rotate": "가로로 돌려 주세요", "rotateSub": "이 게임은 가로 화면(16:9)으로 플레이합니다",
 		# 카드 아래쪽 주인 표시
 		"ownerDeath": "죽음 · {name}", "ownerRelic": "유품 · {name}", "ownerInherit": "상속 · {name}", "ownerWound": "상처 · {name}",
 		# 거래 고르기 (대본 v3 3.7) · 얻은 카드 알림. 전투 승리 뒤 카드 보상 문구(rewardTitle·rewardHint·rareTitle·rewardSkip)는 2026-11-21 사용자 지시로 보상과 함께 뺐다
@@ -404,7 +402,6 @@ const S := {
 		# 방 종류 이름 (지도 아이콘 범례·설명)
 		"types": {"battle": "전투", "elite": "강적", "event": "사건", "rest": "휴식", "train": "훈련", "trade": "거래", "omen": "전조",
 			"camp": "캠프", "hub": "홀", "stairs": "계단", "boss": "층의 끝"},
-		"legend": "교차한 칼: 전투 · 해골: 강적 · 물음표: 사건 · 촛불: 휴식 · 교차한 창: 훈련 · 관과 동전: 거래 · 눈: 전조",
 		# 방 이름·설명 (설명은 들어가기 전에 보이는 정도만)
 		"rooms": {
 			"camp": {"name": "곁방", "desc": "탑 입구의 곁방. 지난밤 묵은 곳."},
@@ -424,7 +421,7 @@ const S := {
 		"burned": "촛불 하나가 탔다 — 남은 촛불 {n}개", "darker": "촛불이 없다 — 어둠이 깊어진다 ({n}단계)",
 		"here": "지금 여기", "visited": "지나간 방 — 공짜로 지나간다", "cost": "처음 들어가면 촛불 1개가 탄다", "costDark": "촛불이 없다 — 들어가면 어둠이 깊어진다",
 		"free": "촛불이 타지 않는다", "locked": "아직 갈 수 없다", "enter": "들어간다", "move": "이동", "lantern": "랜턴", "candles": "촛불 {n}개",
-		"darkness": "어둠 {n}단계", "omen": "전조를 보았다 — 층 끝 전투는 가려지지 않는다", "tapAgain": "한 번 더 누르면 들어갑니다",
+		"darkness": "어둠 {n}단계", "omen": "전조를 보았다 — 층 끝 전투는 가려지지 않는다",
 	},
 
 	# ───────────── 5.3 데스신 자막 (세라피나 6컷: C1 돌아봄 · C2 손을 뻗음 · C3a 첫 번째 밟힘 · C3b 엎드린 채 손을 뻗음 · C4 마지막 밟힘 · C6 발이 들린 뒤) ─────────────
@@ -457,7 +454,6 @@ const S := {
 		"defyNote": "받아들이면 그 죽음의 힘과 {name}의 유품이 손에 들어온다. 거스르면 살지만, 운명은 다음 층으로 미뤄져 더 잔혹하게 온다. 「흉터」 {n}장이 노엘 덱에 새겨진다.",
 		"gainInherit": "「{card}」 — 덱에 들어왔다",
 		"gainScar": "「흉터」 {n}장이 노엘의 손등에 새겨졌다",
-		"postponed": "운명이 미뤄졌다. 다음에는 더 잔혹하게 온다.",
 		# 집행자를 먼저 쓰러뜨렸을 때: 쓰러지는 그 순간 운명이 온다
 		"dying": [{"who": "inner", "text": "쓰러지면서도— 운명은 멈추지 않는다."}],
 		# 운명마다: trap(시도가 온 순간) / offered(받아들인 뒤) / defied(거스른 뒤). trap2 는 2단계일 때
