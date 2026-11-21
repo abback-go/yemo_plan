@@ -200,23 +200,28 @@ Avoid: face visible, looking back, extra fingers, text, watermark, signature.
 ```
 - 저격 동작: 같은 대화창에서 `Edit this image: same character, camera, scale and position; change only the pose: she draws the white longbow to full draw, aiming straight ahead and slightly upward, the cloak swinging from the turn of her body. Keep the pure magenta background.`
 
-### P07 전투 배경 — 장례 회랑 [2026-11-22 다시 씀]
-- 첨부: `style_D_seraphina_anchor.webp`(그림체만) · 새 대화창
-- 반영: 지금 전투 화면 배치(적 셋은 위쪽 절반 중간 거리, 동료 머리는 화면 중간, 아래 1/3은 손패). '긴 회랑'은 좁아서 적·동료가 나란히 못 섬 → 본당만큼 넓은 회랑. ChatGPT는 3:2로 나오므로 받아서 16:9로 자른다.
+### P07 전투 배경 — 장례 회랑 [2026-11-22 다시 씀 — 잔혹동화 그림책 강조]
+- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창 (기준 그림의 **배경**(폐허 성당·가시·달·까마귀) 처리 방식을 따르게 함)
+- 반영: 지금 전투 화면 배치(적 셋은 위쪽 절반 중간 거리, 동료 머리는 화면 중간, 아래 1/3은 손패). 넓은 회랑. 3:2로 받아 16:9로 자름.
+- 잔혹동화로 보이게 하는 장치: 그림책 무대 같은 대칭 구도·살짝 비뚤고 과장된 건축 / 아름다움+죽음(관에서 기어 나오는 가시, 돌 틈의 붉은 장미) / 천진한 물건 하나(아이 신발 한 짝, 뚜껑 안쪽 긁힌 자국) — 고어 없이 / 게임 모티프(붉은 장례 리본, 까마귀) / 캐릭터보다 느슨한 선, 중간 거리 밝게.
+- 이 '잔혹동화 장치' 문단을 2단계 배경(B01~B13)에도 같이 쓴다.
 ```
-Using the attached image only as a reference for the art style (ignore the character and the border), draw a background for a card game battle screen. Wide landscape, full bleed, no border, no people, no creatures except crows, no text. The image will be cropped to 16:9, so keep the top and bottom edges free of important details.
+Using the attached image as the style reference, draw a background for a card game battle screen in exactly the same art style as the ruined cathedral, thorns, moon and crows behind the character in the reference. Ignore the character and the decorative border. Wide landscape, full bleed, no border, no people, no text. The image will be cropped to 16:9, so keep the top and bottom edges free of important details.
 
-ART STYLE
-A dark fairy-tale picture book illustration: delicate, slightly rough ink linework with faded watercolor washes in bone white, ash gray and sepia, with a subtle parchment texture. The only vivid color is deep crimson, used sparingly (dried funeral flowers, a torn crimson cloth on one coffin). Candle flames are pale and dim.
+ART STYLE: A DARK FAIRY-TALE PICTURE BOOK
+- The same hand-drawn look as the reference: delicate, slightly rough ink linework with fine cross-hatching in the shadows, faded watercolor washes that bleed softly at the edges, bone white, ash gray and sepia, on visible parchment grain.
+- The only vivid color is deep crimson, used sparingly as accents.
+- It must feel like a page from an old illustrated book of cruel fairy tales, not a realistic or painterly 3D scene: slightly crooked, exaggerated storybook architecture, gently leaning walls, niches that are a little too tall and narrow, a theatrical, almost symmetrical stage-like composition.
+- Use slightly lighter, looser linework than the characters so that the characters standing in front of it will stand out.
 
-SCENE
-A wide funeral gallery deep underground, inside a funeral tower that grows downward into the earth. The gallery is as wide as a chapel nave. Both side walls are lined with niches, each holding a stone coffin, stacked several rows high; every coffin lid has been pushed open from the inside and hangs askew. Dripping candle stubs on the ledges, dried funeral flowers scattered on the floor, a few crows perched on the coffins. The gallery recedes into darkness at the center of the image.
+SCENE: THE FUNERAL GALLERY
+A wide funeral gallery deep underground, inside a funeral tower that grows downward into the earth, as wide as a chapel nave. Both side walls rise in tall, crooked tiers of niches, each holding a stone coffin. Every coffin lid has been pushed open from the inside and hangs askew, with faint scratch marks on the inner side of the lids. Crimson funeral ribbons are tied to the coffin handles. Thorny briars creep out of the open coffins and climb the walls; small crimson roses bloom from cracks in the stone. Dripping candle stubs with pale, dim flames on the ledges, dried funeral wreaths, a few crows perched on the coffins and watching. On the floor near one wall lies a single small child's shoe. The gallery recedes into darkness at the center.
 
 CAMERA AND COMPOSITION FOR GAMEPLAY
-The camera stands at human eye height looking straight down the gallery, with a normal lens; the horizon line and the vanishing point sit at the center of the image. In the middle distance, leave a wide, open, evenly lit stretch of flagstone floor across the center of the image, where three enemies will stand side by side. Keep the lower third of the image simple and dark (the player's cards and the backs of three party members will cover it). The side walls frame the image on the left and right.
+The camera stands at human eye height looking straight down the gallery with a normal lens; the horizon line and the vanishing point sit at the center of the image. In the middle distance, leave a wide, open stretch of flagstone floor across the center, lit a little brighter than its surroundings, where three enemies will stand side by side. Keep the lower third of the image simple and darker (the player's cards and the backs of three party members will cover it). The tall walls frame the image on the left and right.
 
 AVOID
-People, monsters, skeletons standing up, blood pools, bright colors other than crimson, strong perspective distortion, a narrow corridor, text, watermark, signature.
+People, monsters, standing skeletons, corpses, blood pools, gore, photorealism, 3D render look, bright colors other than crimson, a narrow corridor, strong wide-angle distortion, text, watermark, signature.
 ```
 
 ### P08 광신도 (적)
