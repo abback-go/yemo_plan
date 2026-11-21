@@ -178,14 +178,15 @@ const D := {
 	# faceDown: 그 죽음 카드를 뒤집힌 채로 든다(낼 수 없음, 손패 한 칸 차지). 운명의 순간 저절로 뒤집힌다
 	"startingFates": [{"fate": "hero_stomp", "floor": 1, "faceDown": true}],
 
-	# ───────────── 전투 보상 (대본 v3 1·3장, vertical-slice.md 5장 방 종류) [임시] ─────────────
-	# common: 일반 전투 — 3장 중 1장(넘길 수 있음). rare: 강적 — 희귀 3장 중 1장.
-	# [임시] 희귀 카드가 아직 없어 강화표(upgrades)의 카드를 Lv2(강화된 채)로 준다(rareUp). 새 카드가 생기면 목록만 바꾼다.
+	# ───────────── 방에서 얻는 카드 (대본 v3 3장) [임시] ─────────────
+	# 전투 승리 뒤 '카드 3장 중 1장' 보상 화면은 2026-11-21 사용자 지시로 뺐다(game/DECISIONS.md).
+	# common: 묘지기의 좌판(거래 trade:card)의 후보 — choices 장 중 1장. 서로 다른 카드, 죽은 동료의 카드는 빠진다.
+	# elite: 강적(무덤지기)을 이기면 얻는 카드 [기본안] — 이 목록에서 무작위 1장이 강화된 채(Lv2) 바로 덱에 들어온다(고르는 화면 없음).
+	#        [임시] 희귀 카드가 아직 없어 강화표(upgrades)의 카드를 쓴다. 새 카드가 생기면 목록만 바꾼다(강화표에 없는 카드는 Lv1 로 들어온다).
 	"rewards": {
 		"choices": 3,
 		"common": ["curse_flame", "fate_shift", "take_hit", "foresight", "holy_slash", "vanguard", "cover", "shield_bash", "snipe", "suppress"],
-		"rare": ["holy_slash", "snipe", "cover", "curse_flame"],
-		"rareUp": true,
+		"elite": ["holy_slash", "snipe", "cover", "curse_flame"],
 	},
 	# 묘지기의 좌판(거래, 대본 v3 3.7) [수치 임시]: 노엘의 HP를 대가로 카드(3장 중 1장) 또는 촛불. HP 가 대가 이하이면 고를 수 없다
 	"trade": {"cardHp": 4, "candleHp": 2, "candles": 1},
@@ -383,7 +384,8 @@ const D := {
 	},
 	# 층 지도 (튜토리얼 1층은 고정 지도. 2층부터는 규칙 있는 무작위 — 아직 없음, 2·3층은 정해진 장면 순서)
 	# rooms: type(방 종류) · pos(지도 위 자리, 1920×1080 — 오른쪽 x 1440~ 은 랜턴·방 설명 칸) · candle(false 면 촛불이 타지 않음: 랜턴을 받기 전에 지나온 방)
-	#        spine(정해진 길) · enc(전투) · reward(전투 뒤 보상: common | rare) · end(이 방이 층의 끝)
+	#        spine(정해진 길) · enc(전투) · winCard(이기면 얻는 카드: rewards 의 목록 이름 — 고르는 화면 없이 1장이 강화된 채 덱에) · end(이 방이 층의 끝)
+	#        (전투 승리 뒤 '카드 3장 중 1장' 보상은 2026-11-21 사용자 지시로 뺐다 — 옛 reward 키)
 	# links: 이어진 방. 지나간(들어간 적 있는) 방과 이어진 방만 들어갈 수 있다. 무덤지기는 기도실 안쪽(기도실에서만)
 	# [제안] 골라 들어가는 방 8개를 안치 홀·계단 앞 홀에 나눠 붙였다(문서는 "안치 홀·계단 앞 홀에 붙음"까지만 정함 — DECISIONS.md)
 	"floorMaps": {
@@ -391,10 +393,10 @@ const D := {
 			"start": "hall", "end": "deep",
 			"rooms": {
 				"camp": {"type": "camp", "pos": [760, 98], "candle": false, "spine": true},
-				"corridor": {"type": "battle", "pos": [760, 238], "candle": false, "spine": true, "enc": "normal", "reward": "common"},
+				"corridor": {"type": "battle", "pos": [760, 238], "candle": false, "spine": true, "enc": "normal"},
 				"hall": {"type": "hub", "pos": [760, 386], "candle": false, "spine": true},
-				"prayer": {"type": "battle", "pos": [440, 300], "enc": "prayer", "reward": "common"},
-				"gravekeeper": {"type": "elite", "pos": [190, 205], "enc": "gravekeeper", "reward": "rare"},
+				"prayer": {"type": "battle", "pos": [440, 300], "enc": "prayer"},
+				"gravekeeper": {"type": "elite", "pos": [190, 205], "enc": "gravekeeper", "winCard": "elite"},
 				"buried": {"type": "event", "pos": [1085, 282]},
 				"corpse": {"type": "event", "pos": [395, 488]},
 				"stall": {"type": "trade", "pos": [1160, 452]},

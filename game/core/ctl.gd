@@ -1,5 +1,5 @@
 ## ctl.gd — 장면 흐름과 전투 진행 (버티컬 슬라이스: 배경 위 비주얼노벨 장면 + 지도 거점 + 1인칭 카드 전투 + 운명).
-## 1층(튜토리얼, 대본 v3 — 장례 탑 1층): 곁방(캠프) → 장례 회랑(VN → 전투 ① → 카드 보상) → 안치 홀(VN → 지도·촛불 안내)
+## 1층(튜토리얼, 대본 v3 — 장례 탑 1층): 곁방(캠프) → 장례 회랑(VN → 전투 ①) → 안치 홀(VN → 지도·촛불 안내)
 ##   → 지도: 골라 들어가는 방 8개(전투·강적·사건·휴식·훈련·거래·전조) · 계단 앞 홀 → 가장 깊은 곳(광신도 → 거대한 발 →
 ##   3턴 「짓밟기」: 뒤집힌 카드가 뒤집힘 → 데스신 → 사망 직후 안내) → 빈 캠프(다음 죽음: 브룬힐드) → 1층 끝
 ## 2층: 창 함정 회랑(VN·전조) → 기사단 납골당(VN → 창 기사 전투, 운명의 시도: 받아들인다/거스른다) → 계단(Lv업·새 운명: 엘리안)
@@ -107,7 +107,7 @@ func _step_camp(my: int) -> bool:
 	return _alive(my)
 
 
-## 1. 장례 회랑 — VN → 같은 배경에서 전투 ① → 카드 보상 (정해진 길, 촛불은 타지 않는다)
+## 1. 장례 회랑 — VN → 같은 배경에서 전투 ① (정해진 길, 촛불은 타지 않는다)
 func _step_corridor(my: int) -> bool:
 	Rules.enter_room(st, "corridor")
 	return await _room("corridor", my)
@@ -164,7 +164,8 @@ func _step_map(my: int) -> bool:
 	return false
 
 
-## 방 하나: VN 장면(대사·사건·휴식·훈련·거래·전조는 VN 안의 call) → 전투가 있으면 같은 배경에서 전투 → 보상
+## 방 하나: VN 장면(대사·사건·휴식·훈련·거래·전조는 VN 안의 call) → 전투가 있으면 같은 배경에서 전투
+## → 강적이면 이기고 카드 1장을 얻는다(winCard). 전투 승리 뒤 '카드 3장 중 1장' 보상 화면은 2026-11-21 사용자 지시로 뺐다
 func _room(id: String, my: int) -> bool:
 	var R := Rules.room_def(st, id)
 	stage = "room:" + id
@@ -180,28 +181,23 @@ func _room(id: String, my: int) -> bool:
 		var won := await battle(str(R.enc), false, my)
 		if not won or not _alive(my):
 			return false
-		if R.has("reward"):
-			await _reward(str(R.reward), my)
+		if R.has("winCard"):
+			await _win_card(str(R.winCard), my)
 		await _leave_battle()
 	return _alive(my)
 
 
-## 전투 보상: 카드 3장 중 1장(넘길 수 있음). rare = 강적의 희귀 보상
-func _reward(pool: String, my: int) -> void:
-	var items := Rules.reward_choices(st, pool)
-	if items.is_empty():
+## 강적을 이기면 [기본안 2026-11-21]: 고르는 화면 없이 목록(rewards.<pool>)의 카드 1장이 강화된 채 바로 덱에 들어온다.
+## 순장된 자의 방·핏자국 통로 끝처럼 '얻는' 연출(카드 획득 화면 + 「○○ — 덱에 들어왔다」)
+func _win_card(pool: String, my: int) -> void:
+	var u := Rules.win_card(st, pool)
+	if u == "" or not _alive(my):
 		return
-	stage = "reward:" + pool
-	var title := G.ui("rareTitle") if pool == "rare" else G.ui("rewardTitle")
-	var i := await G.scenes.card_pick(items, title, G.ui("rewardHint"), G.ui("rewardSkip"), str(G.params.get("reward", "")))
-	if not _alive(my) or i < 0:
-		note("reward skip")
-		return
-	var it: Dictionary = items[i]
-	Rules.gain_card(st, str(it.id), bool(it.get("up", false)))
-	note("reward " + str(it.id) + (" up" if it.get("up", false) else ""))
-	FX.toast(G.ui("gainCard", {"card": Rules.card_name(str(it.id), bool(it.get("up", false)))}), 1600)
-	await FX.wait(500)
+	var id: String = st.cards[u].id
+	var up := Rules.is_up(st, u)
+	stage = "winCard:" + pool
+	note("win card " + id + (" up" if up else ""))
+	await G.scenes.card_gain([u], "inherit", G.ui("gainCard", {"card": Rules.card_name(id, up)}))
 
 
 func _leave_battle() -> void:

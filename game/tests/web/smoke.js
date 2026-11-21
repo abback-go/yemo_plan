@@ -3,15 +3,17 @@
  *   node game/tests/web/smoke.js <웹 빌드 주소, 예: http://localhost:8000/> <스크린샷 폴더> [경로들, 예: AB]
  *
  * Godot 캔버스에는 DOM 이 없으므로 게임이 ?test=1 일 때 붙이는 window.witch 훅(core/test_api.gd)으로 상태를 읽고 장면을 옮긴다.
- * 중요한 조작(카드 끌기·뒤집힌 카드·지도의 방·카드 보상·선택지·턴 종료·운명 선택)은 좌표로 실제 마우스·터치 입력을 보낸다.
+ * 중요한 조작(카드 끌기·뒤집힌 카드·지도의 방·카드 고르기(거래·훈련)·선택지·턴 종료·운명 선택)은 좌표로 실제 마우스·터치 입력을 보낸다.
  * 화면은 PC 1920×1080 기준(창 1280×720, deviceScaleFactor 1). 휴대폰은 돌아가게만(경로 D·F).
  *
  * 경로 A: 타이틀(실제 클릭) → 곁방(파티 소개 이름표) → 장례 회랑 VN → 전투 ①(뒤집힌 카드를 끌어도 못 냄, 성검 베기 조준·취소·드래그, 턴 종료, 운명 전가 2단계)
- *         → 카드 보상(실제 클릭) → 안치 홀 → 지도(방·랜턴 안내) → 핏자국 통로 끝(촛불 4 → 3, 이름 없는 마녀의 카드) → 지나간 방 공짜 이동
+ *         → 승리 뒤 카드 보상 화면 없이 안치 홀(덱 그대로) → 지도(방·랜턴 안내) → 핏자국 통로 끝(촛불 4 → 3, 이름 없는 마녀의 카드) → 지나간 방 공짜 이동
  *         → 계단 앞 홀(「들어간다」) → 가장 깊은 곳(광신도 → 발 → 거대한 발: 흠집, 3턴 「짓밟기」 → 뒤집힌 카드가 뒤집힘 → "알고 있었는데."
  *         → 데스신 C1~C6 → 카드 문구 → 안내 → 반응) → 빈 캠프(브룬힐드 카드, 문구 번짐) → 1층 끝 → 2층(촛불 이월)
  * 경로 B: 어둠 — 층 끝 전투 예고 「?」·어둠 안내, 거대한 발 1턴 가려짐·3턴 짓밟기는 보임, 전조를 보았으면 가려지지 않음, 강적은 전조와 상관없이 가려짐
- * 경로 C: 골라 들어가는 방 — 순장된 자의 방 [꺼낸다] · 묘지기의 좌판(카드 — HP 4) · 무너진 훈련장 · 촛불 예배당 · 발자국 방 · 기도실(보상 넘기기) · 무덤지기(희귀 보상)
+ * 경로 C: 골라 들어가는 방 — 순장된 자의 방 [꺼낸다] · 묘지기의 좌판(카드 — HP 4) · 무너진 훈련장 · 촛불 예배당 · 발자국 방 · 기도실(승리 뒤 보상 화면 없음)
+ *         · 무덤지기(이기면 고르지 않고 카드 1장이 강화된 채 덱에)
+ * (전투 승리 뒤 '카드 3장 중 1장' 보상은 2026-11-21 사용자 지시로 뺐다 — game/DECISIONS.md)
  * 경로 D: 휴대폰 가로(iPhone 13 에뮬레이션, 터치) — 작은 화면 글씨, 터치 탭·터치 드래그로 카드 내기, 지도 터치 두 번, 세로 화면 "가로로 돌려 주세요"
  * 경로 E: 느린 속도 연출 스크린샷 (손 들기 중간·컷인·동료 타격)
  * 경로 F: 2·3층 운명 — 휴대폰: 납골당 「운명의 관통」 받아들임(데스신·상속) → 계단 → 화형대 「운명의 불길」 거스름(흉터) → 결과 → 2층부터 다시
@@ -169,7 +171,7 @@ const has = (s, re) => (s.dialog || []).some(l => re.test(l));
 
 // ───────── 경로 A: 튜토리얼 정해진 길 (PC, 실제 클릭·드래그) ─────────
 async function pathA(browser) {
-  say('경로 A: 타이틀 → 곁방(파티 소개) → 장례 회랑(VN → 전투 ①: 뒤집힌 카드·조준·드래그·운명 전가) → 카드 보상 → 안치 홀 → 지도(안내·촛불)'
+  say('경로 A: 타이틀 → 곁방(파티 소개) → 장례 회랑(VN → 전투 ①: 뒤집힌 카드·조준·드래그·운명 전가) → 보상 화면 없이 안치 홀 → 지도(안내·촛불)'
     + ' → 핏자국 통로 끝 → 계단 앞 홀 → 가장 깊은 곳(광신도 → 거대한 발: 3턴 짓밟기에 카드가 뒤집힘 → 데스신 → 문구 → 안내) → 빈 캠프(브룬힐드, 문구 번짐) → 1층 끝 → 2층');
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   const H = helpers(page, 'A');
@@ -247,15 +249,19 @@ async function pathA(browser) {
     s = await H.until(s => !s.busy, 15000, '운명 전가');
     check('운명 전가(실제 드래그 + 아군 클릭): 예고 대상이 브룬힐드로', s.battle.enemies.some(e => e.alive && e.intent && e.intent.target === 'warrior'), s.battle.enemies.map(e => e.intent && e.intent.target));
   }
-  s = await H.fight(s => s.picker && s.picker.length === 3 && !s.guideOpen && !s.dialogBusy, 180000, '승리 → 카드 보상');
-  await H.sleep(500);
-  await H.shot('A06_reward_pick.png');
-  check('승리 → 안내 → 카드 3장 중 1장 고르기(넘기기 버튼)', has(s, /카드 3장 중 1장을 덱에 넣을 수 있습니다/) && has(s, /긁힌 거예요/), s.picker);
+  // 승리 뒤 '카드 3장 중 1장' 보상 화면은 없다(2026-11-21 사용자 지시로 뺌) → 승리 대사 뒤 바로 안치 홀, 덱 수 그대로
+  s = await H.fight(s => (s.log || []).includes('win normal'), 180000, '장례 회랑 승리');
   const deck0 = s.party.deck;
-  const pk = await H.W('geom', 'pick', s.picker[1]);
-  await H.click(pk.x, pk.y);
-  s = await H.until(s => s.stage === 'vn:hall' || s.scene === 'vn:hall', 30000, '안치 홀');
-  check('카드 보상(실제 클릭): 고른 카드가 덱에', s.party.deck === deck0 + 1, { before: deck0, after: s.party.deck });
+  let sawPick = !!s.picker;
+  s = await H.until(s => s.stage === 'vn:hall' || s.scene === 'vn:hall', 60000, '안치 홀', async s => {
+    if (s.picker) sawPick = true;
+    if (s.guideOpen || s.dialogBusy) await H.W('advance');
+  });
+  await H.sleep(400);
+  await H.shot('A06_win_no_reward_hall.png');
+  check('승리 대사(긁힌 거예요) 뒤 카드 보상 안내·고르기 화면 없이 안치 홀로', has(s, /긁힌 거예요/) && !has(s, /카드 3장 중 1장/) && !sawPick && !s.picker
+    && !(s.log || []).some(l => /overlay cardPick|^reward|^win card|card gain/.test(l)), { sawPick, log: (s.log || []).slice(-8) });
+  check('장례 회랑 승리 뒤 덱 수 그대로(카드가 들어오지 않음)', s.party.deck === deck0, { before: deck0, after: s.party.deck });
   s = await H.advanceAll(s => s.scene === 'map' && s.guideOpen, 60000, '지도');
   await H.sleep(600);
   await H.shot('A07_map_first_guide.png');
@@ -391,9 +397,9 @@ async function pathB(browser) {
   await page.close();
 }
 
-// ───────── 경로 C: 골라 들어가는 방 (사건·거래·훈련·휴식·전투·강적 보상) ─────────
+// ───────── 경로 C: 골라 들어가는 방 (사건·거래·훈련·휴식·전투·강적) ─────────
 async function pathC(browser) {
-  say('경로 C: 순장된 자의 방([꺼낸다] — HP −2·부적) / 묘지기의 좌판(카드 — HP 4) / 무너진 훈련장(강화) / 촛불 예배당(휴식) / 발자국 방(전조) / 기도실 전투(넘기기) / 무덤지기(희귀 보상)');
+  say('경로 C: 순장된 자의 방([꺼낸다] — HP −2·부적) / 묘지기의 좌판(카드 — HP 4) / 무너진 훈련장(강화) / 촛불 예배당(휴식) / 발자국 방(전조) / 기도실 전투(보상 화면 없음) / 무덤지기(카드 1장 강화된 채)');
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   const H = helpers(page, 'C');
   await H.open('scene=room:buried&guides=reset');
@@ -436,17 +442,36 @@ async function pathC(browser) {
   await H.shot('C05_map_omen_seen.png');
   check('발자국 방(전조): 「전조를 보았습니다」 → 이 층 끝 전투는 가려지지 않음', s.progress.omen === true && has(s, /전조를 보았습니다/));
   await H.open('scene=room:prayer&guides=reset');
-  s = await H.fight(s => s.picker && s.picker.length === 3, 180000, '기도실 전투 → 보상');
+  s = await H.fight(s => (s.log || []).includes('win prayer'), 180000, '기도실 전투 승리');
   const d2 = s.party.deck;
-  const sk = await H.W('geom', 'pick', 'skip');
-  await H.click(sk.x, sk.y);
-  s = await H.advanceAll(s => s.scene === 'map', 60000, '넘김');
-  check('기도실 전투 승리 → 카드 보상 「넘긴다」(실제 클릭): 덱 그대로', s.party.deck === d2 && (s.log || []).includes('reward skip'), { d2, d: s.party.deck });
+  let sawPick2 = !!s.picker;
+  s = await H.until(s => s.scene === 'map', 60000, '기도실 → 지도', async s => {
+    if (s.picker) sawPick2 = true;
+    if (s.guideOpen || s.dialogBusy || s.vn) await H.W('advance');
+  });
+  await H.sleep(300);
+  await H.shot('C06_prayer_win_no_reward.png');
+  check('기도실 전투 승리 → 카드 보상 화면 없이 지도로, 덱 그대로', !sawPick2 && s.party.deck === d2
+    && !(s.log || []).some(l => /overlay cardPick|^reward|^win card|card gain/.test(l)), { d2, d: s.party.deck, sawPick2 });
+  // 무덤지기(강적) [기본안]: 고르는 화면 없이 희귀 목록의 카드 1장이 강화된 채 바로 덱에 (카드 획득 연출 + 「○○ Lv2 — 덱에 들어왔다」)
   await H.open('scene=room:gravekeeper&guides=reset');
-  s = await H.fight(s => s.picker && s.picker.length === 3, 240000, '무덤지기 → 희귀 보상');
-  await H.sleep(500);
-  await H.shot('C06_rare_reward.png');
-  check('무덤지기(강적) 승리 → 희귀 카드(강화된 Lv2) 3장 중 1장', s.picker.every(id => ['holy_slash', 'snipe', 'cover', 'curse_flame'].includes(id)), s.picker);
+  s = await H.fight(s => (s.log || []).includes('win gravekeeper'), 240000, '무덤지기 승리');
+  const d3 = s.party.deck;
+  let sawPick3 = !!s.picker;
+  s = await H.until(s => (s.log || []).some(l => /^card gain inherit /.test(l)), 30000, '무덤지기 → 카드 얻기', async s => {
+    if (s.picker) sawPick3 = true;
+    if (s.guideOpen || s.dialogBusy) await H.W('advance');
+  });
+  await H.sleep(700);
+  await H.shot('C07_gravekeeper_card_gain.png');
+  s = await H.until(s => s.scene === 'map', 60000, '무덤지기 → 지도', async s => {
+    if (s.picker) sawPick3 = true;
+    if (s.guideOpen || s.dialogBusy || s.vn) await H.W('advance');
+  });
+  const wl = (s.log || []).find(l => /^win card /.test(l)) || '';
+  const wm = /^win card (\S+) up$/.exec(wl);
+  check('무덤지기(강적) 승리 → 고르는 화면 없이 희귀 목록의 카드 1장이 강화된 채 덱에(덱 +1)', !sawPick3 && s.party.deck === d3 + 1
+    && !!wm && ['holy_slash', 'snipe', 'cover', 'curse_flame'].includes(wm[1]) && (s.log || []).includes('card gain inherit ' + wm[1]), { d3, d: s.party.deck, wl, sawPick3 });
   await page.close();
 }
 

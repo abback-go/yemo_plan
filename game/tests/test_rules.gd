@@ -843,19 +843,63 @@ func t_lantern_carry() -> void:
 	check("다음 층: 남은 촛불 + 4개(최대 8), 어둠·전조는 풀린다", a and st.progress.candles == 8, str(st.progress))
 
 
-# ───────── 방 보상 (대본 v3 1·3장) ─────────
+# ───────── 방에서 얻는 카드 (대본 v3 3장) — 전투 승리 뒤 '카드 3장 중 1장' 보상은 2026-11-21 사용자 지시로 뺐다 ─────────
 func t_rewards() -> void:
+	# 전투 승리 뒤 보상 화면이 없다: 옛 reward 키가 없고, 이기면 카드를 얻는 방은 강적(무덤지기)뿐
+	var rooms: Dictionary = D.floorMaps["1"].rooms
+	var no_reward := true
+	var win_rooms := []
+	for rid in rooms:
+		if rooms[rid].has("reward"):
+			no_reward = false
+		if rooms[rid].has("winCard"):
+			win_rooms.append(rid)
+	var plain: bool = rooms.corridor.has("enc") and rooms.prayer.has("enc") and not rooms.corridor.has("winCard") and not rooms.prayer.has("winCard")
+	check("전투 승리 뒤 카드 보상 없음: 장례 회랑·기도실은 이겨도 카드를 주지 않고, 이기면 카드를 얻는 방은 무덤지기(강적)뿐",
+		no_reward and plain and win_rooms == ["gravekeeper"] and str(rooms.gravekeeper.type) == "elite" and not D.rewards.has("rare") and not D.rewards.has("rareUp"), str(win_rooms))
+	# 묘지기의 좌판(거래) 후보: 3장, 서로 다른 카드, 강화되지 않은 카드. 죽은 동료의 카드는 빠진다
 	var st := Rules.new_game(7)
 	var c := Rules.reward_choices(st, "common")
 	var ids_c := c.map(func(x): return x.id)
 	var uniq := count_of(ids_c).size() == 3
 	var in_pool: bool = ids_c.all(func(x): return D.rewards.common.has(x)) and c.all(func(x): return not x.up)
-	var r := Rules.reward_choices(st, "rare")
-	var rare_ok: bool = r.size() == 3 and r.all(func(x): return D.rewards.rare.has(x.id) and x.up)
-	var n0: int = st.party.deck.size()
-	var u := Rules.gain_card(st, r[0].id, true)
-	check("전투 보상: 3장 중 1장(서로 다른 카드), 강적은 희귀(강화된 Lv2) 3장 — 고르면 덱에",
-		c.size() == 3 and uniq and in_pool and rare_ok and st.party.deck.size() == n0 + 1 and Rules.level(st, u) == 2, str(ids_c))
+	var dead_ok := true
+	for sd in range(1, 41):
+		var g := Rules.new_game(sd)
+		g.party.allies.warrior.status = "dead"
+		var gc := Rules.reward_choices(g, "common")
+		if gc.size() != 3:
+			dead_ok = false
+		for it in gc:
+			if str(D.cards[it.id].owner) == "warrior":
+				dead_ok = false
+	check("묘지기의 좌판 후보: 3장(서로 다른 카드, 강화 안 됨), 죽은 동료의 카드는 빠진다", c.size() == 3 and uniq and in_pool and dead_ok, str(ids_c))
+	# 무덤지기(강적)를 이기면 [기본안]: 고르지 않고 희귀 목록(rewards.elite)의 카드 1장이 강화된 채(Lv2) 바로 덱에
+	var e := Rules.new_game(7)
+	var n0: int = e.party.deck.size()
+	var u := Rules.win_card(e, str(rooms.gravekeeper.winCard))
+	var eid: String = str(e.cards[u].id) if e.cards.has(u) else ""
+	var got_ok: bool = u != "" and e.party.deck.size() == n0 + 1 and e.party.deck.has(u) and D.rewards.elite.has(eid) and Rules.is_up(e, u) and Rules.level(e, u) == 2
+	# 여러 시드: 언제나 희귀 목록·강화된 카드 1장, 죽은 동료(브룬힐드, 짝수 시드는 세라피나도)의 카드는 나오지 않는다
+	var seen := {}
+	var all_ok := true
+	for sd in range(1, 61):
+		var g := Rules.new_game(sd)
+		g.party.allies.warrior.status = "dead"
+		if sd % 2 == 0:
+			g.party.allies.hero.status = "dead"
+		var d0: int = g.party.deck.size()
+		var gu := Rules.win_card(g)
+		if gu == "" or g.party.deck.size() != d0 + 1:
+			all_ok = false
+			continue
+		var gid: String = str(g.cards[gu].id)
+		seen[gid] = true
+		var ow := str(D.cards[gid].owner)
+		if not D.rewards.elite.has(gid) or not Rules.is_up(g, gu) or ow == "warrior" or (sd % 2 == 0 and ow == "hero"):
+			all_ok = false
+	check("무덤지기(강적) 승리: 고르는 화면 없이 희귀 목록의 카드 1장이 강화된 채(Lv2) 덱에, 죽은 동료의 카드는 빠진다",
+		got_ok and all_ok and seen.size() >= 2, "%s %s" % [eid, str(seen.keys())])
 
 
 func t_trade_event() -> void:

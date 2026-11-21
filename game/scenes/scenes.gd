@@ -581,22 +581,7 @@ func pick_fate(value: String) -> bool:
 	return true
 
 
-## 카드 고르기(전투 보상 3장 중 1장 — 지금 장면(전투 화면) 위에 덮는다). 반환: 고른 번호(-1 = 넘김). auto: 자동 진행에서 고를 것
-var picker: CardPick = null
-
-
-func card_pick(items: Array, title: String, hint := "", skip := "", auto := "") -> int:
-	var root := Control.new()
-	root.size = Vector2(1920, 1080)
-	root.mouse_filter = Control.MOUSE_FILTER_STOP
-	_overlay(root, "cardPick")
-	var pk := CardPick.new()
-	root.add_child(pk)
-	picker = pk
-	var i := await pk.run(items, title, hint, skip, auto)
-	picker = null
-	await _overlay_close(root, 250)
-	return i
+## (전투 보상 '카드 3장 중 1장' 덮개 card_pick 은 2026-11-21 사용자 지시로 보상과 함께 뺐다. 카드 고르기는 VN 안의 거래·훈련만 — vn.gd)
 
 
 ## 카드 획득 연출(상속 카드·흉터·방에서 얻은 카드): 카드가 떠오르며 커졌다가 덱(왼쪽 아래)으로 들어간다. kind: inherit | scar | note(보여 주기만)

@@ -3,7 +3,7 @@
 ## 주소 뒤 옵션(웹): ?seed=7 · ?speed=4 · ?scene=giant(바로 시작) · ?test=1(시험 훅) · ?autoguide=1 · ?guides=reset · ?run=2
 ##   바로 가기: ?scene=camp | corridor | hall | map | room:<방>(prayer·gravekeeper·buried·corpse·chapel·training·stall·footprints·stairs·deep)
 ##             | giant | emptycamp | floor2 | ossuary | f2stairs | floor3&brun=alive|dead | pyre | result
-##   자동 진행(--autoguide --autoplay): --rooms=방,방… (지도에서 들를 방 순서) · --choice=값,… · --reward=카드|skip · --train=카드
+##   자동 진행(--autoguide --autoplay): --rooms=방,방… (지도에서 들를 방 순서) · --choice=값,… · --reward=카드|skip(묘지기의 좌판에서 살 카드 — 전투 승리 보상은 2026-11-21 에 뺐다) · --train=카드
 ##   · ?fates=accept(=offer),defy,… (운명의 시도 자동 선택, 순서대로)
 extends Node
 

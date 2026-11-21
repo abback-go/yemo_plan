@@ -1348,14 +1348,12 @@ static func add_candles(st: Dictionary, n: int) -> int:
 	return int(st.progress.candles)
 
 
-# ───────── 방 보상 (대본 v3 1·3장, game_data.gd rewards·trade·buried·corpse) ─────────
-## 카드 보상 후보: [{id, up}] — pool: common | rare. 서로 다른 카드, 죽은 동료의 카드는 빠진다
-static func reward_choices(st: Dictionary, pool := "common", n := -1) -> Array:
-	var R: Dictionary = D().rewards
-	if n < 0:
-		n = int(R.choices)
+# ───────── 방에서 얻는 카드 (대본 v3 3장, game_data.gd rewards·trade·buried·corpse) ─────────
+# 전투 승리 뒤 '카드 3장 중 1장' 보상은 2026-11-21 사용자 지시로 뺐다. 3장 중 1장 고르기는 묘지기의 좌판(거래)에만 남았다.
+## 목록(rewards.<pool>)에서 서로 다른 카드 id 를 섞어 돌려준다. 죽은 동료의 카드는 빠진다
+static func _card_pool(st: Dictionary, pool: String) -> Array:
 	var ids := []
-	for id in R.get(pool, []):
+	for id in D().rewards.get(pool, []):
 		var o := str(D().cards[id].owner)
 		var a = ally(st, o)
 		if a != null and a.status == "dead":
@@ -1363,11 +1361,28 @@ static func reward_choices(st: Dictionary, pool := "common", n := -1) -> Array:
 		if not ids.has(id):
 			ids.append(id)
 	shuffle(st, ids)
-	var up: bool = pool == "rare" and bool(R.get("rareUp", false))
+	return ids
+
+
+## 묘지기의 좌판(거래 trade:card)의 카드 후보: [{id, up}] — 서로 다른 카드, 죽은 동료의 카드는 빠진다
+static func reward_choices(st: Dictionary, pool := "common", n := -1) -> Array:
+	if n < 0:
+		n = int(D().rewards.choices)
+	var ids := _card_pool(st, pool)
 	var out := []
 	for id in ids.slice(0, mini(n, ids.size())):
-		out.append({"id": id, "up": up and D().upgrades.has(id)})
+		out.append({"id": id, "up": false})
 	return out
+
+
+## 강적을 이기면 얻는 카드 [기본안 2026-11-21]: 목록(rewards.elite)에서 무작위 1장이 강화된 채(강화표에 있으면 Lv2) 바로 덱에 들어온다.
+## 고르는 화면은 없다. 죽은 동료의 카드는 빠진다. 반환: 새 카드 uid ("" = 얻을 카드 없음)
+static func win_card(st: Dictionary, pool := "elite") -> String:
+	var ids := _card_pool(st, pool)
+	if ids.is_empty():
+		return ""
+	var id: String = ids[0]
+	return gain_card(st, id, D().upgrades.has(id))
 
 
 ## 덱에 카드 1장을 더한다. 반환: uid

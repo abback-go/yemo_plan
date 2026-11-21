@@ -58,9 +58,8 @@ const S := {
 		"loading": "불러오는 중…",
 		# 카드 아래쪽 주인 표시
 		"ownerDeath": "죽음 · {name}", "ownerRelic": "유품 · {name}", "ownerInherit": "상속 · {name}", "ownerWound": "상처 · {name}",
-		# 카드 보상·거래 고르기 (대본 v3 1장 승리 · 3.7 거래)
-		"rewardTitle": "카드 1장을 고르세요", "rewardHint": "고른 카드가 덱에 들어갑니다. 넣지 않고 넘길 수도 있습니다.",
-		"rareTitle": "희귀 카드 1장을 고르세요", "rewardSkip": "넘긴다", "tradeTitle": "카드 1장을 고르세요 — 노엘 HP {n}", "tradeSkip": "사지 않는다",
+		# 거래 고르기 (대본 v3 3.7) · 얻은 카드 알림. 전투 승리 뒤 카드 보상 문구(rewardTitle·rewardHint·rareTitle·rewardSkip)는 2026-11-21 사용자 지시로 보상과 함께 뺐다
+		"tradeTitle": "카드 1장을 고르세요 — 노엘 HP {n}", "tradeSkip": "사지 않는다",
 		"gainCard": "「{card}」 — 덱에 들어왔다", "candleGain": "촛불 +{n} (랜턴 {now}개)", "hpLoss": "노엘 HP -{n}",
 	},
 	# 카드를 낼 수 없을 때 짧은 알림 (rules.gd 의 이유 → 화면 문구)
@@ -97,8 +96,8 @@ const S := {
 			{"who": "system", "text": "**쓰러진 동료는 이번 전투에서 행동할 수 없고, 그 동료의 카드도 낼 수 없습니다.** 전투가 끝나면 HP 1로 일어나지만 그 동료의 카드 1장이 「상처」로 바뀝니다."}]},
 		{"id": "n_win", "on": "battleWin", "enc": "normal", "lines": [
 			{"who": "hero", "face": "hero_calm", "text": "다친 사람? 엘리안, 너 팔. 숨기지 말고."},
-			{"who": "archer", "face": "archer_cold", "text": "긁힌 거예요."},
-			{"who": "system", "text": "**전투에서 이기면 카드 3장 중 1장을 덱에 넣을 수 있습니다.** 넣지 않고 넘길 수도 있습니다."}]},
+			{"who": "archer", "face": "archer_cold", "text": "긁힌 거예요."}]},
+		# (승리 뒤 카드 보상 안내 「전투에서 이기면 카드 3장 중 1장…」는 2026-11-21 사용자 지시로 보상과 함께 뺐다)
 
 		# ── 3.2 무덤지기 (강적) — 방의 대사(events.gravekeeper) 뒤, 전투 시작에 ──
 		{"id": "e_start", "on": "battleStart", "enc": "gravekeeper", "lines": [
@@ -206,14 +205,14 @@ const S := {
 			{"speaker": "narr", "text": "둥근 홀. 벽을 따라 관이 천장까지 쌓여 있고, 길이 여러 갈래로 나 있다."},
 			{"show": {"hero": "C"}, "speaker": "hero", "face": "hero_calm", "text": "길 많네. 노엘, 지도."},
 		],
-		# 3.1 광신도 기도실 — 전투 → 카드 3장 중 1장
+		# 3.1 광신도 기도실 — 전투 (승리 뒤 카드 3장 중 1장 보상은 2026-11-21 사용자 지시로 뺐다)
 		"prayer": [
 			{"speaker": "narr", "text": "광신도 둘이 바닥의 구멍 쪽으로 엎드려 기도하고 있다."},
 			{"speaker": "cultist", "text": "받으소서. 받으시고, 돌려주소서."},
 			{"show": {"archer": "L", "warrior": "R"}, "speaker": "archer", "face": "archer_cold", "text": "뭘 돌려받겠다는 거예요?"},
 			{"speaker": "warrior", "face": "warrior_smirk", "text": "묻지 마. 대답해 줄 것 같잖아."},
 		],
-		# 3.2 무덤지기 — 강적 (기도실 안쪽) → 희귀 카드 3장 중 1장. 강적 안내는 전투 시작에(guide e_start)
+		# 3.2 무덤지기 — 강적 (기도실 안쪽) → 이기면 희귀 목록의 카드 1장이 강화된 채 바로 덱에(고르지 않음, 기본안 — game_data.gd rewards.elite). 강적 안내는 전투 시작에(guide e_start)
 		"gravekeeper": [
 			{"speaker": "narr", "text": "관 뚜껑을 갑옷처럼 덧댄 거구가 길을 막고 있다."},
 			{"speaker": "gravekeeper", "text": "산 사람은 내려가는 게 아니야. 실려 내려가는 거지."},
@@ -399,7 +398,7 @@ const S := {
 			"camp": {"name": "곁방", "desc": "탑 입구의 곁방. 지난밤 묵은 곳."},
 			"corridor": {"name": "장례 회랑", "desc": "벽감마다 관이 박힌 긴 회랑."},
 			"hall": {"name": "안치 홀", "desc": "관이 층층이 쌓인 둥근 홀. 길이 여러 갈래로 나 있다."},
-			"prayer": {"name": "광신도 기도실", "desc": "기도 소리가 들린다. 이기면 카드 3장 중 1장."},
+			"prayer": {"name": "광신도 기도실", "desc": "기도 소리가 들린다."},
 			"gravekeeper": {"name": "무덤지기", "desc": "기도실 안쪽을 무언가가 막고 있다. 더 강하지만 보상이 크다(희귀 카드)."},
 			"buried": {"name": "순장된 자의 방", "desc": "못이 박힌 관에서 소리가 난다."},
 			"corpse": {"name": "핏자국 통로 끝", "desc": "핏자국이 막다른 벽까지 이어져 있다."},

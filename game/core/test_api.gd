@@ -1,7 +1,7 @@
 ## test_api.gd — 자동 시험용 훅 (웹 빌드, 주소에 ?test=1 일 때만).
 ## Godot 캔버스에는 DOM 이 없으므로 JavaScriptBridge 로 window.witch 에 함수를 붙인다.
 ## 함수의 결과는 window.__witchOut (JSON 문자열)에 남긴다 — 시험 쪽에서 W(name, ...args) 로 부르고 읽는다.
-##   state() · jump(scene, opts) · play(cardId, target) · endTurn() · advance() · choose(value) · pick(cardId|"skip") (카드 고르기: 보상·거래·훈련)
+##   state() · jump(scene, opts) · play(cardId, target) · endTurn() · advance() · choose(value) · pick(cardId|"skip") (카드 고르기: 거래·훈련)
 ##   room(id) (지도: 그 방으로 바로 들어감) · winBattle() · enemyHp(id, hp) · geom(kind, id) · handCut() · resetGuides() · setSpeed(n) · fate(offer|defy)
 ##   geom: card · enemy · intent · ally · endTurn · room(지도의 방) · enter(지도의 들어간다 버튼) · pick(카드 고르기의 카드, "skip" = 넘기기) · fateBtn · button
 class_name TestApi
@@ -139,15 +139,19 @@ func state() -> Dictionary:
 	return s
 
 
-## 지금 떠 있는 카드 고르기 화면 (전투 보상 덮개 또는 VN 안의 훈련·거래)
+## 지금 떠 있는 카드 고르기 화면 (VN 안의 훈련·거래). 전투 보상 덮개는 2026-11-21 사용자 지시로 뺐지만,
+## 시험 "승리 뒤 보상 화면이 나오지 않는다" 가 장면 위 덮개(overlays)에 생긴 고르기 화면도 잡도록 거기도 찾는다
 func _picker() -> CardPick:
-	if G.scenes.picker != null and is_instance_valid(G.scenes.picker):
-		return G.scenes.picker
 	var cur = G.scenes.current
 	if cur is VnScene:
 		for c in cur.get_children():
 			if c is CardPick:
 				return c
+	for o in G.scenes.overlays:
+		if is_instance_valid(o):
+			for c in o.get_children():
+				if c is CardPick:
+					return c
 	return null
 
 
