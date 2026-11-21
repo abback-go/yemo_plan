@@ -585,6 +585,8 @@ const D := {
 	# 대화·연출 속도 (ms)
 	"timing": {
 		"typeCharsPerSec": 38,
+		# 설정의 글자 속도(game_settings.gd): typeCharsPerSec 에 곱한다. 0 = 즉시(한 번에). 기본은 보통
+		"typeSpeed": {"slow": 0.55, "normal": 1.0, "fast": 2.0, "instant": 0},
 		"guideBase": 1800, "guidePerChar": 70,
 		"enemyAttack": 520, "drawGap": 90, "banner": 900,
 		"footDrop": 520,

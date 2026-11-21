@@ -14,6 +14,8 @@ var input: BattleInput # 전투 드래그 조작 (ui/battle_input.gd)
 var dialog: DialogBox  # 대사창·안내 상자 (ui/dialog_box.gd)
 var scenes: Scenes     # 타이틀·VN·탐색·컷신·종료 (scenes/scenes.gd)
 var cutin: Cutin       # 컷인 (ui/cutin.gd)
+var menu: GameMenu     # 메뉴 단추(화면 오른쪽 위)·일시정지·설정·확인 창 (ui/game_menu.gd)
+var go_title := false  # 타이틀로(일시정지 메뉴): 게임 화면을 새로 만든 뒤 주소의 scene= 대신 타이틀을 연다 (main.gd)
 
 var params := {}       # 주소 뒤 옵션 (?seed=7&speed=4&scene=giant&test=1&autoguide=1)
 var test := false
@@ -27,7 +29,15 @@ func name_of(who: String) -> String:
 
 ## 화면 문구 (script_data.gd "ui") — {n} 같은 자리를 args 로 채운다
 func ui(key: String, args := {}) -> String:
-	var s := str(S.ui.get(key, key))
+	return _fill(str(S.ui.get(key, key)), args)
+
+
+## 메뉴 문구 (script_data.gd "menu")
+func menu_text(key: String, args := {}) -> String:
+	return _fill(str(S.menu.get(key, key)), args)
+
+
+func _fill(s: String, args: Dictionary) -> String:
 	for k in args:
 		s = s.replace("{" + str(k) + "}", str(args[k]))
 	return s

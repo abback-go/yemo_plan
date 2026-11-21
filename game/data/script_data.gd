@@ -36,6 +36,18 @@ const S := {
 		"startButton": "시작",
 		"note": "마우스로 플레이 · PC 1920×1080 기준",
 	},
+	# 타이틀 메뉴 · 일시정지(Esc) · 설정 · 확인 창 (ui/game_menu.gd, scenes.gd title). {place} = 저장한 곳(층 · 방 이름)
+	"menu": {
+		"start": "시작", "continue": "이어하기", "settings": "설정", "quit": "끝내기",
+		"savedAt": "자동 저장 · {place}", "floorEnd": "{floor} 끝",
+		"newTitle": "처음부터 시작할까요?", "newText": "처음부터 시작하면 저장된 진행이 지워집니다.", "newYes": "처음부터", "cancel": "취소",
+		"pauseTitle": "잠시 멈춤", "resume": "계속", "toTitle": "타이틀로",
+		"toTitleTitle": "타이틀로 돌아갈까요?", "toTitleText": "진행은 마지막 자동 저장까지만 남습니다.", "noSave": "아직 자동 저장이 없습니다.",
+		"settingsTitle": "설정", "display": "화면", "windowed": "창", "fullscreen": "전체 화면",
+		"textSpeed": "글자 속도", "slow": "느림", "normal": "보통", "fast": "빠름", "instant": "즉시",
+		"sample": "글자가 이 빠르기로 나옵니다.", "close": "닫기",
+		"fullscreenFail": "이 브라우저에서는 전체 화면으로 바꿀 수 없습니다.",
+	},
 	"names": {"hero": "세라피나", "warrior": "브룬힐드", "archer": "엘리안", "noel": "노엘", "witch": "노엘", "inner": "노엘", "narr": "", "system": "",
 		"cultist": "광신도", "gravekeeper": "무덤지기", "keeper": "묘지기", "child": "아이"},
 	"roles": {"hero": "용사", "warrior": "전사", "archer": "궁수", "noel": "마녀", "witch": "마녀"},

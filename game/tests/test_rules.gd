@@ -115,6 +115,7 @@ func _init() -> void:
 	t_charm()
 	t_retry_hp()
 	t_save()
+	t_settings()
 	print("rules: %d passed, failures: %d" % [passes, fails])
 	quit(1 if fails > 0 else 0)
 
@@ -1123,3 +1124,12 @@ func t_save() -> void:
 	check("깨진 저장(잘림·빈 파일·JSON 아님·키 빠짐·없는 카드·없는 방·모르는 단계)은 '저장 없음'", bad_ok and from_file.is_empty())
 	check("없는 저장 파일을 읽으면 '저장 없음'", SaveGame.read("user://no_such_save_file.json").is_empty())
 
+
+func t_settings() -> void:
+	var keep := GameSettings.text_speed
+	var cps := {}
+	for sp in GameSettings.SPEEDS:
+		GameSettings.text_speed = sp
+		cps[sp] = GameSettings.chars_per_sec()
+	GameSettings.text_speed = keep
+	check("글자 속도: 느림 < 보통(지금까지의 38자/초) < 빠름 < 즉시", cps.slow < cps.normal and cps.normal == float(D.timing.typeCharsPerSec) and cps.normal < cps.fast and cps.fast < cps.instant and cps.instant >= 10000.0, str(cps))

@@ -315,7 +315,7 @@ func _process(delta: float) -> void:
 		return
 	var ms := delta * 1000.0 * FX.speed
 	if cur.typing:
-		_type_acc += ms * float(GameData.D.timing.typeCharsPerSec) / 1000.0
+		_type_acc += ms * GameSettings.chars_per_sec() / 1000.0
 		var add := int(_type_acc)
 		if add > 0:
 			_type_acc -= add

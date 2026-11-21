@@ -571,6 +571,8 @@ func continue_game() -> bool:
 ## scene: title | camp | corridor(=normal) | hall | map | room:<방 id>(또는 방 id: prayer · gravekeeper · buried · corpse · chapel · training · stall
 ##        · footprints · stairs · deep) | giant | emptycamp | floor2 | ossuary | f2stairs | floor3 (brun=alive|dead) | pyre | result
 func jump(scene: String, opts := {}) -> void:
+	if G.menu != null:
+		G.menu.resume()   # 시험 훅이 일시정지·설정이 열린 채 부르더라도 막히지 않게
 	flow += 1
 	var my := flow
 	G.dialog.clear()
