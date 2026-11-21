@@ -60,7 +60,7 @@ func _wait_or_tap(ms: float) -> void:
 	_waiters.append(w)
 	if not cut.is_empty():
 		cut.waiter = w
-	get_tree().create_timer(FX.ms(ms) / 1000.0).timeout.connect(w.finish)
+	get_tree().create_timer(FX.ms(ms) / 1000.0, false).timeout.connect(w.finish)
 	if not w.finished:
 		await w.done
 	_waiters.erase(w)
@@ -360,7 +360,7 @@ func _grind_cut(c: Dictionary, pi: Dictionary) -> void:
 	cut.waiter = w
 	_waiters.append(w)
 	w.done.connect(func(): skipped[0] = true)
-	get_tree().create_timer(FX.ms(float(c.duration)) / 1000.0).timeout.connect(w.finish)
+	get_tree().create_timer(FX.ms(float(c.duration)) / 1000.0, false).timeout.connect(w.finish)
 	var base := Vector2(960, 540)
 	for i in int(c.get("slams", 2)):
 		if skipped[0] or cut.is_empty():
@@ -437,7 +437,7 @@ func wipe(kind: String) -> void:
 	_waiters.append(done)   # mount 가 앞 장면의 기다림을 모두 끝내므로 그 뒤에 넣는다
 	FX.fade(0, 500)
 	if G.autoguide:
-		get_tree().create_timer(1.0).timeout.connect(done.finish)
+		get_tree().create_timer(1.0, false).timeout.connect(done.finish)
 	if not done.finished:
 		await done.done
 	if current == root:
@@ -540,7 +540,7 @@ func fate_choice(fate: Dictionary) -> String:
 	G.ctl.note("fate choice " + str(fate.id) + " lv" + str(fate.level))
 	if G.autoguide or G.params.has("fates"):
 		var choice := _auto_fate()
-		get_tree().create_timer(FX.ms(900) / 1000.0).timeout.connect(func():
+		get_tree().create_timer(FX.ms(900) / 1000.0, false).timeout.connect(func():
 			picked[0] = choice
 			w.finish())
 	if not w.finished:
@@ -643,7 +643,7 @@ func card_gain(uids: Array, kind := "inherit", caption := "", sub := "") -> void
 	FX.flash("#ffffff" if kind == "inherit" else "#7a0010", 300, 0.4)
 	FX.burst(960, 520, {"count": 50, "colors": ["#ff2a3c", "#7a0010", "#ffb0b6"] if kind == "inherit" else ["#7a0010", "#3a0006"], "speed": 380, "life": 900, "size": 4, "gravity": 0})
 	await FX.until(a)
-	get_tree().create_timer(FX.ms(2200) / 1000.0).timeout.connect(w.finish)
+	get_tree().create_timer(FX.ms(2200) / 1000.0, false).timeout.connect(w.finish)
 	if not w.finished:
 		await w.done
 	if kind == "note":
@@ -707,7 +707,7 @@ func chapter(conf: Dictionary) -> void:
 		FX.anim(1000, [{"a": 0.0}, {"a": 1.0}], func(v): if is_instance_valid(p): p.modulate.a = v.a, {"node": p, "delay": 400 + i * 1000})
 	FX.anim(800, [{"a": 0.0}, {"a": 1.0}], func(v): if is_instance_valid(b): b.modulate.a = v.a, {"node": b, "delay": 400 + ps.size() * 1000})
 	if G.autoguide:
-		get_tree().create_timer(FX.ms(1500) / 1000.0).timeout.connect(w.finish)
+		get_tree().create_timer(FX.ms(1500) / 1000.0, false).timeout.connect(w.finish)
 	await w.done
 	await FX.fade(1, 500)
 	if current == root:
@@ -807,7 +807,7 @@ func result() -> void:
 	G.ctl.stage = "result"
 	G.ctl.note("result")
 	if G.params.has("quit-on-end"):
-		get_tree().create_timer(1.0).timeout.connect(func(): get_tree().quit(0))
+		get_tree().create_timer(1.0, false).timeout.connect(func(): get_tree().quit(0))
 	FX.fade(0, 500)
 
 

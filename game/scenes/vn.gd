@@ -516,7 +516,7 @@ func choose(opts: Array) -> Dictionary:
 		choice_btns.append(b)
 	if G.autoguide:
 		# 자동 진행: --choice=값,값… 중 이 선택지에 있는 첫 값, 없으면 고를 수 있는 첫 선택지
-		get_tree().create_timer(0.3).timeout.connect(func():
+		get_tree().create_timer(0.3, false).timeout.connect(func():
 			if w.finished:
 				return
 			var want: Array = str(G.params.get("choice", "")).split(",", false)
