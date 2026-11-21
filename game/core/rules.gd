@@ -1474,7 +1474,7 @@ static func state_floor3(seed = null, brun := "alive") -> Dictionary:
 	return st
 
 
-# ───────── 갈림길: 휴식 / 훈련 (tutorial-flow.md 2장) ─────────
+# ───────── 갈림길: 휴식 / 훈련 (docs/archive/tutorial-flow.md 2장) ─────────
 ## 휴식: 살아 있는 동료 최대 HP +allyMaxHp, 마녀 +witchMaxHp, 전원 회복
 static func apply_rest(st: Dictionary) -> Dictionary:
 	var r: Dictionary = D().rest

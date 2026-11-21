@@ -1,7 +1,7 @@
 # 튜토리얼 전투 프로토타입 — 범위 (v0.1)
 
 - 작성일: 2026-11-15
-- 근거 문서: [`HANDOFF.md`](../HANDOFF.md), [`combat-system.md`](combat-system.md)
+- 근거 문서: [`HANDOFF.md`](../../HANDOFF.md), [`combat-system.md`](../combat-system.md)
 - 표기: **[결정]** 사용자 확정 · **[제안]** 초안, 검토 필요
 
 ---

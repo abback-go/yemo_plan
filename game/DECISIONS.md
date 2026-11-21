@@ -1,6 +1,6 @@
 # 판단 기록 (문서가 애매하거나 서로 다른 곳)
 
-우선순위: `docs/tutorial-script.md` v0.6 → `HANDOFF.md` 14장 → 나머지 문서 → `prototype/` 원본.
+우선순위: `docs/archive/tutorial-script.md` v0.6 → `HANDOFF.md` 14장 → 나머지 문서 → `prototype/` 원본.
 
 - 이전 에이전트의 골격(`dd55a8f`)을 코디네이터 지시에 따라 가져와 이어서 씀(처음 지시의 "처음부터 새로" 대신).
 - 죽음 카드 자리: HTML 판은 보존 카드를 손패 가운데에 두지만, 대본 v0.5 2장 "손패 맨 오른쪽"을 따라 맨 오른쪽(`rules.retainPos: "right"`, "middle" 로 되돌릴 수 있음).

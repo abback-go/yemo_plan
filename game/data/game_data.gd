@@ -3,7 +3,7 @@
 ## 두 파일만 고쳐도(에디터의 스크립트 편집기에서) 코드 수정 없이 조정할 수 있다.
 ## HTML 프로토타입 prototype/js/data.js 를 옮기고, 지도·방·랜턴(버티컬 슬라이스)·2·3층 전투·운명을 더했다.
 ##
-## 표기: 수치는 combat-system.md / tutorial-flow.md 의 임시값. [제안] 표시는 문서의 [제안] 항목을 문서대로 넣은 것.
+## 표기: 수치는 combat-system.md / docs/archive/tutorial-flow.md 의 임시값. [제안] 표시는 문서의 [제안] 항목을 문서대로 넣은 것.
 ## 주의: 사전 키는 모두 "문자열" 로 쓴다(코드가 문자열로 찾는다).
 class_name GameData
 extends Object
@@ -195,7 +195,7 @@ const D := {
 	# 핏자국 통로 끝(시체, 대본 v3 3.4): 「이름 없는 마녀의 카드」
 	"corpse": {"card": "nameless_card"},
 
-	# ───────────── 훈련: 카드 강화 (tutorial-flow.md 2.3) [제안] ─────────────
+	# ───────────── 훈련: 카드 강화 (docs/archive/tutorial-flow.md 2.3) [제안] ─────────────
 	# 후보 4종 중 무작위 3장을 보여 주고 1장 선택. 덱에서 그 카드 1장만 강화된다(이름 옆 +).
 	"upgrades": {
 		"holy_slash": {"effects": [{"type": "damage", "amount": 18}], "summary": "피해 14 → 18"},
@@ -205,7 +205,7 @@ const D := {
 	},
 	"trainChoices": 3,
 
-	# ───────────── 휴식 (tutorial-flow.md 2.2) [제안 수치] ─────────────
+	# ───────────── 휴식 (docs/archive/tutorial-flow.md 2.2) [제안 수치] ─────────────
 	"rest": {"allyMaxHp": 3, "witchMaxHp": 2, "healAll": true},
 
 	# ───────────── 적 ─────────────
@@ -233,7 +233,7 @@ const D := {
 			]},
 	},
 
-	# ───────────── 전투 (7장 + tutorial-flow.md) ─────────────
+	# ───────────── 전투 (7장 + docs/archive/tutorial-flow.md) ─────────────
 	"encounters": {
 		# darkness: true 면 어둠(촛불이 다 탄 뒤 방마다 깊어짐)에 예고 일부가 '?'로 가려진다 — 층 끝 전투·강적 전투 (vertical-slice.md 5장)
 		# floorEnd: true 면 층 끝 전투 — 그 층에서 전조를 보았으면 어둠이 와도 가려지지 않는다. 운명 공격 예고는 언제나 보인다

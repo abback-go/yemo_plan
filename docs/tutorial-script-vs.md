@@ -1,6 +1,6 @@
 # 튜토리얼 대본 — 버티컬 슬라이스 v3 (장례 탑 1층)
 
-- 작성: 2026-11-21. 근거: [`vertical-slice.md`](vertical-slice.md)의 결정(이야기 뼈대·층 구조·튜토리얼 지도 초안). 옛 대본 [`tutorial-script.md`](tutorial-script.md) v0.6을 대체한다.
+- 작성: 2026-11-21. 근거: [`vertical-slice.md`](vertical-slice.md)의 결정(이야기 뼈대·층 구조·튜토리얼 지도 초안). 옛 대본 [`tutorial-script.md`](archive/tutorial-script.md) v0.6을 대체한다.
 - v3 (사용자 결정 2026-11-21):
   - 복선은 거의 다 뺐다(회귀를 바로 알아챌 만큼 대놓고였음). 남긴 것은 맨 끝 7장.
   - 웃어 준다 / 대답하지 못한다 선택지를 없앴다.

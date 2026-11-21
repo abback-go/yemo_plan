@@ -1,7 +1,7 @@
 # 튜토리얼 흐름 — 전투 사이 구조 (v0.1)
 
 - 작성일: 2026-11-15
-- 근거: [`combat-system.md`](combat-system.md), [`prototype-scope.md`](prototype-scope.md)
+- 근거: [`combat-system.md`](../combat-system.md), [`prototype-scope.md`](prototype-scope.md)
 - 표기: **[결정]** 사용자 확정 · **[제안]** 초안, 검토 필요 · **[미정]**
 
 ## 1. 전체 흐름 (목표 20~30분)
@@ -65,4 +65,4 @@
 
 - 훈련은 새 그림 없이 갈림길 배경 + 동료 스탠딩·표정 + 카드 강화 UI로 처리한다.
 - 동료는 기존 뒷모습·스탠딩·표정을 재사용한다.
-- 프롬프트: [`prompts/08_tutorial_exploration.txt`](prompts/08_tutorial_exploration.txt)
+- 프롬프트: [`prompts/08_tutorial_exploration.txt`](../prompts/08_tutorial_exploration.txt)

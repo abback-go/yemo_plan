@@ -3,7 +3,7 @@
 > 2026-11-21: 버티컬 슬라이스에서는 탑뷰를 없애고 비주얼노벨식 진행으로 바꾼다 — [`vertical-slice.md`](vertical-slice.md). 이 지시서는 시험판 v2 기록으로 둔다.
 
 - 작성: 2026-11-17 (KST 밤). **마감: 2026-11-18 18:00 KST (= 09:00 UTC)** — 사용자가 그때 직접 해 보고 재미를 판단한다.
-- 결정 근거: [`fate-design.md`](fate-design.md)(운명 규칙 결정), [`tutorial-script.md`](tutorial-script.md)(튜토리얼 대본 v0.6), [`combat-system.md`](combat-system.md)(전투 규칙), [`status.md`](status.md).
+- 결정 근거: [`fate-design.md`](fate-design.md)(운명 규칙 결정), [`tutorial-script.md`](archive/tutorial-script.md)(튜토리얼 대본 v0.6), [`combat-system.md`](combat-system.md)(전투 규칙), [`status.md`](status.md).
 - 표기: **[결정]** 사용자 확정 / **[임시]** 시험판을 위해 개발 측이 정한 것(대사·수치 포함, 사용자가 보고 고칠 수 있게 데이터 파일에 모은다).
 - 사용자는 스토리를 아직 손대지 않았다. 재미 시험을 위해 흐름·대사는 [임시]로 짜되, 기존 대본의 톤(잔혹하지만 절제된 다크 판타지, 노엘의 속마음 중심)을 지킨다.
 
