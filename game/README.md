@@ -3,7 +3,7 @@
 카드 RPG 버티컬 슬라이스. Godot 4.7.2 · GDScript · 무대 1920×1080(창에 맞춰 비율 유지) · 한국어.
 웹(CI 배포): https://abback-go.github.io/yemo_plan/godot/ · 작업 브랜치 `cc/amazing-darwin-nesbwh`.
 
-- 판단·변경 기록: [`DECISIONS.md`](DECISIONS.md) · 진행 기록: [`PROGRESS.md`](PROGRESS.md) · 기획 문서 지도: [`../docs/status.md`](../docs/status.md)
+- 판단·변경 기록: [`DECISIONS.md`](DECISIONS.md) · 진행 기록: [`PROGRESS.md`](PROGRESS.md) · 시작점·기획 문서 지도: [`../docs/handoff.md`](../docs/handoff.md) 7장
 - 장면 파일(.tscn)은 `main.tscn` 하나뿐이고, 화면은 모두 코드로 만든다.
 
 ## 1. 폴더·파일 역할

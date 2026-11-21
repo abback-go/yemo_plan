@@ -1,7 +1,7 @@
 # 버티컬 슬라이스 기획 (1~3층)
 
 - 작성: 2026-11-21
-- 목표일·제작 조건·그림체: [`status.md`](status.md) 5-1장 · 그림 기준: [`art-direction.md`](art-direction.md) · 운명 규칙: [`fate-design.md`](fate-design.md)
+- 목표일·제작 조건·그림체: [`archive/status-2026-11-22-full.md`](archive/status-2026-11-22-full.md) 5-1장 · 그림 기준: [`art-direction.md`](art-direction.md) · 운명 규칙: [`fate-design.md`](fate-design.md)
 - 표기: **[결정]** 사용자 확정 · **[제안]** 초안, 검토 필요 · **[미정]**
 
 ## 1. 진행 방식 [결정 2026-11-21]

@@ -12,7 +12,6 @@
 - 브랜치 `cc/amazing-darwin-nesbwh` · 초안 PR https://github.com/abback-go/yemo_plan/pull/7
 
 ## 3. 지금 상태
-<!-- 5번 합친 뒤 갱신 -->
 - 1층 흐름: 곁방(캠프) → 장례 회랑 전투 → 안치 홀(지도·랜턴 촛불) → 방 8개 중 골라 들어감 → 계단 앞 홀 → 가장 깊은 곳(광신도 → 거대한 발) → 3턴 짓밟기에 세라피나 데스신(새 6컷) → 빈 곁방. 그 뒤 2·3층은 옛 그림·최소 손질(시험판 v2 대사).
 - 밤샘(2026-11-22) 한 것 — 자세히 `docs/overnight-plan.md` 「진행 상황」·「아침 보고」:
   - 전투 승리 뒤 '카드 3장 중 1장' 보상 뺌(사용자 지시). 무덤지기는 고르지 않고 희귀 목록 1장을 강화된 채 받음(기본안).
@@ -20,7 +19,7 @@
   - 자동 진행 약 950판으로 버그 1개(거대한 발 끝없는 전멸) 고침, 난이도 보고 `docs/balance-report.md`(수치는 안 바꿈).
   - 문구 검수: 26곳 고침, 제안 47건 `docs/text-review.md`. 독창성 점검 `docs/originality-review.md`.
   - 움직임 시험 A′(`?anim=a`)·C(`?anim=c`). 기본 화면은 그대로, 고르는 건 사용자.
-  - 할 일 5(버그·불편 고치기, 코드 정리, `game/README.md`, 문서 정리)는 진행 중이었다. <!-- 5번 합친 뒤 갱신 -->
+  - 추가 개선: 데스신 뒤 카드 이름의 'Lv1' 숨김(대본에 맞춤)·`?scene=` 바로 가기 판은 저장 안 함(`?save=1`로 저장)·휴대폰 안내 상자와 메뉴 단추 겹침 고침, 행동이 같은 정리(안 쓰는 문구·도구 지움, `core/rules_map.gd`로 지도·방 규칙 나눔), `game/README.md` 새로 씀, 옛 문서 `docs/archive/`로.
 - 그림(1층, 번호 69개): 통과 43 · 1차본을 임시로 씀 12(39 노엘·카드 45~53·55·60) · 못 받음 14(10·61~65·67~74). → `docs/art-todo.md`
 - 시험(4번까지 합친 뒤): check-scripts 42 ok · `test_rules` 90 · CI와 같은 헤드리스 경로 에러 0 · 스모크 A~F+S+M. 푸시는 `15b9e00`까지. <!-- 5번 합친 뒤 갱신 -->
 
@@ -41,12 +40,13 @@
 | 그림 | 18 계단 방향 · 23 죽은 마녀 머리색(그대로 추천) · 60 카드 ↔ 대본 221행 · 67 이름표(생략 추천) · `remove_bg.py` 도구를 고칠지 | `docs/art-todo.md` 4장 |
 | 규칙 | 계단 앞 홀·가장 깊은 곳에서도 촛불이 타는가 · 3턴 짓밟기가 다른 동료·노엘에게도 피해를 주는가 · 강적 보상(지금 기본안) · 거대한 발 막힘을 고친 방식(받아들이면 물러남, 쓰러진 동료 HP 1·상처 1장)이 맞는가 · 그 밖의 `[판단]`·`[임시]` 표시(전멸 뒤 다시 하기 노엘 HP, 새 카드 「이름 없는 마녀의 카드」 등) | `game/DECISIONS.md` 열린 질문 1~3 · 「버그·난이도 자동 시험」 |
 | 난이도 | 제안 4개(수치는 안 바꿈): 기둥 붕괴가 노엘도 치는가 · 화형대 모두 거스른 경로 · 1층이 쉬움 · 장례 회랑 2턴 엘리안 HP 1 | `docs/balance-report.md` |
-| 문구 | 2·3층 말투(제안 25건) · 슬더스와 겹치는 이름 대안(「상처」·턴 종료·에너지·강적) · 데스신 뒤 카드 이름의 'Lv1' 숨기기 · 엘리안 비명 반말 · 긴 안내 상자 나누기 | `docs/text-review.md` |
+| 문구 | 2·3층 말투(제안 25건) · 슬더스와 겹치는 이름 대안(「상처」·턴 종료·에너지·강적) · 엘리안 비명 반말 · 긴 안내 상자 나누기 | `docs/text-review.md` |
 | 독창성 | 슬더스와 비슷한 요소를 바꿀지(좌판·훈련장의 '여러 장 중 1장' 포함) | `docs/originality-review.md` 3장 |
 | 기본 기능 | 타이틀 배경·가로 띠·부제 "버티컬 슬라이스 시험판" · 시험 단추 뺄지 · 지도로 돌아올 때도 저장할지 · 결과 요약에서 저장 지우기 · 글자 속도 배율 · 끝내기 확인 창 · 아이폰 Safari 전체 화면(실기기 미확인) | `game/DECISIONS.md` 「기본 기능」 |
 | 배치 C | 보고만: 거대한 발에서 세라피나 HP 판이 발 아랫변을 덮음 · 가장 깊은 곳 어깨 약 35px · 기도실·무덤지기 방 HP 판 | `docs/overnight-plan.md` 「아침 보고」 |
 | 미결 기획 | 대표 카드 컷인을 AI 영상으로 바꿀지(2026-11-16 미결, 컷인 1개 시험 뒤 결정) · 타락도·사제·도적(미정) · `CLAUDE.md`에 "새 세션은 `docs/handoff.md`부터" 한 줄을 넣을지 | `docs/fate-design.md` |
-<!-- 5번 합친 뒤 갱신: 5번에서 생긴 결정 거리 -->
+| 화면·정리 | 휴대폰 전투에서 안내 상자가 적의 예고를 덮음(안: 안내마다 위·아래 자리 정하기 / 휴대폰만 글씨 줄이기 / 긴 안내 나누기) · 카드 아래 주인 이름이 옛 카드 틀 장식선에 얹혀 읽기 어려움(10번 카드 틀 받을 때 같이) · `?scene=` 탭은 「타이틀로」 뒤에도 저장 안 함이 괜찮은지 · 옛 도구 `tools/pixel_sheet.py`·`build_web.py`·`make_char_prompts.py` 지울지 | `game/DECISIONS.md` 「추가 개선(밤샘 5)」 |
+| 그 밖의 미정 | 사이트 루트(지금 HTML 프로토타입)를 Godot 판으로 바꿀지 · 아이폰 실기기 확인 · 마녀만 죽음을 보는 이유, 죽음 카드 정식 이름(인스크립션 'Deathcard'와 겹침), 파티 성비 · 마케팅 문구는 "동료가 죽는다"가 아니라 "죽음을 미리 보고 카드로 쓰는 마녀" | `docs/archive/status-2026-11-22-full.md` |
 
 ## 6. 작업 규칙
 `CLAUDE.md`(질문으로 95% 확신, 추측 대신 검색, 모호한 말 금지, 완료 보고에 실행한 시험 명시, DRY, 범위 지키기, 파괴적 명령 전 확인)는 그대로 지킨다. 아래는 대화에서 받은 것 중 지금도 유효한 것.
@@ -81,7 +81,7 @@
 - 모델 이름은 커밋·PR에 넣지 않는다. 푸시는 `cc/amazing-darwin-nesbwh`로만, 강제 푸시·히스토리 고치기 금지. 검증을 통과한 것만 푸시한다(푸시하면 웹에 배포).
 - 결정 문서(`docs/vertical-slice.md`·`docs/tutorial-script-vs.md`·`docs/art-direction.md`·`docs/prompts/*`)의 내용은 사용자 결정 없이 바꾸지 않는다.
 - 배포: `.github/workflows/witch-web-build.yml` — `game/**` 푸시 때 검사·규칙 시험·웹 내보내기 → gh-pages `godot/`(스크린샷·로그는 `godot-ci/`). 헤드리스·스모크까지 도는 전체 검증은 수동 실행(`full`)인데 이 세션 권한으로는 부를 수 없어(403) 로컬에서 돌린다. 배포하면 새로고침만으로 새 버전이 뜨도록 서비스 워커를 바꾸는 `tools/web_sw_patch.py`를 유지한다(2026-11-17 사용자 요청).
-- 시험 명령: `game/PROGRESS.md` 「로컬 검증 방법」. <!-- 5번 합친 뒤 갱신: game/README.md로 옮겼으면 그쪽 -->
+- 시험 명령·주소 옵션·새 그림 넣는 법·배포: `game/README.md`(3·2·4·5장). 대량 자동 시험은 `tools/batch_autoplay.py`(`docs/balance-report.md`).
 - 검증 범위(2026-11-16): 작은 수정은 check-scripts·규칙 시험·바뀐 곳 스크린샷만, 큰 작업이 끝나면 헤드리스 경로 전체 + 스모크. 시험을 지우거나 약하게 하지 않는다. 사용자가 시간을 정해 바로 해 보려 할 때는 그림·핵심만 넣어 먼저 배포한다(2026-11-21).
 
 **알려진 제약**
@@ -90,33 +90,34 @@
 - 사용자가 작업 중에 붙인 그림은 파일로 남지 않을 수 있다 → 저장 안 됐으면 다시 첨부를 부탁한다.
 
 ## 7. 문서 지도
-<!-- 5번 합친 뒤 갱신 -->
-읽는 순서: 이 문서 → `CLAUDE.md` → 필요한 것만 아래에서.
+읽는 순서: 이 문서 → `CLAUDE.md` → 일에 따라 아래에서 필요한 것만. 같은 내용은 한 곳에만 두고 나머지는 링크한다.
 
 | 문서 | 역할 |
 |---|---|
-| `CLAUDE.md` | 세션 상비 규칙(고치지 않음) |
-| `docs/art-todo.md` | 그림 받을 것·고칠 것·정할 것, 프롬프트 전문 |
-| `docs/vertical-slice.md` | 버티컬 슬라이스 기획: 진행 방식·층 구성·1층·전투 배치·움직임 시험·일정 [결정] |
-| `docs/tutorial-script-vs.md` | 튜토리얼 대본 v3 + 말투 규칙 [결정] |
-| `docs/art-direction.md` | 그림체 D·캐릭터 디자인·데스신 수위·ChatGPT 요령·5-1 검수 [결정] |
-| `docs/prompts/vs_assets.md` · `vs_assets_rest.md` | 1층 그림 프롬프트 원본(1~12 / 11~74) [결정] |
-| `docs/fate-design.md` | 운명·죽음 카드 설계(일부는 버티컬 슬라이스 결정으로 바뀜) |
-| `docs/overnight-plan.md` | 밤샘 계획·진행·아침 보고 |
-| `docs/balance-report.md` · `docs/text-review.md` · `docs/originality-review.md` | 난이도 보고 · 문구 제안 · 슬더스 비교(모두 제안) |
+| `docs/handoff.md` | **이 문서** — 시작점(상태·할 일·정할 것·작업 규칙·문서 지도) |
+| `CLAUDE.md` | 저장소 상비 규칙(고치지 않음) |
+| `game/README.md` | 개발 방법: 폴더·파일 역할, 주소 옵션, 시험, 새 그림 넣기, 배포 |
+| `game/DECISIONS.md` · `game/PROGRESS.md` | 판단 기록·열린 질문·그림 대응표 · 진행 기록(날짜순) |
+| `docs/art-todo.md` | 그림 받을 것·고칠 것·정할 것, 프롬프트 전문과 받을 순서 |
+| `docs/vertical-slice.md` | **[결정]** 버티컬 슬라이스 기획: 진행 방식·층 구성·1층·전투 배치·일정 |
+| `docs/tutorial-script-vs.md` | **[결정]** 튜토리얼 대본 v3 + 말투 규칙 |
+| `docs/art-direction.md` | **[결정]** 그림체 D·캐릭터·데스신 수위·ChatGPT 요령·5-1 검수 |
+| `docs/prompts/vs_assets.md` · `vs_assets_rest.md` | **[결정]** 1층 그림 프롬프트 원본(1~12 / 11~74) |
+| `docs/fate-design.md` | 운명·죽음 카드 설계(일부는 버티컬 슬라이스에서 바뀜 — 표시됨) |
+| `docs/combat-system.md` · `docs/prototype-v2-spec.md` | 전투 규칙 v0.1(수치 주석의 기준) · 시험판 v2 지시서(지금 2·3층 코드의 기준) |
+| `docs/balance-report.md` · `docs/text-review.md` · `docs/originality-review.md` | 밤샘 보고(모두 제안): 난이도·버그 · 문구 · 슬더스 비교 |
+| `docs/overnight-plan.md` | 2026-11-22 밤샘 계획·진행·아침 보고(기록) |
 | `docs/review-brief.md` | 외부(GPT) 검토용 기획 요약 |
-| `docs/status.md` | 지금 상태 요약(5번에서 줄이는 중) |
-| `game/DECISIONS.md` | 판단 기록·열린 질문·그림 대응표 |
-| `game/PROGRESS.md` | 진행 상황·시험 명령·주소 옵션 |
-| `game/README.md` | 폴더·파일 역할, 새 그림 넣는 법(5번에서 씀) |
+| `docs/status.md` | 옛 시작점 — 지금은 이 문서로 안내만 |
+| `HANDOFF.md`(루트) | 처음 인계 문서(2026-11-15, 결정 14장). 그 뒤 결정은 위 문서들이 우선 |
 | `reference/trials/README.md` | 배치·움직임 시험 자료 |
-| `HANDOFF.md`(루트) 외 옛 문서 | 2026-11-15 인계 문서·옛 기획(전투·프로토타입·탐색 등). 5번에서 `docs/archive/`로 옮기는 중 |
+| `docs/archive/README.md` | 쓰지 않는 옛 문서(옛 대본·흐름·HTML 프로토타입·옛 status 전체판) |
 
 ## 8. 작업 사본·브랜치 (삭제는 사용자 확인 뒤)
 - 합치지 않은 로컬 브랜치
   - `worktree-agent-a8de433fd145a0d70`(`dd55a8f`, 11/15 Godot 골격): 코드·설정 파일 28개는 같은 경로로 모두 작업 브랜치에 있고(그 뒤 개발이 이어진 판), 작업 브랜치에 없는 그림 28장은 지금 쓰지 않는 옛 그림(같은 그림이 `prototype/assets/`에 있음). 버려도 된다.
   - `cc/vigilant-dirac-751x7b`: 이전 게임 '에스카'(gh-pages `eska/`). 이 프로젝트와 별개라 그대로 둔다.
-  - `overnight-5-polish`: 할 일 5 진행 중. <!-- 5번 합친 뒤 갱신 -->
+  - 밤샘 브랜치 `overnight-3-text-review`·`overnight2-batch-test`·`overnight-4-anim`·`overnight-5-polish` 와 그 작업 사본은 모두 작업 브랜치에 합쳤다.
 - 나머지 작업 사본 17개(`.claude/worktrees/agent-*`)는 모두 작업 브랜치에 합쳐졌고, 마지막 커밋 뒤에 바뀐 파일이 없다(파일 시각으로 확인).
 - 임시 폴더(이전 세션 scratchpad)의 작업 사본 `eska`(에스카 브랜치)·`ghp`(gh-pages, 분리된 HEAD)는 합칠 것 없음.
 - 원격에만 있는 옛 브랜치(2026-09~10, 이 게임 이전 작업): `backup/eska-web-2026-10-23`, `cc/elegant-wright-9faynm`, `cc/relaxed-cray-ncjluh`, `ccr-7114ba95-8q1i5u`, `claude/metroidvania-gdd-setup-3y3wxy`.
