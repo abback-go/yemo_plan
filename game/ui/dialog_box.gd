@@ -122,7 +122,7 @@ func relayout() -> void:
 	# 전투 중에는 적·예고를 가리지 않게 적 줄 바로 아래(화면 위쪽 절반)에, 그 밖에는 화면 맨 위에 띄운다
 	var gy := 18.0
 	if G.ctl and G.ctl.in_battle and not G.scenes.is_open():
-		gy = float(GameData.D.layout.get("guideBattleY", 396))
+		gy = float(G.view.LY().get("guideBattleY", 396))   # 배경마다 (battleLayouts)
 	guide.position = Vector2(960 - gw * u / 2.0, gy)
 	guide_title.position = Vector2(30, 14)
 	guide_text.position = Vector2(30, 52)

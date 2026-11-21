@@ -2,7 +2,8 @@
 ##  · 대상 카드: 카드를 끌면 손에서 화살표 → 유효 대상 위에서 놓으면 사용
 ##  · 대상 없는 카드: 손패 위쪽으로 끌어올려 놓으면 사용
 ##  · 운명 전가: ① 적의 예고에 놓기 → ② 새로 맞을 아군 누르기 (빈 곳·우클릭·Esc: 취소)
-##  · 잠긴 죽음 카드: 끌거나 누르면 손패로 돌아가고 노엘의 속마음이 뜬다(대본 2장)
+##  · 동료 대상 카드(「작은 손의 부적」): 동료 위에서 놓으면 사용
+##  · 낼 수 없는 카드(죽음 카드·뒤집힌 카드·상처·흉터): 끌어도 손패로 돌아가고 짧은 알림
 ## 터치에는 마우스 올림이 없다: 카드를 누르고 있으면 확대, 끌면 사용 / 적 예고를 탭하면 대상 선 / 빈 곳을 탭하면 대사 넘김
 class_name BattleInput
 extends Node
@@ -146,7 +147,10 @@ func _on_down(is_touch: bool) -> void:
 	H().hover_uid = ""
 	# 누르고 있는 동안은 확대해서 보여 주고(대상 없는 카드도), 끌기 시작하면 사용 조작으로
 	H().lifted_uid = uid
-	V().highlight(drag.valid, d.target, null)
+	if d.target == "ally":
+		V().highlight(null, "ally", drag.valid)
+	else:
+		V().highlight(drag.valid, d.target, null)
 	H().layout()
 
 
@@ -172,8 +176,15 @@ func _update_drag() -> void:
 		H().drag_uid = drag.uid
 		H().drag_mode = "aim"
 		H().layout()
-		if not Rules.is_locked(G.ctl.st, drag.uid):
+		if Rules.can_play(G.ctl.st, drag.uid).ok:
 			H().aim_grab(drag.uid)
+	if drag.spec == "ally":
+		var al := V().ally_at(p)
+		var hot_a: String = al if drag.valid.has(al) else ""
+		if hot_a != drag.hot:
+			drag.hot = hot_a
+			V().hot("", hot_a)
+		return
 	var en := V().enemy_at(p)
 	var hot_id: String = en if drag.valid.has(en) else ""
 	if hot_id != drag.hot:
@@ -186,11 +197,6 @@ func _on_up() -> void:
 		return
 	var st: Dictionary = G.ctl.st
 	var uid: String = drag.uid
-	# 잠긴 죽음 카드: 끌거나 누르면 손패로 돌아가고 속마음이 뜬다
-	if Rules.is_locked(st, uid):
-		cancel_drag()
-		G.ctl.locked_try(uid)
-		return
 	if not drag.moved:
 		cancel_drag()
 		return
@@ -208,6 +214,18 @@ func _on_up() -> void:
 			cancel_drag()
 		return
 	_update_drag()
+	if drag.spec == "ally":
+		if not chk.ok:
+			FX.toast(G.ctl.reason_text(chk.reason))
+			cancel_drag()
+		elif drag.hot == "":
+			if p.y < pz:
+				FX.toast(G.ui("needAlly"))
+			cancel_drag()
+		else:
+			mode = "busy"
+			G.ctl.play_card(uid, {"ally": drag.hot})
+		return
 	if drag.hot == "":
 		var over := V().enemy_at(p)
 		if not chk.ok:
@@ -291,7 +309,7 @@ func draw_overlay(ci: CanvasItem) -> void:
 func _draw_intent_lines(ci: CanvasItem, enemy_id: String) -> void:
 	var it = V().vm.intents.get(enemy_id)
 	var r = V().intent_rect(enemy_id)
-	if it == null or r == null:
+	if it == null or r == null or it.get("hidden", false):
 		return
 	var a := Vector2(r.get_center().x, r.end.y)
 	var targets := []

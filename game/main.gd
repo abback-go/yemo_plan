@@ -1,9 +1,10 @@
 ## main.gd — 시작: 화면 레이어를 만들고 각 부분을 등록한다. 1920×1080 무대를 창에 맞춰 비율 유지(project.godot stretch).
 ## 휴대폰 세로면 "가로로 돌려 주세요". 작은 화면이면 대사·안내·카드 확대 글씨를 키운다(FX.update_screen).
 ## 주소 뒤 옵션(웹): ?seed=7 · ?speed=4 · ?scene=giant(바로 시작) · ?test=1(시험 훅) · ?autoguide=1 · ?guides=reset · ?run=2
-##   ?scene=topdown — 픽셀아트 탑뷰 이동 시험판(튜토리얼 흐름과 따로, scenes/topdown.gd)
-##   1차 시험판 v2 바로 가기: ?scene=camp | cult | fork | deep | emptycamp | floor2 | ossuary | f2stairs | floor3&brun=alive|dead | pyre | result
-##   ?fates=offer,defy,… (운명의 시도 자동 선택, 순서대로) · ?followers=0 (동료 따라 걷기 끔 — 운명의 시도 때만 나타남)
+##   바로 가기: ?scene=camp | corridor | hall | map | room:<방>(prayer·gravekeeper·buried·corpse·chapel·training·stall·footprints·stairs·deep)
+##             | giant | emptycamp | floor2 | ossuary | f2stairs | floor3&brun=alive|dead | pyre | result
+##   자동 진행(--autoguide --autoplay): --rooms=방,방… (지도에서 들를 방 순서) · --choice=값,… · --reward=카드|skip · --train=카드
+##   · ?fates=accept(=offer),defy,… (운명의 시도 자동 선택, 순서대로)
 extends Node
 
 var stage: Node2D
@@ -60,7 +61,7 @@ func _ready() -> void:
 	FX.banner_label = banner
 	var toast := Control.new()
 	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	toast.z_index = 320
+	toast.z_index = 445   # 장면(VN·지도, 400)보다 위 · 대사창(450)보다 아래 — 방에서 얻은 것·촛불 알림이 보이게
 	toast.visible = false
 	var tl := UI.label("", 26, Color("#ffd9dc"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER)
 	tl.position = Vector2(26, 10)
@@ -81,7 +82,7 @@ func _ready() -> void:
 	scenes.z_index = 400
 	stage.add_child(scenes)
 	G.scenes = scenes
-	# 탑뷰·컷신 같은 장면이 열려 있으면 입자·선 효과를 장면 위에 그린다 (전투 중에는 아래 Fx 층)
+	# VN·지도·컷신 같은 장면이 열려 있으면 입자·선 효과를 장면 위에 그린다 (전투 중에는 아래 Fx 층)
 	fx_top = Node2D.new()
 	fx_top.name = "FxTop"
 	fx_top.z_index = 440
@@ -127,7 +128,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_on_resize)
 	_on_resize()
 	if G.params.has("scene"):
-		ctl.jump(str(G.params.scene), {"sera": G.params.sera} if G.params.has("sera") else {})
+		ctl.jump(str(G.params.scene))
 	else:
 		scenes.title()
 
@@ -216,7 +217,7 @@ func _on_resize() -> void:
 func _unhandled_input(e: InputEvent) -> void:
 	if rotate_hint.visible:
 		return
-	# PC: 스페이스·엔터로 대사·안내 상자 넘기기 (탑뷰·대화 장면은 각자 처리)
+	# PC: 스페이스·엔터로 대사·안내 상자 넘기기 (대화 장면은 각자 처리)
 	if e is InputEventKey and e.pressed and not e.echo and e.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]:
 		if G.dialog.is_busy():
 			G.dialog.advance()

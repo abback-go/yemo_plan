@@ -1,9 +1,9 @@
 ## test_api.gd — 자동 시험용 훅 (웹 빌드, 주소에 ?test=1 일 때만).
 ## Godot 캔버스에는 DOM 이 없으므로 JavaScriptBridge 로 window.witch 에 함수를 붙인다.
 ## 함수의 결과는 window.__witchOut (JSON 문자열)에 남긴다 — 시험 쪽에서 W(name, ...args) 로 부르고 읽는다.
-##   state() · jump(scene, opts) · play(cardId, target) · endTurn() · advance() · pickPath(id) · choose(value) · train(id)
-##   openMap() · closeMap() · winBattle() · geom(kind, id) · handCut() · resetGuides() · setSpeed(n)
-##   탑뷰 시험판: state().topdown (노엘 발끝·방향·걷기 그림·조사·출구·동료 followers·조이스틱 stick·조사 버튼 btn) · geom("tdItem"|"tdExit", id) · geom("tdMap", "x,y") (맵 픽셀 → 무대 좌표)
+##   state() · jump(scene, opts) · play(cardId, target) · endTurn() · advance() · choose(value) · pick(cardId|"skip") (카드 고르기: 보상·거래·훈련)
+##   room(id) (지도: 그 방으로 바로 들어감) · winBattle() · enemyHp(id, hp) · geom(kind, id) · handCut() · resetGuides() · setSpeed(n) · fate(offer|defy)
+##   geom: card · enemy · intent · ally · endTurn · room(지도의 방) · enter(지도의 들어간다 버튼) · pick(카드 고르기의 카드, "skip" = 넘기기) · fateBtn · button
 class_name TestApi
 extends Node
 
@@ -17,8 +17,8 @@ func _ready() -> void:
 		return
 	_win = JavaScriptBridge.get_interface("window")
 	_obj = JavaScriptBridge.create_object("Object")
-	for name in ["state", "jump", "play", "endTurn", "advance", "pickPath", "choose", "train", "openMap", "closeMap", "winBattle", "enemyHp", "geom", "handCut", "resetGuides", "setSpeed", "tapStart", "again",
-			"fate", "tdGo", "tdConfirm"]:
+	for name in ["state", "jump", "play", "endTurn", "advance", "choose", "pick", "train", "room", "winBattle", "enemyHp", "geom", "handCut", "resetGuides", "setSpeed",
+					"fate"]:
 		var cb := JavaScriptBridge.create_callback(_call.bind(name))
 		_cbs.append(cb)
 		_obj.set(name, cb)
@@ -56,37 +56,15 @@ func _call(args: Array, name: String) -> void:
 			r = {"ok": true}
 		"advance":
 			r = advance()
-		"pickPath":
-			var e = G.scenes.current
-			if e is ExploreScene:
-				e.pick(str(_arg(args, 0, "")))
-				r = {"ok": true}
-			else:
-				r = {"ok": false}
 		"choose":
 			var v = G.scenes.current
 			r = {"ok": v is VnScene and v.pick_choice(str(_arg(args, 0, "")))}
-		"train":
-			r = {"ok": false}
-			var cur = G.scenes.current
-			if cur is VnScene:
-				for c in cur.get_children():
-					if c is VnScene.TrainPicker:
-						r = {"ok": c.pick(str(_arg(args, 0, "")))}
-		"openMap":
-			var e2 = G.scenes.current
-			if e2 is ExploreScene:
-				e2.open_map(false)
-			if e2 is TopdownScene and e2.hud:
-				e2.hud.open_map()
-			r = {"ok": e2 is ExploreScene or e2 is TopdownScene}
-		"closeMap":
-			var e3 = G.scenes.current
-			if e3 is ExploreScene and e3.map.visible:
-				e3.map.close()
-			if e3 is TopdownScene and e3.hud and e3.hud.map != null and e3.hud.map.visible:
-				e3.hud.map.close()
-			r = {"ok": true}
+		"pick", "train":
+			var pk := _picker()
+			r = {"ok": pk != null and pk.pick(str(_arg(args, 0, "")))}
+		"room":
+			var fm = G.scenes.current
+			r = {"ok": fm is FloorMap and fm.pick(str(_arg(args, 0, "")))}
 		"winBattle":
 			r = win_battle()
 		"enemyHp":
@@ -110,22 +88,6 @@ func _call(args: Array, name: String) -> void:
 		"fate":
 			# 운명의 시도 선택 화면에서 고른다 (offer | defy)
 			r = {"ok": G.scenes.pick_fate(str(_arg(args, 0, "defy")))}
-		"tdConfirm":
-			var tdc = G.scenes.current
-			if tdc is TopdownScene:
-				tdc.confirm()
-			r = {"ok": tdc is TopdownScene}
-		"tdGo":
-			# 탑뷰: 출구(exit:id)·트리거(trigger:id)·물건(item:id) 쪽으로 걸어간다
-			var tdv = G.scenes.current
-			r = {"ok": false}
-			if tdv is TopdownScene:
-				var a := str(_arg(args, 0, "")).split(":")
-				match a[0]:
-					"exit": tdv.auto_exit(a[1])
-					"trigger": tdv.auto_trigger(a[1])
-					"item": tdv.go(Vector2(tdv.item(a[1]).spot[0], tdv.item(a[1]).spot[1]), a[1])
-				r = {"ok": true}
 	_out(r)
 
 
@@ -156,22 +118,37 @@ func state() -> Dictionary:
 	if b != null:
 		var hand := []
 		for u in b.hand:
-			hand.append({"uid": u, "id": st.cards[u].id, "locked": Rules.is_locked(st, u), "playable": Rules.can_play(st, u).ok, "up": Rules.is_up(st, u), "lv": Rules.level(st, u)})
+			hand.append({"uid": u, "id": st.cards[u].id, "faceDown": Rules.is_face_down(st, u), "playable": Rules.can_play(st, u).ok, "up": Rules.is_up(st, u), "lv": Rules.level(st, u)})
 		var ens := []
 		for e in b.enemies:
 			ens.append({"id": e.id, "hp": e.hp, "alive": e.alive, "intent": e.intent})
-		s.battle = {"enc": b.enc, "kind": b.kind, "turn": b.turn, "phase": b.phase, "result": b.result, "energy": b.energy, "hand": hand, "enemies": ens,
+		s.battle = {"enc": b.enc, "kind": b.kind, "turn": b.turn, "phase": b.phase, "result": b.result, "energy": b.energy, "hand": hand, "enemies": ens, "darkness": b.get("darkness", 0),
 			"shadow": G.view.shadow_v, "footZ": G.view.layers.foot.z_index, "alliesZ": G.view.layers.allies.z_index}
 	var cur = G.scenes.current
-	if cur is ExploreScene:
-		s.explore = {"place": cur.place, "selected": cur.selected, "map": cur.map.visible, "walking": cur.walking, "paths": cur.path_list().map(func(p): return p.id)}
-	if cur is TopdownScene:
-		s.topdown = cur.test_state()
 	if cur is VnScene:
-		s.vn = {"name": cur.scene_name, "line": cur.line_index, "choices": cur.choice_btns.size(), "omen": cur.omen.showing, "typing": cur.typing}
-	if cur is TopdownScene and cur.vn != null:
-		s.vn = {"name": cur.vn.scene_name, "line": cur.vn.line_index, "choices": cur.vn.choice_btns.size(), "omen": cur.vn.omen.showing, "typing": cur.vn.typing, "overlay": true}
+		s.vn = {"name": cur.scene_name, "line": cur.line_index, "choices": cur.choice_btns.size(), "omen": cur.omen.showing, "typing": cur.typing,
+			"choiceValues": cur.choice_btns.map(func(b): return {"value": str(b.get_meta("value", "")), "disabled": b.disabled})}
+	if cur is FloorMap:
+		var rooms := {}
+		for id in cur.rooms():
+			rooms[id] = Rules.room_state(st, id)
+		s.map = {"rooms": rooms, "sel": cur.sel, "busy": cur._busy, "enter": cur.enter_btn.visible}
+	var pk := _picker()
+	if pk != null:
+		s.picker = pk.hits.map(func(h): return str(h.get_meta("value")))
 	return s
+
+
+## 지금 떠 있는 카드 고르기 화면 (전투 보상 덮개 또는 VN 안의 훈련·거래)
+func _picker() -> CardPick:
+	if G.scenes.picker != null and is_instance_valid(G.scenes.picker):
+		return G.scenes.picker
+	var cur = G.scenes.current
+	if cur is VnScene:
+		for c in cur.get_children():
+			if c is CardPick:
+				return c
+	return null
 
 
 func play(card_id: String, target_json: String) -> Dictionary:
@@ -188,9 +165,6 @@ func play(card_id: String, target_json: String) -> Dictionary:
 	var t := {}
 	if target_json != "":
 		t = JSON.parse_string(target_json)
-	if Rules.is_locked(st, uid):
-		G.ctl.locked_try(uid)
-		return {"ok": false, "reason": "locked"}
 	G.ctl.play_card(uid, t)
 	return {"ok": true}
 
@@ -202,9 +176,6 @@ func advance() -> Dictionary:
 	var cur = G.scenes.current
 	if cur is VnScene:
 		cur.tap()
-		return {"ok": true, "what": "vn"}
-	if cur is TopdownScene and cur.vn != null:
-		cur.vn.tap()
 		return {"ok": true, "what": "vn"}
 	if cur is Control and G.scenes.current_name == "cutscene" and not G.scenes.cut.is_empty() and G.scenes.cut.get("waiter") != null:
 		G.scenes.cut.waiter.finish()
@@ -253,31 +224,26 @@ func geom(kind: String, id: String) -> Dictionary:
 		"endTurn":
 			var e := Rect2(v.end_btn.position, v.end_btn.size)
 			return {"x": e.get_center().x, "y": e.get_center().y}
-		"path":
-			var cur = G.scenes.current
-			if cur is ExploreScene:
-				for pa in cur.path_list():
-					if pa.id == id:
-						return {"x": pa.x, "y": pa.y}
-		"tdItem", "tdExit", "tdMap":
-			var td = G.scenes.current
-			if td is TopdownScene:
-				var mp := Vector2.ZERO
-				if kind == "tdMap":
-					var xy := id.split(",")
-					mp = Vector2(float(xy[0]), float(xy[1]))
-				else:
-					var conf: Dictionary = td.item(id) if kind == "tdItem" else td.exit_conf(id)
-					if conf.is_empty():
-						return {}
-					mp = Vector2(conf.at[0], conf.at[1])
-				var sp: Vector2 = td.to_stage(mp)
-				return {"x": sp.x, "y": sp.y}
-		"mapClose":
-			var tdm = G.scenes.current
-			if tdm is TopdownScene and tdm.hud and tdm.hud.map != null:
-				var mr: Rect2 = tdm.hud.map.close_btn.get_global_rect()
-				return {"x": mr.get_center().x, "y": mr.get_center().y}
+		"room", "enter":
+			var fm = G.scenes.current
+			if fm is FloorMap:
+				if kind == "enter":
+					if fm.enter_btn.visible:
+						var er: Rect2 = fm.enter_btn.get_global_rect()
+						return {"x": er.get_center().x, "y": er.get_center().y}
+				elif fm.rooms().has(id):
+					var rp: Vector2 = fm.room_pos(id)
+					return {"x": rp.x, "y": rp.y}
+		"pick":
+			var pk := _picker()
+			if pk != null:
+				if id == "skip" and pk.skip_btn != null:
+					var sr: Rect2 = pk.skip_btn.get_global_rect()
+					return {"x": sr.get_center().x, "y": sr.get_center().y}
+				for h in pk.hits:
+					if str(h.get_meta("value")) == id:
+						var hr: Rect2 = h.get_global_rect()
+						return {"x": hr.get_center().x, "y": hr.get_center().y}
 		"fateBtn":
 			# 운명의 시도 선택 화면의 버튼 (offer | defy)
 			if not G.scenes.fate_picker.is_empty():

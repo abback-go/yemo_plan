@@ -622,7 +622,7 @@ func layout(instant := false) -> void:
 			c.smooth = true
 		else:
 			var q: PackedVector2Array = fi.quad
-			if sink > 0 and Rules.is_locked(st, uid):
+			if sink > 0 and Rules.is_face_down(st, uid):
 				for k in 4:
 					q[k] += Vector2(0, sink)
 			c.set_quad(q, false)

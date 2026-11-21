@@ -1,6 +1,6 @@
-## vn.gd — 비주얼노벨 장면: 캠프(파티 소개) · 갈림길 이벤트(시체·휴식·훈련) · 계단(세라피나와의 대화) · 빈 캠프.
+## vn.gd — 비주얼노벨 장면: 캠프(파티 소개) · 지도의 방마다 장면(전투 전 대사·사건·휴식·훈련·거래·전조) · 계단 앞 홀 · 빈 캠프 · 2·3층 장면.
 ## 대사는 script_data.gd (camp / events), 배경·배치는 game_data.gd (vnScenes / vn / omen). HTML 판 scenes.js 의 캠프 대화를 넓힌 것.
-## 안내 상자 줄(system)은 화면 위쪽 안내 상자로 띄우고 탭을 기다린다.
+## 안내 상자 줄(system)은 화면 위쪽 안내 상자로 띄우고 탭을 기다린다. 게임 결과는 {"call": …} 줄 (do_call).
 class_name VnScene
 extends Control
 
@@ -42,7 +42,7 @@ func setup(name: String, o := {}) -> void:
 	lines = G.S.camp if name == "camp" else G.S.events.get(name, [])
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	size = Vector2(1920, 1080)
-	var conf: Dictionary = GameData.D.vnScenes.get(name, {"bg": "bg_camp.png"})
+	var conf: Dictionary = GameData.D.vnScenes.get(name, {"bg": "bg_vs_camp.webp"})
 	if overlay:
 		conf = {"bg": ""}
 		bg = UI.tex_rect(UI.grad([[0, Color(0, 0, 0, 0.0)], [0.45, Color(0, 0, 0, 0.12)], [1, Color(0, 0, 0, 0.72)]], "v", 4, 128), Rect2(0, 0, 1920, 1080))
@@ -74,6 +74,7 @@ func setup(name: String, o := {}) -> void:
 		tr.modulate.a = 0.0
 		tr.visible = false
 		tr.set_meta("on", false)
+		tr.set_meta("file", file)
 		add_child(tr)
 		stands[k] = tr
 	# 이벤트 제목 (위쪽 작게)
@@ -81,7 +82,7 @@ func setup(name: String, o := {}) -> void:
 	title_l = UI.label(tt, 26, Color("#d9c9b8"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, 6)
 	title_l.position = Vector2(560, 34)
 	title_l.size = Vector2(800, 40)
-	title_l.visible = tt != "" and name != "camp" and not overlay
+	title_l.visible = tt != "" and name != "camp" and name != "emptycamp" and not overlay
 	add_child(title_l)
 	omen = OmenView.new()
 	omen.vn = self
@@ -301,9 +302,39 @@ func _dim_speakers(sp: String) -> void:
 		tr.self_modulate = Color.WHITE if lit else Color(0.5, 0.48, 0.5)
 
 
+## 표정 스탠딩: 그 인물의 스탠딩을 표정 그림(expressions.file, 예: stand_hero_smile.png)으로 바꾼다 — 짧게 겹쳐 바뀐다.
+## 표정마다 같은 캔버스(아래 가운데 기준)라 자리는 그대로. 그림이 없는 표정이면 바꾸지 않는다
+func set_expression(who: String, face: String) -> void:
+	if not stands.has(who):
+		return
+	var file := Assets.expression_file(face)
+	if not Assets.ok(file):
+		return
+	var tr: TextureRect = stands[who]
+	if str(tr.get_meta("file", "")) == file:
+		return
+	tr.set_meta("file", file)
+	if tr.visible and tr.modulate.a > 0.05:
+		var old := TextureRect.new()
+		old.texture = tr.texture
+		old.expand_mode = tr.expand_mode
+		old.stretch_mode = tr.stretch_mode
+		old.position = tr.position
+		old.size = tr.size
+		old.self_modulate = tr.self_modulate
+		old.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(old)
+		move_child(old, tr.get_index() + 1)
+		var an := FX.anim(220, [{"a": 1.0}, {"a": 0.0}], func(v): if is_instance_valid(old): old.modulate.a = v.a, {"node": old})
+		an.finished.connect(func(): if is_instance_valid(old): old.queue_free())
+	tr.texture = Assets.tex(file)
+
+
 ## 한 줄을 보여 주고 탭을 기다린다
 func show_line(ln: Dictionary) -> void:
 	var sp: String = ln.get("speaker", "narr")
+	if ln.has("face"):
+		set_expression("noel" if sp == "inner" else sp, str(ln.face))
 	_dim_speakers(sp)
 	var nm := ""
 	if sp == "inner":
@@ -411,6 +442,13 @@ func play_lines(list: Array) -> void:
 		await show_line(ln)
 
 
+## 선택지를 고를 수 있는가 (hpCost: 노엘 HP 가 그 값 이하이면 못 고른다 — 거래)
+func _choice_ok(o: Dictionary) -> bool:
+	if o.has("hpCost"):
+		return int(G.ctl.st.party.witch.hp) > int(o.hpCost)
+	return true
+
+
 ## 선택지: 버튼을 띄우고 고른 것을 돌려준다
 func choose(opts: Array) -> Dictionary:
 	var w := DialogBox.Waiter.new()
@@ -423,6 +461,8 @@ func choose(opts: Array) -> Dictionary:
 			w.finish(), "serif_bold")
 		b.style_kind = "choice"
 		b.set_meta("value", o.value)
+		b.name = "choice_" + str(o.value)
+		b.disabled = not _choice_ok(o)
 		b.fit(Vector2(80, 22))
 		b.size.x = maxf(b.size.x, 560)
 		b.lbl.size = b.size
@@ -430,11 +470,22 @@ func choose(opts: Array) -> Dictionary:
 		y += b.size.y + 34
 		add_child(b)
 		choice_btns.append(b)
-	if G.autoguide and G.params.has("choice"):
+	if G.autoguide:
+		# 자동 진행: --choice=값,값… 중 이 선택지에 있는 첫 값, 없으면 고를 수 있는 첫 선택지
 		get_tree().create_timer(0.3).timeout.connect(func():
-			for o in opts:
-				if str(o.value) == str(G.params.choice):
-					picked[0] = o
+			if w.finished:
+				return
+			var want: Array = str(G.params.get("choice", "")).split(",", false)
+			var got = null
+			for v in want:
+				for o in opts:
+					if got == null and str(o.value) == str(v) and _choice_ok(o):
+						got = o
+			if got == null:
+				for o in opts:
+					if got == null and _choice_ok(o):
+						got = o
+			picked[0] = got if got != null else opts[0]
 			w.finish())
 	await w.done
 	for b in choice_btns:
@@ -446,7 +497,7 @@ func choose(opts: Array) -> Dictionary:
 ## 테스트·바로 가기: 선택지를 값으로 고른다
 func pick_choice(value: String) -> bool:
 	for b in choice_btns:
-		if b.lbl.text == value or str(value) == str(b.get_meta("value", "")):
+		if (b.lbl.text == value or str(value) == str(b.get_meta("value", ""))) and not b.disabled:
 			b.pressed.emit()
 			return true
 	return false
@@ -462,6 +513,13 @@ func do_call(what: String) -> void:
 				Rules.add_fate(st, fid, int(p.floor))
 		G.ctl.note("fate add " + fid)
 		return
+	# 카드 획득: "gain:카드id" (핏자국 통로 끝의 「이름 없는 마녀의 카드」 등)
+	if what.begins_with("gain:"):
+		var gid := what.substr(5)
+		var gu := Rules.gain_card(st, gid)
+		G.ctl.note("gain " + gid)
+		await G.scenes.card_gain([gu], "inherit", G.ui("gainCard", {"card": Rules.card_name(gid)}))
+		return
 	match what:
 		"descend":
 			G.ctl.descend_events = Rules.descend(st)
@@ -472,11 +530,46 @@ func do_call(what: String) -> void:
 		"rest":
 			Rules.apply_rest(st)
 			G.ctl.note("rest")
+		"omen":
+			st.progress.omen = true
+			G.ctl.note("omen seen")
+		"buried":
+			# 꺼낸다: 손이 찢어진다(노엘 HP) → 아이가 쥐고 있던 부적
+			var bd: Dictionary = GameData.D.buried
+			Rules.hurt_witch(st, int(bd.hp))
+			FX.toast(G.ui("hpLoss", {"n": bd.hp}), 1600)
+			var bu := Rules.gain_card(st, str(bd.card))
+			G.ctl.note("buried open")
+			await G.scenes.card_gain([bu], "inherit", G.ui("gainCard", {"card": Rules.card_name(str(bd.card))}))
+		"trade:candle":
+			if Rules.trade(st, "candle"):
+				st.flags.traded = "yes"
+				var T: Dictionary = GameData.D.trade
+				FX.toast(G.ui("hpLoss", {"n": T.candleHp}) + " · " + G.ui("candleGain", {"n": T.candles, "now": st.progress.candles}), 2000)
+				G.ctl.note("trade candle")
+		"trade:card":
+			var T2: Dictionary = GameData.D.trade
+			var items := Rules.reward_choices(st, "common")
+			var pk := CardPick.new()
+			add_child(pk)
+			var i := await pk.run(items, G.ui("tradeTitle", {"n": T2.cardHp}), "", G.ui("tradeSkip"), str(G.params.get("reward", "")))
+			pk.queue_free()
+			if i >= 0 and Rules.trade(st, "card", items[i]):
+				st.flags.traded = "yes"
+				FX.toast(G.ui("hpLoss", {"n": T2.cardHp}) + " · " + G.ui("gainCard", {"card": Rules.card_name(str(items[i].id), bool(items[i].get("up", false)))}), 2000)
+				G.ctl.note("trade card " + str(items[i].id))
 		"train":
-			var picker := TrainPicker.new()
+			var ids := Rules.train_candidates(st)
+			var tl := []
+			for tid in ids:
+				tl.append({"id": tid, "up": true, "summary": str(GameData.D.upgrades[tid].summary)})
+			var picker := CardPick.new()
 			add_child(picker)
-			var id: String = await picker.run()
+			var k := await picker.run(tl, G.ui("trainTitle"), G.ui("trainHint"), "", str(G.params.get("train", "")))
 			picker.queue_free()
+			if k < 0 or ids.is_empty():
+				return
+			var id: String = ids[k]
 			var u := Rules.upgrade_card(st, id)
 			G.ctl.note("train " + id + " " + u)
 			var up: Dictionary = GameData.D.upgrades.get(id, {})
@@ -490,76 +583,3 @@ func anchor_of(who: String):
 	var tr: TextureRect = stands[who]
 	var an: Array = GameData.D.omen.anchors.get(who, [0.5, 0.3])
 	return tr.position + tr.size * Vector2(an[0], an[1])
-
-
-# ───────── 훈련: 강화할 카드 고르기 ─────────
-class TrainPicker extends Control:
-	signal chosen(id)
-	var cards := []
-
-	func run() -> String:
-		mouse_filter = Control.MOUSE_FILTER_STOP
-		size = Vector2(1920, 1080)
-		var st: Dictionary = G.ctl.st
-		var ids := Rules.train_candidates(st)
-		var dim := ColorRect.new()
-		dim.color = Color(0, 0, 0, 0.6)
-		dim.size = size
-		dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(dim)
-		var title := UI.label(G.ui("trainTitle"), 44, Color("#f6e7c8"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, 6)
-		title.position = Vector2(0, 150)
-		title.size = Vector2(1920, 60)
-		add_child(title)
-		var hint := UI.label(G.ui("trainHint"), 26, Color("#c9b9bc"), "sans", HORIZONTAL_ALIGNMENT_CENTER)
-		hint.position = Vector2(0, 215)
-		hint.size = Vector2(1920, 40)
-		add_child(hint)
-		var k := 1.25
-		var gap := 80.0
-		var total := ids.size() * CardView.W * k + (ids.size() - 1) * gap
-		var x0 := 960 - total / 2.0
-		var picked := [""]
-		var w := DialogBox.Waiter.new()
-		for i in ids.size():
-			var id: String = ids[i]
-			var tmp := "tmp_train_%d" % i
-			st.cards[tmp] = {"uid": tmp, "id": id, "up": true}
-			var holder := Node2D.new()
-			add_child(holder)
-			var cv := CardView.new()
-			holder.add_child(cv)
-			cv.setup_face(st, tmp)
-			var pos := Vector2(x0 + i * (CardView.W * k + gap), 300)
-			cv.set_rect(pos, k, true)
-			cv.glow = 1.0
-			st.cards.erase(tmp)
-			var summary: String = GameData.D.upgrades[id].summary
-			var sl := UI.label(summary, 28, Color("#ffcf6a"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, 4)
-			sl.position = Vector2(pos.x - 40, pos.y + CardView.H * k + 20)
-			sl.size = Vector2(CardView.W * k + 80, 40)
-			add_child(sl)
-			var hit := Btn.new()
-			hit.setup("", 10)
-			hit.position = pos
-			hit.size = Vector2(CardView.W, CardView.H) * k + Vector2(0, 70)
-			hit.self_modulate.a = 0.0
-			hit.set_meta("value", id)
-			hit.pressed.connect(func():
-				picked[0] = id
-				w.finish())
-			add_child(hit)
-			cards.append(hit)
-		if G.autoguide and G.params.has("train"):
-			get_tree().create_timer(0.3).timeout.connect(func():
-				picked[0] = G.params.train if ids.has(G.params.train) else ids[0]
-				w.finish())
-		await w.done
-		return picked[0]
-
-	func pick(id: String) -> bool:
-		for h in cards:
-			if h.get_meta("value") == id:
-				h.pressed.emit()
-				return true
-		return false
