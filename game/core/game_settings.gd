@@ -46,7 +46,11 @@ static func apply_display() -> void:
 static func fullscreen_available() -> bool:
 	if not OS.has_feature("web"):
 		return true
-	return JavaScriptBridge.eval("!!(document.fullscreenEnabled || document.webkitFullscreenEnabled)", true) == true
+	# JavaScriptBridge.eval 은 JS 참·거짓을 숫자(1·0)로 돌려준다 → 숫자로 묻고 bool() 로. 알 수 없으면 쓸 수 있다고 보고 눌러 본다
+	var r = JavaScriptBridge.eval("(document.fullscreenEnabled || document.webkitFullscreenEnabled) ? 1 : 0", true)
+	if r is int or r is float or r is bool:
+		return bool(r)
+	return true
 
 
 static func is_fullscreen() -> bool:
