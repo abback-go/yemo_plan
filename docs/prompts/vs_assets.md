@@ -78,21 +78,34 @@
 
 ## 1단계 — 움직임 비교 시험 + 전투 화면 목업
 
-### P01 세라피나 뒷모습 — 기본 (움직임 시험 A·B·C 공통 바탕)
-- 첨부: `style_D_seraphina_anchor.webp` · 새 대화창
+### P01 세라피나 뒷모습 — 기본 (움직임 시험 A·B·C 공통 바탕) [2026-11-22 다시 씀]
+- 첨부: `style_D_seraphina_anchor.webp` 한 장 · **새 대화창**
+- 고친 이유: 앞모습 기준 그림 때문에 앞쪽 디테일(앞자락 십자가, 무릎 덮개)이 뒤에 그려지고, 망토가 몸 뒤로 펼쳐져 맨등이 보이거나 다리가 망토 위에 그려졌다. 같은 그림을 수정만 거듭하자 망토가 원뿔 모양으로 흐트러졌다 → 뒤에서 보이는 것을 위에서 아래로, 겹침 순서와 안 보이는 것까지 적는다.
 ```
-Using the attached image as the reference for both the art style and the character design, draw a single full-body rear view of Seraphina for a card game battle screen.
+Draw Seraphina, the holy knight from the attached reference, seen from directly behind, as a full-body game sprite for a card battle screen. The reference shows her from the front; this drawing shows her back, so draw the back side of every piece of her outfit. Do not copy front-side details onto her back.
 
-Art style: a dark fairy-tale picture book illustration — delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson, used sparingly. Match the attached reference exactly in linework and palette. Natural adult proportions, about 7.5 heads tall. Not anime, not chibi.
+ART STYLE
+Match the attached reference: delicate, slightly rough hand-drawn ink linework with faded watercolor washes in bone white, ash gray and sepia; the only vivid color is deep crimson. Natural adult proportions, about 7.5 heads tall, legs not elongated. Not anime, not chibi.
 
-Character: Seraphina, a beautiful holy knight: silver-white plate armor with gold filigree, a bare waist (the breastplate ends below the chest), off-white bandages wrapped from her waist over her hips to the very top of her thighs like short bandage shorts, bare mid-thighs, armored greaves from just above the knees; a long silver braid with a crimson ribbon bow, a crimson cape and a crimson tabard with a gold cross, a sacred longsword with a winged gold guard, a red gem and a crimson ribbon.
+CAMERA AND POSE
+The camera stands a few meters behind her at the height of her shoulders, with a normal lens (no low angle, no wide-angle distortion). She faces directly away from the viewer, feet about shoulder-width apart, weight slightly on one leg, calm and ready. Her right arm (on the right side of the image) hangs at her side holding the sacred longsword point-down, the blade angled slightly outward; her left hand is a loose fist. Her head faces forward, away from the viewer: no part of her face is visible.
 
-Pose and camera: seen directly from behind, the camera just behind her and slightly above head height, looking a little downward. She faces away from the viewer toward an enemy in the distance, in a ready battle stance, the sacred longsword held low in her right hand, the cape hanging down her back. Her face is not visible. Vertical 2:3 composition, full figure from head to feet with a small even margin.
+WHAT IS VISIBLE FROM BEHIND, FROM TOP TO BOTTOM
+- The back of her head: silver hair pulled back, a crimson ribbon tied in a bow at the back of the head, and one long thick braid hanging straight down the center of her back, lying on top of the cape, ending at the small of her back with a crimson tie.
+- The backs of her silver-white pauldrons with gold filigree on both shoulders.
+- A long crimson cape fastened at both shoulders under the pauldrons. It is the layer closest to the viewer: it hangs straight down and covers her entire back, her waist, her buttocks and the backs of her thighs, ending in a torn, ragged hem at the middle of her calves. Between the shoulders and the hem, nothing of her body or legs is drawn on top of the cape.
+- Her armored arms hang outside the cape at her sides, showing the backs of the silver vambraces and gauntlets. A thin crimson thread is tied around her right wrist.
+- Below the cape's hem: the backs of her lower legs in silver-white greaves, showing the smooth calf plates and the backs of the ankles. Her knees face away from the viewer, so no knee caps or front knee plates are visible. Armored heeled boots seen from behind.
+- The sword in her right hand: a sacred longsword with a winged gold guard, a red gem and a crimson ribbon tied at the guard, the blade pointing down toward the ground.
+- Hidden in this view: her face, her front, the gold cross on her tabard, her bare waist and the bandages (all covered by the cape).
 
-Background: plain flat solid pure green (#00FF00), one even color, no paper texture, no gradient, no floor, no cast shadow; no green reflections on the figure.
+FRAMING AND BACKGROUND
+Vertical 2:3, the whole figure from the top of the head to the feet with a small even margin, centered. Background: plain flat solid pure green (#00FF00), one even color, no paper texture, no gradient, no floor, no cast shadow; no green light or reflections on her.
 
-Avoid: face visible, looking back over the shoulder, extra fingers, cape on one shoulder only, heavy magic effects, text, watermark, signature.
+AVOID
+Face visible or head turned, front-side details on her back, a cross or emblem on the back, knee caps or front knee plates visible from behind, legs drawn over the cape, the cape split open showing her back, a cone or dress-shaped cape, extra fingers, elongated legs, text, watermark, signature.
 ```
+- 브룬힐드(P05)·엘리안(P06) 뒷모습도 같은 틀(보이는 것 위→아래, 겹침 순서, 안 보이는 것)로 바꿔 쓴다 — 뽑기 직전에 다시 쓴다.
 
 ### P02 세라피나 뒷모습 — 「성검 베기」 공격 포즈 (시험 A: 포즈 2장 + 코드 연출)
 - 첨부: P01 결과 · 같은 대화창
