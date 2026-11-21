@@ -8,6 +8,7 @@
   - **그림 방향(그림체·캐릭터·데스신·수위·ChatGPT 요령): [`art-direction.md`](art-direction.md)** — 버티컬 슬라이스 그림은 이 문서 기준
   - **버티컬 슬라이스 기획(진행 방식·규칙·층별 기획): [`vertical-slice.md`](vertical-slice.md)**
   - 운명 규칙: [`fate-design.md`](fate-design.md) · 시험판 지시서: [`prototype-v2-spec.md`](prototype-v2-spec.md)
+  - **버티컬 슬라이스 그림 프롬프트: [`prompts/vs_assets.md`](prompts/vs_assets.md)**
   - 옛 그림 프롬프트: [`prompts/`](prompts/) (01~04 캐릭터, 05 장면·적·UI·컷신, 06 추가 그림, 07 탐색 목업, 08 튜토리얼 탐색) — 캐릭터 묘사는 art-direction.md가 최신
 
 ## 1. 사용자 작업 방식 (지켜야 할 것)
