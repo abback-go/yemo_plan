@@ -67,56 +67,98 @@ func _wait_or_tap(ms: float) -> void:
 
 
 # ───────── 타이틀 ─────────
+## 배경(가장 깊은 곳 그림을 어둡게) + 제목 + 양피지 띠(VN 대화창과 같은 9조각) 위의 단추: 시작 / 이어하기 / 설정 / 끝내기.
+## 이어하기는 자동 저장이 없으면 흐리고 눌리지 않는다. 끝내기는 웹에서 숨긴다. 시작·2층부터·3층부터는 저장이 있으면 한 번 묻는다(game_menu.gd new_run).
+## (74번 타이틀 그림이 오면 배경만 바꾸면 된다 — 데모 공개 전 「2층부터」「3층부터」 시험 단추는 뺄지 정한다)
 func title() -> void:
 	G.ctl.in_battle = false
 	G.view.clear()
 	G.dialog.clear()
+	var u := minf(FX.ui, 1.4)
 	var root := Control.new()
 	root.size = Vector2(1920, 1080)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bg := UI.tex_rect(UI.grad([[0, Color("#2a0a10")], [0.55, Color("#0b0507")], [1, Color("#000000")]], "radial", 256, 256, Vector2(0.5, 0.6), 0.75), Rect2(0, 0, 1920, 1080))
-	root.add_child(bg)
-	var line := UI.tex_rect(UI.grad([[0, Color(1, 0.16, 0.24, 0)], [0.5, Color(1, 0.16, 0.24, 0.55)], [1, Color(1, 0.16, 0.24, 0)]], "h", 256, 2), Rect2(0, 539, 1920, 2))
-	root.add_child(line)
+	var art := UI.cover_rect(Assets.tex("bg_vs_deepest_hall.webp"), Rect2(0, 0, 1920, 1080))
+	art.modulate = Color(0.5, 0.45, 0.47)
+	root.add_child(art)
+	root.add_child(UI.tex_rect(UI.grad([[0, Color(0, 0, 0, 0)], [0.55, Color(0.03, 0, 0.01, 0.45)], [1, Color(0, 0, 0, 0.92)]], "radial", 256, 256, Vector2(0.5, 0.4), 0.85), Rect2(0, 0, 1920, 1080)))
+	root.add_child(UI.tex_rect(UI.grad([[0, Color(0, 0, 0, 0)], [0.5, Color(0, 0, 0, 0)], [1, Color(0.02, 0, 0.01, 0.85)]], "v", 4, 128), Rect2(0, 0, 1920, 1080)))
 	var m: Dictionary = G.S.meta
-	var t := UI.label(m.title, 110, Color("#efe3e5"), "serif_wide", HORIZONTAL_ALIGNMENT_CENTER, 12)
-	t.add_theme_color_override("font_outline_color", Color(0.45, 0.04, 0.08, 0.45))
-	t.position = Vector2(0, 330)
-	t.size = Vector2(1920, 150)
+	var t := UI.label(m.title, 120, Color("#f1e6e7"), "serif_wide", HORIZONTAL_ALIGNMENT_CENTER, 16)
+	t.add_theme_color_override("font_outline_color", Color(0.42, 0.03, 0.07, 0.75))
+	t.position = Vector2(0, 190)
+	t.size = Vector2(1920, 170)
 	root.add_child(t)
-	var sub := UI.label(m.subtitle, 30, Color("#b9a3a7"), "serif", HORIZONTAL_ALIGNMENT_CENTER)
-	sub.position = Vector2(0, 500)
+	var sub := UI.label(m.subtitle, int(30 * minf(u, 1.2)), Color("#dccbcd"), "serif", HORIZONTAL_ALIGNMENT_CENTER, 6)
+	sub.position = Vector2(0, 372)
 	sub.size = Vector2(1920, 50)
 	root.add_child(sub)
-	var b := UI.button(m.startButton, 36, func(): G.ctl.start_tutorial())
-	b.fit(Vector2(80, 18))
-	b.position = Vector2(960 - b.size.x / 2.0, 640)
-	b.name = "start"
-	root.add_child(b)
-	# 시험판: 2층·3층부터 바로 (사용자가 운명 흐름만 다시 해 볼 수 있게)
-	var jx := 960.0
-	var jbs := []
+	root.add_child(UI.tex_rect(UI.grad([[0, Color(1, 0.16, 0.24, 0)], [0.5, Color(1, 0.16, 0.24, 0.55)], [1, Color(1, 0.16, 0.24, 0)]], "h", 256, 2), Rect2(360, 440, 1200, 2)))
+	# 양피지 띠 위의 단추
+	var sv: Dictionary = G.ctl.load_save()
+	var items := [["start", func(): G.menu.new_run(func(): G.ctl.start_tutorial())],
+		["continue", func(): G.ctl.continue_game()],
+		["settings", func(): G.menu.open_settings()]]
+	if not OS.has_feature("web"):
+		items.append(["quit", func(): get_tree().quit()])
+	var btns := []
+	var bw := 0.0
+	for it in items:
+		var b := UI.button(G.menu_text(it[0]), int(40 * u), it[1])
+		b.name = it[0]
+		b.fit(Vector2(50, 16) * u)
+		bw = maxf(bw, b.size.x)
+		btns.append(b)
+	var gap := 36.0 * u
+	var row := bw * btns.size() + gap * (btns.size() - 1)
+	var bh: float = btns[0].size.y
+	var band := Rect2(960 - row / 2.0 - 130, 510, row + 260, bh + 160)
+	var VB: Dictionary = GameData.D.vnBox
+	if Assets.ok(str(VB.img)):
+		var fr := NinePatchRect.new()
+		fr.texture = Assets.tex(str(VB.img))
+		var mg: Array = VB.margin
+		fr.patch_margin_left = int(mg[0])
+		fr.patch_margin_top = int(mg[1])
+		fr.patch_margin_right = int(mg[2])
+		fr.patch_margin_bottom = int(mg[3])
+		fr.position = band.position
+		fr.size = band.size
+		fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(fr)
+	var x := 960 - row / 2.0
+	for b in btns:
+		b.size.x = bw
+		b.lbl.size = b.size
+		b.pivot_offset = b.size / 2.0
+		b.position = Vector2(x, band.position.y + (band.size.y - bh) / 2.0)
+		x += bw + gap
+		root.add_child(b)
+	btns[1].disabled = sv.is_empty()
+	var y := band.end.y + 14
+	if not sv.is_empty():
+		var sl := UI.label(G.menu_text("savedAt", {"place": GameMenu.place_of(sv)}), int(26 * u), Color("#eadbcc"), "serif", HORIZONTAL_ALIGNMENT_CENTER, 6)
+		sl.position = Vector2(0, y)
+		sl.size = Vector2(1920, 44 * u)
+		sl.name = "saved"
+		root.add_child(sl)
+	# 시험판: 2층·3층부터 바로 (사용자가 운명 흐름만 다시 해 볼 수 있게) — 왼쪽 아래 작게
+	var jx := 36.0
 	for j in [["floor2", m.get("fromFloor2", "2층부터")], ["floor3", m.get("fromFloor3", "3층부터")]]:
 		var sc: String = j[0]
-		var jb := UI.button(str(j[1]), 24, func(): G.ctl.jump(sc), "sans_bold")
+		var jb := UI.button(str(j[1]), int(22 * u), func(): G.menu.new_run(func(): G.ctl.jump(sc)), "sans_bold")
 		jb.style_kind = "small"
-		jb.fit(Vector2(36, 10))
+		jb.fit(Vector2(30, 9))
 		jb.name = "from_" + sc
+		jb.position = Vector2(jx, 1080 - 30 - jb.size.y)
+		jx += jb.size.x + 18
 		root.add_child(jb)
-		jbs.append(jb)
-	var tw := 0.0
-	for jb in jbs:
-		tw += jb.size.x
-	tw += 24.0 * (jbs.size() - 1)
-	jx = 960.0 - tw / 2.0
-	for jb in jbs:
-		jb.position = Vector2(jx, 640 + b.size.y + 40)
-		jx += jb.size.x + 24.0
-	var note := UI.label(m.note, 22, Color("#7d6f72"), "sans", HORIZONTAL_ALIGNMENT_CENTER)
-	note.position = Vector2(0, 1000)
-	note.size = Vector2(1920, 40)
+	var note := UI.label(m.note, 22, Color("#8f8083"), "sans", HORIZONTAL_ALIGNMENT_RIGHT)
+	note.position = Vector2(960, 1080 - 30 - 34)
+	note.size = Vector2(1920 - 960 - 40, 34)
 	root.add_child(note)
 	mount(root, "title")
+	G.ctl.stage = "title"
 	FX.fade(0, 300)
 
 
