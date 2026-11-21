@@ -5,7 +5,7 @@
 
 ## 구조 (버티컬 슬라이스, 2026-11-22)
 - `data/game_data.gd`(수치·지도·랜턴·방에서 얻는 카드·배치·배경별 전투 배치 battleLayouts·VN 대화창 vnBox·그림 대응) · `data/script_data.gd`(대본 v3: 대사·안내·선택지·지도 문구)
-- `core/`: `rules.gd`(전투·운명·지도·촛불·어둠·방에서 얻는 카드 규칙) · `ctl.gd`(장면 흐름: 곁방 → 회랑 → 안치 홀 → 지도 거점 → 방 → 가장 깊은 곳 → 빈 캠프 → 2·3층, 자동 저장·이어하기) · `save_game.gd`(user://save.json) · `game_settings.gd`(user://settings.cfg: 화면·글자 속도) · `guide.gd` · `fx.gd`(일시정지하면 멈추는 연출 시계) · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
+- `core/`: `rules.gd`(전투·운명 규칙) · `rules_map.gd`(지도·촛불·어둠·방에서 얻는 카드·휴식·훈련 규칙 — 2026-11-22 rules.gd 에서 나눔) · `ctl.gd`(장면 흐름: 곁방 → 회랑 → 안치 홀 → 지도 거점 → 방 → 가장 깊은 곳 → 빈 캠프 → 2·3층, 자동 저장·이어하기) · `save_game.gd`(user://save.json) · `game_settings.gd`(user://settings.cfg: 화면·글자 속도) · `guide.gd` · `fx.gd`(일시정지하면 멈추는 연출 시계) · `assets.gd` · `ui.gd` · `test_api.gd`(?test=1 웹 훅) · `autoplay.gd`(자동 진행) · `check_scripts.gd`
 - `ui/`: `game_menu.gd`(메뉴 단추·일시정지·설정·확인 창) · `battle_view.gd`(전투 화면·연출·HUD, 배치는 `LY()`) · `hand.gd` · `card_view.gd`(뒤집힌 카드·뒤집기) · `card_pick.gd`(카드 고르기: 거래·훈련) · `battle_input.gd`(동료 대상 카드) · `dialog_box.gd` · `cutin.gd` · `blood.gd` · `icons.gd`(지도 아이콘) · `btn.gd` · `card_art.gd` · `shaders/`
 - `scenes/`: `scenes.gd`(타이틀·컷신·전멸·운명 선택·카드 획득·층 끝·결과) · `vn.gd`(VN 장면·표정 스탠딩·양피지 대화창) · `floor_map.gd`(지도 거점) · `omen.gd`(죽음 카드 떠오름)
 - 그림: `tools/vs_import.py`(art/raw/vs → game/assets: 크로마 배경 제거 soft 100 + 번짐 정리 + 크기 줄임), 대응표는 DECISIONS.md
@@ -14,9 +14,9 @@
 ## 로컬 검증 방법
 - `godot --headless --path game --import` 두 번 → `godot --headless --path game -- --check-scripts` → `godot --headless --path game --script res://tests/test_rules.gd`
 - 헤드리스 자동 진행(CI 와 같은 5경로는 `.github/workflows/witch-web-build.yml`): `godot --headless --path game -- --scene=camp --speed=10 --autoguide --nosave --autoplay --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy --trace --quit-on-end`
-  - `--nosave`: 자동 저장·설정 파일을 쓰지도 읽지도 않는다(남은 저장이 시험을 바꾸지 않게). 저장이 있는 채로 이어하기를 헤드리스로 보려면 `--nosave` 없이 돌리다 끊고 `--continue` 로 다시(같은 `--rooms` 등)
+  - `--nosave`: 자동 저장·설정 파일을 쓰지도 읽지도 않는다(남은 저장이 시험을 바꾸지 않게). `--scene=` 바로 가기로 연 판은 `--nosave` 를 붙이지 않아도 저장하지 않는다(2026-11-22 밤샘 5). 저장이 있는 채로 이어하기를 헤드리스로 보려면 `--nosave` 대신 `--save` 를 붙여 돌리다 끊고 `--continue` 로 다시(같은 `--rooms` 등)
 - 웹: export "Web" → `python3 tools/web_sw_patch.py <빌드 폴더>` → `python3 -m http.server` → `node game/tests/web/smoke.js http://localhost:8000/ shots` (경로만: 뒤에 `AB` 등, 기본 ABCDEFS)
-- 바로 가기: `?scene=camp|corridor|hall|map|room:<방>|giant|emptycamp|floor2|floor3|result`, 시험용 `&darkness=N&omen=1`, `?nosave=1`, `?continue=1`(타이틀 없이 이어하기)
+- 바로 가기: `?scene=camp|corridor|hall|map|room:<방>|giant|emptycamp|floor2|floor3|result`(바로 가기 판은 저장하지 않음 — `?save=1` 이면 저장), 시험용 `&darkness=N&omen=1`, `?nosave=1`, `?continue=1`(타이틀 없이 이어하기)
 
 ## 완료
 - [x] 골격 가져옴 + 대본 v0.6 + 잠긴 죽음 카드 규칙(1층부터 손패 맨 오른쪽, 4장 드로우, 거대 존재 1턴 해제) + 규칙 테스트 37개
@@ -77,7 +77,7 @@
 - 끝남: 대본 v3 흐름 전체, 지도·촛불·어둠·방 보상, 죽음 카드 컨셉 변경(뒤집힌 카드 → 3턴 짓밟기에 뒤집힘 → 데스신), 2·3층 VN + 전투, 탑뷰·1인칭 탐색 정리,
   CI 인자, 배경별 전투 배치(5-9), 승인된 새 그림(뒷모습·광신도·무덤지기·발·손·카드 뒷면·예고 아이콘·배경 14·스탠딩 표정 11·아이·VN 대화창·카드 그림 17)
 - **전투 승리 뒤 '카드 3장 중 1장' 보상 뺌**(2026-11-21 사용자 지시, 밤샘 계획 0-1): 장례 회랑·기도실은 이겨도 카드 없음. 무덤지기는 **기본안**(고르지 않고 희귀 목록 `rewards.elite` 에서 1장이 강화된 채 덱에). 묘지기의 좌판·무너진 훈련장은 그대로. 슬레이 더 스파이어와 비슷한 점·바꿀 제안은 `docs/originality-review.md`. 자세한 것은 DECISIONS.md 「전투 승리 보상 빼기」.
-- 아직 옛 그림: 카드 틀, 컷인, 지도·랜턴·전투 HUD, 2·3층 배경·적·카드 그림. 세라피나 데스신은 기존 컷.
+- 아직 옛 그림: 카드 틀, 컷인, 지도·랜턴·전투 HUD, 2·3층 배경·적·카드 그림. 세라피나 데스신은 그림체 D 새 6컷(C1·C2·C3a·C3b·C4·C6, `bc0e549` — `reference/deathscene/seraphina_*` → `assets/cut_hero_*.webp`).
 - 노엘 스탠딩: 39 v1 로 **임시** 교체(2026-11-21, 비치는 천의 초록 물듦을 몸 전체 디스필 G = min(G, (R+B)/2) 로 없앰 — DECISIONS.md). 고친 39 가 오면 `python3 tools/vs_import.py --only noel` 로 같은 이름에 다시 만들고 `faces.noel` 얼굴 자리를 다시 잰다.
 - 손패와 세라피나 겹침: 배치 A(손패 +240 내림)·B(세라피나 top 430)는 사용자가 거절, **C 승인·적용**(손 무리 80%·카드 윗변 약 746·동료 셋 50 올림·회랑에서만 세라피나 HP 판 머리 오른쪽) — 값은 DECISIONS.md 열린 질문 항목.
 - **기본 기능(밤샘 계획 1, 2026-11-22)**: 타이틀(시작 / 이어하기 / 설정 / 끝내기 — 웹은 끝내기 없음), 설정(창·전체 화면, 글자 속도 느림·보통·빠름·즉시 — `user://settings.cfg`), 일시정지(Esc·오른쪽 위 메뉴 단추: 계속 / 설정 / 타이틀로 — 연출·데스신 도중에도 멈춤), 자동 저장(방·단계에 들어갈 때 `user://save.json`, 버전 1) → 이어하기는 그 방의 처음부터, 결과 요약에서 지움. 자세한 것은 DECISIONS.md 「기본 기능」.
@@ -109,3 +109,11 @@
   - `anim_{base,a,c}[_nohand]/`: 안마다 전체 녹화(`video/*.webm`)·스틸·구간 프레임. 만든 스크립트는 `scratchpad/verify_4/anim_shots.js`·`frames.py`·`compare.py`·`rig_fit.py`
 - 시험: 스모크 경로 M 추가(기본 경로 목록 `ABCDEFSM`) — `anim=a`·`anim=c` 로 장례 회랑 전투 한 판(실제 드래그로 성검 베기 → 승리), 연출 도중 일시정지하면 화면이 그대로, 콘솔 에러 0. 경로 M 만: `node game/tests/web/smoke.js <주소> <폴더> M`
 - 시험(2026-11-22, 이 작업 끝): check-scripts 42 ok · test_rules 88 통과 · CI 와 같은 헤드리스 5경로 모두 결과 요약까지 에러 0(전멸 1/0/4/3/1, 시드 무작위) · 헤드리스 경로 ①(처음부터, 방 8개)을 `--anim=a`·`--anim=c` 로 한 번씩 에러 0(전멸 0/1) · 웹 내보내기(index.pck 23.36MB) + 스모크 A~F + S + M 114항목 중 113 통과 — 실패 1건은 경로 C 도중 로컬 http 서버가 꺼졌다 다시 켜진 동안의 `net::ERR_FAILED` 2줄(브라우저 콘솔 에러 확인), 경로 C 만 다시 돌려 8 통과·콘솔 에러 0. 경로 M 9 통과.
+
+## 추가 개선 (밤샘 계획 5, 2026-11-22)
+- 브랜치 `overnight-5-polish`(`ddef4c8` 위, 푸시 안 함). 판단은 DECISIONS.md 「추가 개선(밤샘 5)」.
+- 고친 것: 데스신 뒤 「용사의 죽음」·「짓밟힘」의 'Lv1' 숨김(레벨이 오를 수 없는 운명만 — `Rules.shows_level`) · `?scene=` 바로 가기 판은 저장하지 않음(`--save`/`?save=1` 로만) · 휴대폰에서 화면 위 안내 상자가 메뉴 단추(누르는 영역)를 피함 · `tools/__pycache__` 추적 뺌.
+- 정리(행동 그대로, 하나씩 커밋·전후 시험): 안 쓰는 문구 8·상수 2 · `Rules.reward_choices` → `trade_choices` · killAlly 운명 찾기 → `fate_of` · `game/tools/split_hands.py`(새 손 그림을 옛 그림으로 덮어쓰는 도구) 지움 · `tools/fix_imports.py` 탑뷰 처리 지움 · **`core/rules_map.gd`(`MapRules`)**: 지도·랜턴·어둠·방에서 얻는 카드·휴식·훈련 규칙을 rules.gd 에서 나눔(1,580 → 1,372줄).
+- 안 쓰는 그림: 없음(조사 결과는 DECISIONS.md).
+- 문서: `game/README.md` 새로, 옛 문서 5개 → `docs/archive/`(목록 `docs/archive/README.md`), `docs/status.md` 짧게(옛 전체판은 archive), 낡은 문구(세라피나 데스신 새 6컷·옛 승리 보상 설명) 고침.
+- 시험(2026-11-22, `fbb9953`): check-scripts 39 ok · test_rules 91 통과 · CI 와 같은 헤드리스 6경로 모두 결과 요약까지 에러 0(전멸 0/1/0/1/0/0, 시드 무작위, 자동 저장 줄 0) · 웹 내보내기(index.pck 23.0MB) + 스모크 A~F + S 109 통과·실패 0·브라우저 콘솔 에러 0(1087초). 나누기 전·뒤 같은 시드 자동 진행 6쌍 같음.

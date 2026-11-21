@@ -565,7 +565,7 @@ func do_call(what: String) -> void:
 	# 카드 획득: "gain:카드id" (핏자국 통로 끝의 「이름 없는 마녀의 카드」 등)
 	if what.begins_with("gain:"):
 		var gid := what.substr(5)
-		var gu := Rules.gain_card(st, gid)
+		var gu := MapRules.gain_card(st, gid)
 		G.ctl.note("gain " + gid)
 		await G.scenes.card_gain([gu], "inherit", G.ui("gainCard", {"card": Rules.card_name(gid)}))
 		return
@@ -575,9 +575,9 @@ func do_call(what: String) -> void:
 			G.ctl.note("descend → %d층" % Rules.floor_now(st))
 		"heal":
 			if bool(GameData.D.fateRules.get("healOnFloor", true)):
-				Rules.heal_all(st)
+				MapRules.heal_all(st)
 		"rest":
-			Rules.apply_rest(st)
+			MapRules.apply_rest(st)
 			G.ctl.note("rest")
 		"omen":
 			st.progress.omen = true
@@ -585,30 +585,30 @@ func do_call(what: String) -> void:
 		"buried":
 			# 꺼낸다: 손이 찢어진다(노엘 HP) → 아이가 쥐고 있던 부적
 			var bd: Dictionary = GameData.D.buried
-			Rules.hurt_witch(st, int(bd.hp))
+			MapRules.hurt_witch(st, int(bd.hp))
 			FX.toast(G.ui("hpLoss", {"n": bd.hp}), 1600)
-			var bu := Rules.gain_card(st, str(bd.card))
+			var bu := MapRules.gain_card(st, str(bd.card))
 			G.ctl.note("buried open")
 			await G.scenes.card_gain([bu], "inherit", G.ui("gainCard", {"card": Rules.card_name(str(bd.card))}))
 		"trade:candle":
-			if Rules.trade(st, "candle"):
+			if MapRules.trade(st, "candle"):
 				st.flags.traded = "yes"
 				var T: Dictionary = GameData.D.trade
 				FX.toast(G.ui("hpLoss", {"n": T.candleHp}) + " · " + G.ui("candleGain", {"n": T.candles, "now": st.progress.candles}), 2000)
 				G.ctl.note("trade candle")
 		"trade:card":
 			var T2: Dictionary = GameData.D.trade
-			var items := Rules.reward_choices(st, "common")
+			var items := MapRules.trade_choices(st, "common")
 			var pk := CardPick.new()
 			add_child(pk)
 			var i := await pk.run(items, G.ui("tradeTitle", {"n": T2.cardHp}), "", G.ui("tradeSkip"), str(G.params.get("reward", "")))
 			pk.queue_free()
-			if i >= 0 and Rules.trade(st, "card", items[i]):
+			if i >= 0 and MapRules.trade(st, "card", items[i]):
 				st.flags.traded = "yes"
 				FX.toast(G.ui("hpLoss", {"n": T2.cardHp}) + " · " + G.ui("gainCard", {"card": Rules.card_name(str(items[i].id), bool(items[i].get("up", false)))}), 2000)
 				G.ctl.note("trade card " + str(items[i].id))
 		"train":
-			var ids := Rules.train_candidates(st)
+			var ids := MapRules.train_candidates(st)
 			var tl := []
 			for tid in ids:
 				tl.append({"id": tid, "up": true, "summary": str(GameData.D.upgrades[tid].summary)})
@@ -619,7 +619,7 @@ func do_call(what: String) -> void:
 			if k < 0 or ids.is_empty():
 				return
 			var id: String = ids[k]
-			var u := Rules.upgrade_card(st, id)
+			var u := MapRules.upgrade_card(st, id)
 			G.ctl.note("train " + id + " " + u)
 			var up: Dictionary = GameData.D.upgrades.get(id, {})
 			FX.toast(str(G.S.trainResult).replace("{card}", Rules.card_name(id, true)).replace("{summary}", str(up.get("summary", ""))), 2200)

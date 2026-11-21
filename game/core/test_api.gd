@@ -144,7 +144,7 @@ func state() -> Dictionary:
 	if cur is FloorMap:
 		var rooms := {}
 		for id in cur.rooms():
-			rooms[id] = Rules.room_state(st, id)
+			rooms[id] = MapRules.room_state(st, id)
 		s.map = {"rooms": rooms, "sel": cur.sel, "busy": cur._busy, "enter": cur.enter_btn.visible}
 	var pk := _picker()
 	if pk != null:
@@ -279,6 +279,11 @@ func geom(kind: String, id: String) -> Dictionary:
 					if str(fb.get_meta("value", "")) == id:
 						var fr: Rect2 = fb.get_global_rect()
 						return {"x": fr.get_center().x, "y": fr.get_center().y, "w": fr.size.x, "h": fr.size.y}
+		"guide":
+			# 안내 상자(전체 폭 '안내')의 화면 자리 — 메뉴 단추와 겹치지 않는지 보는 데 쓴다
+			if G.dialog.guide.visible:
+				var gb: Rect2 = G.dialog.guide.get_global_rect()
+				return {"x": gb.get_center().x, "y": gb.get_center().y, "w": gb.size.x, "h": gb.size.y}
 		"button":
 			var mb = G.menu.buttons.get(id) if G.menu.panel != "" else (G.menu.corner if id == "menu" and G.menu.corner.visible else null)
 			if mb is Control and is_instance_valid(mb):

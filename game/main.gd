@@ -6,6 +6,7 @@
 ##   자동 진행(--autoguide --autoplay): --rooms=방,방… (지도에서 들를 방 순서) · --choice=값,… · --reward=카드|skip(묘지기의 좌판에서 살 카드 — 전투 승리 보상은 2026-11-21 에 뺐다) · --train=카드
 ##   · ?fates=accept(=offer),defy,… (운명의 시도 자동 선택, 순서대로)
 ##   · ?nosave=1 / --nosave: 자동 저장·설정 파일을 쓰지도 읽지도 않는다(시험 실행 — 남은 저장이 결과를 바꾸지 않게) · ?continue=1: 타이틀 없이 이어하기
+##   · ?scene= 바로 가기로 연 판은 늘 ?nosave=1 처럼(플레이어 저장을 덮어쓰지 않게 — core/game.gd read_params). 일부러 저장하려면 ?save=1 / --save
 ## 메뉴: 화면 오른쪽 위 메뉴 단추·Esc → 일시정지(계속 / 설정 / 타이틀로), 타이틀(시작 / 이어하기 / 설정 / 끝내기) — ui/game_menu.gd
 extends Node
 

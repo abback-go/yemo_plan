@@ -6,8 +6,8 @@
 - 이전 기획 문서(초기 정리본, 이 파일이 더 최신): https://claude.ai/artifact/BX1N57JgC3iskALyN3P4Ba
 - 이 폴더 구성
   - `HANDOFF.md` — 이 문서 (기획 결정사항 전체 + 다음 작업)
-  - `docs/image-prompts.md` — 이미지 생성 프롬프트 (확정본)
-  - `docs/asset-list.md` — 튜토리얼에 필요한 이미지 목록과 규격
+  - `docs/archive/image-prompts.md` — 이미지 생성 프롬프트 (확정본)
+  - `docs/archive/asset-list.md` — 튜토리얼에 필요한 이미지 목록과 규격
   - `reference/images/` — 사용자가 생성·공유한 참고 이미지 7장
 
 표기: **[결정]** = 사용자가 확정 · **[제안]** = 논의 중 나온 안, 사용자가 긍정했지만 최종 확정 전 · **[미정]** = 아직 정하지 않음
@@ -203,7 +203,7 @@
 | `06_cutscene_archer_v2_REJECTED.png` | 사망 컷신 2차 | 폐기. 시선이 위, 입 벌린 웃음이 광기처럼 읽힘 |
 | `07_cutscene_archer_v3_APPROVED.png` | 사망 컷신 3차 (플레이어를 보며 웃음, 등 뒤로 발) | **채택**. 다듬을 점: 발가락이 통나무처럼 보임, 화면 위쪽 그림자 강화 |
 
-※ 04·05는 분위기 목업이며 게임에 그대로 쓸 수 없다. 실제 게임용은 배경·캐릭터·적·UI를 레이어별로 따로 생성해야 한다 (`docs/asset-list.md`).
+※ 04·05는 분위기 목업이며 게임에 그대로 쓸 수 없다. 실제 게임용은 배경·캐릭터·적·UI를 레이어별로 따로 생성해야 한다 (`docs/archive/asset-list.md`).
 
 ## 13. 레퍼런스 게임
 
@@ -219,7 +219,7 @@
 
 ## 14. 2026-11-15 세션 결정 사항 (위 내용보다 우선)
 
-세부는 [`docs/combat-system.md`](docs/combat-system.md), [`docs/prototype-scope.md`](docs/prototype-scope.md) 참고.
+세부는 [`docs/combat-system.md`](docs/combat-system.md), [`docs/archive/prototype-scope.md`](docs/archive/prototype-scope.md) 참고.
 
 - 저장소의 이전 프로젝트(마녀학교×여우신) 문서는 `archive/`로 이동. 참고하지 않는다 **[결정]**
 - **파티 [결정]**: 마녀 + 핵심 동료 5명(용사·전사·궁수·사제·도적). 임시 동료는 소수만
@@ -243,4 +243,4 @@
 - **던전에 온 이유 [결정]**: 왕도의 의뢰로 잿빛 성당 깊은 곳의 광신도 의식을 막으러 왔다. 먼저 들어간 기사단 원정대는 돌아오지 못했다. 의뢰를 받자고 한 건 노엘이며, 이유는 "성당 깊은 곳에 나와 같은 마녀가 있었다"는 소문(노엘만 앎, 1장 복선 — 시체로 발견되는 마녀). 세라피나의 카드는 의뢰를 받은 다음 날 처음 비쳤다.
 - **누설 금지 [결정]**: 죽음의 운명을 누설하면 **그 말을 들은 모두가 죽는다.** 노엘이 동료에게 말하지 않는 이유. (노엘이 이 규칙을 어떻게 알게 됐는지는 미정 — 시체로 발견된 마녀·노엘의 과거와 연결 후보)
 - **나머지 메인 동료(사제·도적) [결정]**: 튜토리얼에는 등장·언급하지 않고, 게임을 진행하며 만난다.
-- 튜토리얼 대본: [`docs/tutorial-script.md`](docs/tutorial-script.md)
+- 튜토리얼 대본: [`docs/archive/tutorial-script.md`](docs/archive/tutorial-script.md)

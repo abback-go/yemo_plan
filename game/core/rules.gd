@@ -1,4 +1,5 @@
 ## rules.gd — 전투 규칙 (화면과 분리 → 헤드리스 테스트 가능). prototype/js/rules.js 를 옮긴 것.
+## 지도·랜턴·어둠, 방에서 얻는 카드, 휴식·훈련 규칙은 rules_map.gd(MapRules)로 나눴다(2026-11-22).
 ##
 ## 상태(st) 구조 (Dictionary)
 ##   st.rng          난수 상태(정수, mulberry32 — HTML 판과 같은 수열)
@@ -123,8 +124,16 @@ static func effects_for(id: String, up := false, lv := 1) -> Array:
 
 
 ## 레벨 표시가 붙는 카드인가 (죽음·상속 카드는 늘, 그 밖은 Lv2 이상일 때만)
+## 단, 레벨이 오를 수 없는 운명(maxLevel 1 — 튜토리얼 세라피나)의 죽음·상속 카드는 Lv 를 붙이지 않는다(대본 v3 5.4 「용사의 죽음」·「짓밟힘」)
 static func shows_level(id: String, lv: int) -> bool:
-	return lv >= 2 or str(D().cards[id].kind) in ["death", "inherit"]
+	if lv >= 2:
+		return true
+	if not str(D().cards[id].kind) in ["death", "inherit"]:
+		return false
+	for f in D().fates.values():
+		if str(f.card) == id or str(f.get("inherit", "")) == id:
+			return int(f.get("maxLevel", 3)) > 1
+	return true
 
 
 ## 카드 이름 (강화·레벨이 있으면 이름 옆 Lv — 카드 강화는 + 대신 Lv 로 표기한다)
@@ -264,7 +273,7 @@ static func start_battle(st: Dictionary, enc_id: String) -> Array:
 		"enc": enc_id, "kind": enc.kind, "turn": 0, "phase": "start", "energy": 0,
 		"draw": shuffle(st, st.party.deck.duplicate()), "hand": [], "discard": [], "exhaust": [],
 		"free": {}, "enemies": [], "result": null, "shadow": 0, "giantTriggered": false, "lastPlayedIndex": -1,
-		"actQueue": [], "awaitFate": null, "fateQueue": [], "darkness": darkness_level(st, enc_id)}
+		"actQueue": [], "awaitFate": null, "fateQueue": [], "darkness": MapRules.darkness_level(st, enc_id)}
 	st.battle = b
 	# 죽음 카드는 전투 처음부터 손패에 있다(보존 — 버려지지 않고 한 칸을 차지한다)
 	for u in st.party.get("deathCards", []):
@@ -879,15 +888,15 @@ static func _apply_effect(st: Dictionary, uid: String, c: Dictionary, eff: Dicti
 				a.hp = 0
 				st.party.deathCards.erase(uid)
 				var lv := level(st, uid)
-				# 이 죽음 카드에 걸린 운명은 '바침'으로 끝난다
-				for f in st.get("fates", []):
-					if f.who == eff.ally and f.alive:
-						f.alive = false
-						f.result = "offered"
-						f.offeredLevel = lv
-						f.offeredFloor = floor_now(st)
-						f.triedFloor = floor_now(st)
-						st.fateLog.append({"fate": f.id, "who": f.who, "level": lv, "floor": floor_now(st), "result": "offered", "scars": 0})
+				# 이 죽음 카드에 걸린 운명은 '바침'으로 끝난다 (동료마다 살아 있는 운명은 하나뿐 — add_fate)
+				var f = fate_of(st, eff.ally)
+				if f != null:
+					f.alive = false
+					f.result = "offered"
+					f.offeredLevel = lv
+					f.offeredFloor = floor_now(st)
+					f.triedFloor = floor_now(st)
+					st.fateLog.append({"fate": f.id, "who": f.who, "level": lv, "floor": floor_now(st), "result": "offered", "scars": 0})
 				ev.append({"t": "allyDeath", "ally": eff.ally, "cause": "deathCard", "card": st.cards[uid].id, "lv": lv,
 					"fate": str(c.get("fate", "")), "handIndex": b.lastPlayedIndex if b != null else -1})
 		"relicize":
@@ -1272,168 +1281,8 @@ static func descend(st: Dictionary) -> Array:
 			st.cards[f.card].lv = f.level
 		ev.append({"t": "fateLevelUp", "fate": f.id, "who": f.who, "level": f.level, "floor": f.floor, "uid": f.card})
 	st.progress.floor = fl + 1
-	lantern_next_floor(st)
+	MapRules.lantern_next_floor(st)
 	return ev
-
-
-# ───────── 지도·랜턴·어둠 (vertical-slice.md 5장, game_data.gd lantern·darkness·floorMaps) ─────────
-## 다음 층: 촛불을 새로 받고(남은 것은 이월, 최대 lantern.max), 어둠·전조·지나간 방은 그 층마다 새로
-static func lantern_next_floor(st: Dictionary) -> void:
-	var L: Dictionary = D().lantern
-	var p: Dictionary = st.progress
-	p.candles = mini(int(L.max), int(p.get("candles", 0)) + int(L.perFloor))
-	p.candlesStart = p.candles
-	p.darkness = 0
-	p.omen = false
-	p.visited = []
-
-
-## 지금 층의 지도 데이터 ({} = 지도가 없는 층)
-static func map_def(st: Dictionary) -> Dictionary:
-	return D().floorMaps.get(str(floor_now(st)), {})
-
-
-static func room_def(st: Dictionary, id: String) -> Dictionary:
-	return map_def(st).get("rooms", {}).get(id, {})
-
-
-## 방의 상태: visited(지나간 방 — 공짜로 지나간다) | open(지나간 방과 이어져 들어갈 수 있음) | locked
-static func room_state(st: Dictionary, id: String) -> String:
-	var m := map_def(st)
-	if not m.get("rooms", {}).has(id):
-		return "locked"
-	var vis: Array = st.progress.get("visited", [])
-	if vis.has(id):
-		return "visited"
-	for ln in m.get("links", []):
-		if (ln[0] == id and vis.has(ln[1])) or (ln[1] == id and vis.has(ln[0])):
-			return "open"
-	return "locked"
-
-
-## 방에 들어간다. 처음이면 촛불 1개가 탄다 — 촛불이 없으면 어둠이 한 단계 깊어진다(지나간 방은 공짜, candle: false 인 방은 타지 않음)
-## 반환: {ok, first, burned, dark(이번에 깊어진 단계), candles, darkness}
-static func enter_room(st: Dictionary, id: String) -> Dictionary:
-	var stt := room_state(st, id)
-	if stt == "locked":
-		return {"ok": false}
-	var p: Dictionary = st.progress
-	p.room = id
-	var out := {"ok": true, "first": stt == "open", "burned": false, "dark": 0}
-	if stt == "open":
-		p.visited.append(id)
-		if bool(room_def(st, id).get("candle", true)):
-			if int(p.candles) > 0:
-				p.candles = int(p.candles) - 1
-				out.burned = true
-			else:
-				out.dark = int(D().darkness.perRoom)
-				p.darkness = int(p.darkness) + out.dark
-	out.candles = p.candles
-	out.darkness = p.darkness
-	return out
-
-
-## 이 전투에서 가려질 예고 수 (어둠 단계). darkness 전투(층 끝·강적)만, 층 끝 전투는 그 층의 전조를 보았으면 0
-static func darkness_level(st: Dictionary, enc_id: String) -> int:
-	var enc: Dictionary = D().encounters.get(enc_id, {})
-	if not bool(enc.get("darkness", false)):
-		return 0
-	var p: Dictionary = st.get("progress", {})
-	if bool(enc.get("floorEnd", false)) and bool(p.get("omen", false)):
-		return 0
-	return int(p.get("darkness", 0))
-
-
-## 랜턴에 촛불을 더한다 (거래). 최대 lantern.max
-static func add_candles(st: Dictionary, n: int) -> int:
-	st.progress.candles = mini(int(D().lantern.max), int(st.progress.candles) + n)
-	return int(st.progress.candles)
-
-
-# ───────── 방에서 얻는 카드 (대본 v3 3장, game_data.gd rewards·trade·buried·corpse) ─────────
-# 전투 승리 뒤 '카드 3장 중 1장' 보상은 2026-11-21 사용자 지시로 뺐다. 3장 중 1장 고르기는 묘지기의 좌판(거래)에만 남았다.
-## 목록(rewards.<pool>)에서 서로 다른 카드 id 를 섞어 돌려준다. 죽은 동료의 카드는 빠진다
-static func _card_pool(st: Dictionary, pool: String) -> Array:
-	var ids := []
-	for id in D().rewards.get(pool, []):
-		var o := str(D().cards[id].owner)
-		var a = ally(st, o)
-		if a != null and a.status == "dead":
-			continue
-		if not ids.has(id):
-			ids.append(id)
-	shuffle(st, ids)
-	return ids
-
-
-## 묘지기의 좌판(거래 trade:card)의 카드 후보: [{id, up}] — 서로 다른 카드, 죽은 동료의 카드는 빠진다
-static func reward_choices(st: Dictionary, pool := "common", n := -1) -> Array:
-	if n < 0:
-		n = int(D().rewards.choices)
-	var ids := _card_pool(st, pool)
-	var out := []
-	for id in ids.slice(0, mini(n, ids.size())):
-		out.append({"id": id, "up": false})
-	return out
-
-
-## 강적을 이기면 얻는 카드 [기본안 2026-11-21]: 목록(rewards.elite)에서 무작위 1장이 강화된 채(강화표에 있으면 Lv2) 바로 덱에 들어온다.
-## 고르는 화면은 없다. 죽은 동료의 카드는 빠진다. 반환: 새 카드 uid ("" = 얻을 카드 없음)
-static func win_card(st: Dictionary, pool := "elite") -> String:
-	var ids := _card_pool(st, pool)
-	if ids.is_empty():
-		return ""
-	var id: String = ids[0]
-	return gain_card(st, id, D().upgrades.has(id))
-
-
-## 덱에 카드 1장을 더한다. 반환: uid
-static func gain_card(st: Dictionary, id: String, up := false) -> String:
-	var u := new_card(st, id, {"up": true} if up else {})
-	st.party.deck.append(u)
-	return u
-
-
-## 노엘이 HP 를 대가로 낸다(전투 밖). HP 가 대가 이하이면 낼 수 없다(false)
-static func pay_hp(st: Dictionary, n: int) -> bool:
-	var w: Dictionary = st.party.witch
-	if int(w.hp) <= n:
-		return false
-	w.hp = int(w.hp) - n
-	return true
-
-
-## 전투 밖에서 노엘이 다친다 (1 아래로는 줄지 않는다)
-static func hurt_witch(st: Dictionary, n: int) -> void:
-	st.party.witch.hp = maxi(1, int(st.party.witch.hp) - n)
-
-
-## 거래: card(HP cardHp → 고른 카드) | candle(HP candleHp → 촛불 +candles). 반환: 거래했는가
-static func trade(st: Dictionary, what: String, card := {}) -> bool:
-	var T: Dictionary = D().trade
-	if what == "candle":
-		if int(st.progress.candles) >= int(D().lantern.max) or not pay_hp(st, int(T.candleHp)):
-			return false
-		add_candles(st, int(T.candles))
-		return true
-	if what == "card" and not card.is_empty():
-		if not pay_hp(st, int(T.cardHp)):
-			return false
-		gain_card(st, str(card.id), bool(card.get("up", false)))
-		return true
-	return false
-
-
-## 살아 있는 모두 HP 회복 (쓰러진 동료도 일어난다). [임시] 새 층에 들어설 때
-static func heal_all(st: Dictionary) -> void:
-	st.party.witch.hp = st.party.witch.maxHp
-	for id in st.party.order:
-		var a: Dictionary = st.party.allies[id]
-		if a.status == "dead":
-			continue
-		a.status = "ok"
-		a.hp = a.maxHp
 
 
 ## 시험·바로 가기용: 튜토리얼(1층)을 끝낸 상태 — 세라피나 사망(유품·짓밟힘), 브룬힐드 관통 Lv1 (2층)
@@ -1464,55 +1313,6 @@ static func state_floor3(seed = null, brun := "alive") -> Dictionary:
 	st.flags.brun = brun
 	st.progress.room = "f3chapel"
 	return st
-
-
-# ───────── 갈림길: 휴식 / 훈련 (tutorial-flow.md 2장) ─────────
-## 휴식: 살아 있는 동료 최대 HP +allyMaxHp, 마녀 +witchMaxHp, 전원 회복
-static func apply_rest(st: Dictionary) -> Dictionary:
-	var r: Dictionary = D().rest
-	var p: Dictionary = st.party
-	p.witch.maxHp = int(p.witch.maxHp) + int(r.witchMaxHp)
-	if r.healAll:
-		p.witch.hp = p.witch.maxHp
-	for id in p.order:
-		var a: Dictionary = p.allies[id]
-		if a.status == "dead":
-			continue
-		a.maxHp = int(a.maxHp) + int(r.allyMaxHp)
-		if r.healAll:
-			a.hp = a.maxHp
-			a.status = "ok"
-	st.flags.rested = true
-	return {"witch": p.witch.maxHp}
-
-
-## 훈련 후보: 강화표의 카드 중 덱에 아직 강화되지 않은 것이 있는 카드에서 무작위 n장
-static func train_candidates(st: Dictionary, n := -1) -> Array:
-	if n < 0:
-		n = int(D().trainChoices)
-	var pool := []
-	for id in D().upgrades:
-		if _first_unupgraded(st, id) != "":
-			pool.append(id)
-	shuffle(st, pool)
-	return pool.slice(0, mini(n, pool.size()))
-
-
-static func _first_unupgraded(st: Dictionary, id: String) -> String:
-	for u in st.party.deck:
-		if st.cards[u].id == id and not st.cards[u].get("up", false):
-			return u
-	return ""
-
-
-## 덱의 그 카드 1장을 강화한다. 반환: 강화된 uid ("" = 실패)
-static func upgrade_card(st: Dictionary, id: String) -> String:
-	var u := _first_unupgraded(st, id)
-	if u == "":
-		return ""
-	st.cards[u].up = true
-	st.flags.upgraded = id
-	return u
 
 
 # ───────── 디버그 ─────────

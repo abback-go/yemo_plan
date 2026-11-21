@@ -4,8 +4,6 @@ class_name UI
 extends Object
 
 const RED := Color("#b3121f")
-const RED_DARK := Color("#5e0710")
-const RED_GLOW := Color("#ff3346")
 const GOLD := Color("#c9a24a")
 const KEY := Color("#ffcf6a")      # 안내 상자의 강조(**…**)
 const CARDNAME := Color("#ff9aa4") # 안내 상자의 카드 이름·키워드(「…」)
