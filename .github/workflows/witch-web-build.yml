@@ -1,0 +1,174 @@
+# game/ 폴더의 Godot 4.7 프로젝트("죽음을 보는 마녀" 튜토리얼)를 시험하고 웹용으로 빌드해 gh-pages 의 godot/ 폴더에 올린다.
+# 빠른 빌드(푸시할 때마다, 약 2~3분): 스크립트 컴파일 검사 → 규칙 단위 테스트(GDScript) → 웹 내보내기 → 배포.
+# 전체 검증(수동 실행 · full=true 일 때만): 위에 더해 헤드리스 자동 진행(끝까지 · 전멸 재시작)
+#      → Playwright 로 로컬 http 서버에 띄워 스모크 테스트(실제 클릭·드래그·터치, 스크린샷) → 스크린샷·로그는 gh-pages 의 godot-ci/ 폴더.
+#      실행: GitHub Actions 에서 이 워크플로를 Run workflow → full 체크.
+# 사이트 루트(HTML 프로토타입)와 eska/ 는 건드리지 않는다(keep_files, destination_dir 만 바꾼다). 에스카 빌드와 같은 동시 실행 묶음을 쓴다.
+name: Witch web build (Godot)
+
+on:
+  push:
+    branches: [cc/amazing-darwin-nesbwh]
+    paths: ["game/**", ".github/workflows/witch-web-build.yml", "tools/web_sw.js", "tools/web_sw_patch.py"]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "전체 검증(헤드리스 자동 진행 + Playwright 스모크·스크린샷)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot and web templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: witch-godot-${{ env.GODOT_VERSION }}-web-nothreads
+
+      - name: Download Godot and web templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          curl -sSLo godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          curl -sSLo templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest"
+          unzip -q -j templates.tpz templates/web_nothreads_release.zip templates/version.txt -d "$dest"
+          rm templates.tpz
+
+      - name: Import project
+        run: |
+          chmod +x ~/godot/godot
+          cd game
+          # 처음 가져오기는 글꼴(.tres)이 아직 가져오지 않은 .ttf 를 가리킨다는 경고가 날 수 있다 → 두 번째 결과로 판단
+          ~/godot/godot --headless --import > /tmp/import1.txt 2>&1 || true
+          ~/godot/godot --headless --import > /tmp/import.txt 2>&1 || true
+          cat /tmp/import.txt | grep -E "ERROR|SCRIPT" | head -20 || true
+          ! grep -E "SCRIPT ERROR|Parse Error" /tmp/import.txt
+
+      - name: Compile all scripts
+        run: |
+          cd game
+          ~/godot/godot --headless --path . -- --check-scripts 2>&1 | tee /tmp/check.txt
+          grep -q "failures: 0" /tmp/check.txt
+          ! grep -E "SCRIPT ERROR" /tmp/check.txt
+
+      - name: Rules unit tests (GDScript)
+        run: |
+          cd game
+          ~/godot/godot --headless --path . --script res://tests/test_rules.gd 2>&1 | tee /tmp/rules.txt
+          grep -q "failures: 0" /tmp/rules.txt
+
+      # 버티컬 슬라이스: 처음부터 끝(결과 요약)까지 3경로 + 2층부터 운명 2경로 (--fates 는 운명의 시도 순서대로, accept = 받아들인다)
+      #   ① 장례 탑 1층 방 8개 모두(--rooms 순서대로) → 2·3층 모두 거스름 ② 방 5개(촛불이 다 타 층 끝 전투에 어둠 2단계) → 받아들임
+      #   ③ 방 없이 정해진 길만 → 2층 거스름 → 3층 엘리안 거스름·브룬힐드 Lv2 받아들임 ④ 2층부터 모두 받아들임 ⑤ 2층부터 모두 거스름
+      - name: Headless auto-play (start → result, room/fate paths)
+        if: ${{ inputs.full }}
+        run: |
+          cd game
+          : > /tmp/auto.txt
+          for args in "--scene=camp --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy --autoplay" \
+                      "--scene=camp --rooms=prayer,buried,corpse,stall,chapel --choice=leave,candle --reward=skip --fates=accept,accept --autoplay" \
+                      "--scene=camp --rooms=none --fates=defy,defy,offer --autoplay" \
+                      "--scene=floor2 --fates=offer,offer --autoplay" \
+                      "--scene=floor2 --fates=defy,defy,defy --autoplay"; do
+            echo "=== $args"
+            timeout 400 ~/godot/godot --headless --path . -- --speed=10 --autoguide --guides=reset --trace --quit-on-end $args > /tmp/auto1.txt 2>&1 || true
+            cat /tmp/auto1.txt >> /tmp/auto.txt
+            grep -E "step |battle |enter |choice|reward|fate pick|win |wipe|result|SCRIPT ERROR|ERROR" /tmp/auto1.txt | grep -v "] ev " | tail -40
+            grep -q "] result" /tmp/auto1.txt
+            ! grep -E "SCRIPT ERROR|^ERROR" /tmp/auto1.txt
+          done
+
+      - name: Export web build
+        run: |
+          mkdir -p build/web
+          cd game
+          ~/godot/godot --headless --path . --export-release "Web" ../build/web/index.html
+          test -f ../build/web/index.wasm
+          ls -la ../build/web
+          echo "${GITHUB_REF_NAME} ${GITHUB_SHA::7} $(date -u +%Y-%m-%dT%H:%MZ)" > ../build/web/version.txt
+
+      # 접속할 때마다 새 버전인지 확인하고 바로 새 버전을 연다(에스카와 같은 방식 — 자세한 이유는 tools/web_sw_patch.py 머리말).
+      # 온라인이면 게임 파일을 언제나 서버에 물어 받고, 새 워커는 기다리지 않고 교체 + 페이지 한 번 새로고침. 원문이 달라 고치지 못하면 실패한다.
+      - name: Patch service worker (always fetch latest, update immediately)
+        run: python3 tools/web_sw_patch.py build/web
+
+      - uses: actions/setup-node@v4
+        if: ${{ inputs.full }}
+        with:
+          node-version: "22"
+
+      - name: Install Playwright (Chromium)
+        if: ${{ inputs.full }}
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw
+          npm init -y > /dev/null
+          npm install playwright@1.49.1 > /dev/null
+          npx playwright install --with-deps chromium
+
+      - name: Smoke test (Playwright on local http server)
+        id: smoke
+        if: ${{ inputs.full }}
+        continue-on-error: true
+        run: |
+          (cd build/web && python3 -m http.server 8000 > /tmp/http.txt 2>&1 &)
+          sleep 2
+          mkdir -p build/ci
+          NODE_PATH=/tmp/pw/node_modules node game/tests/web/smoke.js http://localhost:8000/ build/ci 2>&1 | tee build/ci/smoke-console.txt
+          test "${PIPESTATUS[0]}" = "0"
+
+      - name: Collect test logs
+        if: ${{ always() && inputs.full }}
+        run: |
+          mkdir -p build/ci
+          cp /tmp/check.txt /tmp/rules.txt /tmp/auto.txt build/ci/ 2>/dev/null || true
+          ls -la build/web | awk '{print $5, $9}' > build/ci/build-sizes.txt
+          echo "${GITHUB_REF_NAME} ${GITHUB_SHA::7} smoke=${{ steps.smoke.outcome }} $(date -u +%Y-%m-%dT%H:%MZ)" > build/ci/version.txt
+
+      - name: Publish screenshots and logs to gh-pages godot-ci/
+        if: ${{ always() && inputs.full }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/ci
+          destination_dir: godot-ci
+          keep_files: true
+          commit_message: "Godot CI screenshots ${{ github.ref_name }}"
+
+      - name: Publish web build to gh-pages godot/
+        if: ${{ steps.smoke.outcome != 'failure' }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          destination_dir: godot
+          keep_files: true
+          commit_message: "Web build (godot) ${{ github.ref_name }}"
+
+      - name: Fail if smoke test failed
+        if: ${{ steps.smoke.outcome == 'failure' }}
+        run: |
+          echo "스모크 테스트 실패 — gh-pages 의 godot-ci/smoke-log.txt 와 스크린샷을 보세요"
+          exit 1

@@ -1,0 +1,53 @@
+; Godot 4.7 프로젝트 — 죽음을 보는 마녀 (가제) 튜토리얼
+; 화면은 1920×1080 기준 좌표, 창 크기에 맞춰 비율 유지(검은 여백).
+
+config_version=5
+
+[application]
+
+config/name="죽음을 보는 마녀"
+config/description="튜토리얼 (Godot 이식판)"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+boot_splash/bg_color=Color(0.027, 0.031, 0.043, 1)
+boot_splash/show_image=false
+config/icon="res://icon.svg"
+
+[autoload]
+
+G="*res://core/game.gd"
+FX="*res://core/fx.gd"
+Assets="*res://core/assets.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+window/handheld/orientation=0
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=true
+
+[gui]
+
+theme/custom_font="res://assets/fonts/sans.tres"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=3
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+
+[importer_defaults]
+
+texture={
+"compress/lossy_quality": 0.8,
+"compress/mode": 1,
+"mipmaps/generate": true
+}

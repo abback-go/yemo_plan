@@ -1,0 +1,109 @@
+# 궁수 엘리안 (ELIAN) — GPT Image 캐릭터 시트 프롬프트
+# 사용 환경: ChatGPT 앱(유료 구독). 해상도 선택 없음 → 화면비와 분할로 해상도 확보
+# 앵커 문단(캐릭터 묘사)은 모든 프롬프트에 그대로 들어가 있다. 고치지 말고 복사 경계선 사이를 통째로 복사할 것.
+
+=== CHARACTER ANCHOR ===
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+=== SHEET PROMPT ===
+[1단계] 컨셉 시트 — 화면비: 16:9 가로 (선택지에 없으면 3:2 가로)
+- - - 여기부터 복사 - - -
+Character design reference sheet for a dark fantasy card RPG, single landscape page (16:9).
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework, matching a gloomy ruined gothic cathedral world. Cold blue-gray palette with a single deep red accent. Dark desaturated blue-gray studio background with a subtle floor reflection, cool rim lighting.
+
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+LAYOUT (strict):
+- TOP LEFT: the name "ELIAN" in large serif display type, with the small subtitle "THE ARCHER".
+- LEFT COLUMN: one large close-up bust portrait of her face, a soft, gentle closed-mouth smile.
+- CENTER (dominant, about half of the page): full-body turnaround, 3 large views standing on the reflective floor — front, side profile, back. Identical outfit, colors and proportions in all three views, neutral standing pose with arms slightly away from the body. In the back view her face is NOT visible.
+- RIGHT COLUMN, headline "DETAILS": 3 stacked panels, each a zoomed render of one element with a short bold label: 1) "GREEN RIBBON" — dark green ribbon bow at the back of the crown braid; 2) "CLOAK" — dark green hooded cloak with gold leaf embroidery; 3) "BOW & QUIVER" — dark wood recurve bow, white-feathered arrows.
+- BOTTOM RIGHT: a row of 5 flat color swatches of her main colors, no labels.
+All text in clean English, as short as written above. The character must be IDENTICAL in all views and panels.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, short hair, round human ears, bow drawn and aiming, modern clothing, hood pulled up over her head, face visible in the back view.
+- - - 여기까지 복사 - - -
+
+=== AVOID ===
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, short hair, round human ears, bow drawn and aiming, modern clothing, hood pulled up over her head.
+(위 프롬프트 끝에 이미 포함되어 있음. 별도 입력 불필요)
+
+=== EDIT PROMPTS ===
+[편집 1] 귀·리본이 빠질 때 — 생성된 시트를 같은 대화창에서 이어서 입력
+- - - 여기부터 복사 - - -
+Edit this sheet: make sure every view shows her long pointed elf ears and the dark green ribbon bow on her blonde crown braid. Change nothing else.
+- - - 여기까지 복사 - - -
+
+[편집 2] 이름 글자가 깨졌을 때 — 생성된 시트를 같은 대화창에서 이어서 입력
+- - - 여기부터 복사 - - -
+Edit only the large name text at the top left so it reads exactly "ELIAN" with the subtitle "THE ARCHER". Change nothing else.
+- - - 여기까지 복사 - - -
+
+[편집 3] 후드를 뒤집어썼을 때 — 생성된 시트를 같은 대화창에서 이어서 입력
+- - - 여기부터 복사 - - -
+Lower the hood so it rests on her shoulders and her blonde braided hair is fully visible in every view. Change nothing else.
+- - - 여기까지 복사 - - -
+
+=== OUTPUT SETTINGS (ChatGPT 앱 기준) ===
+사용 환경: ChatGPT 앱(유료) — 해상도 선택 불가, 화면비만 조절 가능. 프롬프트에 '4K'를 써도 픽셀 수는 바뀌지 않음
+1단계 컨셉 시트 : 16:9 가로 — 설계도 용도. 게임에 넣지 않음 → reference/sheets/elian_sheet.png
+2단계 실사용 뷰 : 2:3 세로, 뷰당 1장 (약 1,380px). 한 번에 하나씩 입력할 것 — 여러 개를 한 번에 넣으면 한 장에 몰아 그려 해상도가 떨어짐
+   ① 정면 전신 → 대화용 스탠딩: prototype/assets/stand_archer.png (상반신 위주로 잘라 써도 됨)
+   ② 반측면 뒷모습 → 전투 스프라이트: prototype/assets/spr_archer_back.png
+3단계 표정 시트 : 16:9 가로 1×4 한 줄 (얼굴당 약 700px) — 프로토타입 이후 작업
+배경 제거       : 2단계 결과물만. 단색 배경으로 뽑았으므로 배경 제거 도구로 투명 PNG로 만든다
+업스케일        : 필요하면 2단계 결과물만 2배까지 (Upscayl 등). 글자가 있는 1·3단계 시트는 업스케일 금지
+생성 순서       : 1단계 시트 → 앵커와 어긋난 곳 확인(소지품 좌우·장식 개수·머리 길이·액세서리) → 2단계 ① → ②
+참조 이미지 팁  : 같은 대화창에서 이어가고, 1단계 시트를 첨부한 채 2단계를 입력하면 일치도가 오른다. 화풍을 맞추려면 reference/images/04·05·07도 함께 첨부. 이미지를 첨부해도 프롬프트는 그대로 전부 넣는다
+
+[2단계 ①] 정면 전신 — 화면비: 2:3 세로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+Single full-body front view of this character, vertical 2:3 portrait composition, centered, full figure from head to feet with a small even margin, relaxed natural standing pose facing the viewer, a soft, gentle closed-mouth smile, looking at the viewer. plain flat solid pure magenta background (#FF00FF, one even color, no gradient, no floor, no cast shadow) for easy background removal; no magenta light or magenta reflections on the character.
+No text, no labels, no sheet layout, no other views, no cropping.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, short hair, round human ears, bow drawn and aiming, modern clothing, hood pulled up over her head.
+- - - 여기까지 복사 - - -
+
+[2단계 ②] 반측면 뒷모습 (전투 스프라이트) — 화면비: 2:3 세로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+Single full-body rear view (seen directly from behind) of this character, vertical 2:3 portrait composition, centered, full figure from head to feet with a small even margin. The camera stands just behind her and slightly above her head height, looking a little downward: we see her straight from behind as she faces directly away from the viewer, her body turned only very slightly, standing ready for battle and looking into the distance ahead. Her face is NOT visible, head faces away; at most the edge of her cheek and ear can be seen. plain flat solid pure magenta background (#FF00FF, one even color, no gradient, no floor, no cast shadow) for easy background removal; no magenta light or magenta reflections on the character.
+No text, no labels, no sheet layout, no other views, no cropping.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, short hair, round human ears, bow drawn and aiming, modern clothing, hood pulled up over her head, face visible from behind, head turned toward camera, looking back over the shoulder.
+- - - 여기까지 복사 - - -
+
+[3단계] 표정 1×4 (프로토타입 이후) — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+A single horizontal row of exactly 4 large bust close-ups of this character, evenly spaced edge to edge, filling the full width and height of the frame, plain dark blue-gray background, expressions left to right: gentle smile / focused / shocked / sorrow.
+Identical face shape, eye size, hair, and lighting in all four.
+One short English label under each: "GENTLE SMILE", "FOCUSED", "SHOCKED", "SORROW". No other views, no turnaround, no color swatches.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, misspelled text, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, short hair, round human ears, bow drawn and aiming, modern clothing, hood pulled up over her head.
+- - - 여기까지 복사 - - -
+
+=== MODEL TIPS ===
+- ChatGPT 앱은 같은 대화창에서 '이 부분만 바꿔줘'식 편집이 잘 먹힌다. 글자 오타는 재생성하지 말고 편집 프롬프트 2로 그 글자만 고친다.
+- 결과가 앵커와 다르게 나왔는데 그 결과가 마음에 들면, 앵커 문장을 결과에 맞게 고친 뒤 2단계로 넘어간다(앵커와 그림이 어긋난 채 진행하면 뷰마다 결과가 튄다).
+
+=== QUALITY CHECKLIST ===
+① 모든 뷰의 키·비율이 같은가
+② 얼굴이 모든 뷰에서 같은 사람인가
+③ 오른쪽 아래 색 견본과 실제 의상 색이 일치하는가
+④ 시그니처 요소(GREEN RIBBON, CLOAK, BOW & QUIVER)가 모든 뷰에 있는가  → 실패 시 편집 프롬프트 1
+⑤ 이름·라벨 글자에 오타가 없는가  → 실패 시 편집 프롬프트 2
+⑥ 정면·측면·뒷면 3뷰와 세부 3칸이 빠짐없이 있는가  → 빠졌으면 시트 재생성
+⑦ 잘라낸 뷰 하나의 세로가 800px 이상인가  → 미만이면 2단계(2:3 세로 단일 뷰)로 재생성
+⑧ 짙은 붉은색 외에 채도 높은 색이 끼어들지 않았는가 (기존 04·05·07과 톤 비교)
+⑨ 뒷면 뷰에서 얼굴이 보이지 않는가

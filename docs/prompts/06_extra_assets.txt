@@ -1,0 +1,212 @@
+# 추가 그림 프롬프트 (핵심 카드 그림 · 행동 컷인 · 뒷모습 행동 포즈)
+# 한 번에 하나씩 입력. 제목의 화면비를 꼭 맞출 것. 복사 경계선 사이를 통째로 복사.
+# 카드 그림은 card_frame.png의 그림 창(약 800x795, 거의 정사각형)에 들어간다 → 1:1로 뽑는다.
+
+[1] 카드 그림 「용사의 죽음」 → prototype/assets/card_art_hero_death.png — 화면비: 1:1 정사각
+- - - 여기부터 복사 - - -
+Square illustration for a card in a dark fantasy card game, 1:1. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+A centered close-up portrait of Seraphina, the hero: an adult woman in her late twenties with a calm, confident face and steel-blue eyes, long silver hair gathered into a high ponytail that falls as one thick braid, tied at the crown with a deep red ribbon bow, a few loose strands framing her face, silver plate armor with engraved gold trim at the shoulders and a deep red cape.
+She looks straight at the viewer with a soft, gentle, closed-mouth smile, unaware.
+The whole portrait is drained of life: her colors are faded to ash gray and charcoal black, as if the image has been burned and blackened like an old charred photograph, with cracks and soot creeping in from the edges and across one side of her face. Only the deep red ribbon in her hair keeps its color.
+From the top edge, the dark shadow of a colossal foot falls over the portrait, covering the top of her head.
+A thin deep red thread runs out of the bottom of the image, as if tied to her.
+Composition centered, her face filling most of the square, simple dark background. No text, no letters, no numbers, no frame, no border.
+
+AVOID: text, letters, card frame, border, bright colors other than the red ribbon and thread, gore, open-mouth smile, looking up, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[2] 카드 그림 「짓밟힘」 → prototype/assets/card_art_trample.png — 화면비: 1:1 정사각
+- - - 여기부터 복사 - - -
+Square illustration for a card in a dark fantasy card game, 1:1. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework.
+A forbidden curse born from a death: a colossal foot formed of black ash, smoke and cracked charcoal-gray stone, with thin veins of glowing deep red light running through its cracks, stomping straight down from the top of the frame onto a ruined gothic cathedral floor.
+At the moment of impact, a shockwave of dust and shattered stone bursts outward in a ring, and several small hooded cultist silhouettes are flung away and crushed flat into the shadow at the edges.
+Above the shockwave, a torn deep red ribbon and a snapped silver sword blade with a cross-shaped guard tumble through the air, the only reminders of whose death this power came from.
+Dramatic downward perspective, strong motion, heavy weight. Cold blue-gray and black palette, the glowing cracks, the ribbon and the dust lit in deep red as the only accent.
+Composition centered, simple dark background. No text, no letters, no numbers, no frame, no border.
+
+AVOID: text, letters, card frame, border, gore, visible blood spray, cute or chubby foot, log-shaped toes, bright saturated colors other than deep red, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[3] 행동 컷인 — 세라피나 성검 베기 → prototype/assets/cutin_hero.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Dynamic action cut-in illustration for a card game, 16:9. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Strong dramatic lighting from the side.
+
+Seraphina, the hero and leader of an adventuring party: an adult woman in her late twenties, tall and athletic, with a calm, confident face and steel-blue eyes. Her presence feels overwhelmingly strong and reliable. Long silver hair gathered into a high ponytail that falls as one thick braid down her back, tied at the crown with a deep red ribbon bow, a few loose strands framing her face. Polished silver plate armor with engraved gold trim over a dark gray gambeson, layered pauldrons, plated gauntlets and armored boots with low heels. A long deep red cape, slightly tattered at the hem, fastened at both shoulders. A sacred longsword with a cross-shaped silver guard and a faint pale-white glow along the blade, carried in a scabbard on her left hip.
+
+Upper body from the waist up, three-quarter front view, filling the center of the frame and cropped at the waist by the bottom edge. She is in the middle of a powerful diagonal slash with the sacred longsword held in both hands, swinging from upper right down to lower left across the frame, her body twisted into the strike. Fierce, focused expression, mouth firmly closed, eyes sharp. Her braid, ribbon and cape whip with the motion.
+Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
+No speed lines, no glow trails, no sparks, no magic effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, sword in the left hand only, sheathed sword, helmet.
+- - - 여기까지 복사 - - -
+
+[4] 행동 컷인 — 엘리안 저격 → prototype/assets/cutin_archer.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Dynamic action cut-in illustration for a card game, 16:9. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Strong dramatic lighting from the side.
+
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+Upper body from the waist up, three-quarter front view, filling the center of the frame and cropped at the waist by the bottom edge. She holds the recurve longbow in her left hand at full draw, a white-feathered arrow nocked and pulled back to her cheek with her right hand, aiming toward the left side of the frame. Calm, intensely focused expression, one eye slightly narrowed, lips closed. Her long wavy blonde hair and cloak drift with the tension.
+Plain flat solid pure magenta background (#FF00FF, one even color, no gradient, no floor, no cast shadow) for easy background removal; no magenta light or magenta reflections on the character.
+No speed lines, no glow trails, no sparks, no magic effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, round human ears, short hair, hood pulled up, bow in the right hand, missing arrow.
+- - - 여기까지 복사 - - -
+
+[5] 행동 컷인 — 브룬힐드 감싸기 → prototype/assets/cutin_warrior.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Dynamic action cut-in illustration for a card game, 16:9. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Strong dramatic lighting from the side.
+
+Brunhild, the shield-bearer and protector of an adventuring party: a tall, broad-shouldered, muscular adult woman in her thirties, the largest member of the party. Short, shaggy ash-white hair, a stern weathered face with a pale scar running down her right cheek from just below the eye, gray eyes. Heavy dark iron plate armor, dented and scratched, over chain mail, with a tattered deep red scarf around her neck and a faded deep red tabard bearing a gold cross emblem. A massive iron tower shield almost as tall as her shoulders, its face scarred with claw marks and an engraved cross crest, strapped to her left arm, a short flanged mace hanging at her left hip beside the shield, and armored boots with low heels.
+
+Upper body from the waist up, three-quarter front view, filling the center of the frame and cropped at the waist by the bottom edge. She lunges forward and throws up the massive tower shield on her left arm in front of herself, bracing to take a blow meant for someone else, shoulder pressed into the shield, the mace held low in her right hand. Gritted teeth, fierce protective glare. Her short shaggy ash-white hair and red scarf are pushed back by the impact.
+Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
+No speed lines, no glow trails, no sparks, no magic effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, small round shield, shield on the right arm, long hair, scar on the left cheek.
+- - - 여기까지 복사 - - -
+
+[6] 뒷모습 행동 포즈 — 세라피나 공격 → prototype/assets/spr_hero_back_attack.png — 화면비: 2:3 세로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Seraphina, the hero and leader of an adventuring party: an adult woman in her late twenties, tall and athletic, with a calm, confident face and steel-blue eyes. Her presence feels overwhelmingly strong and reliable. Long silver hair gathered into a high ponytail that falls as one thick braid down her back, tied at the crown with a deep red ribbon bow, a few loose strands framing her face. Polished silver plate armor with engraved gold trim over a dark gray gambeson, layered pauldrons, plated gauntlets and armored boots with low heels. A long deep red cape, slightly tattered at the hem, fastened at both shoulders. A sacred longsword with a cross-shaped silver guard and a faint pale-white glow along the blade, carried in a scabbard on her left hip.
+
+Single full-body rear view (seen directly from behind) of this character in an attack pose, vertical 2:3 portrait composition, centered, full figure from head to feet with a small even margin. The camera stands just behind her and slightly above her head height, looking a little downward. She faces directly away from the viewer, toward an enemy ahead, and swings the drawn sacred longsword with both hands in a powerful diagonal slash, the blade raised high over her right shoulder at the start of the strike, feet planted wide, cape flaring. Her face is NOT visible, head faces away.
+Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
+No speed lines, no glow trails, no sparks, no magic effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, face visible from behind, head turned toward camera, looking back over the shoulder, sheathed sword.
+- - - 여기까지 복사 - - -
+
+[7] 뒷모습 행동 포즈 — 엘리안 사격 → prototype/assets/spr_archer_back_attack.png — 화면비: 2:3 세로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+Single full-body rear view (seen directly from behind) of this character in an attack pose, vertical 2:3 portrait composition, centered, full figure from head to feet with a small even margin. The camera stands just behind her and slightly above her head height, looking a little downward. She faces directly away from the viewer and aims forward at an enemy ahead: the recurve longbow raised in her left hand at full draw, the arrow pulled back with her right hand, elbow high, feet planted, cloak and long wavy hair settling behind her. Her face is NOT visible, head faces away.
+Plain flat solid pure magenta background (#FF00FF, one even color, no gradient, no floor, no cast shadow) for easy background removal; no magenta light or magenta reflections on the character.
+No speed lines, no glow trails, no sparks, no magic effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, face visible from behind, head turned toward camera, looking back over the shoulder, bow in the right hand, round human ears.
+- - - 여기까지 복사 - - -
+
+[8] 뒷모습 행동 포즈 — 브룬힐드 방어 → prototype/assets/spr_warrior_back_guard.png — 화면비: 2:3 세로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Brunhild, the shield-bearer and protector of an adventuring party: a tall, broad-shouldered, muscular adult woman in her thirties, the largest member of the party. Short, shaggy ash-white hair, a stern weathered face with a pale scar running down her right cheek from just below the eye, gray eyes. Heavy dark iron plate armor, dented and scratched, over chain mail, with a tattered deep red scarf around her neck and a faded deep red tabard bearing a gold cross emblem. A massive iron tower shield almost as tall as her shoulders, its face scarred with claw marks and an engraved cross crest, strapped to her left arm, a short flanged mace hanging at her left hip beside the shield, and armored boots with low heels.
+
+Single full-body rear view (seen directly from behind) of this character in a guarding pose, vertical 2:3 portrait composition, centered, full figure from head to feet with a small even margin. The camera stands just behind her and slightly above her head height, looking a little downward. She faces directly away from the viewer and braces against an enemy ahead: the massive tower shield on her left arm thrust forward in front of her body, her shoulder pressed against its back, knees bent in a low, wide stance, the mace held low in her right hand. From behind we see the inner side of the shield with its leather straps. Her face is NOT visible, head faces away.
+Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
+No speed lines, no glow trails, no sparks, no magic effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, face visible from behind, head turned toward camera, looking back over the shoulder, shield on the right arm, small round shield.
+- - - 여기까지 복사 - - -
+
+[7b] 뒷모습 행동 포즈 — 엘리안 사격 (앞을 겨눔, 7번 대체) → prototype/assets/spr_archer_back_attack.png — 화면비: 2:3 세로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+Single full-body rear view of this character in an attack pose, vertical 2:3 portrait composition, centered, full figure from head to feet with a small even margin. The camera stands just behind her and slightly above her head height, looking a little downward. She aims STRAIGHT AHEAD, away from the viewer, at an enemy far in front of her in the depth of the scene (not to the left, not to the right): her body is turned sideways with her left shoulder toward the target, her left arm extended straight forward into the distance holding the recurve longbow upright, so the bow is seen from behind and partly foreshortened in front of her; her right hand draws the arrow back to her right cheek, her right elbow raised and pulled back toward the viewer. Feet planted wide, cloak and long wavy hair settling behind her. Her face is NOT visible, head faces away toward the target.
+Plain flat solid pure magenta background (#FF00FF, one even color, no gradient, no floor, no cast shadow) for easy background removal; no magenta light or magenta reflections on the character.
+No speed lines, no glow trails, no sparks, no magic effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, face visible from behind, head turned toward camera, looking back over the shoulder, bow in the right hand, round human ears, aiming to the left, aiming to the right, aiming sideways across the frame.
+- - - 여기까지 복사 - - -
+
+[9] 죽음 카드를 내미는 손 — 게임에서는 쓰지 않음, 마케팅용 대표 이미지로 보관 → reference/images/10_keyart_death_card_offer_MARKETING.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Cinematic anime illustration, 16:9, dark fantasy. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent.
+First-person point of view of a witch standing just behind her party in a ruined gothic cathedral, the camera slightly above head height.
+In the foreground, her own very pale, thin right hand in a frayed wide black robe sleeve is raised in front of the viewer, trembling slightly, knuckles white, holding up a single playing card between two fingers. The card faces the viewer: it is blackened and charred like a burned photograph, showing a small faded portrait of a smiling silver-haired woman with a deep red ribbon; soot and cracks creep across it. Her other cards are held low and out of focus at the bottom edge.
+A few steps ahead, in the center, Seraphina stands with her back to the viewer, seen directly from behind: long silver hair in one thick braid tied with a deep red ribbon bow, polished silver plate armor with gold trim, a long tattered deep red cape. She faces the enemies far ahead and does not know what the witch is holding.
+A thin, glowing deep red thread runs from the black card straight to the middle of Seraphina's back, pulled completely taut.
+At the left and right edges of the frame, the backs of two other companions are partly visible and out of focus: a blonde elf archer in a dark green cloak on the left, a tall woman with short ash-white hair and a huge iron tower shield on the right.
+High above Seraphina, the top of the frame is sinking into a heavy, unnatural darkness, the shadow of something colossal; dust begins to fall.
+Mood: silent, unbearable, the moment of decision. No text, no letters.
+
+AVOID: the witch's face, other hands holding the card, the card facing away, gore, bright saturated colors other than the deep red, Seraphina turning around, extra fingers, deformed hands, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[10] 범용 1인칭 손 — 카드 한 장을 들어 올림 (죽음 카드 내밀기 등) → prototype/assets/ui_witch_hand_raise.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool light from above.
+
+First-person point of view of Noel, a slight, thin witch with very pale skin, wearing a worn black robe with very wide ragged sleeves. Only her own right hand, wrist and the end of her right sleeve are visible, entering from the bottom right edge of a landscape 16:9 frame, as if the viewer is the witch.
+Her thin, pale right hand is raised up in front of her toward the right-center of the frame, holding up a single playing card upright between her thumb and fingers, the card facing the viewer: her thumb rests on the front lower-left corner of the card and her other fingers are behind it. The card is about one third of the frame height. The hand is tense, knuckles slightly white, as if steeling herself.
+IMPORTANT: the card is completely flat, solid pure green (#00FF00) — no frame, no border, no outline, no texture, no shading, no symbols — exactly the same color as the background.
+Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no shadow) for easy background removal; no green light or green reflections on the hand or sleeve.
+No other hand, no other cards, no other body parts, no face, no text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, six fingers, deformed hand, left hand, two hands, rings, jewelry, nail polish, gloves, card designs, card borders, card outline, card that is not green, tremble lines, motion lines, watermark, signature.
+- - - 여기까지 복사 - - -
+
+[11] 행동 컷인 — 노엘 일반 시전 → prototype/assets/cutin_witch_cast.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Dynamic action cut-in illustration for a card game, 16:9. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Strong dramatic lighting from the side.
+
+Noel, the witch of an adventuring party, who secretly foresees how each of her companions will die: an adult woman in her mid-twenties, slight and thin, with pale skin and tired, half-lidded deep red eyes with faint dark circles beneath them. Long straight black hair falling past her waist, with messy bangs falling over her eyes. A worn, hooded black robe with the hood down, layered tattered hems and very wide ragged sleeves, a simple brown leather belt with a long hanging strap, plain brown boots, no jewelry. Around her neck hangs a small bundle of old cards tied together with a faded red string. Her expression is quiet and withdrawn; she looks more like a mourner than a mage.
+
+Upper body from the waist up, three-quarter front view, filling the center of the frame and cropped at the waist by the bottom edge. She raises her right hand to shoulder height and holds a single playing card between two fingers, its face turned toward the enemy at the left of the frame; the edges of the card smolder with a faint deep red ember glow, the only light on her. Her expression is cold and almost blank: half-lidded deep red eyes, mouth closed, as if she has done this many times and feels nothing anymore. Her long black hair and wide ragged sleeves drift slightly; the small card bundle on its faded red string hangs at her chest.
+Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
+No speed lines, no glow trails, no sparks, no magic circles, no effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, pointed witch hat, staff or wand, colorful robe, smiling, angry shouting.
+- - - 여기까지 복사 - - -
+
+
+[12] 행동 컷인 — 노엘 상속 스킬 시전 (짓밟힘 등) → prototype/assets/cutin_witch_inherit.png — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Dynamic action cut-in illustration for a card game, 16:9. Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Strong dramatic lighting from the side.
+
+Noel, the witch of an adventuring party, who secretly foresees how each of her companions will die: an adult woman in her mid-twenties, slight and thin, with pale skin and tired, half-lidded deep red eyes with faint dark circles beneath them. Long straight black hair falling past her waist, with messy bangs falling over her eyes. A worn, hooded black robe with the hood down, layered tattered hems and very wide ragged sleeves, a simple brown leather belt with a long hanging strap, plain brown boots, no jewelry. Around her neck hangs a small bundle of old cards tied together with a faded red string. Her expression is quiet and withdrawn; she looks more like a mourner than a mage.
+
+Upper body from the waist up, three-quarter front view, filling the center of the frame and cropped at the waist by the bottom edge, slightly closer than a normal cut-in. She thrusts her right hand forward toward the left of the frame, gripping a single charred black card so hard her knuckles are white. Small specks of dark red blood are spattered across her pale cheek, her neck and her right hand. Her deep red eyes are wide open and hollow, staring at nothing; a single silent tear runs down her cheek through the blood specks; her lips are slightly parted but she is not screaming. Her long black hair is disheveled and falls across her face; the faded red string of her card bundle has snapped and hangs loose.
+Plain flat solid pure green background (#00FF00, one even color, no gradient, no floor, no cast shadow) for easy background removal; no green light or green reflections on the character.
+No speed lines, no glow trails, no sparks, no magic circles, no effects outside the character (effects will be added later in the game). No text, no letters.
+
+AVOID: extra fingers, fused or missing fingers, deformed hands, asymmetric face, extra characters, watermark, signature, chibi, pixel art, 3D render, bright saturated colors on the character, pointed witch hat, staff or wand, colorful robe, smiling, screaming, crying with open mouth, heavy gore, large blood pools on her, wounds.
+- - - 여기까지 복사 - - -
+
+[13] 세라피나 표정 1×4 (완료) → prototype/assets/face_hero_*.png (4장으로 잘라 저장) — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Seraphina, the hero and leader of an adventuring party: an adult woman in her late twenties, tall and athletic, with a calm, confident face and steel-blue eyes. Her presence feels overwhelmingly strong and reliable. Long silver hair gathered into a high ponytail that falls as one thick braid down her back, tied at the crown with a deep red ribbon bow, a few loose strands framing her face. Polished silver plate armor with engraved gold trim over a dark gray gambeson, layered pauldrons, plated gauntlets and armored boots with low heels. A long deep red cape, slightly tattered at the hem, fastened at both shoulders. A sacred longsword with a cross-shaped silver guard and a faint pale-white glow along the blade, carried in a scabbard on her left hip.
+
+A single horizontal row of exactly 4 large bust close-ups of this character, evenly spaced edge to edge with clear gaps between them, filling the full width and height of the frame, all facing the viewer, plain dark blue-gray background, expressions left to right: calm / gentle closed-mouth smile / determined / shocked.
+Identical face shape, eye size, hair, outfit and lighting in all four.
+No text, no labels, no letters. No other views, no turnaround, no color swatches.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, text, labels, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, helmet covering her hair.
+- - - 여기까지 복사 - - -
+
+[14] 엘리안 표정 1×4 → prototype/assets/face_archer_*.png (4장으로 잘라 저장) — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Elian, the archer of an adventuring party: an adult female elf with long pointed ears, a slender build, green eyes and a soft, gentle face. Blonde hair worn in a crown braid, with the rest falling long, loose and wavy down to her hips, tied at the back of the head with a dark green ribbon bow. A dark green hooded cloak with gold leaf embroidery along its edges, fastened with a small gold leaf-shaped brooch, worn over brown leather armor with buckled straps, a cream undershirt and a deep red sash at the waist, with brown leather bracers and tall brown lace-up leather boots with low heels. A quiver of white-feathered arrows on her back over her right shoulder and a recurve longbow of dark wood in her left hand.
+
+A single horizontal row of exactly 4 large bust close-ups of this character, evenly spaced edge to edge with clear gaps between them, filling the full width and height of the frame, all facing the viewer, plain dark blue-gray background, expressions left to right: gentle closed-mouth smile / shocked with wide eyes and parted lips / grief with tears streaming down and trembling lips / hollow and empty, staring at nothing.
+Identical face shape, eye size, hair, outfit and lighting in all four.
+No text, no labels, no letters. No other views, no turnaround, no color swatches.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, text, labels, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, round human ears, short hair, hood pulled up, screaming.
+- - - 여기까지 복사 - - -
+
+[15] 브룬힐드 표정 1×4 → prototype/assets/face_warrior_*.png (4장으로 잘라 저장) — 화면비: 16:9 가로
+- - - 여기부터 복사 - - -
+Anime illustration style, dark fantasy. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent. Soft cool key light from the front, gentle blue-gray rim light.
+
+Brunhild, the shield-bearer and protector of an adventuring party: a tall, broad-shouldered, muscular adult woman in her thirties, the largest member of the party. Short, shaggy ash-white hair, a stern weathered face with a pale scar running down her right cheek from just below the eye, gray eyes. Heavy dark iron plate armor, dented and scratched, over chain mail, with a tattered deep red scarf around her neck and a faded deep red tabard bearing a gold cross emblem. A massive iron tower shield almost as tall as her shoulders, its face scarred with claw marks and an engraved cross crest, strapped to her left arm, a short flanged mace hanging at her left hip beside the shield, and armored boots with low heels.
+
+A single horizontal row of exactly 4 large bust close-ups of this character, evenly spaced edge to edge with clear gaps between them, filling the full width and height of the frame, all facing the viewer, plain dark blue-gray background, expressions left to right: stern / shocked with wide eyes / grief, jaw clenched and holding back tears, eyes wet / rage, teeth gritted and eyes burning.
+Identical face shape, eye size, hair, outfit and lighting in all four.
+No text, no labels, no letters. No other views, no turnaround, no color swatches.
+
+AVOID: extra fingers, fused or missing fingers, asymmetric face, inconsistent outfit or colors between views, text, labels, cropped or missing views, extra characters, watermark, signature, chibi, pixel art, 3D render, photorealistic photo, bright saturated colors on the character, long hair, scar on the left cheek, smiling, screaming.
+- - - 여기까지 복사 - - -
