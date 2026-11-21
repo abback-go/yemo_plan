@@ -658,6 +658,12 @@ func _prep_map(room: String) -> void:
 		st.progress.darkness = int(G.params.darkness)
 	if G.params.has("omen"):
 		st.progress.omen = true
+	# 시험용: ?hp=warrior:3,archer:4 (노엘 witch·동료 HP) — CI 헤드리스 경로 6(거대한 발 끝없는 전멸 되풀이 막힘 재현)
+	if G.params.has("hp"):
+		for kv in str(G.params.hp).split(",", false):
+			var p := kv.split(":")
+			if p.size() == 2:
+				Rules.debug_set_hp(st, p[0], int(p[1]))
 
 
 ## 바로 가기용: 세라피나가 죽은 뒤(빈 캠프 직전) 상태 — 유품·짓밟힘. 빈 캠프에서 브룬힐드의 운명이 들어온다

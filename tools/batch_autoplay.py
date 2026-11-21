@@ -2,7 +2,7 @@
 """batch_autoplay.py — 헤드리스 자동 진행을 경로·시드를 바꿔 여러 판 병렬로 돌리고, 전투별 표를 만든다.
 (밤샘 계획 2 — 결과 보고서는 docs/balance-report.md)
 
-  # 경로 전부(CI 5경로 + 방 조합 4개) × 시드 1~20, 3개씩 동시에
+  # 경로 전부(CI 6경로 + 방 조합 4개) × 시드 1~20, 3개씩 동시에
   python3 tools/batch_autoplay.py --godot ~/godot/godot --seeds 1-20 --jobs 3 --out /tmp/batch
   # 경로·시드 골라서 (같은 시드는 같은 결과 — 재현 확인)
   python3 tools/batch_autoplay.py --godot ~/godot/godot --paths ci2 --seeds 7,7 --out /tmp/batch_re
@@ -25,13 +25,14 @@ from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# CI(.github/workflows/witch-web-build.yml)와 같은 5경로 + 방 조합을 바꾼 경로
+# CI(.github/workflows/witch-web-build.yml)와 같은 6경로 + 방 조합을 바꾼 경로
 PATHS = {
     "ci1": "--scene=camp --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy",
     "ci2": "--scene=camp --rooms=prayer,buried,corpse,stall,chapel --choice=leave,candle --reward=skip --fates=accept,accept",
     "ci3": "--scene=camp --rooms=none --fates=defy,defy,offer",
     "ci4": "--scene=floor2 --fates=offer,offer",
     "ci5": "--scene=floor2 --fates=defy,defy,defy",
+    "ci6": "--scene=giant --hp=warrior:3,archer:4 --fates=defy,defy,defy",   # 거대한 발 끝없는 전멸 되풀이 막힘(고침) 재현
     # 방 조합: 전투 많이(강적 포함·휴식 없음) / 강적+휴식 / 거래로 카드 사기+훈련 / 전조만
     "x1": "--scene=camp --rooms=prayer,gravekeeper,footprints --fates=defy,defy,defy",
     "x2": "--scene=camp --rooms=prayer,gravekeeper,chapel --choice=open --fates=accept,accept",
@@ -168,12 +169,14 @@ def report(runs, out=sys.stdout):
             p("  - `%s`" % e[:180])
 
 
-def load_runs(d):
+def load_runs(dirs):
+    """쉼표로 여러 폴더 — 같은 경로·시드가 여러 폴더에 있으면 재현 확인에 쓰인다"""
     runs = []
-    with open(os.path.join(d, "runs.jsonl")) as f:
-        for line in f:
-            if line.strip():
-                runs.append(json.loads(line))
+    for d in dirs.split(","):
+        with open(os.path.join(d, "runs.jsonl")) as f:
+            for line in f:
+                if line.strip():
+                    runs.append(json.loads(line))
     return runs
 
 
@@ -189,7 +192,7 @@ def main():
     ap.add_argument("--project", default=os.path.join(ROOT, "game"),
                     help="Godot 프로젝트 폴더(기본 game/). 도는 동안 코드를 고칠 거면 복사본을 가리킨다 — 판마다 시작할 때 스크립트를 읽는다")
     ap.add_argument("--extra", default="", help="모든 판에 더할 인자 (예: --ai=careful)")
-    ap.add_argument("--summary", help="이미 돌린 폴더의 runs.jsonl 로 표만")
+    ap.add_argument("--summary", help="이미 돌린 폴더(쉼표로 여러 개)의 runs.jsonl 로 표만")
     a = ap.parse_args()
     if a.summary:
         report(load_runs(a.summary))
