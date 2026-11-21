@@ -84,9 +84,9 @@ def main():
         # 배율이 있으면 위 가운데를 기준으로 줄인다
         pos = (x0 + p['off'][0] + (w - w * sc) / 2.0, y0 + p['off'][1])
         cut[name] = (img, pos, sc)
-    # 전체 높이: 머리 위 ~ 발끝 → 1100
+    # 전체 높이: 머리 위 ~ 발끝(다리 그림 아래 끝 — 성검 끝은 발보다 조금 아래로 내려가도 된다) → 1100
     top = min(c[1][1] for c in cut.values())
-    bottom = max(c[1][1] + c[0].size[1] * c[2] for c in cut.values())
+    bottom = max(cut[n][1][1] + cut[n][0].size[1] * cut[n][2] for n in ('leg_l', 'leg_r'))
     s = FRAME[1] / (bottom - top)
 
     def tf(x, y):
