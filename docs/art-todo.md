@@ -256,4 +256,4 @@ Using the attached image only as a style reference, draw a game UI element: a sm
 ## 6. 다음 할 일 (목록은 아직 없음)
 - **2·3층 그림 목록·프롬프트**(브룬힐드·엘리안 데스신, 2층 카드 「전사의 죽음」 등) — 1층 그림을 마친 뒤 만든다. 지금 2·3층은 옛 그림을 쓴다.
 - 브룬힐드 데스신(관통)은 그림체 D 시안 7장이 `reference/deathscene/brunhild_*` 에 있고, 통과한 구도·막힌 구도는 `docs/art-direction.md` 4장에 있다. 그때 준 프롬프트는 저장소에 없다(대화에서만 줌, 대부분 거절) — 통과 컷을 첨부해 새로 쓴다.
-- 42 묘지기 상인은 26 CG에 있어 생략했다.
+- 42 묘지기 상인은 26 CG에 들어 있어 뽑지 않았다(원본 「42」의 "26번 CG에 이미 있으면 생략").
