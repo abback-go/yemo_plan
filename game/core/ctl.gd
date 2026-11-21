@@ -478,6 +478,7 @@ func _fate_tutorial(af: Dictionary, f, L: Dictionary, my: int) -> void:
 ## 전투 결과 처리. 이겼으면(물러났으면) true
 func after_result(my: int) -> bool:
 	var b: Dictionary = st.battle
+	note("battle end " + _battle_summary())
 	match str(b.result):
 		"giant":
 			note("giant appears")
@@ -505,6 +506,17 @@ func after_result(my: int) -> bool:
 			await FX.fade(1, 200)
 			return await battle(str(b.enc), true, my)
 	return false
+
+
+## 전투가 끝난 순간의 요약(--trace 기록용, 난이도 보고서 tools/batch_autoplay.py 가 읽는다): 전투·결과·턴·덱 장수·노엘과 동료 HP·상태
+func _battle_summary() -> String:
+	var b: Dictionary = st.battle
+	var s := "enc=%s result=%s turn=%d deck=%d witch=%d/%d" % [b.enc, str(b.result), int(b.turn), st.party.deck.size(),
+		int(st.party.witch.hp), int(st.party.witch.maxHp)]
+	for id in st.party.order:
+		var a: Dictionary = st.party.allies[id]
+		s += " %s=%d/%d:%s" % [id, int(a.hp), int(a.maxHp), str(a.status)]
+	return s
 
 
 ## 지도의 방 하나를 마치고 지도로 (층의 끝 방이면 빈 곁방으로)
