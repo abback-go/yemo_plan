@@ -419,6 +419,10 @@ func _make_hud(st: Dictionary) -> void:
 		hp.who = id
 		layers.hud.add_child(hp)
 		hp.position = ally_hp_pos(id) - Vector2(hp.size.x / 2.0, 0)
+		# hpPlate(배경마다): HP 판만 옮긴다(머리 옆 등). 조준 화살표·피해 숫자 자리는 그대로
+		var plate: Dictionary = ly.get("hpPlate", {})
+		if plate.has(id):
+			hp.position += Vector2(float(plate[id][0]), float(plate[id][1]))
 		hp_ally[id] = hp
 	witch_panel = WitchPanel.new()
 	var r := witch_rect()

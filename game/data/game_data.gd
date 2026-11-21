@@ -483,7 +483,7 @@ const D := {
 		# 마녀의 손 그림: 원본 1672×941. scale 배로 줄여 (x, y)에 둔다. 왼손/오른손은 ui_witch_hands.png 를 x=836에서 나눈 것
 		"hand": {
 			"imgL": "ui_witch_hand_left.png", "imgR": "ui_witch_hand_right.png", "splitX": 836, "imgW": 1672, "imgH": 941,
-			"scale": 0.9, "x": 212, "y": 370,
+			"scale": 0.72, "x": 362, "y": 550,   # 배치 C(2026-11-21 사용자 승인): 0.9·212·370 → 손 무리 80%, 가운데 x 964 유지, 카드 윗변 약 746 (세라피나 머리·어깨가 보이게)
 			# 원본 그림 속 다섯 장 카드 자리 (투명 영역, 원본 좌표). [왼위, 오위, 오아래, 왼아래]
 			"slots": [
 				[[351.3, 287.5], [579.6, 171.7], [726.7, 603.8], [566.2, 685.2]],
@@ -496,15 +496,15 @@ const D := {
 			"hoverScale": 1.12,    # 마우스를 올렸을 때 카드 배율 (카드 원본 240×360 기준)
 			"hoverBottom": 1060,   # 확대된 카드의 아랫변 y
 			"dragScale": 0.85,
-			"aimLift": 60,         # 대상 카드를 끌기 시작하면 확대를 풀고 손패 자리에서 이만큼 떠 있다가 작은 오른손(layout.grip)이 쥐어 간다
+			"aimLift": 48,         # 대상 카드를 끌기 시작하면 확대를 풀고 손패 자리에서 이만큼 떠 있다가 작은 오른손(layout.grip)이 쥐어 간다
 			"backs": true,         # 비는 카드 자리에는 마녀가 쥔 덱(뒷면 카드)이 보인다(손 그림이 잘려 보이지 않게)
-			"dropY": 70,           # 카드를 낼 때 부채꼴 손(왼손 쪽)이 내려가는 거리
+			"dropY": 56,           # 카드를 낼 때 부채꼴 손(왼손 쪽)이 내려가는 거리
 			# 카드를 낼 때 오른손이 손패에서 빠지는 동안: 손패를 왼손 쪽으로 모으는 비율(카드 자리 s → s × gather)
 			"gather": 0.4,
 			# 오른손이 빠질 때 함께 가져가는 덱 덮개(뒷면 카드) 자리 — 오른손 그림의 잘린 자리를 가린다
 			"rightBacks": [2, 3, 4],
 			"rightOut": [140, 560],   # 오른손이 빠져 내려가는 거리(x, y)
-			"lockSink": 18,           # 뒤집힌 죽음 카드가 손패에서 가라앉아 보이는 깊이(px)
+			"lockSink": 14,           # 뒤집힌 죽음 카드가 손패에서 가라앉아 보이는 깊이(px)
 		},
 		# 카드를 낼 때 오른손이 카드 한 장을 세워 드는 그림 (ui_witch_hand_raise.png, 원본 1672×941)
 		# quad: 그 카드 자리의 네 모서리 [왼위, 오위, 오아래, 왼아래] — assets/ui_witch_hand_raise.json 값과 같아야 한다(테스트로 확인)
@@ -519,7 +519,7 @@ const D := {
 		# 대상을 고르는 동안(화살표) 오른손이 손패에서 그 카드를 뽑아 작게 쥐고 있는 모습 — 세운 손(raise)의 그림·카드 자리를 그대로 scale 배로 줄여 쓴다.
 		# 손(rig)의 자리 x, y(화면 px, 세운 손 기준 좌표의 원점이 가는 곳). 쥔 카드와 손은 손패가 차지하는 화면 아래쪽 안에 머문다(동료·적·예고를 가리지 않게).
 		# from: 쥘 때 아래에서 올라오는 거리, 취소하면 이만큼 내려가며 사라진다. 확정하면 이 손이 그대로 커지며 세운 손(raise)이 된다.
-		"grip": {"scale": 0.55, "x": 520, "y": 440, "from": [0, 300]},
+		"grip": {"scale": 0.44, "x": 608, "y": 606, "from": [0, 240]},   # 배치 C: 0.55·520·440·300 → 손 무리와 같이 80%
 		# 동료 행동 자세(뒷모습). 기본 자세와 같은 배율로, 발끝(그림 아래 가운데)을 맞춰 겹친다. dx·dy: 미세 조정(화면 px)
 		# 동료 행동 자세 그림 — 새 뒷모습(그림체 D)에 맞는 동작 그림은 움직임 비교 시험(vertical-slice.md 6장) 뒤에 뽑는다.
 		# 그때까지는 비워 둔다(옛 동작 그림을 새 뒷모습에 겹치면 그림체가 달라 보여서). 예: "hero": {"attack": {"img": …, "dx": 30, "dy": 0}}
@@ -528,12 +528,15 @@ const D := {
 		"playZoneY": 610,        # 대상 없는 카드: 이 선보다 위에서 놓으면 사용
 		# 동료 뒷모습: x(가운데), top(머리 위), h(그림 높이), anchor(붉은 실이 나오는 등 위치, 그림 비율)
 		# 새 뒷모습(그림체 D) 기준 — vertical-slice.md 5-9: top 600~640, 높이 740~800, x 520·960·1420 (배경마다 battleLayouts 로 바꿀 수 있다)
+		# 배치 C: 5-9 값에서 셋 모두 top −50 (손패 위로 세라피나 머리가 보이게, 줄은 고르게)
 		"allies": {
-			"archer": {"img": "spr_archer_back.png", "x": 520, "top": 610, "h": 790, "anchor": [0.50, 0.22]},
-			"hero": {"img": "spr_hero_back.png", "x": 960, "top": 636, "h": 770, "anchor": [0.50, 0.2]},
-			"warrior": {"img": "spr_warrior_back.png", "x": 1420, "top": 604, "h": 800, "anchor": [0.55, 0.2]},
+			"archer": {"img": "spr_archer_back.png", "x": 520, "top": 560, "h": 790, "anchor": [0.50, 0.22]},
+			"hero": {"img": "spr_hero_back.png", "x": 960, "top": 586, "h": 770, "anchor": [0.50, 0.2]},
+			"warrior": {"img": "spr_warrior_back.png", "x": 1420, "top": 554, "h": 800, "anchor": [0.55, 0.2]},
 		},
 		"allyHpOffset": 34,
+		# hpPlate: {동료: [dx, dy]} — 그 동료의 HP 판만 옮긴다(조준 화살표·피해 숫자 자리는 그대로). battleLayouts 에서 배경마다
+		"hpPlate": {},
 		# 적 HP 막대 자리: feet(발밑) | above(머리 위 — 예고는 그 위). 새 배치는 동료 머리가 적 발 바로 아래라 above
 		"enemyHp": "feet",
 		# 적: x(가운데), feet(발 y), h(그림 높이). 옛 배경(2·3층 bg_ossuary·bg_pyre_court) 기준 — 새 배경은 battleLayouts
@@ -560,7 +563,8 @@ const D := {
 	"battleLayouts": {
 		# 장례 회랑(07): 단 윗면 ≈ 화면 높이 50% — 목업 v3
 		"gallery": {"enemySlots": [{"x": 705, "feet": 556, "h": 270}, {"x": 960, "feet": 556, "h": 270}, {"x": 1215, "feet": 556, "h": 270}],
-			"enemyHp": "above", "guideBattleY": 18},
+			# 배치 C: 동료를 50 올리면 세라피나 HP 판이 가운데 광신도 발 바로 아래 단 앞 가장자리를 덮어 머리 오른쪽으로
+			"enemyHp": "above", "guideBattleY": 18, "hpPlate": {"hero": [180, 55]}},
 		# 광신도 기도실(20): 둥근 단 앞 가장자리 ≈ 585
 		"prayer": {"enemySlots": [{"x": 700, "feet": 588, "h": 270}, {"x": 960, "feet": 588, "h": 270}, {"x": 1220, "feet": 588, "h": 270}],
 			"enemyHp": "above", "guideBattleY": 18},
@@ -570,9 +574,9 @@ const D := {
 		# 가장 깊은 곳(19): 단 윗면이 더 낮아 발 ≈ 675 — 목업 deepest. 거대한 발은 너비 약 1100, 아랫변 ≈ 640 — 목업 foot
 		"deepest": {"enemySlots": [{"x": 765, "feet": 674, "h": 268}, {"x": 960, "feet": 674, "h": 268}, {"x": 1170, "feet": 674, "h": 268}],
 			"giant": {"w": 1100, "bottom": 640, "feetY": 452, "intentY": 368}, "allies": {
-				"archer": {"img": "spr_archer_back.png", "x": 520, "top": 640, "h": 790, "anchor": [0.50, 0.22]},
-				"hero": {"img": "spr_hero_back.png", "x": 960, "top": 664, "h": 770, "anchor": [0.50, 0.2]},
-				"warrior": {"img": "spr_warrior_back.png", "x": 1420, "top": 634, "h": 800, "anchor": [0.55, 0.2]}},
+				"archer": {"img": "spr_archer_back.png", "x": 520, "top": 590, "h": 790, "anchor": [0.50, 0.22]},
+				"hero": {"img": "spr_hero_back.png", "x": 960, "top": 614, "h": 770, "anchor": [0.50, 0.2]},
+				"warrior": {"img": "spr_warrior_back.png", "x": 1420, "top": 584, "h": 800, "anchor": [0.55, 0.2]}},
 			"enemyHp": "above", "guideBattleY": 18},
 	},
 
