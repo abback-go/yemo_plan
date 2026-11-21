@@ -257,7 +257,24 @@ Plain flat solid pure green (#00FF00), one even color, no shadow, no green refle
 AVOID
 Moving or resizing the hands, cards or any object in the hands, extra fingers, a third hand, red threads on the left hand, long threads running across the image, text, watermark, signature.
 ```
-- P09-2 카드를 세워 든 오른손 — P09-1이 통과한 뒤 같은 대화창에서 `09_ref_hand_raise_green.png`를 첨부해 같은 방식으로(프롬프트는 그때).
+- P09-2 카드를 세워 든 오른손 — 첨부: `09_ref_hand_raise_green.png` · P09-1과 같은 대화창
+```
+Redraw the attached image in exactly the same art style and costume as the two hands you just drew. This is the witch Noel's own right hand, seen in first person, raised to show a game card.
+
+KEEP EXACTLY THE SAME AS THE ATTACHED IMAGE
+The canvas size, the position, size, angle and pose of the hand and every finger, and the empty gap between the thumb and the fingers where a game card will be inserted later. The hand holds nothing: leave the gap empty. Do not draw a card.
+
+CHANGE
+- The same style as your previous image: delicate, slightly rough ink linework with fine hatching and faded watercolor washes; pale skin; the only vivid color is deep crimson.
+- The same black lace fingerless glove and torn, sheer black bell sleeve as the right hand in your previous image.
+- The same crimson threads wound around the fingers and thumb, each ending in a short loose end about the length of a finger. Nothing in the upper part of the image.
+
+BACKGROUND
+Plain flat solid pure green (#00FF00), one even color, no shadow, no green reflections on the hand.
+
+AVOID
+Moving or resizing the hand, a card or any object in the hand, extra fingers, a second hand, long threads running across the image, text, watermark, signature.
+```
 
 ### P10 카드 틀
 - 첨부: `style_D_seraphina_anchor.webp` · 새 대화창
