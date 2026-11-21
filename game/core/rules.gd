@@ -887,15 +887,15 @@ static func _apply_effect(st: Dictionary, uid: String, c: Dictionary, eff: Dicti
 				a.hp = 0
 				st.party.deathCards.erase(uid)
 				var lv := level(st, uid)
-				# 이 죽음 카드에 걸린 운명은 '바침'으로 끝난다
-				for f in st.get("fates", []):
-					if f.who == eff.ally and f.alive:
-						f.alive = false
-						f.result = "offered"
-						f.offeredLevel = lv
-						f.offeredFloor = floor_now(st)
-						f.triedFloor = floor_now(st)
-						st.fateLog.append({"fate": f.id, "who": f.who, "level": lv, "floor": floor_now(st), "result": "offered", "scars": 0})
+				# 이 죽음 카드에 걸린 운명은 '바침'으로 끝난다 (동료마다 살아 있는 운명은 하나뿐 — add_fate)
+				var f = fate_of(st, eff.ally)
+				if f != null:
+					f.alive = false
+					f.result = "offered"
+					f.offeredLevel = lv
+					f.offeredFloor = floor_now(st)
+					f.triedFloor = floor_now(st)
+					st.fateLog.append({"fate": f.id, "who": f.who, "level": lv, "floor": floor_now(st), "result": "offered", "scars": 0})
 				ev.append({"t": "allyDeath", "ally": eff.ally, "cause": "deathCard", "card": st.cards[uid].id, "lv": lv,
 					"fate": str(c.get("fate", "")), "handIndex": b.lastPlayedIndex if b != null else -1})
 		"relicize":
