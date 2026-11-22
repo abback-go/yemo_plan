@@ -4,6 +4,7 @@
 ##   3턴 「짓밟기」: 뒤집힌 카드가 뒤집힘 → 데스신 → 사망 직후 안내) → 빈 캠프(다음 죽음: 브룬힐드) → 1층 끝
 ## 2층: 창 함정 회랑(VN·전조) → 기사단 납골당(VN → 창 기사 전투, 운명의 시도: 받아들인다/거스른다) → 계단(Lv업·새 운명: 엘리안)
 ## 3층: 불탄 예배당 회랑(VN·전조) → 화형대 광장(VN → 화형 사제 전투) → 결과 요약
+##   (밤샘 계획 2 C: 2·3층 전투도 새 전투가 기본 — 운명은 집행자가 내는 죽음 카드, 맞는 순간 같은 선택 화면. 옛 전투·옛 운명 흐름(battle_fate)은 ?battle=v1)
 ## 전멸: 어느 전투든 전멸 화면 → 그 전투 처음부터 (튜토리얼의 "카드를 내지 않은 미래" 되감기는 없앴다 — 2026-11-21)
 ## 자동 저장(core/save_game.gd): 흐름의 단계(곁방·장례 회랑·안치 홀·빈 곁방·1층 끝·2·3층 장면)와 지도의 방에 들어갈 때.
 ##   이어하기는 마지막으로 들어간 곳의 처음부터. 결과 요약(시험판 끝)에 닿으면 저장을 지운다. --nosave(?nosave=1)면 쓰지도 읽지도 않는다
@@ -271,7 +272,7 @@ func _step_result(my: int) -> bool:
 
 # ───────── 전투 ─────────
 ## 반환: 이겼으면(또는 거대한 발 앞에서 물러나 끝났으면) true
-## 새 전투(v2 3D 탁자)가 기본 — 1층 전투(BattleV2Data encounters)는 _battle_v2. 옛 전투는 ?battle=v1, 2·3층(납골당·화형대)은 아직 옛 전투
+## 새 전투(v2 3D 탁자)가 기본 — 1·2·3층 전투(BattleV2Data encounters)는 _battle_v2. 옛 전투는 ?battle=v1
 func battle(enc: String, from_snapshot := false, my := -1) -> bool:
 	if G.battle_v2() and BattleV2Data.D.encounters.has(enc) and enc != "test":
 		return await _battle_v2(enc, my)
@@ -362,9 +363,11 @@ func _battle_v2(enc: String, my: int) -> bool:
 			st = Rules.restore(snap, int(b2.rng))
 			tries += 1
 			continue
+		for fr in b2.get("fateResults", []):
+			note("fate %s %s lv%d" % [str(fr.choice), str(fr.fate), int(fr.level)])   # 2·3층 운명의 시도(받아들임 accept · 거스름 defy)
 		for e in RulesV2.apply_result(st, b2):
-			if str(e.t) in ["wound", "wound2", "allyDeath"]:
-				note("%s %s %s" % [e.t, str(e.get("ally", "")), str(e.get("from", e.get("card", "")))])
+			if str(e.t) in ["wound", "wound2", "allyDeath", "fateDefied"]:
+				note("%s %s %s" % [e.t, str(e.get("ally", e.get("who", ""))), str(e.get("from", e.get("card", e.get("fate", ""))))])
 		if res == "giant":
 			note("giant appears")
 			return await _battle_v2("giant", my)

@@ -75,6 +75,21 @@ const D := {
 		"nameless": {"name": "이름 없는 마녀의 카드", "owner": "noel", "cost": 0, "kind": "erase", "on": "act", "noelCost": 3, "exhaust": true,
 			"text": "적 행동 하나를 없앤다\n노엘 HP -3 · 전투마다 한 번", "art": "card_art_nameless_card.jpg"},
 		"charm": {"name": "작은 손의 부적", "owner": "noel", "cost": 1, "kind": "heal", "on": "ally", "heal": 4, "text": "동료 하나\nHP {n} 회복", "art": "card_art_small_charm.jpg"},
+		# ── 2·3층(운명 — 밤샘 계획 2 C, 옛 카드를 이 규칙으로 옮김, 수치는 옛 것 그대로 [임시]) ──
+		# 흉터(운명을 거스른 값): 낼 수 없고, 손에 든 채 턴이 끝나면 노엘 HP -endTurnNoel. 그림은 아직 없어 상처 그림을 어둡게
+		"scar": {"name": "흉터", "owner": "", "cost": 0, "kind": "wound", "unplayable": true, "endTurnNoel": 1, "text": "낼 수 없다\n손에 든 채 턴이 끝나면 노엘 HP -1",
+			"art": "card_art_wound.jpg", "dark": true},
+		# 상속(그 죽음의 힘 — 받아들인 죽음과 같은 Lv): 꿰뚫린 방패 = 적 행동 카드 하나를 막고(피해 0) 그 피해만큼 그 적에게 되돌린다(Lv2: 모두) · 타버린 활 = 모든 적에게
+		"pierced_shield": {"name": "꿰뚫린 방패", "owner": "noel", "cost": 1, "kind": "reflect", "on": "act", "text": "적 행동 하나를 막고\n그 피해만큼 되돌린다",
+			"art": "card_art_pierced_shield.png"},
+		"burnt_bow": {"name": "타버린 활", "owner": "noel", "cost": 1, "kind": "stomp", "on": "enemy", "damage": 10, "text": "모든 적에게\n피해 {n}", "art": "card_art_burnt_bow.png"},
+		# 유품(브룬힐드·엘리안이 죽으면 그 동료의 전용 카드가 바뀐다 — 옛 relicMap 의 강타·화살·견제)
+		"relic_bash": {"name": "브룬힐드의 마지막 강타", "owner": "", "cost": 1, "kind": "attack", "damage": 12, "noelCost": 2, "relic": true,
+			"text": "적 하나에게 피해 {n}\n낼 때마다 노엘 HP -2", "art": "card_art_shield_bash.jpg"},
+		"relic_arrow": {"name": "궁수의 화살", "owner": "", "cost": 1, "kind": "attack", "damage": 12, "noelCost": 2, "relic": true,
+			"text": "적 하나에게 피해 {n}\n낼 때마다 노엘 HP -2", "art": "card_art_snipe.jpg"},
+		"relic_suppress": {"name": "궁수의 마지막 견제", "owner": "noel", "cost": 1, "kind": "curse", "on": "act", "minus": 6, "noelCost": 1, "relic": true,
+			"text": "적 행동 하나의 피해 -{n}\n노엘 HP -1", "art": "card_art_suppress.jpg"},
 	},
 	# Lv2(무덤지기를 이기고 얻는 카드 · 무너진 훈련장 강화) [임시]: 바뀌는 값 · 훈련 화면의 요약. 이름 뒤에 「Lv2」
 	"up": {
@@ -83,6 +98,9 @@ const D := {
 		"guard": {"block": 7, "summary": "막기 5 → 7"},
 		"curse": {"minus": 5, "summary": "피해 -3 → -5"},
 		"slash": {"damage": 8, "summary": "피해 6 → 8"},
+		# 상속 카드 Lv2(2단계에서 받아들인 죽음 — 3층 브룬힐드)
+		"pierced_shield": {"all": true, "text": "적 행동을 모두 막고\n각 피해만큼 되돌린다", "summary": "하나 → 모두"},
+		"burnt_bow": {"damage": 16, "summary": "피해 10 → 16"},
 	},
 	# 장수: 지시서 5장 표 14장 + 9-2 「운명 찢기」 1장 = 15장
 	"deck": [["slash", 2], ["guard", 2], ["holy", 2], ["revert", 1], ["aim", 2], ["snipe", 1], ["shift", 1], ["bless", 1], ["curse", 1], ["vuln", 1], ["tear", 1]],
@@ -95,9 +113,11 @@ const D := {
 	# 옛 카드 → 이 규칙의 카드: 지도의 방(좌판·순장된 자의 방·핏자국 통로 끝·무덤지기·훈련장)은 옛 카드 id 로 정하고, deck2 에는 짝 카드가 들어간다
 	"fromV1": {"holy_slash": "holy", "vanguard": "slash", "cover": "guard", "take_hit": "guard", "shield_bash": "revert", "snipe": "snipe", "suppress": "aim",
 		"fate_shift": "shift", "curse_flame": "curse", "foresight": "vuln", "nameless_card": "nameless", "small_charm": "charm", "trample": "trample",
-		"wound": "wound", "broken_sword": "relic_sword", "last_charge": "relic_sword"},
+		"wound": "wound", "broken_sword": "relic_sword", "last_charge": "relic_sword",
+		"scar": "scar", "pierced_shield": "pierced_shield", "burnt_bow": "burnt_bow",
+		"warrior_last_bash": "relic_bash", "archer_arrow": "relic_arrow", "archer_last_suppress": "relic_suppress"},
 	# 동료가 죽으면 그 동료의 전용 카드가 유품으로(옛 relicMap 과 같은 규칙 — 더 강하지만 낼 때마다 노엘 HP 가 준다). 상처는 그대로
-	"relicMap": {"holy": "relic_sword"},
+	"relicMap": {"holy": "relic_sword", "revert": "relic_bash", "snipe": "relic_arrow", "aim": "relic_suppress"},
 	# 동료가 죽음 카드에 맞으면 나오는 데스신(scenes.gd cutscene 의 key). 없으면 짧은 「죽음」 뒤집기만
 	"deathScenes": {"hero": "hero", "warrior": "warrior_pierce", "archer": "archer_burn"},
 
@@ -133,6 +153,20 @@ const D := {
 		"giant": {"bg": "bg_vs_deepest_hall.webp", "v1": "giant", "noLose": true, "deathEnds": "retreat",
 			"lineup": [{"id": "giant", "type": "giant", "col": 1}],
 			"turns": [{"kind": "none"}, {"kind": "sweep", "value": 5}, {"kind": "death", "ally": "hero", "fixed": true}]},
+		# ── 2·3층(밤샘 계획 2 C — 옛 encounters ossuary·pyre 의 적·HP·행동을 옮김 [임시]) ──
+		# fates: {턴: {enemy, fate, sub}} — 그 턴에 그 적(집행자)이 그 운명의 죽음 카드를 그 동료 칸 ② 에 낸다(옛 fateIntents). 운명이 살아 있고 이 층에서 아직 시도되지 않았을 때만
+		#   (게임이 battle_opts 의 fates 로 넘긴다). 맞는 순간(적 턴 끝) 운명의 시도 — 받아들인다/거스른다. 집행자가 먼저 쓰러져도 남은 운명은 그 순간 나온다(DECISIONS 「밤샘 계획 2 C」)
+		# pattern 의 kind sweep = 모든 칸(옛 aoe — 빈칸이면 노엘이 맞는다)
+		"ossuary": {"bg": "bg_ossuary.png", "v1": "ossuary",
+			"lineup": [{"id": "c1", "type": "cultist", "col": 0}, {"id": "k1", "type": "spear_knight", "col": 1}],
+			"hit": {"cultist": {"min": 3, "max": 5}},
+			"pattern": {"spear_knight": [{"label": "찌르기", "value": 7, "target": "random"}, {"label": "관통 돌진", "value": 10, "target": "highest"}]},
+			"fates": {"2": {"enemy": "k1", "fate": "warrior_pierce", "sub": "운명의 관통"}}},
+		"pyre": {"bg": "bg_pyre_court.png", "v1": "pyre",
+			"lineup": [{"id": "p1", "type": "pyre_priest", "col": 1}, {"id": "c1", "type": "cultist", "col": 2}],
+			"hit": {"cultist": {"min": 3, "max": 5}},
+			"pattern": {"pyre_priest": [{"kind": "sweep", "label": "불길", "value": 3}, {"label": "화염", "value": 6, "target": "random"}]},
+			"fates": {"2": {"enemy": "p1", "fate": "archer_burn", "sub": "운명의 불길"}, "3": {"enemy": "p1", "fate": "warrior_pierce", "sub": "운명의 꼬챙이"}}},
 	},
 
 	# ───────────── 적 (지시서 6장 — 시험 전투: 광신도 2 + 무덤지기 강적 + 해골 병사 하수인) ─────────────
@@ -153,6 +187,13 @@ const D := {
 		"giant": {"name": "거대한 발", "hp": 0, "immune": true, "wide": true,
 			"art": [{"file": "spr_giant_foot.png", "crop": [0.0, 0.5, 1.0, 0.36], "face": [0.25, 0.3, 0.5, 0.36]}],
 			"acts": {"none": {"label": "그림자", "sub": "행동 없음"}, "sweep": {"label": "기둥 붕괴"}, "death": {"label": "짓밟기"}}},
+		# 2·3층(밤샘 계획 2 C): 창 기사(기사단 납골당) · 화형 사제(화형대 광장) — 그림체 F 그림이 아직 없어 옛 그림(그림체 D). 행동은 encounters 의 pattern
+		"spear_knight": {"name": "창 기사", "hp": 36,
+			"art": [{"file": "spr_cult_knight.png", "crop": [0.0, 0.0, 1.0, 0.6], "face": [0.36, 0.0, 0.28, 0.17]}],
+			"acts": {"hit": {"label": "찌르기", "value": 7}}},
+		"pyre_priest": {"name": "화형 사제", "hp": 46,
+			"art": [{"file": "spr_pyre_priest.png", "crop": [0.0, 0.0, 1.0, 0.6], "face": [0.35, 0.02, 0.3, 0.17]}],
+			"acts": {"hit": {"label": "화염", "value": 6}, "sweep": {"label": "불길", "value": 3}}},
 		"skeleton": {"name": "해골 병사", "hp": 8, "isMinion": true,
 			"art": [{"file": "f_spr_skeleton.png", "crop": [0.0, 0.0, 1.0, 0.62], "face": [0.32, 0.0, 0.33, 0.17]}],
 			"acts": {"hit": {"label": "녹슨 칼", "value": 4}}},
@@ -257,6 +298,9 @@ const D := {
 		"win": "승리", "lose": "패배", "winText": "적이 모두 쓰러졌다 · {n}턴", "loseText": "동료가 모두 쓰러졌다 · {n}턴", "loseNoel": "노엘이 쓰러졌다 · {n}턴",
 		"postponed": "운명이 미뤄졌다 — {list}", "bench_state": "대기",
 		"again": "다시 하기",
+		# 2·3층 운명(밤샘 계획 2 C)
+		"fateMark": "{sub}\n옮길 수 없음", "fateWhen": "{sub}\n{n}턴 · {enemy}", "fatesHeld": "노엘이 쥔 죽음 — {list}", "fateDefied": "운명을 거슬렀다",
+		"reflected": "되돌린다", "tagReflect": "막고 되돌린다", "tagReflectAll": "모두 막고 되돌린다", "alone": "노엘 혼자 남았다 — 물러난다",
 	},
 	# 놓을 수 없을 때 짧은 알림 (rules_v2.gd 의 이유 → 문구)
 	"reasons": {
@@ -270,5 +314,6 @@ const D := {
 		"notDeath": "죽음 카드 위에 놓는다", "occupied": "벤치의 동료는 빈칸에만 넣는다", "same": "같은 자리", "noneFielded": "칸에 동료가 하나는 있어야 한다",
 		"formation": "출전 배치를 먼저 끝낸다", "deadAlly": "죽은 동료는 돌아오지 않는다",
 		"unplayable": "낼 수 없는 카드", "fixed": "이 죽음은 옮길 수도 찢을 수도 없다", "erased": "이미 없앤 행동이다",
+		"fateFixed": "운명의 죽음은 옮길 수 없다 — 맞는 순간 받아들일지 거스를지 고른다",
 	},
 }

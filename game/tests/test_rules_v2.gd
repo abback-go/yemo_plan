@@ -3,6 +3,8 @@
 ## 특성 넷(용사·버팀·조준·노엘은 칸 없음) · 카드 열하나(공용·전용·노엘) · 계산 순서 · 하수인(부르기·막기·저격으로 넘기·본체와 함께 사라짐)
 ## · 운명 전가(옮기기·되돌리기) · 승패 · 자동 진행이 끝까지 가는지 · 문구 글자가 글꼴에 있는지
 ## · v2.1: 적의 죽음 카드(막을 수 없음·무덤지기를 쓰러뜨림·운명 전가·운명 찢기·벤치에서 기다림·운명이 미뤄짐) · 출전 배치·자리 바꾸기(에너지 1) · 빈칸 공격은 노엘
+## · 밤샘 계획 2 C: 2·3층 운명(집행자의 죽음 카드 → 운명의 시도 받아들인다/거스른다 · 집행자를 먼저 쓰러뜨려도 운명은 남음 · 벤치에서 미뤄짐 · 두 죽음 ·
+##   상속·유품·흉터 · 꿰뚫린 방패 · 게임 상태에 돌려 적기 · 자동 진행이 끝까지)
 class_name TestRulesV2
 extends RefCounted
 
@@ -19,7 +21,8 @@ static func run(tester) -> void:
 	# 시험 함수마다 끝에서 true 를 돌려준다 — 도중에 스크립트 에러로 멈추면 실패로 센다(에러만 찍히고 통과로 보이지 않게)
 	for m in ["t_setup", "t_turn", "t_owner", "t_hero", "t_brace", "t_aim", "t_noel", "t_order", "t_minion", "t_shift", "t_win_lose", "t_forecast", "t_auto", "t_auto_human", "t_text",
 			"t_formation", "t_noel_hp", "t_death", "t_death_escape", "t_death_bench",
-			"t_game_setup", "t_game_tutorial", "t_game_cards", "t_game_gravekeeper", "t_game_deep_giant", "t_game_darkness", "t_game_apply", "t_game_auto"]:
+			"t_game_setup", "t_game_tutorial", "t_game_cards", "t_game_gravekeeper", "t_game_deep_giant", "t_game_darkness", "t_game_apply", "t_game_auto",
+			"t_fate_setup", "t_fate_trial_defy", "t_fate_trial_accept", "t_fate_executor", "t_fate_bench", "t_fate_pyre_two", "t_fate_cards", "t_fate_alone", "t_fate_auto"]:
 		if r.call(m) != true:
 			r.check(m + " 이 끝까지 돌았다", false, "스크립트 에러로 멈춤")
 	tester.v2_done = true
@@ -746,6 +749,10 @@ func auto_run(st: Dictionary) -> Dictionary:
 				r = RulesV2.move_ally(st, a.ally, a.to)
 			_:
 				RulesV2.end_turn(st)
+				# 2·3층 운명의 시도: 시험에서는 fate_choice 메타 키(없으면 거스름)로 고른다
+				var picks: Array = st.get("autoPicks", [])
+				while st.get("awaitFate") != null:
+					RulesV2.fate_choice(st, str(picks.pop_front()) if not picks.is_empty() else "defy")
 				if st.result == null:
 					RulesV2.start_turn(st)
 		if not r.ok:
@@ -955,4 +962,258 @@ func t_game_auto() -> bool:
 		res[enc] = n
 	check("1층 전투 다섯 곳: 자동 진행이 시드 1~12 모두 결과까지(거대한 발은 늘 물러남)", bad == "" and res.giant.get("retreat", 0) == 12, bad + str(res))
 	print("    1층 자동 진행(12판씩, 새 파티): ", res)
+	return true
+
+
+# ───────── 2·3층 운명 (밤샘 계획 2 C) ─────────
+## 2층 상태(1층을 끝냄 — 세라피나 사망, 브룬힐드 관통 Lv1)의 게임 상태
+func fate_gs(sd := 7, brun := "") -> Dictionary:
+	var gs := Rules.state_after_tutorial(sd) if brun == "" else Rules.state_floor3(sd, brun)
+	RulesV2.init_party(gs)
+	return gs
+
+
+## 그 전투를 열고 n 턴째 내 턴까지(앞 턴들의 적 공격은 0, 운명의 시도는 거스름)
+func fate_battle(enc: String, gs: Dictionary, turns: int) -> Dictionary:
+	var st := RulesV2.new_battle(null, RulesV2.battle_opts(gs, enc))
+	RulesV2.start_battle(st)
+	for i in turns - 1:
+		_zero_hits(st)
+		RulesV2.end_turn(st)
+		while st.awaitFate != null:
+			RulesV2.fate_choice(st, "defy")
+		RulesV2.start_turn(st)
+	return st
+
+
+func t_fate_setup() -> bool:
+	var gs := fate_gs()
+	var ids: Array = gs.party.deck2.map(func(x): return str(x.id))
+	check("2층 바로 가기: 새 덱에도 지난 운명 — 성검 베기 → 유품 「부러진 성검」 2장 · 「짓밟힘」", not ids.has("holy") and ids.count("relic_sword") == 2 and ids.has("trample"), str(ids))
+	var o := RulesV2.battle_opts(gs, "ossuary")
+	check("전투에 넘기는 운명: 브룬힐드 관통 Lv1(흉터 1) — 세라피나(거스를 수 없음)는 빠짐", o.fates.size() == 1 and str(o.fates[0].id) == "warrior_pierce" and int(o.fates[0].level) == 1
+		and int(o.fates[0].scars) == 1, str(o.fates))
+	var st := RulesV2.new_battle(null, o)
+	var k = RulesV2.enemy(st, "k1")
+	check("기사단 납골당: 광신도(칸 0) + 창 기사(칸 1, HP 36) · 세라피나는 죽어 벤치", k != null and int(k.hp) == 36 and int(k.col) == 1 and int(RulesV2.enemy(st, "c1").col) == 0
+		and st.allies.hero.dead and not st.slots.has("hero"))
+	var gs3 := fate_gs(7, "alive")
+	var o3 := RulesV2.battle_opts(gs3, "pyre")
+	var lv := {}
+	for f in o3.fates:
+		lv[str(f.id)] = int(f.level)
+	check("3층(브룬힐드가 살아 있음): 엘리안 화형 Lv1 · 브룬힐드 Lv2 두 운명 · 새 덱에 흉터 1(2층에서 거스름)", lv == {"warrior_pierce": 2, "archer_burn": 1}
+		and gs3.party.deck2.filter(func(x): return x.id == "scar").size() == 1, str(lv))
+	var gs3d := fate_gs(7, "dead")
+	var ids3: Array = gs3d.party.deck2.map(func(x): return str(x.id))
+	check("3층(2층에서 받아들임): 「꿰뚫린 방패」·「브룬힐드의 마지막 강타」(되돌리기 → 유품) · 운명은 엘리안만", ids3.has("pierced_shield") and ids3.has("relic_bash") and not ids3.has("revert")
+		and RulesV2.battle_opts(gs3d, "pyre").fates.size() == 1, str(ids3))
+	return true
+
+
+func t_fate_trial_defy() -> bool:
+	var gs := fate_gs()
+	var st := fate_battle("ossuary", gs, 2)
+	var dd: Dictionary = st.deaths[0] if not st.deaths.is_empty() else {}
+	check("2턴: 창 기사가 「브룬힐드의 죽음」(운명의 관통)을 브룬힐드 칸 ② 에", str(dd.get("fate", "")) == "warrior_pierce" and str(dd.get("ally", "")) == "warrior"
+		and str(dd.get("src", "")) == "k1" and str(dd.get("sub", "")) == "운명의 관통" and RulesV2.enemy(st, "k1").intent.kind == "death", str(st.deaths))
+	st.hand.append_array(_give(st, ["shift", "curse", "guard"]))
+	st.energy = 3
+	check("운명의 죽음은 옮길 수 없다 · 저주로 줄지 않는다", RulesV2.can_cast(st, uid_of(st, "shift"), dd.id).reason == "fateFixed"
+		and RulesV2.can_cast(st, uid_of(st, "curse"), dd.id).reason == "death" and RulesV2.shift_dests(st, dd.id).is_empty())
+	RulesV2.place(st, uid_of(st, "guard"), "warrior")
+	_zero_hits(st)
+	var ev := RulesV2.end_turn(st)
+	check("적 턴 끝에 닿으면 운명의 시도(멈춤 — 정리 전) · 그사이 다음 턴은 시작되지 않는다", st.awaitFate != null and ev_of(ev, "fateTrial").size() == 1 and ev_of(ev, "cleanup").is_empty()
+		and RulesV2.start_turn(st).is_empty() and RulesV2.end_turn(st).is_empty())
+	var nd: int = st.draw.size()
+	var ev2 := RulesV2.fate_choice(st, "defy")
+	var fd := ev_of(ev2, "fateDefied")
+	check("거스른다: 브룬힐드는 살고 흉터 1장이 뽑을 더미에 · 이어서 정리", not st.allies.warrior.dead and fd.size() == 1 and fd[0].scars.size() == 1 and st.draw.size() == nd + 1
+		and st.cards[fd[0].scars[0]].id == "scar" and ev_of(ev2, "cleanup").size() == 1 and st.deaths.is_empty() and st.awaitFate == null)
+	st.result = "win"
+	RulesV2.apply_result(gs, st)
+	var f = Rules.fate_by_id(gs, "warrior_pierce")
+	check("게임 상태: 운명은 살아 있고(다음 층으로) 이 층에서 시도함 · 흉터가 옛 덱·새 덱 모두에", f.alive and int(f.triedFloor) == 2 and Rules.scar_count(gs) == 1
+		and gs.party.deck2.filter(func(x): return x.id == "scar").size() == 1 and gs.fateLog.back().result == "defied")
+	check("다시 열면 이 층에서는 운명이 오지 않는다", RulesV2.battle_opts(gs, "ossuary").fates.is_empty())
+	return true
+
+
+func t_fate_trial_accept() -> bool:
+	var gs := fate_gs()
+	var st := fate_battle("ossuary", gs, 2)
+	_zero_hits(st)
+	RulesV2.end_turn(st)
+	var ev := RulesV2.fate_choice(st, "accept")
+	var de := ev_of(ev, "death")
+	var fg := ev_of(ev, "fateGain")
+	check("받아들인다: 브룬힐드가 죽는다(죽음 연출 · 운명 Lv)", st.allies.warrior.dead and de.size() == 1 and str(de[0].get("fate", "")) == "warrior_pierce" and int(de[0].level) == 1)
+	var top: String = st.draw[0] if not st.draw.is_empty() else ""
+	check("상속 「꿰뚫린 방패」가 뽑을 더미 맨 위(다음 턴에 손에) · 되돌리기 → 유품 「브룬힐드의 마지막 강타」", fg.size() == 1 and top != "" and st.cards[top].id == "pierced_shield"
+		and st.cards.values().all(func(c): return c.id != "revert") and st.cards.values().any(func(c): return c.id == "relic_bash"))
+	RulesV2.start_turn(st)
+	check("다음 턴 손패에 꿰뚫린 방패", st.hand.any(func(u): return st.cards[u].id == "pierced_shield"))
+	st.result = "win"
+	RulesV2.apply_result(gs, st)
+	var ids: Array = gs.party.deck2.map(func(x): return str(x.id))
+	var f = Rules.fate_by_id(gs, "warrior_pierce")
+	check("게임 상태: 브룬힐드 사망 · 운명 받아들임(Lv1) · 새 덱에 꿰뚫린 방패·유품 · 옛 덱에 꿰뚫린 방패", gs.party.allies.warrior.status == "dead" and not f.alive and f.result == "offered"
+		and ids.has("pierced_shield") and ids.has("relic_bash") and not ids.has("revert") and gs.party.deck.any(func(u): return gs.cards[u].id == "pierced_shield"), str(ids))
+	return true
+
+
+func t_fate_executor() -> bool:
+	var gs := fate_gs()
+	var st := RulesV2.new_battle(null, RulesV2.battle_opts(gs, "ossuary"))
+	RulesV2.start_battle(st)
+	RulesV2.enemy(st, "k1").hp = 3
+	st.slots = ["warrior", "archer", ""]
+	st.bench = ["hero"]
+	st.hand.append_array(_give(st, ["slash"]))
+	st.energy = 3
+	RulesV2.place(st, uid_of(st, "slash"), "archer")
+	_zero_hits(st)
+	var ev := RulesV2.end_turn(st)
+	var rl := ev_of(ev, "fateRelease")
+	check("1턴에 창 기사를 먼저 쓰러뜨려도 운명은 그 순간 나온다(fate-design 4장) → 이번 적 턴 끝에 운명의 시도", not RulesV2.enemy(st, "k1").alive and rl.size() == 1
+		and st.deaths.size() == 1 and not st.deaths[0].bound and st.awaitFate != null and ev_of(ev, "deathGone").is_empty(), str(st.deaths))
+	RulesV2.fate_choice(st, "defy")
+	# 이겨도 운명은 온다
+	var gs2 := fate_gs(9)
+	var st2 := RulesV2.new_battle(null, RulesV2.battle_opts(gs2, "ossuary"))
+	RulesV2.start_battle(st2)
+	RulesV2.enemy(st2, "k1").hp = 3
+	RulesV2.enemy(st2, "c1").hp = 3
+	st2.slots = ["warrior", "archer", ""]
+	st2.bench = ["hero"]
+	var two := _give(st2, ["slash", "slash"])
+	st2.hand.append_array(two)
+	st2.energy = 3
+	RulesV2.place(st2, two[0], "archer")
+	RulesV2.place(st2, two[1], "warrior")
+	var ev2 := RulesV2.end_turn(st2)
+	check("마지막 적(집행자)을 쓰러뜨려 이겨도 운명의 시도가 먼저(승리는 그 뒤)", st2.result == "win" and st2.awaitFate != null and ev_of(ev2, "enemyPhase").is_empty() and ev_of(ev2, "cleanup").is_empty(),
+		"%s %s %s %s" % [str(st2.result), str(st2.awaitFate), str(st2.deaths), str(ev2.map(func(x): return x.t))])
+	var ev3 := RulesV2.fate_choice(st2, "accept")
+	check("받아들인 뒤 정리 · 결과는 승리 그대로", st2.result == "win" and st2.allies.warrior.dead and ev_of(ev3, "cleanup").size() == 1)
+	return true
+
+
+func t_fate_bench() -> bool:
+	var gs := fate_gs()
+	var st := fate_battle("ossuary", gs, 2)
+	st.energy = 3
+	RulesV2.move_ally(st, "warrior", "bench")
+	_zero_hits(st)
+	var ev := RulesV2.end_turn(st)
+	check("벤치의 동료: 운명의 죽음 카드는 따라가 기다린다(시도 없음)", st.awaitFate == null and ev_of(ev, "deathWait").size() == 1 and st.deaths.size() == 1 and ev_of(ev, "cleanup").size() == 1)
+	st.result = "win"
+	check("끝날 때까지 벤치면 「운명이 미뤄졌다」", RulesV2.postponed(st) == ["브룬힐드의 죽음"], str(RulesV2.postponed(st)))
+	RulesV2.apply_result(gs, st)
+	var f = Rules.fate_by_id(gs, "warrior_pierce")
+	check("게임 상태: 운명은 시도되지 않은 채 살아 있다(흉터 없음 — 내려가면 Lv2)", f.alive and int(f.get("triedFloor", 0)) != 2 and Rules.scar_count(gs) == 0)
+	return true
+
+
+func t_fate_pyre_two() -> bool:
+	var gs := fate_gs(7, "alive")
+	var st := RulesV2.new_battle(null, RulesV2.battle_opts(gs, "pyre"))
+	RulesV2.start_battle(st)
+	var p = RulesV2.enemy(st, "p1")
+	check("화형대 광장: 화형 사제(칸 1, HP 46) 1턴 「불길」 모든 칸 3 + 광신도(칸 2)", int(p.hp) == 46 and int(p.col) == 1 and p.intent.kind == "sweep" and int(p.intent.value) == 3
+		and int(RulesV2.enemy(st, "c1").col) == 2)
+	_zero_hits(st)
+	RulesV2.end_turn(st)
+	RulesV2.start_turn(st)
+	check("2턴: 「엘리안의 죽음」(운명의 불길)", st.deaths.size() == 1 and st.deaths[0].fate == "archer_burn" and st.deaths[0].label == "엘리안의 죽음")
+	_zero_hits(st)
+	RulesV2.end_turn(st)
+	RulesV2.fate_choice(st, "defy")
+	RulesV2.start_turn(st)
+	check("3턴: 「브룬힐드의 죽음 Lv2」(운명의 꼬챙이)", st.deaths.size() == 1 and st.deaths[0].fate == "warrior_pierce" and st.deaths[0].label == "브룬힐드의 죽음 Lv2"
+		and int(st.deaths[0].level) == 2 and st.deaths[0].sub == "운명의 꼬챙이")
+	# 1턴에 사제를 쓰러뜨리면 두 운명이 한꺼번에(엘리안 → 브룬힐드 차례)
+	var gs2 := fate_gs(8, "alive")
+	var s2 := RulesV2.new_battle(null, RulesV2.battle_opts(gs2, "pyre"))
+	RulesV2.start_battle(s2)
+	RulesV2.enemy(s2, "p1").hp = 2
+	s2.slots = ["", "warrior", "archer"]
+	s2.bench = ["hero"]
+	s2.hand.append_array(_give(s2, ["slash"]))
+	s2.energy = 3
+	RulesV2.place(s2, uid_of(s2, "slash"), "warrior")
+	_zero_hits(s2)
+	var ev := RulesV2.end_turn(s2)
+	var rl := ev_of(ev, "fateRelease")
+	check("사제를 먼저 쓰러뜨리면 남은 두 운명이 그 순간 나온다", rl.size() == 1 and rl[0].ids.size() == 2 and s2.deaths.size() == 2)
+	check("첫 시도는 엘리안(옛 순서)", s2.awaitFate != null and str(s2.awaitFate.ally) == "archer")
+	var ev2 := RulesV2.fate_choice(s2, "defy")
+	check("엘리안을 거스르면 이어서 브룬힐드 Lv2 의 시도", ev_of(ev2, "fateTrial").size() == 1 and s2.awaitFate != null and str(s2.awaitFate.ally) == "warrior" and int(s2.awaitFate.level) == 2
+		and ev_of(ev2, "cleanup").is_empty())
+	RulesV2.fate_choice(s2, "accept")
+	var top: String = s2.draw[0]
+	check("브룬힐드 Lv2 를 받아들이면 상속 「꿰뚫린 방패 Lv2」(모두 막고 되돌림)", s2.allies.warrior.dead and s2.cards[top].id == "pierced_shield" and int(s2.cards[top].lv) == 2
+		and bool(RulesV2.card_def(s2, top).get("all", false)) and str(RulesV2.card_def(s2, top).name) == "꿰뚫린 방패 Lv2")
+	s2.result = "win"
+	RulesV2.apply_result(gs2, s2)
+	var fw = Rules.fate_by_id(gs2, "warrior_pierce")
+	var fa = Rules.fate_by_id(gs2, "archer_burn")
+	check("게임 상태: 브룬힐드 Lv2 받아들임 · 엘리안 거스름(흉터 — 2층 1 + 1)", not fw.alive and int(fw.offeredLevel) == 2 and fa.alive and int(fa.triedFloor) == 3 and Rules.scar_count(gs2) == 2
+		and gs2.party.deck2.any(func(x): return x.id == "pierced_shield" and int(x.lv) == 2))
+	return true
+
+
+func t_fate_cards() -> bool:
+	var st := battle(["pierced_shield", "scar", "burnt_bow"], {"A": hit(6, 0), "B": hit(5, 2)})
+	st.energy = 5
+	var ps := uid_of(st, "pierced_shield")
+	check("흉터: 낼 수 없다", not RulesV2.affordable(st, uid_of(st, "scar")))
+	var r := RulesV2.cast(st, ps, "A")
+	check("꿰뚫린 방패: 적 행동 카드 위에 — 그 행동의 피해 0", r.ok and RulesV2.act_value(RulesV2.enemy(st, "A").intent) == 0 and RulesV2.incoming(st, 0) == 0)
+	RulesV2.uncast(st, 0)
+	check("되돌리면 다시 6", RulesV2.act_value(RulesV2.enemy(st, "A").intent) == 6)
+	RulesV2.cast(st, ps, "A")
+	RulesV2.cast(st, uid_of(st, "burnt_bow"), "B")
+	var ev := RulesV2.end_turn(st)
+	check("턴 끝: 타버린 활 모든 적 10 · 꿰뚫린 방패 — 광신도 A 가 자기 찌르기 6 을 되돌려 받음 · 흉터를 든 채 → 노엘 HP -1", int(RulesV2.enemy(st, "A").hp) == 14 - 10 - 6
+		or not RulesV2.enemy(st, "A").alive, "A hp %d" % int(RulesV2.enemy(st, "A").hp))
+	check("흉터 · 막은 공격은 아무도 맞지 않음", int(st.noelHp) == 15 - 1 and ev_of(ev, "reflect").size() == 1 and st.allies.hero.hp == 30, "noel %d" % int(st.noelHp))
+	var st2 := battle(["pierced_shield"], {"A": hit(6, 0), "B": hit(5, 2)})
+	st2.cards[uid_of(st2, "pierced_shield")].lv = 2
+	RulesV2.cast(st2, uid_of(st2, "pierced_shield"), "B")
+	check("꿰뚫린 방패 Lv2: 막을 수 있는 행동 모두", RulesV2.incoming(st2, 0) == 0 and RulesV2.incoming(st2, 2) == 0)
+	return true
+
+
+func t_fate_alone() -> bool:
+	var gs := fate_gs(7, "dead")
+	var st := fate_battle("pyre", gs, 2)
+	_zero_hits(st)
+	RulesV2.end_turn(st)
+	var ev := RulesV2.fate_choice(st, "accept")
+	check("마지막 동료(엘리안)의 운명을 받아들이면 노엘 혼자 물러난다(지는 판이 되풀이되지 않게)", st.result == "retreat" and ev_of(ev, "retreat").size() == 1
+		and bool(ev_of(ev, "retreat")[0].get("alone", false)))
+	return true
+
+
+func t_fate_auto() -> bool:
+	var res := {}
+	var bad := ""
+	for key in ["ossuary", "pyre:alive", "pyre:dead"]:
+		var n := {}
+		for sd in range(1, 13):
+			var kk: PackedStringArray = key.split(":")
+			var gs := fate_gs(sd, kk[1] if kk.size() > 1 else "")
+			var st := RulesV2.new_battle(null, RulesV2.battle_opts(gs, kk[0]))
+			st.autoPicks = ["accept"] if sd % 2 == 0 else ["defy", "accept"]
+			st = auto_run(st)
+			if st.has("bad") or st.result == null:
+				bad += "%s %d: %s %s; " % [key, sd, str(st.get("bad", "")), str(st.result)]
+			n[str(st.result)] = int(n.get(str(st.result), 0)) + 1
+			if st.get("fateResults", []).is_empty() and st.result != "lose":
+				bad += "%s %d: 운명의 시도 없음; " % [key, sd]
+		res[key] = n
+	check("2·3층 전투: 자동 진행이 시드 1~12 모두 결과까지 · 판마다 운명의 시도가 온다(자동 진행은 시도를 피하지 않는다)", bad == "", bad + str(res))
+	print("    2·3층 자동 진행(12판씩): ", res)
 	return true

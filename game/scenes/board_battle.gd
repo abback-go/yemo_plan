@@ -63,6 +63,7 @@ var _zoom_face := {}
 var _zoom_left := true
 var _zoom_sticky := false   # 휴대폰: 탁자 카드를 탭해 띄운 크게 보기 — 다음 터치까지 남는다(밤샘 계획 2 C 0단계)
 var _opened_once := false   # 시험 훅 openhand
+var _fate_seen := {}        # 2·3층: 이미 안내한 운명의 죽음 카드 id
 var log: Array = []
 
 
@@ -157,6 +158,9 @@ func start(seed) -> void:
 		await _guide("battleStart")
 		if int(st.darkness) > 0:
 			await _guide("darkness")
+		if not is_inside_tree():
+			return
+		await _show_fates()
 		if not is_inside_tree():
 			return
 		mode = "formation"
@@ -304,11 +308,16 @@ func face_act(e: Dictionary) -> Dictionary:
 	if bool(it.get("erased", false)):
 		f.erased = true
 		f.sub = T("erased")
+	if str(it.get("reflect", "")) != "":
+		f.sub = T("reflected")   # 꿰뚫린 방패: 막고 되돌린다
 	return f
 
 
 func face_death(d: Dictionary) -> Dictionary:
-	return {"kind": "death", "name": str(d.label), "art": str(D().death.art.get(str(d.ally), "")), "text": T("deathFixed") if bool(d.get("fixed", false)) else T("deathMark")}
+	var tx := T("deathFixed") if bool(d.get("fixed", false)) else T("deathMark")
+	if RulesV2.is_fate(d):
+		tx = T("fateMark", {"sub": str(d.get("sub", ""))})   # 2·3층 운명: 「운명의 관통 · 옮길 수 없음」
+	return {"kind": "death", "name": str(d.label), "art": str(D().death.art.get(str(d.ally), "")), "text": tx}
 
 
 func face_mine(uid: String, fc := {}) -> Dictionary:
@@ -470,7 +479,7 @@ func _noel_on(pile: Array, target: String, what: String) -> void:
 		if str(n.target) != target:
 			continue
 		var k := str(n.kind)
-		if (what == "vuln" and k == "vuln") or (what == "bless" and k == "bless") or (what == "act" and k in ["curse", "shift", "tear"]):
+		if (what == "vuln" and k == "vuln") or (what == "bless" and k == "bless") or (what == "act" and k in ["curse", "shift", "tear", "reflect"]):
 			pile.append({"key": "n:" + n.uid, "face": face_mine(n.uid), "flip": 0.0, "pick": true})
 	if what == "act" and not pending.is_empty() and pending.kind == "shift" and str(pending.target) == target:
 		pile.append({"key": "n:" + pending.uid, "face": face_mine(pending.uid), "flip": 0.0, "pick": false, "glow": 1.0, "gcol": Color(1, 0.3, 0.36)})
@@ -845,8 +854,10 @@ func _move(p: Vector2, is_touch: bool) -> void:
 				hand.layout()
 				_update_drag_hot(p)
 		"idle", "formation":
-			if is_touch:
-				return   # 터치: 길게 누르면 크게 보기 · 그 칸 펼치기(_process_touch_zoom)
+			if is_touch or touch:
+				# 터치: 길게 누르면 크게 보기 · 그 칸 펼치기(_process_touch_zoom). 마지막 누름이 터치였으면(touch) 움직임도 터치로 본다 —
+				# 웹에서 터치로 끄는 움직임이 마우스 움직임(DEVICE_ID_EMULATION 아님)으로 와서, 펼친 손패 밖으로 나가면 닫는 PC 처리가 막 펼친 손패를 닫았다(0단계 시험에서 찾음)
+				return
 			var hu := hand.hit_test(p) if mode == "idle" else ""
 			# v2.3: PC 는 손패 위에 마우스를 올려도 펼친다 · 펼친 곳 밖으로 나가면 닫는다
 			if hand.open and not hand.open_area().has_point(p):
@@ -1148,6 +1159,8 @@ func _noel_tag(d: Dictionary, kind: String) -> String:
 			return T("tagHeal", {"n": int(d.get("heal", 0))})
 		"erase":
 			return T("tagErase")
+		"reflect":
+			return T("tagReflectAll") if bool(d.get("all", false)) else T("tagReflect")
 	return T({"bless": "tagBless", "vuln": "tagVuln", "shift": "tagShift", "tear": "tagTear"}.get(kind, "tagShift"))
 
 
@@ -1521,6 +1534,14 @@ func _ev_intents(_e: Dictionary) -> void:
 	_sync_table()
 	_sync_hud()
 	await FX.wait(200)
+	# 2·3층: 운명의 죽음 카드가 처음 놓였을 때 안내
+	var fresh := false
+	for dd in st.deaths:
+		if RulesV2.is_fate(dd) and not _fate_seen.has(str(dd.id)):
+			_fate_seen[str(dd.id)] = true
+			fresh = true
+	if fresh:
+		await _guide("fateIntent")
 
 
 func _ev_deathCard(_e: Dictionary) -> void:
@@ -1630,6 +1651,21 @@ func _ev_enemyPhase(_e: Dictionary) -> void:
 func _ev_enemyAct(e: Dictionary) -> void:
 	if str(e.kind) in ["summon", "death", "none", "erased"]:
 		await FX.wait(160)
+		return
+	if str(e.kind) == "reflected":
+		# 꿰뚫린 방패: 적 행동 카드가 그 적에게 되돌아간다
+		var ek: BoardTable.Card3D = table.card("e:" + str(e.enemy))
+		for k in table.cards.keys():
+			if (k == "a:" + str(e.enemy) or k.begins_with("a:" + str(e.enemy) + "#")) and ek != null:
+				var rc: BoardTable.Card3D = table.card(k)
+				table.cards.erase(k)
+				rc.dying = true
+				rc.set_prio(110)
+				rc.fly_to(ek.tpos + Vector3(0, 0.25, 0.2), 300, 0.4)
+				var nn := rc
+				get_tree().create_timer(FX.ms(330) / 1000.0, false).timeout.connect(func(): if is_instance_valid(nn): nn.free_all())
+		FX.flash("#c9a24a", 200, 0.3)
+		await FX.wait(340)
 		return
 	var keys := []
 	if str(e.kind) == "sweep":
@@ -1746,7 +1782,7 @@ func _ev_death(e: Dictionary) -> void:
 		note("deathscene " + key)
 		G.dialog.clear()
 		_cut = true
-		G.scenes.cutscene(key, 1)
+		G.scenes.cutscene(key, int(e.get("level", 1)))   # 2·3층: 2단계 죽음이면 더 어둡게 + 창/불 덧그림
 		await G.scenes.cutscene_done
 		await G.scenes.close_cutscene(float(GameData.D.cutscene.returnDelay))
 		_cut = false
@@ -1757,6 +1793,8 @@ func _ev_death(e: Dictionary) -> void:
 		await a3.flip_swap(face_ally(who), 520)
 	if tut:
 		await _after_death(who, str(e.label))
+	elif RulesV2.is_fate(e):
+		await _after_fate_death(who, str(e.fate))
 	await FX.wait(500)
 
 
@@ -1794,6 +1832,142 @@ func _after_death(who: String, label: String) -> void:
 		var names: Array = gain.map(func(g): return "「" + str(g.face.name) + "」")
 		await G.scenes.card_gain(gain, "inherit", T("gained", {"list": "·".join(names)}))
 	await G.dialog.say(G.S.reactions)
+
+
+# ───────── 2·3층 운명 (밤샘 계획 2 C) ─────────
+## 전투가 열릴 때: 이 전투에서 올 운명의 죽음 카드(노엘이 쥔 죽음)를 보여 준다 — 3층은 두 장(브룬힐드 Lv2 · 엘리안 Lv1, 옛 「두 죽음 카드」 장면)
+func _show_fates() -> void:
+	var fs: Dictionary = RulesV2.enc_def(st).get("fates", {})
+	var turns: Array = fs.keys().map(func(k): return int(k))
+	turns.sort()
+	var items := []
+	var names := []
+	for t in turns:
+		var fx: Dictionary = fs[str(t)]
+		var rec = RulesV2._fate_rec(st, str(fx.fate))
+		if rec == null or st.allies[str(rec.ally)].dead:
+			continue
+		var lab := RulesV2.death_label(str(rec.ally)) + (" Lv%d" % int(rec.level) if int(rec.level) >= 2 else "")
+		var en = RulesV2.enemy(st, str(fx.enemy))
+		var enm := str(face_enemy(en).name) if en != null else ""
+		items.append({"face": {"kind": "death", "name": lab, "art": str(D().death.art.get(str(rec.ally), "")), "text": T("fateWhen", {"sub": str(fx.get("sub", "")), "n": t, "enemy": enm})}})
+		names.append(lab)
+	if items.is_empty():
+		return
+	note("fates held " + ",".join(names))
+	await G.scenes.card_gain(items, "note", T("fatesHeld", {"list": " · ".join(names)}))
+	await _guide("fateBattle")
+	if items.size() > 1:
+		await _guide("twoDeathCards")
+
+
+## 집행자가 쓰러졌다: 운명의 죽음 카드는 남아 동료를 따라가고, 아직 내지 않은 운명도 지금 나온다
+func _ev_fateRelease(e: Dictionary) -> void:
+	await G.dialog.say(G.S.fate.get("dying", []))
+	var want := _layout()
+	var from := deck_pos(4)
+	var ek: BoardTable.Card3D = table.card("e:" + str(e.enemy))
+	if ek != null:
+		from = ek.tpos
+	for id in e.ids:
+		var k := "d:" + str(id)
+		if table.card(k) != null or not want.has(k):
+			continue
+		var w: Dictionary = want[k]
+		var c := table.make_card(k, w.face, from + Vector3(0, 0.1, 0))
+		c.set_prio(int(w.prio))
+		c.fly_to(w.pos, 620, 1.2)
+		await FX.wait(520)
+		FX.flash("#8a0010", 300, 0.4)
+	await FX.wait(300)
+
+
+## 운명의 시도(적 턴 끝 — 그 동료가 칸에 있을 때): 죽음 카드가 그 동료 카드 위로 → 속마음 → 받아들인다/거스른다(옛 선택 화면) → 그 결과와 남은 턴 끝
+func _ev_fateTrial(e: Dictionary) -> void:
+	var who := str(e.ally)
+	var fid := str(e.fate)
+	var lv := int(e.get("level", 1))
+	var d3: BoardTable.Card3D = table.card("d:" + str(e.id))
+	var a3: BoardTable.Card3D = table.card("ally:" + who)
+	note("fate trial %s lv%d" % [fid, lv])
+	FX.banner(str(e.label), 1100)
+	if d3 != null and a3 != null:
+		d3.set_prio(115)
+		await d3.fly_to(a3.tpos + Vector3(0, 0.3, -0.35), 560, 1.1)
+		FX.flash("#6a0008", 320, 0.45)
+		FX.shake(6, 300)
+	_cut = true
+	var L: Dictionary = G.S.fate.get(fid, {})
+	await G.dialog.say(L.trap2 if lv >= 2 and L.has("trap2") else L.get("trap", []))
+	await _guide("fateFirst")
+	var choice := "defy"
+	var f = Rules.fate_by_id(G.ctl.st, fid) if not game.is_empty() and not G.ctl.st.is_empty() else null
+	if f != null and is_inside_tree():
+		choice = await G.scenes.fate_choice(f)
+	_cut = false
+	if not is_inside_tree():
+		return
+	note("fate %s %s" % [fid, choice])
+	await _play(RulesV2.fate_choice(st, choice))
+
+
+## 받아들인 운명의 죽음 뒤(데스신 다음): 남은 동료의 반응 · 받아들인 뒤의 말(옛 fate.<운명>.offered) — 죽은 동료는 말하지 않는다
+func _after_fate_death(who: String, fid: String) -> void:
+	var lines := []
+	var src: Array = G.S.get("reactionsBy", {}).get(who, []) + G.S.fate.get(fid, {}).get("offered", [])
+	for ln in src:
+		var w := str(ln.get("who", ""))
+		if st.allies.has(w) and st.allies[w].dead:
+			continue
+		if lines.any(func(x): return str(x.text) == str(ln.text)):
+			continue
+		lines.append(ln)
+	await G.dialog.say(lines)
+
+
+## 받아들인 운명: 상속 카드(같은 Lv — 다음 턴에 손에 든다)와 그 동료의 유품 → 카드 획득 화면 → 사망 직후 안내
+func _ev_fateGain(e: Dictionary) -> void:
+	var gain := []
+	var seen := {}
+	for u in e.inherit + e.relics:
+		var key := str(st.cards[u].id) + str(st.cards[u].get("lv", 1))
+		if seen.has(key):
+			continue
+		seen[key] = true
+		gain.append({"face": RulesV2.mine_face(RulesV2.card_def(st, u))})
+	if not gain.is_empty():
+		var names: Array = gain.map(func(g): return "「" + str(g.face.name) + "」")
+		await G.scenes.card_gain(gain, "inherit", T("gained", {"list": "·".join(names)}))
+	await _guide("afterDeath", {"card": str(GameData.D.fates.get(str(e.fate), {}).get("card", ""))})
+	_sync_table()
+
+
+## 거슬렀다: 죽음 카드가 찢겨 흩어진다 → 흉터(뽑을 더미에 섞였다) → 거스른 뒤의 말 → 흉터 안내
+func _ev_fateDefied(e: Dictionary) -> void:
+	var dk := "d:" + str(e.id)
+	var d3: BoardTable.Card3D = table.card(dk)
+	FX.flash("#ff2a3c", 240, 0.5)
+	FX.shake(12, 420)
+	if d3 != null:
+		var r := table.screen_rect(dk)
+		if r.has_area():
+			FX.burst(r.get_center().x, r.get_center().y, {"count": 40, "colors": ["#ff2a3c", "#ff8a90", "#2a0006"], "speed": 480, "life": 700, "size": 4, "gravity": 300, "shape": "line"})
+		table.push_out(dk, Vector3(0, 0.8, -0.6), 260)
+	FX.banner(T("fateDefied"), 900)
+	await FX.wait(500)
+	var scars: Array = e.scars.map(func(u): return {"face": RulesV2.mine_face(RulesV2.card_def(st, u))})
+	if not scars.is_empty():
+		await G.scenes.card_gain(scars, "scar")
+	var L: Dictionary = G.S.fate.get(str(e.fate), {})
+	await G.dialog.say(L.get("defied", []))
+	await _guide("scarFirst")
+	hud.queue_redraw()
+
+
+## 꿰뚫린 방패: 막은 피해만큼 그 적에게(이어서 hit 이 맞는 연출)
+func _ev_reflect(e: Dictionary) -> void:
+	_float_at("e:" + str(e.enemy), T("reflected"), "small", -60)
+	await FX.wait(120)
 
 
 func _ev_immune(e: Dictionary) -> void:
@@ -1874,7 +2048,10 @@ func _ev_giant(e: Dictionary) -> void:
 		foot.queue_free()
 
 
-func _ev_retreat(_e: Dictionary) -> void:
+func _ev_retreat(e: Dictionary) -> void:
+	if bool(e.get("alone", false)):
+		FX.banner(T("alone"), 1400)   # 운명을 받아들여 동료가 모두 죽었다 — 노엘 혼자 물러난다
+		await FX.wait(900)
 	await FX.wait(200)
 
 
@@ -2162,7 +2339,8 @@ func test_state() -> Dictionary:
 		"hand": hand_out, "slots": st.slots, "bench": st.bench, "noelHp": st.noelHp, "deaths": st.deaths, "postponed": RulesV2.postponed(st),
 		"allies": al, "enemies": en, "noel": st.noel.map(func(n): return {"kind": n.kind, "target": n.target}), "pending": not pending.is_empty(),
 		"tableCards": table.cards.size(), "handCards": hand.cards.size(), "handOpen": hand.open, "maxHands": hand.max_hands, "handsNow": hand.hands_visible(), "log": log.slice(maxi(0, log.size() - 30)),
-		"shown": _shown_faces(), "guideRect": _guide_rect()}
+		"shown": _shown_faces(), "guideRect": _guide_rect(), "zoom": str(_zoom_face.get("name", "")),
+		"awaitFate": st.get("awaitFate"), "fateResults": st.get("fateResults", [])}
 
 
 ## 시험용: 탁자에 지금 그려진 적·동료 카드 앞면의 HP(연출 중 앞면이 미리 바뀌지 않는지 — 밤샘 계획 2 D)

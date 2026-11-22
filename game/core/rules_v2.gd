@@ -9,6 +9,10 @@
 ##   게임(Ctl)은 battle_opts() 로 파티(HP·죽음)·덱(st.party.deck2)·직전 출전 배치·이어 가는 난수·어둠을 넘기고, 끝나면 apply_result() 로 돌려 적는다.
 ##   카드 레벨(Lv2) · 낼 수 없는 카드(상처) · 노엘 HP 대가(유품·이름 없는 마녀의 카드) · 턴 끝에 노엘 카드(짓밟힘·부적) · 어둠(적 행동 카드 몇 장을 뒷면으로)
 ##   · 거대한 발(세 칸을 덮는 큰 적, 흠집만, 턴마다 정해진 행동, 3턴 「세라피나의 죽음」 — 옮길 수 없음·찢을 수 없음·벤치에 있어도 맞음 → 물러남)
+## 밤샘 계획 2 C(2·3층): 운명의 죽음 카드 — 집행자가 정해진 턴(encounters.fates)에 그 동료 칸 ② 에 낸다(옮길 수 없음 · 막기·저주로 줄지 않음).
+##   적 턴 끝에 그 동료가 칸에 있으면 운명의 시도(st.awaitFate — 화면이 받아들인다/거스른다를 물어 fate_choice). 받아들이면 죽음(상속 카드는 뽑을 더미 맨 위 ·
+##   그 동료의 카드는 유품), 거스르면 산다(흉터가 뽑을 더미에). 벤치에 있으면 따라가 기다린다(끝날 때까지 남으면 미뤄짐). 집행자가 먼저 쓰러져도 운명은 남고,
+##   아직 내지 않은 그 집행자의 운명도 그 순간 나온다(fate-design 4장). 결과는 st.fateResults → apply_result 가 옛 운명 규칙(Rules.offer_fate·defy_fate)으로 게임에 적는다
 ##
 ## 상태(st) 구조 (Dictionary)
 ##   st.seed · st.rng          시드 · 난수 상태
@@ -31,6 +35,8 @@
 ##               hidden(어둠 — 뒷면), erased(이름 없는 마녀의 카드로 없앰)}
 ##   st.deaths [{id, ally, src, bound, label, fixed}]   죽음 카드. bound: 아직 낸 적의 ② 행동(그 적이 쓰러지면 사라짐) — 한 번 기다리면 false(동료를 따라감)
 ##       fixed: 옮길 수 없음·찢을 수 없음, 그 동료가 벤치에 있어도 맞는다(1층 거대한 발 — 튜토리얼이라 피할 수 없다)
+##       fate·level·sub: 운명의 죽음 카드(2·3층) — 맞는 순간 운명의 시도(받아들인다/거스른다). 옮길 수 없다
+##   st.fates [{id, ally, level, scars, issued}]   이 전투에서 올 수 있는 운명(게임이 넘김) · st.fateResults [{fate, ally, choice, level, scars}] · st.awaitFate 시도 중 {death, fate, ally, level}
 ##   st.noel [{uid, kind, target, move, torn}]   노엘이 이번 턴에 직접 놓은 카드(운명 전가·축복·저주·취약·운명 찢기).
 ##       move: {enemy, from, to}(칸) 또는 {death, from, to}(동료 id) · torn: 운명 찢기로 없앤 죽음 카드(되돌리기용)
 ##
@@ -65,7 +71,10 @@ static func new_battle(seed = null, opts := {}) -> Dictionary:
 	var st := {"seed": sd, "rng": rng if rng != 0 else 1, "nextUid": 1, "turn": 0, "energy": 0, "result": null, "loseBy": "", "phase": "formation",
 		"enc": enc_id, "darkness": int(opts.get("darkness", 0)), "victims": [],
 		"cards": {}, "draw": [], "hand": [], "discard": [], "exhaust": [], "order": d.order.duplicate(), "slots": [], "bench": [],
-		"noelHp": int(opts.get("noelHp", noel_max)), "noelMax": noel_max, "allies": {}, "enemies": [], "noel": [], "deaths": [], "nextDeath": 1}
+		"noelHp": int(opts.get("noelHp", noel_max)), "noelMax": noel_max, "allies": {}, "enemies": [], "noel": [], "deaths": [], "nextDeath": 1,
+		"fates": [], "fateResults": [], "awaitFate": null, "deathsDone": []}
+	for f in opts.get("fates", []):
+		st.fates.append({"id": str(f.id), "ally": str(f.ally), "level": int(f.get("level", 1)), "scars": int(f.get("scars", 1)), "issued": false})
 	var party: Dictionary = opts.get("allies", {})
 	for id in st.order:
 		var a: Dictionary = d.allies[id]
@@ -248,7 +257,7 @@ static func front_of(st: Dictionary, ally_id: String, uid := ""):
 
 ## 적 행동 카드의 피해(저주 반영)
 static func act_value(it: Dictionary) -> int:
-	if bool(it.get("erased", false)):
+	if bool(it.get("erased", false)) or str(it.get("reflect", "")) != "":
 		return 0
 	return maxi(0, int(it.value) - int(it.get("minus", 0)))
 
@@ -393,7 +402,7 @@ static func start_battle(st: Dictionary) -> Dictionary:
 ## 5장 뽑기 · 행동 에너지 3 · 살아 있는 적(하수인 포함)마다 다음 적 턴의 행동을 정한다(②)
 static func start_turn(st: Dictionary) -> Array:
 	var ev := []
-	if st.result != null:
+	if st.result != null or st.get("awaitFate") != null:
 		return ev
 	st.phase = "battle"
 	st.turn = int(st.turn) + 1
@@ -467,6 +476,13 @@ static func roll_intents(st: Dictionary, ev := []) -> void:
 		if bool(E.get("death", false)) and e.type == str(DT.enemy) and int(e.acts) == int(DT.at) and not st.allies[str(DT.ally)].down and deaths_of(st, str(DT.ally)).is_empty():
 			_new_death(st, e, str(DT.ally), false, ev)
 			continue
+		# 2·3층: 이 턴이 이 적(집행자)의 운명이면 그 동료의 죽음 카드(옛 fateIntents)
+		var fx: Dictionary = E.get("fates", {}).get(str(st.turn), {})
+		if str(fx.get("enemy", "")) == str(e.id):
+			var rec = _fate_rec(st, str(fx.fate))
+			if rec != null and not rec.issued and not st.allies[str(rec.ally)].dead:
+				_new_fate_death(st, e, rec, str(fx.get("sub", "")), true, ev)
+				continue
 		if acts.has("summon") and guard_of(st, e.id) == null:
 			e.intent = {"kind": "summon", "label": acts.summon.label, "value": 0, "minus": 0, "slot": ""}
 			continue
@@ -474,6 +490,9 @@ static func roll_intents(st: Dictionary, ev := []) -> void:
 		if not pat.is_empty():
 			var p: Dictionary = pat[int(e.get("pn", 0)) % pat.size()]
 			e.pn = int(e.get("pn", 0)) + 1
+			if str(p.get("kind", "")) == "sweep":   # 모든 칸(옛 aoe — 화형 사제의 「불길」)
+				e.intent = {"kind": "sweep", "label": str(p.label), "value": int(p.value), "minus": 0, "slot": "all"}
+				continue
 			var ps := _highest_col(st) if str(p.get("target", "")) == "highest" else -1
 			if ps < 0:
 				ps = Rules.rint(st, ncols())
@@ -507,6 +526,33 @@ static func _new_death(st: Dictionary, e: Dictionary, who: String, fixed: bool, 
 	st.deaths.append({"id": did, "ally": who, "src": e.id, "bound": not fixed, "label": lab, "fixed": fixed})
 	e.intent = {"kind": "death", "label": lab, "value": 0, "minus": 0, "slot": "", "death": did, "sub": sub}
 	ev.append({"t": "deathCard", "id": did, "ally": who, "enemy": e.id})
+
+
+## 이 전투에서 올 수 있는 운명(st.fates) 하나 (없으면 null)
+static func _fate_rec(st: Dictionary, fid: String):
+	for f in st.get("fates", []):
+		if str(f.id) == fid:
+			return f
+	return null
+
+
+## 운명의 죽음 카드를 낸다(2·3층 — 그 동료 칸 ②). bound: 낸 적의 ② 행동(그 적이 쓰러져도 운명은 남는다 — 그때 bound 가 풀림)
+static func _new_fate_death(st: Dictionary, e: Dictionary, rec: Dictionary, sub: String, bound: bool, ev: Array) -> String:
+	var did := "death" + str(st.nextDeath)
+	st.nextDeath = int(st.nextDeath) + 1
+	var lv := int(rec.level)
+	var lab := death_label(str(rec.ally)) + (" Lv%d" % lv if lv >= 2 else "")
+	st.deaths.append({"id": did, "ally": str(rec.ally), "src": e.id, "bound": bound, "label": lab, "fixed": false, "fate": str(rec.id), "level": lv, "sub": sub})
+	rec.issued = true
+	if bound:
+		e.intent = {"kind": "death", "label": lab, "value": 0, "minus": 0, "slot": "", "death": did, "sub": sub}
+	ev.append({"t": "deathCard", "id": did, "ally": str(rec.ally), "enemy": e.id, "fate": str(rec.id)})
+	return did
+
+
+## 운명의 죽음 카드인가(2·3층 — 맞는 순간 운명의 시도)
+static func is_fate(dd) -> bool:
+	return dd != null and str(dd.get("fate", "")) != ""
 
 
 ## HP 가 가장 많은(칸에 선, 살아 있는) 동료의 칸 (-1 = 없음) — 강적의 「짓누르기」(옛 target highest)
@@ -636,6 +682,8 @@ static func can_cast(st: Dictionary, uid: String, target: String) -> Dictionary:
 			var dd = death(st, target)
 			if dd != null and bool(dd.get("fixed", false)):
 				return _no("fixed")
+			if is_fate(dd):
+				return _no("fateFixed")   # 2·3층 운명의 죽음은 옮길 수 없다(옛 「운명 공격은 옮길 수 없다」)
 			if dd == null:
 				var e = enemy(st, target)
 				if e == null or not e.alive or e.intent == null or e.intent.kind != "hit":
@@ -664,6 +712,14 @@ static func can_cast(st: Dictionary, uid: String, target: String) -> Dictionary:
 				return _no("badAct")
 			if bool(e4.intent.get("erased", false)):
 				return _no("erased")
+		"reflect":
+			if death(st, target) != null:
+				return _no("death")
+			var e7 = enemy(st, target)
+			if e7 == null or not e7.alive or e7.intent == null or not e7.intent.kind in ["hit", "sweep"]:
+				return _no("badAct")
+			if str(e7.intent.get("reflect", "")) != "" or bool(e7.intent.get("erased", false)):
+				return _no("already")
 		"stomp":
 			var e5 = enemy(st, target)
 			if e5 == null or not e5.alive:
@@ -691,7 +747,7 @@ static func shift_dests(st: Dictionary, target: String) -> Array:
 	var dd = death(st, target)
 	var out := []
 	if dd != null:
-		if bool(dd.get("fixed", false)):
+		if bool(dd.get("fixed", false)) or is_fate(dd):
 			return out
 		for c in ncols():
 			var id := ally_at(st, c)
@@ -756,6 +812,15 @@ static func cast(st: Dictionary, uid: String, target: String, opts := {}) -> Dic
 			st.allies[target].blessed = true
 		"erase":
 			enemy(st, target).intent.erased = true
+		"reflect":
+			# 꿰뚫린 방패: 그 행동을 막고(피해 0) 그 적이 행동할 때 그 피해만큼 그 적에게 되돌린다. Lv2(all): 막을 수 있는 행동 모두
+			var ids := []
+			for e8 in st.enemies:
+				if e8.alive and e8.intent != null and e8.intent.kind in ["hit", "sweep"] and str(e8.intent.get("reflect", "")) == "" and not bool(e8.intent.get("erased", false)) \
+						and (e8.id == target or bool(c.get("all", false))):
+					e8.intent.reflect = uid
+					ids.append(str(e8.id))
+			n.reflected = ids
 	st.hand.erase(uid)
 	st.energy = int(st.energy) - int(c.cost)
 	st.noel.append(n)
@@ -807,6 +872,11 @@ static func uncast(st: Dictionary, index: int) -> Dictionary:
 			var e6 = enemy(st, str(n.target))
 			if e6 != null and e6.intent != null:
 				e6.intent.erase("erased")
+		"reflect":
+			for rid in n.get("reflected", []):
+				var e9 = enemy(st, str(rid))
+				if e9 != null and e9.intent != null and str(e9.intent.get("reflect", "")) == str(n.uid):
+					e9.intent.erase("reflect")
 	st.noel.remove_at(index)
 	st.hand.append(n.uid)
 	st.energy = int(st.energy) + int(card_def(st, n.uid).cost)
@@ -818,9 +888,11 @@ static func uncast(st: Dictionary, index: int) -> Dictionary:
 ## 이기려면 쓰러뜨려야 할 적이 모두 쓰러지면 그 자리에서 승리. 노엘 HP 0 이면 그 자리에서 패배, 적 턴 뒤 동료가 모두 쓰러졌으면 패배. 쓰러진 적이 보낸 ② 는 사라진다
 static func end_turn(st: Dictionary) -> Array:
 	var ev := []
-	if st.result != null or st.phase != "battle":
+	if st.result != null or st.phase != "battle" or st.get("awaitFate") != null:
 		return ev
-	_noel_phase(st, ev)
+	_scar_burn(st, ev)
+	if st.result == null:
+		_noel_phase(st, ev)
 	if st.result == null:
 		_ally_phase(st, ev)
 	if st.result == null:
@@ -830,12 +902,95 @@ static func end_turn(st: Dictionary) -> Array:
 				break
 			if e.alive and e.intent != null:
 				_enemy_act(st, e, ev)
-		if st.result == null:
-			_resolve_deaths(st, ev)
-		if st.result == null and not any_living(st):
+	_end_tail(st, ev)
+	return ev
+
+
+## 적 턴 뒤: 죽음 카드 → (모두 쓰러짐이면) 패배 → 정리. 운명의 시도가 오면 거기서 멈춘다(st.awaitFate — 화면이 고른 뒤 fate_choice 가 이어서 부른다).
+## 이겼어도(집행자를 먼저 쓰러뜨림) 칸에 선 동료의 운명의 죽음 카드는 처리한다(fate-design 4장 — 쓰러지는 그 순간에도 운명은 온다)
+static func _end_tail(st: Dictionary, ev: Array) -> void:
+	if st.result == null:
+		_resolve_deaths(st, ev)
+	elif str(st.result) == "win":
+		_resolve_deaths(st, ev, true)
+	if st.get("awaitFate") != null:
+		return
+	if st.result == null and not any_living(st):
+		# 운명을 받아들여 동료가 모두 죽었으면(쓰러짐이 아니라) 노엘 혼자 물러난다 — 옛 규칙의 '노엘 혼자 남으면 노엘 HP 만 본다'를 새 전투에서는 물러남으로
+		if not st.get("fateResults", []).is_empty() and st.order.all(func(id): return st.allies[id].dead):
+			st.result = "retreat"
+			ev.append({"t": "retreat", "alone": true})
+		else:
 			_lose(st, "allies", ev)
 	_cleanup(st, ev)
+
+
+## 운명의 시도에서 고른 것(accept|offer = 받아들인다 · defy = 거스른다) → 그 결과와 남은 턴 끝(다른 죽음 카드 · 정리) 이벤트.
+## 받아들이면: 그 동료가 죽고(이 전투에서 돌아오지 않음) 상속 카드(같은 Lv)가 뽑을 더미 맨 위에, 그 동료의 카드는 유품으로.
+## 거스르면: 그 동료는 살고 흉터(운명 Lv 에 따라 장수)가 뽑을 더미에 섞인다. 게임 상태에 적는 것은 전투가 끝난 뒤(apply_result)
+static func fate_choice(st: Dictionary, choice: String) -> Array:
+	var ev := []
+	var af = st.get("awaitFate")
+	if af == null:
+		return ev
+	st.awaitFate = null
+	var dd = death(st, str(af.death))
+	if dd != null:
+		st.deaths.erase(dd)
+	var rec = _fate_rec(st, str(af.fate))
+	var who := str(af.ally)
+	var lv := int(af.level)
+	if choice in ["accept", "offer"]:
+		var a: Dictionary = st.allies[who]
+		a.hp = 0
+		a.block = 0
+		a.dead = true
+		a.down = true
+		st.fateResults.append({"fate": str(af.fate), "ally": who, "choice": "accept", "level": lv})
+		ev.append({"t": "death", "id": str(af.death), "ally": who, "label": str(dd.label) if dd != null else death_label(who), "fixed": false,
+			"fate": str(af.fate), "level": lv})
+		_fate_gain(st, str(af.fate), who, lv, ev)
+	else:
+		var n := int(rec.scars) if rec != null else 1
+		var uids := []
+		for i in n:
+			var u := "v" + str(st.nextUid)
+			st.nextUid = int(st.nextUid) + 1
+			st.cards[u] = {"uid": u, "id": "scar", "lv": 1, "src": -1}
+			st.draw.insert(Rules.rint(st, st.draw.size() + 1), u)
+			uids.append(u)
+		st.fateResults.append({"fate": str(af.fate), "ally": who, "choice": "defy", "level": lv, "scars": n})
+		ev.append({"t": "fateDefied", "id": str(af.death), "ally": who, "fate": str(af.fate), "level": lv, "scars": uids})
+	_end_tail(st, ev)
 	return ev
+
+
+## 받아들인 운명: 상속 카드(옛 fates.inherit 의 짝 — 같은 Lv)를 뽑을 더미 맨 위에(다음 턴에 손에 든다), 그 동료의 전용 카드(이 전투의 것 모두)는 유품으로
+static func _fate_gain(st: Dictionary, fid: String, who: String, lv: int, ev: Array) -> void:
+	var inh := str(D().fromV1.get(str(GameData.D.fates.get(fid, {}).get("inherit", "")), ""))
+	var got := []
+	if inh != "":
+		var u := "v" + str(st.nextUid)
+		st.nextUid = int(st.nextUid) + 1
+		st.cards[u] = {"uid": u, "id": inh, "lv": lv, "src": -1}
+		st.draw.push_front(u)
+		got.append(u)
+	var rel := []
+	for u2 in st.cards:
+		var c: Dictionary = st.cards[u2]
+		if str(D().cards.get(str(c.id), {}).get("owner", "")) == who and D().relicMap.has(str(c.id)):
+			c.id = str(D().relicMap[str(c.id)])
+			c.lv = 1
+			rel.append(u2)
+	ev.append({"t": "fateGain", "ally": who, "fate": fid, "inherit": got, "relics": rel})
+
+
+## 흉터: 손에 든 채 턴이 끝나면 노엘 HP 가 준다(옛 endTurnSelf)
+static func _scar_burn(st: Dictionary, ev: Array) -> void:
+	for u in st.hand:
+		var v := int(card_def(st, u).get("endTurnNoel", 0))
+		if v > 0 and st.result == null:
+			_pay_noel(st, v, u, ev)
 
 
 static func _lose(st: Dictionary, by: String, ev: Array) -> void:
@@ -984,10 +1139,28 @@ static func _kill(st: Dictionary, e: Dictionary, ev: Array, with := "") -> void:
 	e.hp = 0
 	ev.append({"t": "enemyDie", "enemy": e.id, "with": with})
 	# 아직 이 적의 ② 행동인 죽음 카드는 함께 사라진다(먼저 쓰러뜨림). 한 번 기다린 죽음 카드는 동료를 따라가 남는다
+	# 2·3층 운명의 죽음 카드는 사라지지 않는다 — 동료를 따라가고, 아직 내지 않은 이 적의 운명도 지금 나온다(fate-design 4장: 집행자가 쓰러지는 그 순간에도 운명은 온다)
+	var rel := []
 	for dd in st.deaths.duplicate():
 		if dd.src == e.id and dd.bound:
+			if is_fate(dd):
+				dd.bound = false
+				rel.append(str(dd.id))
+				continue
 			st.deaths.erase(dd)
 			ev.append({"t": "deathGone", "id": dd.id, "ally": dd.ally})
+	var fs: Dictionary = enc_def(st).get("fates", {})
+	var turns := fs.keys().map(func(k): return int(k))
+	turns.sort()
+	for t in turns:
+		var fx: Dictionary = fs[str(t)]
+		if str(fx.enemy) != str(e.id):
+			continue
+		var rec = _fate_rec(st, str(fx.fate))
+		if rec != null and not rec.issued and not st.allies[str(rec.ally)].dead:
+			rel.append(_new_fate_death(st, e, rec, str(fx.get("sub", "")), false, ev))
+	if not rel.is_empty():
+		ev.append({"t": "fateRelease", "enemy": e.id, "ids": rel})
 	# 강적이 쓰러지면 그 하수인도 사라진다
 	var g = guard_of(st, e.id)
 	if g != null:
@@ -998,6 +1171,14 @@ static func _enemy_act(st: Dictionary, e: Dictionary, ev: Array) -> void:
 	var it: Dictionary = e.intent
 	if bool(it.get("erased", false)):
 		ev.append({"t": "enemyAct", "enemy": e.id, "kind": "erased", "slot": it.slot, "value": 0})
+		return
+	if str(it.get("reflect", "")) != "":
+		# 꿰뚫린 방패: 막고(피해 0) 그 피해만큼 그 적에게 되돌린다
+		var rv := maxi(0, int(it.value) - int(it.get("minus", 0)))
+		ev.append({"t": "enemyAct", "enemy": e.id, "kind": "reflected", "slot": it.slot, "value": 0})
+		ev.append({"t": "reflect", "enemy": e.id, "amount": rv, "uid": str(it.reflect)})
+		_hit_enemy(st, e, rv, "noel", str(it.reflect), ev)
+		_check_end(st, ev)
 		return
 	ev.append({"t": "enemyAct", "enemy": e.id, "kind": it.kind, "slot": it.slot, "value": act_value(it)})
 	if it.kind == "summon":
@@ -1067,12 +1248,27 @@ static func _hit_noel(st: Dictionary, v: int, by: String, col: int, ev: Array) -
 
 
 ## 죽음 카드: 그 동료가 칸에 있으면 죽는다(이 전투에서 돌아오지 않음). 벤치에 있으면 기다린다(그 뒤로는 낸 적이 쓰러져도 남는다)
-static func _resolve_deaths(st: Dictionary, ev: Array) -> void:
+## 2·3층 운명의 죽음 카드면 처리 대신 운명의 시도(st.awaitFate)에서 멈춘다(only_fate: 이긴 뒤 — 운명의 죽음 카드만).
+## 자동 진행의 내다보기(st.sim)에서는 시도의 결과를 모르므로 동료가 사는 것으로 친다(카드만 치움)
+static func _resolve_deaths(st: Dictionary, ev: Array, only_fate := false) -> void:
 	for dd in st.deaths.duplicate():
+		if not st.deaths.has(dd):
+			continue
+		if only_fate and not is_fate(dd):
+			continue
 		var a: Dictionary = st.allies[dd.ally]
 		if a.dead:
 			st.deaths.erase(dd)
 			continue
+		if st.get("deathsDone", []).has(dd.id):
+			continue   # 이번 턴에 이미 기다리기로 한 카드(운명의 시도 뒤 다시 부를 때)
+		if is_fate(dd) and col_of(st, dd.ally) >= 0:
+			if bool(st.get("sim", false)):
+				st.deaths.erase(dd)
+				continue
+			st.awaitFate = {"death": str(dd.id), "fate": str(dd.fate), "ally": str(dd.ally), "level": int(dd.get("level", 1))}
+			ev.append({"t": "fateTrial", "id": str(dd.id), "ally": str(dd.ally), "fate": str(dd.fate), "level": int(dd.get("level", 1)), "label": str(dd.label)})
+			return
 		if col_of(st, dd.ally) >= 0 or bool(dd.get("fixed", false)):
 			st.deaths.erase(dd)
 			a.hp = 0
@@ -1087,6 +1283,8 @@ static func _resolve_deaths(st: Dictionary, ev: Array) -> void:
 				ev.append({"t": de})
 		else:
 			dd.bound = false
+			if st.has("deathsDone"):
+				st.deathsDone.append(dd.id)
 			ev.append({"t": "deathWait", "id": dd.id, "ally": dd.ally})
 
 
@@ -1111,6 +1309,8 @@ static func _cleanup(st: Dictionary, ev: Array) -> void:
 	for e in st.enemies:
 		e.intent = null
 		e.vuln = false
+	if st.has("deathsDone"):
+		st.deathsDone = []
 	ev.append({"t": "cleanup"})
 
 
@@ -1276,7 +1476,7 @@ static func _auto_actions(s: Dictionary, moved: Array) -> Array:
 static func _auto_targets(s: Dictionary, uid: String, kind: String) -> Array:
 	var out := []
 	match kind:
-		"shift", "curse", "erase":
+		"shift", "curse", "erase", "reflect":
 			for e in s.enemies:
 				if e.alive and e.intent != null and str(e.intent.kind) in ["hit", "sweep"]:
 					out.append(str(e.id))
@@ -1332,6 +1532,7 @@ static func _mask_hidden(s: Dictionary) -> void:
 ## 이 상태에서 턴을 끝내면(복사본에서 턴 끝까지 돌려) 얼마나 좋은가
 static func _auto_value(s: Dictionary) -> float:
 	var e: Dictionary = s.duplicate(true)
+	e.sim = true   # 운명의 시도는 결과를 모른다 — 동료가 사는 것으로(_resolve_deaths)
 	end_turn(e)
 	return _auto_score(e)
 
@@ -1710,8 +1911,23 @@ static func init_party(gs: Dictionary) -> void:
 			for i in int(pair[1]):
 				dk.append({"id": str(pair[0]), "lv": 1})
 		p.deck2 = dk
+		_sync_fates_v2(gs)
 	if not p.has("formation2"):
 		p.formation2 = D().formation.duplicate()
+
+
+## 새 덱을 처음 만들 때(바로 가기 ?scene=floor2·floor3 · 새 덱이 없던 옛 저장): 이미 지나간 운명을 새 덱에도 —
+## 받아들인 죽음(fateLog offered)은 유품(relicMap)과 상속 카드(그 Lv), 거스른 것(defied)은 흉터. 새 게임은 운명 기록이 비어 있어 그대로
+static func _sync_fates_v2(gs: Dictionary) -> void:
+	for fl in gs.get("fateLog", []):
+		if str(fl.result) == "offered":
+			relicize_v2(gs, str(fl.who))
+			var m := str(D().fromV1.get(str(GameData.D.fates.get(str(fl.fate), {}).get("inherit", "")), ""))
+			if m != "":
+				gs.party.deck2.append({"id": m, "lv": int(fl.get("level", 1))})
+		elif str(fl.result) == "defied":
+			for i in int(fl.get("scars", 1)):
+				gs.party.deck2.append({"id": "scar", "lv": 1})
 
 
 ## 전투를 열 때 넘길 것(new_battle opts): 파티 HP·죽음 · 노엘 HP · 덱 · 직전 출전 배치 · 이어 가는 난수 · 어둠 단계
@@ -1722,8 +1938,18 @@ static func battle_opts(gs: Dictionary, enc: String, darkness := 0) -> Dictionar
 		var a = gs.party.allies.get(id)
 		if a != null:
 			al[id] = {"hp": int(a.hp), "maxHp": int(a.maxHp), "dead": str(a.status) == "dead"}
+	# 2·3층: 이 층에서 아직 시도되지 않은 운명(거스를 수 있는 것 — 1층 세라피나는 거대한 발이 따로) → 집행자가 정해진 턴에 죽음 카드로 낸다
+	var fl := []
+	for f in gs.get("fates", []):
+		if not bool(f.alive) or int(f.get("triedFloor", 0)) == Rules.floor_now(gs) or not Rules.can_defy(str(f.id)):
+			continue
+		var pa = gs.party.allies.get(str(f.who))
+		if pa == null or str(pa.status) == "dead":
+			continue
+		var sc: Array = GameData.D.fates[str(f.id)].get("scars", [1])
+		fl.append({"id": str(f.id), "ally": str(f.who), "level": int(f.level), "scars": int(sc[clampi(int(f.level) - 1, 0, sc.size() - 1)])})
 	return {"enc": enc, "rng": int(gs.rng), "allies": al, "noelHp": int(gs.party.witch.hp), "noelMax": int(gs.party.witch.maxHp),
-		"deck": gs.party.deck2.duplicate(true), "formation": gs.party.formation2.duplicate(), "darkness": darkness}
+		"deck": gs.party.deck2.duplicate(true), "formation": gs.party.formation2.duplicate(), "darkness": darkness, "fates": fl}
 
 
 ## 전투가 끝난 뒤(이김·물러남·발이 내려옴) 게임 상태에 돌려 적는다: 동료·노엘 HP, 난수, 출전 배치.
@@ -1751,6 +1977,12 @@ static func apply_result(gs: Dictionary, st: Dictionary) -> Array:
 				ev.append({"t": "wound2", "ally": id, "from": w})
 		else:
 			pa.hp = int(a2.hp)
+	# 2·3층 운명을 거슬렀다: 옛 규칙(운명 기록·이 층에서 시도함·옛 덱 흉터) + 새 덱에도 흉터. 받아들인 죽음은 위(ally_died — 옛 받아들임 규칙)
+	for fr in st.get("fateResults", []):
+		if str(fr.choice) == "defy":
+			ev.append_array(Rules.defy_fate(gs, str(fr.fate)))
+			for i in int(fr.get("scars", 1)):
+				gs.party.deck2.append({"id": "scar", "lv": 1})
 	ev.append_array(Rules.finish_battle(gs))
 	return ev
 

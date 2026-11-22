@@ -197,6 +197,20 @@ const S := {
 			{"who": "system", "text": "**거대한 존재.** 공격은 흠집만 냅니다. 적 행동 카드를 보고 버티세요. 3턴째에 「짓밟기」가 옵니다."}]},
 		{"id": "v2_g_immune", "on": "immune", "once": true, "linesOf": "g_immune"},
 		{"id": "v2_g_t2", "on": "turnStart", "enc": "giant", "turn": 2, "linesOf": "g_t2"},
+		# ── 2·3층 운명 (밤샘 계획 2 C — 운명의 죽음 카드, 받아들인다/거스른다는 옛 선택 화면 그대로). 안내 문구 [임시] ──
+		{"id": "v2_fate_battle", "on": "fateBattle", "lines": [
+			{"who": "system", "text": "**이 전투에서 운명이 옵니다.** 카드에 적힌 턴에 집행자가 그 동료의 죽음 카드를 그 동료 칸에 냅니다. 막기·저주로 줄지 않고, 옮길 수 없습니다."},
+			{"who": "system", "text": "적 차례 끝에 그 카드가 닿으면 **받아들일지 거스를지** 고릅니다. 집행자를 먼저 쓰러뜨려도 운명은 남습니다. 동료를 대기로 빼 두면 카드가 따라가 기다리고, 전투가 끝날 때까지 남으면 운명은 다음 층으로 미뤄집니다."}]},
+		{"id": "v2_two_cards_v2", "on": "twoDeathCards", "lines": [
+			{"who": "system", "text": "**두 죽음이 한 전투에 옵니다.** 카드에 적힌 턴에 차례로 옵니다. 집행자가 먼저 쓰러지면 남은 운명이 그 순간 함께 나옵니다."}]},
+		{"id": "v2_fate_card", "on": "fateIntent", "lines": [
+			{"who": "system", "text": "**운명의 죽음 카드가 놓였습니다.** 이번 적 차례 끝에 그 동료에게 닿습니다."}]},
+		{"id": "v2_fate_first_v2", "on": "fateFirst", "linesOf": "v2_fate_first"},
+		{"id": "v2_scar_v2", "on": "scarFirst", "linesOf": "v2_scar"},
+		{"id": "v2_after_w_v2", "on": "afterDeath", "card": "warrior_death", "linesOf": "v2_after_w", "skipSystem": true, "lines": [
+			{"who": "system", "text": "**「꿰뚫린 방패」**: 적 행동 카드 위에 놓으면 그 공격을 막고(피해 0) 그 피해만큼 그 적에게 되돌립니다. 다음 턴에 손에 듭니다. 브룬힐드의 카드는 「유품」이 되었습니다."}]},
+		{"id": "v2_after_a_v2", "on": "afterDeath", "card": "archer_death", "linesOf": "v2_after_a", "skipSystem": true, "lines": [
+			{"who": "system", "text": "**「타버린 활」**: 적 위에 놓으면 모든 적에게 피해. 다음 턴에 손에 듭니다. 엘리안의 카드는 「유품」이 되었습니다."}]},
 		# 5.4 사망 직후 (노엘의 손에 남은 카드 문구가 보인 뒤)
 		{"id": "v2_g_after", "on": "afterDeath", "card": "hero_death", "lines": [
 			{"who": "system", "text": "**죽음 카드는 막기로 줄지 않습니다.** 맞으면 그 동료는 죽습니다. 이번 죽음은 옮길 수도, 찢을 수도 없었습니다."},
