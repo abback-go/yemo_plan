@@ -39,8 +39,8 @@
 ### 브룬힐드 — 전사·방패 (`style_D_brunhild_v5.webp`)
 - 흑기사 미녀, 파티에서 가장 큼. 칠흑 긴 생머리 + 일자 앞머리(히메컷), **여우상**(가늘게 올라간 눈, 호박색 눈동자, 능청스러운 반쯤 웃음), 오른쪽 눈 밑 가는 흉터.
 - 검은 칠 판금 + 은색 들꽃·가시 세공(크고 매끈한 판, 장미 꽃잎 모양 견갑, 고딕 아치 흉갑, 드레스처럼 퍼지는 갑옷 치마), 붉은 견갑 안감·허리띠·스카프. 금 장식 없음.
-- 거대한 검은 탑 방패에 **마른 들꽃 다발과 붉은 리본**을 묶고 다님(갑옷의 들꽃 세공과 같은 꽃). 허리에 메이스.
-- EN: Brunhild, a tall black-knight beauty with long straight jet-black hair and blunt bangs (hime cut), narrow upturned fox-like amber eyes and a sly half-smile, a thin scar under her right eye; black lacquered plate armor with silver wildflower-and-thorn filigree, rose-petal pauldrons, a gothic arched breastplate, flaring armored skirt, crimson lining, sash and scarf; a massive black tower shield with a bouquet of dried wildflowers and a crimson ribbon tied to it; a flanged mace.
+- 거대한 검은 탑 방패에 **마른 들꽃 다발과 붉은 리본**을 묶고 다님(갑옷의 들꽃 세공과 같은 꽃). ~~허리에 메이스~~ → **무기는 방패 하나**(2026-11-22 사용자 결정 — 막고 되돌리는 역할, 공격도 방패로).
+- EN: Brunhild, a tall black-knight beauty with long straight jet-black hair and blunt bangs (hime cut), narrow upturned fox-like amber eyes and a sly half-smile, a thin scar under her right eye; black lacquered plate armor with silver wildflower-and-thorn filigree, rose-petal pauldrons, a gothic arched breastplate, flaring armored skirt, crimson lining, sash and scarf; a massive black tower shield with a bouquet of dried wildflowers and a crimson ribbon tied to it; no other weapon (the shield is her only weapon).
 
 ### 엘리안 — 궁수 (`style_D_elian_v1.webp`)
 - 엘프 귀족 궁수. **차갑고 기품 있는 무표정**(무례하거나 뚱한 얼굴이 아니라 왕비 초상화 같은 평온함).
