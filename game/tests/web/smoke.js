@@ -23,7 +23,10 @@
  *         → 일시정지 → 타이틀로(확인) → 시작(저장이 지워진다는 확인 → 취소 → 처음부터) / 휴대폰: 타이틀·설정·메뉴 단추로 일시정지
  *         / 카드 연출·데스신 도중 일시정지 → 멈춘 동안 그대로 → 계속하면 이어서 끝남 / 카드 연출 도중 타이틀로 → 에러 없이 타이틀
  * 경로 M: 전투 움직임 — 기본(A′, 2026-11-22 사용자 결정) · ?anim=off(그 전 기본, 비교용)로 장례 회랑 전투를 끝까지(실제 드래그로 카드 내기 → 승리), 연출 도중 일시정지하면 화면이 멈춤, 콘솔 에러 0
- *   경로만 고르기: node smoke.js <주소> <폴더> AB   (기본: ABCDEFSM 전부)
+ * 경로 N: 새 전투(기본, 3D 탁자 — 2026-11-22 밤샘 계획 2 부터 1층 전투의 기본. battle=v1 을 붙이지 않는다) — 타이틀 「시작」 → 곁방 → 장례 회랑 새 전투
+ *         (출전 배치 안내 → 「출전」 실제 클릭 → 1턴 안내 → 손패 카드를 실제로 끌어 동료 칸에 놓기 → 「턴 끝」 실제 클릭 → 2턴) → 자동 진행으로 승리
+ *         → 결과 판 「계속」 실제 클릭 → 안치 홀 → 지도. 안내 상자가 적 줄을 가리지 않음 · 보이는 손 둘 이하 · 콘솔 에러 0 (밤샘 계획 2 D)
+ *   경로만 고르기: node smoke.js <주소> <폴더> AB   (기본: ABCDEFSMN 전부)
  * 통과 조건: 모든 확인 통과 + 브라우저 콘솔 에러 0 (Godot 의 ERROR / SCRIPT ERROR 포함)
  * (탑뷰 시험판 경로 T 는 탑뷰 코드와 함께 없앴다 — 2026-11-21, game/DECISIONS.md)
  */
@@ -63,12 +66,13 @@ function helpers(page, tag) {
   });
   page.on('pageerror', e => errors.push(tag + ' pageerror: ' + e.message));
   H.shot = async name => { await page.screenshot({ path: path.join(SHOTS, name) }); say('    📷 ' + name); };
-  H.open = async q => {
-    // 2026-11-22 밤샘 계획 2: 1층 전투의 기본이 새 전투(v2)가 됐다 — 이 스모크는 옛 전투(BattleView)를 누르므로 늘 ?battle=v1 로 연다
-    await page.goto(BASE + 'index.html?test=1&seed=7&battle=v1&' + (q || ''));
+  H.open = async (q, v2) => {
+    // 2026-11-22 밤샘 계획 2: 1층 전투의 기본이 새 전투(v2)가 됐다 — 이 스모크는 옛 전투(BattleView)를 누르므로 늘 ?battle=v1 로 연다(경로 N 만 새 전투 — v2 true)
+    await page.goto(BASE + 'index.html?test=1&seed=7&' + (v2 ? '' : 'battle=v1&') + (q || ''));
     await page.waitForFunction(() => window.__witchReady === true, null, { timeout: 90000 });
   };
   H.W = (name, ...args) => page.evaluate(([n, a]) => { window.__witchOut = null; window.witch[n](...a); return JSON.parse(window.__witchOut || 'null'); }, [name, args]);
+  H.V = (...args) => H.W('v2', ...args);   // 새 전투(scenes/board_battle.gd)의 시험 훅 — state · geom · auto · open
   H.state = () => H.W('state');
   H.sleep = ms => page.waitForTimeout(ms);
   H.until = async (pred, timeout, what, step) => {
@@ -991,11 +995,86 @@ async function pathM(browser) {
   }
 }
 
+async function pathN(browser) {
+  say('경로 N: 새 전투(기본) — 타이틀 → 곁방 → 장례 회랑 새 전투(출전 → 실제 끌기 → 턴 끝) → 자동 진행으로 승리 → 「계속」 → 안치 홀 → 지도');
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+  const H = helpers(page, 'N');
+  const before = errors.length;
+  await H.open('guides=reset&nosave=1', true);
+  let s = await H.until(s => s.scene === 'title', 20000, '타이틀');
+  const btn = await H.W('geom', 'button', 'start');
+  await H.click(btn.x, btn.y);
+  await H.W('setSpeed', 3);
+  // 곁방 · 장례 회랑 VN 을 넘겨 새 전투가 열릴 때까지(안내 상자가 뜨면 거기서 멈춘다)
+  let v = null;
+  s = await H.until(async s => { v = await H.V('state'); return v && v.ok === true && s.guideOpen; }, 240000, '장례 회랑 새 전투(출전 배치 안내)', async s => {
+    const vv = await H.V('state');
+    if (!(vv && vv.ok) && (s.guideOpen || s.dialogBusy || s.vn)) await H.W('advance');
+  });
+  await H.W('setSpeed', 1);
+  await H.sleep(1200);
+  v = await H.V('state');
+  check('타이틀 「시작」 → 곁방 → 장례 회랑이 새 전투(3D 탁자)로 열림 · 출전 배치', v.ok && v.phase === 'formation' && v.enemies.filter(e => e.type === 'cultist').length === 3, { phase: v.phase, mode: v.mode });
+  check('출전 배치 안내 상자가 적 줄을 가리지 않는다', v.guideRect && v.guideRect.y > v.guideRect.enemyBottom, v.guideRect);
+  await H.shot('N01_formation_guide.png');
+  // 안내 상자 넘기기(실제 클릭)
+  for (let i = 0; i < 12 && (await H.state()).guideOpen; i++) { await H.click(960, 620); await H.sleep(500); }
+  await H.until(async () => (await H.V('state')).mode === 'formation', 20000, '출전 배치');
+  const sb = await H.V('geom', 'start');
+  await H.click(sb.x, sb.y);
+  s = await H.until(s => s.guideOpen, 30000, '1턴 안내');
+  await H.sleep(1500);
+  v = await H.V('state');
+  check('「출전」 실제 클릭 → 1턴(손패 5장 · 에너지 3) · 1턴 안내 상자가 적 줄 아래', v.turn === 1 && v.hand.length === 5 && v.energy === 3 && v.guideRect && v.guideRect.y > v.guideRect.enemyBottom,
+    { turn: v.turn, hand: v.hand.map(h => h.id), guide: v.guideRect });
+  for (let i = 0; i < 20 && (await H.state()).guideOpen; i++) { await H.click(960, 620); await H.sleep(500); }
+  v = await H.until(async () => (await H.V('state')).mode === 'idle', 30000, '1턴 내 차례').then(() => H.V('state'));
+  // 손패 카드를 실제로 끌어 놓기: 성검 베기 → 세라피나 칸(0), 막기 → 엘리안 칸(2) (PC 는 손패 위에 마우스를 올리면 펼쳐진다 — 펼친 뒤 다시 잰다)
+  for (const [id, col] of [['holy', 0], ['guard', 2]]) {
+    let c = await H.V('geom', 'card', id);
+    if (!c || !c.x) continue;
+    const pc = await H.toPage(c.x, c.y);
+    await page.mouse.move(pc.x, pc.y);
+    await H.sleep(900);
+    c = await H.V('geom', 'card', id);
+    const t = await H.V('geom', 'column', String(col));
+    await H.drag({ x: c.x, y: c.y }, { x: t.x, y: t.y }, 14);
+    await H.sleep(900);
+  }
+  v = await H.V('state');
+  check('실제 끌기: 성검 베기 → 세라피나 · 막기 → 엘리안 칸에 놓임(에너지 1 남음)', v.allies.hero.placed.some(p => p.id === 'holy') && v.allies.archer.placed.some(p => p.id === 'guard') && v.energy === 1,
+    { placed: Object.fromEntries(Object.entries(v.allies).map(([k, a]) => [k, a.placed.map(x => x.id)])), energy: v.energy });
+  await H.shot('N02_placed.png');
+  const eb = await H.V('geom', 'endTurn');
+  await H.click(eb.x, eb.y);
+  s = await H.until(async () => { const x = await H.V('state'); return x.turn >= 2 && x.mode !== 'busy'; }, 90000, '적 턴 → 2턴', async st => { if (st.guideOpen || st.dialogBusy) await H.W('advance'); });
+  v = await H.V('state');
+  check('「턴 끝」 실제 클릭 → 동료 행동 · 적 턴 → 2턴(광신도 A 가 성검 베기를 맞음)', v.turn >= 2 && v.enemies.find(e => e.id === 'c1').hp < 14, v.enemies.map(e => [e.id, e.hp]));
+  // 나머지는 자동 진행 한 수씩 → 승리 → 결과 판 「계속」(실제 클릭)
+  await H.W('setSpeed', 3);
+  v = await H.until(async () => (await H.V('state')).mode === 'over', 240000, '장례 회랑 승리', async st => {
+    if (st.guideOpen || st.dialogBusy) { await H.W('advance'); return; }
+    const x = await H.V('state');
+    if (x.ok && (x.mode === 'idle' || x.mode === 'formation')) await H.V('auto');
+  }).then(() => H.V('state'));
+  check('새 전투 장례 회랑 승리', v.result === 'win', { result: v.result, turn: v.turn });
+  await H.sleep(1500);
+  await H.shot('N03_result.png');
+  const ag = await H.V('geom', 'again');
+  if (ag && ag.x) await H.click(ag.x, ag.y);
+  s = await H.until(s => s.stage === 'map', 240000, '안치 홀 → 지도', async st => { if (st.guideOpen || st.dialogBusy || st.vn) await H.W('advance'); });
+  await H.sleep(1200);
+  await H.shot('N04_map.png');
+  check('「계속」 실제 클릭 → 안치 홀 → 지도', s.stage === 'map', s.stage);
+  check('경로 N: 보이는 손은 둘 이하 · 콘솔 에러 0', (v.maxHands || 0) <= 2 && errors.length === before, { maxHands: v.maxHands, errors: errors.slice(before, before + 4) });
+  await page.close();
+}
+
 (async () => {
   const browser = await launch();
   const t0 = Date.now();
-  const only = process.argv[4] || 'ABCDEFSM';
-  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE], ['F', pathF], ['S', pathS], ['M', pathM]]) {
+  const only = process.argv[4] || 'ABCDEFSMN';
+  for (const [name, fn] of [['A', pathA], ['B', pathB], ['C', pathC], ['D', pathD], ['E', pathE], ['F', pathF], ['S', pathS], ['M', pathM], ['N', pathN]]) {
     if (!only.includes(name)) continue;
     try { await fn(browser); } catch (e) { check('경로 ' + name + ' 진행', false, e.message); }
   }
