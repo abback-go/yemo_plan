@@ -34,6 +34,8 @@
 ## 5. 사용자가 정할 것
 자세한 근거는 링크한 문서에. 같은 내용이 여러 곳에 있으면 여기 한 줄로 합쳤다.
 
+- 2026-11-22 아침에 물은 것: 움직임 → 사용자가 `?anim=c` 시험판을 먼저 보고 판단(코드는 그대로). 그림·규칙·난이도 → 답 없음, 지금대로 두고 다시 묻는다. 기본 기능·문구·독창성·화면 정리 등 나머지는 아직 묻지 않음.
+
 | 분야 | 정할 것 | 자세히 |
 |---|---|---|
 | 움직임 | A′ / C / 둘 다 버림 / 섞기(동료·적 A′, 세라피나만 C). C면 부위 시트를 뒷모습 비율로 다시 뽑을지, 다른 동료도 뽑을지. 기본 화면에서 맞을 때 번쩍임이 안 보이는 것(`flash_node`)을 고칠지 | `game/DECISIONS.md` 「움직임 시험 두 안」 · `reference/trials/` |
@@ -75,9 +77,7 @@
 - ChatGPT 기본 모델로 뽑는다. 받은 그림은 바로 `art/raw/vs/`에 저장·커밋한다.
 
 **커밋·배포**
-- 커밋 메시지는 한국어, 마지막 두 줄은 정확히:
-  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
-  `Claude-Session: https://claude.ai/code/session_01NR5CTnMmGTt51p3uyypVUS`
+- 커밋 메시지는 한국어, 마지막 두 줄은 `Co-Authored-By: …`·`Claude-Session: …` — 세션 주소는 **지금 세션의 것**을 쓴다(시스템이 알려 주는 값. 2026-11-15~22 세션은 `session_01NR5CTnMmGTt51p3uyypVUS`, 2026-11-22 아침부터 `session_01NR5CTpCf99rkCzNbwqotR6`).
 - 모델 이름은 커밋·PR에 넣지 않는다. 푸시는 `cc/amazing-darwin-nesbwh`로만, 강제 푸시·히스토리 고치기 금지. 검증을 통과한 것만 푸시한다(푸시하면 웹에 배포).
 - 결정 문서(`docs/vertical-slice.md`·`docs/tutorial-script-vs.md`·`docs/art-direction.md`·`docs/prompts/*`)의 내용은 사용자 결정 없이 바꾸지 않는다.
 - 배포: `.github/workflows/witch-web-build.yml` — `game/**` 푸시 때 검사·규칙 시험·웹 내보내기 → gh-pages `godot/`(스크린샷·로그는 `godot-ci/`). 헤드리스·스모크까지 도는 전체 검증은 수동 실행(`full`)인데 이 세션 권한으로는 부를 수 없어(403) 로컬에서 돌린다. 배포하면 새로고침만으로 새 버전이 뜨도록 서비스 워커를 바꾸는 `tools/web_sw_patch.py`를 유지한다(2026-11-17 사용자 요청).
