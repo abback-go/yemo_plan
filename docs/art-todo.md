@@ -260,6 +260,6 @@ Using the attached image only as a style reference, draw a game UI element: a sm
 
 ## 그림체 F 진행 (2026-11-22~)
 - 기준: `docs/art-direction.md` 1-0장. 원본은 `art/raw/vs_f/`. 동료는 **첨부 두 장**(그림체 `reference/style/style_F_seraphina_stand.webp` + 예전 얼굴 `art/raw/vs/<번호>_stand_*.webp`).
-- 통과: 28 세라피나 기본 · 36 엘리안 기본 · 39 노엘 기본(불투명 천 — 예전 초록 물듦 문제 해결) · 75 전투 돌판 탁자(새 번호, v2 전투 바닥) · 76 카드 틀 3종(동료·노엘 카드 / 적·적 행동 / 하수인, 한 장에 나란히).
+- 통과: 28 세라피나 기본 · 36 엘리안 기본 · 39 노엘 기본(불투명 천 — 예전 초록 물듦 문제 해결) · 75 전투 돌판 탁자 v2(어둡고 잔혹하게 다시 — 피 얼룩·긁힌 자국·녹슨 못·사슬·붉은 실, 1차는 `_v1`) · 76 카드 틀 3종(동료·노엘 카드 / 적·적 행동 / 하수인, 한 장에 나란히) — **다시 뽑는 중**(더 어둡고 공포스럽게, 사용자 지시).
 - 임시 통과(고칠 것 남음): 32 브룬힐드 — 오른쪽 눈 밑 흉터가 **빨간 선**(피눈물처럼 보임) → 회색으로. 프롬프트: "Change only the scar under her right eye: keep its shape as one thin straight line, but draw it in pale light-gray ink instead of red." (같은 대화창). 갑옷 무늬가 세라피나보다 촘촘함(선택).
 - 행동 카드 그림(베기·막기·겨누기 등)은 **당분간 예전 그림체 D 카드 그림(44~60)을 재활용**(사용자 결정 2026-11-22). 그림체 F로 다시 뽑는 것은 나중에.
