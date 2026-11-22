@@ -260,5 +260,5 @@ Using the attached image only as a style reference, draw a game UI element: a sm
 
 ## 그림체 F 진행 (2026-11-22~)
 - 기준: `docs/art-direction.md` 1-0장. 원본은 `art/raw/vs_f/`. 동료는 **첨부 두 장**(그림체 `reference/style/style_F_seraphina_stand.webp` + 예전 얼굴 `art/raw/vs/<번호>_stand_*.webp`).
-- 통과: 28 세라피나 기본.
+- 통과: 28 세라피나 기본 · 36 엘리안 기본.
 - 임시 통과(고칠 것 남음): 32 브룬힐드 — 오른쪽 눈 밑 흉터가 **빨간 선**(피눈물처럼 보임) → 회색으로. 프롬프트: "Change only the scar under her right eye: keep its shape as one thin straight line, but draw it in pale light-gray ink instead of red." (같은 대화창). 갑옷 무늬가 세라피나보다 촘촘함(선택).
