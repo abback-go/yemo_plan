@@ -722,9 +722,11 @@ func _draw_zoom() -> void:
 		return
 	var Z: Dictionary = L().zoom
 	var w := float(Z.w)
+	if FX.small:
+		w *= clampf(FX.ui, 1.0, float(Z.get("smallMax", 1.0)))   # 휴대폰: 탁자 카드 설명이 작다 → 크게 보기를 더 크게
 	var h := w * 1.5
 	var x := float(Z.margin) if _zoom_left else 1920.0 - float(Z.margin) - w
-	var r := Rect2(x, float(Z.y), w, h)
+	var r := Rect2(x, minf(float(Z.y), 1080.0 - h - 24.0), w, h)
 	zoom.draw_style_box(UI.box(Color(0, 0, 0, 0.55), Color.TRANSPARENT, 18), Rect2(r.position + Vector2(6, 12), r.size))
 	BoardPieces.draw_face(zoom, r, _zoom_face)
 
@@ -1843,6 +1845,7 @@ func _show_fates() -> void:
 	turns.sort()
 	var items := []
 	var names := []
+	var whens := []
 	for t in turns:
 		var fx: Dictionary = fs[str(t)]
 		var rec = RulesV2._fate_rec(st, str(fx.fate))
@@ -1851,12 +1854,18 @@ func _show_fates() -> void:
 		var lab := RulesV2.death_label(str(rec.ally)) + (" Lv%d" % int(rec.level) if int(rec.level) >= 2 else "")
 		var en = RulesV2.enemy(st, str(fx.enemy))
 		var enm := str(face_enemy(en).name) if en != null else ""
-		items.append({"face": {"kind": "death", "name": lab, "art": str(D().death.art.get(str(rec.ally), "")), "text": T("fateWhen", {"sub": str(fx.get("sub", "")), "n": t, "enemy": enm})}})
+		# 노엘이 쥔 그 죽음 카드(옛 예지 카드 — 문구·Lv 가 보인다, 계단에서 본 그 카드). 없으면(시험) 탁자의 죽음 카드 앞면
+		var gf = Rules.fate_by_id(G.ctl.st, str(rec.id)) if not G.ctl.st.is_empty() else null
+		if gf != null and G.ctl.st.cards.has(str(gf.card)):
+			items.append(str(gf.card))
+		else:
+			items.append({"face": {"kind": "death", "name": lab, "art": str(D().death.art.get(str(rec.ally), "")), "text": T("fateWhen", {"sub": str(fx.get("sub", "")), "n": t, "enemy": enm})}})
 		names.append(lab)
+		whens.append(T("fateWhenShort", {"name": lab, "n": t, "enemy": enm}))
 	if items.is_empty():
 		return
 	note("fates held " + ",".join(names))
-	await G.scenes.card_gain(items, "note", T("fatesHeld", {"list": " · ".join(names)}))
+	await G.scenes.card_gain(items, "note", T("fatesHeld", {"list": " · ".join(whens)}))
 	await _guide("fateBattle")
 	if items.size() > 1:
 		await _guide("twoDeathCards")

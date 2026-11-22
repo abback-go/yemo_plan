@@ -250,7 +250,7 @@ const D := {
 		"energy": {"x": 890, "y": 902},
 		"endTurn": {"x": 1166, "y": 950},
 		"start": {"x": 1166, "y": 950},          # 출전 배치 화면의 「출전」
-		"zoom": {"w": 300, "y": 150, "margin": 40},  # 크게 보기(카드 240×360 기준 배율 300/240)
+		"zoom": {"w": 300, "y": 150, "margin": 40, "smallMax": 1.6},  # 크게 보기(카드 240×360 기준 배율 300/240) · smallMax: 작은 화면(휴대폰)에서는 글씨 배율만큼(이 값까지) 더 크게(밤샘 계획 2 C 0단계)
 	},
 
 	# ───────────── 3D 탁자 (ui/board_table.gd, 지시서 9-1) ─────────────
@@ -299,7 +299,7 @@ const D := {
 		"postponed": "운명이 미뤄졌다 — {list}", "bench_state": "대기",
 		"again": "다시 하기",
 		# 2·3층 운명(밤샘 계획 2 C)
-		"fateMark": "{sub}\n옮길 수 없음", "fateWhen": "{sub}\n{n}턴 · {enemy}", "fatesHeld": "노엘이 쥔 죽음 — {list}", "fateDefied": "운명을 거슬렀다",
+		"fateMark": "{sub}\n옮길 수 없음", "fateWhen": "{sub}\n{n}턴 · {enemy}", "fateWhenShort": "{name}({n}턴 · {enemy})", "fatesHeld": "노엘이 쥔 죽음 — {list}", "fateDefied": "운명을 거슬렀다",
 		"reflected": "되돌린다", "tagReflect": "막고 되돌린다", "tagReflectAll": "모두 막고 되돌린다", "alone": "노엘 혼자 남았다 — 물러난다",
 	},
 	# 놓을 수 없을 때 짧은 알림 (rules_v2.gd 의 이유 → 문구)
