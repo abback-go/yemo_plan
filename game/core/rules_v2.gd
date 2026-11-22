@@ -23,7 +23,7 @@
 ##   st.enc · st.darkness · st.victims   전투 구성 id · 어둠 단계 · 발이 짓밟은 적(giant)
 ##   st.cards {uid: {uid, id, lv, src}}  lv: 카드 레벨(Lv2) · src: 게임 덱(deck2)의 몇 번째 카드 · st.exhaust [uid] 이 전투에서 사라진 카드(전투마다 한 번)
 ##   st.allies {id: {id, trait, hp, maxHp, block, down, dead, placed: [{uid, target}], brace, mult, blessed, counter}}
-##       placed: ③ 줄에 맡긴 카드(놓은 순서) · target: 공격 카드로 누른 적 id · dead: 죽음 카드로 죽음(down 도 true)
+##       placed: ③ 줄에 맡긴 카드(놓은 순서) · target: 놓을 때의 앞 적 id(보여 주기용 — 턴 끝에 그 열의 앞 적으로 다시 셈, 9-6) · dead: 죽음 카드로 죽음(down 도 true)
 ##       brace: 브룬힐드 버팀(전투 내내) · mult: 엘리안 배율(×1~×4, 전투 내내) · blessed: 이번 턴 축복 · counter: 이번 적 턴에 반격(세라피나가 막기를 맡음)
 ##   st.enemies [{id, type, tag, of, col, hp, maxHp, alive, vuln, intent, acts}]   (BattleV2Data.lineup 순서 = 행동 순서)
 ##       of: 하수인이면 그 강적 id (하수인은 처음에 alive=false — 강적이 부르면 나온다) · col: ① 줄의 칸 · vuln: 이번 턴 취약 · acts: 지금까지 정한 행동 수
@@ -223,28 +223,6 @@ static func any_living(st: Dictionary) -> bool:
 static func receiver(st: Dictionary, col: int) -> String:
 	var id := ally_at(st, col)
 	return id if id != "" and not st.allies[id].down else "noel"
-
-
-## 공격이 실제로 들어가는 적. 하수인이 앞에 있는 강적이면 하수인이 먼저 받는다(pierce = 저격: 하수인을 넘어 본체).
-## 누른 적이 이미 쓰러졌으면: 하수인은 그 강적에게, 그 밖은 살아 있는 가장 왼쪽 적에게(그 적도 하수인이 막으면 하수인). id "" 도 가장 왼쪽. 없으면 null
-static func hit_target(st: Dictionary, id: String, pierce := false):
-	var e = enemy(st, id)
-	if e == null or not e.alive:
-		var nxt = null
-		if e != null and is_minion(e):
-			var m = enemy(st, str(e.of))
-			if m != null and m.alive:
-				nxt = m
-		if nxt == null:
-			var al := alive_main(st)
-			if al.is_empty():
-				return null
-			nxt = al[0]
-		e = nxt
-	if pierce:
-		return e
-	var g = guard_of(st, e.id)
-	return g if g != null else e
 
 
 ## 9-6(사용자 결정): 그 칸(열)의 동료가 치는 앞 적 — 같은 열의 살아 있는 적. 하수인이 있으면 하수인이 먼저(pierce = 저격: 넘어 그 열 본체). 없으면 null
@@ -605,11 +583,6 @@ static func can_place_col(st: Dictionary, uid: String, col: int) -> Dictionary:
 	if id == "":
 		return _no("empty")
 	return can_place(st, uid, id)
-
-
-## 9-6: 공격은 앞(같은 열) 적에게 자동 — 대상을 고르지 않는다(자리를 바꾸면 그 열의 적으로)
-static func needs_target(_st: Dictionary, _uid: String) -> bool:
-	return false
 
 
 ## 동료 칸에 놓는다. opts 는 쓰지 않는다(9-6 — 예전 {target} 은 무시). target: 놓을 때의 앞 적(보여 주기용, 턴 끝에 다시 셈). 반환 {ok, placed} / {ok: false, reason}

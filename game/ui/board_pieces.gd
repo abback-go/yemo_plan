@@ -209,16 +209,23 @@ static func name_band(ci: CanvasItem, r: Rect2, name: String, col: Color, right 
 	text_in(ci, Rect2(nr.position, Vector2(nr.size.x - rw, nr.size.y)), name, fs, ink, "serif_bold", HORIZONTAL_ALIGNMENT_LEFT, maxi(1, int(3 * s)))
 
 
-## 그림 창 아래쪽 설명(어두운 그라디언트 위)
-static func desc(ci: CanvasItem, r: Rect2, s_txt: String, top := 0.58, size := 15) -> void:
+## 설명 글자가 들어가는 가로 자리(카드 너비 비율): 카드 틀(그림체 F 76) 안쪽의 투명한 곳만 — 틀의 가시·장식이 그림 창 안으로 들어와
+## 예전 자리(그림 창 너비)에서는 설명 양끝이 가려졌다(밤샘 계획 2 D). 틀 그림의 안쪽을 재어 정함: 동료 틀은 y 0.58~0.72 에서 x 0.165~0.815 가 비고(조금 더 안쪽 0.18~0.82)
+## 그 아래(0.74~)는 안으로 좁아진다 → 글자는 bottom(동료 틀 0.735 · 적 틀 0.765) 위에만
+const DESC_X := Vector2(0.18, 0.82)
+
+
+## 그림 창 아래쪽 설명(어두운 그라디언트 위). top: 그라디언트가 시작하는 높이(카드 높이 비율) · bottom: 글자 아래 끝(틀이 좁아지기 전)
+static func desc(ci: CanvasItem, r: Rect2, s_txt: String, top := 0.58, size := 15, bottom := 0.735) -> void:
 	if s_txt == "":
 		return
 	var s := r.size.x / CW
 	var ar := _rr(r, ART)
-	var gr := Rect2(ar.position.x, ar.position.y + ar.size.y * (top - ART.position.y) / ART.size.y, ar.size.x, ar.end.y - (ar.position.y + ar.size.y * (top - ART.position.y) / ART.size.y))
-	ci.draw_texture_rect(grad_bottom(), gr, false)
-	var fs := fit_size(s_txt, "sans_bold", int(size * s), gr.size.x - 18 * s)
-	text_in(ci, Rect2(gr.position.x + 8 * s, gr.position.y + gr.size.y * 0.2, gr.size.x - 16 * s, gr.size.y * 0.8), s_txt, fs, Color("#efe5d6"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
+	var gy := r.position.y + top * r.size.y
+	ci.draw_texture_rect(grad_bottom(), Rect2(ar.position.x, gy, ar.size.x, ar.end.y - gy), false)
+	var tr := Rect2(r.position.x + DESC_X.x * r.size.x, gy + 0.015 * r.size.y, (DESC_X.y - DESC_X.x) * r.size.x, (bottom - top - 0.015) * r.size.y)
+	var fs := fit_size(s_txt, "sans_bold", int(size * s), tr.size.x)
+	text_in(ci, tr, s_txt, fs, Color("#efe5d6"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
 
 
 ## 적의 작은 얼굴(맡긴 카드의 대상 등): 그림에서 얼굴만, 해골 병사는 코드 해골. tag(A·B)는 오른쪽 아래에
@@ -299,7 +306,9 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 				Icons.draw(ci, "skull", ar.get_center() + Vector2(0, -ar.size.y * 0.06), ar.size.x * 0.42, BONE)
 			ci.draw_texture_rect(grad_bottom(), Rect2(ar.position.x, ar.end.y - ar.size.y * 0.3, ar.size.x, ar.size.y * 0.3), false)
 			if bool(f.get("summon", false)):
-				text_in(ci, Rect2(ar.position.x, ar.end.y - ar.size.y * 0.26, ar.size.x, ar.size.y * 0.24), str(f.get("summonText", "")), int(14 * s), Color("#f0e2cc"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
+				var stx := str(f.get("summonText", ""))
+				var srr := Rect2(r.position.x + DESC_X.x * r.size.x, r.position.y + 0.6 * r.size.y, (DESC_X.y - DESC_X.x) * r.size.x, 0.15 * r.size.y)
+				text_in(ci, srr, stx, fit_size(stx, "sans_bold", int(14 * s), srr.size.x), Color("#f0e2cc"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
 			frame(ci, r, "minion" if kind == "minion" else "enemy")
 			name_band(ci, r, str(f.get("name", "")), Color("#f0e2dc") if kind == "enemy" else Color("#2a1810"))
 			if f.has("hpText"):
@@ -348,7 +357,7 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 			if da != "" and tex(da) != null:
 				cover(ci, tex(da), ar, Rect2(), Color(0.55, 0.32, 0.34))
 			skull(ci, ar.get_center() + Vector2(0, -ar.size.y * 0.06), ar.size.x * 0.62, Color(0.96, 0.88, 0.84, 0.92))
-			desc(ci, r, str(f.get("text", "")), 0.64)
+			desc(ci, r, str(f.get("text", "")), 0.62, 15, 0.765)
 			frame(ci, r, "enemy", Color(1.0, 0.75, 0.75))
 			var cr := r.grow(-7 * s)
 			var sb := UI.box(Color(0, 0, 0, 0), Color("#d4142a"), int(14 * s), maxi(2, int(6 * s)))
@@ -370,7 +379,7 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 				skull(ci, ar.get_center() + Vector2(0, -ar.size.y * 0.05), ar.size.x * 0.55, Color(0.95, 0.85, 0.82, 0.85))
 				text_in(ci, Rect2(ar.position.x, ar.position.y + ar.size.y * 0.66, ar.size.x, ar.size.y * 0.2), str(f.get("deadText", "")), int(34 * s), Color("#ff6b76"), "serif_black", HORIZONTAL_ALIGNMENT_CENTER, maxi(2, int(4 * s)))
 			elif bool(f.get("big", false)):
-				desc(ci, r, str(f.get("text", "")), 0.66)   # 특성 설명은 크게 보기에서만(탁자 위에서는 너무 작다)
+				desc(ci, r, str(f.get("text", "")), 0.58)   # 특성 설명은 크게 보기에서만(탁자 위에서는 너무 작다)
 			frame(ci, r, "ally", Color(0.7, 0.62, 0.62) if dead else Color.WHITE)
 			name_band(ci, r, str(f.get("name", "")), Color("#2a1810"), "" if dead else str(f.get("trait", "")), Color("#6a3a10"))
 			if not dead:
@@ -391,7 +400,8 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 					ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 		"note":
 			ci.draw_rect(ar, Color("#140c0c"))
-			text_in(ci, ar.grow(-10 * s), str(f.get("text", "")), fit_size(str(f.get("text", "")), "sans_bold", int(17 * s), ar.size.x - 24 * s), Color("#e8dcd0"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
+			var nr := Rect2(r.position.x + DESC_X.x * r.size.x, ar.position.y + 10 * s, (DESC_X.y - DESC_X.x) * r.size.x, 0.75 * r.size.y - ar.position.y + r.position.y - 10 * s)
+			text_in(ci, nr, str(f.get("text", "")), fit_size(str(f.get("text", "")), "sans_bold", int(17 * s), nr.size.x), Color("#e8dcd0"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
 			frame(ci, r, "enemy")
 			name_band(ci, r, str(f.get("name", "")), Color("#f0e2dc"))
 

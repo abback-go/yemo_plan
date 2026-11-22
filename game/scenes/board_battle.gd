@@ -23,9 +23,13 @@ var game := {}            # 게임 모드 설정 {battle: new_battle opts, enc, 
 var _done := false
 var _cut := false          # 데스신이 도는 중(자동 진행 멈춤)
 var _hold := {}            # 죽음 연출 전인 동료 id → 보이는 HP (그때까지 산 얼굴로)
+# 턴 끝 연출 동안 보이는 값(밤샘 계획 2 D): 규칙은 턴 끝을 한꺼번에 계산해 상태(st)가 이미 마지막 값이라, 연출 중에 앞면을 다시 그리면
+# 적 HP·동료 HP·막기가 맞기도 전에 마지막 값으로 바뀌었다 → 턴 끝 직전 값을 적어 두고 사건(맞음·막기·회복…)이 연출될 때마다 그 값으로 옮긴다.
+# "e:<적 id>" → {hp} · "ally:<동료 id>" → {hp, block, brace, mult, down} · "noel" → HP. 정리(cleanup) 뒤에는 비운다
+var _disp := {}
 
 var st := {}
-var mode := "busy"        # formation | idle | drag | pick | shift | move | busy | over
+var mode := "busy"        # formation | idle | drag | shift | move | busy | over
 var table: BoardTable
 var hand: BoardHand
 var hud: Control
@@ -36,7 +40,7 @@ var start_btn: Btn
 var turn_label: Label
 var hint_label: Label
 var result_panel: Control
-var pending := {}         # 놓았지만 대상·옮길 칸을 아직 안 고른 카드 {uid, kind: attack|shift, ally, target}
+var pending := {}         # 놓았지만 옮길 칸을 아직 안 고른 운명 전가 {uid, kind: shift, ally, target}
 var drag := {}            # 손패에서 끄는 카드 {uid, start, moved, hot, col, reason}
 var mdrag := {}           # 탁자에서 끄는 카드 {kind: ally|act, id, key, start, moved}
 var tap := {}             # 누른 탁자 카드 {key, start, t}
@@ -81,6 +85,8 @@ static func open_game(parent: Node, cfg: Dictionary) -> BoardBattle:
 func _exit_tree() -> void:
 	if current == self:
 		current = null
+		if G.dialog != null:
+			G.dialog.guide_mid_y = -1.0   # 이어서 연 전투(가장 깊은 곳 → 거대한 발)가 정한 값은 두고, 마지막 전투가 닫힐 때만
 
 
 ## 게임 모드의 튜토리얼 안내·대사(core/guide.gd — script_data.gd guideV2). 시험 전투에는 없다
@@ -211,6 +217,9 @@ func _build() -> void:
 	start_btn.fit(Vector2(70, 18))
 	start_btn.position = Vector2(float(L().start.x), float(L().start.y))
 	add_child(start_btn)
+	# 안내 상자(게임 모드 튜토리얼): 화면 맨 위에 뜨면 적 줄을 가렸다 → ② 적 행동 줄과 ④ 동료 줄 사이(③ 맡긴 카드 줄 — 안내가 뜰 때는 대개 비어 있다)를 가운데로(밤샘 계획 2 D)
+	if G.dialog != null:
+		G.dialog.guide_mid_y = (table.rect_at(cell_pos(1, 1)).end.y + table.rect_at(cell_pos(3, 1)).position.y) / 2.0
 
 
 # ───────── 탁자 자리 ─────────
@@ -276,7 +285,7 @@ func face_enemy(e: Dictionary) -> Dictionary:
 	var nm := str(D().enemies[e.type].name) + (" " + str(e.tag) if str(e.tag) != "" else "")
 	if RulesV2.wide(e):
 		return {"kind": "giant", "type": e.type, "name": nm, "hpText": T("unknownHp")}
-	var f := {"kind": "minion" if minion else "enemy", "type": e.type, "name": nm, "hp": int(e.hp), "maxHp": int(e.maxHp)}
+	var f := {"kind": "minion" if minion else "enemy", "type": e.type, "name": nm, "hp": int(_disp["e:" + str(e.id)].hp) if _disp.has("e:" + str(e.id)) else int(e.hp), "maxHp": int(e.maxHp)}
 	if RulesV2.immune(e):
 		f.hpText = T("unknownHp")
 	return f
@@ -325,16 +334,37 @@ func face_ally(id: String) -> Dictionary:
 	var held := _hold.has(id)   # 죽음 연출 전: 상태는 이미 「죽음」이어도 그 순간까지는 산 얼굴(직전 HP)로
 	if a.dead and not held:
 		return {"kind": "dead", "name": G.name_of(id), "art": str(D().portraits[id].img), "deadText": T("dead")}
-	var f := {"kind": "ally", "name": G.name_of(id), "art": str(D().portraits[id].img), "hp": int(_hold[id]) if held else int(a.hp), "maxHp": int(a.maxHp), "block": int(a.block),
-		"trait": str(tr.name), "text": str(tr.text).replace("\n", " "), "down": bool(a.down) and not held, "downText": T("down")}
+	var dv: Dictionary = _disp.get("ally:" + id, {})
+	var f := {"kind": "ally", "name": G.name_of(id), "art": str(D().portraits[id].img), "hp": int(_hold[id]) if held else int(dv.get("hp", a.hp)), "maxHp": int(a.maxHp),
+		"block": int(dv.get("block", a.block)), "trait": str(tr.name), "text": str(tr.text), "down": bool(dv.get("down", a.down)) and not held, "downText": T("down")}
 	match str(a.trait):
 		"brace":
 			f.statusLabel = T("brace")
-			f.statusValue = str(a.brace)
+			f.statusValue = str(dv.get("brace", a.brace))
 		"aim":
 			f.statusLabel = T("mult")
-			f.statusValue = "×" + str(a.mult)
+			f.statusValue = "×" + str(dv.get("mult", a.mult))
 	return f
+
+
+## 턴 끝 직전에 보이던 값(_disp) — 연출이 사건마다 옮긴다
+func _disp_snapshot() -> Dictionary:
+	var d := {"noel": int(st.noelHp)}
+	for e in st.enemies:
+		if e.alive:
+			d["e:" + str(e.id)] = {"hp": int(e.hp)}
+	for id in st.order:
+		var a: Dictionary = st.allies[id]
+		d["ally:" + id] = {"hp": int(a.hp), "block": int(a.block), "brace": int(a.brace), "mult": int(a.mult), "down": bool(a.down)}
+	return d
+
+
+## 사건 하나가 보이는 값을 옮긴다 (key 가 _disp 에 있을 때만 — 턴 끝 연출 중)
+func _disp_set(key: String, vals: Dictionary) -> void:
+	if _disp.has(key):
+		var d: Dictionary = _disp[key]
+		for k in vals:
+			d[k] = vals[k]
 
 
 # ───────── 상태 → 탁자 (자리·앞면) ─────────
@@ -396,8 +426,6 @@ func _layout() -> Dictionary:
 		if id != "":
 			for p in st.allies[id].placed:
 				pile3.append({"key": "p:" + p.uid, "face": face_mine(p.uid, fc), "flip": 0.0, "pick": true})
-			if not pending.is_empty() and pending.kind == "attack" and pending.ally == id:
-				pile3.append({"key": "p:" + pending.uid, "face": face_mine(pending.uid), "flip": 0.0, "pick": false, "glow": 1.0, "gcol": Color(1, 0.3, 0.36)})
 			var targeted := RulesV2.is_targeted(st, id)
 			pile4.append({"key": "ally:" + id, "face": face_ally(id), "flip": 0.0, "pick": true, "wobble": 1.0 if targeted and mode != "formation" else 0.0,
 				"glow": 0.75 if targeted and mode != "formation" else 0.0, "gcol": Color(1, 0.16, 0.22)})
@@ -577,7 +605,8 @@ func _draw_hud() -> void:
 	# 노엘 HP: 붉은 봉인 (빈칸 공격을 맞으면 흔들림)
 	var nc := noel_center() + Vector2(sin(_noel_shake * 40.0) * 10.0 * _noel_shake, 0)
 	BoardPieces.text_in(hud, Rect2(nc.x - 90, nc.y - 92, 180, 30), T("noel"), 24, Color("#f3dcec"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, 4)
-	BoardPieces.seal(hud, nc, 44, Color("#8e1220") if int(st.noelHp) > 5 else Color("#c0121f"), str(st.noelHp), 36, "/" + str(st.noelMax))
+	var nhp := int(_disp.get("noel", st.noelHp))
+	BoardPieces.seal(hud, nc, 44, Color("#8e1220") if nhp > 5 else Color("#c0121f"), str(nhp), 36, "/" + str(st.noelMax))
 	if st.phase != "battle":
 		return
 	# 행동 에너지: 붉은 보석
@@ -745,13 +774,6 @@ func _down(p: Vector2) -> void:
 	if mode == "drag":
 		_cancel_drag()
 	match mode:
-		"pick":
-			var k := table.pick(p, func(key): return key.begins_with("e:"))
-			if k != "":
-				_commit_pending({"target": k.substr(2)})
-			else:
-				_cancel_pending()
-			return
 		"shift":
 			var tk := _target_key(str(pending.target))
 			if table.pick(p) == tk:
@@ -806,13 +828,6 @@ func _move(p: Vector2, is_touch: bool) -> void:
 				hand.drag_pos = p
 				hand.layout()
 				_update_drag_hot(p)
-		"pick":
-			var k := table.pick(p, func(key): return key.begins_with("e:"))
-			for key in table.cards:
-				if key.begins_with("e:"):
-					var e = RulesV2.enemy(st, key.substr(2))
-					table.card(key).set_glow(2.0 if key == k else (1.0 if e != null and e.alive else 0.0))
-			hand.point_at = table.to_screen(table.card(k).position) + Vector2(0, 30) if k != "" else p
 		"idle", "formation":
 			if is_touch:
 				return   # 터치: 길게 누르면 크게 보기 · 그 칸 펼치기(_process_touch_zoom)
@@ -1151,7 +1166,7 @@ func _cancel_drag() -> void:
 func _cancel_all() -> void:
 	if mode == "drag":
 		_cancel_drag()
-	elif mode in ["pick", "shift"]:
+	elif mode == "shift":
 		_cancel_pending()
 
 
@@ -1170,14 +1185,7 @@ func _drop(uid: String, hot: String) -> void:
 		else:
 			await _commit_cast(uid, hot, {})
 		return
-	if RulesV2.needs_target(st, uid):
-		var al := RulesV2.alive_enemies(st)
-		if al.size() == 1:
-			await _commit_place(uid, hot, {"target": al[0].id})
-		else:
-			await _start_pending_attack(uid, hot)
-		return
-	await _commit_place(uid, hot, {})
+	await _commit_place(uid, hot, {})   # 9-6: 공격은 앞(같은 열) 적에게 자동 — 대상을 고르지 않는다
 
 
 ## 손패의 카드가 날아가 작아지며 탁자의 그 자리 위(들린 높이)로 → 3D 카드가 이어서 떨어진다
@@ -1254,30 +1262,6 @@ func _commit_cast(uid: String, target: String, opts: Dictionary) -> bool:
 	return true
 
 
-## 공격 카드: 동료 칸에 놓고(붉게 깜빡임) 적 카드를 누를 때까지 기다린다
-func _start_pending_attack(uid: String, ally: String) -> void:
-	var chk := RulesV2.can_place(st, uid, ally)
-	if not chk.ok:
-		_toast_reason(chk.reason)
-		_set_idle()
-		return
-	mode = "busy"
-	var idx: int = st.allies[ally].placed.size()
-	await _fly(uid, _slot_rect(ally, idx))
-	if not is_inside_tree():
-		return
-	pending = {"uid": uid, "kind": "attack", "ally": ally, "target": ""}
-	mode = "pick"
-	prompt_text = T("pickEnemy")
-	_sync_table()
-	for k in table.cards:
-		if k.begins_with("e:"):
-			var e = RulesV2.enemy(st, k.substr(2))
-			table.card(k).set_glow(1.0 if e != null and e.alive else 0.0)
-	_sync_hud()
-	overlay.queue_redraw()
-
-
 ## 운명 전가: 그 ② 카드(또는 죽음 카드)에 놓고 옮길 칸을 고를 때까지 기다린다
 func _start_pending_shift(uid: String, target: String) -> void:
 	var chk := RulesV2.can_cast(st, uid, target)
@@ -1317,24 +1301,15 @@ func _commit_pending(opts: Dictionary) -> void:
 	pending = {}
 	prompt_text = ""
 	mode = "busy"
-	var ok := false
-	if pd.kind == "attack":
-		var res := RulesV2.place(st, pd.uid, pd.ally, opts)
-		ok = res.ok
-		if ok:
-			note("place %s %s %s" % [st.cards[pd.uid].id, pd.ally, str(opts)])
-		else:
-			_toast_reason(res.reason)
+	var res2 := RulesV2.cast(st, pd.uid, pd.target, opts)
+	var ok: bool = res2.ok
+	if ok:
+		note("cast %s %s %s" % [st.cards[pd.uid].id, pd.target, str(opts)])
+		_guide("redirect")   # 처음 운명 전가로 옮겼을 때 — 세라피나 「좋아, 그거야.」
 	else:
-		var res2 := RulesV2.cast(st, pd.uid, pd.target, opts)
-		ok = res2.ok
-		if ok:
-			note("cast %s %s %s" % [st.cards[pd.uid].id, pd.target, str(opts)])
-			_guide("redirect")   # 처음 운명 전가로 옮겼을 때 — 세라피나 「좋아, 그거야.」
-		else:
-			_toast_reason(res2.reason)
+		_toast_reason(res2.reason)
 	if not ok:
-		var k: String = ("p:" if pd.kind == "attack" else "n:") + str(pd.uid)
+		var k: String = "n:" + str(pd.uid)
 		hand.create(st, pd.uid, table.screen_rect(k).get_center() if table.card(k) != null else deck_center())
 	_set_idle()
 
@@ -1347,7 +1322,7 @@ func _cancel_pending() -> void:
 	pending = {}
 	prompt_text = ""
 	mdrag = {}
-	var k: String = ("p:" if pd.kind == "attack" else "n:") + str(pd.uid)
+	var k: String = "n:" + str(pd.uid)
 	var from := table.screen_rect(k).get_center() if table.card(k) != null else deck_center()
 	hand.create(st, pd.uid, from)
 	_set_idle()
@@ -1406,7 +1381,7 @@ func _on_end() -> void:
 	if G.dialog.guide_open():
 		return
 	hand.set_open(false)
-	if mode in ["pick", "shift"]:
+	if mode == "shift":
 		_cancel_pending()
 	if mode == "drag":
 		_cancel_drag()
@@ -1425,11 +1400,13 @@ func end_turn() -> void:
 	_sync_hud()
 	note("endTurn %d" % int(st.turn))
 	_hand_snap = st.hand.duplicate()
+	_disp = _disp_snapshot()
 	var evs := RulesV2.end_turn(st)
 	if not evs.any(func(x): return str(x.t) == "cleanup"):
 		_hand_snap = null
 	await _play(evs)
 	_hand_snap = null
+	_disp = {}
 	if not is_inside_tree():
 		return
 	if st.result != null:
@@ -1542,6 +1519,7 @@ func _float_at(key: String, text, cls: String, dy := 0.0) -> void:
 func _ev_hit(e: Dictionary) -> void:
 	var key := "e:" + str(e.enemy)
 	var c: BoardTable.Card3D = table.card(key)
+	_disp_set(key, {"hp": int(e.hp)})
 	if c != null:
 		c.set_face(_hp_face(c.face, int(e.hp)))
 		c.hit_shake(1.0)
@@ -1559,6 +1537,7 @@ func _hp_face(f: Dictionary, hp: int) -> Dictionary:
 
 func _ev_enemyDie(e: Dictionary) -> void:
 	var key := "e:" + str(e.enemy)
+	_disp_set(key, {"hp": 0})
 	var c: BoardTable.Card3D = table.card(key)
 	var en = RulesV2.enemy(st, str(e.enemy))
 	for k in table.cards.keys():
@@ -1583,17 +1562,20 @@ func _ev_deathGone(e: Dictionary) -> void:
 
 
 func _ev_block(e: Dictionary) -> void:
+	_disp_set("ally:" + str(e.ally), {"block": int(e.total)})
 	_refresh_faces()
 	_float_at("ally:" + str(e.ally), T("block", {"n": e.amount}), "small", -60)
 	await FX.wait(200)
 
 
-func _ev_mult(_e: Dictionary) -> void:
+func _ev_mult(e: Dictionary) -> void:
+	_disp_set("ally:" + str(e.ally), {"mult": int(e.mult)})
 	_refresh_faces()
 	await FX.wait(140)
 
 
-func _ev_brace(_e: Dictionary) -> void:
+func _ev_brace(e: Dictionary) -> void:
+	_disp_set("ally:" + str(e.ally), {"brace": int(e.brace)})
 	_refresh_faces()
 	await FX.wait(80)
 
@@ -1658,6 +1640,7 @@ func _ev_allyHit(e: Dictionary) -> void:
 	var c: BoardTable.Card3D = table.card(key)
 	if _hold.has(str(e.ally)):
 		_hold[str(e.ally)] = int(e.hp)
+	_disp_set(key, {"hp": int(e.hp), "block": int(e.block)})
 	if c != null:
 		c.set_face(face_ally(str(e.ally)))
 		c.hit_shake(1.2)
@@ -1669,6 +1652,8 @@ func _ev_allyHit(e: Dictionary) -> void:
 
 
 func _ev_noelHit(e: Dictionary) -> void:
+	if _disp.has("noel"):
+		_disp.noel = int(e.hp)
 	FX.flash("#ff1a2a", 240, 0.35)
 	FX.shake(10, 300)
 	var nc := noel_center()
@@ -1690,6 +1675,7 @@ func _ev_counter(e: Dictionary) -> void:
 
 
 func _ev_allyDown(e: Dictionary) -> void:
+	_disp_set("ally:" + str(e.ally), {"down": true, "hp": 0})
 	var c: BoardTable.Card3D = table.card("ally:" + str(e.ally))
 	if c != null:
 		c.set_face(face_ally(str(e.ally)))
@@ -1793,6 +1779,7 @@ func _ev_noelAct(_e: Dictionary) -> void:
 func _ev_heal(e: Dictionary) -> void:
 	var key := "ally:" + str(e.ally)
 	var c: BoardTable.Card3D = table.card(key)
+	_disp_set(key, {"hp": int(e.hp)})
 	if c != null:
 		c.set_face(face_ally(str(e.ally)))
 	_float_at(key, T("heal", {"n": e.amount}), "small", -60)
@@ -1801,6 +1788,8 @@ func _ev_heal(e: Dictionary) -> void:
 
 ## 노엘 HP 를 대가로(유품·이름 없는 마녀의 카드)
 func _ev_noelPay(e: Dictionary) -> void:
+	if _disp.has("noel"):
+		_disp.noel = int(e.hp)
 	var nc := noel_center()
 	FX.float_text(nc.x, nc.y - 60, T("noelPay", {"n": e.amount}), "small")
 	_noel_shake = 0.6
@@ -1876,6 +1865,7 @@ func _ev_cleanup(_e: Dictionary) -> void:
 			var nd := c
 			FX.anim(260, [{"a": 1.0}, {"a": 0.0}], func(v): if is_instance_valid(nd): nd.alpha = v.a, {"node": nd}).finished.connect(func(): if is_instance_valid(nd): nd.queue_free())
 	await FX.wait(340)
+	_disp = {}   # 정리 뒤: 보이는 값 = 상태
 	if st.result == null:
 		_sync_table()
 		_sync_hud()
@@ -2028,7 +2018,7 @@ func _process(delta: float) -> void:
 		_noel_shake = maxf(0.0, _noel_shake - delta * FX.speed * 2.5)
 		hud.queue_redraw()
 	_process_touch_zoom()
-	if mode in ["idle", "pick", "shift"]:
+	if mode in ["idle", "shift"]:
 		overlay.queue_redraw()
 	end_btn.z_index = 90 if hand.open else 46   # v2.4: 펼친 두 손 그림(z 80)에 가려지지 않게
 	# 시험 전용(?test=1&openhand · 헤드리스 --test --openhand): 첫 내 턴에 손패를 펼쳐 둔다(스크린샷용)
@@ -2134,7 +2124,29 @@ func test_state() -> Dictionary:
 	return {"ok": true, "mode": mode, "phase": st.phase, "turn": st.turn, "energy": st.energy, "result": st.result, "loseBy": st.loseBy, "deck": st.draw.size(),
 		"hand": hand_out, "slots": st.slots, "bench": st.bench, "noelHp": st.noelHp, "deaths": st.deaths, "postponed": RulesV2.postponed(st),
 		"allies": al, "enemies": en, "noel": st.noel.map(func(n): return {"kind": n.kind, "target": n.target}), "pending": not pending.is_empty(),
-		"tableCards": table.cards.size(), "handCards": hand.cards.size(), "handOpen": hand.open, "maxHands": hand.max_hands, "handsNow": hand.hands_visible(), "log": log.slice(maxi(0, log.size() - 30))}
+		"tableCards": table.cards.size(), "handCards": hand.cards.size(), "handOpen": hand.open, "maxHands": hand.max_hands, "handsNow": hand.hands_visible(), "log": log.slice(maxi(0, log.size() - 30)),
+		"shown": _shown_faces(), "guideRect": _guide_rect()}
+
+
+## 시험용: 탁자에 지금 그려진 적·동료 카드 앞면의 HP(연출 중 앞면이 미리 바뀌지 않는지 — 밤샘 계획 2 D)
+func _shown_faces() -> Dictionary:
+	var out := {}
+	for k in table.cards:
+		if str(k).begins_with("e:") or str(k).begins_with("ally:"):
+			out[k] = table.card(k).face.get("hp", null)
+	return out
+
+
+## 시험용: 안내 상자 사각형(무대 px)과 적 줄 아래 끝 — 안내 상자가 적 줄을 가리지 않는지
+func _guide_rect() -> Dictionary:
+	if G.dialog == null or not G.dialog.guide.visible:
+		return {}
+	var g: Control = G.dialog.guide
+	var enemy_bottom := 0.0
+	for k in table.cards:
+		if str(k).begins_with("e:"):
+			enemy_bottom = maxf(enemy_bottom, table.screen_rect(k).end.y)
+	return {"y": g.position.y, "h": g.size.y * g.scale.y, "x": g.position.x, "w": g.size.x * g.scale.x, "enemyBottom": enemy_bottom}
 
 
 ## 화면 좌표(무대 1920×1080): card(손패 카드 id 또는 uid) · ally(동료 카드) · column(그 칸 ③) · slot(그 칸 ④) · bench · enemy · act(적 id·죽음 카드 id)

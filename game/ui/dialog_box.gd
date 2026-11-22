@@ -32,6 +32,7 @@ var log: Array = []       # 시험용: 보여 준 줄 기록 (최근 300)
 var dock := ""            # "" = 화면 왼쪽 위(기본) / "bottom" = 화면 아래, dock_x 부터 오른쪽 끝까지 (탑뷰 시험판: 옆에 스탠딩, 얼굴 칸 없음)
 var dock_x := 470.0       # dock = "bottom" 일 때 왼쪽 x
 var dock_w := 0.0         # dock = "bottom" 일 때 너비(무대 px). 0 = 오른쪽 끝까지
+var guide_mid_y := -1.0   # 0 이상이면 안내 상자를 이 y(무대 px)를 가운데로 띄운다 — 새 전투 3D 탁자(scenes/board_battle.gd)가 적 줄·동료 줄 사이로 정함(밤샘 계획 2 D)
 var _type_acc := 0.0
 
 
@@ -121,6 +122,8 @@ func relayout() -> void:
 	var gy := 18.0
 	if G.ctl and G.ctl.in_battle and not G.scenes.is_open():
 		gy = float(G.view.LY().get("guideBattleY", 396))   # 배경마다 (battleLayouts)
+	if guide_mid_y >= 0.0 and not G.scenes.is_open():
+		gy = guide_mid_y - guide.size.y * u / 2.0
 	var gx := 960 - gw * u / 2.0
 	# 오른쪽 위 메뉴 단추(누르는 영역)와 겹치면 상자 오른쪽 끝을 그 왼쪽까지 줄인다(휴대폰처럼 상자가 화면 폭을 거의 다 쓸 때)
 	if G.menu != null and G.menu.can_pause():
@@ -148,6 +151,9 @@ func _fit() -> void:
 	if guide.visible:
 		var gh: float = guide_text.get_content_height()
 		guide.size.y = 52.0 + gh + 58.0
+		if guide_mid_y >= 0.0 and not G.scenes.is_open():
+			var hh := guide.size.y * guide.scale.y
+			guide.position.y = clampf(guide_mid_y - hh / 2.0, 8.0, 1080.0 - hh - 8.0)
 		guide_hint.position = Vector2(guide.size.x - 330, guide.size.y - 40)
 		guide_hint.size = Vector2(300, 30)
 		guide.queue_redraw()
