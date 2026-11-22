@@ -88,7 +88,8 @@ jobs:
       #   ⑥ 거대한 발부터, 브룬힐드·엘리안 HP 3·4(2턴 기둥 붕괴에 둘 다 쓰러짐) → 세라피나의 운명 뒤 물러남 → 결과 요약
       #      (예전에는 전멸이 끝없이 되풀이됐다 — 2026-11-22 자동 진행 대량 시험 tools/batch_autoplay.py 에서 찾음, docs/balance-report.md)
       #   2026-11-22 밤샘 계획 2: 1층 전투의 기본이 새 전투(v2 3D 탁자)가 됐다 → 위 ①~⑥은 옛 전투 그대로 --battle=v1 로,
-      #   새 기본 흐름은 ①②③⑥ 을 옵션 없이(v2) 한 번 더 + 시험 전투 하나(--battle=v2). 2·3층은 아직 옛 전투라 ④⑤ 는 v1 만
+      #   새 기본 흐름은 ①②③⑥ 을 옵션 없이(v2) 한 번 더 + 시험 전투 하나(--battle=v2).
+      #   2026-11-23 밤샘 계획 2 C: 2·3층 전투도 새 전투가 기본 → ④⑤ 도 옵션 없이(v2) 한 번 더(운명의 시도: 받아들임 · 거스름)
       - name: Headless auto-play (start → result, room/fate paths)
         if: ${{ inputs.full }}
         run: |
@@ -103,6 +104,8 @@ jobs:
                       "--scene=camp --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy --autoplay" \
                       "--scene=camp --rooms=prayer,buried,corpse,stall,chapel --choice=leave,candle --reward=skip --fates=accept,accept --autoplay" \
                       "--scene=camp --rooms=none --fates=defy,defy,offer --autoplay" \
+                      "--scene=floor2 --fates=offer,offer --autoplay" \
+                      "--scene=floor2 --fates=defy,defy,defy --autoplay" \
                       "--scene=giant --hp=warrior:3,archer:4 --fates=defy,defy,defy --autoplay" \
                       "--battle=v2 --autoplay"; do
             echo "=== $args"

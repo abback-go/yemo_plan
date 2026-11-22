@@ -920,7 +920,7 @@ func _up(p: Vector2) -> void:
 	if not mdrag.is_empty():
 		var mk := str(mdrag.key) if not bool(mdrag.moved) else ""
 		_up_mdrag(p)
-		if touch and not long_press and mk != "" and mode in ["idle", "formation"]:
+		if touch and mk != "" and mode in ["idle", "formation"]:
 			_tap_zoom(mk, t2.get("start", p))
 		return
 	if mode == "drag":
@@ -953,14 +953,15 @@ func _up(p: Vector2) -> void:
 			_return_noel(key.substr(2))
 		elif touch:
 			_tap_zoom(key, t2.start)
-	elif mode == "formation" and touch and not t2.is_empty() and not long_press:
+	elif mode in ["idle", "formation"] and touch and not t2.is_empty():
+		# 휴대폰: 길게 눌러 띄운 크게 보기도 손을 떼면 그대로 남긴다(맡긴 카드·노엘 카드 포함 — 짧은 탭은 되돌리기라). 배치 화면은 탭도
 		if absf(p.x - t2.start.x) + absf(p.y - t2.start.y) <= _move_thresh():
-			_tap_zoom(str(t2.key), t2.start)
+			_tap_zoom(str(t2.key), t2.start, long_press)
 
 
 ## 휴대폰: 탁자 카드를 한 번 탭하면 크게 보기(탁자 위 설명 글씨가 작다 — 길게 누르기 말고도). 맡긴 카드·노엘 카드는 탭이 「손패로 되돌리기」라 그대로 길게 누르기
-func _tap_zoom(key: String, p: Vector2) -> void:
-	if key == "" or key.begins_with("p:") or key.begins_with("n:") or key.begins_with("slot:") or key.begins_with("deck:"):
+func _tap_zoom(key: String, p: Vector2, placed_too := false) -> void:
+	if key == "" or key.begins_with("slot:") or key.begins_with("deck:") or ((key.begins_with("p:") or key.begins_with("n:")) and not placed_too):
 		return
 	_set_zoom(key, p)
 	if _zoom_face.is_empty():
