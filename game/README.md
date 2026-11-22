@@ -32,7 +32,7 @@
 | `tests/test_rules.gd` · `tests/web/smoke.js` | 규칙·데이터·저장 시험(헤드리스) · 웹 빌드를 실제로 누르는 Playwright 스모크 |
 | `tools/make_fonts.py` | 부분 글꼴 만들기(글꼴에 없는 글자가 생기면 규칙 시험이 알려 준다) |
 
-저장소 `tools/`: `vs_import.py`(그림 들여오기) · `remove_bg.py`(크로마 배경 제거) · `fix_imports.py`(.import 크기 제한) · `batch_autoplay.py`(대량 자동 진행) · `web_sw_patch.py`·`web_sw.js`(웹 빌드 서비스 워커 교체). `build_web.py`·`make_char_prompts.py`·`pixel_sheet.py` 는 HTML 프로토타입·옛 탑뷰 때 도구.
+저장소 `tools/`: `vs_import.py`(그림 들여오기) · `vs_f_import.py`(그림체 F → 전투 시험판 v2.1 그림) · `remove_bg.py`(크로마 배경 제거) · `fix_imports.py`(.import 크기 제한) · `batch_autoplay.py`(대량 자동 진행) · `web_sw_patch.py`·`web_sw.js`(웹 빌드 서비스 워커 교체). `build_web.py`·`make_char_prompts.py`·`pixel_sheet.py` 는 HTML 프로토타입·옛 탑뷰 때 도구.
 
 ## 2. 주소 옵션
 웹은 `index.html?seed=7&scene=giant`, 데스크톱·헤드리스는 `godot --path game -- --seed=7 --scene=giant` 처럼 같은 이름을 쓴다(`G.params`).
@@ -47,7 +47,7 @@
 | `?guides=reset` | 본 안내 기록을 지워 안내를 다시 보이게 |
 | `?darkness=N` · `?omen=1` · `?hp=누구:HP,…` | 시험용(바로 가기와 함께): 어둠 단계 · 전조를 본 상태 · HP(`witch`·`hero`·`warrior`·`archer`) |
 | `?run=N` | 회차 번호 |
-| `?battle=v2` | 전투 시험판 v2 「맡기기」(`docs/battle-v2-spec.md`): 타이틀 없이 그 시험 전투 하나(헤드리스 `--battle=v2`, `--autoplay` 로 끝까지). 저장하지 않는다. `&seed=N` 이면 같은 전투. 파일 `scenes/board_battle.gd`·`core/rules_v2.gd`·`data/battle_v2_data.gd`·`ui/board_hand.gd`·`ui/board_pieces.gd` |
+| `?battle=v2` | 전투 시험판 v2.1 「3D 탁자」(`docs/battle-v2-spec.md` 9장, v2 「맡기기」를 대신함): 타이틀 없이 출전 배치 → 그 시험 전투 하나(헤드리스 `--battle=v2`, `--autoplay` 로 끝까지). 저장하지 않는다. `&seed=N` 이면 같은 전투. 파일 `scenes/board_battle.gd`·`ui/board_table.gd`(3D 탁자)·`core/rules_v2.gd`·`data/battle_v2_data.gd`·`ui/board_hand.gd`·`ui/board_pieces.gd`·`ui/shaders/card3d·table3d·shadow3d` |
 | `?anim=off` | 전투 움직임을 그 전 기본(튀어 나가기·흔들림)으로 — 비교용. 옵션이 없으면 A′(2026-11-22부터 기본, `ui/battle_anim.gd`). 예전 `?anim=a`·`c` 는 A′ |
 | `?test=1` | 웹 시험 훅(`window.witch.*`, 스모크가 씀) |
 | `?autoguide=1` · `?autoplay=1` | 대사·안내 자동 넘김 · 자동 진행 |
