@@ -59,6 +59,13 @@ static func valid_state(st: Dictionary, step: String, room: String) -> bool:
 	for u in p.deck + p.get("deathCards", []):
 		if not st.cards.has(u):
 			return false
+	# 새 전투(기본)의 덱 deck2 [{id, lv}] (밤샘 계획 2 A) — 없는 카드면 저장 없음으로
+	var d2 = p.get("deck2", [])
+	if not d2 is Array:
+		return false
+	for sp in d2:
+		if not sp is Dictionary or not BattleV2Data.D.cards.has(str(sp.get("id", ""))):
+			return false
 	for k in ["floor", "room", "visited", "candles", "darkness"]:
 		if not st.progress.has(k):
 			return false

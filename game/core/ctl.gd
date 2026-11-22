@@ -34,6 +34,7 @@ func note(s: String) -> void:
 
 func new_game() -> Dictionary:
 	st = Rules.new_game(seed)
+	RulesV2.init_party(st)   # 새 전투(기본)의 덱 deck2 · 출전 배치 (밤샘 계획 2 A)
 	if G.params.has("run"):
 		st.run = int(G.params.run)
 	G.guide.reset()
@@ -204,7 +205,7 @@ func _win_card(pool: String, my: int) -> void:
 	var up := Rules.is_up(st, u)
 	stage = "winCard:" + pool
 	note("win card " + id + (" up" if up else ""))
-	await G.scenes.card_gain([u], "inherit", G.ui("gainCard", {"card": Rules.card_name(id, up)}))
+	await G.scenes.card_gain([u], "inherit", G.ui("gainCard", {"card": G.card_label(id, up)}))
 
 
 func _leave_battle() -> void:
@@ -270,7 +271,10 @@ func _step_result(my: int) -> bool:
 
 # ───────── 전투 ─────────
 ## 반환: 이겼으면(또는 거대한 발 앞에서 물러나 끝났으면) true
+## 새 전투(v2 3D 탁자)가 기본 — 1층 전투(BattleV2Data encounters)는 _battle_v2. 옛 전투는 ?battle=v1, 2·3층(납골당·화형대)은 아직 옛 전투
 func battle(enc: String, from_snapshot := false, my := -1) -> bool:
+	if G.battle_v2() and BattleV2Data.D.encounters.has(enc) and enc != "test":
+		return await _battle_v2(enc, my)
 	if my < 0:
 		flow += 1
 		my = flow
@@ -319,6 +323,63 @@ func battle(enc: String, from_snapshot := false, my := -1) -> bool:
 	if not _alive(my) or st.battle == null or st.battle.enc != enc:
 		return false
 	return await after_result(my)
+
+
+## 새 전투(기본 — 밤샘 계획 2 A): 그 방의 전투를 3D 탁자(scenes/board_battle.gd 게임 모드)로 연다. 반환: 이겼으면(거대한 발 앞에서 물러났으면) true
+##  · 파티 HP·덱(deck2)·직전 출전 배치·난수·어둠 단계를 넘기고(RulesV2.battle_opts), 끝나면 돌려 적는다(RulesV2.apply_result — HP·상처·죽음·유품·배치·난수)
+##  · 지면 결과 판 「다시 하기」 → 그 전투 처음부터(옛 전멸처럼 — 난수는 이어 가고 노엘 HP 가 너무 낮으면 retryWitchHp 까지)
+##  · 가장 깊은 곳: 광신도가 하나 남아 발이 내려오면(giant) 거대한 발 전투로. 거대한 발은 세라피나의 죽음 뒤 물러남(retreat)으로 끝난다
+func _battle_v2(enc: String, my: int) -> bool:
+	if my < 0:
+		flow += 1
+		my = flow
+	G.dialog.clear()
+	G.scenes.clear()
+	G.input.cancel_drag()
+	G.view.clear()
+	in_battle = false
+	busy = false
+	if st.is_empty():
+		new_game()
+	RulesV2.init_party(st)
+	var snap: Dictionary = st.duplicate(true)
+	var tries := 0
+	var E: Dictionary = BattleV2Data.D.encounters[enc]
+	while _alive(my):
+		stage = "battle:" + enc
+		var dark := MapRules.darkness_level(st, str(E.get("v1", enc)))
+		note("battle %s v2%s%s" % [enc, " (restart)" if tries > 0 else "", (" darkness=%d" % dark) if dark > 0 else ""])
+		var bb := BoardBattle.open_game(G.main.world, {"battle": RulesV2.battle_opts(st, enc, dark), "enc": enc, "bg": str(E.get("bg", ""))})
+		var res: String = await bb.finished
+		var b2: Dictionary = bb.st
+		if is_instance_valid(bb):
+			bb.queue_free()
+		if not _alive(my):
+			return false
+		note("battle end " + _battle_summary_v2(b2, res))
+		if res == "lose":
+			note("wipe " + enc)
+			st = Rules.restore(snap, int(b2.rng))
+			tries += 1
+			continue
+		for e in RulesV2.apply_result(st, b2):
+			if str(e.t) in ["wound", "wound2", "allyDeath"]:
+				note("%s %s %s" % [e.t, str(e.get("ally", "")), str(e.get("from", e.get("card", "")))])
+		if res == "giant":
+			note("giant appears")
+			return await _battle_v2("giant", my)
+		note(("win " if res == "win" else "retreat ") + enc)
+		return true
+	return false
+
+
+## 새 전투가 끝난 순간의 요약(--trace 기록 — _battle_summary 와 같은 꼴, tools/batch_autoplay.py 가 읽는다)
+func _battle_summary_v2(b2: Dictionary, res: String) -> String:
+	var s := "enc=%s result=%s turn=%d deck=%d witch=%d/%d" % [b2.enc, res, int(b2.turn), st.party.get("deck2", []).size(), int(b2.noelHp), int(b2.noelMax)]
+	for id in b2.order:
+		var a: Dictionary = b2.allies[id]
+		s += " %s=%d/%d:%s" % [id, int(a.hp), int(a.maxHp), "dead" if a.dead else ("down" if a.down else "ok")]
+	return s
 
 
 func begin_turn() -> void:
@@ -571,6 +632,7 @@ func continue_game() -> bool:
 	busy = false
 	snaps = {}
 	st = sv.st
+	RulesV2.init_party(st)   # 새 전투의 덱이 없는 예전 저장
 	G.guide.reset()
 	G.guide.done = sv.guide.duplicate()
 	if sv.step == "map":

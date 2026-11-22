@@ -120,6 +120,7 @@ static func win_card(st: Dictionary, pool := "elite") -> String:
 static func gain_card(st: Dictionary, id: String, up := false) -> String:
 	var u := Rules.new_card(st, id, {"up": true} if up else {})
 	st.party.deck.append(u)
+	RulesV2.gain_from_v1(st, id, up)   # 새 전투(기본 흐름)의 덱 deck2 에도 짝 카드 (밤샘 계획 2 A)
 	return u
 
 
@@ -210,4 +211,5 @@ static func upgrade_card(st: Dictionary, id: String) -> String:
 		return ""
 	st.cards[u].up = true
 	st.flags.upgraded = id
+	RulesV2.upgrade_from_v1(st, id)   # 새 전투의 덱 deck2 의 짝 카드도 Lv2 (밤샘 계획 2 A)
 	return u

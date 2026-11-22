@@ -21,6 +21,7 @@ var back_tex: Texture2D
 var _shader_card: Shader
 var _shader_shadow: Shader
 var _fit_y1 := 0.0
+var table_mat: ShaderMaterial
 
 
 static func TL() -> Dictionary:
@@ -166,9 +167,7 @@ func pick(p: Vector2, filter := Callable()) -> String:
 		if hit == null:
 			continue
 		var l: Vector3 = c.global_transform.affine_inverse() * hit
-		var cw: float = TL().card[0]
-		var ch: float = TL().card[1]
-		if absf(l.x) <= cw / 2.0 and absf(l.z) <= ch / 2.0:
+		if absf(l.x) <= c.csize.x / 2.0 and absf(l.z) <= c.csize.y / 2.0:
 			var pr := float(c.prio) + c.position.y * 10.0
 			if pr > bp:
 				bp = pr
@@ -181,12 +180,13 @@ func screen_rect(key: String) -> Rect2:
 	var c: Card3D = cards.get(key)
 	if c == null:
 		return Rect2()
-	return rect_of(c.global_transform)
+	return rect_of(c.global_transform, c.csize)
 
 
-func rect_of(xf: Transform3D) -> Rect2:
-	var cw: float = TL().card[0]
-	var ch: float = TL().card[1]
+## sz: 카드 크기(없으면 보통 카드 — 거대한 발처럼 큰 카드는 그 카드의 csize)
+func rect_of(xf: Transform3D, sz := Vector2.ZERO) -> Rect2:
+	var cw: float = sz.x if sz.x > 0.0 else float(TL().card[0])
+	var ch: float = sz.y if sz.y > 0.0 else float(TL().card[1])
 	var r := Rect2()
 	var first := true
 	for v in [Vector3(-cw / 2, 0, -ch / 2), Vector3(cw / 2, 0, -ch / 2), Vector3(cw / 2, 0, ch / 2), Vector3(-cw / 2, 0, ch / 2)]:
@@ -221,6 +221,16 @@ func _make_table() -> void:
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	world.add_child(mi)
+	table_mat = m
+
+
+## 그 방의 VN 배경을 탁자 너머(화면 위쪽, 진하게)와 탁자 전체(옅게)에 어둡게 비춘다 — 밤샘 계획 2 A(1층 전투). null 이면 끔
+func set_room(t: Texture2D) -> void:
+	if table_mat == null:
+		return
+	table_mat.set_shader_parameter("room_on", 1.0 if t != null else 0.0)
+	if t != null:
+		table_mat.set_shader_parameter("room", t)
 
 
 ## 탁자에 눕힌 글자 (화면 쪽에서 읽히게)
@@ -252,10 +262,13 @@ func card(key: String) -> Card3D:
 	return cards.get(key)
 
 
-func make_card(key: String, face: Dictionary, pos: Vector3) -> Card3D:
+## size: 카드 크기(탁자 단위) — 없으면 보통 카드(table3d.card). 거대한 발은 세 칸을 덮는 큰 카드
+func make_card(key: String, face: Dictionary, pos: Vector3, size := Vector2.ZERO) -> Card3D:
 	var c := Card3D.new()
 	c.key = key
 	c.table = self
+	if size.x > 0.0:
+		c.csize = size
 	world.add_child(c)
 	c.setup(face, back_tex, float(TL().faceScale), _shader_card, _shader_shadow)
 	c.tpos = pos
@@ -322,12 +335,14 @@ class Card3D extends Node3D:
 	var _glow := 0.0
 	var tglow := 0.0
 	var glow_color := Color(1, 0.78, 0.38)
+	var csize := Vector2(BoardTable.TL().card[0], BoardTable.TL().card[1])   # 카드 크기(탁자 단위)
 
 	func setup(f: Dictionary, back: Texture2D, fs: float, shader: Shader, sh_shader: Shader) -> void:
 		face = f
 		_t = randf() * 10.0
 		fvp = SubViewport.new()
-		fvp.size = Vector2i(int(BoardPieces.CW * fs), int(BoardPieces.CH * fs))
+		var c0: Array = BoardTable.TL().card
+		fvp.size = Vector2i(int(BoardPieces.CW * fs * csize.x / float(c0[0])), int(BoardPieces.CH * fs * csize.y / float(c0[1])))
 		fvp.transparent_bg = true
 		fvp.disable_3d = true
 		fvp.render_target_update_mode = SubViewport.UPDATE_ONCE
@@ -338,8 +353,8 @@ class Card3D extends Node3D:
 		fctl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		fctl.draw.connect(func(): BoardPieces.draw_face(fctl, Rect2(Vector2.ZERO, fctl.size), face))
 		fvp.add_child(fctl)
-		var cw: float = BoardTable.TL().card[0]
-		var ch: float = BoardTable.TL().card[1]
+		var cw: float = csize.x
+		var ch: float = csize.y
 		var m := 0.12
 		mesh = MeshInstance3D.new()
 		var qm := QuadMesh.new()

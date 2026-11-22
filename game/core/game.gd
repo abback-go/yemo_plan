@@ -27,6 +27,20 @@ func name_of(who: String) -> String:
 	return str(S.names.get(who, who))
 
 
+## 새 전투(v2 「3D 탁자」)가 기본 — 옛 전투는 ?battle=v1(헤드리스 --battle=v1). ?battle=v2 는 시험 전투 하나로 바로 가기(main.gd) (밤샘 계획 2 A)
+func battle_v2() -> bool:
+	return str(params.get("battle", "")) != "v1"
+
+
+## 카드 이름(문구용 — 방에서 얻은 카드·좌판·훈련): 새 전투면 그 짝 카드(RulesV2.def_from_v1)의 이름(Lv2 포함), 옛 전투면 옛 카드 이름
+func card_label(v1id: String, up := false) -> String:
+	if battle_v2():
+		var d := RulesV2.def_from_v1(v1id, up)
+		if not d.is_empty():
+			return str(d.name)
+	return Rules.card_name(v1id, up)
+
+
 ## 화면 문구 (script_data.gd "ui") — {n} 같은 자리를 args 로 채운다
 func ui(key: String, args := {}) -> String:
 	return _fill(str(S.ui.get(key, key)), args)
@@ -58,7 +72,7 @@ func read_params() -> void:
 	# 개발용 바로 가기(?scene= / --scene=)로 연 판은 --nosave 처럼 — 플레이어의 자동 저장·설정 파일을 쓰지도 읽지도 않는다.
 	# 바로 가기 판을 일부러 저장하려면(헤드리스로 이어하기 시험: 저장하며 돌리다 끊고 --continue) --save(?save=1)를 함께
 	# 전투 시험판 v2(?battle=v2 / --battle=v2)도 바로 가기처럼 저장하지 않는다
-	if (params.has("scene") or params.has("battle")) and not params.has("save"):
+	if (params.has("scene") or str(params.get("battle", "")) == "v2") and not params.has("save"):
 		params["nosave"] = ""
 	test = params.has("test")
 	autoguide = params.has("autoguide")

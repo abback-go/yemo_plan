@@ -645,20 +645,18 @@ func card_gain(uids: Array, kind := "inherit", caption := "", sub := "") -> void
 	var gap := 50.0
 	var total := uids.size() * CardView.W * ck + (uids.size() - 1) * gap
 	for i in uids.size():
-		if not st.cards.has(uids[i]):
+		var cv := _gain_view(st, uids[i], root)
+		if cv == null:
 			continue
-		var cv := CardView.new()
-		root.add_child(cv)
-		cv.setup_face(st, str(uids[i]))
 		cv.smooth = false
 		cv.glow = 1.0 if kind == "inherit" else 0.0
 		cv.taut = 0.8 if kind == "scar" else 0.0
 		views.append({"cv": cv, "x": 960 - total / 2.0 + i * (CardView.W * ck + gap)})
-	var id0: String = st.cards[uids[0]].id if st.cards.has(uids[0]) else ""
-	var txt: String = str(G.S.fate.gainScar).replace("{n}", str(uids.size())) if kind == "scar" else \
-		str(G.S.fate.gainInherit).replace("{card}", Rules.card_name(id0, false, Rules.level(st, str(uids[0]))))
-	if caption != "":
-		txt = caption
+	var id0: String = str(st.cards[uids[0]].id) if uids[0] is String and st.cards.has(uids[0]) else ""
+	var txt := caption
+	if txt == "":
+		txt = str(G.S.fate.gainScar).replace("{n}", str(uids.size())) if kind == "scar" else \
+			str(G.S.fate.gainInherit).replace("{card}", Rules.card_name(id0, false, Rules.level(st, str(uids[0]))))
 	var lab := UI.label(txt, int(34 * u), Color("#ffb6bd") if kind == "scar" else Color("#ffe2a8"), "serif_bold", HORIZONTAL_ALIGNMENT_CENTER, 8)
 	lab.position = Vector2(0, 850)
 	lab.size = Vector2(1920, 60)
@@ -700,6 +698,27 @@ func card_gain(uids: Array, kind := "inherit", caption := "", sub := "") -> void
 				vv.cv.alpha = 1.0 - v.k * 0.6, {"node": root, "easing": "ease-in"})
 	await FX.until(b)
 	await _overlay_close(root, 200)
+
+
+## 카드 획득 화면의 카드 하나: uid(게임 카드 — 새 전투가 기본이면 그 짝 카드의 앞면, 밤샘 계획 2 A) 또는 {face: 새 전투 카드 앞면}
+func _gain_view(st: Dictionary, it, root: Control) -> CardView:
+	if it is Dictionary:
+		var fc := BoardHand.face_card(it.get("face", {}))
+		root.add_child(fc)
+		return fc
+	var uid := str(it)
+	if not st.cards.has(uid):
+		return null
+	if G.battle_v2():
+		var d := RulesV2.def_from_v1(str(st.cards[uid].id), bool(st.cards[uid].get("up", false)))
+		if not d.is_empty():
+			var fv := BoardHand.face_card(RulesV2.mine_face(d))
+			root.add_child(fv)
+			return fv
+	var cv := CardView.new()
+	root.add_child(cv)
+	cv.setup_face(st, uid)
+	return cv
 
 
 ## 층 끝 화면 (1층 끝 → 2층): 제목·문구, 버튼을 누르면 끝난다

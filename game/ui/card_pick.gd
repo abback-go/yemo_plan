@@ -44,9 +44,16 @@ func run(items: Array, title: String, hint := "", skip := "", auto := "") -> int
 			st.cards[tmp].up = true
 		var holder := Node2D.new()
 		add_child(holder)
-		var cv := CardView.new()
-		holder.add_child(cv)
-		cv.setup_face(st, tmp)
+		# 새 전투가 기본이면 그 짝 카드의 앞면(밤샘 계획 2 A — 덱 deck2 에 들어가는 카드). 옛 전투(?battle=v1)면 옛 카드
+		var d2 := RulesV2.def_from_v1(id, bool(it.get("up", false))) if G.battle_v2() else {}
+		var cv: CardView
+		if d2.is_empty():
+			cv = CardView.new()
+			holder.add_child(cv)
+			cv.setup_face(st, tmp)
+		else:
+			cv = BoardHand.face_card(RulesV2.mine_face(d2))
+			holder.add_child(cv)
 		var pos := Vector2(x0 + i * (CardView.W * k + gap), 300)
 		cv.set_rect(pos, k, true)
 		cv.glow = 1.0

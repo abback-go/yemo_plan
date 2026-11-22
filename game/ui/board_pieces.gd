@@ -256,6 +256,9 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 	if kind == "slot":
 		_slot_face(ci, r, f)
 		return
+	if kind == "giant":
+		_giant_face(ci, r, f)
+		return
 	# 바탕(그림 창 뒤 · 틀 바깥 둥근 모서리는 투명)
 	ci.draw_style_box(UI.box(Color("#0d090b"), Color.TRANSPARENT, int(16 * s)), r.grow(-3 * s))
 	match kind:
@@ -294,7 +297,10 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 				text_in(ci, Rect2(ar.position.x, ar.end.y - ar.size.y * 0.26, ar.size.x, ar.size.y * 0.24), str(f.get("summonText", "")), int(14 * s), Color("#f0e2cc"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
 			frame(ci, r, "minion" if kind == "minion" else "enemy")
 			name_band(ci, r, str(f.get("name", "")), Color("#f0e2dc") if kind == "enemy" else Color("#2a1810"))
-			seal(ci, bp, br, Color("#1d1517"), str(f.get("hp", 0)), int(26 * s), "/" + str(f.get("maxHp", 0)))
+			if f.has("hpText"):
+				seal(ci, bp, br, Color("#1d1517"), str(f.hpText), int(20 * s))
+			else:
+				seal(ci, bp, br, Color("#1d1517"), str(f.get("hp", 0)), int(26 * s), "/" + str(f.get("maxHp", 0)))
 		"act":
 			var minion := bool(f.get("minion", false))
 			var ea2 := enemy_art(str(f.get("type", "")))
@@ -306,13 +312,16 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 			# 피해 숫자를 크게(가운데) — 겹쳐도 왼쪽 위 봉인에 같은 숫자
 			var v := int(f.get("value", 0))
 			var mn := int(f.get("minus", 0))
-			var big := str(v)
+			var no_value := bool(f.get("noValue", false))   # 행동 없음(거대한 발의 그림자)
+			var big := "" if no_value else str(v)
 			var bf := Assets.font("serif_black")
 			var bfs := int(96 * s)
 			var vcol := Color("#ff4b5a") if mn == 0 else Color("#c9a0ff")
 			var by := ar.position.y + ar.size.y * 0.58
 			ci.draw_string_outline(bf, Vector2(ar.position.x, by), big, HORIZONTAL_ALIGNMENT_CENTER, ar.size.x, bfs, int(10 * s), Color(0, 0, 0, 0.85))
 			ci.draw_string(bf, Vector2(ar.position.x, by), big, HORIZONTAL_ALIGNMENT_CENTER, ar.size.x, bfs, vcol)
+			if bool(f.get("erased", false)):   # 이름 없는 마녀의 카드로 없앤 행동: 숫자에 빗금
+				ci.draw_line(Vector2(ar.position.x + ar.size.x * 0.22, by - 6 * s), Vector2(ar.end.x - ar.size.x * 0.22, by - bfs * 0.62), Color("#f0e2dc"), maxf(2.0, 8 * s), true)
 			var sub := str(f.get("sub", ""))
 			if mn > 0:
 				sub = "저주 -%d" % mn + (" · " + sub if sub != "" else "")
@@ -322,7 +331,7 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 			name_band(ci, r, str(f.get("name", "")), Color("#2a1810") if minion else Color("#f0e2dc"))
 			ci.draw_circle(bp, br * 0.92, Color(0.08, 0.0, 0.01, 0.95))
 			ci.draw_arc(bp, br * 0.92, 0, TAU, 32, Color("#ff4b5a"), maxf(1.0, 2.5 * s), true)
-			text_in(ci, Rect2(bp - Vector2(br, br), Vector2(br, br) * 2), str(maxi(0, v)), int(30 * s), vcol, "serif_black", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(3 * s)))
+			text_in(ci, Rect2(bp - Vector2(br, br), Vector2(br, br) * 2), "–" if no_value else str(maxi(0, v)), int(30 * s), vcol, "serif_black", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(3 * s)))
 			if str(f.get("tag", "")) != "":
 				var tr := Rect2(r.end.x - 0.27 * r.size.x, r.position.y + 0.07 * r.size.y, 0.19 * r.size.x, 0.19 * r.size.x)
 				ci.draw_style_box(UI.box(Color(0.1, 0.02, 0.03, 0.95), Color("#ff6b76"), int(5 * s), 1), tr)
@@ -380,6 +389,25 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 			text_in(ci, ar.grow(-10 * s), str(f.get("text", "")), fit_size(str(f.get("text", "")), "sans_bold", int(17 * s), ar.size.x - 24 * s), Color("#e8dcd0"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
 			frame(ci, r, "enemy")
 			name_band(ci, r, str(f.get("name", "")), Color("#f0e2dc"))
+
+
+## 거대한 발(세 칸을 덮는 큰 카드, 밤샘 계획 2 A): 발 그림을 가로로 꽉 채우고 진홍 두 겹 테두리 · 왼쪽 아래 이름 · 왼쪽 위 HP 봉인 「???」. 크기는 카드 높이 기준
+static func _giant_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
+	var s := r.size.y / CH
+	ci.draw_style_box(UI.box(Color("#0d090b"), Color.TRANSPARENT, int(16 * s)), r.grow(-3 * s))
+	var ar := r.grow(-14 * s)
+	var ea := enemy_art(str(f.get("type", "")))
+	if not ea.is_empty():
+		cover(ci, ea.tex, ar, ea.crop, Color(0.8, 0.74, 0.74), true)
+	ci.draw_texture_rect(grad_bottom(), Rect2(ar.position.x, ar.end.y - ar.size.y * 0.45, ar.size.x, ar.size.y * 0.45), false)
+	var sb := UI.box(Color(0, 0, 0, 0), Color("#6a1a20"), int(16 * s), maxi(2, int(7 * s)))
+	sb.draw_center = false
+	ci.draw_style_box(sb, r.grow(-4 * s))
+	var sb2 := UI.box(Color(0, 0, 0, 0), Color("#c8a46a"), int(12 * s), maxi(1, int(2 * s)))
+	sb2.draw_center = false
+	ci.draw_style_box(sb2, r.grow(-12 * s))
+	text_in(ci, Rect2(ar.position.x + 24 * s, ar.end.y - 64 * s, ar.size.x * 0.5, 56 * s), str(f.get("name", "")), int(40 * s), Color("#f0e2dc"), "serif_bold", HORIZONTAL_ALIGNMENT_LEFT, maxi(1, int(4 * s)))
+	seal(ci, r.position + Vector2(BADGE.x * CW * s, BADGE.y * CH * s), 30.0 * s, Color("#1d1517"), str(f.get("hpText", "???")), int(20 * s))
 
 
 ## 빈칸 표시: 점선 둥근 상자 + 글자 (틀 없음, 반투명)

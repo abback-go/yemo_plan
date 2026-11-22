@@ -18,7 +18,8 @@ static func run(tester) -> void:
 	r.t = tester
 	# 시험 함수마다 끝에서 true 를 돌려준다 — 도중에 스크립트 에러로 멈추면 실패로 센다(에러만 찍히고 통과로 보이지 않게)
 	for m in ["t_setup", "t_turn", "t_owner", "t_hero", "t_brace", "t_aim", "t_noel", "t_order", "t_minion", "t_shift", "t_win_lose", "t_forecast", "t_auto", "t_text",
-			"t_formation", "t_noel_hp", "t_death", "t_death_escape", "t_death_bench"]:
+			"t_formation", "t_noel_hp", "t_death", "t_death_escape", "t_death_bench",
+			"t_game_setup", "t_game_tutorial", "t_game_cards", "t_game_gravekeeper", "t_game_deep_giant", "t_game_darkness", "t_game_apply", "t_game_auto"]:
 		if r.call(m) != true:
 			r.check(m + " 이 끝까지 돌았다", false, "스크립트 에러로 멈춤")
 	tester.v2_done = true
@@ -658,4 +659,242 @@ func t_death_bench() -> bool:
 	RulesV2.move_ally(st, "hero", "bench")
 	st.result = "win"
 	check("전투가 끝날 때까지 남으면 「운명이 미뤄졌다」", RulesV2.postponed(st) == ["세라피나의 죽음"], str(RulesV2.postponed(st)))
+	return true
+
+
+# ───────── 게임 연결: 1층 전투 (밤샘 계획 2 A·B) ─────────
+## 게임 상태(Rules) + 이 전투의 덱 → 그 전투(enc)를 연다
+func game_battle(enc: String, gs := {}, rng := 7) -> Dictionary:
+	if gs.is_empty():
+		gs = Rules.new_game(rng)
+		RulesV2.init_party(gs)
+	return RulesV2.new_battle(null, RulesV2.battle_opts(gs, enc))
+
+
+## 자동 진행으로 끝까지(규칙만). 반환: 끝난 상태
+func auto_run(st: Dictionary) -> Dictionary:
+	if st.phase == "formation":
+		RulesV2.start_battle(st)
+	var steps := 0
+	while st.result == null and st.turn < 40 and steps < 3000:
+		steps += 1
+		var a := RulesV2.auto_step(st)
+		var r := {"ok": true}
+		match str(a.kind):
+			"place":
+				r = RulesV2.place(st, a.uid, a.ally, a.opts)
+			"cast":
+				r = RulesV2.cast(st, a.uid, a.target, a.opts)
+			"move":
+				r = RulesV2.move_ally(st, a.ally, a.to)
+			_:
+				RulesV2.end_turn(st)
+				if st.result == null:
+					RulesV2.start_turn(st)
+		if not r.ok:
+			st.bad = str(a) + " " + str(r)
+			break
+	return st
+
+
+func t_game_setup() -> bool:
+	var gs := Rules.new_game(3)
+	RulesV2.init_party(gs)
+	var ids: Array = gs.party.deck2.map(func(s): return str(s.id))
+	check("게임 덱(deck2): 시험판 덱에서 운명 찢기를 뺀 14장", ids.size() == 14 and not ids.has("tear") and ids.count("holy") == 2, str(ids))
+	gs.party.allies.archer.hp = 5
+	gs.party.witch.hp = 11
+	var st := RulesV2.new_battle(null, RulesV2.battle_opts(gs, "normal"))
+	var cul: Array = st.enemies.filter(func(e): return e.type == "cultist")
+	check("장례 회랑: 광신도 셋(칸 0·1·2, HP 14)", cul.size() == 3 and cul.map(func(e): return int(e.col)) == [0, 1, 2] and cul.all(func(e): return int(e.hp) == 14))
+	check("동료 HP·노엘 HP 가 게임 상태에서 이어진다", int(st.allies.archer.hp) == 5 and int(st.allies.archer.maxHp) == 12 and int(st.noelHp) == 11 and st.draw.size() == 14)
+	gs.party.allies.hero.status = "dead"
+	gs.party.allies.hero.hp = 0
+	gs.party.formation2 = ["archer", "", "hero"]
+	var st2 := RulesV2.new_battle(null, RulesV2.battle_opts(gs, "prayer"))
+	check("직전 출전 배치가 기본값 · 죽은 동료는 칸에 서지 못한다(벤치)", st2.slots == ["archer", "", ""] and st2.bench.has("hero") and st2.bench.has("warrior")
+		and st2.allies.hero.dead, str(st2.slots) + str(st2.bench))
+	check("죽은 동료는 벤치에서 다시 넣을 수 없다", RulesV2.can_move(st2, "hero", 1).reason == "deadAlly")
+	return true
+
+
+func t_game_tutorial() -> bool:
+	var hands := []
+	for rng in [7, 99]:
+		var st := game_battle("normal", {}, rng)
+		RulesV2.start_battle(st)
+		var h1: Array = st.hand.map(func(u): return str(st.cards[u].id))
+		var it1 := {}
+		for e in st.enemies:
+			it1[e.id] = [int(e.intent.slot), int(e.intent.value)]
+		_zero_hits(st)
+		RulesV2.end_turn(st)
+		RulesV2.start_turn(st)
+		var h2: Array = st.hand.map(func(u): return str(st.cards[u].id))
+		var it2: Array = st.enemies.map(func(e): return [int(e.intent.slot), int(e.intent.value)])
+		hands.append([h1, it1, h2, it2])
+	var a: Array = hands[0]
+	check("튜토리얼 1턴 손패: 성검 베기·막기·베기·겨누기·저격", a[0] == ["holy", "guard", "slash", "aim", "snipe"], str(a[0]))
+	check("튜토리얼 1턴 적 행동: 광신도 A→칸1 5 · B→칸0 6 · C→칸2 5", a[1] == {"c1": [1, 5], "c2": [0, 6], "c3": [2, 5]}, str(a[1]))
+	check("튜토리얼 2턴: 셋 다 엘리안 칸(2)에 6 · 손패 운명 전가·막기·성검 베기·베기·축복", a[3] == [[2, 6], [2, 6], [2, 6]] and a[2] == ["shift", "guard", "holy", "slash", "bless"], str(a[2]) + str(a[3]))
+	check("튜토리얼은 난수가 달라도 매번 같은 흐름(1·2턴)", hands[0] == hands[1])
+	return true
+
+
+func t_game_cards() -> bool:
+	check("Lv2: 성검 베기 Lv2 피해 11 · 저주 Lv2 -5", int(RulesV2.def_of("holy", 2).damage) == 11 and str(RulesV2.def_of("holy", 2).name) == "성검 베기 Lv2"
+		and int(RulesV2.def_of("curse", 2).minus) == 5 and int(RulesV2.def_of("holy", 1).damage) == 8)
+	var st := battle(["wound", "relic_sword", "trample", "nameless", "charm"], {"A": hit(5, 0), "B": hit(6, 2)})
+	var u := uid_of(st, "wound")
+	check("상처: 낼 수 없다(손패만 차지)", not RulesV2.affordable(st, u) and RulesV2.can_place(st, u, "hero").reason == "unplayable")
+	st.energy = 10
+	st.allies.hero.hp = 20
+	var r1 := RulesV2.place(st, uid_of(st, "relic_sword"), "hero")
+	var r2 := RulesV2.cast(st, uid_of(st, "trample"), "A")
+	var nu := uid_of(st, "nameless")
+	var r3 := RulesV2.cast(st, nu, "B")
+	var r4 := RulesV2.cast(st, uid_of(st, "charm"), "hero")
+	check("유품·짓밟힘·이름 없는 마녀의 카드·부적을 놓을 수 있다", r1.ok and r2.ok and r3.ok and r4.ok, str([r1, r2, r3, r4]))
+	check("이름 없는 마녀의 카드: 그 행동의 피해가 0(없앰)", RulesV2.act_value(RulesV2.enemy(st, "B").intent) == 0)
+	var ev := RulesV2.end_turn(st)
+	var hp_a := 14 - 9 - 12
+	check("턴 끝: 짓밟힘 모든 적 9 → 성검 유품 12(앞 적) · 노엘 HP -3(이름 없는) -2(유품)", int(RulesV2.enemy(st, "B").hp) == 5 and not RulesV2.enemy(st, "A").alive
+		and int(st.noelHp) == 15 - 3 - 2, "A hp %d B hp %d noel %d (%d)" % [int(RulesV2.enemy(st, "A").hp), int(RulesV2.enemy(st, "B").hp), int(st.noelHp), hp_a])
+	check("부적: 세라피나 HP +4", int(st.allies.hero.hp) == 24 and ev_of(ev, "heal").size() == 1)
+	check("없앤 행동은 일어나지 않는다 · 이름 없는 마녀의 카드는 이 전투에서 사라진다(전투마다 한 번)", ev_of(ev, "noelHit").is_empty() and st.exhaust.has(nu) and not st.discard.has(nu))
+	var d := RulesV2.def_from_v1("cover", true)
+	check("옛 카드 → 짝 카드: 감싸기 Lv2 → 막기 Lv2(막기 7)", str(d.get("id", "")) == "guard" and int(d.block) == 7 and RulesV2.def_from_v1("hero_death").is_empty())
+	return true
+
+
+func t_game_gravekeeper() -> bool:
+	var st := game_battle("gravekeeper")
+	RulesV2.start_battle(st)
+	var g = RulesV2.enemy(st, "G")
+	check("무덤지기: HP 34(옛 수치) · 1턴은 해골 병사 부르기", int(g.hp) == 34 and g.intent.kind == "summon")
+	_zero_hits(st)
+	RulesV2.end_turn(st)
+	RulesV2.start_turn(st)
+	var s = RulesV2.enemy(st, "S")
+	check("2턴: 해골 병사가 무덤지기 앞에(같은 칸) · 무덤지기는 「관 뚜껑 내려치기」 8", s.alive and int(s.col) == 1 and g.intent.kind == "hit" and int(g.intent.value) == 8)
+	_zero_hits(st)
+	RulesV2.end_turn(st)
+	RulesV2.start_turn(st)
+	var hc := RulesV2._highest_col(st)
+	check("3턴: 「짓누르기」 10 → HP 가 가장 많은 동료의 칸", int(g.intent.value) == 10 and int(g.intent.slot) == hc, "%s → %d" % [str(g.intent), hc])
+	return true
+
+
+func t_game_deep_giant() -> bool:
+	var st := game_battle("deep")
+	RulesV2.start_battle(st)
+	check("가장 깊은 곳 1턴: 광신도 A → 칸2 6 · B → 칸1 5", int(RulesV2.enemy(st, "c1").intent.slot) == 2 and int(RulesV2.enemy(st, "c3").intent.slot) == 1)
+	RulesV2.enemy(st, "c1").hp = 2
+	st.hand.append_array(_give(st, ["slash"]))
+	RulesV2.place(st, uid_of(st, "slash"), "hero")
+	var ev := RulesV2.end_turn(st)
+	check("광신도가 하나 남으면 발이 내려와 남은 광신도를 짓밟는다 → 거대한 발 전투로(giant)", st.result == "giant" and st.victims == ["c3"] and not RulesV2.enemy(st, "c3").alive
+		and ev_of(ev, "giant").size() == 1 and ev_of(ev, "enemyPhase").is_empty(), str(st.result) + str(st.victims))
+	var gs := Rules.new_game(5)
+	RulesV2.init_party(gs)
+	var g := game_battle("giant", gs)
+	RulesV2.start_battle(g)
+	var ft = RulesV2.enemy(g, "giant")
+	check("거대한 발: 세 칸을 덮는 큰 적(모든 칸의 앞 적) · 1턴 「그림자」(행동 없음)", RulesV2.front(g, 0) == ft and RulesV2.front(g, 2) == ft and ft.intent.kind == "none" and RulesV2.incoming(g, 1) == 0)
+	g.hand.append_array(_give(g, ["holy"]))
+	RulesV2.place(g, uid_of(g, "holy"), "hero")
+	var ev1 := RulesV2.end_turn(g)
+	check("거대한 발은 흠집만(HP 그대로, immune)", ev_of(ev1, "immune").size() == 1 and ft.alive and g.result == null)
+	RulesV2.start_turn(g)
+	check("2턴: 「기둥 붕괴」 모두 5", ft.intent.kind == "sweep" and int(ft.intent.value) == 5)
+	for id in g.order:
+		g.allies[id].hp = 1
+	RulesV2.end_turn(g)
+	check("지지 않는다(noLose): 동료가 모두 쓰러져도 전투가 이어진다", g.result == null and not RulesV2.any_living(g))
+	RulesV2.start_turn(g)
+	var dd: Dictionary = g.deaths[0] if not g.deaths.is_empty() else {}
+	check("3턴: 「세라피나의 죽음」(옮길 수 없음·찢을 수 없음 — fixed)", dd.get("ally", "") == "hero" and bool(dd.get("fixed", false)) and RulesV2.shift_dests(g, dd.id).is_empty())
+	g.hand.append_array(_give(g, ["shift", "tear"]))
+	g.energy = 10
+	check("운명 전가·운명 찢기를 놓을 수 없다(「이 죽음은 옮길 수도 찢을 수도 없다」)", RulesV2.can_cast(g, uid_of(g, "shift"), dd.id).reason == "fixed"
+		and RulesV2.can_cast(g, uid_of(g, "tear"), dd.id).reason == "fixed")
+	g.allies.hero.down = false
+	g.allies.hero.hp = 5
+	RulesV2.move_ally(g, "hero", "bench")
+	var ev3 := RulesV2.end_turn(g)
+	check("세라피나가 벤치에 있어도 따라가 맞는다 → 죽음 → 물러남(retreat)", g.allies.hero.dead and g.result == "retreat" and ev_of(ev3, "death").size() == 1
+		and bool(ev_of(ev3, "death")[0].get("fixed", false)), str(g.result))
+	return true
+
+
+func t_game_darkness() -> bool:
+	var gs := Rules.new_game(11)
+	RulesV2.init_party(gs)
+	var o := RulesV2.battle_opts(gs, "prayer", 1)
+	var st := RulesV2.new_battle(null, o)
+	RulesV2.start_battle(st)
+	var hid: Array = st.enemies.filter(func(e): return e.intent != null and bool(e.intent.get("hidden", false)))
+	check("어둠 1단계: 적 행동 카드 1장이 뒷면(규칙은 그대로)", hid.size() == 1)
+	var st2 := RulesV2.new_battle(null, RulesV2.battle_opts(gs, "prayer", 5))
+	RulesV2.start_battle(st2)
+	check("어둠이 깊어도 뒷면은 있는 행동 수까지", st2.enemies.filter(func(e): return e.intent != null and bool(e.intent.get("hidden", false))).size() == 2)
+	return true
+
+
+func t_game_apply() -> bool:
+	var gs := Rules.new_game(21)
+	RulesV2.init_party(gs)
+	var st := game_battle("normal", gs)
+	RulesV2.start_battle(st)
+	st.allies.archer.hp = 0
+	st.allies.archer.down = true
+	st.allies.hero.hp = 17
+	st.slots = ["warrior", "hero", "archer"]
+	st.noelHp = 9
+	st.result = "win"
+	var ev := RulesV2.apply_result(gs, st)
+	var arch: Array = gs.party.deck2.filter(func(s): return str(BattleV2Data.D.cards[str(s.id)].owner) == "archer")
+	check("전투 뒤: HP·노엘 HP·출전 배치가 게임 상태로(난수도 이어 감)", int(gs.party.allies.hero.hp) == 17 and int(gs.party.witch.hp) == 9 and gs.party.formation2 == ["warrior", "hero", "archer"]
+		and int(gs.rng) != 0)
+	check("쓰러진 동료: HP 1 로 일어나고 그 동료 카드 1장이 「상처」(새 덱·옛 덱 둘 다)", int(gs.party.allies.archer.hp) == 1 and gs.party.allies.archer.status == "ok"
+		and arch.size() == 2 and gs.party.deck2.filter(func(s): return s.id == "wound").size() == 1 and ev_of(ev, "wound").size() == 1 and ev_of(ev, "wound2").size() == 1)
+	var g := game_battle("giant", gs)
+	g.allies.hero.dead = true
+	g.allies.hero.down = true
+	g.allies.hero.hp = 0
+	g.result = "retreat"
+	RulesV2.apply_result(gs, g)
+	var ids: Array = gs.party.deck2.map(func(s): return str(s.id))
+	check("세라피나의 죽음: 운명 받아들임(사망·운명 기록) · 성검 베기 → 유품 「부러진 성검」 · 「짓밟힘」이 새 덱에", gs.party.allies.hero.status == "dead"
+		and not ids.has("holy") and ids.count("relic_sword") == 2 and ids.has("trample") and gs.fateLog.size() == 1
+		and gs.party.deck.any(func(u): return gs.cards[u].id == "broken_sword"), str(ids))
+	var gs2 := Rules.new_game(4)
+	RulesV2.init_party(gs2)
+	MapRules.gain_card(gs2, "nameless_card")
+	MapRules.gain_card(gs2, "snipe", true)
+	MapRules.upgrade_card(gs2, "holy_slash")
+	var d2: Array = gs2.party.deck2
+	check("방에서 얻은 카드·강화가 새 덱에도(이름 없는 마녀의 카드 · 저격 Lv2 · 성검 베기 Lv2)", d2.any(func(s): return s.id == "nameless")
+		and d2.any(func(s): return s.id == "snipe" and int(s.lv) == 2) and d2.any(func(s): return s.id == "holy" and int(s.lv) == 2))
+	var sv := SaveGame.unpack(SaveGame.pack(gs2, "map", "stall"))
+	check("저장·이어하기: 새 덱이 그대로", not sv.is_empty() and sv.st.party.deck2 == gs2.party.deck2)
+	var bad: Dictionary = gs2.duplicate(true)
+	bad.party.deck2.append({"id": "없는카드", "lv": 1})
+	check("새 덱에 없는 카드가 있으면 저장 없음", SaveGame.unpack(SaveGame.pack(bad, "map", "stall")).is_empty())
+	return true
+
+
+func t_game_auto() -> bool:
+	var res := {}
+	var bad := ""
+	for enc in ["normal", "prayer", "gravekeeper", "deep", "giant"]:
+		var n := {}
+		for sd in range(1, 13):
+			var st := auto_run(game_battle(enc, {}, sd))
+			if st.has("bad") or st.result == null:
+				bad += "%s %d: %s %s; " % [enc, sd, str(st.get("bad", "")), str(st.result)]
+			n[str(st.result)] = int(n.get(str(st.result), 0)) + 1
+		res[enc] = n
+	check("1층 전투 다섯 곳: 자동 진행이 시드 1~12 모두 결과까지(거대한 발은 늘 물러남)", bad == "" and res.giant.get("retreat", 0) == 12, bad + str(res))
+	print("    1층 자동 진행(12판씩, 새 파티): ", res)
 	return true

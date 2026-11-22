@@ -567,7 +567,7 @@ func do_call(what: String) -> void:
 		var gid := what.substr(5)
 		var gu := MapRules.gain_card(st, gid)
 		G.ctl.note("gain " + gid)
-		await G.scenes.card_gain([gu], "inherit", G.ui("gainCard", {"card": Rules.card_name(gid)}))
+		await G.scenes.card_gain([gu], "inherit", G.ui("gainCard", {"card": G.card_label(gid)}))
 		return
 	match what:
 		"descend":
@@ -589,7 +589,7 @@ func do_call(what: String) -> void:
 			FX.toast(G.ui("hpLoss", {"n": bd.hp}), 1600)
 			var bu := MapRules.gain_card(st, str(bd.card))
 			G.ctl.note("buried open")
-			await G.scenes.card_gain([bu], "inherit", G.ui("gainCard", {"card": Rules.card_name(str(bd.card))}))
+			await G.scenes.card_gain([bu], "inherit", G.ui("gainCard", {"card": G.card_label(str(bd.card))}))
 		"trade:candle":
 			if MapRules.trade(st, "candle"):
 				st.flags.traded = "yes"
@@ -598,20 +598,30 @@ func do_call(what: String) -> void:
 				G.ctl.note("trade candle")
 		"trade:card":
 			var T2: Dictionary = GameData.D.trade
-			var items := MapRules.trade_choices(st, "common")
+			var items: Array = []
+			if G.battle_v2():
+				# 새 전투(기본): 짝 카드가 같은 후보(감싸기·대신 받기 → 막기)는 하나만 — 서로 다른 짝 카드로 choices 장
+				var seen := {}
+				for it in MapRules.trade_choices(st, "common", 99):
+					var m := str(BattleV2Data.D.fromV1.get(str(it.id), it.id))
+					if not seen.has(m) and items.size() < int(GameData.D.rewards.choices):
+						seen[m] = true
+						items.append(it)
+			else:
+				items = MapRules.trade_choices(st, "common")
 			var pk := CardPick.new()
 			add_child(pk)
 			var i := await pk.run(items, G.ui("tradeTitle", {"n": T2.cardHp}), "", G.ui("tradeSkip"), str(G.params.get("reward", "")))
 			pk.queue_free()
 			if i >= 0 and MapRules.trade(st, "card", items[i]):
 				st.flags.traded = "yes"
-				FX.toast(G.ui("hpLoss", {"n": T2.cardHp}) + " · " + G.ui("gainCard", {"card": Rules.card_name(str(items[i].id), bool(items[i].get("up", false)))}), 2000)
+				FX.toast(G.ui("hpLoss", {"n": T2.cardHp}) + " · " + G.ui("gainCard", {"card": G.card_label(str(items[i].id), bool(items[i].get("up", false)))}), 2000)
 				G.ctl.note("trade card " + str(items[i].id))
 		"train":
 			var ids := MapRules.train_candidates(st)
 			var tl := []
 			for tid in ids:
-				tl.append({"id": tid, "up": true, "summary": str(GameData.D.upgrades[tid].summary)})
+				tl.append({"id": tid, "up": true, "summary": _train_summary(tid)})
 			var picker := CardPick.new()
 			add_child(picker)
 			var k := await picker.run(tl, G.ui("trainTitle"), G.ui("trainHint"), "", str(G.params.get("train", "")))
@@ -621,8 +631,15 @@ func do_call(what: String) -> void:
 			var id: String = ids[k]
 			var u := MapRules.upgrade_card(st, id)
 			G.ctl.note("train " + id + " " + u)
-			var up: Dictionary = GameData.D.upgrades.get(id, {})
-			FX.toast(str(G.S.trainResult).replace("{card}", Rules.card_name(id, true)).replace("{summary}", str(up.get("summary", ""))), 2200)
+			FX.toast(str(G.S.trainResult).replace("{card}", G.card_label(id, true)).replace("{summary}", _train_summary(id)), 2200)
+
+
+## 훈련 요약(「피해 14 → 18」): 새 전투가 기본이면 그 짝 카드의 Lv2 요약(battle_v2_data up), 옛 전투면 옛 강화표
+func _train_summary(id: String) -> String:
+	var m := str(BattleV2Data.D.fromV1.get(id, ""))
+	if G.battle_v2() and BattleV2Data.D.up.has(m):
+		return str(BattleV2Data.D.up[m].summary)
+	return str(GameData.D.upgrades.get(id, {}).get("summary", ""))
 
 
 ## 스탠딩 그림에서 붉은 실이 나오는 곳 (가슴께)

@@ -10,14 +10,16 @@ func reset() -> void:
 	done = {}
 
 
-## ctx: {enc, turn, card, explore}. 반환을 await 하면 모두 보여 줄 때까지 기다린다
+## ctx: {enc, turn, card, explore, v2}. 반환을 await 하면 모두 보여 줄 때까지 기다린다
+## v2: 새 전투(3D 탁자, scenes/board_battle.gd 게임 모드)의 안내 — script_data.gd "guideV2". linesOf: 그 옛 안내(guide)의 줄(대본 v3 대사)을 앞에 그대로
 func fire(on: String, ctx := {}) -> void:
 	var st: Dictionary = G.ctl.st
 	var out := []
 	# 새 턴이 시작되면 아직 못 읽은 지난 대사는 버린다(밀려서 늦게 나오지 않게)
 	if on == "turnStart":
 		G.dialog.drop_pending()
-	for g in G.S.guide:
+	var list: Array = G.S.get("guideV2", []) if bool(ctx.get("v2", false)) else G.S.guide
+	for g in list:
 		if g.on != on:
 			continue
 		if g.has("enc") and g.enc != ctx.get("enc"):
@@ -31,7 +33,13 @@ func fire(on: String, ctx := {}) -> void:
 		if g.get("once", false) and done.has(g.id):
 			continue
 		done[g.id] = true
-		for ln in g.lines:
+		var lines: Array = g.get("lines", [])
+		if g.has("linesOf"):
+			for g1 in G.S.guide:
+				if g1.id == g.linesOf:
+					var l1: Array = g1.lines.filter(func(x): return str(x.get("who", "")) != "system") if g.get("skipSystem", false) else g1.lines
+					lines = l1 + lines
+		for ln in lines:
 			var a = st.party.allies.get(ln.who) if not st.is_empty() else null
 			if a != null and a.status == "dead":
 				continue   # 죽은 동료는 말하지 않는다

@@ -59,13 +59,76 @@ const D := {
 		"snipe": {"name": "저격", "owner": "archer", "cost": 1, "kind": "attack", "damage": 7, "pierce": true, "text": "피해 {n} × 배율\n하수인을 넘어 본체도", "art": "card_art_snipe.jpg"},
 		"shift": {"name": "운명 전가", "owner": "noel", "cost": 2, "kind": "shift", "on": "act", "text": "적 행동 하나를\n다른 칸으로 옮긴다", "art": "card_art_fate_shift.jpg"},
 		"bless": {"name": "축복", "owner": "noel", "cost": 1, "kind": "bless", "on": "ally", "pct": 50, "text": "동료 하나의 이번 턴\n행동 효과 +50%", "art": ""},
-		"curse": {"name": "저주", "owner": "noel", "cost": 1, "kind": "curse", "on": "act", "minus": 3, "text": "적 행동 하나의\n피해 -3", "art": "card_art_curse_flame.jpg", "dark": true},
+		"curse": {"name": "저주", "owner": "noel", "cost": 1, "kind": "curse", "on": "act", "minus": 3, "text": "적 행동 하나의\n피해 -{n}", "art": "card_art_curse_flame.jpg", "dark": true},
 		"vuln": {"name": "취약", "owner": "noel", "cost": 1, "kind": "vuln", "on": "enemy", "pct": 50, "text": "적 하나가 이번 턴에\n받는 피해 +50%", "art": "card_art_foresight.jpg"},
 		"tear": {"name": "운명 찢기", "owner": "noel", "cost": 3, "kind": "tear", "on": "act", "text": "죽음 카드 하나를\n없앤다", "art": "card_art_nameless_card.jpg"},
+		# ── 게임(1층)에서 덱에 들어오는 카드 (밤샘 계획 2 A·B — 옛 카드를 이 규칙으로 옮김, 수치 [임시]) ──
+		# unplayable: 낼 수 없다(손패만 차지) · noelCost: 그 카드가 처리될 때 노엘 HP 가 준다 · exhaust: 전투마다 한 번(낸 뒤 이 전투에서 사라짐)
+		# kind stomp(짓밟힘: 모든 적에게 피해 — 턴 끝에 동료보다 먼저) · erase(적 행동 하나를 없앤다 — 죽음 카드는 못 없앰) · heal(동료 HP 회복 — 턴 끝에)
+		"wound": {"name": "상처", "owner": "", "cost": 0, "kind": "wound", "unplayable": true, "text": "낼 수 없다\n손패만 차지한다", "art": "card_art_wound.jpg", "dark": true},
+		"relic_sword": {"name": "부러진 성검", "owner": "", "cost": 1, "kind": "attack", "damage": 12, "noelCost": 2, "relic": true,
+			"text": "적 하나에게 피해 {n}\n낼 때마다 노엘 HP -2", "art": "card_art_broken_sword.jpg"},
+		"trample": {"name": "짓밟힘", "owner": "noel", "cost": 2, "kind": "stomp", "on": "enemy", "damage": 9, "text": "모든 적에게\n피해 {n}", "art": "card_art_trample.jpg"},
+		"nameless": {"name": "이름 없는 마녀의 카드", "owner": "noel", "cost": 0, "kind": "erase", "on": "act", "noelCost": 3, "exhaust": true,
+			"text": "적 행동 하나를 없앤다\n노엘 HP -3 · 전투마다 한 번", "art": "card_art_nameless_card.jpg"},
+		"charm": {"name": "작은 손의 부적", "owner": "noel", "cost": 1, "kind": "heal", "on": "ally", "heal": 4, "text": "동료 하나\nHP {n} 회복", "art": "card_art_small_charm.jpg"},
+	},
+	# Lv2(무덤지기를 이기고 얻는 카드 · 무너진 훈련장 강화) [임시]: 바뀌는 값 · 훈련 화면의 요약. 이름 뒤에 「Lv2」
+	"up": {
+		"holy": {"damage": 11, "summary": "피해 8 → 11"},
+		"snipe": {"damage": 10, "summary": "피해 7 → 10"},
+		"guard": {"block": 7, "summary": "막기 5 → 7"},
+		"curse": {"minus": 5, "summary": "피해 -3 → -5"},
+		"slash": {"damage": 8, "summary": "피해 6 → 8"},
 	},
 	# 장수: 지시서 5장 표 14장 + 9-2 「운명 찢기」 1장 = 15장
 	"deck": [["slash", 2], ["guard", 2], ["holy", 2], ["revert", 1], ["aim", 2], ["snipe", 1], ["shift", 1], ["bless", 1], ["curse", 1], ["vuln", 1], ["tear", 1]],
 	"owners": {"": "공용", "hero": "세라피나", "warrior": "브룬힐드", "archer": "엘리안", "noel": "노엘"},
+
+	# ───────────── 게임 연결 (밤샘 계획 2 A — 1층 전투 네 곳을 이 규칙으로) ─────────────
+	# gameDeck: 게임(기본 흐름)의 시작 덱 = 시험판 덱에서 「운명 찢기」를 뺀 14장 [임시·판단 — 1층의 죽음 카드(거대한 발)는 찢을 수 없어 쓸 데가 없다]
+	#   이 덱은 st.party.deck2([{id, lv}])로 전투 사이에 이어진다(상처·유품·방에서 얻은 카드·강화). 옛 덱 st.party.deck 은 옛 규칙(2·3층·?battle=v1)이 그대로 쓴다
+	"gameDeck": [["slash", 2], ["guard", 2], ["holy", 2], ["revert", 1], ["aim", 2], ["snipe", 1], ["shift", 1], ["bless", 1], ["curse", 1], ["vuln", 1]],
+	# 옛 카드 → 이 규칙의 카드: 지도의 방(좌판·순장된 자의 방·핏자국 통로 끝·무덤지기·훈련장)은 옛 카드 id 로 정하고, deck2 에는 짝 카드가 들어간다
+	"fromV1": {"holy_slash": "holy", "vanguard": "slash", "cover": "guard", "take_hit": "guard", "shield_bash": "revert", "snipe": "snipe", "suppress": "aim",
+		"fate_shift": "shift", "curse_flame": "curse", "foresight": "vuln", "nameless_card": "nameless", "small_charm": "charm", "trample": "trample",
+		"wound": "wound", "broken_sword": "relic_sword", "last_charge": "relic_sword"},
+	# 동료가 죽으면 그 동료의 전용 카드가 유품으로(옛 relicMap 과 같은 규칙 — 더 강하지만 낼 때마다 노엘 HP 가 준다). 상처는 그대로
+	"relicMap": {"holy": "relic_sword"},
+	# 동료가 죽음 카드에 맞으면 나오는 데스신(scenes.gd cutscene 의 key). 없으면 짧은 「죽음」 뒤집기만
+	"deathScenes": {"hero": "hero", "warrior": "warrior_pierce", "archer": "archer_burn"},
+
+	# ───────────── 전투 구성 (encounters) ─────────────
+	# test: 시험 전투(?battle=v2) — 아래 lineup·death 그대로. 그 밖은 1층(게임 기본 흐름) — 옛 encounters(game_data.gd)의 적 수·HP·공격 범위를 옮김 [임시]
+	# lineup: 적(왼쪽 → 오른쪽 = 행동 순서, col = ① 줄의 칸, hp 가 있으면 그 값) · hit: 종류별 한 명 공격 피해(min~max 또는 value) · sweepEvery: 이 턴마다 광신도 하나 휩쓸기(0 = 없음)
+	# script: {턴: {적 id: {value, slot}}} 그 턴의 적 행동(튜토리얼 — 매번 같은 흐름) · hands: {턴: [카드 id…]} 그 턴에 먼저 뽑는 카드
+	# pattern: {종류: [{label, value, target: random|highest}]} 강적이 하수인이 있을 때 차례로 하는 공격(highest = HP 가 가장 많은 동료의 칸)
+	# giantAt: 살아 있는 적이 이 수만큼 남으면 발이 내려와 짓밟는다(남은 적이 사라지고 거대한 발 전투로 — 옛 giantTriggerAlive)
+	# turns: 거대한 발의 턴별 행동(마지막이 되풀이) — none(행동 없음) · sweep(모두) · death(그 동료의 죽음 카드. fixed: 옮길 수 없음·찢을 수 없음·벤치에 있어도 따라가 맞는다)
+	# noLose: 지지 않는다(동료가 모두 쓰러져도, 노엘 HP 는 1 아래로 안 감) · deathEnds: 죽음 카드가 처리되면 전투가 끝나는 결과
+	# bg: 탁자 너머(어둡게)에 까는 그 방의 VN 배경 · v1: 옛 전투 id(어둠 단계 — MapRules.darkness_level)
+	"encounters": {
+		"test": {"bg": "", "sweepEvery": 3, "death": true},
+		"normal": {"bg": "bg_vs_funeral_gallery.webp", "v1": "normal",
+			"lineup": [{"id": "c1", "type": "cultist", "tag": "A", "col": 0}, {"id": "c2", "type": "cultist", "tag": "B", "col": 1}, {"id": "c3", "type": "cultist", "tag": "C", "col": 2}],
+			"hit": {"cultist": {"min": 5, "max": 6}},
+			"script": {"1": {"c1": {"value": 5, "slot": 1}, "c2": {"value": 6, "slot": 0}, "c3": {"value": 5, "slot": 2}},
+				"2": {"c1": {"value": 6, "slot": 2}, "c2": {"value": 6, "slot": 2}, "c3": {"value": 6, "slot": 2}}},
+			"hands": {"1": ["holy", "guard", "slash", "aim", "snipe"], "2": ["shift", "guard", "holy", "slash", "bless"]}},
+		"prayer": {"bg": "bg_vs_cult_prayer_room.webp", "v1": "prayer",
+			"lineup": [{"id": "c1", "type": "cultist", "tag": "A", "col": 0}, {"id": "c3", "type": "cultist", "tag": "B", "col": 2}],
+			"hit": {"cultist": {"min": 4, "max": 6}}},
+		"gravekeeper": {"bg": "bg_vs_gravekeeper_vault.webp", "v1": "gravekeeper",
+			"lineup": [{"id": "G", "type": "gravekeeper", "col": 1, "hp": 34}, {"id": "S", "type": "skeleton", "of": "G", "col": 1}],
+			"pattern": {"gravekeeper": [{"label": "관 뚜껑 내려치기", "value": 8, "target": "random"}, {"label": "짓누르기", "value": 10, "target": "highest"}]}},
+		"deep": {"bg": "bg_vs_deepest_hall.webp", "v1": "deep", "giantAt": 1,
+			"lineup": [{"id": "c1", "type": "cultist", "tag": "A", "col": 0}, {"id": "c3", "type": "cultist", "tag": "B", "col": 2}],
+			"hit": {"cultist": {"min": 5, "max": 6}},
+			"script": {"1": {"c1": {"value": 6, "slot": 2}, "c3": {"value": 5, "slot": 1}}}},
+		"giant": {"bg": "bg_vs_deepest_hall.webp", "v1": "giant", "noLose": true, "deathEnds": "retreat",
+			"lineup": [{"id": "giant", "type": "giant", "col": 1}],
+			"turns": [{"kind": "none"}, {"kind": "sweep", "value": 5}, {"kind": "death", "ally": "hero", "fixed": true}]},
+	},
 
 	# ───────────── 적 (지시서 6장 — 시험 전투: 광신도 2 + 무덤지기 강적 + 해골 병사 하수인) ─────────────
 	# acts: 행동. hit = 칸 하나(무작위 — v2.1 부터 빈칸도 노린다)에 value(또는 min~max) / sweep = 모든 칸에 / summon = 하수인을 부른다(다음 적 턴에 자기 앞에 놓인다)
@@ -81,6 +144,10 @@ const D := {
 			"art": [{"file": "f_spr_gravekeeper.png", "crop": [0.05, 0.0, 0.9, 0.7], "face": [0.37, 0.0, 0.28, 0.15]},
 				{"file": "spr_gravekeeper.png", "crop": [0.0, 0.0, 1.0, 0.667], "face": [0.36, 0.0, 0.26, 0.173]}],
 			"acts": {"summon": {"label": "해골 병사 부르기"}, "hit": {"label": "삽 내려치기", "value": 8}}},
+		# 거대한 발(1층 끝, 대본 v3 5.2): 세 칸을 덮는 큰 카드(wide — 모든 칸의 앞 적). HP 「???」, 공격은 흠집만(immune). 행동은 encounters.giant.turns
+		"giant": {"name": "거대한 발", "hp": 0, "immune": true, "wide": true,
+			"art": [{"file": "spr_giant_foot.png", "crop": [0.0, 0.08, 1.0, 0.62], "face": [0.25, 0.3, 0.5, 0.36]}],
+			"acts": {"none": {"label": "그림자", "sub": "행동 없음"}, "sweep": {"label": "기둥 붕괴"}, "death": {"label": "짓밟기"}}},
 		"skeleton": {"name": "해골 병사", "hp": 8, "isMinion": true,
 			"art": [{"file": "f_spr_skeleton.png", "crop": [0.0, 0.0, 1.0, 0.62], "face": [0.32, 0.0, 0.33, 0.17]}],
 			"acts": {"hit": {"label": "녹슨 칼", "value": 4}}},
@@ -170,7 +237,12 @@ const D := {
 		"all": "모두", "summonNext": "다음 적 턴에 나온다",
 		"down": "쓰러짐", "dead": "죽음", "block": "막기 {n}", "blocked": "막음 {n}", "counter": "반격 {n}", "damage": "피해 {n}", "multTo": "배율 ×{n}",
 		"brace": "버팀", "mult": "배율", "noEffect": "—", "deathMark": "막을 수 없다",
-		"tagBless": "축복 +50%", "tagCurse": "저주 -3", "tagVuln": "취약 +50%", "tagShift": "운명 전가", "tagTear": "운명 찢기",
+		"tagBless": "축복 +50%", "tagCurse": "저주 -{n}", "tagVuln": "취약 +50%", "tagShift": "운명 전가", "tagTear": "운명 찢기",
+		"tagErase": "적 행동을 없앤다", "tagStomp": "모든 적에게 {n}", "tagHeal": "HP +{n}",
+		# 게임 연결(1층): 죽음 카드 고정 · 거대한 발 · 어둠(뒷면) · 결과 판 「계속」
+		"deathFixed": "옮길 수 없음\n찢을 수 없음", "immune": "흠집", "unknownHp": "???", "hiddenValue": "?", "erased": "없앴다",
+		"heal": "HP +{n}", "noelPay": "노엘 -{n}", "continue": "계속", "giantCome": "발이 내려온다", "retreat": "물러났다",
+		"gained": "{list} — 덱에 들어왔다",
 		"summoned": "{name} 등장", "reshuffle": "버린 카드를 섞어 덱으로",
 		"deathWait": "{name} 대기 중 — 죽음 카드가 기다린다", "deathGone": "죽음 카드가 사라졌다", "died": "{name}의 죽음",
 		"win": "승리", "lose": "패배", "winText": "적이 모두 쓰러졌다 · {n}턴", "loseText": "동료가 모두 쓰러졌다 · {n}턴", "loseNoel": "노엘이 쓰러졌다 · {n}턴",
@@ -188,5 +260,6 @@ const D := {
 		"bench": "대기 중인 동료에게는 맡길 수 없다", "empty": "빈칸에는 동료가 없다", "death": "죽음은 막거나 줄일 수 없다",
 		"notDeath": "죽음 카드 위에 놓는다", "occupied": "벤치의 동료는 빈칸에만 넣는다", "same": "같은 자리", "noneFielded": "칸에 동료가 하나는 있어야 한다",
 		"formation": "출전 배치를 먼저 끝낸다", "deadAlly": "죽은 동료는 돌아오지 않는다",
+		"unplayable": "낼 수 없는 카드", "fixed": "이 죽음은 옮길 수도 찢을 수도 없다", "erased": "이미 없앤 행동이다",
 	},
 }

@@ -163,6 +163,46 @@ const S := {
 			{"who": "system", "text": "**「타버린 활」**: 모든 적에게 피해. 엘리안의 카드는 「유품」이 되었습니다."}]},
 	],
 
+	# ═══ 새 전투(3D 탁자 — 기본, 밤샘 계획 2 A)의 안내 ═══ core/guide.gd 가 ctx.v2 일 때 이 목록을 본다(옛 전투 ?battle=v1 은 위 "guide").
+	# 인물 대사는 대본 v3 그대로 — linesOf: 위 옛 안내의 그 줄을 앞에 그대로(skipSystem: 인물 대사만). 안내 상자(system) 문구는 모두 [임시]
+	"guideV2": [
+		# ── 1. 장례 회랑 — 전투 ① (튜토리얼) ──
+		{"id": "v2_n_start", "on": "battleStart", "enc": "normal", "lines": [
+			{"who": "system", "text": "**출전 배치** — 세 칸에 동료가 하나씩 섭니다. 동료 카드를 끌면 자리가 바뀝니다. 지금은 그대로 「출전」을 누르세요."},
+			{"who": "system", "text": "**카드를 놓고 「턴 끝」을 누르면 적이 움직입니다.** 적을 모두 쓰러뜨리면 승리. 노엘의 HP가 0이 되거나 동료가 모두 쓰러지면 패배."}]},
+		{"id": "v2_n_t1", "on": "turnStart", "enc": "normal", "turn": 1, "lines": [
+			{"who": "system", "text": "**매 턴 5장을 뽑고 에너지 3을 받습니다.** 카드 왼쪽 위 숫자가 드는 에너지입니다."},
+			{"who": "system", "text": "**카드를 동료 칸에 끌어 놓으면 그 동료가 합니다.** 이름 띠 오른쪽이 카드 주인입니다. 「공용」은 누구에게나 놓을 수 있습니다."},
+			{"who": "system", "text": "**공격은 그 동료 바로 앞의 적에게 들어갑니다.** 다른 적을 치려면 동료 카드를 다른 칸으로 끌어 자리를 바꿉니다(에너지 1)."},
+			{"who": "system", "text": "**동료 위쪽 줄의 붉은 카드는 다음 적 차례에 그 칸으로 올 공격입니다.** 큰 숫자가 피해입니다. 「막기」로 줄일 수 있습니다."},
+			{"who": "system", "text": "**손패를 누르면 크게 펼쳐 볼 수 있습니다.** 다 놓았으면 「턴 끝」."}]},
+		{"id": "v2_n_intent", "on": "enemyPhaseEnd", "enc": "normal", "once": true, "lines": [
+			{"who": "system", "text": "**적 행동 카드는 내 차례마다 새로 놓입니다.** 동료가 없는 빈칸에 놓인 공격은 노엘이 맞습니다."}]},
+		{"id": "v2_n_t2", "on": "turnStart", "enc": "normal", "turn": 2, "linesOf": "n_t2", "skipSystem": true, "lines": [
+			{"who": "system", "text": "**노엘의 싸움은 맞을 자리를 바꾸는 것입니다.**\n· 「운명 전가」: 적 행동 카드 위에 놓고 다른 칸으로 끈다.\n· 동료 카드를 다른 칸으로 끌면 자리가 바뀐다(에너지 1). 적 행동 카드는 칸에 남는다."},
+			{"who": "system", "text": "엘리안의 HP는 12. **공격 하나라도 엘리안 칸에서 빼세요.** 빈칸으로 빼면 노엘이 맞습니다."}]},
+		{"id": "v2_redirect", "on": "redirect", "once": true, "linesOf": "n_redirect"},
+		{"id": "v2_down", "on": "allyDown", "once": true, "lines": [
+			{"who": "system", "text": "**쓰러진 동료는 이번 전투에서 아무것도 못 합니다.** 그 칸으로 오는 공격은 노엘이 맞습니다. 전투가 끝나면 HP 1로 일어나지만 그 동료의 카드 1장이 「상처」로 바뀝니다."}]},
+		{"id": "v2_n_win", "on": "battleWin", "enc": "normal", "linesOf": "n_win"},
+		# ── 3.2 무덤지기 (강적) ──
+		{"id": "v2_e_start", "on": "battleStart", "enc": "gravekeeper", "linesOf": "e_start", "lines": [
+			{"who": "system", "text": "**해골 병사는 무덤지기 앞을 막습니다.** 그동안 무덤지기를 친 공격은 해골 병사가 받습니다. 엘리안의 「저격」은 넘어서 칩니다."}]},
+		# ── 어둠 (촛불이 다 탄 뒤 층 끝 전투·강적 전투) ──
+		{"id": "v2_dark", "on": "darkness", "lines": [
+			{"who": "system", "text": "**어둠 — 적 행동 카드 몇 장이 뒷면으로 놓입니다.** 어느 칸을 노리는지는 보이지만, 피해는 맞을 때까지 모릅니다."}]},
+		# ── 5.1 가장 깊은 곳 · 5.2 거대한 발 ──
+		{"id": "v2_deep", "on": "battleStart", "enc": "deep", "linesOf": "f1_deep"},
+		{"id": "v2_g_start", "on": "battleStart", "enc": "giant", "linesOf": "g_start", "skipSystem": true, "lines": [
+			{"who": "system", "text": "**거대한 존재.** 공격은 흠집만 냅니다. 적 행동 카드를 보고 버티세요. 3턴째에 「짓밟기」가 옵니다."}]},
+		{"id": "v2_g_immune", "on": "immune", "once": true, "linesOf": "g_immune"},
+		{"id": "v2_g_t2", "on": "turnStart", "enc": "giant", "turn": 2, "linesOf": "g_t2"},
+		# 5.4 사망 직후 (노엘의 손에 남은 카드 문구가 보인 뒤)
+		{"id": "v2_g_after", "on": "afterDeath", "card": "hero_death", "lines": [
+			{"who": "system", "text": "**죽음 카드는 막기로 줄지 않습니다.** 맞으면 그 동료는 죽습니다. 이번 죽음은 옮길 수도, 찢을 수도 없었습니다."},
+			{"who": "system", "text": "**죽은 동료의 카드는 「유품」이 됩니다.** 더 강하지만 낼 때마다 노엘의 HP가 줄어듭니다. 세라피나를 죽인 「짓밟힘」은 노엘의 카드가 되었습니다."}]},
+	],
+
 	# 가장 깊은 곳: 광신도가 1명 남으면 구멍 위의 어둠이 내려온다 — 발. 광신도가 한 번에 사라진다 (대본 v3 5.1)
 	"giantAppear": {
 		"before": [],

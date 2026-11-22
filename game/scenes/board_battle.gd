@@ -9,10 +9,19 @@
 ##   운명 전가는 놓은 뒤 그 적 행동 카드를 다른 칸으로 끌거나(또는 칸을 누름) 옮긴다. 놓은 카드(③·노엘 카드)를 누르면 손패로(에너지 돌려받음).
 ## 규칙은 core/rules_v2.gd, 수치·문구는 data/battle_v2_data.gd. 자동 진행(--autoplay)은 RulesV2.auto_step 을 한 수씩 화면 조작과 같은 길로 낸다.
 ## 시험 훅: core/test_api.gd 의 witch.v2(…) → test_call
+## 게임 모드(밤샘 계획 2 A·B — open_game, core/ctl.gd 가 연다): 1층 전투(encounters)를 게임 상태에서 받은 파티·덱·직전 배치·난수로 연다.
+##   그 방의 VN 배경을 탁자 너머에 어둡게 · 튜토리얼 안내(core/guide.gd 의 guideV2) · 어둠(적 행동 카드 몇 장을 뒷면으로) · 거대한 발(세 칸을 덮는 큰 카드)
+##   · 죽음 카드에 맞으면 그 동료의 데스신(세라피나 C1~C6 등) · 끝나면 결과 판(이김: 「계속」 / 짐: 「다시 하기」) 뒤 finished 신호(win|lose|giant|retreat)
+##   — 게임 상태에 돌려 적는 것은 Ctl(RulesV2.apply_result)
 class_name BoardBattle
 extends Control
 
+signal finished(result: String)
+
 static var current: BoardBattle = null
+var game := {}            # 게임 모드 설정 {battle: new_battle opts, enc, bg} — 비어 있으면 시험 전투(?battle=v2)
+var _done := false
+var _cut := false          # 데스신이 도는 중(자동 진행 멈춤)
 
 var st := {}
 var mode := "busy"        # formation | idle | drag | pick | shift | move | busy | over
@@ -59,6 +68,40 @@ static func open(parent: Node, seed = null) -> BoardBattle:
 	return b
 
 
+## 게임 모드로 연다(core/ctl.gd): cfg {battle: RulesV2.battle_opts(…), enc, bg}. 끝나면 finished(결과)
+static func open_game(parent: Node, cfg: Dictionary) -> BoardBattle:
+	var b := BoardBattle.new()
+	b.game = cfg
+	parent.add_child(b)
+	b.start(null)
+	return b
+
+
+func _exit_tree() -> void:
+	if current == self:
+		current = null
+
+
+## 게임 모드의 튜토리얼 안내·대사(core/guide.gd — script_data.gd guideV2). 시험 전투에는 없다
+func _guide(on: String, ctx := {}) -> void:
+	if game.is_empty() or not is_inside_tree():
+		return
+	var c := ctx.duplicate()
+	c.enc = str(st.enc)
+	c.v2 = true
+	await G.guide.fire(on, c)
+
+
+## 게임 모드: 끝내고 게임 흐름(Ctl)에 결과를 넘긴다
+func _finish(res: String) -> void:
+	if _done:
+		return
+	_done = true
+	mode = "over"
+	await FX.fade(1, 400)
+	finished.emit(res)
+
+
 static func D() -> Dictionary:
 	return BattleV2Data.D
 
@@ -90,16 +133,25 @@ func start(seed) -> void:
 	position = Vector2.ZERO
 	size = Vector2(1920, 1080)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	st = RulesV2.new_battle(seed)
+	st = RulesV2.new_battle(seed) if game.is_empty() else RulesV2.new_battle(null, game.battle)
 	_build()
-	note("battle seed=%d" % int(st.seed))
-	mode = "formation"
+	note("battle seed=%d" % int(st.seed) if game.is_empty() else "battle %s darkness=%d slots=%s" % [st.enc, int(st.darkness), str(st.slots)])
+	# 게임 모드: 밝아지는 동안·안내를 다 읽을 때까지 「출전」을 막는다(자동 진행이 그사이 출전하면 뒤에서 배치 화면으로 되돌아가 멈췄다)
+	mode = "formation" if game.is_empty() else "busy"
 	_sync_table(false)
 	_sync_hud()
 	await FX.fade(0, 400)
 	if not is_inside_tree():
 		return
 	FX.banner(T("formation"), 900)
+	if not game.is_empty():
+		await _guide("battleStart")
+		if int(st.darkness) > 0:
+			await _guide("darkness")
+		if not is_inside_tree():
+			return
+		mode = "formation"
+		_sync_hud()
 
 
 # ───────── 화면 만들기 ─────────
@@ -108,6 +160,9 @@ func _build() -> void:
 	table.name = "table"
 	add_child(table)
 	table.setup()
+	var bg := str(game.get("bg", ""))
+	if bg != "" and Assets.ok(bg):
+		table.set_room(Assets.tex(bg))   # 그 방의 VN 배경을 탁자 너머에 어둡게
 	# 탁자 가장자리를 어둡게(2D 그라디언트 — 후처리 없이)
 	add_child(UI.tex_rect(UI.grad([[0, Color(0, 0, 0, 0)], [0.62, Color(0.02, 0, 0.01, 0.25)], [1, Color(0, 0, 0, 0.75)]], "radial", 256, 256, Vector2(0.5, 0.45), 0.78), Rect2(0, 0, 1920, 1080)))
 	var T3 := TL()
@@ -218,24 +273,34 @@ func _pad() -> float:
 func face_enemy(e: Dictionary) -> Dictionary:
 	var minion := RulesV2.is_minion(e)
 	var nm := str(D().enemies[e.type].name) + (" " + str(e.tag) if str(e.tag) != "" else "")
-	return {"kind": "minion" if minion else "enemy", "type": e.type, "name": nm, "hp": int(e.hp), "maxHp": int(e.maxHp)}
+	if RulesV2.wide(e):
+		return {"kind": "giant", "type": e.type, "name": nm, "hpText": T("unknownHp")}
+	var f := {"kind": "minion" if minion else "enemy", "type": e.type, "name": nm, "hp": int(e.hp), "maxHp": int(e.maxHp)}
+	if RulesV2.immune(e):
+		f.hpText = T("unknownHp")
+	return f
 
 
 func face_act(e: Dictionary) -> Dictionary:
 	var it: Dictionary = e.intent
 	var sweep: bool = it.kind == "sweep"
-	return {"kind": "act", "type": e.type, "tag": str(e.tag), "name": str(it.label) + (" · " + T("all") if sweep else ""), "value": int(it.value),
-		"minus": int(it.get("minus", 0)), "minion": RulesV2.is_minion(e), "sub": T("all") if sweep else ""}
+	var f := {"kind": "act", "type": e.type, "tag": str(e.tag), "name": str(it.label) + (" · " + T("all") if sweep else ""), "value": int(it.value),
+		"minus": int(it.get("minus", 0)), "minion": RulesV2.is_minion(e), "sub": T("all") if sweep else str(it.get("sub", ""))}
+	if it.kind == "none":
+		f.noValue = true
+	if bool(it.get("erased", false)):
+		f.erased = true
+		f.sub = T("erased")
+	return f
 
 
 func face_death(d: Dictionary) -> Dictionary:
-	return {"kind": "death", "name": str(d.label), "art": str(D().death.art.get(d.ally, "")), "text": T("deathMark")}
+	return {"kind": "death", "name": str(d.label), "art": str(D().death.art.get(str(d.ally), "")), "text": T("deathFixed") if bool(d.get("fixed", false)) else T("deathMark")}
 
 
 func face_mine(uid: String, fc := {}) -> Dictionary:
 	var d: Dictionary = RulesV2.card_def(st, uid)
-	var f := {"kind": "mine", "name": str(d.name), "cost": int(d.cost), "owner": str(d.owner), "art": str(d.art), "dark": bool(d.get("dark", false)),
-		"text": str(d.text).replace("{n}", str(int(d.get("damage", d.get("block", 0)))))}
+	var f := RulesV2.mine_face(d)
 	if fc.has(uid):
 		var r: Dictionary = fc[uid]
 		match str(d.kind):
@@ -283,6 +348,12 @@ func _layout() -> Dictionary:
 		for e in st.enemies:
 			if RulesV2.is_minion(e) or int(e.col) != c:
 				continue
+			if RulesV2.wide(e):   # 거대한 발: 세 칸을 덮는 큰 카드(가운데 칸에 놓고 양옆으로)
+				var tc: Array = TL().cols
+				pile.append({"key": "e:" + e.id, "face": face_enemy(e), "flip": 0.0, "pick": e.alive,
+					"size": Vector2(float(tc[tc.size() - 1]) - float(tc[0]) + float(TL().card[0]) - 0.1, float(TL().card[1]))})
+				_noel_on(pile, e.id, "vuln")
+				continue
 			pile.append({"key": "e:" + e.id, "face": face_enemy(e), "flip": 0.0 if e.alive else 1.0, "pick": e.alive})
 			_noel_on(pile, e.id, "vuln")
 			var gi = e.intent if e.alive else null
@@ -302,11 +373,12 @@ func _layout() -> Dictionary:
 		for e in st.enemies:
 			if not e.alive or e.intent == null:
 				continue
-			if e.intent.kind == "hit" and int(e.intent.slot) == c:
-				pile2.append({"key": "a:" + e.id, "face": face_act(e), "flip": 0.0, "pick": true})
+			var hid := 1.0 if bool(e.intent.get("hidden", false)) else 0.0   # 어둠: 뒷면
+			if e.intent.kind in ["hit", "none"] and int(e.intent.slot) == c:
+				pile2.append({"key": "a:" + e.id, "face": face_act(e), "flip": hid, "pick": true})
 				_noel_on(pile2, e.id, "act")
 			elif e.intent.kind == "sweep":
-				pile2.append({"key": "a:%s#%d" % [e.id, c], "face": face_act(e), "flip": 0.0, "pick": true})
+				pile2.append({"key": "a:%s#%d" % [e.id, c], "face": face_act(e), "flip": hid, "pick": true})
 				if c == 0:
 					_noel_on(pile2, e.id, "act")
 		for dd in st.deaths:
@@ -410,7 +482,7 @@ func _sync_table(animate := true) -> void:
 		var c: BoardTable.Card3D = table.card(key)
 		var fresh := c == null
 		if fresh:
-			c = table.make_card(key, w.face, w.pos)
+			c = table.make_card(key, w.face, w.pos, w.get("size", Vector2.ZERO))
 			c.flip = float(w.flip)
 			c.tflip = float(w.flip)
 			if w.get("back", false):
@@ -536,10 +608,16 @@ func _draw_overlay() -> void:
 			var noel := RulesV2.receiver(st, c) == "noel" and inc > 0
 			if cnt < 2 and not noel:
 				continue
+			# 어둠에 뒷면인 행동이 있으면 합계는 「?」
+			var hid := sw != null and bool(sw.intent.get("hidden", false))
+			for eid in ids:
+				if bool(RulesV2.enemy(st, eid).intent.get("hidden", false)):
+					hid = true
+			var shown := T("hiddenValue") if hid else str(inc)
 			var top := table.to_screen(cell_pos(1, c) + Vector3(0, 0, -ch / 2.0 - 0.06))
-			var txt := T("total", {"n": inc}) if cnt >= 2 else ""
+			var txt := T("total", {"n": shown}) if cnt >= 2 else ""
 			if noel:
-				txt = (txt + " → " if txt != "" else "→ ") + T("toNoel") + " " + str(inc)
+				txt = (txt + " → " if txt != "" else "→ ") + T("toNoel") + " " + shown
 			var f := Assets.font("sans_bold")
 			var sz := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22) + Vector2(24, 10)
 			var r := Rect2(top - Vector2(sz.x / 2.0, sz.y + 2), sz)
@@ -612,7 +690,7 @@ func _set_zoom(key: String, p := Vector2(960, 0)) -> void:
 	var f := {}
 	if key != "":
 		var c: BoardTable.Card3D = table.card(key)
-		if c != null and not (c.flip > 0.5) and str(c.face.get("kind", "")) != "slot":
+		if c != null and not (c.flip > 0.5) and not str(c.face.get("kind", "")) in ["slot", "giant"]:
 			f = c.face.duplicate()
 			f.big = true
 	_zoom_left = p.x > 760.0
@@ -634,6 +712,11 @@ func _gui_input(e: InputEvent) -> void:
 		var is_touch: bool = e.device == InputEvent.DEVICE_ID_EMULATION
 		if is_touch:
 			FX.touch = true
+		# 안내 상자가 떠 있으면 어디를 눌러도 넘긴다(그동안 카드는 놓을 수 없다)
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and G.dialog.guide_open():
+			G.dialog.advance()
+			accept_event()
+			return
 		if e is InputEventMouseButton:
 			if e.button_index == MOUSE_BUTTON_RIGHT and e.pressed:
 				if not is_touch:
@@ -919,6 +1002,7 @@ func _commit_move(id: String, to) -> void:
 		hand.create(st, u, from)
 	if int(res.cost) > 0:
 		FX.toast(T("moved", {"n": res.cost}), 900)
+		_guide("redirect")   # 처음 맞을 자리를 바꿨을 때 — 세라피나 「좋아, 그거야.」
 	_set_idle()
 
 
@@ -973,7 +1057,7 @@ func _update_drag_hot(p: Vector2) -> void:
 			if tid != "" and RulesV2.can_cast(st, uid, tid).ok:
 				table.card(k4).set_glow(2.0 if tid == hot else 1.0)
 		if hot != "":
-			preview_text = T({"bless": "tagBless", "curse": "tagCurse", "vuln": "tagVuln", "shift": "tagShift", "tear": "tagTear"}[kind])
+			preview_text = _noel_tag(d, kind)
 			preview_pos = p + Vector2(0, -110)
 		else:
 			prompt_text = T({"act": "dropDeath" if kind == "tear" else "dropAct", "enemy": "dropEnemy", "ally": "dropAlly"}[on])
@@ -997,6 +1081,20 @@ func _update_drag_hot(p: Vector2) -> void:
 	drag.hot = hot
 	drag.reason = reason
 	overlay.queue_redraw()
+
+
+## 노엘의 카드를 대상 위로 끌 때의 짧은 미리 보기
+func _noel_tag(d: Dictionary, kind: String) -> String:
+	match kind:
+		"curse":
+			return T("tagCurse", {"n": int(d.get("minus", 0))})
+		"stomp":
+			return T("tagStomp", {"n": int(d.get("damage", 0))})
+		"heal":
+			return T("tagHeal", {"n": int(d.get("heal", 0))})
+		"erase":
+			return T("tagErase")
+	return T({"bless": "tagBless", "vuln": "tagVuln", "shift": "tagShift", "tear": "tagTear"}.get(kind, "tagShift"))
 
 
 func _preview_line(uid: String, ally: String) -> String:
@@ -1230,6 +1328,7 @@ func _commit_pending(opts: Dictionary) -> void:
 		ok = res2.ok
 		if ok:
 			note("cast %s %s %s" % [st.cards[pd.uid].id, pd.target, str(opts)])
+			_guide("redirect")   # 처음 운명 전가로 옮겼을 때 — 세라피나 「좋아, 그거야.」
 		else:
 			_toast_reason(res2.reason)
 	if not ok:
@@ -1286,7 +1385,7 @@ func _return_noel(uid: String) -> void:
 
 # ───────── 출전 · 턴 끝 → 적 턴 ─────────
 func _on_start() -> void:
-	if mode != "formation":
+	if mode != "formation" or G.dialog.guide_open():
 		return
 	var res := RulesV2.start_battle(st)
 	if not res.ok:
@@ -1297,10 +1396,13 @@ func _on_start() -> void:
 	_sync_table()
 	_sync_hud()
 	await _play(res.events)
+	await _guide("turnStart", {"turn": st.turn})
 	_set_idle()
 
 
 func _on_end() -> void:
+	if G.dialog.guide_open():
+		return
 	hand.set_open(false)
 	if mode in ["pick", "shift"]:
 		_cancel_pending()
@@ -1331,7 +1433,9 @@ func end_turn() -> void:
 	if st.result != null:
 		_show_result()
 		return
+	await _guide("enemyPhaseEnd")
 	await _play(RulesV2.start_turn(st))
+	await _guide("turnStart", {"turn": st.turn})
 	_set_idle()
 
 
@@ -1382,18 +1486,18 @@ func _ev_intents(_e: Dictionary) -> void:
 		if not (key.begins_with("a:") or key.begins_with("d:") or key.begins_with("g:")) or table.card(key) != null:
 			continue
 		var w: Dictionary = want[key]
-		var c := table.make_card(key, w.face, deck_pos(4))
+		var c := table.make_card(key, w.face, deck_pos(4), w.get("size", Vector2.ZERO))
 		c.flip = 1.0
 		c.tflip = 1.0
 		c.set_prio(int(w.prio))
 		c.position = deck_pos(4) + Vector3(0, 0.1, 0)
 		var death: bool = key.begins_with("d:")
-		c.fly_to(w.pos, 420 if not death else 620, 0.7 if not death else 1.2, true)
+		c.fly_to(w.pos, 420 if not death else 620, 0.7 if not death else 1.2, float(w.get("flip", 0.0)) < 0.5)   # 어둠: 뒷면 그대로
 		n += 1
 		await FX.wait(110 if not death else 520)
 		if death:
 			FX.flash("#8a0010", 300, 0.4)
-			FX.toast(str(w.face.name) + " — " + T("deathMark"), 1600)
+			FX.toast(str(w.face.name) + " — " + str(w.face.text).replace("\n", " · "), 1600)
 	if n > 0:
 		await FX.wait(420)
 	_sync_table()
@@ -1501,7 +1605,7 @@ func _ev_enemyPhase(_e: Dictionary) -> void:
 
 ## 적 행동 카드가 노린 칸의 동료 카드로(빈칸이면 노엘 — 화면 쪽으로) 날아가 부딪히고 사라진다
 func _ev_enemyAct(e: Dictionary) -> void:
-	if str(e.kind) in ["summon", "death"]:
+	if str(e.kind) in ["summon", "death", "none", "erased"]:
 		await FX.wait(160)
 		return
 	var keys := []
@@ -1525,7 +1629,7 @@ func _ev_enemyAct(e: Dictionary) -> void:
 		c3.dying = true
 		c3.set_prio(110)
 		flying.append(c3)
-		c3.fly_to(to, 260, 0.35)
+		c3.fly_to(to, 260, 0.35, true)   # 어둠에 뒷면이던 카드도 맞는 순간 뒤집혀 보인다
 	if flying.is_empty():
 		await FX.wait(60)
 		return
@@ -1584,23 +1688,161 @@ func _ev_allyDown(e: Dictionary) -> void:
 	if c != null:
 		c.set_face(face_ally(str(e.ally)))
 	await FX.wait(320)
+	await _guide("allyDown")
 
 
-## 죽음 카드: 그 동료 카드 위로 내려앉고, 동료 카드가 「죽음」으로 뒤집힌다
+## 죽음 카드: 그 동료 카드 위로 내려앉는다 → 그 동료의 데스신(battle_v2_data deathScenes — 세라피나 C1~C6 · 브룬힐드 W1·W2 · 엘리안 A1·A2)
+## → 동료 카드가 「죽음」으로 뒤집힌다(데스신이 없으면 이 뒤집기만). 시험 전투는 그 뒤 전투가 이어진다.
+## 피할 수 없는 죽음(게임 1층 거대한 발 — fixed): 화면이 멈추고 「알고 있었는데.」(대본 v3 5.2) → 데스신 → 사망 직후(_after_death) → 물러남
 func _ev_death(e: Dictionary) -> void:
 	var dk := "d:" + str(e.id)
-	var ak := "ally:" + str(e.ally)
+	var who := str(e.ally)
+	var ak := "ally:" + who
 	var d3: BoardTable.Card3D = table.card(dk)
 	var a3: BoardTable.Card3D = table.card(ak)
+	var tut := bool(e.get("fixed", false)) and not game.is_empty()
 	FX.banner(str(e.label), 1200)
 	if d3 != null and a3 != null:
 		d3.set_prio(115)
 		await d3.fly_to(a3.tpos + Vector3(0, 0.05, 0), 520, 0.9)
 		FX.flash("#6a0008", 380, 0.55)
 		table.push_out(dk, Vector3(0, 0.5, -0.2), 300)
+	elif d3 != null:
+		table.push_out(dk, Vector3(0, 0.5, -0.2), 300)
+	if tut:
+		await G.dialog.say(_fate_lines(who, "trap"))   # 속마음 — 안내 상자는 띄우지 않는다
+	var key := str(D().deathScenes.get(who, ""))
+	if key != "" and (key == "hero" or GameData.D.deathScenes.has(key)) and is_inside_tree():
+		note("deathscene " + key)
+		G.dialog.clear()
+		_cut = true
+		G.scenes.cutscene(key, 1)
+		await G.scenes.cutscene_done
+		await G.scenes.close_cutscene(float(GameData.D.cutscene.returnDelay))
+		_cut = false
+		if not is_inside_tree():
+			return
+	a3 = table.card(ak)
 	if a3 != null:
-		await a3.flip_swap(face_ally(str(e.ally)), 520)
+		await a3.flip_swap(face_ally(who), 520)
+	if tut:
+		await _after_death(who, str(e.label))
 	await FX.wait(500)
+
+
+## 그 동료의 운명(GameData fates) id ("" = 없음)
+func _fate_of(who: String) -> String:
+	for fid in GameData.D.fates:
+		if str(GameData.D.fates[fid].who) == who:
+			return str(fid)
+	return ""
+
+
+## 그 동료 운명의 대사(script_data.gd fate.<운명>.<kind> — trap: 「알고 있었는데.」)
+func _fate_lines(who: String, kind: String) -> Array:
+	return G.S.fate.get(_fate_of(who), {}).get(kind, [])
+
+
+## 1층 세라피나의 죽음 직후(대본 v3 5.4): 노엘의 손에 남은 카드 — 이제야 문구가 보인다 → 사망 직후 안내 → 얻은 카드(상속 짓밟힘 · 유품) → 남은 동료의 반응.
+## 덱에 실제로 넣는 것은 전투가 끝난 뒤 게임(RulesV2.apply_result → ally_died)
+func _after_death(who: String, label: String) -> void:
+	var fid := _fate_of(who)
+	var cid := str(GameData.D.fates.get(fid, {}).get("card", ""))
+	var txt := str(GameData.D.cards.get(cid, {}).get("text", ""))
+	var df := face_death({"label": label, "ally": who})
+	df.text = txt
+	await G.scenes.card_gain([{"face": df}], "note", str(G.S.deathCardShown).replace("{card}", label).replace("{text}", txt))
+	await _guide("afterDeath", {"card": cid})
+	var gain := []
+	var inh := str(D().fromV1.get(str(GameData.D.fates.get(fid, {}).get("inherit", "")), ""))
+	if inh != "":
+		gain.append({"face": RulesV2.mine_face(RulesV2.def_of(inh))})
+	for k in D().relicMap:
+		if str(D().cards[k].owner) == who:
+			gain.append({"face": RulesV2.mine_face(RulesV2.def_of(str(D().relicMap[k])))})
+	if not gain.is_empty():
+		var names: Array = gain.map(func(g): return "「" + str(g.face.name) + "」")
+		await G.scenes.card_gain(gain, "inherit", T("gained", {"list": "·".join(names)}))
+	await G.dialog.say(G.S.reactions)
+
+
+func _ev_immune(e: Dictionary) -> void:
+	var key := "e:" + str(e.enemy)
+	var c: BoardTable.Card3D = table.card(key)
+	if c != null:
+		c.hit_shake(0.4)
+	_float_at(key, T("immune"), "small", -40)
+	_guide("immune")   # 처음 쳤을 때 — 브룬힐드 「흠집밖에 안 나.」
+	await FX.wait(260)
+
+
+## 짓밟힘(노엘): 모든 적에게
+func _ev_noelAct(_e: Dictionary) -> void:
+	FX.flash("#ff2a3a", 220, 0.4)
+	FX.shake(18, 420)
+	await FX.wait(260)
+
+
+func _ev_heal(e: Dictionary) -> void:
+	var key := "ally:" + str(e.ally)
+	var c: BoardTable.Card3D = table.card(key)
+	if c != null:
+		c.set_face(face_ally(str(e.ally)))
+	_float_at(key, T("heal", {"n": e.amount}), "small", -60)
+	await FX.wait(260)
+
+
+## 노엘 HP 를 대가로(유품·이름 없는 마녀의 카드)
+func _ev_noelPay(e: Dictionary) -> void:
+	var nc := noel_center()
+	FX.float_text(nc.x, nc.y - 60, T("noelPay", {"n": e.amount}), "small")
+	_noel_shake = 0.6
+	hud.queue_redraw()
+	await FX.wait(220)
+
+
+## 가장 깊은 곳: 광신도가 하나 남으면 구멍 위의 어둠이 내려온다 — 발. 남은 광신도가 한 번에 사라진다(대본 v3 5.1)
+func _ev_giant(e: Dictionary) -> void:
+	G.dialog.say(G.S.giantAppear.get("before", []))
+	for i in 3:
+		FX.shake(4 + i * 2, 300)
+		await FX.wait(380)
+	var foot := TextureRect.new()
+	foot.texture = BoardPieces.tex("spr_giant_foot.png")
+	foot.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	foot.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	foot.modulate = Color(0.22, 0.18, 0.18, 0.96)
+	foot.size = Vector2(1100, 900)
+	foot.z_index = 150
+	var vx := 960.0
+	var vy := 200.0
+	for vid in e.victims:
+		var r := table.screen_rect("e:" + str(vid))
+		if r.has_area():
+			vx = r.get_center().x
+			vy = r.end.y
+	foot.position = Vector2(vx - 550, -950)
+	add_child(foot)
+	var a := FX.anim(380, [{"y": -950.0}, {"y": vy - 860.0}], func(v): if is_instance_valid(foot): foot.position.y = v.y, {"node": foot, "easing": "ease-in"})
+	await FX.until(a)
+	FX.flash("#ffffff", 200, 0.55)
+	FX.shake(30, 800)
+	FX.burst(vx, vy, {"count": 70, "colors": ["#8a8580", "#6a6560", "#4a4540"], "speed": 620, "spread": PI * 1.1, "angle": -PI / 2, "gravity": 420, "size": 6, "life": 1500})
+	FX.burst(vx, vy - 10, {"count": 24, "colors": ["#7a0010", "#4a0008"], "speed": 420, "spread": PI, "angle": -PI / 2, "gravity": 900, "size": 4, "life": 900})
+	for vid in e.victims:
+		for k in table.cards.keys():
+			if k == "e:" + str(vid) or k.begins_with("a:" + str(vid)):
+				table.push_out(k, Vector3(0, -0.3, 0.6), 200)
+	await FX.wait(800)
+	var b := FX.anim(900, [{"y": vy - 860.0, "a": 0.96}, {"y": -950.0, "a": 0.0}], func(v): if is_instance_valid(foot): foot.position.y = v.y; foot.modulate.a = v.a, {"node": foot})
+	await FX.until(b)
+	if is_instance_valid(foot):
+		foot.queue_free()
+
+
+func _ev_retreat(_e: Dictionary) -> void:
+	await FX.wait(200)
 
 
 func _ev_deathWait(e: Dictionary) -> void:
@@ -1652,8 +1894,26 @@ func _show_result() -> void:
 	for id in st.order:
 		hp.append("%s=%d/%d%s" % [id, int(st.allies[id].hp), int(st.allies[id].maxHp), " dead" if st.allies[id].dead else ""])
 	var post := RulesV2.postponed(st)
-	G.ctl.note("result v2 %s turn=%d noel=%d %s%s" % [str(st.result), int(st.turn), int(st.noelHp), " ".join(hp), (" postponed=" + ",".join(post)) if not post.is_empty() else ""])
+	var sumline := "%s turn=%d noel=%d %s%s" % [str(st.result), int(st.turn), int(st.noelHp), " ".join(hp), (" postponed=" + ",".join(post)) if not post.is_empty() else ""]
 	log.append("result " + str(st.result))
+	if not game.is_empty():
+		# 게임 모드: 결과는 게임 흐름이 이어 간다(「] result」 는 결과 요약 화면만 — CI 가 끝까지 갔는지 본다)
+		G.ctl.note("v2 battle end enc=%s %s" % [str(st.enc), sumline])
+		match str(st.result):
+			"giant":
+				await G.dialog.say(G.S.giantAppear.after)
+				await _finish("giant")
+				return
+			"retreat":
+				await FX.wait(600)
+				await _finish("retreat")
+				return
+			"win":
+				await _guide("battleWin")
+				if not is_inside_tree():
+					return
+	else:
+		G.ctl.note("result v2 " + sumline)
 	result_panel = Control.new()
 	result_panel.name = "result"
 	result_panel.size = size
@@ -1725,7 +1985,12 @@ func _show_result() -> void:
 		pl.size = Vector2(box.size.x, 44)
 		pl.name = "postponed"
 		result_panel.add_child(pl)
-	var again := UI.button(T("again"), 34, restart)
+	var res := str(st.result)
+	# 시험 전투: 「다시 하기」(같은 시드로 처음부터) · 게임 모드: 이기면 「계속」, 지면 「다시 하기」(게임 흐름이 그 전투를 처음부터)
+	var again := UI.button(T("again"), 34, restart) if game.is_empty() else UI.button(T("continue") if res == "win" else T("again"), 34, func(): _finish(res))
+	if not game.is_empty():
+		if G.params.has("autoplay") or G.autoguide:
+			get_tree().create_timer(FX.ms(1600) / 1000.0, false).timeout.connect(func(): _finish(res))
 	again.name = "again"
 	again.fit(Vector2(60, 16))
 	again.position = Vector2(960 - again.size.x / 2.0, box.end.y + 20)
@@ -1733,7 +1998,7 @@ func _show_result() -> void:
 	add_child(result_panel)
 	result_panel.modulate.a = 0.0
 	FX.anim(400, [{"a": 0.0}, {"a": 1.0}], func(v): if is_instance_valid(result_panel): result_panel.modulate.a = v.a, {"node": result_panel})
-	if G.params.has("quit-on-end"):
+	if G.params.has("quit-on-end") and game.is_empty():
 		get_tree().create_timer(1.0, false).timeout.connect(func(): get_tree().quit(0))
 
 
@@ -1767,6 +2032,8 @@ func _process(delta: float) -> void:
 		hand.set_open(true)
 	if not G.params.has("autoplay") or _auto_busy or st.is_empty() or mode not in ["idle", "formation"]:
 		return
+	if _cut or G.dialog.guide_open() or G.scenes.overlay_open():
+		return   # 안내 상자·데스신·카드 획득 화면이 끝날 때까지
 	_auto_t += delta * FX.speed
 	if _auto_t < 0.35:
 		return

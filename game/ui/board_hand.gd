@@ -389,15 +389,25 @@ func _process(delta: float) -> void:
 		max_hands = maxi(max_hands, hands_visible())
 
 
-## v2.1 카드 앞면: BoardPieces.draw_face(kind mine) — 탁자의 카드와 같은 앞면
+## 앞면 자료를 직접 주는 카드(카드 획득·카드 고르기 화면 — scenes.gd card_gain · ui/card_pick.gd 가 새 전투의 카드를 보일 때)
+static func face_card(f: Dictionary) -> CardView:
+	var c := Card.new()
+	c.spec = f
+	c.setup_face({}, "")
+	return c
+
+
+## v2.1 카드 앞면: BoardPieces.draw_face(kind mine) — 탁자의 카드와 같은 앞면 (Lv2 는 이름·숫자 반영)
 class Card extends CardView:
+	var spec := {}   # 비어 있지 않으면 이 앞면 자료(face_card)
+
 	func build(st: Dictionary) -> void:
 		for c in face.get_children():
 			c.queue_free()
-		card_id = st.cards[uid].id
-		var d: Dictionary = BattleV2Data.D.cards[card_id]
-		var f := {"kind": "mine", "name": str(d.name), "cost": int(d.cost), "owner": str(d.owner), "art": str(d.art), "dark": bool(d.get("dark", false)),
-			"text": str(d.text).replace("{n}", str(int(d.get("damage", d.get("block", 0)))))}
+		var f: Dictionary = spec
+		if f.is_empty():
+			card_id = st.cards[uid].id
+			f = RulesV2.mine_face(RulesV2.card_def(st, uid))
 		var dc := Control.new()
 		dc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		dc.size = face.size
