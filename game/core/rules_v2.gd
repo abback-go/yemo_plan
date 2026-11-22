@@ -1,25 +1,33 @@
-## rules_v2.gd — 전투 시험판 v2 「맡기기」 규칙 (docs/battle-v2-spec.md 3~6장). 화면과 따로 → 헤드리스 시험(tests/test_rules_v2.gd).
+## rules_v2.gd — 전투 시험판 v2 「맡기기」 + v2.1 「3D 탁자」 규칙 (docs/battle-v2-spec.md 3~6장 · 9-2). 화면과 따로 → 헤드리스 시험(tests/test_rules_v2.gd).
 ## 노엘이 손패의 카드를 동료 칸(③)에 놓아 일을 맡긴다. 노엘 자신의 카드는 칸이 없어 ② 적 행동 카드·① 적·④ 동료에 직접 놓는다.
-## 적의 다음 행동 카드(②)는 노리는 동료의 칸에 놓인다. 같은 카드라도 맡은 동료의 특성(용사·버팀·조준)이 붙는다.
-## 턴 끝에 한꺼번에: 왼쪽 칸부터 ③ 의 카드대로 동료가 행동 → 살아 있는 적·하수인의 ② 가 그 칸의 동료에게 → 막기·축복·취약은 사라지고 손패는 버린다.
+## 적의 다음 행동 카드(②)는 노리는 **칸**에 놓인다(v2.1: 칸 기준 — 빈칸도 노린다. 빈칸 공격은 노엘이 맞는다). 같은 카드라도 맡은 동료의 특성(용사·버팀·조준)이 붙는다.
+## 턴 끝에 한꺼번에: 왼쪽 칸부터 ③ 의 카드대로 동료가 행동 → 살아 있는 적·하수인의 ② 가 그 칸에(동료 또는 노엘) → 죽음 카드 처리 → 막기·축복·취약은 사라지고 손패는 버린다.
+## v2.1: 출전 배치(phase "formation" — 칸 3개·벤치에 공짜로) → 전투 중 내 턴에 행동 에너지 1 로 자리 바꾸기·빼기·넣기.
+##       무덤지기의 3번째 행동 = 「세라피나의 죽음」(막기·저주로 줄지 않음, 그 동료가 칸에 있으면 죽음). 노엘 「운명 찢기」(에너지 3)로 없앤다.
 ## 수치·카드는 data/battle_v2_data.gd. 난수는 지금 규칙과 같은 mulberry32(Rules.rnd)를 이 상태의 st.rng 로 돌린다 → 같은 시드면 같은 전투.
 ##
 ## 상태(st) 구조 (Dictionary)
 ##   st.seed · st.rng          시드 · 난수 상태
+##   st.phase                  "formation"(출전 배치) | "battle"
 ##   st.turn · st.energy        턴(1부터) · 이번 턴에 남은 행동 에너지
-##   st.result                 null | "win" | "lose"
+##   st.result · st.loseBy     null | "win" | "lose" · 패배 까닭 "noel" | "allies"
 ##   st.cards {uid: {uid, id}} · st.draw / st.hand / st.discard [uid]   덱 (뽑을 더미 · 손패 · 버린 더미)
-##   st.order [동료 id]         화면 왼쪽 → 오른쪽 = 턴 끝에 행동하는 순서
-##   st.allies {id: {id, trait, hp, maxHp, block, down, placed: [{uid, target}], brace, mult, blessed, counter}}
-##       placed: ③ 줄에 맡긴 카드(놓은 순서) · target: 공격 카드로 누른 적 id
+##   st.order [동료 id]         동료 목록(고정 — 결과 판·시험의 순서)
+##   st.slots [동료 id | ""] × 3   칸(열) 왼쪽 → 오른쪽. "" = 빈칸. 턴 끝에 이 순서로 행동한다
+##   st.bench [동료 id]          대기 동료(벤치)
+##   st.noelHp · st.noelMax     노엘 HP (빈칸 공격을 맞는다 · 막기 없음)
+##   st.allies {id: {id, trait, hp, maxHp, block, down, dead, placed: [{uid, target}], brace, mult, blessed, counter}}
+##       placed: ③ 줄에 맡긴 카드(놓은 순서) · target: 공격 카드로 누른 적 id · dead: 죽음 카드로 죽음(down 도 true)
 ##       brace: 브룬힐드 버팀(전투 내내) · mult: 엘리안 배율(×1~×4, 전투 내내) · blessed: 이번 턴 축복 · counter: 이번 적 턴에 반격(세라피나가 막기를 맡음)
-##   st.enemies [{id, type, tag, of, hp, maxHp, alive, vuln, intent}]   (BattleV2Data.lineup 순서 = 화면 왼쪽 → 오른쪽 = 행동 순서)
-##       of: 하수인이면 그 강적 id (하수인은 처음에 alive=false — 강적이 부르면 나온다) · vuln: 이번 턴 취약
-##       intent: 다음 적 턴의 행동(②) {kind: "hit"|"sweep"|"summon", label, value, minus(저주), slot: 노리는 동료 id | "all" | ""} (쓰러지면 null)
-##   st.noel [{uid, kind, target, move}]   노엘이 이번 턴에 직접 놓은 카드(운명 전가·축복·저주·취약). move: {enemy, from, to}
+##   st.enemies [{id, type, tag, of, col, hp, maxHp, alive, vuln, intent, acts}]   (BattleV2Data.lineup 순서 = 행동 순서)
+##       of: 하수인이면 그 강적 id (하수인은 처음에 alive=false — 강적이 부르면 나온다) · col: ① 줄의 칸 · vuln: 이번 턴 취약 · acts: 지금까지 정한 행동 수
+##       intent: 다음 적 턴의 행동(②) {kind: "hit"|"sweep"|"summon"|"death", label, value, minus(저주), slot: 노리는 칸 0~2 | "all" | "", death: 죽음 카드 id}
+##   st.deaths [{id, ally, src, bound, label}]   죽음 카드. bound: 아직 낸 적의 ② 행동(그 적이 쓰러지면 사라짐) — 한 번 기다리면 false(동료를 따라감)
+##   st.noel [{uid, kind, target, move, torn}]   노엘이 이번 턴에 직접 놓은 카드(운명 전가·축복·저주·취약·운명 찢기).
+##       move: {enemy, from, to}(칸) 또는 {death, from, to}(동료 id) · torn: 운명 찢기로 없앤 죽음 카드(되돌리기용)
 ##
 ## 계산 순서(지시서 5장): 피해 = 기본 → 동료 특성(배율) → 축복 +50% → 취약 +50%, 단계마다 소수점 내림. 막기 = 기본 → 버팀 1.5배 → 축복(내림)
-## [판단] 지시서에 없는 세부는 game/DECISIONS.md 「전투 시험판 v2」(반격·축복이 미치는 범위, 하수인에게 넘친 피해, 대상이 먼저 쓰러진 공격 등)
+## [판단] 지시서에 없는 세부는 game/DECISIONS.md 「전투 시험판 v2」·「v2.1」
 class_name RulesV2
 extends RefCounted
 
@@ -40,17 +48,20 @@ static func _pct(v: int, pct: int) -> int:
 static func new_battle(seed = null) -> Dictionary:
 	var d := D()
 	var sd: int = (randi() % 1000000000) if seed == null else (int(seed) & Rules.M32)
-	var st := {"seed": sd, "rng": sd if sd != 0 else 1, "nextUid": 1, "turn": 0, "energy": 0, "result": null,
-		"cards": {}, "draw": [], "hand": [], "discard": [], "order": d.order.duplicate(), "allies": {}, "enemies": [], "noel": []}
+	var st := {"seed": sd, "rng": sd if sd != 0 else 1, "nextUid": 1, "turn": 0, "energy": 0, "result": null, "loseBy": "", "phase": "formation",
+		"cards": {}, "draw": [], "hand": [], "discard": [], "order": d.order.duplicate(), "slots": d.formation.duplicate(), "bench": [],
+		"noelHp": int(d.rules.noelHp), "noelMax": int(d.rules.noelHp), "allies": {}, "enemies": [], "noel": [], "deaths": [], "nextDeath": 1}
 	for id in st.order:
 		var a: Dictionary = d.allies[id]
-		st.allies[id] = {"id": id, "trait": a.trait, "hp": int(a.hp), "maxHp": int(a.hp), "block": 0, "down": false, "placed": [],
+		st.allies[id] = {"id": id, "trait": a.trait, "hp": int(a.hp), "maxHp": int(a.hp), "block": 0, "down": false, "dead": false, "placed": [],
 			"brace": 0, "mult": 1, "blessed": false, "counter": false}
+		if not st.slots.has(id):
+			st.bench.append(id)
 	for l in d.lineup:
 		var t: Dictionary = d.enemies[l.type]
 		var minion := str(l.get("of", "")) != ""
-		st.enemies.append({"id": l.id, "type": l.type, "tag": str(l.get("tag", "")), "of": str(l.get("of", "")),
-			"hp": 0 if minion else int(t.hp), "maxHp": int(t.hp), "alive": not minion, "vuln": false, "intent": null})
+		st.enemies.append({"id": l.id, "type": l.type, "tag": str(l.get("tag", "")), "of": str(l.get("of", "")), "col": int(l.get("col", 0)),
+			"hp": 0 if minion else int(t.hp), "maxHp": int(t.hp), "alive": not minion, "vuln": false, "intent": null, "acts": 0})
 	for pair in d.deck:
 		for i in int(pair[1]):
 			var uid := "v" + str(st.nextUid)
@@ -98,8 +109,39 @@ static func guard_of(st: Dictionary, id: String):
 	return null
 
 
+static func ncols() -> int:
+	return int(D().rules.cols)
+
+
+## 그 동료가 선 칸 (벤치면 -1)
+static func col_of(st: Dictionary, ally_id: String) -> int:
+	return st.slots.find(ally_id)
+
+
+## 그 칸의 동료 ("" = 빈칸)
+static func ally_at(st: Dictionary, col: int) -> String:
+	return str(st.slots[col]) if col >= 0 and col < st.slots.size() else ""
+
+
+## 칸에 선 동료(왼쪽 → 오른쪽 — 턴 끝에 행동하는 순서)
+static func field(st: Dictionary) -> Array:
+	return st.slots.filter(func(id): return str(id) != "")
+
+
+## 칸에 선 살아 있는 동료 (왼쪽 → 오른쪽)
 static func living_allies(st: Dictionary) -> Array:
-	return st.order.filter(func(id): return not st.allies[id].down)
+	return field(st).filter(func(id): return not st.allies[id].down)
+
+
+## 칸·벤치 어디든 살아 있는 동료
+static func any_living(st: Dictionary) -> bool:
+	return st.order.any(func(id): return not st.allies[id].down)
+
+
+## 그 칸을 노린 공격을 받는 쪽: 살아 있는 동료가 서 있으면 그 동료, 아니면 "noel"(빈칸 · 쓰러진 동료의 칸)
+static func receiver(st: Dictionary, col: int) -> String:
+	var id := ally_at(st, col)
+	return id if id != "" and not st.allies[id].down else "noel"
 
 
 ## 공격이 실제로 들어가는 적. 하수인이 앞에 있는 강적이면 하수인이 먼저 받는다(pierce = 저격: 하수인을 넘어 본체).
@@ -129,11 +171,11 @@ static func act_value(it: Dictionary) -> int:
 	return maxi(0, int(it.value) - int(it.get("minus", 0)))
 
 
-## 이 동료 칸(②)의 한 명 공격 — 적 id 목록 (적 순서)
-static func intents_at(st: Dictionary, ally_id: String) -> Array:
+## 이 칸(②)의 한 명 공격 — 적 id 목록 (적 순서)
+static func intents_at(st: Dictionary, col: int) -> Array:
 	var out := []
 	for e in st.enemies:
-		if e.alive and e.intent != null and e.intent.kind == "hit" and e.intent.slot == ally_id:
+		if e.alive and e.intent != null and e.intent.kind == "hit" and int(e.intent.slot) == col:
 			out.append(e.id)
 	return out
 
@@ -145,15 +187,123 @@ static func sweep_enemy(st: Dictionary):
 	return null
 
 
-## 노려지는가 (② 칸에 적 행동 카드가 있거나 '모두' 공격이 있다) — 초상이 놀란 표정
+static func death(st: Dictionary, did: String):
+	for d in st.deaths:
+		if d.id == did:
+			return d
+	return null
+
+
+## 그 동료를 노리는 죽음 카드
+static func deaths_of(st: Dictionary, ally_id: String) -> Array:
+	return st.deaths.filter(func(d): return d.ally == ally_id)
+
+
+## 이 칸에 다음 적 턴에 들어올 피해(한 명 공격 + 모두)
+static func incoming(st: Dictionary, col: int) -> int:
+	var v := 0
+	for eid in intents_at(st, col):
+		v += act_value(enemy(st, eid).intent)
+	var sw = sweep_enemy(st)
+	if sw != null:
+		v += act_value(sw.intent)
+	return v
+
+
+## 노려지는가 (그 칸에 ② 카드가 있거나 '모두' 공격 · 죽음 카드) — 초상이 붉은 테두리·흔들림
 static func is_targeted(st: Dictionary, ally_id: String) -> bool:
 	if st.allies[ally_id].down:
 		return false
-	return not intents_at(st, ally_id).is_empty() or sweep_enemy(st) != null
+	var c := col_of(st, ally_id)
+	if c < 0:
+		return false
+	return not intents_at(st, c).is_empty() or sweep_enemy(st) != null or not deaths_of(st, ally_id).is_empty()
 
 
 static func affordable(st: Dictionary, uid: String) -> bool:
-	return st.result == null and st.hand.has(uid) and int(card_def(st, uid).cost) <= int(st.energy)
+	return st.result == null and st.phase == "battle" and st.hand.has(uid) and int(card_def(st, uid).cost) <= int(st.energy)
+
+
+static func death_label(ally_id: String) -> String:
+	return str(D().death.label).replace("{name}", str(D().owners.get(ally_id, ally_id)))
+
+
+# ───────── 출전 배치 · 자리 바꾸기 (v2.1) ─────────
+## 동료를 to(칸 0~2 · "bench")로. 출전 배치에서는 공짜, 전투 중에는 내 턴에 행동 에너지 moveCost.
+##   칸 → 다른 칸: 자리 바꾸기(그 칸이 비었으면 옮기기) · 칸 → 벤치: 빼기(③ 카드·축복은 손패로, 에너지 돌려받음) · 벤치 → 빈칸: 넣기
+##   출전 배치에서는 벤치 → 동료가 있는 칸도 된다(그 동료가 벤치로)
+static func can_move(st: Dictionary, ally_id: String, to) -> Dictionary:
+	if st.result != null:
+		return _no("over")
+	if not st.allies.has(ally_id):
+		return _no("noAlly")
+	var from := col_of(st, ally_id)
+	var to_bench := str(to) == "bench"
+	var tc := -1 if to_bench else int(to)
+	if not to_bench and (tc < 0 or tc >= ncols()):
+		return _no("badMove")
+	if (to_bench and from < 0) or (not to_bench and from == tc):
+		return _no("same")
+	var free: bool = st.phase == "formation"
+	if not free and int(st.energy) < int(D().rules.moveCost):
+		return _no("noEnergy")
+	if from < 0 and not to_bench:
+		if st.allies[ally_id].dead:
+			return _no("deadAlly")
+		if st.allies[ally_id].down:
+			return _no("down")
+		if ally_at(st, tc) != "" and not free:
+			return _no("occupied")
+	return {"ok": true, "cost": 0 if free else int(D().rules.moveCost)}
+
+
+## 반환 {ok, returned: [손패로 돌아온 uid]}
+static func move_ally(st: Dictionary, ally_id: String, to) -> Dictionary:
+	var chk := can_move(st, ally_id, to)
+	if not chk.ok:
+		return chk
+	var from := col_of(st, ally_id)
+	var returned := []
+	if str(to) == "bench":
+		returned = _recall(st, ally_id)
+		st.slots[from] = ""
+		st.bench.append(ally_id)
+	else:
+		var tc := int(to)
+		var other := ally_at(st, tc)
+		if from >= 0:
+			st.slots[from] = other
+			st.slots[tc] = ally_id
+		else:
+			st.bench.erase(ally_id)
+			if other != "":
+				returned = _recall(st, other)
+				st.bench.append(other)
+			st.slots[tc] = ally_id
+	st.energy = int(st.energy) - int(chk.cost)
+	return {"ok": true, "returned": returned, "cost": chk.cost}
+
+
+## 벤치로 가는 동료: 맡긴 카드와 그 동료에게 건 축복을 손패로(에너지 돌려받음)
+static func _recall(st: Dictionary, ally_id: String) -> Array:
+	var out := []
+	var a: Dictionary = st.allies[ally_id]
+	while not a.placed.is_empty():
+		out.append(unplace(st, ally_id, a.placed.size() - 1).uid)
+	for i in range(st.noel.size() - 1, -1, -1):
+		var n: Dictionary = st.noel[i]
+		if n.kind == "bless" and n.target == ally_id:
+			out.append(uncast(st, i).uid)
+	return out
+
+
+## 출전 배치를 끝내고 첫 턴을 시작한다 (칸에 살아 있는 동료가 하나는 있어야 한다)
+static func start_battle(st: Dictionary) -> Dictionary:
+	if st.phase != "formation":
+		return _no("same")
+	if living_allies(st).is_empty():
+		return _no("noneFielded")
+	return {"ok": true, "events": start_turn(st)}
 
 
 # ───────── 내 턴 시작 ─────────
@@ -162,11 +312,12 @@ static func start_turn(st: Dictionary) -> Array:
 	var ev := []
 	if st.result != null:
 		return ev
+	st.phase = "battle"
 	st.turn = int(st.turn) + 1
 	st.energy = int(D().rules.energy)
 	ev.append({"t": "turnStart", "turn": st.turn})
 	_draw(st, int(D().rules.draw), ev)
-	roll_intents(st)
+	roll_intents(st, ev)
 	ev.append({"t": "intents"})
 	return ev
 
@@ -191,13 +342,23 @@ static func _draw(st: Dictionary, n: int, ev: Array) -> void:
 		ev.append({"t": "draw", "uids": got})
 
 
-## 적 행동: 광신도 찌르기 min~max · 무덤지기 하수인이 없으면 부르기, 있으면 삽 내려치기 · 해골 병사 녹슨 칼 — 한 명 공격은 살아 있는 동료 하나(무작위).
-## sweepEvery 턴마다 살아 있는 광신도 하나는 휩쓸기 → 모두
-static func roll_intents(st: Dictionary) -> void:
-	var targets := living_allies(st)
+## 적 행동: 광신도 찌르기 min~max · 무덤지기 하수인이 없으면 부르기, 있으면 삽 내려치기 · 해골 병사 녹슨 칼 — 한 명 공격은 칸 하나(무작위, 빈칸 포함).
+## sweepEvery 턴마다 살아 있는 광신도 하나는 휩쓸기 → 모든 칸. 무덤지기의 death.at 번째 행동은 죽음 카드(그 동료가 살아 있으면)
+static func roll_intents(st: Dictionary, ev := []) -> void:
+	var live := any_living(st)
+	var DT: Dictionary = D().death
 	for e in st.enemies:
 		e.intent = null
-		if not e.alive or targets.is_empty():
+		if not e.alive or not live:
+			continue
+		e.acts = int(e.get("acts", 0)) + 1
+		if e.type == str(DT.enemy) and int(e.acts) == int(DT.at) and not st.allies[str(DT.ally)].down and deaths_of(st, str(DT.ally)).is_empty():
+			var did := "death" + str(st.nextDeath)
+			st.nextDeath = int(st.nextDeath) + 1
+			var lab := death_label(str(DT.ally))
+			st.deaths.append({"id": did, "ally": str(DT.ally), "src": e.id, "bound": true, "label": lab})
+			e.intent = {"kind": "death", "label": lab, "value": 0, "minus": 0, "slot": "", "death": did}
+			ev.append({"t": "deathCard", "id": did, "ally": str(DT.ally), "enemy": e.id})
 			continue
 		var acts: Dictionary = D().enemies[e.type].acts
 		if acts.has("summon") and guard_of(st, e.id) == null:
@@ -207,9 +368,9 @@ static func roll_intents(st: Dictionary) -> void:
 		var v := int(h.get("value", 0))
 		if h.has("min"):
 			v = int(h.min) + Rules.rint(st, int(h.max) - int(h.min) + 1)
-		e.intent = {"kind": "hit", "label": h.label, "value": v, "minus": 0, "slot": targets[Rules.rint(st, targets.size())]}
-	if int(st.turn) % int(D().rules.sweepEvery) == 0 and not targets.is_empty():
-		var sw: Array = st.enemies.filter(func(e): return e.alive and D().enemies[e.type].acts.has("sweep"))
+		e.intent = {"kind": "hit", "label": h.label, "value": v, "minus": 0, "slot": Rules.rint(st, ncols())}
+	if int(st.turn) % int(D().rules.sweepEvery) == 0 and live:
+		var sw: Array = st.enemies.filter(func(e): return e.alive and e.intent != null and e.intent.kind == "hit" and D().enemies[e.type].acts.has("sweep"))
 		if not sw.is_empty():
 			var se: Dictionary = sw[Rules.rint(st, sw.size())]
 			var s: Dictionary = D().enemies[se.type].acts.sweep
@@ -221,6 +382,8 @@ static func roll_intents(st: Dictionary) -> void:
 static func can_place(st: Dictionary, uid: String, ally_id: String) -> Dictionary:
 	if st.result != null:
 		return _no("over")
+	if st.phase != "battle":
+		return _no("formation")
 	if not st.hand.has(uid):
 		return _no("notInHand")
 	var c := card_def(st, uid)
@@ -229,6 +392,8 @@ static func can_place(st: Dictionary, uid: String, ally_id: String) -> Dictionar
 	if not st.allies.has(ally_id):
 		return _no("noAlly")
 	var a: Dictionary = st.allies[ally_id]
+	if col_of(st, ally_id) < 0:
+		return _no("bench")
 	if a.down:
 		return _no("down")
 	if str(c.owner) != "" and str(c.owner) != ally_id:
@@ -240,6 +405,14 @@ static func can_place(st: Dictionary, uid: String, ally_id: String) -> Dictionar
 	if str(c.kind) in ["attack", "release"] and alive_enemies(st).is_empty():
 		return _no("noEnemy")
 	return {"ok": true}
+
+
+## 그 칸에 놓을 수 있는가 (칸 → 그 칸의 동료)
+static func can_place_col(st: Dictionary, uid: String, col: int) -> Dictionary:
+	var id := ally_at(st, col)
+	if id == "":
+		return _no("empty")
+	return can_place(st, uid, id)
 
 
 ## 공격(attack·release) 카드는 대상을 골라야 한다
@@ -282,10 +455,12 @@ static func unplace(st: Dictionary, ally_id: String, index: int) -> Dictionary:
 
 
 # ───────── 노엘의 카드 (② 적 행동 · ① 적 · ④ 동료에 직접) ─────────
-## target: 운명 전가·저주 = 그 행동을 보낸 적 id(② 카드) · 취약 = 적 id(①) · 축복 = 동료 id(④)
+## target: 운명 전가·저주 = 그 행동을 보낸 적 id(② 카드) 또는 죽음 카드 id(운명 전가) · 운명 찢기 = 죽음 카드 id · 취약 = 적 id(①) · 축복 = 동료 id(④)
 static func can_cast(st: Dictionary, uid: String, target: String) -> Dictionary:
 	if st.result != null:
 		return _no("over")
+	if st.phase != "battle":
+		return _no("formation")
 	if not st.hand.has(uid):
 		return _no("notInHand")
 	var c := card_def(st, uid)
@@ -295,17 +470,24 @@ static func can_cast(st: Dictionary, uid: String, target: String) -> Dictionary:
 		return _no("noEnergy")
 	match str(c.kind):
 		"shift":
-			var e = enemy(st, target)
-			if e == null or not e.alive or e.intent == null or e.intent.kind != "hit":
-				return _no("badAct")
+			var dd = death(st, target)
+			if dd == null:
+				var e = enemy(st, target)
+				if e == null or not e.alive or e.intent == null or e.intent.kind != "hit":
+					return _no("badAct")
 			if shift_dests(st, target).is_empty():
 				return _no("noDest")
 		"curse":
+			if death(st, target) != null:
+				return _no("death")
 			var e2 = enemy(st, target)
 			if e2 == null or not e2.alive or e2.intent == null or not e2.intent.kind in ["hit", "sweep"]:
-				return _no("badAct")
+				return _no("death" if e2 != null and e2.intent != null and e2.intent.kind == "death" else "badAct")
 			if int(e2.intent.minus) > 0:
 				return _no("already")
+		"tear":
+			if death(st, target) == null:
+				return _no("notDeath")
 		"vuln":
 			var e3 = enemy(st, target)
 			if e3 == null or not e3.alive:
@@ -313,38 +495,76 @@ static func can_cast(st: Dictionary, uid: String, target: String) -> Dictionary:
 			if e3.vuln:
 				return _no("already")
 		"bless":
-			if not st.allies.has(target) or st.allies[target].down:
+			if not st.allies.has(target) or st.allies[target].down or col_of(st, target) < 0:
 				return _no("badAlly")
 			if st.allies[target].blessed:
 				return _no("already")
 	return {"ok": true}
 
 
-## 운명 전가로 옮길 수 있는 칸: 그 행동이 지금 노리는 동료가 아닌 살아 있는 동료
-static func shift_dests(st: Dictionary, enemy_id: String) -> Array:
-	var e = enemy(st, enemy_id)
-	if e == null or e.intent == null:
+## 운명 전가로 옮길 수 있는 칸(0~2): 한 명 공격 = 지금 노리는 칸이 아닌 칸(빈칸도 — 노엘이 맞는다) ·
+## 죽음 카드 = 살아 있는 다른 동료가 선 칸(빈칸으로는 못 옮김 — 그 동료가 대신 죽는다)
+static func shift_dests(st: Dictionary, target: String) -> Array:
+	var dd = death(st, target)
+	var out := []
+	if dd != null:
+		for c in ncols():
+			var id := ally_at(st, c)
+			if id != "" and id != dd.ally and not st.allies[id].down:
+				out.append(c)
+		return out
+	var e = enemy(st, target)
+	if e == null or e.intent == null or e.intent.kind != "hit":
 		return []
-	return living_allies(st).filter(func(id): return id != e.intent.slot)
+	for c in ncols():
+		if c != int(e.intent.slot):
+			out.append(c)
+	return out
 
 
-## 노엘의 카드를 놓는다. 운명 전가는 opts {to: 옮길 칸의 동료 id} — 놓는 즉시 ② 를 옮긴다
+## 운명 전가의 to: 칸 번호(0~2) 또는 동료 id(그 동료의 칸)
+static func _to_col(st: Dictionary, to) -> int:
+	if to is int or to is float:
+		return int(to)
+	var s := str(to)
+	if s.is_valid_int():
+		return int(s)
+	return col_of(st, s)
+
+
+## 노엘의 카드를 놓는다. 운명 전가는 opts {to: 옮길 칸} — 놓는 즉시 ② 를 옮긴다
 static func cast(st: Dictionary, uid: String, target: String, opts := {}) -> Dictionary:
 	var chk := can_cast(st, uid, target)
 	if not chk.ok:
 		return chk
 	var c := card_def(st, uid)
-	var n := {"uid": uid, "kind": str(c.kind), "target": target, "move": null}
+	var n := {"uid": uid, "kind": str(c.kind), "target": target, "move": null, "torn": null}
 	match str(c.kind):
 		"shift":
-			var to := str(opts.get("to", ""))
+			var to := _to_col(st, opts.get("to", -1))
 			if not shift_dests(st, target).has(to):
 				return _no("badMove")
-			var e: Dictionary = enemy(st, target)
-			n.move = {"enemy": target, "from": e.intent.slot, "to": to}
-			e.intent.slot = to
+			var dd = death(st, target)
+			if dd != null:
+				n.move = {"death": target, "from": dd.ally, "to": ally_at(st, to)}
+				dd.ally = ally_at(st, to)
+				dd.label = death_label(dd.ally)
+				var src = enemy(st, str(dd.src))
+				if src != null and src.intent != null and src.intent.get("death", "") == target:
+					src.intent.label = dd.label
+			else:
+				var e: Dictionary = enemy(st, target)
+				n.move = {"enemy": target, "from": int(e.intent.slot), "to": to}
+				e.intent.slot = to
 		"curse":
 			enemy(st, target).intent.minus = int(c.minus)
+		"tear":
+			var dd2 = death(st, target)
+			n.torn = dd2.duplicate()
+			st.deaths.erase(dd2)
+			var src2 = enemy(st, str(dd2.src))
+			if src2 != null and src2.intent != null and src2.intent.get("death", "") == target:
+				src2.intent.torn = true
 		"vuln":
 			enemy(st, target).vuln = true
 		"bless":
@@ -364,15 +584,32 @@ static func uncast(st: Dictionary, index: int) -> Dictionary:
 	var n: Dictionary = st.noel[index]
 	match str(n.kind):
 		"shift":
-			var e = enemy(st, str(n.move.enemy))
-			if e != null and e.intent != null:
-				if e.intent.slot != n.move.to:
-					return _no("movedAgain")
-				e.intent.slot = n.move.from
+			if n.move.has("death"):
+				var dd = death(st, str(n.move.death))
+				if dd != null:
+					if dd.ally != n.move.to:
+						return _no("movedAgain")
+					dd.ally = n.move.from
+					dd.label = death_label(dd.ally)
+					var src = enemy(st, str(dd.src))
+					if src != null and src.intent != null and src.intent.get("death", "") == dd.id:
+						src.intent.label = dd.label
+			else:
+				var e = enemy(st, str(n.move.enemy))
+				if e != null and e.intent != null:
+					if int(e.intent.slot) != int(n.move.to):
+						return _no("movedAgain")
+					e.intent.slot = int(n.move.from)
 		"curse":
 			var e2 = enemy(st, str(n.target))
 			if e2 != null and e2.intent != null:
 				e2.intent.minus = 0
+		"tear":
+			if n.torn != null:
+				st.deaths.append(n.torn.duplicate())
+				var src2 = enemy(st, str(n.torn.src))
+				if src2 != null and src2.intent != null and src2.intent.get("death", "") == n.target:
+					src2.intent.erase("torn")
 		"vuln":
 			var e3 = enemy(st, str(n.target))
 			if e3 != null:
@@ -386,11 +623,11 @@ static func uncast(st: Dictionary, index: int) -> Dictionary:
 
 
 # ───────── 턴 끝 → 적 턴 (한꺼번에) ─────────
-## 왼쪽 칸부터 ③ 의 카드대로 동료가 행동 → 살아 있는 적·하수인의 ② 가 그 칸의 동료에게(막기만큼 줄어듦) → 정리
-## 이기려면 쓰러뜨려야 할 적이 모두 쓰러지면 그 자리에서 승리, 적 턴 뒤 동료가 모두 쓰러졌으면 패배. 쓰러진 적이 보낸 ② 는 사라진다
+## 왼쪽 칸부터 ③ 의 카드대로 동료가 행동 → 살아 있는 적·하수인의 ② 가 그 칸에(동료 · 빈칸이면 노엘) → 죽음 카드 → 정리
+## 이기려면 쓰러뜨려야 할 적이 모두 쓰러지면 그 자리에서 승리. 노엘 HP 0 이면 그 자리에서 패배, 적 턴 뒤 동료가 모두 쓰러졌으면 패배. 쓰러진 적이 보낸 ② 는 사라진다
 static func end_turn(st: Dictionary) -> Array:
 	var ev := []
-	if st.result != null:
+	if st.result != null or st.phase != "battle":
 		return ev
 	_ally_phase(st, ev)
 	if st.result == null:
@@ -400,16 +637,23 @@ static func end_turn(st: Dictionary) -> Array:
 				break
 			if e.alive and e.intent != null:
 				_enemy_act(st, e, ev)
-		if st.result == null and living_allies(st).is_empty():
-			st.result = "lose"
-			ev.append({"t": "lose"})
+		if st.result == null:
+			_resolve_deaths(st, ev)
+		if st.result == null and not any_living(st):
+			_lose(st, "allies", ev)
 	_cleanup(st, ev)
 	return ev
 
 
+static func _lose(st: Dictionary, by: String, ev: Array) -> void:
+	st.result = "lose"
+	st.loseBy = by
+	ev.append({"t": "lose", "by": by})
+
+
 static func _ally_phase(st: Dictionary, ev: Array) -> void:
 	ev.append({"t": "allyPhase"})
-	for id in st.order:
+	for id in field(st):
 		var a: Dictionary = st.allies[id]
 		if a.down:
 			continue
@@ -487,6 +731,11 @@ static func _kill(st: Dictionary, e: Dictionary, ev: Array, with := "") -> void:
 	e.vuln = false
 	e.hp = 0
 	ev.append({"t": "enemyDie", "enemy": e.id, "with": with})
+	# 아직 이 적의 ② 행동인 죽음 카드는 함께 사라진다(먼저 쓰러뜨림). 한 번 기다린 죽음 카드는 동료를 따라가 남는다
+	for dd in st.deaths.duplicate():
+		if dd.src == e.id and dd.bound:
+			st.deaths.erase(dd)
+			ev.append({"t": "deathGone", "id": dd.id, "ally": dd.ally})
 	# 강적이 쓰러지면 그 하수인도 사라진다
 	var g = guard_of(st, e.id)
 	if g != null:
@@ -505,22 +754,33 @@ static func _enemy_act(st: Dictionary, e: Dictionary, ev: Array) -> void:
 				m.intent = null
 				ev.append({"t": "summon", "enemy": e.id, "minion": m.id})
 		return
-	var targets := []
-	if it.slot == "all":
-		targets = living_allies(st)
-	elif not st.allies[it.slot].down:
-		targets = [it.slot]
-	for id in targets:
-		_hit_ally(st, id, act_value(it), e.id, ev)
+	if it.kind == "death":
+		return   # 죽음 카드는 적 턴 끝에 한꺼번에(_resolve_deaths)
+	var cols := []
+	if str(it.slot) == "all":
+		for c in ncols():
+			cols.append(c)
+	else:
+		cols = [int(it.slot)]
+	for c in cols:
+		var who := receiver(st, c)
+		if who == "noel":
+			_hit_noel(st, act_value(it), e.id, c, ev)
+			if st.result != null:
+				return
+			continue
+		_hit_ally(st, who, act_value(it), e.id, ev)
 		# 용사: 막기를 맡았으면 막은 뒤 자기를 친 적에게 반격 (하수인이 막지 않는다 — 친 적에게 바로)
-		var a: Dictionary = st.allies[id]
+		var a: Dictionary = st.allies[who]
 		if a.counter and not a.down and e.alive:
 			var cv := int(D().traits.hero.counter)
-			ev.append({"t": "counter", "ally": id, "enemy": e.id})
-			_hit_enemy(st, e, cv, id, "", ev)
+			ev.append({"t": "counter", "ally": who, "enemy": e.id})
+			_hit_enemy(st, e, cv, who, "", ev)
 			if alive_main(st).is_empty():
 				st.result = "win"
 				ev.append({"t": "win"})
+				return
+			if not e.alive:
 				return
 
 
@@ -544,6 +804,33 @@ static func _hit_ally(st: Dictionary, ally_id: String, v: int, by: String, ev: A
 		ev.append({"t": "allyDown", "ally": ally_id})
 
 
+## 빈칸 공격: 노엘이 맞는다(막기 없음). 0 이면 그 자리에서 패배
+static func _hit_noel(st: Dictionary, v: int, by: String, col: int, ev: Array) -> void:
+	st.noelHp = maxi(0, int(st.noelHp) - v)
+	ev.append({"t": "noelHit", "enemy": by, "col": col, "amount": v, "hp": st.noelHp})
+	if int(st.noelHp) <= 0:
+		_lose(st, "noel", ev)
+
+
+## 죽음 카드: 그 동료가 칸에 있으면 죽는다(이 전투에서 돌아오지 않음). 벤치에 있으면 기다린다(그 뒤로는 낸 적이 쓰러져도 남는다)
+static func _resolve_deaths(st: Dictionary, ev: Array) -> void:
+	for dd in st.deaths.duplicate():
+		var a: Dictionary = st.allies[dd.ally]
+		if a.dead:
+			st.deaths.erase(dd)
+			continue
+		if col_of(st, dd.ally) >= 0:
+			st.deaths.erase(dd)
+			a.hp = 0
+			a.block = 0
+			a.dead = true
+			a.down = true
+			ev.append({"t": "death", "id": dd.id, "ally": dd.ally, "label": dd.label})
+		else:
+			dd.bound = false
+			ev.append({"t": "deathWait", "id": dd.id, "ally": dd.ally})
+
+
 static func _cleanup(st: Dictionary, ev: Array) -> void:
 	for id in st.order:
 		var a: Dictionary = st.allies[id]
@@ -563,6 +850,11 @@ static func _cleanup(st: Dictionary, ev: Array) -> void:
 		e.intent = null
 		e.vuln = false
 	ev.append({"t": "cleanup"})
+
+
+## 전투가 끝날 때 남은 죽음 카드 → 결과 판 「운명이 미뤄졌다」
+static func postponed(st: Dictionary) -> Array:
+	return st.deaths.map(func(d): return d.label)
 
 
 # ───────── 미리 보기 (놓을 때·놓은 뒤 결과 숫자) ─────────
@@ -608,13 +900,15 @@ static func _first_target(st: Dictionary) -> String:
 
 
 # ───────── 자동 진행 (헤드리스 시험 --battle=v2 --autoplay) ─────────
-## 다음 한 수: {kind: "place", uid, ally, opts} · {kind: "cast", uid, target, opts} · {kind: "end"}(턴 끝)
-## 판단(지시서 7장 "가장 위험한 칸 막기 → 남은 에너지로 공격"):
+## 다음 한 수: {kind: "place", uid, ally, opts} · {kind: "cast", uid, target, opts} · {kind: "move", ally, to} · {kind: "end"}(턴 끝)
+## 판단(지시서 7장 "가장 위험한 칸 막기 → 남은 에너지로 공격" + v2.1 간단한 판단):
+##   ⓪ 죽음 카드가 칸에 선 동료를 노리면: 운명 찢기 → 없으면 그 동료를 벤치로(에너지 1). 빈칸을 노린 공격이 있고 벤치에 넣을 동료가 있으면 넣는다
 ##   ① 가장 위험한 동료(받을 피해 − 놓은 막기)에게 막기 → 막기가 없으면 저주(그 칸의 가장 센 행동) → 운명 전가(가장 버틸 동료에게)
+##      노엘이 이번 적 턴에 쓰러질 만큼 맞으면 그 공격을 저주·운명 전가(살아 있는 동료 칸으로)
 ##   ② 공격: 성검 베기 세라피나 · 겨누기를 쌓고 저격 엘리안 · 버팀이 쌓였으면 되돌리기 브룬힐드 · 베기는 세라피나(용사 막기) → 아무나
 ##   ③ 취약: 가장 큰 공격이 들어갈 적 · 축복: 가장 큰 행동을 하는 동료 ④ 남은 막기·겨누기
 static func auto_step(st: Dictionary) -> Dictionary:
-	if st.result != null or int(st.energy) <= 0 or st.hand.is_empty():
+	if st.result != null:
 		return {"kind": "end"}
 	var hb := {}
 	for u in st.hand:
@@ -622,10 +916,40 @@ static func auto_step(st: Dictionary) -> Dictionary:
 			var cid: String = st.cards[u].id
 			if not hb.has(cid):
 				hb[cid] = u
-	if hb.is_empty():
+	var mc := int(D().rules.moveCost)
+	# ⓪ 죽음 카드
+	for dd in st.deaths:
+		if col_of(st, dd.ally) >= 0 and not st.allies[dd.ally].dead:
+			if hb.has("tear"):
+				return {"kind": "cast", "uid": hb.tear, "target": dd.id, "opts": {}}
+			if int(st.energy) >= mc and can_move(st, dd.ally, "bench").ok:
+				return {"kind": "move", "ally": dd.ally, "to": "bench"}
+	if int(st.energy) >= mc:
+		for c in ncols():
+			if ally_at(st, c) == "" and incoming(st, c) > 0:
+				for b in st.bench:
+					if not st.allies[b].down and deaths_of(st, b).is_empty() and can_move(st, b, c).ok:
+						return {"kind": "move", "ally": b, "to": c}
+	if int(st.energy) <= 0 or st.hand.is_empty() or hb.is_empty():
 		return {"kind": "end"}
 	var free := living_allies(st).filter(func(id): return st.allies[id].placed.size() < int(D().rules.maxPlaced))
 	var fc := forecast(st)
+	# ① 노엘이 쓰러질 만큼 맞으면
+	var noel_in := 0
+	var noel_hits := []
+	for c in ncols():
+		if receiver(st, c) == "noel":
+			noel_in += incoming(st, c)
+			noel_hits.append_array(intents_at(st, c))
+	if noel_in >= int(st.noelHp) and not noel_hits.is_empty():
+		var big := _biggest(st, noel_hits)
+		if hb.has("shift"):
+			var dests := shift_dests(st, big).filter(func(c): return receiver(st, c) != "noel")
+			var to := _sturdiest(st, dests.map(func(c): return ally_at(st, c)), act_value(enemy(st, big).intent), fc)
+			if to != "":
+				return {"kind": "cast", "uid": hb.shift, "target": big, "opts": {"to": col_of(st, to)}}
+		if hb.has("curse") and int(enemy(st, big).intent.minus) == 0:
+			return {"kind": "cast", "uid": hb.curse, "target": big, "opts": {}}
 	# ① 가장 위험한 동료
 	var worst := ""
 	var wk := 0.0
@@ -640,7 +964,7 @@ static func auto_step(st: Dictionary) -> Dictionary:
 	if worst != "":
 		if hb.has("guard") and free.has(worst):
 			return {"kind": "place", "uid": hb.guard, "ally": worst, "opts": {}}
-		var mine := intents_at(st, worst)
+		var mine := intents_at(st, col_of(st, worst))
 		if hb.has("curse"):
 			var cands := mine.filter(func(eid): return int(enemy(st, eid).intent.minus) == 0)
 			var sw = sweep_enemy(st)
@@ -650,9 +974,10 @@ static func auto_step(st: Dictionary) -> Dictionary:
 				return {"kind": "cast", "uid": hb.curse, "target": _biggest(st, cands), "opts": {}}
 		if hb.has("shift") and not mine.is_empty():
 			var eid := _biggest(st, mine)
-			var to := _sturdiest(st, shift_dests(st, eid), act_value(enemy(st, eid).intent), fc)
-			if to != "":
-				return {"kind": "cast", "uid": hb.shift, "target": eid, "opts": {"to": to}}
+			var dests2 := shift_dests(st, eid).filter(func(c): return receiver(st, c) != "noel")
+			var to2 := _sturdiest(st, dests2.map(func(c): return ally_at(st, c)), act_value(enemy(st, eid).intent), fc)
+			if to2 != "":
+				return {"kind": "cast", "uid": hb.shift, "target": eid, "opts": {"to": col_of(st, to2)}}
 	# ② 공격
 	if hb.has("holy") and free.has("hero"):
 		var t := _attack_target(st, fc, false)
@@ -722,14 +1047,12 @@ static func _placed_ids(st: Dictionary, ally_id: String) -> Array:
 	return st.allies[ally_id].placed.map(func(p): return st.cards[p.uid].id)
 
 
-## 이번 적 턴에 받을 피해 − 놓아 둔 막기(미리 보기 결과)
+## 이번 적 턴에 받을 피해 − 놓아 둔 막기(미리 보기 결과). 벤치의 동료는 0
 static func _danger(st: Dictionary, ally_id: String, fc: Dictionary) -> int:
-	var inc := 0
-	for eid in intents_at(st, ally_id):
-		inc += act_value(enemy(st, eid).intent)
-	var sw = sweep_enemy(st)
-	if sw != null:
-		inc += act_value(sw.intent)
+	var c := col_of(st, ally_id)
+	if c < 0:
+		return 0
+	var inc := incoming(st, c)
 	var blk := 0
 	for p in st.allies[ally_id].placed:
 		blk += int(fc.get(p.uid, {}).get("block", 0))
