@@ -259,7 +259,7 @@ func face_ally(id: String) -> Dictionary:
 	if a.dead:
 		return {"kind": "dead", "name": G.name_of(id), "art": str(D().portraits[id].img), "deadText": T("dead")}
 	var f := {"kind": "ally", "name": G.name_of(id), "art": str(D().portraits[id].img), "hp": int(a.hp), "maxHp": int(a.maxHp), "block": int(a.block),
-		"trait": str(tr.name), "text": str(tr.text), "down": bool(a.down), "downText": T("down")}
+		"trait": str(tr.name), "text": str(tr.text).replace("\n", " "), "down": bool(a.down), "downText": T("down")}
 	match str(a.trait):
 		"brace":
 			f.statusLabel = T("brace")
@@ -1758,6 +1758,7 @@ func _process(delta: float) -> void:
 	_process_touch_zoom()
 	if mode in ["idle", "pick", "shift"]:
 		overlay.queue_redraw()
+	end_btn.z_index = 90 if hand.open else 46   # v2.4: 펼친 두 손 그림(z 80)에 가려지지 않게
 	# 시험 전용(?test=1&openhand · 헤드리스 --test --openhand): 첫 내 턴에 손패를 펼쳐 둔다(스크린샷용)
 	if G.test and G.params.has("openhand") and mode == "formation" and not _opened_once:
 		_on_start()

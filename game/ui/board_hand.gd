@@ -1,7 +1,8 @@
 ## board_hand.gd — 전투 시험판 v2.1 「3D 탁자」의 노엘의 손과 손패 (scenes/board_battle.gd, docs/battle-v2-spec.md 9-4 사용자 결정).
 ##  · 왼손: 화면 왼쪽 아래에 편 왼손(그림은 손패 뒤). 그 위로 손패가 부채꼴로 살짝 떠서 천천히 흔들린다. 손가락과 카드 사이에 붉은 실 몇 가닥(코드).
 ##  · 오른손: 평소 오른쪽 아래에 놓여 있다(idle). 카드를 끌면 집어 들고 따라간다(pinch). 대상을 고를 때 그 자리를 가리킨다(point).
-##  · v2.3 손패 당겨 보기(9-5 바꿈): open 이면 왼손·오른손 대신 양손 그림(both_l·both_r)이 가운데 아래로 올라오고 손패 전체가 크게(카드 높이 open.cardH) 펼쳐진다.
+##  · v2.4 손패 당겨 보기(9-5 바꿈): open 이면 왼손·오른손 대신 예전 전투(ui/hand.gd)의 두 손 그림(GameData layout.hand imgL·imgR)이 가운데 아래로 올라오고,
+##    다섯 장을 예전과 같은 부채꼴·엄지 겹침으로 쥔다(카드 자리 = HandView.fan 을 그대로 쓰고 open.scale 배로 키움 · 빈 자리는 덱 덮개).
 ##    탁자는 검은 반투명(dim)으로 가라앉힌다. 열고 닫기는 board(scenes/board_battle.gd)가 set_open 으로.
 ##  · 손 그림은 data layout.hands 의 후보 가운데 파일이 있는 것(그림체 F 78·79·80 → 없으면 지금 손 그림 ui_witch_hand_*). 위치·실 끝은 그림마다 데이터.
 ## 카드 앞면은 CardView(원근 사각형 그리기)를 그대로 쓰고, 앞면 그림만 BoardPieces.draw_face(kind mine) — 탁자 카드와 같은 앞면.
@@ -23,6 +24,8 @@ var drag_k := 0.0         # 끄는 카드 배율 (0 = dragScale — 펼친 손�
 var _open_k := 0.0        # 0 = 평소 · 1 = 펼침 (부드럽게)
 var both_l: Sprite2D
 var both_r: Sprite2D
+var backs: Array = []     # v2.4 펼친 손의 빈 카드 자리를 메우는 덮개(예전 전투와 같음)
+var _hv: HandView         # v2.4 예전 전투의 손패 자리 계산(HandView.fan·slot_quad)을 그대로 쓴다 — 트리에 넣지 않는다
 var dim: Node2D
 var left: Sprite2D
 var right: Sprite2D
@@ -68,11 +71,27 @@ func _ready() -> void:
 	dim.z_index = 40
 	dim.draw.connect(func(): dim.draw_rect(Rect2(-200, -200, 2320, 1480), Color(0, 0, 0, float(OL().dim) * _open_k)))
 	add_child(dim)
-	var O := OL()
-	both_l = _sprite({"file": O.files[0], "scale": O.scale}, 45)
-	both_r = _sprite({"file": O.files[1], "scale": O.scale}, 45)
+	# v2.4 예전 전투의 두 손 그림(카드 위 z 80 — 엄지가 카드에 겹친다) · 빈 자리 덮개(카드 아래)
+	var GH: Dictionary = GameData.D.layout.hand
+	_hv = HandView.new()
+	both_l = _sprite({"file": GH.imgL, "scale": OL().scale}, 80)
+	both_r = _sprite({"file": GH.imgR, "scale": OL().scale}, 80)
 	both_l.visible = false
 	both_r.visible = false
+	for i in GH.slots.size():
+		var b := CardView.new()
+		b.setup_back()
+		b.bright = 0.82
+		b.z_index = 44 + (2 if i == 2 else (1 if i == 1 or i == 3 else 0))
+		b.visible = false
+		add_child(b)
+		backs.append(b)
+
+
+func _exit_tree() -> void:
+	if _hv != null:
+		_hv.free()
+		_hv = null
 
 
 func OL() -> Dictionary:
@@ -121,35 +140,46 @@ func fan(n: int) -> Array:
 	return res
 
 
-## v2.3 펼친 손패: n장일 때 각 카드의 {c, a, z} — 가운데 아래 양손 위로 크게
+## v2.4 예전 전투 좌표(layout.hand 의 x·y·scale) → 펼친 손 좌표(open 의 x·y·scale). 올라오는 중이면 아래로 rise 만큼
+func _to_open(p: Vector2) -> Vector2:
+	var GH: Dictionary = GameData.D.layout.hand
+	var k := float(OL().scale) / float(GH.scale)
+	return Vector2(OL().x, float(OL().y) + _rise()) + (p - Vector2(GH.x, GH.y)) * k
+
+
+func _rise() -> float:
+	return (1.0 - ease(_open_k, -2.0)) * float(OL().rise)
+
+
+func _open_q(q: PackedVector2Array) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for v in q:
+		out.append(_to_open(v))
+	return out
+
+
+## v2.4 펼친 손패: n장일 때 각 카드의 {q: 사각형, z} — 예전 전투의 HandView.fan(5장 이하는 카드 자리 그대로, 많으면 압축)을 키운 것
 func open_fan(n: int) -> Array:
-	var O := OL()
-	var k := open_scale()
-	var w := CardView.W * k
-	var step := float(O.step)
-	if n > 1 and (n - 1) * step + w > float(O.maxW):
-		step = (float(O.maxW) - w) / (n - 1)
 	var res := []
-	for i in n:
-		var t := i - (n - 1) / 2.0
-		var c := Vector2(960.0 + t * step, float(O.cy) + t * t * float(O.drop))
-		res.append({"c": c, "a": t * float(O.rot), "z": 60 + i})
+	for f in _hv.fan(n):
+		res.append({"q": _open_q(f.quad), "z": int(f.z)})
 	return res
 
 
+## 펼친 카드 배율(가운데 자리 카드 높이 / 카드 원본 높이) — 펼친 채 끌 때 끄는 카드 크기
 func open_scale() -> float:
-	return float(OL().cardH) / CardView.H
+	var q := _hv.slot_quad(2)
+	return (q[3] - q[0]).length() * float(OL().scale) / float(GameData.D.layout.hand.scale) / CardView.H
 
 
-## 펼친 손패가 차지하는 곳(카드 + 양손) — PC 에서 마우스가 이 밖으로 나가면 닫는다
+## 펼친 손패가 차지하는 곳(카드 자리 위 ~ 화면 아래) — PC 에서 마우스가 이 밖으로 나가면 닫는다
 func open_area() -> Rect2:
-	var n: int = board.hand_list().size() if board != null else 0
-	var r := Rect2(Vector2(both_l.position.x, float(OL().y) + 300), Vector2(1672 * float(OL().scale), 1080))
-	for f in open_fan(n):
-		var q := quad(f.c, f.a, open_scale())
-		for v in q:
+	var r := Rect2(_open_q(_hv.slot_quad(2))[0], Vector2.ZERO)
+	for i in backs.size():
+		for v in _open_q(_hv.slot_quad(i)):
 			r = r.expand(v)
-	return r.grow(24)
+	r = r.expand(Vector2(r.position.x, 1080))
+	return r.grow(40)
 
 
 func set_open(on: bool) -> void:
@@ -222,7 +252,7 @@ func layout(_instant := false) -> void:
 	var st: Dictionary = board.st
 	var list: Array = board.hand_list()
 	var f := open_fan(list.size()) if open else fan(list.size())
-	var k := open_scale() if open else card_scale()
+	var k := card_scale()
 	for i in list.size():
 		var uid: String = list[i]
 		var c: CardView = cards.get(uid)
@@ -236,7 +266,10 @@ func layout(_instant := false) -> void:
 			c.smooth = false
 		elif open:
 			var up := float(OL().lift) if (uid == hover_uid or uid == lifted_uid) else 0.0
-			c.set_quad(quad(f[i].c + Vector2(0, -up), f[i].a, k), false)
+			var q: PackedVector2Array = f[i].q
+			for j in 4:
+				q[j] += Vector2(0, -up)
+			c.set_quad(q, false)
 			c.z_index = 120 if up > 0.0 else int(f[i].z)
 			c.shadow = 1.0 if up > 0.0 else 0.0
 			c.smooth = true
@@ -327,11 +360,18 @@ func _process(delta: float) -> void:
 	if ok != _open_k:
 		dim.queue_redraw()
 	var ek := ease(_open_k, -2.0)
+	var GH: Dictionary = GameData.D.layout.hand
 	for i in 2:
 		var sp: Sprite2D = [both_l, both_r][i]
 		sp.visible = sp.texture != null and _open_k > 0.01
 		sp.modulate.a = ek
-		sp.position = Vector2(float(OL().x) + i * float(OL().split) * float(OL().scale), float(OL().y) + (1.0 - ek) * 420.0)
+		sp.position = Vector2(float(OL().x) + i * float(GH.splitX) * float(OL().scale), float(OL().y) + _rise())
+	for i in backs.size():
+		var b: CardView = backs[i]
+		b.visible = bool(GH.backs) and _open_k > 0.01
+		if b.visible:
+			b.alpha = ek
+			b.set_quad(_open_q(_hv.slot_quad(i)), true)
 	left.modulate.a = 1.0 - ek
 	left.visible = left.texture != null and ek < 0.99
 	right.modulate.a = (1.0 - _pinch_a) * (1.0 - ek)
