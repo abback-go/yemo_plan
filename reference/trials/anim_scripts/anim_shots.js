@@ -1,4 +1,4 @@
-// 움직임 비교 자료: 기본 / A′(?anim=a) / C(?anim=c) — 장례 회랑 전투 1턴: 대기 → 세라피나 성검 베기(공격) → 턴 종료(세라피나·엘리안·브룬힐드 피격)
+// 움직임 비교 자료: 그 전 기본(base = ?anim=off) / A′(a — 2026-11-22부터 기본. C 는 지움) — 장례 회랑 전투 1턴: 대기 → 세라피나 성검 베기(공격) → 턴 종료(세라피나·엘리안·브룬힐드 피격)
 // node anim_shots.js <주소> <출력 폴더> <모드: base|a|c> [nohand]
 // 영상(webm)을 녹화하고, 각 구간의 시작·끝 시각(영상 기준 초)을 times.json 에 남긴다 → 스틸은 영상에서 ffmpeg 로 뽑는다(스크린샷은 swiftshader 에서 느려 연속 촬영이 안 됨)
 'use strict';
@@ -31,7 +31,7 @@ const times = {};
     throw new Error('timeout ' + what);
   };
   const shot = async name => page.screenshot({ path: path.join(dir, name) });
-  const q = 'index.html?test=1&seed=7&scene=corridor&autoguide=1&nosave=1&guides=reset&trace=1' + (MODE === 'base' ? '' : '&anim=' + MODE);
+  const q = 'index.html?test=1&seed=7&scene=corridor&autoguide=1&nosave=1&guides=reset&trace=1' + (MODE === 'base' ? '&anim=off' : '&anim=' + MODE);
   await page.goto(BASE + q);
   await page.waitForFunction(() => window.__witchReady === true, null, { timeout: 90000 });
   let s = await until(s => s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 120000, 'turn1');

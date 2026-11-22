@@ -3,7 +3,7 @@ import glob, json, os, subprocess
 from PIL import Image, ImageDraw, ImageFont
 OUT = '/tmp/claude-0/-home-user-yemo-plan/c9580547-3e2b-5444-b985-f8d79472150f/scratchpad/vs_shots'
 FONT = '/home/user/yemo_plan/.claude/worktrees/agent-abf0228873c2e506a/game/assets/fonts/NotoSerifKR-KS-Bold.ttf'
-MODES = [('base', '기본'), ('a', "A' (?anim=a)"), ('c', 'C (?anim=c)')]
+MODES = [('base', '그 전 기본 (?anim=off)'), ('a', "A' (기본)")]   # C(?anim=c)는 2026-11-22 사용자 결정으로 지움
 font = ImageFont.truetype(FONT, 22)
 CROP = (300, 110, 980, 720)
 

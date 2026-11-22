@@ -22,7 +22,7 @@
  *         → 일시정지(Esc: 대사·연출이 멈춤) → 계속 → 장례 회랑에 들어감(자동 저장) → 새로고침 → 이어하기(설정도 남음) → 같은 방의 처음
  *         → 일시정지 → 타이틀로(확인) → 시작(저장이 지워진다는 확인 → 취소 → 처음부터) / 휴대폰: 타이틀·설정·메뉴 단추로 일시정지
  *         / 카드 연출·데스신 도중 일시정지 → 멈춘 동안 그대로 → 계속하면 이어서 끝남 / 카드 연출 도중 타이틀로 → 에러 없이 타이틀
- * 경로 M: 움직임 시험 두 안(밤샘 계획 4) — ?anim=a · ?anim=c 로 장례 회랑 전투를 끝까지(실제 드래그로 카드 내기 → 승리), 연출 도중 일시정지하면 화면이 멈춤, 콘솔 에러 0
+ * 경로 M: 전투 움직임 — 기본(A′, 2026-11-22 사용자 결정) · ?anim=off(그 전 기본, 비교용)로 장례 회랑 전투를 끝까지(실제 드래그로 카드 내기 → 승리), 연출 도중 일시정지하면 화면이 멈춤, 콘솔 에러 0
  *   경로만 고르기: node smoke.js <주소> <폴더> AB   (기본: ABCDEFSM 전부)
  * 통과 조건: 모든 확인 통과 + 브라우저 콘솔 에러 0 (Godot 의 ERROR / SCRIPT ERROR 포함)
  * (탑뷰 시험판 경로 T 는 탑뷰 코드와 함께 없앴다 — 2026-11-21, game/DECISIONS.md)
@@ -951,14 +951,14 @@ async function pathS(browser) {
   await ctx3.close();
 }
 
-// ───────── 경로 M: 움직임 시험 두 안 (?anim=a 코드 효과 / ?anim=c 세라피나 부위 뼈대) ─────────
+// ───────── 경로 M: 전투 움직임 (기본 = A′ 코드 효과 / ?anim=off 그 전 기본 — C 부위 뼈대는 2026-11-22 지움) ─────────
 async function pathM(browser) {
-  say('경로 M: 움직임 시험 ?anim=a · ?anim=c — 장례 회랑 전투 한 판(실제 드래그로 성검 베기 → 승리), 연출 도중 일시정지, 콘솔 에러 0');
-  for (const mode of ['a', 'c']) {
+  say('경로 M: 전투 움직임 기본(A′) · ?anim=off — 장례 회랑 전투 한 판(실제 드래그로 성검 베기 → 승리), 연출 도중 일시정지, 콘솔 에러 0');
+  for (const mode of ['a', 'off']) {   // a = 주소 옵션 없음(기본)
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
     const H = helpers(page, 'M' + mode);
     const before = errors.length;
-    await H.open('scene=corridor&autoguide=1&nosave=1&anim=' + mode);
+    await H.open('scene=corridor&autoguide=1&nosave=1' + (mode === 'a' ? '' : '&anim=' + mode));
     let s = await H.until(s => s.battle && s.battle.turn === 1 && !s.busy && !s.guideOpen && !s.dialogBusy, 120000, '전투 1턴 (anim=' + mode + ')');
     await H.shot(`M_${mode}_01_turn1.png`);
     const hs = await H.W('geom', 'card', 'holy_slash');
@@ -967,7 +967,7 @@ async function pathM(browser) {
     s = await H.until(s => !s.busy, 20000, '성검 베기 끝');
     check(`anim=${mode}: 성검 베기(실제 드래그) → 광신도 c2 쓰러짐, 세라피나 공격 움직임`,
       !s.battle.enemies.find(e => e.id === 'c2').alive && s.motionLog.includes('hero:attack'), s.motionLog);
-    // 연출 도중 일시정지: 멈춘 동안 동료·적 자리 화면이 그대로(숨쉬기·뼈대·쏠림도 연출 시계와 함께 멈춤)
+    // 연출 도중 일시정지: 멈춘 동안 동료·적 자리 화면이 그대로(숨쉬기·쏠림도 연출 시계와 함께 멈춤)
     await H.W('setSpeed', 0.3);
     await H.W('play', 'curse_flame', JSON.stringify({ enemy: 'c1' }));
     await H.sleep(500);

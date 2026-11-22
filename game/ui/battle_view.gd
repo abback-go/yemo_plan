@@ -37,7 +37,7 @@ var fate_tint: ColorRect
 var fate_hold := ""        # 운명의 시도 중인 동료 (붉은 실을 최대로)
 var _t := 0.0
 var _ly := {}              # 지금 전투의 배치: layout 에 battleLayouts[encounters.<전투>.layout] 을 덮어쓴 것 (build 에서 정함)
-var anim: BattleAnim = null # 움직임 시험 ?anim=a|c (ui/battle_anim.gd). 옵션이 없으면 null — 기본 화면 그대로
+var anim: BattleAnim = null # 전투 움직임 A′(ui/battle_anim.gd, 기본). ?anim=off 일 때만 null — 그 전의 기본 움직임(비교용)
 
 
 func D() -> Dictionary:
@@ -332,7 +332,7 @@ func _make_ally(st: Dictionary, id: String) -> void:
 		acts[pname] = act
 	allies[id] = {"node": node, "pose": pose, "body": body, "acts": acts, "shades": shades, "box": box, "base": node.position}
 	if anim:
-		anim.setup_ally(id, allies[id], float(conf.top))
+		anim.setup_ally(id, allies[id])
 	if a.status == "dead":
 		node.visible = false
 

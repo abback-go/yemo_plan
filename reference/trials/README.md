@@ -16,6 +16,7 @@
 - 패치는 시험 당시 `game/data/game_data.gd`(C는 `game/ui/battle_view.gd`도) 기준이다. 지금 코드에 그대로 `git apply` 되지 않을 수 있다.
 
 ## 움직임 시험 A′ / C (2026-11-22, 밤샘 계획 4, `game/PROGRESS.md` 「움직임 시험 두 안」)
+- **2026-11-22 아침 사용자 결정**: C 는 "너무 별로" → 코드·부위 그림·도구를 지웠다(원본 부위 시트 `art/raw/vs/04_seraphina_parts.webp` 와 git 기록은 남음). A′ 가 기본이 되었고, 그 전 기본 움직임은 `?anim=off` 로 본다. 아래 그림의 줄 이름 '기본'은 그 전 기본(지금의 `off`)이다.
 | 파일 | 설명 |
 |---|---|
 | `anim_compare_idle_nohand.webp` | 대기 프레임 표. 줄 = 기본 · A′(`?anim=a`) · C(`?anim=c`), 손패 숨김 |
@@ -27,8 +28,8 @@
 - 15초 비교 영상(`anim_compare.webm`·`anim_compare_nohand.webm`, 약 6MB)은 넣지 않았다. 다시 만드는 법:
   1. 웹 내보내기: `anim_scripts/build.sh`(Godot 헤드리스 `--export-release "Web"` → `python3 tools/web_sw_patch.py <폴더>`).
   2. 그 폴더를 `python3 -m http.server 8140` 으로 띄운다.
-  3. 안마다 녹화: `node anim_scripts/anim_shots.js http://127.0.0.1:8140/ <출력> <base|a|c> [nohand]` (Playwright, 장례 회랑 1턴: 대기 → 성검 베기 → 턴 종료 피격. `?test=1` 훅 `hideHand` 사용).
-  4. 구간 프레임: `python3 anim_scripts/frames.py <출력>/anim_<안> 10 5` → 비교 표·영상: `python3 anim_scripts/compare.py` → 부위 맞춤 그림: `python3 anim_scripts/rig_fit.py <출력 파일>`.
+  3. 안마다 녹화: `node anim_scripts/anim_shots.js http://127.0.0.1:8140/ <출력> <base|a> [nohand]`(base = `?anim=off`) (Playwright, 장례 회랑 1턴: 대기 → 성검 베기 → 턴 종료 피격. `?test=1` 훅 `hideHand` 사용).
+  4. 구간 프레임: `python3 anim_scripts/frames.py <출력>/anim_<안> 10 5` → 비교 표·영상: `python3 anim_scripts/compare.py`. (부위 맞춤 그림을 만든 `rig_fit.py` 는 C 와 함께 지웠다.)
   - 스크립트 안의 절대 경로(scratchpad·작업 사본·Godot 실행 파일·글꼴)는 그때 환경 기준이라 바꿔서 쓴다. 한 번에 돌리는 예: `anim_scripts/capture_all.sh`.
 
 ## 노엘 스탠딩 39 v1 디스필 (2026-11-21, `game/DECISIONS.md` 「노엘 스탠딩 39 v1 — [임시]」)

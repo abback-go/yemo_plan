@@ -47,7 +47,7 @@
 | `?guides=reset` | 본 안내 기록을 지워 안내를 다시 보이게 |
 | `?darkness=N` · `?omen=1` · `?hp=누구:HP,…` | 시험용(바로 가기와 함께): 어둠 단계 · 전조를 본 상태 · HP(`witch`·`hero`·`warrior`·`archer`) |
 | `?run=N` | 회차 번호 |
-| `?anim=a` · `?anim=c` | 움직임 시험 두 안(밤샘 계획 4 — 그 작업을 합친 뒤에 생김). 기본 화면은 그대로 |
+| `?anim=off` | 전투 움직임을 그 전 기본(튀어 나가기·흔들림)으로 — 비교용. 옵션이 없으면 A′(2026-11-22부터 기본, `ui/battle_anim.gd`). 예전 `?anim=a`·`c` 는 A′ |
 | `?test=1` | 웹 시험 훅(`window.witch.*`, 스모크가 씀) |
 | `?autoguide=1` · `?autoplay=1` | 대사·안내 자동 넘김 · 자동 진행 |
 | 자동 진행 선택 | `--rooms=방,…`(지도에서 들를 순서, `none` = 정해진 길만) · `--choice=값,…`(VN 선택) · `--reward=카드|skip`(묘지기의 좌판) · `--train=카드` · `--fates=accept|offer|defy,…`(운명의 시도 순서대로) · `--ai=careful` |

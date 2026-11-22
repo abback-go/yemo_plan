@@ -235,7 +235,7 @@ Edit the attached image. Change only the small scene reflected in the eye: repla
 | **60 ↔ 대본 221행** | 대본 "세라피나의 얼굴", 그림은 땋은 머리 + 거대한 그림자 | 대본을 "세라피나의 땋은 머리, 그 위를 덮은 거대한 그림자"로 | 대본 고침은 사용자 결정 뒤에만 |
 | **67 이름표** | 그림 없음. VN 대화창 안에 이름을 붉은 글자로 씀 | 생략 | 쓰기로 하면 아래 「67」 |
 | **배경 제거 도구** | `tools/remove_bg.py` 기본값(soft 150)이 몸 안쪽 중간색까지 반투명으로 만듦 | — | 고칠지 정한다. 그때까지 `vs_import.py` 가 `--soft 100` 으로 피함 |
-| **움직임 A′ / C** (밤샘 4) | `?anim=a`·`?anim=c` 시험만, 기본 화면 그대로 | — | C(또는 섞기)를 고르면 `04_seraphina_parts` 부위 시트를 **뒷모습 비율에 맞게 다시 뽑는다**(지금 조립하면 머리 약 1.34배·팔이 몸에 붙음·성검이 발 아래로 67px — `reference/trials/anim_c_fit.webp`). 다른 동료도 C로 하면 부위 시트를 새로 뽑는다(프롬프트 없음 — `vs_assets.md` P04를 바탕으로 새로 쓴다) |
+| ~~**움직임 A′ / C** (밤샘 4)~~ — 2026-11-22 결정: A′ 기본, C 지움(부위 시트 다시 뽑기 없음) | `?anim=a`·`?anim=c` 시험만, 기본 화면 그대로 | — | C(또는 섞기)를 고르면 `04_seraphina_parts` 부위 시트를 **뒷모습 비율에 맞게 다시 뽑는다**(지금 조립하면 머리 약 1.34배·팔이 몸에 붙음·성검이 발 아래로 67px — `reference/trials/anim_c_fit.webp`). 다른 동료도 C로 하면 부위 시트를 새로 뽑는다(프롬프트 없음 — `vs_assets.md` P04를 바탕으로 새로 쓴다) |
 
 ### 18 계단 앞 홀 수정 — 결정되면
 - 원본: 대화에서 준 수정 프롬프트(2026-11-21) · 첨부: [`18_bg_stair_landing.webp`](https://github.com/abback-go/yemo_plan/blob/cc/amazing-darwin-nesbwh/art/raw/vs/18_bg_stair_landing.webp) · 배경을 뽑던 대화창
