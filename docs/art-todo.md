@@ -257,3 +257,8 @@ Using the attached image only as a style reference, draw a game UI element: a sm
 - **2·3층 그림 목록·프롬프트**(브룬힐드·엘리안 데스신, 2층 카드 「전사의 죽음」 등) — 1층 그림을 마친 뒤 만든다. 지금 2·3층은 옛 그림을 쓴다.
 - 브룬힐드 데스신(관통)은 그림체 D 시안 7장이 `reference/deathscene/brunhild_*` 에 있고, 통과한 구도·막힌 구도는 `docs/art-direction.md` 4장에 있다. 그때 준 프롬프트는 저장소에 없다(대화에서만 줌, 대부분 거절) — 통과 컷을 첨부해 새로 쓴다.
 - 42 묘지기 상인은 26 CG에 들어 있어 뽑지 않았다(원본 「42」의 "26번 CG에 이미 있으면 생략").
+
+## 그림체 F 진행 (2026-11-22~)
+- 기준: `docs/art-direction.md` 1-0장. 원본은 `art/raw/vs_f/`. 동료는 **첨부 두 장**(그림체 `reference/style/style_F_seraphina_stand.webp` + 예전 얼굴 `art/raw/vs/<번호>_stand_*.webp`).
+- 통과: 28 세라피나 기본.
+- 임시 통과(고칠 것 남음): 32 브룬힐드 — 오른쪽 눈 밑 흉터가 **빨간 선**(피눈물처럼 보임) → 회색으로. 프롬프트: "Change only the scar under her right eye: keep its shape as one thin straight line, but draw it in pale light-gray ink instead of red." (같은 대화창). 갑옷 무늬가 세라피나보다 촘촘함(선택).
