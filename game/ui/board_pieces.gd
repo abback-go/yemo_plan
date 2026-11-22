@@ -16,6 +16,9 @@ const CH := 360.0
 const ART := Rect2(0.075, 0.05, 0.85, 0.765)
 const NAME := Rect2(0.19, 0.826, 0.67, 0.118)
 const BADGE := Vector2(0.175, 0.125)
+# v2.2: 내 카드(손패·맡긴 카드·노엘 카드) 글씨 — 설명·이름을 크게(카드 240 기준 px). 길면 fit_size 가 줄인다
+const MINE_DESC := 24
+const MINE_NAME := 26
 
 const FRAMES := {"ally": "card_frame_f_ally.png", "enemy": "card_frame_f_enemy.png", "minion": "card_frame_f_minion.png"}
 
@@ -191,7 +194,7 @@ static func _pt(r: Rect2, k: Vector2) -> Vector2:
 
 
 ## 이름 띠: 왼쪽 정렬(겹친 카드의 왼쪽 띠에서도 앞 글자가 보이게). 길면 줄인다. right: 띠 오른쪽의 작은 글자(특성 등)
-static func name_band(ci: CanvasItem, r: Rect2, name: String, col: Color, right := "", rcol := GOLD, dark_band := false) -> void:
+static func name_band(ci: CanvasItem, r: Rect2, name: String, col: Color, right := "", rcol := GOLD, dark_band := false, size := 21) -> void:
 	var s := r.size.x / CW
 	var nr := _rr(r, NAME)
 	var rw := 0.0
@@ -199,20 +202,20 @@ static func name_band(ci: CanvasItem, r: Rect2, name: String, col: Color, right 
 		var fsr := int(13 * s)
 		rw = Assets.font("sans_bold").get_string_size(right, HORIZONTAL_ALIGNMENT_LEFT, -1, fsr).x + 6 * s
 		text_in(ci, Rect2(nr.end.x - rw, nr.position.y, rw, nr.size.y), right, fsr, rcol, "sans_bold", HORIZONTAL_ALIGNMENT_RIGHT, maxi(1, int(2 * s)))
-	var fs := fit_size(name, "serif_bold", int(21 * s), nr.size.x - rw - 2 * s)
+	var fs := fit_size(name, "serif_bold", int(size * s), nr.size.x - rw - 2 * s)
 	var ink := col if dark_band else col
 	text_in(ci, Rect2(nr.position, Vector2(nr.size.x - rw, nr.size.y)), name, fs, ink, "serif_bold", HORIZONTAL_ALIGNMENT_LEFT, maxi(1, int(3 * s)))
 
 
 ## 그림 창 아래쪽 설명(어두운 그라디언트 위)
-static func desc(ci: CanvasItem, r: Rect2, s_txt: String, top := 0.58) -> void:
+static func desc(ci: CanvasItem, r: Rect2, s_txt: String, top := 0.58, size := 15) -> void:
 	if s_txt == "":
 		return
 	var s := r.size.x / CW
 	var ar := _rr(r, ART)
 	var gr := Rect2(ar.position.x, ar.position.y + ar.size.y * (top - ART.position.y) / ART.size.y, ar.size.x, ar.end.y - (ar.position.y + ar.size.y * (top - ART.position.y) / ART.size.y))
 	ci.draw_texture_rect(grad_bottom(), gr, false)
-	var fs := fit_size(s_txt, "sans_bold", int(15 * s), gr.size.x - 18 * s)
+	var fs := fit_size(s_txt, "sans_bold", int(size * s), gr.size.x - 14 * s)
 	text_in(ci, Rect2(gr.position.x + 8 * s, gr.position.y + gr.size.y * 0.2, gr.size.x - 16 * s, gr.size.y * 0.8), s_txt, fs, Color("#efe5d6"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
 
 
@@ -265,11 +268,11 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 				cover(ci, tex(art), ar, Rect2(), Color(0.62, 0.58, 0.6) if bool(f.get("dark", false)) else Color.WHITE)
 			else:
 				bless_art(ci, ar)
-			desc(ci, r, str(f.get("text", "")))
+			desc(ci, r, str(f.get("text", "")), 0.48, MINE_DESC)   # v2.2: 짧고 큰 글씨
 			frame(ci, r, "ally")
 			var own := str(f.get("owner", ""))
 			var ocol: Color = {"hero": Color("#e4e8f0"), "warrior": Color("#f0c89a"), "archer": Color("#c2e6b0"), "noel": Color("#f0b8d4")}.get(own, Color("#e0dad6"))
-			name_band(ci, r, str(f.get("name", "")), Color("#2a1810"), str(BattleV2Data.D.owners.get(own, "")), ocol.darkened(0.55))
+			name_band(ci, r, str(f.get("name", "")), Color("#2a1810"), str(BattleV2Data.D.owners.get(own, "")), ocol.darkened(0.55), false, MINE_NAME)
 			gem(ci, bp, br * 0.95, str(f.get("cost", 0)), int(26 * s))
 			# 맡긴 카드: 특성·버프가 붙은 결과(왼쪽 띠에 보이게 봉인 아래) · 대상 적의 작은 얼굴(오른쪽 위)
 			var res := str(f.get("result", ""))

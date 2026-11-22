@@ -143,13 +143,26 @@ func t_owner() -> bool:
 	var st2 := battle(["slash", "guard", "guard", "slash"])
 	RulesV2.place(st2, uid_of(st2, "slash"), "hero", {"target": "A"})
 	RulesV2.place(st2, uid_of(st2, "guard"), "hero")
-	check("동료마다 2장까지", RulesV2.can_place(st2, uid_of(st2, "guard"), "hero").reason == "full")
+	check("v2.2: 한 칸 카드 수 제한 없음 — 세 번째 카드도 같은 동료에게(에너지가 있으면)", RulesV2.can_place(st2, uid_of(st2, "guard"), "hero").ok)
 	RulesV2.place(st2, uid_of(st2, "guard"), "warrior")
 	check("행동 에너지 3 을 다 쓰면 더 못 놓는다", st2.energy == 0 and RulesV2.can_place(st2, uid_of(st2, "slash"), "archer").reason == "noEnergy")
 	var r := RulesV2.unplace(st2, "hero", 0)
 	check("놓은 카드를 손패로 되돌리면 에너지도 돌려받는다", r.ok and st2.energy == 1 and st2.hand.has(r.uid) and st2.allies.hero.placed.size() == 1)
 	st2.allies.archer.down = true
 	check("쓰러진 동료의 칸에는 놓을 수 없다", RulesV2.can_place(st2, uid_of(st2, "slash"), "archer").reason == "down")
+	# v2.2: 한 동료에게 4장 이상(에너지만큼) — 겨누기 2 + 저격 → 7 × 배율 3 = 21
+	var st3 := battle(["aim", "aim", "snipe", "guard", "slash"])
+	st3.energy = 5
+	var ok3: bool = RulesV2.place(st3, uid_of(st3, "aim"), "archer").ok and RulesV2.place(st3, uid_of(st3, "aim"), "archer").ok
+	ok3 = ok3 and RulesV2.place(st3, uid_of(st3, "snipe"), "archer", {"target": "B"}).ok and RulesV2.place(st3, uid_of(st3, "guard"), "archer").ok
+	ok3 = ok3 and RulesV2.place(st3, uid_of(st3, "slash"), "archer", {"target": "A"}).ok
+	var snipe_dmg := 0
+	var fc3 := RulesV2.forecast(st3)
+	for p in st3.allies.archer.placed:
+		if st3.cards[p.uid].id == "snipe":
+			snipe_dmg = int(fc3[p.uid].get("dmg", 0))
+	check("v2.2: 한 동료 칸에 5장(에너지 5) · 겨누기 둘 뒤 저격 21", ok3 and st3.allies.archer.placed.size() == 5 and st3.energy == 0 and snipe_dmg == 21,
+		str([st3.allies.archer.placed.size(), st3.energy, snipe_dmg]))
 	return true
 
 

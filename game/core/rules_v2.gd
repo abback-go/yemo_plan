@@ -398,13 +398,21 @@ static func can_place(st: Dictionary, uid: String, ally_id: String) -> Dictionar
 		return _no("down")
 	if str(c.owner) != "" and str(c.owner) != ally_id:
 		return _no("notOwner")
-	if a.placed.size() >= int(D().rules.maxPlaced):
+	if room(st, ally_id) <= 0:
 		return _no("full")
 	if int(c.cost) > int(st.energy):
 		return _no("noEnergy")
 	if str(c.kind) in ["attack", "release"] and alive_enemies(st).is_empty():
 		return _no("noEnemy")
 	return {"ok": true}
+
+
+## 그 동료 칸에 더 놓을 수 있는 장수 (rules.maxPlaced 0 = 제한 없음 → 아주 큰 수. 에너지는 따로 본다)
+static func room(st: Dictionary, ally_id: String) -> int:
+	var mx := int(D().rules.maxPlaced)
+	if mx <= 0:
+		return 1 << 20
+	return mx - st.allies[ally_id].placed.size()
 
 
 ## 그 칸에 놓을 수 있는가 (칸 → 그 칸의 동료)
@@ -932,7 +940,7 @@ static func auto_step(st: Dictionary) -> Dictionary:
 						return {"kind": "move", "ally": b, "to": c}
 	if int(st.energy) <= 0 or st.hand.is_empty() or hb.is_empty():
 		return {"kind": "end"}
-	var free := living_allies(st).filter(func(id): return st.allies[id].placed.size() < int(D().rules.maxPlaced))
+	var free := living_allies(st).filter(func(id): return room(st, id) > 0)
 	var fc := forecast(st)
 	# ① 노엘이 쓰러질 만큼 맞으면
 	var noel_in := 0
@@ -984,9 +992,10 @@ static func auto_step(st: Dictionary) -> Dictionary:
 		if t != "":
 			return {"kind": "place", "uid": hb.holy, "ally": "hero", "opts": {"target": t}}
 	if free.has("archer"):
-		var slots: int = int(D().rules.maxPlaced) - st.allies.archer.placed.size()
+		var slots: int = room(st, "archer")
 		var aimed := _placed_ids(st, "archer").has("aim")
-		if hb.has("aim") and hb.has("snipe") and slots >= 2 and int(st.energy) >= 2 and int(st.allies.archer.mult) < int(D().traits.aim.max):
+		var will_mult: int = int(st.allies.archer.mult) + _placed_ids(st, "archer").count("aim")
+		if hb.has("aim") and hb.has("snipe") and slots >= 2 and int(st.energy) >= 2 and will_mult < int(D().traits.aim.max):
 			return {"kind": "place", "uid": hb.aim, "ally": "archer", "opts": {}}
 		if hb.has("snipe") and (aimed or int(st.allies.archer.mult) >= 2 or not hb.has("aim")):
 			var t2 := _attack_target(st, fc, true)
