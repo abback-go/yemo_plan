@@ -1185,17 +1185,320 @@ static func forecast_place(st: Dictionary, uid: String, ally_id: String) -> Dict
 	return forecast(s).get(uid, {})
 
 
-# ───────── 자동 진행 (헤드리스 시험 --battle=v2 --autoplay) ─────────
-## 다음 한 수: {kind: "place", uid, ally, opts} · {kind: "cast", uid, target, opts} · {kind: "move", ally, to} · {kind: "end"}(턴 끝)
-## 판단(지시서 7장 "가장 위험한 칸 막기 → 남은 에너지로 공격" + v2.1 간단한 판단):
+# ───────── 자동 진행 (헤드리스 시험 --battle=v2 --autoplay · 난이도 재기 tests/sim_v2.gd) ─────────
+## 다음 한 수: {kind: "place", uid, ally, opts} · {kind: "cast", uid, target, opts} · {kind: "move", ally, to} · {kind: "start"}(출전) · {kind: "end"}(턴 끝)
+## 밤샘 계획 2 D1 「사람답게」: 사람이 화면에서 보는 것(적 행동 카드가 노리는 칸과 피해 · 놓기 전 결과 미리 보기)만으로 **이번 턴을 내다보고** 고른다.
+##   이번 턴에 할 수 있는 수(카드 놓기 · 노엘 카드 · 자리 바꾸기/빼기/넣기)를 몇 갈래로 이어 붙여(빔 탐색 AUTO_BEAM 갈래 · 자리 옮김은 늘 남김),
+##   갈래마다 상태를 복사해 턴 끝(동료 행동 → 적 행동 → 죽음 카드)까지 돌려 본 결과를 점수로 매기고, 가장 좋은 갈래의 첫 수를 낸다(_auto_score).
+##   → 앞 적이 없으면 자리를 바꿔 앞 적을 고르고 · 노려진 칸에 막기 · 겨누기 → 저격(배율은 점수에 남는다) · 빈칸이 노려지면 동료를 넣어 노엘을 지킨다 —
+##     규칙 몇 줄로 정하지 않아도 점수가 그렇게 고르게 된다. 뒷면(어둠)의 피해는 모르는 것으로 쳐서 그 적의 보통 피해로 본다.
+##   다음 턴(뽑을 카드·적의 다음 행동)은 보지 않는다(사람도 모른다). 출전 배치: 앞 적이 있는 칸에 센 공격을 쥔 동료(_auto_formation)
+## 예전 판단(규칙 몇 줄 — 시험 전투 30판 2승)은 auto_simple 로 남겨 비교한다(서툰 사람 쪽 잣대)
+const AUTO_BEAM := 6
+const AUTO_DEPTH := 7
+const AUTO_MOVES := 2          # 한 턴에 자리를 옮기는 수(에너지 1씩)의 탐색 한도
+static var _auto_cache := {}   # 같은 턴의 다음 수: {sig: 다음 상태 sig, plan: 남은 수} — 한 턴에 한 번만 내다본다
+
+
+static func auto_step(st: Dictionary) -> Dictionary:
+	if st.result != null:
+		return {"kind": "end"}
+	if st.phase == "formation":
+		return _auto_formation(st)
+	var sig := _auto_sig(st)
+	if str(_auto_cache.get("sig", "")) == sig and not (_auto_cache.plan as Array).is_empty():
+		return _auto_next(st)
+	_auto_cache = {"sig": "", "plan": auto_plan(st)}
+	return _auto_next(st)
+
+
+## 캐시한 갈래의 첫 수를 내고, 그 수를 둔 뒤의 상태 sig 를 적어 둔다(다음 부름에 그 상태면 다시 내다보지 않는다)
+static func _auto_next(st: Dictionary) -> Dictionary:
+	var plan: Array = _auto_cache.plan
+	if plan.is_empty():
+		_auto_cache = {}
+		return {"kind": "end"}
+	var a: Dictionary = plan.pop_front()
+	var s2: Dictionary = st.duplicate(true)
+	if not _auto_apply(s2, a).ok:
+		_auto_cache = {}
+		return {"kind": "end"}
+	_auto_cache.sig = _auto_sig(s2) if not plan.is_empty() else ""
+	return a
+
+
+## 이번 턴의 가장 좋은 수 목록(빈 목록 = 바로 턴 끝이 가장 낫다)
+static func auto_plan(st: Dictionary) -> Array:
+	var s0: Dictionary = st.duplicate(true)
+	_mask_hidden(s0)
+	var best_v := _auto_value(s0)
+	var best_path := []
+	var beam := [{"s": s0, "path": [], "moved": []}]
+	var seen := {_auto_sig(s0): true}
+	for _depth in AUTO_DEPTH:
+		var kids := []
+		for n in beam:
+			for a in _auto_actions(n.s, n.moved):
+				var s2: Dictionary = n.s.duplicate(true)
+				if not _auto_apply(s2, a).ok:
+					continue
+				var sg := _auto_sig(s2)
+				if seen.has(sg):
+					continue
+				seen[sg] = true
+				var path: Array = n.path + [a]
+				var v := _auto_value(s2) - 0.05 * path.size()   # 같은 결과면 수가 적은 쪽
+				var mv: Array = n.moved + ([str(a.ally)] if a.kind == "move" else [])
+				kids.append({"s": s2, "path": path, "v": v, "moved": mv, "isMove": a.kind == "move"})
+				if v > best_v + 0.01:
+					best_v = v
+					best_path = path
+		if kids.is_empty():
+			break
+		kids.sort_custom(func(x, y): return x.v > y.v)
+		# 위에서 AUTO_BEAM 갈래 + 자리를 옮긴 갈래는 늘 남긴다(옮기기만으로는 점수가 오르지 않고 다음 수와 함께 오른다)
+		var nb := kids.slice(0, AUTO_BEAM)
+		for k in kids.slice(AUTO_BEAM):
+			if k.isMove:
+				nb.append(k)
+		beam = nb
+	return best_path
+
+
+## 이 상태에서 둘 수 있는 수(같은 카드 id·레벨은 한 번만). moved: 이번 갈래에서 이미 옮긴 동료(같은 동료를 두 번 옮기지 않는다)
+static func _auto_actions(s: Dictionary, moved: Array) -> Array:
+	var out := []
+	var seen := {}
+	for u in s.hand:
+		if not affordable(s, u):
+			continue
+		var key := str(s.cards[u].id) + ":" + str(s.cards[u].get("lv", 1))
+		if seen.has(key):
+			continue
+		seen[key] = true
+		var c := card_def(s, u)
+		if str(c.owner) != "noel":
+			for id in living_allies(s):
+				if can_place(s, u, id).ok:
+					out.append({"kind": "place", "uid": u, "ally": id, "opts": {}})
+			continue
+		for tg in _auto_targets(s, u, str(c.kind)):
+			if str(c.kind) == "shift":
+				for to in shift_dests(s, tg):
+					if can_cast(s, u, tg).ok:
+						out.append({"kind": "cast", "uid": u, "target": tg, "opts": {"to": to}})
+			elif can_cast(s, u, tg).ok:
+				out.append({"kind": "cast", "uid": u, "target": tg, "opts": {}})
+	if moved.size() < AUTO_MOVES and int(s.energy) >= int(D().rules.moveCost):
+		for id in s.order:
+			if moved.has(id) or s.allies[id].dead:
+				continue
+			for to in [0, 1, 2, "bench"]:
+				if can_move(s, id, to).ok:
+					out.append({"kind": "move", "ally": id, "to": to})
+	return out
+
+
+## 노엘 카드의 대상 후보
+static func _auto_targets(s: Dictionary, uid: String, kind: String) -> Array:
+	var out := []
+	match kind:
+		"shift", "curse", "erase":
+			for e in s.enemies:
+				if e.alive and e.intent != null and str(e.intent.kind) in ["hit", "sweep"]:
+					out.append(str(e.id))
+			if kind == "shift":
+				for d in s.deaths:
+					out.append(str(d.id))
+		"tear":
+			for d in s.deaths:
+				out.append(str(d.id))
+		"vuln", "stomp":
+			for e in s.enemies:
+				if e.alive and not immune(e):
+					out.append(str(e.id))
+					if kind == "stomp":
+						break   # 모든 적에게 — 대상 하나로 충분
+		"bless", "heal":
+			for id in s.order:
+				if not s.allies[id].down:
+					out.append(str(id))
+	return out
+
+
+static func _auto_apply(s: Dictionary, a: Dictionary) -> Dictionary:
+	match str(a.kind):
+		"place":
+			return place(s, str(a.uid), str(a.ally), a.get("opts", {}))
+		"cast":
+			return cast(s, str(a.uid), str(a.target), a.get("opts", {}))
+		"move":
+			return move_ally(s, str(a.ally), a.to)
+	return _no("same")
+
+
+## 상태를 가르는 글자(같은 상태에 다른 순서로 닿은 갈래를 하나로) — 칸 · 벤치 · 맡긴 카드(순서까지 — 겨누기 → 저격) · 노엘 카드 · 에너지
+static func _auto_sig(s: Dictionary) -> String:
+	var hids: Array = s.hand.map(func(u): return str(s.cards[u].id) + str(s.cards[u].get("lv", 1)))
+	hids.sort()
+	var parts := [s.seed, s.rng, s.enc, s.turn, s.energy, s.slots, s.bench, hids]
+	for id in s.order:
+		parts.append(s.allies[id].placed.map(func(p): return str(s.cards[p.uid].id) + str(s.cards[p.uid].get("lv", 1))))
+	for n in s.noel:
+		parts.append([str(s.cards[n.uid].id), n.target, n.move])
+	return var_to_str(parts)
+
+
+## 어둠: 뒷면 적 행동 카드의 피해는 모른다 → 그 적의 보통 피해로(노리는 칸은 보인다)
+static func _mask_hidden(s: Dictionary) -> void:
+	for e in s.enemies:
+		if e.alive and e.intent != null and bool(e.intent.get("hidden", false)):
+			e.intent.value = int(round(_threat(s, e)))
+
+
+## 이 상태에서 턴을 끝내면(복사본에서 턴 끝까지 돌려) 얼마나 좋은가
+static func _auto_value(s: Dictionary) -> float:
+	var e: Dictionary = s.duplicate(true)
+	end_turn(e)
+	return _auto_score(e)
+
+
+## 그 적이 한 턴에 보통 주는 피해(난이도 판단용 — 전투 구성의 hit·pattern, 없으면 적 행동 표)
+static func _threat(s: Dictionary, e: Dictionary) -> float:
+	if immune(e):
+		return 0.0
+	var E := enc_def(s)
+	var pat: Array = E.get("pattern", {}).get(e.type, [])
+	if not pat.is_empty():
+		var t := 0.0
+		for p in pat:
+			t += float(p.value)
+		return t / pat.size()
+	var acts: Dictionary = D().enemies[e.type].acts
+	var h: Dictionary = E.get("hit", {}).get(e.type, acts.get("hit", {}))
+	if h.has("min"):
+		return (float(h.min) + float(h.max)) / 2.0
+	return float(h.get("value", 0))
+
+
+## 턴을 끝낸 뒤 상태의 점수: 이김 · 적 HP 와 위협(쓰러뜨리면 다음 턴 피해가 사라짐) · 동료 HP(쓰러짐·죽음은 크게) · 노엘 HP(빈칸은 다음 턴에도 노엘이 맞는다)
+##   · 엘리안 배율·브룬힐드 버팀(다음 턴에 쓰는 힘) · 죽음 카드가 기다리는 벤치 동료
+static func _auto_score(e: Dictionary) -> float:
+	if e.result == "lose":
+		return -100000.0 + float(e.turn)
+	var v := 0.0
+	if str(e.result) in ["win", "giant"]:
+		v += 5000.0
+	var thr := 0.0
+	for en in e.enemies:
+		if immune(en) or not en.alive:
+			continue
+		var t := _threat(e, en)
+		thr += t
+		v -= float(en.hp) + t * 2.0
+	for id in e.order:
+		var a: Dictionary = e.allies[id]
+		if a.dead:
+			v -= 200.0
+			continue
+		if a.down:
+			v -= 30.0 + float(a.maxHp)
+			continue
+		v += float(a.hp) * 1.5
+		if int(a.hp) <= 5:
+			v -= float(6 - int(a.hp)) * 2.0
+		if a.trait == "aim":
+			v += float(int(a.mult) - 1) * 5.0
+		elif a.trait == "brace":
+			v += float(a.brace) * 0.3
+		if col_of(e, id) < 0 and not deaths_of(e, id).is_empty():
+			v -= 40.0
+	v += float(e.noelHp) * 3.0
+	if int(e.noelHp) <= 6:
+		v -= float(7 - int(e.noelHp)) * 6.0
+	if e.result == null:
+		for c in ncols():
+			if receiver(e, c) == "noel":
+				v -= thr / float(ncols()) * 3.0
+	return v
+
+
+## 출전 배치(사람답게): 앞(같은 열)에 칠 적이 있는 칸에 센 공격을 쥔 동료(세라피나 > 엘리안 > 브룬힐드), 앞 적이 없는 칸에는 브룬힐드.
+## 지금 배치와 같은 점수면 그대로(옮기는 수를 줄인다). 다 맞으면 「출전」
+static func _auto_formation(st: Dictionary) -> Dictionary:
+	var w := {"hero": 3.0, "archer": 2.5, "warrior": 1.0}
+	var cands: Array = st.order.filter(func(id): return not st.allies[id].dead)
+	var best: Array = st.slots.duplicate()
+	var bv := _form_score(st, best, w)
+	for perm in _perms(cands, ncols()):
+		var v := _form_score(st, perm, w) - 0.01 * _form_diff(st.slots, perm)
+		if v > bv + 0.001:
+			bv = v
+			best = perm
+	for c in ncols():
+		var want := str(best[c])
+		if want != "" and ally_at(st, c) != want and can_move(st, want, c).ok:
+			return {"kind": "move", "ally": want, "to": c}
+	return {"kind": "start"}
+
+
+static func _form_score(st: Dictionary, slots: Array, w: Dictionary) -> float:
+	var v := 0.0
+	for c in ncols():
+		var id := str(slots[c])
+		if id == "":
+			v -= 5.0   # 빈칸은 노엘이 맞는다
+			continue
+		var f = front(st, c)
+		if f != null and not immune(f):
+			v += float(w.get(id, 1.0))
+	return v
+
+
+static func _form_diff(a: Array, b: Array) -> int:
+	var n := 0
+	for i in a.size():
+		if str(a[i]) != str(b[i]):
+			n += 1
+	return n
+
+
+## ids 에서 n 칸 배치(모자라면 "")를 모두
+static func _perms(ids: Array, n: int) -> Array:
+	var pool: Array = ids.duplicate()
+	while pool.size() < n:
+		pool.append("")
+	var out := []
+	_perm_rec(pool, [], n, out)
+	return out
+
+
+static func _perm_rec(pool: Array, cur: Array, n: int, out: Array) -> void:
+	if cur.size() == n:
+		out.append(cur.duplicate())
+		return
+	var used := {}
+	for i in pool.size():
+		var x = pool[i]
+		if used.has(x):
+			continue
+		used[x] = true
+		var rest: Array = pool.duplicate()
+		rest.remove_at(i)
+		_perm_rec(rest, cur + [x], n, out)
+
+
+## 예전 판단(규칙 몇 줄 — 2026-11-22 v2.1~밤샘 계획 2 A): 서툰 사람 쪽 비교용(tests/sim_v2.gd --ai=simple). 출전 배치만 _auto_formation 으로 같게
 ##   ⓪ 죽음 카드가 칸에 선 동료를 노리면: 운명 찢기 → 없으면 그 동료를 벤치로(에너지 1). 빈칸을 노린 공격이 있고 벤치에 넣을 동료가 있으면 넣는다
 ##   ① 가장 위험한 동료(받을 피해 − 놓은 막기)에게 막기 → 막기가 없으면 저주(그 칸의 가장 센 행동) → 운명 전가(가장 버틸 동료에게)
 ##      노엘이 이번 적 턴에 쓰러질 만큼 맞으면 그 공격을 저주·운명 전가(살아 있는 동료 칸으로)
 ##   ② 공격: 성검 베기 세라피나 · 겨누기를 쌓고 저격 엘리안 · 버팀이 쌓였으면 되돌리기 브룬힐드 · 베기는 세라피나(용사 막기) → 아무나
 ##   ③ 취약: 가장 큰 공격이 들어갈 적 · 축복: 가장 큰 행동을 하는 동료 ④ 남은 막기·겨누기
-static func auto_step(st: Dictionary) -> Dictionary:
+static func auto_simple(st: Dictionary) -> Dictionary:
 	if st.result != null:
 		return {"kind": "end"}
+	if st.phase == "formation":
+		return _auto_formation(st)   # 출전 배치는 같게(처음 하는 사람도 앞 적이 있는 칸에 센 동료를 세운다)
 	var hb := {}
 	for u in st.hand:
 		if affordable(st, u):

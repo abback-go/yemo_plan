@@ -2053,6 +2053,11 @@ func _process(delta: float) -> void:
 ## 한 수(사람이 끌어 놓는 것과 같은 길 — 카드가 날아가 놓인다). 반환: 한 일
 func auto_step() -> String:
 	if mode == "formation":
+		# 출전 배치(D1): 앞 적이 있는 칸에 센 동료를 세운 뒤 「출전」 (RulesV2._auto_formation)
+		var f := RulesV2.auto_step(st)
+		if str(f.kind) == "move" and RulesV2.can_move(st, str(f.ally), f.to).ok:
+			_commit_move(str(f.ally), f.to)
+			return "move"
 		await _on_start()
 		return "start"
 	if mode != "idle" or st.result != null:

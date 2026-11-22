@@ -74,6 +74,7 @@ Godot 바이너리를 `godot` 라고 쓴다(로컬 예: 스크래치패드의 `g
    ```
    경로: A 처음부터 데스신·빈 곁방 · B 어둠 · C 골라 들어가는 방 · D 휴대폰 터치 · E 느린 연출 · F 2·3층 운명 · S 타이틀·설정·일시정지·저장. 전체 약 12~21분(소프트웨어 렌더링, 지난 기록 707~1280초). Playwright 가 필요하다(`npm install playwright` 또는 `NODE_PATH`).
 6. 대량 자동 진행(멈춤·에러·난이도 표): `python3 tools/batch_autoplay.py --godot <godot> --seeds 1-20 --jobs 3 --out <폴더>` — 결과 읽는 법은 [`../docs/balance-report.md`](../docs/balance-report.md).
+   - 새 전투 난이도만 빠르게(규칙만, 화면·VN 없이): `godot --headless --path game --script res://tests/sim_v2.gd -- --seeds=1-40 [--mode=test,iso,chain] [--ai=simple] [--encs=gravekeeper] [--trace]` — 시험 전투 · 1층 다섯 곳(새 파티) · 1층 처음부터 이어서의 승률·남은 HP·턴(밤샘 계획 2 D, `../docs/balance-report.md` 「새 전투 1층」)
 
 커밋마다 2·3·4(한 경로), 큰 작업이 끝나면 4(6경로)·5 전부.
 

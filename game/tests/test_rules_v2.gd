@@ -17,7 +17,7 @@ static func run(tester) -> void:
 	var r := TestRulesV2.new()
 	r.t = tester
 	# 시험 함수마다 끝에서 true 를 돌려준다 — 도중에 스크립트 에러로 멈추면 실패로 센다(에러만 찍히고 통과로 보이지 않게)
-	for m in ["t_setup", "t_turn", "t_owner", "t_hero", "t_brace", "t_aim", "t_noel", "t_order", "t_minion", "t_shift", "t_win_lose", "t_forecast", "t_auto", "t_text",
+	for m in ["t_setup", "t_turn", "t_owner", "t_hero", "t_brace", "t_aim", "t_noel", "t_order", "t_minion", "t_shift", "t_win_lose", "t_forecast", "t_auto", "t_auto_human", "t_text",
 			"t_formation", "t_noel_hp", "t_death", "t_death_escape", "t_death_bench",
 			"t_game_setup", "t_game_tutorial", "t_game_cards", "t_game_gravekeeper", "t_game_deep_giant", "t_game_darkness", "t_game_apply", "t_game_auto"]:
 		if r.call(m) != true:
@@ -441,7 +441,64 @@ func t_auto() -> bool:
 			bad = "seed %d: 끝나지 않음 turn %d" % [sd, st.turn]
 		results[str(st.result)] = int(results.get(str(st.result), 0)) + 1
 	check("자동 진행: 시드 1~30 모두 결과까지(규칙이 거절한 수 0, 자리 바꾸기·운명 찢기 포함)", ok, bad + " " + str(results))
+	# D1(사람답게 — 이번 턴을 내다봄): 예전 판단은 30판 2승. 잣대가 다시 약해지지 않게
+	check("자동 진행: 시험 전투 30판 중 20판 넘게 이긴다(예전 판단 2승)", int(results.get("win", 0)) >= 20, str(results))
 	print("    v2 자동 진행 30판: ", results)
+	return true
+
+
+## D1 「사람답게」: 이번 턴을 내다보는 자동 진행이 하는 일 넷 — 수 목록(auto_plan)으로 본다
+func _plan_has(plan: Array, kind: String, key: String, val) -> bool:
+	for a in plan:
+		if str(a.kind) == kind and str(a.get(key, "")) == str(val):
+			return true
+	return false
+
+
+func t_auto_human() -> bool:
+	# ① 자리 바꾸기로 앞 적 고르기: 세라피나 앞(칸 0)의 광신도 A 가 쓰러져 있으면 성검 베기를 칠 수 있는 칸으로 옮긴 뒤 낸다
+	var st := battle(["holy"])
+	var a = RulesV2.enemy(st, "A")
+	a.alive = false
+	a.hp = 0
+	var p := RulesV2.auto_plan(st)
+	check("자동 진행: 앞 적이 없으면 자리를 바꿔(에너지 1) 앞 적을 고른 뒤 공격", p.size() == 2 and str(p[0].kind) == "move" and str(p[0].ally) == "hero"
+		and str(p[1].kind) == "place" and str(p[1].ally) == "hero", str(p))
+	# ② 노려진 칸에 막기: 광신도 A 가 칸 2(엘리안)에 6 → 그 칸에 서는 동료에게 막기(브룬힐드를 넣고 막기 7 을 주기도 한다)
+	var st2 := battle(["guard"], {"A": hit(6, "archer")})
+	var p2 := RulesV2.auto_plan(st2)
+	for a2 in p2:
+		RulesV2._auto_apply(st2, a2)
+	var in2 := RulesV2.ally_at(st2, 2)
+	check("자동 진행: 노려진 칸에 선 동료에게 막기", in2 != "" and st2.allies[in2].placed.any(func(pp): return st2.cards[pp.uid].id == "guard"), str(p2))
+	# ③ 겨누기 → 저격: 엘리안 앞 광신도 B(14)에게 겨누기 다음 저격(7 × 2 = 14 — 쓰러뜨림). 놓는 순서도 겨누기가 먼저
+	var st3 := battle(["aim", "snipe"])
+	var p3 := RulesV2.auto_plan(st3)
+	check("자동 진행: 겨누기 → 저격으로 이어 간다", p3.size() == 2 and str(st3.cards[p3[0].uid].id) == "aim" and str(st3.cards[p3[1].uid].id) == "snipe"
+		and str(p3[0].ally) == "archer" and str(p3[1].ally) == "archer", str(p3))
+	# ④ 빈칸이 노려지면 동료를 넣어 노엘을 지킨다: 칸 1 이 비고 브룬힐드가 벤치 — 무덤지기가 칸 1 에 8
+	var st4 := battle([], {"G": hit(8, 1)})
+	st4.slots[1] = ""
+	st4.bench = ["warrior"]
+	var p4 := RulesV2.auto_plan(st4)
+	check("자동 진행: 빈칸이 노려지면 벤치 동료를 넣는다(노엘 대신 맞게)", _plan_has(p4, "move", "ally", "warrior") and str(p4[0].to) == "1", str(p4))
+	# 출전 배치: 무덤지기(가운데 한 칸)면 세라피나를 가운데로
+	var gs := Rules.new_game(5)
+	RulesV2.init_party(gs)
+	var st5 := RulesV2.new_battle(null, RulesV2.battle_opts(gs, "gravekeeper"))
+	var guard := 0
+	while st5.phase == "formation" and guard < 6:
+		guard += 1
+		var f := RulesV2.auto_step(st5)
+		if f.kind != "move":
+			break
+		RulesV2.move_ally(st5, f.ally, f.to)
+	check("자동 진행 출전 배치: 앞 적이 있는 가운데 칸에 세라피나", RulesV2.ally_at(st5, 1) == "hero" and st5.bench.is_empty(), str(st5.slots))
+	# 미리 보는 동안 실제 상태는 바뀌지 않는다
+	var st6 := battle(["holy", "guard", "aim"], {"A": hit(6, "hero"), "B": hit(5, "archer")})
+	var before := var_to_str(st6)
+	RulesV2.auto_plan(st6)
+	check("자동 진행: 내다보는 동안 실제 상태는 그대로", var_to_str(st6) == before)
 	return true
 
 
