@@ -61,6 +61,7 @@ var _auto_t := 0.0
 var _auto_busy := false
 var _zoom_face := {}
 var _zoom_left := true
+var _zoom_sticky := false   # 휴대폰: 탁자 카드를 탭해 띄운 크게 보기 — 다음 터치까지 남는다(밤샘 계획 2 C 0단계)
 var _opened_once := false   # 시험 훅 openhand
 var log: Array = []
 
@@ -87,6 +88,7 @@ func _exit_tree() -> void:
 		current = null
 		if G.dialog != null:
 			G.dialog.guide_mid_y = -1.0   # 이어서 연 전투(가장 깊은 곳 → 거대한 발)가 정한 값은 두고, 마지막 전투가 닫힐 때만
+			G.dialog.guide_low_y = -1.0
 
 
 ## 게임 모드의 튜토리얼 안내·대사(core/guide.gd — script_data.gd guideV2). 시험 전투에는 없다
@@ -220,6 +222,7 @@ func _build() -> void:
 	# 안내 상자(게임 모드 튜토리얼): 화면 맨 위에 뜨면 적 줄을 가렸다 → ② 적 행동 줄과 ④ 동료 줄 사이(③ 맡긴 카드 줄 — 안내가 뜰 때는 대개 비어 있다)를 가운데로(밤샘 계획 2 D)
 	if G.dialog != null:
 		G.dialog.guide_mid_y = (table.rect_at(cell_pos(1, 1)).end.y + table.rect_at(cell_pos(3, 1)).position.y) / 2.0
+		G.dialog.guide_low_y = table.rect_at(cell_pos(3, 1)).end.y   # 휴대폰: 안내 상자는 ④ 동료 줄 아래(화면 맨 아래)로 — 0단계
 
 
 # ───────── 탁자 자리 ─────────
@@ -718,6 +721,8 @@ func _draw_zoom() -> void:
 
 
 func _set_zoom(key: String, p := Vector2(960, 0)) -> void:
+	if key == "":
+		_zoom_sticky = false
 	var f := {}
 	if key != "":
 		var c: BoardTable.Card3D = table.card(key)
@@ -771,6 +776,12 @@ func _move_thresh() -> float:
 
 
 func _down(p: Vector2) -> void:
+	# 휴대폰: 탭으로 띄운 크게 보기는 다음 터치에 닫는다(손패를 누른 것이 아니면 그 터치는 닫기만)
+	if touch and _zoom_sticky:
+		_set_zoom("")
+		_set_spread("")
+		if mode != "idle" or hand.hit_test(p) == "":
+			return
 	if mode == "drag":
 		_cancel_drag()
 	match mode:
@@ -791,6 +802,11 @@ func _down(p: Vector2) -> void:
 			return
 	if mode == "idle":
 		var uid := hand.hit_test(p)
+		if uid != "" and touch and not hand.open:
+			# 휴대폰(터치): 닫힌 손패는 카드가 겹쳐 손가락 아래에 옆 카드가 걸려 집혔다 → 누르면 먼저 펼친다. 카드는 펼친 손패에서 끈다(밤샘 계획 2 C 0단계)
+			hand.set_open(true)
+			_set_zoom("")
+			return
 		if uid != "":
 			drag = {"uid": uid, "start": p, "moved": false, "hot": "", "col": -1, "open": hand.open}
 			mode = "drag"
@@ -891,7 +907,10 @@ func _up(p: Vector2) -> void:
 		if spread_cell != "":
 			_set_spread("")
 	if not mdrag.is_empty():
+		var mk := str(mdrag.key) if not bool(mdrag.moved) else ""
 		_up_mdrag(p)
+		if touch and not long_press and mk != "" and mode in ["idle", "formation"]:
+			_tap_zoom(mk, t2.get("start", p))
 		return
 	if mode == "drag":
 		if drag.is_empty():
@@ -921,6 +940,24 @@ func _up(p: Vector2) -> void:
 			_return_placed(key.substr(2))
 		elif key.begins_with("n:"):
 			_return_noel(key.substr(2))
+		elif touch:
+			_tap_zoom(key, t2.start)
+	elif mode == "formation" and touch and not t2.is_empty() and not long_press:
+		if absf(p.x - t2.start.x) + absf(p.y - t2.start.y) <= _move_thresh():
+			_tap_zoom(str(t2.key), t2.start)
+
+
+## 휴대폰: 탁자 카드를 한 번 탭하면 크게 보기(탁자 위 설명 글씨가 작다 — 길게 누르기 말고도). 맡긴 카드·노엘 카드는 탭이 「손패로 되돌리기」라 그대로 길게 누르기
+func _tap_zoom(key: String, p: Vector2) -> void:
+	if key == "" or key.begins_with("p:") or key.begins_with("n:") or key.begins_with("slot:") or key.begins_with("deck:"):
+		return
+	_set_zoom(key, p)
+	if _zoom_face.is_empty():
+		return
+	_zoom_sticky = true
+	var cell := str(_cell_of.get(key, ""))
+	if cell != "" and _pile_size(cell) > 1:
+		_set_spread(cell)
 
 
 # ───────── 탁자 카드 끌기: 동료 자리 바꾸기·빼기·넣기 · 운명 전가로 ② 옮기기 ─────────
@@ -2146,7 +2183,8 @@ func _guide_rect() -> Dictionary:
 	for k in table.cards:
 		if str(k).begins_with("e:"):
 			enemy_bottom = maxf(enemy_bottom, table.screen_rect(k).end.y)
-	return {"y": g.position.y, "h": g.size.y * g.scale.y, "x": g.position.x, "w": g.size.x * g.scale.x, "enemyBottom": enemy_bottom}
+	return {"y": g.position.y, "h": g.size.y * g.scale.y, "x": g.position.x, "w": g.size.x * g.scale.x, "scale": g.scale.y, "enemyBottom": enemy_bottom,
+		"actBottom": table.rect_at(cell_pos(1, 1)).end.y, "allyTop": table.rect_at(cell_pos(3, 1)).position.y, "allyBottom": table.rect_at(cell_pos(3, 1)).end.y}
 
 
 ## 화면 좌표(무대 1920×1080): card(손패 카드 id 또는 uid) · ally(동료 카드) · column(그 칸 ③) · slot(그 칸 ④) · bench · enemy · act(적 id·죽음 카드 id)

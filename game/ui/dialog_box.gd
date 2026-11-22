@@ -33,6 +33,9 @@ var dock := ""            # "" = 화면 왼쪽 위(기본) / "bottom" = 화면 �
 var dock_x := 470.0       # dock = "bottom" 일 때 왼쪽 x
 var dock_w := 0.0         # dock = "bottom" 일 때 너비(무대 px). 0 = 오른쪽 끝까지
 var guide_mid_y := -1.0   # 0 이상이면 안내 상자를 이 y(무대 px)를 가운데로 띄운다 — 새 전투 3D 탁자(scenes/board_battle.gd)가 적 줄·동료 줄 사이로 정함(밤샘 계획 2 D)
+# 0 이상이면 ④ 동료 줄 아래 끝(무대 px) — 작은 화면(휴대폰)에서는 안내 상자를 이 아래(화면 맨 아래)에 붙이고 배율을 줄여 ②·④ 줄을 가리지 않는다(밤샘 계획 2 C 0단계)
+var guide_low_y := -1.0
+var _guide_low := false   # 지금 안내 상자를 화면 아래에 붙였는가(작은 화면 + 새 전투)
 var _type_acc := 0.0
 
 
@@ -117,27 +120,36 @@ func relayout() -> void:
 		dlg_text.add_theme_font_size_override("normal_font_size", fs)
 		dlg.size = Vector2(w, 132)
 		dlg.position = Vector2(dock_x, 1080 - 26 - 132 * u)
-	var gw := minf(1180.0, 1840.0 / u)
+	# 휴대폰(작은 화면) + 새 전투: 글씨 배율만큼 커진 상자가 ② 적 행동 줄·④ 동료 줄을 가렸다 → 배율을 줄이고(guideLowUi) 폭을 넓혀
+	# 화면 맨 아래(④ 줄 아래 — 손패·HUD 자리, 안내가 떠 있는 동안은 어차피 누를 수 없다)에 붙인다. 높이가 넘치면 _fit 이 배율을 더 줄인다
+	_guide_low = guide_mid_y >= 0.0 and guide_low_y >= 0.0 and FX.small and not G.scenes.is_open()
+	var gu := minf(u, float(GameData.D.mobile.get("guideLowUi", 1.45))) if _guide_low else u
+	_guide_box(gu)
+	_fit()
+
+
+## 안내 상자 배치(배율 gu) — relayout · 작은 화면에서 높이에 맞춰 배율을 줄일 때(_fit)
+func _guide_box(gu: float) -> void:
+	var gw := minf(1180.0, 1840.0 / gu) if not _guide_low else 1880.0 / gu
 	# 전투 중에는 적·예고를 가리지 않게 적 줄 바로 아래(화면 위쪽 절반)에, 그 밖에는 화면 맨 위에 띄운다
 	var gy := 18.0
 	if G.ctl and G.ctl.in_battle and not G.scenes.is_open():
 		gy = float(G.view.LY().get("guideBattleY", 396))   # 배경마다 (battleLayouts)
 	if guide_mid_y >= 0.0 and not G.scenes.is_open():
-		gy = guide_mid_y - guide.size.y * u / 2.0
-	var gx := 960 - gw * u / 2.0
+		gy = guide_mid_y - guide.size.y * gu / 2.0
+	var gx := 960 - gw * gu / 2.0
 	# 오른쪽 위 메뉴 단추(누르는 영역)와 겹치면 상자 오른쪽 끝을 그 왼쪽까지 줄인다(휴대폰처럼 상자가 화면 폭을 거의 다 쓸 때)
 	if G.menu != null and G.menu.can_pause():
 		var cr: Rect2 = G.menu.corner_hit_rect()
-		if gy < cr.end.y and gx + gw * u > cr.position.x - 12.0:
-			gw = (cr.position.x - 12.0 - gx) / u
+		if gy < cr.end.y and gx + gw * gu > cr.position.x - 12.0:
+			gw = (cr.position.x - 12.0 - gx) / gu
 	guide.size = Vector2(gw, 150)
-	guide.scale = Vector2(u, u)
+	guide.scale = Vector2(gu, gu)
 	guide.position = Vector2(gx, gy)
-	guide_title.position = Vector2(30, 14)
-	guide_text.position = Vector2(30, 52)
+	guide_title.position = Vector2(30, 14 if not _guide_low else 8)
+	guide_text.position = Vector2(30, 52 if not _guide_low else 44)
 	guide_text.size = Vector2(gw - 60, 0)
 	guide_text.custom_minimum_size = Vector2(gw - 60, 0)
-	_fit()
 
 
 func _fit() -> void:
@@ -151,10 +163,23 @@ func _fit() -> void:
 	if guide.visible:
 		var gh: float = guide_text.get_content_height()
 		guide.size.y = 52.0 + gh + 58.0
-		if guide_mid_y >= 0.0 and not G.scenes.is_open():
+		if _guide_low:
+			# 작은 화면: ④ 동료 줄 아래 ~ 화면 아래 끝에 들어가게(넘치면 배율을 줄여 다시 — 글이 줄면 줄 수도 준다)
+			var avail := 1080.0 - 8.0 - (guide_low_y + 6.0)
+			for _i in 3:
+				gh = guide_text.get_content_height()
+				guide.size.y = 44.0 + gh + 16.0
+				var hh0 := guide.size.y * guide.scale.y
+				if hh0 <= avail or guide.scale.y <= 1.0:
+					break
+				_guide_box(maxf(1.0, guide.scale.y * avail / hh0 * 0.98))
+			guide.position.y = 1080.0 - 8.0 - guide.size.y * guide.scale.y
+			guide_hint.position = Vector2(guide.size.x - 330, 8)   # 「탭: 다음」은 제목 줄 오른쪽(아래 여백을 줄였다)
+		elif guide_mid_y >= 0.0 and not G.scenes.is_open():
 			var hh := guide.size.y * guide.scale.y
 			guide.position.y = clampf(guide_mid_y - hh / 2.0, 8.0, 1080.0 - hh - 8.0)
-		guide_hint.position = Vector2(guide.size.x - 330, guide.size.y - 40)
+		if not _guide_low:
+			guide_hint.position = Vector2(guide.size.x - 330, guide.size.y - 40)
 		guide_hint.size = Vector2(300, 30)
 		guide.queue_redraw()
 
