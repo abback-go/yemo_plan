@@ -21,9 +21,9 @@
 프롬프트에 그대로 넣을 수 있게 영어 묘사를 함께 둔다.
 
 ### 세라피나 — 용사 (기준 그림 `style_D_seraphina_anchor.webp`, 디자인 참고 `design_seraphina_v5_anime.webp`)
-- 미녀 성기사. 은백색 판금 + 금 세공, 맨 허리(흉갑은 가슴 아래에서 끝남), **속옷 대신 붕대: 허리에서 엉덩이·사타구니를 지나 허벅지 맨 위까지(붕대 반바지처럼), 그 아래 허벅지는 맨살, 무릎 위부터 정강이 갑옷.** 목·팔·종아리에는 붕대 없음.
+- 미녀 성기사. 은백색 판금 + 금 세공, 맨 허리(흉갑은 가슴 아래에서 끝남), **속옷 대신 붕대: 허리에서 엉덩이·사타구니를 지나 허벅지 맨 위까지(붕대 반바지처럼), 그 아래 허벅지는 맨살, 무릎 위부터 정강이 갑옷.** 목·팔·종아리에는 붕대 없음. **가슴에도 속옷처럼 붕대를 감았고, 흉갑 아래 가장자리로 살짝 보인다**(2026-11-22 사용자 결정).
 - 긴 은발 땋은 머리 + 붉은 리본, 왼쪽 눈 밑 점, 쓸쓸한 미소. 붉은 망토·금 십자 앞자락, 날개 모양 금 코등이 + 붉은 보석 + 붉은 리본이 달린 성검.
-- EN: Seraphina, a beautiful holy knight: silver-white plate armor with gold filigree, a bare waist (the breastplate ends below the chest), off-white bandages wrapped from her waist over her hips to the very top of her thighs like short bandage shorts, bare mid-thighs, armored greaves from just above the knees; a long silver braid with a crimson ribbon bow, a small beauty mark under her left eye, a crimson cape and a crimson tabard with a gold cross, a sacred longsword with a winged gold guard, a red gem and a crimson ribbon.
+- EN: Seraphina, a beautiful holy knight: silver-white plate armor with gold filigree, a bare waist (the breastplate ends below the chest), off-white bandages wrapped around her chest like an underwear wrap, peeking out just below the lower edge of the breastplate, off-white bandages wrapped from her waist over her hips to the very top of her thighs like short bandage shorts, bare mid-thighs, armored greaves from just above the knees; a long silver braid with a crimson ribbon bow, a small beauty mark under her left eye, a crimson cape and a crimson tabard with a gold cross, a sacred longsword with a winged gold guard, a red gem and a crimson ribbon.
 
 ### 브룬힐드 — 전사·방패 (`style_D_brunhild_v5.webp`)
 - 흑기사 미녀, 파티에서 가장 큼. 칠흑 긴 생머리 + 일자 앞머리(히메컷), **여우상**(가늘게 올라간 눈, 호박색 눈동자, 능청스러운 반쯤 웃음), 오른쪽 눈 밑 가는 흉터.
