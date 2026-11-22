@@ -9,7 +9,9 @@
     card_frame_f_enemy.png(적·적 행동) · card_frame_f_minion.png(하수인). 틀 안쪽 그림 자리가 투명해져 카드 그림을 뒤에 깐다
   · 적: 08 광신도 · 40 무덤지기 · 77 해골 병사(있는 것만) → 배경 제거 → f_spr_<적>.png (높이 900)
   · 노엘의 손: 78 왼손(손패를 띄우는 편 손) · 79 오른손 평소 · 80 오른손 집기·가리키기(있는 것만) → f_hand_*.png (캔버스 유지, 가로 HAND_W)
-사용법: python3 tools/vs_f_import.py [--only busts,enemies,hands,table,frames] [--check 폴더]
+  · v2.3 손패 당겨 보기의 양손: 예전 전투 양손 그림(game/assets/ui_witch_hand_left·right.png, 그림체 D) → 소매 초록 물듦 지우기
+    (G > max(R,B)+20 이면 G = (R+B)/2) + 그림체 F 에 맞게 조금 어둡고 채도 낮게 → ui_witch_hands_open_l·r.png (캔버스 836×941 유지)
+사용법: python3 tools/vs_f_import.py [--only busts,enemies,hands,table,frames,openhands] [--check 폴더]
 """
 import argparse
 import os
@@ -107,6 +109,29 @@ def do_hands():
     return outs
 
 
+# v2.3 양손(손패 당겨 보기): 원본(게임 폴더 안 예전 그림) → 결과. DESAT: 회색 쪽으로 섞는 비율 · DARK: 밝기 배율
+OPEN_HANDS = {'ui_witch_hand_left.png': 'ui_witch_hands_open_l.png', 'ui_witch_hand_right.png': 'ui_witch_hands_open_r.png'}
+OPEN_DESAT = 0.3
+OPEN_DARK = 0.8
+
+
+def do_open_hands():
+    outs = []
+    for src, out in OPEN_HANDS.items():
+        a = np.asarray(Image.open(os.path.join(OUT, src)).convert('RGBA')).astype(np.float32)
+        r, g, b = a[..., 0], a[..., 1], a[..., 2]
+        green = g > np.maximum(r, b) + 20
+        a[..., 1] = np.where(green, (r + b) / 2.0, g)
+        lum = a[..., 0] * 0.299 + a[..., 1] * 0.587 + a[..., 2] * 0.114
+        for ch in range(3):
+            a[..., ch] = (a[..., ch] * (1 - OPEN_DESAT) + lum * OPEN_DESAT) * OPEN_DARK
+        im = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
+        vs_import.save(im, out)
+        print('양손 %s: 초록 물듦 %d px 지움' % (out, int(green.sum())))
+        outs.append(out)
+    return outs
+
+
 def do_table():
     src, out = TABLE
     shutil.copyfile(os.path.join(RAW_F, src + '.webp'), os.path.join(OUT, out))
@@ -161,6 +186,8 @@ if __name__ == '__main__':
         done += do_table()
     if not only or 'frames' in only:
         done += do_frames()
+    if not only or 'openhands' in only:
+        done += do_open_hands()
     if a.check:
         vs_import.check([f for f in done if f.endswith('.png')], a.check)
     for f, (pct, mn) in vs_import.REPORT.items():

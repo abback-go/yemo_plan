@@ -35,6 +35,8 @@ var spread_cell := ""     # 펼친 칸 ("r:c" · "bench")
 var touch := false
 var preview_text := ""
 var preview_pos := Vector2.ZERO
+var preview_cell := Rect2()   # v2.3: 크게 보이는 결과 미리 보기 — 이 칸(화면 사각형) 옆에. 빈 사각형이면 예전처럼 작은 판
+var preview_bad := false      # 놓을 수 없는 까닭(붉은 판)
 var prompt_text := ""
 var _cell_of := {}        # 카드 key → 칸 id
 var _hidden: Array = []
@@ -45,6 +47,7 @@ var _auto_t := 0.0
 var _auto_busy := false
 var _zoom_face := {}
 var _zoom_left := true
+var _opened_once := false   # 시험 훅 openhand
 var log: Array = []
 
 
@@ -145,6 +148,7 @@ func _build() -> void:
 	end_btn.fit(Vector2(58, 18))
 	end_btn.position = Vector2(float(L().endTurn.x), float(L().endTurn.y))
 	end_btn.visible = false
+	end_btn.z_index = 46   # v2.3: 손패를 펼쳐 탁자가 어두워져도 「턴 끝」은 보이고 눌린다(누르면 닫힘)
 	add_child(end_btn)
 	start_btn = UI.button(T("start"), 36, _on_start)
 	start_btn.name = "start"
@@ -255,7 +259,7 @@ func face_ally(id: String) -> Dictionary:
 	if a.dead:
 		return {"kind": "dead", "name": G.name_of(id), "art": str(D().portraits[id].img), "deadText": T("dead")}
 	var f := {"kind": "ally", "name": G.name_of(id), "art": str(D().portraits[id].img), "hp": int(a.hp), "maxHp": int(a.maxHp), "block": int(a.block),
-		"trait": str(tr.name), "text": str(tr.text).replace("\n", " "), "down": bool(a.down), "downText": T("down")}
+		"trait": str(tr.name), "text": str(tr.text), "down": bool(a.down), "downText": T("down")}
 	match str(a.trait):
 		"brace":
 			f.statusLabel = T("brace")
@@ -541,7 +545,9 @@ func _draw_overlay() -> void:
 			var r := Rect2(top - Vector2(sz.x / 2.0, sz.y + 2), sz)
 			overlay.draw_style_box(UI.box(Color(0.1, 0.0, 0.02, 0.92), Color("#ff4b5a") if noel else Color("#a8323e"), 8, 2), r)
 			BoardPieces.text_in(overlay, r, txt, 22, Color("#ffd9dc"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, 3)
-	if preview_text != "":
+	if preview_text != "" and preview_cell.has_area():
+		_draw_big_preview()
+	elif preview_text != "":
 		var f2 := Assets.font("sans_bold")
 		var sz2 := f2.get_string_size(preview_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26) + Vector2(32, 14)
 		var r2 := Rect2(preview_pos - Vector2(sz2.x / 2.0, sz2.y), sz2)
@@ -559,6 +565,34 @@ func _draw_overlay() -> void:
 		var c3: BoardTable.Card3D = table.card(tk)
 		if c3 != null:
 			UI.arrow(overlay, table.to_screen(c3.position), get_local_mouse_position(), Color("#ffd36b"), 5.0, Vector2(12, 8), 30)
+
+
+## v2.3 결과 미리 보기(크게): 첫 줄(예 「저격 21」) 46px · 다음 줄(대상 등) 30px, 어두운 판을 칸 오른쪽(자리가 없으면 왼쪽)에
+func _draw_big_preview() -> void:
+	var f := Assets.font("sans_bold")
+	var lines := preview_text.split("\n")
+	var sizes: Array = []
+	var w := 0.0
+	var h := 0.0
+	for i in lines.size():
+		var fs := 46 if i == 0 else 30
+		sizes.append(fs)
+		w = maxf(w, f.get_string_size(lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+		h += f.get_height(fs)
+	var sz := Vector2(w + 44, h + 24)
+	var c := preview_cell
+	var x := c.end.x + 18.0
+	if x + sz.x > 1900.0:
+		x = c.position.x - 18.0 - sz.x
+	var r := Rect2(Vector2(x, c.get_center().y - sz.y / 2.0), sz)
+	overlay.draw_style_box(UI.box(Color(0.0, 0.0, 0.0, 0.55), Color.TRANSPARENT, 16), Rect2(r.position + Vector2(5, 8), r.size))
+	overlay.draw_style_box(UI.box(Color(0.05, 0.02, 0.02, 0.95), Color("#ff4b5a") if preview_bad else BoardPieces.GOLD, 14, 3), r)
+	var y := r.position.y + 12.0
+	for i in lines.size():
+		var lh := f.get_height(sizes[i])
+		var col := Color("#ffd9dc") if preview_bad else (Color("#ffdf8a") if i == 0 else Color("#efe3e5"))
+		BoardPieces.text_in(overlay, Rect2(r.position.x, y, r.size.x, lh), lines[i], sizes[i], col, "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, 4)
+		y += lh
 
 
 ## 크게 보기: 탁자 카드에 마우스를 올리거나(터치는 길게 누르면) 그 카드를 크게
@@ -651,12 +685,15 @@ func _down(p: Vector2) -> void:
 	if mode == "idle":
 		var uid := hand.hit_test(p)
 		if uid != "":
-			drag = {"uid": uid, "start": p, "moved": false, "hot": "", "col": -1}
+			drag = {"uid": uid, "start": p, "moved": false, "hot": "", "col": -1, "open": hand.open}
 			mode = "drag"
 			hand.hover_uid = ""
-			hand.lifted_uid = uid
+			hand.lifted_uid = uid if hand.open else ""
 			_set_zoom("")
 			hand.layout()
+			return
+		if hand.open:
+			hand.set_open(false)   # v2.3: 펼친 손패 — 빈 곳을 누르면 닫는다
 			return
 	var key := table.pick(p)
 	tap = {"key": key, "start": p, "t": Time.get_ticks_msec()}
@@ -675,6 +712,9 @@ func _move(p: Vector2, is_touch: bool) -> void:
 			if not drag.moved and absf(p.x - drag.start.x) + absf(p.y - drag.start.y) > _move_thresh():
 				drag.moved = true
 				hand.lifted_uid = ""
+				# v2.3: 펼친 손패에서 끌면 손이 내려가고(닫힘) 끄는 카드는 펼친 크기 그대로
+				hand.drag_k = hand.open_scale() if bool(drag.get("open", false)) else 0.0
+				hand.set_open(false)
 				hand.drag_uid = drag.uid
 				hand.drag_mode = "follow"
 			if drag.moved:
@@ -692,8 +732,14 @@ func _move(p: Vector2, is_touch: bool) -> void:
 			if is_touch:
 				return   # 터치: 길게 누르면 크게 보기 · 그 칸 펼치기(_process_touch_zoom)
 			var hu := hand.hit_test(p) if mode == "idle" else ""
-			hand.set_hover(hu)
-			if hu != "":
+			# v2.3: PC 는 손패 위에 마우스를 올려도 펼친다 · 펼친 곳 밖으로 나가면 닫는다
+			if hand.open and not hand.open_area().has_point(p):
+				hand.set_open(false)
+				hu = hand.hit_test(p)
+			if hu != "" and not hand.open:
+				hand.set_open(true)
+			hand.set_hover(hu if hand.open else "")
+			if hu != "" or hand.open:
 				_set_zoom("")
 				return
 			var key := table.pick(p)
@@ -753,6 +799,7 @@ func _up(p: Vector2) -> void:
 			return
 		if not drag.moved:
 			_cancel_drag()
+			hand.set_open(true)   # v2.3: 손패를 탭하면 왼손을 당겨와 크게 펼친다(펼친 채 카드를 탭하면 그대로)
 			return
 		_update_drag_hot(p)
 		var uid: String = drag.uid
@@ -883,6 +930,8 @@ func _update_drag_hot(p: Vector2) -> void:
 	var hot := ""
 	var reason := ""
 	preview_text = ""
+	preview_cell = Rect2()
+	preview_bad = false
 	prompt_text = ""
 	for k in table.cards:
 		table.card(k).set_glow(0.0)
@@ -936,12 +985,15 @@ func _update_drag_hot(p: Vector2) -> void:
 				table.card("ally:" + id).set_glow(2.0 if c == col else 1.0)
 		if col >= 0:
 			var chk2 := RulesV2.can_place_col(st, uid, col)
+			preview_cell = table.rect_at(cell_pos(2, col))
 			if chk2.ok:
 				hot = RulesV2.ally_at(st, col)
 				preview_text = _preview_line(uid, hot)
-				preview_pos = table.to_screen(cell_pos(2, col) + Vector3(0, 0, -0.75)) + Vector2(0, -6)
 			else:
 				reason = chk2.reason
+				if reason in ["noFront", "notOwner", "down", "noEnergy"]:
+					preview_text = str(D().reasons.get(reason, reason))
+					preview_bad = true
 	drag.hot = hot
 	drag.reason = reason
 	overlay.queue_redraw()
@@ -956,6 +1008,9 @@ func _preview_line(uid: String, ally: String) -> String:
 			var s := "%s %d" % [nm, int(r.get("dmg", 0))]
 			if int(r.get("block", 0)) > 0:
 				s += " · " + T("block", {"n": r.block})
+			var te = RulesV2.front_of(st, ally, uid)   # 9-6: 앞(같은 열) 적
+			if te != null:
+				s += "\n→ " + str(face_enemy(te).name)
 			return s
 		"block":
 			var s2 := "%s %d" % [nm, int(r.get("block", 0))]
@@ -969,6 +1024,7 @@ func _preview_line(uid: String, ally: String) -> String:
 
 func _clear_marks() -> void:
 	preview_text = ""
+	preview_cell = Rect2()
 	prompt_text = ""
 	for k in table.cards:
 		table.card(k).set_glow(0.0)
@@ -981,7 +1037,9 @@ func _cancel_drag() -> void:
 	hand.drag_uid = ""
 	hand.drag_mode = ""
 	hand.lifted_uid = ""
+	hand.drag_k = 0.0
 	preview_text = ""
+	preview_cell = Rect2()
 	prompt_text = ""
 	if mode == "drag":
 		mode = "idle"
@@ -1004,6 +1062,7 @@ func _drop(uid: String, hot: String) -> void:
 	hand.drag_uid = ""
 	hand.drag_mode = ""
 	hand.lifted_uid = ""
+	hand.drag_k = 0.0
 	var d := RulesV2.card_def(st, uid)
 	if str(d.owner) == "noel":
 		if str(d.kind) == "shift":
@@ -1242,6 +1301,7 @@ func _on_start() -> void:
 
 
 func _on_end() -> void:
+	hand.set_open(false)
 	if mode in ["pick", "shift"]:
 		_cancel_pending()
 	if mode == "drag":
@@ -1253,6 +1313,7 @@ func _on_end() -> void:
 
 func end_turn() -> void:
 	mode = "busy"
+	hand.set_open(false)
 	hand.set_hover("")
 	_set_zoom("")
 	spread_cell = ""
@@ -1573,6 +1634,7 @@ func _ev_cleanup(_e: Dictionary) -> void:
 
 # ───────── 결과 판 ─────────
 func _show_result() -> void:
+	hand.set_open(false)
 	mode = "over"
 	preview_text = ""
 	prompt_text = ""
@@ -1696,6 +1758,12 @@ func _process(delta: float) -> void:
 	_process_touch_zoom()
 	if mode in ["idle", "pick", "shift"]:
 		overlay.queue_redraw()
+	# 시험 전용(?test=1&openhand · 헤드리스 --test --openhand): 첫 내 턴에 손패를 펼쳐 둔다(스크린샷용)
+	if G.test and G.params.has("openhand") and mode == "formation" and not _opened_once:
+		_on_start()
+	if G.test and G.params.has("openhand") and mode == "idle" and not _opened_once:
+		_opened_once = true
+		hand.set_open(true)
 	if not G.params.has("autoplay") or _auto_busy or st.is_empty() or mode not in ["idle", "formation"]:
 		return
 	_auto_t += delta * FX.speed
@@ -1764,6 +1832,9 @@ static func test_call(args: Array) -> Dictionary:
 		"end":
 			b._on_end()
 			return {"ok": true}
+		"open":
+			b.hand.set_open(a1 != "0")
+			return {"ok": true, "open": b.hand.open}
 	return {"ok": false, "reason": "unknown"}
 
 
@@ -1783,7 +1854,7 @@ func test_state() -> Dictionary:
 	return {"ok": true, "mode": mode, "phase": st.phase, "turn": st.turn, "energy": st.energy, "result": st.result, "loseBy": st.loseBy, "deck": st.draw.size(),
 		"hand": hand_out, "slots": st.slots, "bench": st.bench, "noelHp": st.noelHp, "deaths": st.deaths, "postponed": RulesV2.postponed(st),
 		"allies": al, "enemies": en, "noel": st.noel.map(func(n): return {"kind": n.kind, "target": n.target}), "pending": not pending.is_empty(),
-		"tableCards": table.cards.size(), "handCards": hand.cards.size(), "maxHands": hand.max_hands, "handsNow": hand.hands_visible(), "log": log.slice(maxi(0, log.size() - 30))}
+		"tableCards": table.cards.size(), "handCards": hand.cards.size(), "handOpen": hand.open, "maxHands": hand.max_hands, "handsNow": hand.hands_visible(), "log": log.slice(maxi(0, log.size() - 30))}
 
 
 ## 화면 좌표(무대 1920×1080): card(손패 카드 id 또는 uid) · ally(동료 카드) · column(그 칸 ③) · slot(그 칸 ④) · bench · enemy · act(적 id·죽음 카드 id)

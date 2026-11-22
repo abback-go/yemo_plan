@@ -1,6 +1,8 @@
 ## board_hand.gd — 전투 시험판 v2.1 「3D 탁자」의 노엘의 손과 손패 (scenes/board_battle.gd, docs/battle-v2-spec.md 9-4 사용자 결정).
 ##  · 왼손: 화면 왼쪽 아래에 편 왼손(그림은 손패 뒤). 그 위로 손패가 부채꼴로 살짝 떠서 천천히 흔들린다. 손가락과 카드 사이에 붉은 실 몇 가닥(코드).
 ##  · 오른손: 평소 오른쪽 아래에 놓여 있다(idle). 카드를 끌면 집어 들고 따라간다(pinch). 대상을 고를 때 그 자리를 가리킨다(point).
+##  · v2.3 손패 당겨 보기(9-5 바꿈): open 이면 왼손·오른손 대신 양손 그림(both_l·both_r)이 가운데 아래로 올라오고 손패 전체가 크게(카드 높이 open.cardH) 펼쳐진다.
+##    탁자는 검은 반투명(dim)으로 가라앉힌다. 열고 닫기는 board(scenes/board_battle.gd)가 set_open 으로.
 ##  · 손 그림은 data layout.hands 의 후보 가운데 파일이 있는 것(그림체 F 78·79·80 → 없으면 지금 손 그림 ui_witch_hand_*). 위치·실 끝은 그림마다 데이터.
 ## 카드 앞면은 CardView(원근 사각형 그리기)를 그대로 쓰고, 앞면 그림만 BoardPieces.draw_face(kind mine) — 탁자 카드와 같은 앞면.
 ## 지금 게임의 hand.gd·card_view.gd 는 건드리지 않는다(?battle=v2 가 아니면 쓰이지 않음).
@@ -16,6 +18,12 @@ var drag_mode := ""       # "" | "follow"
 var drag_pos := Vector2(960, 600)
 var point_at = null       # 대상을 고르는 중: 오른손이 가리키는 화면 점(Vector2) · null
 var max_hands := 0        # 시험용: 한 번에 보인 손의 최대 수
+var open := false         # v2.3 손패 당겨 보기
+var drag_k := 0.0         # 끄는 카드 배율 (0 = dragScale — 펼친 손패에서 끌면 펼친 크기 그대로)
+var _open_k := 0.0        # 0 = 평소 · 1 = 펼침 (부드럽게)
+var both_l: Sprite2D
+var both_r: Sprite2D
+var dim: Node2D
 var left: Sprite2D
 var right: Sprite2D
 var pinch: Sprite2D
@@ -55,13 +63,27 @@ func _ready() -> void:
 	pinch = _sprite(_P, 160)
 	pinch.visible = false
 	_rpos = _rest()
+	# v2.3 양손(펼친 손패 뒤) · 탁자 어둡게(그 뒤)
+	dim = Node2D.new()
+	dim.z_index = 40
+	dim.draw.connect(func(): dim.draw_rect(Rect2(-200, -200, 2320, 1480), Color(0, 0, 0, float(OL().dim) * _open_k)))
+	add_child(dim)
+	var O := OL()
+	both_l = _sprite({"file": O.files[0], "scale": O.scale}, 45)
+	both_r = _sprite({"file": O.files[1], "scale": O.scale}, 45)
+	both_l.visible = false
+	both_r.visible = false
+
+
+func OL() -> Dictionary:
+	return HL().open
 
 
 func _sprite(e: Dictionary, z: int) -> Sprite2D:
 	var s := Sprite2D.new()
 	s.centered = false
 	s.z_index = z
-	if not e.is_empty():
+	if not e.is_empty() and Assets.ok(str(e.file)):
 		s.texture = Assets.tex(str(e.file))
 		s.scale = Vector2.ONE * float(e.scale)
 		if bool(e.get("flip", false)):
@@ -99,6 +121,45 @@ func fan(n: int) -> Array:
 	return res
 
 
+## v2.3 펼친 손패: n장일 때 각 카드의 {c, a, z} — 가운데 아래 양손 위로 크게
+func open_fan(n: int) -> Array:
+	var O := OL()
+	var k := open_scale()
+	var w := CardView.W * k
+	var step := float(O.step)
+	if n > 1 and (n - 1) * step + w > float(O.maxW):
+		step = (float(O.maxW) - w) / (n - 1)
+	var res := []
+	for i in n:
+		var t := i - (n - 1) / 2.0
+		var c := Vector2(960.0 + t * step, float(O.cy) + t * t * float(O.drop))
+		res.append({"c": c, "a": t * float(O.rot), "z": 60 + i})
+	return res
+
+
+func open_scale() -> float:
+	return float(OL().cardH) / CardView.H
+
+
+## 펼친 손패가 차지하는 곳(카드 + 양손) — PC 에서 마우스가 이 밖으로 나가면 닫는다
+func open_area() -> Rect2:
+	var n: int = board.hand_list().size() if board != null else 0
+	var r := Rect2(Vector2(both_l.position.x, float(OL().y) + 300), Vector2(1672 * float(OL().scale), 1080))
+	for f in open_fan(n):
+		var q := quad(f.c, f.a, open_scale())
+		for v in q:
+			r = r.expand(v)
+	return r.grow(24)
+
+
+func set_open(on: bool) -> void:
+	if open == on:
+		return
+	open = on
+	hover_uid = ""
+	layout()
+
+
 static func quad(c: Vector2, a: float, k: float) -> PackedVector2Array:
 	var hw := CardView.W * k / 2.0
 	var hh := CardView.H * k / 2.0
@@ -108,20 +169,16 @@ static func quad(c: Vector2, a: float, k: float) -> PackedVector2Array:
 	return out
 
 
-func hover_rect(uid: String) -> Rect2:
-	var k := float(HL().hoverScale)
-	var w := CardView.W * k
-	var h := CardView.H * k
-	var cx := 200.0
-	if cards.has(uid):
-		cx = cards[uid].center().x
-	cx = clampf(cx, w / 2.0 + 16.0, 640.0)
-	return Rect2(cx - w / 2.0, 1080.0 - h - 12.0, w, h)
+func drag_k_now() -> float:
+	return drag_k if drag_k > 0.0 else float(HL().dragScale)
 
 
+## 끄는 카드: 커서가 카드 아래쪽에 오게(크게 끌 때 놓을 칸이 카드에 가리지 않게)
 func drag_rect() -> Rect2:
-	var k: float = HL().dragScale
-	return Rect2(drag_pos - Vector2(CardView.W, CardView.H) * k / 2.0, Vector2(CardView.W, CardView.H) * k)
+	var k := drag_k_now()
+	var sz := Vector2(CardView.W, CardView.H) * k
+	var up := sz.y * 0.34 if drag_k > 0.0 else 0.0
+	return Rect2(drag_pos - sz / 2.0 - Vector2(0, up), sz)
 
 
 func create(st: Dictionary, uid: String, from = null) -> CardView:
@@ -164,8 +221,8 @@ func layout(_instant := false) -> void:
 		return
 	var st: Dictionary = board.st
 	var list: Array = board.hand_list()
-	var f := fan(list.size())
-	var k := card_scale()
+	var f := open_fan(list.size()) if open else fan(list.size())
+	var k := open_scale() if open else card_scale()
 	for i in list.size():
 		var uid: String = list[i]
 		var c: CardView = cards.get(uid)
@@ -174,14 +231,14 @@ func layout(_instant := false) -> void:
 		c.shadow = 0.0
 		if uid == drag_uid and drag_mode == "follow":
 			var d := drag_rect()
-			c.set_rect(d.position, float(HL().dragScale), false)
+			c.set_rect(d.position, drag_k_now(), false)
 			c.z_index = 130
 			c.smooth = false
-		elif (uid == hover_uid and drag_uid == "") or uid == lifted_uid:
-			var r := hover_rect(uid)
-			c.set_rect(r.position, float(HL().hoverScale), false)
-			c.z_index = 125 if uid == lifted_uid else 120
-			c.shadow = 1.0
+		elif open:
+			var up := float(OL().lift) if (uid == hover_uid or uid == lifted_uid) else 0.0
+			c.set_quad(quad(f[i].c + Vector2(0, -up), f[i].a, k), false)
+			c.z_index = 120 if up > 0.0 else int(f[i].z)
+			c.shadow = 1.0 if up > 0.0 else 0.0
 			c.smooth = true
 		else:
 			c.set_quad(quad(f[i].c, f[i].a, k), false)
@@ -195,8 +252,6 @@ func layout(_instant := false) -> void:
 
 ## 화면 좌표의 카드 (위에 있는 것부터)
 func hit_test(p: Vector2) -> String:
-	if hover_uid != "" and cards.has(hover_uid) and hover_rect(hover_uid).has_point(p):
-		return hover_uid
 	var uids: Array = cards.keys()
 	uids.sort_custom(func(a, b): return cards[a].z_index > cards[b].z_index)
 	for u in uids:
@@ -216,6 +271,8 @@ func set_hover(uid: String) -> void:
 func hands_visible() -> int:
 	if not is_visible_in_tree():
 		return 0
+	if _open_k > 0.5:
+		return 2   # 펼침: 양손 그림 둘 (왼손·오른손은 숨김)
 	var n := 1 if left.visible else 0
 	if right.visible and right.modulate.a > 0.02:
 		n += 1
@@ -226,7 +283,7 @@ func hands_visible() -> int:
 
 # ───────── 붉은 실 (왼손가락 → 카드 아래 가장자리) ─────────
 func _draw_threads() -> void:
-	if _L.is_empty():
+	if _L.is_empty() or _open_k > 0.01:
 		return
 	var tips: Array = _L.get("tips", [])
 	var list: Array = []
@@ -264,7 +321,20 @@ func _process(delta: float) -> void:
 		var tip := Vector2(_R.tip[0], _R.tip[1]) * float(_R.scale)
 		right.position = _rpos - tip
 	_pinch_a = move_toward(_pinch_a, 1.0 if pinching else 0.0, delta * FX.speed * 6.0)
-	right.modulate.a = 1.0 - _pinch_a
+	# v2.3 손패 당겨 보기: 양손이 아래에서 올라오고 왼손·오른손은 사라진다
+	var ok := _open_k
+	_open_k = move_toward(_open_k, 1.0 if open else 0.0, delta * FX.speed * 4.5)
+	if ok != _open_k:
+		dim.queue_redraw()
+	var ek := ease(_open_k, -2.0)
+	for i in 2:
+		var sp: Sprite2D = [both_l, both_r][i]
+		sp.visible = sp.texture != null and _open_k > 0.01
+		sp.modulate.a = ek
+		sp.position = Vector2(float(OL().x) + i * float(OL().split) * float(OL().scale), float(OL().y) + (1.0 - ek) * 420.0)
+	left.modulate.a = 1.0 - ek
+	left.visible = left.texture != null and ek < 0.99
+	right.modulate.a = (1.0 - _pinch_a) * (1.0 - ek)
 	right.visible = right.texture != null and right.modulate.a > 0.01
 	pinch.visible = pinch.texture != null and _pinch_a > 0.01
 	pinch.modulate.a = _pinch_a
@@ -272,7 +342,7 @@ func _process(delta: float) -> void:
 		# 세운 손 그림의 카드 자리(quad 왼위)가 끄는 카드의 왼위에 오게
 		var q: Array = _P.quad
 		var c: CardView = cards[drag_uid]
-		var sc := float(_P.scale) * float(HL().dragScale) / float(_P.get("cardScale", HL().dragScale))
+		var sc := float(_P.scale) * drag_k_now() / float(_P.get("cardScale", HL().dragScale))
 		pinch.scale = Vector2.ONE * sc
 		pinch.position = c.corners[0] - Vector2(q[0][0], q[0][1]) * sc
 	if is_visible_in_tree():

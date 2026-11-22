@@ -337,7 +337,7 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 			if da != "" and tex(da) != null:
 				cover(ci, tex(da), ar, Rect2(), Color(0.55, 0.32, 0.34))
 			skull(ci, ar.get_center() + Vector2(0, -ar.size.y * 0.06), ar.size.x * 0.62, Color(0.96, 0.88, 0.84, 0.92))
-			desc(ci, r, str(f.get("text", "")), 0.64)
+			desc(ci, r, str(f.get("text", "")), 0.64, MINE_DESC if bool(f.get("big", false)) else 15)   # v2.3: 크게 보기 글씨 = 손패 글씨
 			frame(ci, r, "enemy", Color(1.0, 0.75, 0.75))
 			var cr := r.grow(-7 * s)
 			var sb := UI.box(Color(0, 0, 0, 0), Color("#d4142a"), int(14 * s), maxi(2, int(6 * s)))
@@ -359,7 +359,7 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 				skull(ci, ar.get_center() + Vector2(0, -ar.size.y * 0.05), ar.size.x * 0.55, Color(0.95, 0.85, 0.82, 0.85))
 				text_in(ci, Rect2(ar.position.x, ar.position.y + ar.size.y * 0.66, ar.size.x, ar.size.y * 0.2), str(f.get("deadText", "")), int(34 * s), Color("#ff6b76"), "serif_black", HORIZONTAL_ALIGNMENT_CENTER, maxi(2, int(4 * s)))
 			elif bool(f.get("big", false)):
-				desc(ci, r, str(f.get("text", "")), 0.66)   # 특성 설명은 크게 보기에서만(탁자 위에서는 너무 작다)
+				desc(ci, r, str(f.get("text", "")), 0.52, MINE_DESC)   # 특성 설명은 크게 보기에서만 — v2.3: 손패 글씨와 같은 크기(두 줄)
 			frame(ci, r, "ally", Color(0.7, 0.62, 0.62) if dead else Color.WHITE)
 			name_band(ci, r, str(f.get("name", "")), Color("#2a1810"), "" if dead else str(f.get("trait", "")), Color("#6a3a10"))
 			if not dead:
@@ -380,7 +380,7 @@ static func draw_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 					ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 		"note":
 			ci.draw_rect(ar, Color("#140c0c"))
-			text_in(ci, ar.grow(-10 * s), str(f.get("text", "")), fit_size(str(f.get("text", "")), "sans_bold", int(17 * s), ar.size.x - 24 * s), Color("#e8dcd0"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
+			text_in(ci, ar.grow(-10 * s), str(f.get("text", "")), fit_size(str(f.get("text", "")), "sans_bold", int((MINE_DESC if bool(f.get("big", false)) else 17) * s), ar.size.x - 24 * s), Color("#e8dcd0"), "sans_bold", HORIZONTAL_ALIGNMENT_CENTER, maxi(1, int(2 * s)))
 			frame(ci, r, "enemy")
 			name_band(ci, r, str(f.get("name", "")), Color("#f0e2dc"))
 

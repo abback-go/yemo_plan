@@ -52,6 +52,10 @@ func battle(ids: Array, intents := {}) -> Dictionary:
 	return st
 
 
+func D_reason(r: String) -> String:
+	return str(BattleV2Data.D.reasons.get(r, ""))
+
+
 func uid_of(st: Dictionary, id: String, nth := 0) -> String:
 	var n := 0
 	for u in st.hand:
@@ -139,9 +143,20 @@ func t_owner() -> bool:
 		and RulesV2.can_place(st, uid_of(st, "snipe"), "hero").reason == "notOwner" and RulesV2.can_place(st, uid_of(st, "snipe"), "archer").ok
 		and RulesV2.can_place(st, uid_of(st, "slash"), "warrior").ok)
 	check("노엘의 카드는 칸에 놓지 않는다(② ① ④ 에 직접)", RulesV2.can_place(st, uid_of(st, "bless"), "hero").reason == "noelCard")
-	check("공격 카드는 대상이 있어야 놓인다", RulesV2.place(st, uid_of(st, "slash"), "hero", {}).reason == "needTarget")
+	var pr := RulesV2.place(st, uid_of(st, "slash"), "hero")
+	check("9-6: 공격은 대상을 고르지 않고 앞(같은 열) 적에게 — 세라피나(칸 0) → 광신도 A", pr.ok and str(pr.placed.target) == "A")
+	var st9 := battle(["slash", "guard", "bless"])
+	RulesV2.enemy(st9, "A").alive = false
+	check("9-6: 앞 열에 적이 없으면 공격 카드는 못 놓는다(「앞에 적이 없습니다」) — 막기·노엘 카드는 된다",
+		RulesV2.can_place(st9, uid_of(st9, "slash"), "hero").reason == "noFront" and RulesV2.can_place(st9, uid_of(st9, "guard"), "hero").ok
+		and RulesV2.can_cast(st9, uid_of(st9, "bless"), "hero").ok and str(D_reason("noFront")) == "앞에 적이 없습니다")
+	var st8 := battle(["slash"])
+	RulesV2.place(st8, uid_of(st8, "slash"), "hero")
+	RulesV2.move_ally(st8, "hero", 2)
+	RulesV2.end_turn(st8)
+	check("9-6: 자리를 바꾸면 그 열의 적을 친다(세라피나 칸 0 → 2: 광신도 B 14 → 8)", RulesV2.enemy(st8, "B").hp == 8 and RulesV2.enemy(st8, "A").hp == 14)
 	var st2 := battle(["slash", "guard", "guard", "slash"])
-	RulesV2.place(st2, uid_of(st2, "slash"), "hero", {"target": "A"})
+	RulesV2.place(st2, uid_of(st2, "slash"), "hero")
 	RulesV2.place(st2, uid_of(st2, "guard"), "hero")
 	check("v2.2: 한 칸 카드 수 제한 없음 — 세 번째 카드도 같은 동료에게(에너지가 있으면)", RulesV2.can_place(st2, uid_of(st2, "guard"), "hero").ok)
 	RulesV2.place(st2, uid_of(st2, "guard"), "warrior")
@@ -154,8 +169,8 @@ func t_owner() -> bool:
 	var st3 := battle(["aim", "aim", "snipe", "guard", "slash"])
 	st3.energy = 5
 	var ok3: bool = RulesV2.place(st3, uid_of(st3, "aim"), "archer").ok and RulesV2.place(st3, uid_of(st3, "aim"), "archer").ok
-	ok3 = ok3 and RulesV2.place(st3, uid_of(st3, "snipe"), "archer", {"target": "B"}).ok and RulesV2.place(st3, uid_of(st3, "guard"), "archer").ok
-	ok3 = ok3 and RulesV2.place(st3, uid_of(st3, "slash"), "archer", {"target": "A"}).ok
+	ok3 = ok3 and RulesV2.place(st3, uid_of(st3, "snipe"), "archer").ok and RulesV2.place(st3, uid_of(st3, "guard"), "archer").ok
+	ok3 = ok3 and RulesV2.place(st3, uid_of(st3, "slash"), "archer").ok
 	var snipe_dmg := 0
 	var fc3 := RulesV2.forecast(st3)
 	for p in st3.allies.archer.placed:
@@ -169,7 +184,7 @@ func t_owner() -> bool:
 
 func t_hero() -> bool:
 	var st := battle(["holy", "slash"], {"A": hit(6, "hero")})
-	RulesV2.place(st, uid_of(st, "holy"), "hero", {"target": "A"})
+	RulesV2.place(st, uid_of(st, "holy"), "hero")
 	var ev := RulesV2.end_turn(st)
 	var hits := ev_of(ev, "allyHit")
 	check("용사: 성검 베기 8 + 막기 3 → 광신도 A HP 6, 찌르기 6 중 3 을 막음", RulesV2.enemy(st, "A").hp == 6 and hits.size() == 1 and hits[0].blocked == 3 and st.allies.hero.hp == 27,
@@ -203,9 +218,9 @@ func t_brace() -> bool:
 	check("버팀은 최대 20", st.allies.warrior.brace == 20)
 	var st2 := battle(["revert"])
 	st2.allies.warrior.brace = 12
-	RulesV2.place(st2, uid_of(st2, "revert"), "warrior", {"target": "B"})
+	RulesV2.place(st2, uid_of(st2, "revert"), "warrior")
 	RulesV2.end_turn(st2)
-	check("되돌리기: 쌓인 버팀 12 만큼 피해, 버팀 0", RulesV2.enemy(st2, "B").hp == 2 and st2.allies.warrior.brace == 0)
+	check("되돌리기: 쌓인 버팀 12 만큼 앞 적(무덤지기 30 → 18)에게 피해, 버팀 0", RulesV2.enemy(st2, "G").hp == 18 and st2.allies.warrior.brace == 0)
 	return true
 
 
@@ -213,10 +228,11 @@ func t_brace() -> bool:
 func t_aim() -> bool:
 	var st := battle(["aim", "snipe"])
 	RulesV2.place(st, uid_of(st, "aim"), "archer")
-	RulesV2.place(st, uid_of(st, "snipe"), "archer", {"target": "G"})
+	RulesV2.place(st, uid_of(st, "snipe"), "archer")
 	st.allies.archer.mult = 2
+	RulesV2.enemy(st, "B").hp = 30
 	RulesV2.end_turn(st)
-	check("조준: 겨누기 → 배율 ×3, 저격 7 × 3 = 21, 쏜 뒤 ×1", RulesV2.enemy(st, "G").hp == 9 and st.allies.archer.mult == 1, str(RulesV2.enemy(st, "G")))
+	check("조준: 겨누기 → 배율 ×3, 저격 7 × 3 = 21(앞 적 광신도 B 30 → 9), 쏜 뒤 ×1", RulesV2.enemy(st, "B").hp == 9 and st.allies.archer.mult == 1, str(RulesV2.enemy(st, "B")))
 	var st2 := battle(["aim", "aim"])
 	st2.allies.archer.mult = 3
 	RulesV2.place(st2, uid_of(st2, "aim"), "archer")
@@ -234,9 +250,9 @@ func t_aim() -> bool:
 	check("다 막아 피해가 없으면 배율은 그대로", st4.allies.archer.mult == 3 and st4.allies.archer.hp == 12)
 	var st5 := battle(["slash"])
 	st5.allies.archer.mult = 2
-	RulesV2.place(st5, uid_of(st5, "slash"), "archer", {"target": "A"})
+	RulesV2.place(st5, uid_of(st5, "slash"), "archer")
 	RulesV2.end_turn(st5)
-	check("엘리안의 베기(공용)에도 배율이 붙는다 (6 × 2 = 12)", RulesV2.enemy(st5, "A").hp == 2 and st5.allies.archer.mult == 1)
+	check("엘리안의 베기(공용)에도 배율이 붙는다 (6 × 2 = 12)", RulesV2.enemy(st5, "B").hp == 2 and st5.allies.archer.mult == 1)
 	return true
 
 
@@ -245,7 +261,7 @@ func t_noel() -> bool:
 	var st := battle(["bless", "holy", "guard"])
 	check("축복은 ④ 동료에 놓는다(적에는 안 됨)", RulesV2.can_cast(st, uid_of(st, "bless"), "A").reason == "badAlly" and RulesV2.can_cast(st, uid_of(st, "bless"), "hero").ok)
 	RulesV2.cast(st, uid_of(st, "bless"), "hero")
-	RulesV2.place(st, uid_of(st, "holy"), "hero", {"target": "A"})
+	RulesV2.place(st, uid_of(st, "holy"), "hero")
 	RulesV2.place(st, uid_of(st, "guard"), "hero")
 	var fc := RulesV2.forecast(st)
 	RulesV2.end_turn(st)
@@ -264,7 +280,7 @@ func t_noel() -> bool:
 		str(st2.order.map(func(id): return st2.allies[id].hp)))
 	var st3 := battle(["vuln", "slash"])
 	RulesV2.cast(st3, uid_of(st3, "vuln"), "B")
-	RulesV2.place(st3, uid_of(st3, "slash"), "warrior", {"target": "B"})
+	RulesV2.place(st3, uid_of(st3, "slash"), "archer")
 	RulesV2.end_turn(st3)
 	check("취약: ① 적에 놓으면 이번 턴에 받는 피해 +50% (베기 6 → 9), 턴이 끝나면 사라짐", RulesV2.enemy(st3, "B").hp == 5 and not RulesV2.enemy(st3, "B").vuln)
 	var st4 := battle(["vuln", "bless"])
@@ -279,12 +295,12 @@ func t_order() -> bool:
 	# 기본 7 → 배율 ×2 = 14 → 축복 21 → 취약 31 (단계마다 내림)
 	var st := battle(["snipe", "bless", "vuln"])
 	st.allies.archer.mult = 2
-	RulesV2.place(st, uid_of(st, "snipe"), "archer", {"target": "G"})
+	RulesV2.place(st, uid_of(st, "snipe"), "archer")
 	RulesV2.cast(st, uid_of(st, "bless"), "archer")
-	RulesV2.cast(st, uid_of(st, "vuln"), "G")
+	RulesV2.cast(st, uid_of(st, "vuln"), "B")
 	var fc := RulesV2.forecast(st)
 	RulesV2.end_turn(st)
-	check("계산 순서: 저격 7 × 배율 2 = 14 → 축복 21 → 취약 31 (미리 보기도 같다)", RulesV2.enemy(st, "G").hp == 0 and int(fc.values()[0].dmg) == 31, str(fc))
+	check("계산 순서: 저격 7 × 배율 2 = 14 → 축복 21 → 취약 31 (미리 보기도 같다)", RulesV2.enemy(st, "B").hp == 0 and int(fc.values()[0].dmg) == 31, str(fc))
 	# 기본 5 → 버팀 7 → 축복 10
 	var st2 := battle(["guard", "bless"])
 	RulesV2.place(st2, uid_of(st2, "guard"), "warrior")
@@ -292,7 +308,7 @@ func t_order() -> bool:
 	check("막기 계산 순서: 5 → 버팀 1.5배 7 → 축복 10", int(RulesV2.forecast(st2).values()[0].block) == 10)
 	# 단계마다 내림: 베기 6 → 축복 9 → 취약 13 (한 번에 곱하면 13.5 → 13 으로 같음) / 성검 베기 8 → 12 → 18
 	var st3 := battle(["slash", "bless", "vuln"])
-	RulesV2.place(st3, uid_of(st3, "slash"), "hero", {"target": "A"})
+	RulesV2.place(st3, uid_of(st3, "slash"), "hero")
 	RulesV2.cast(st3, uid_of(st3, "bless"), "hero")
 	RulesV2.cast(st3, uid_of(st3, "vuln"), "A")
 	check("베기 6 → 축복 9 → 취약 13 (내림)", int(RulesV2.forecast(st3).values().filter(func(r): return r.has("dmg"))[0].dmg) == 13)
@@ -301,18 +317,24 @@ func t_order() -> bool:
 
 
 func t_minion() -> bool:
-	var st := battle(["slash", "snipe"])
+	# 9-6: 무덤지기·해골 병사는 칸 1 의 앞 적 — 칸 1 에 선 동료의 공격만 들어간다
+	var st := battle(["slash"])
 	summon_minion(st)
-	RulesV2.place(st, uid_of(st, "slash"), "hero", {"target": "G"})
-	RulesV2.place(st, uid_of(st, "snipe"), "archer", {"target": "G"})
+	RulesV2.place(st, uid_of(st, "slash"), "warrior")
 	RulesV2.end_turn(st)
-	check("하수인: 무덤지기를 노린 베기는 해골 병사가 먼저 받는다(8 → 2), 저격은 넘어 본체로(30 → 23)",
-		RulesV2.enemy(st, "S").hp == 2 and RulesV2.enemy(st, "G").hp == 23, str([RulesV2.enemy(st, "S").hp, RulesV2.enemy(st, "G").hp]))
+	var stp := battle(["snipe"])
+	summon_minion(stp)
+	stp.slots = ["hero", "archer", "warrior"]
+	RulesV2.place(stp, uid_of(stp, "snipe"), "archer")
+	RulesV2.end_turn(stp)
+	check("하수인: 앞 열(칸 1)의 베기는 해골 병사가 먼저 받는다(8 → 2), 저격은 넘어 그 열 본체로(30 → 23)",
+		RulesV2.enemy(st, "S").hp == 2 and RulesV2.enemy(st, "G").hp == 30 and RulesV2.enemy(stp, "G").hp == 23 and RulesV2.enemy(stp, "S").hp == 8,
+		str([RulesV2.enemy(st, "S").hp, RulesV2.enemy(st, "G").hp, RulesV2.enemy(stp, "G").hp]))
 	var st2 := battle(["slash", "slash"])
 	summon_minion(st2)
 	RulesV2.enemy(st2, "S").hp = 4
-	RulesV2.place(st2, uid_of(st2, "slash"), "hero", {"target": "G"})
-	RulesV2.place(st2, uid_of(st2, "slash", 0), "warrior", {"target": "G"})
+	RulesV2.place(st2, uid_of(st2, "slash"), "warrior")
+	RulesV2.place(st2, uid_of(st2, "slash", 0), "warrior")
 	RulesV2.end_turn(st2)
 	check("하수인을 쓰러뜨리면 다음 공격은 본체로 (넘친 피해는 넘어가지 않음)", not RulesV2.enemy(st2, "S").alive and RulesV2.enemy(st2, "G").hp == 24)
 	var st3 := battle(["snipe"])
@@ -320,7 +342,8 @@ func t_minion() -> bool:
 	st3.allies.archer.mult = 4
 	RulesV2.enemy(st3, "G").hp = 20
 	RulesV2.enemy(st3, "S").intent = hit(4, "hero")
-	RulesV2.place(st3, uid_of(st3, "snipe"), "archer", {"target": "G"})
+	st3.slots = ["hero", "archer", "warrior"]
+	RulesV2.place(st3, uid_of(st3, "snipe"), "archer")
 	var ev := RulesV2.end_turn(st3)
 	check("본체가 쓰러지면 하수인도 사라지고, 쓰러진 적이 보낸 ② 는 들어가지 않는다", not RulesV2.enemy(st3, "G").alive and not RulesV2.enemy(st3, "S").alive
 		and st3.allies.hero.hp == 30 and ev_of(ev, "enemyDie").size() == 2)
@@ -350,9 +373,10 @@ func t_win_lose() -> bool:
 	RulesV2.enemy(st, "B").hp = 6
 	RulesV2.enemy(st, "G").hp = 7
 	summon_minion(st)
-	RulesV2.place(st, uid_of(st, "slash"), "hero", {"target": "A"})
-	RulesV2.place(st, uid_of(st, "slash", 0), "warrior", {"target": "B"})
-	RulesV2.place(st, uid_of(st, "snipe"), "archer", {"target": "G"})
+	st.slots = ["hero", "archer", "warrior"]
+	RulesV2.place(st, uid_of(st, "slash"), "hero")
+	RulesV2.place(st, uid_of(st, "slash", 0), "warrior")
+	RulesV2.place(st, uid_of(st, "snipe"), "archer")
 	var ev := RulesV2.end_turn(st)
 	check("승리: 광신도 둘과 무덤지기가 쓰러지면(하수인은 함께 사라짐) 그 자리에서 — 적 턴 없음", st.result == "win" and ev_of(ev, "enemyAct").is_empty())
 	check("전투가 끝나면 더 놓을 수 없다", RulesV2.can_place(st, "v1", "hero").reason == "over")
@@ -366,7 +390,7 @@ func t_win_lose() -> bool:
 func t_forecast() -> bool:
 	var st := battle(["aim", "snipe", "guard"], {"A": hit(6, "warrior")})
 	RulesV2.place(st, uid_of(st, "aim"), "archer")
-	RulesV2.place(st, uid_of(st, "snipe"), "archer", {"target": "B"})
+	RulesV2.place(st, uid_of(st, "snipe"), "archer")
 	RulesV2.place(st, uid_of(st, "guard"), "warrior")
 	var fc := RulesV2.forecast(st)
 	var before := var_to_str(st)
@@ -475,7 +499,7 @@ func t_formation() -> bool:
 	check("출전 → 1턴(5장·에너지 3)", sb.ok and st.phase == "battle" and st.turn == 1 and st.hand.size() == 5 and st.energy == 3)
 	# 전투 중: 에너지 1
 	var st2 := battle(["slash", "guard"])
-	RulesV2.place(st2, uid_of(st2, "slash"), "hero", {"target": "A"})
+	RulesV2.place(st2, uid_of(st2, "slash"), "hero")
 	var m1 := RulesV2.move_ally(st2, "hero", 2)
 	check("전투 중 자리 바꾸기: 에너지 1, 맡긴 카드는 동료를 따라간다", m1.ok and st2.energy == 1 and st2.slots == ["archer", "warrior", "hero"] and st2.allies.hero.placed.size() == 1, str(st2.slots))
 	var m2 := RulesV2.move_ally(st2, "hero", "bench")
@@ -570,7 +594,8 @@ func t_death_escape() -> bool:
 	st.hand.append_array(_give(st, ["snipe"]))
 	st.energy = 3
 	RulesV2.enemy(st, "G").hp = 5
-	RulesV2.place(st, uid_of(st, "snipe"), "archer", {"target": "G"})
+	st.slots = ["hero", "archer", "warrior"]   # 9-6: 무덤지기는 칸 1 의 앞 적
+	RulesV2.place(st, uid_of(st, "snipe"), "archer")
 	_zero_hits(st)
 	var ev := RulesV2.end_turn(st)
 	check("막는 법 ①: 무덤지기를 먼저 쓰러뜨리면 죽음 카드도 사라진다", not RulesV2.enemy(st, "G").alive and st.deaths.is_empty() and not st.allies.hero.dead
@@ -622,7 +647,8 @@ func t_death_bench() -> bool:
 	var snipe := _give(st, ["snipe"])
 	st.hand.append_array(snipe)
 	RulesV2.enemy(st, "G").hp = 3
-	RulesV2.place(st, snipe[0], "archer", {"target": "G"})
+	st.slots = ["", "archer", "warrior"]   # 9-6: 무덤지기는 칸 1 의 앞 적
+	RulesV2.place(st, snipe[0], "archer")
 	_zero_hits(st)
 	RulesV2.end_turn(st)
 	check("한 번 기다린 죽음 카드는 무덤지기가 쓰러져도 남는다", not RulesV2.enemy(st, "G").alive and st.deaths.size() == 1)

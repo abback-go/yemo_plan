@@ -166,6 +166,27 @@ static func hit_target(st: Dictionary, id: String, pierce := false):
 	return g if g != null else e
 
 
+## 9-6(사용자 결정): 그 칸(열)의 동료가 치는 앞 적 — 같은 열의 살아 있는 적. 하수인이 있으면 하수인이 먼저(pierce = 저격: 넘어 그 열 본체). 없으면 null
+static func front(st: Dictionary, col: int, pierce := false):
+	var main = null
+	var guard = null
+	for e in st.enemies:
+		if e.alive and int(e.col) == col:
+			if is_minion(e):
+				guard = e
+			else:
+				main = e
+	if pierce and main != null:
+		return main
+	return guard if guard != null else main
+
+
+## 그 동료(칸)의 공격 카드가 칠 적 (벤치·앞 적 없음 = null)
+static func front_of(st: Dictionary, ally_id: String, uid := ""):
+	var pierce := uid != "" and bool(card_def(st, uid).get("pierce", false))
+	return front(st, col_of(st, ally_id), pierce)
+
+
 ## 적 행동 카드의 피해(저주 반영)
 static func act_value(it: Dictionary) -> int:
 	return maxi(0, int(it.value) - int(it.get("minus", 0)))
@@ -402,8 +423,11 @@ static func can_place(st: Dictionary, uid: String, ally_id: String) -> Dictionar
 		return _no("full")
 	if int(c.cost) > int(st.energy):
 		return _no("noEnergy")
-	if str(c.kind) in ["attack", "release"] and alive_enemies(st).is_empty():
-		return _no("noEnemy")
+	if str(c.kind) in ["attack", "release"]:
+		if alive_enemies(st).is_empty():
+			return _no("noEnemy")
+		if front_of(st, ally_id, uid) == null:
+			return _no("noFront")   # 9-6: 앞(같은 열)에 살아 있는 적이 없으면 공격 카드를 놓을 수 없다
 	return {"ok": true}
 
 
@@ -423,23 +447,19 @@ static func can_place_col(st: Dictionary, uid: String, col: int) -> Dictionary:
 	return can_place(st, uid, id)
 
 
-## 공격(attack·release) 카드는 대상을 골라야 한다
-static func needs_target(st: Dictionary, uid: String) -> bool:
-	return str(card_def(st, uid).kind) in ["attack", "release"]
+## 9-6: 공격은 앞(같은 열) 적에게 자동 — 대상을 고르지 않는다(자리를 바꾸면 그 열의 적으로)
+static func needs_target(_st: Dictionary, _uid: String) -> bool:
+	return false
 
 
-## 동료 칸에 놓는다. opts: 공격·되돌리기 {target: 누른 적 id}. 반환 {ok, placed} / {ok: false, reason}
-static func place(st: Dictionary, uid: String, ally_id: String, opts := {}) -> Dictionary:
+## 동료 칸에 놓는다. opts 는 쓰지 않는다(9-6 — 예전 {target} 은 무시). target: 놓을 때의 앞 적(보여 주기용, 턴 끝에 다시 셈). 반환 {ok, placed} / {ok: false, reason}
+static func place(st: Dictionary, uid: String, ally_id: String, _opts := {}) -> Dictionary:
 	var chk := can_place(st, uid, ally_id)
 	if not chk.ok:
 		return chk
 	var p := {"uid": uid, "target": ""}
-	if needs_target(st, uid):
-		var t := str(opts.get("target", ""))
-		var e = enemy(st, t)
-		if e == null or not e.alive:
-			return _no("needTarget")
-		p.target = t
+	if str(card_def(st, uid).kind) in ["attack", "release"]:
+		p.target = str(front_of(st, ally_id, uid).id)
 	st.hand.erase(uid)
 	st.energy = int(st.energy) - int(card_def(st, uid).cost)
 	st.allies[ally_id].placed.append(p)
@@ -679,7 +699,7 @@ static func _act(st: Dictionary, ally_id: String, p: Dictionary, ev: Array) -> v
 	ev.append({"t": "act", "ally": ally_id, "uid": p.uid, "card": cid})
 	match str(c.kind):
 		"attack", "release":
-			var e = hit_target(st, str(p.target), bool(c.get("pierce", false)))
+			var e = front(st, col_of(st, ally_id), bool(c.get("pierce", false)))   # 9-6: 지금 그 열의 앞 적(앞 적이 먼저 쓰러졌으면 헛침)
 			var dmg := 0
 			if str(c.kind) == "release":
 				dmg = int(a.brace)
@@ -894,17 +914,12 @@ static func forecast(st: Dictionary) -> Dictionary:
 	return out
 
 
-## 그 카드를 그 동료 칸에 놓으면 나올 결과(끄는 동안 미리 보기). 공격은 대상 전 — 가장 왼쪽 적으로 셈
+## 그 카드를 그 동료 칸에 놓으면 나올 결과(끄는 동안 미리 보기). 공격은 그 열의 앞 적(9-6) — r.target
 static func forecast_place(st: Dictionary, uid: String, ally_id: String) -> Dictionary:
 	var s: Dictionary = st.duplicate(true)
-	if not place(s, uid, ally_id, {"target": _first_target(s)}).ok:
+	if not place(s, uid, ally_id).ok:
 		return {}
 	return forecast(s).get(uid, {})
-
-
-static func _first_target(st: Dictionary) -> String:
-	var al := alive_main(st)
-	return al[0].id if not al.is_empty() else ""
 
 
 # ───────── 자동 진행 (헤드리스 시험 --battle=v2 --autoplay) ─────────
@@ -987,31 +1002,22 @@ static func auto_step(st: Dictionary) -> Dictionary:
 			if to2 != "":
 				return {"kind": "cast", "uid": hb.shift, "target": eid, "opts": {"to": col_of(st, to2)}}
 	# ② 공격
-	if hb.has("holy") and free.has("hero"):
-		var t := _attack_target(st, fc, false)
-		if t != "":
-			return {"kind": "place", "uid": hb.holy, "ally": "hero", "opts": {"target": t}}
+	if hb.has("holy") and free.has("hero") and _front_ok(st, fc, "hero", hb.holy):
+		return {"kind": "place", "uid": hb.holy, "ally": "hero", "opts": {}}
 	if free.has("archer"):
 		var slots: int = room(st, "archer")
 		var aimed := _placed_ids(st, "archer").has("aim")
 		var will_mult: int = int(st.allies.archer.mult) + _placed_ids(st, "archer").count("aim")
 		if hb.has("aim") and hb.has("snipe") and slots >= 2 and int(st.energy) >= 2 and will_mult < int(D().traits.aim.max):
 			return {"kind": "place", "uid": hb.aim, "ally": "archer", "opts": {}}
-		if hb.has("snipe") and (aimed or int(st.allies.archer.mult) >= 2 or not hb.has("aim")):
-			var t2 := _attack_target(st, fc, true)
-			if t2 != "":
-				return {"kind": "place", "uid": hb.snipe, "ally": "archer", "opts": {"target": t2}}
-	if hb.has("revert") and free.has("warrior") and int(st.allies.warrior.brace) >= 6:
-		var t3 := _attack_target(st, fc, false)
-		if t3 != "":
-			return {"kind": "place", "uid": hb.revert, "ally": "warrior", "opts": {"target": t3}}
+		if hb.has("snipe") and (aimed or int(st.allies.archer.mult) >= 2 or not hb.has("aim")) and _front_ok(st, fc, "archer", hb.snipe):
+			return {"kind": "place", "uid": hb.snipe, "ally": "archer", "opts": {}}
+	if hb.has("revert") and free.has("warrior") and int(st.allies.warrior.brace) >= 6 and _front_ok(st, fc, "warrior", hb.revert):
+		return {"kind": "place", "uid": hb.revert, "ally": "warrior", "opts": {}}
 	if hb.has("slash"):
 		for id in ["hero", "warrior", "archer"]:
-			if free.has(id):
-				var t4 := _attack_target(st, fc, false)
-				if t4 != "":
-					return {"kind": "place", "uid": hb.slash, "ally": id, "opts": {"target": t4}}
-				break
+			if free.has(id) and _front_ok(st, fc, id, hb.slash):
+				return {"kind": "place", "uid": hb.slash, "ally": id, "opts": {}}
 	# ③ 취약 · 축복
 	if hb.has("vuln"):
 		var best := ""
@@ -1091,23 +1097,15 @@ static func _sturdiest(st: Dictionary, ids: Array, add: int, fc: Dictionary) -> 
 	return best
 
 
-## 공격 대상(누를 적): 이번 턴에 맡긴 공격을 뺀 남은 HP 가 가장 적은 적 — 실제로 맞는 적만(하수인이 막는 강적은 빼고, pierce 면 넣고).
-## 남은 HP 가 같으면 행동이 센 적
-static func _attack_target(st: Dictionary, fc: Dictionary, pierce: bool) -> String:
-	var planned := {}
+## 9-6: 그 동료의 앞 적이 있고, 이번 턴에 맡긴 공격을 빼고도 HP 가 남는가(놓을 수 있는가도 — 헛친 공격을 쌓지 않게). 자리 바꾸기로 앞 적 고르기는 하지 않는다
+static func _front_ok(st: Dictionary, fc: Dictionary, ally_id: String, uid: String) -> bool:
+	if not can_place(st, uid, ally_id).ok:
+		return false
+	var e = front_of(st, ally_id, uid)
+	if e == null:
+		return false
+	var planned := 0
 	for u in fc:
-		if fc[u].has("target"):
-			planned[fc[u].target] = int(planned.get(fc[u].target, 0)) + int(fc[u].get("dmg", 0))
-	var best := ""
-	var bk := 1 << 30
-	for e in alive_enemies(st):
-		if not pierce and guard_of(st, e.id) != null:
-			continue
-		var left := int(e.hp) - int(planned.get(e.id, 0))
-		if left <= 0:
-			continue
-		var k := left * 100 - (act_value(e.intent) if e.intent != null else 0)
-		if k < bk:
-			bk = k
-			best = e.id
-	return best
+		if str(fc[u].get("target", "")) == str(e.id):
+			planned += int(fc[u].get("dmg", 0))
+	return int(e.hp) - planned > 0
