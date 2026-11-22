@@ -407,7 +407,7 @@ static func _giant_face(ci: CanvasItem, r: Rect2, f: Dictionary) -> void:
 	sb2.draw_center = false
 	ci.draw_style_box(sb2, r.grow(-12 * s))
 	text_in(ci, Rect2(ar.position.x + 24 * s, ar.end.y - 64 * s, ar.size.x * 0.5, 56 * s), str(f.get("name", "")), int(40 * s), Color("#f0e2dc"), "serif_bold", HORIZONTAL_ALIGNMENT_LEFT, maxi(1, int(4 * s)))
-	seal(ci, r.position + Vector2(BADGE.x * CW * s, BADGE.y * CH * s), 30.0 * s, Color("#1d1517"), str(f.get("hpText", "???")), int(20 * s))
+	seal(ci, r.position + Vector2(66 * s, 64 * s), 44.0 * s, Color("#1d1517"), str(f.get("hpText", "???")), int(30 * s))
 
 
 ## 빈칸 표시: 점선 둥근 상자 + 글자 (틀 없음, 반투명)

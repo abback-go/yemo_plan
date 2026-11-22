@@ -146,7 +146,7 @@ const D := {
 			"acts": {"summon": {"label": "해골 병사 부르기"}, "hit": {"label": "삽 내려치기", "value": 8}}},
 		# 거대한 발(1층 끝, 대본 v3 5.2): 세 칸을 덮는 큰 카드(wide — 모든 칸의 앞 적). HP 「???」, 공격은 흠집만(immune). 행동은 encounters.giant.turns
 		"giant": {"name": "거대한 발", "hp": 0, "immune": true, "wide": true,
-			"art": [{"file": "spr_giant_foot.png", "crop": [0.0, 0.08, 1.0, 0.62], "face": [0.25, 0.3, 0.5, 0.36]}],
+			"art": [{"file": "spr_giant_foot.png", "crop": [0.0, 0.5, 1.0, 0.36], "face": [0.25, 0.3, 0.5, 0.36]}],
 			"acts": {"none": {"label": "그림자", "sub": "행동 없음"}, "sweep": {"label": "기둥 붕괴"}, "death": {"label": "짓밟기"}}},
 		"skeleton": {"name": "해골 병사", "hp": 8, "isMinion": true,
 			"art": [{"file": "f_spr_skeleton.png", "crop": [0.0, 0.0, 1.0, 0.62], "face": [0.32, 0.0, 0.33, 0.17]}],

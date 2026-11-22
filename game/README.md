@@ -14,7 +14,7 @@
 | `data/game_data.gd` | 수치·카드·적·전투·지도·랜턴·운명·배치(`layout`, 배경별 `battleLayouts`)·그림 대응. **수치는 여기만** |
 | `data/script_data.gd` | 화면 글자 전부: 대본 v3 대사·안내·선택지·지도·메뉴·결과 문구 |
 | `core/rules.gd` · `core/rules_map.gd` | 규칙(상태 사전 `st` 만 바꾸는 정적 함수). `Rules`: 상태 구조·카드·전투·예고·피해 옮기기·운명·층 내려가기 · `MapRules`: 지도·랜턴 촛불·어둠·방에서 얻는 카드(좌판·무덤지기)·휴식·훈련 |
-| `core/ctl.gd` | 장면 흐름(곁방 → 장례 회랑 → 안치 홀 → 지도의 방 → 가장 깊은 곳 → 빈 곁방 → 2·3층 → 결과), 전투 진행, 자동 저장·이어하기, 바로 가기 |
+| `core/ctl.gd` | 장면 흐름(곁방 → 장례 회랑 → 안치 홀 → 지도의 방 → 가장 깊은 곳 → 빈 곁방 → 2·3층 → 결과), 전투 진행(1층은 새 전투 `_battle_v2` — `scenes/board_battle.gd` 게임 모드), 자동 저장·이어하기, 바로 가기 |
 | `core/game.gd` | 자동 로드 `G`: 주소 옵션(`params`), 데이터·문구 읽기, 장면·화면 부분 참조 |
 | `core/fx.gd` | 자동 로드 `FX`: 연출 시계(일시정지하면 멈춤)·트윈·입자·화면 배율(휴대폰 글씨 확대) |
 | `core/save_game.gd` · `core/game_settings.gd` | `user://save.json`(자동 저장) · `user://settings.cfg`(화면·글자 속도) |
@@ -47,7 +47,9 @@
 | `?guides=reset` | 본 안내 기록을 지워 안내를 다시 보이게 |
 | `?darkness=N` · `?omen=1` · `?hp=누구:HP,…` | 시험용(바로 가기와 함께): 어둠 단계 · 전조를 본 상태 · HP(`witch`·`hero`·`warrior`·`archer`) |
 | `?run=N` | 회차 번호 |
-| `?battle=v2` | 전투 시험판 v2.1 「3D 탁자」(`docs/battle-v2-spec.md` 9장, v2 「맡기기」를 대신함): 타이틀 없이 출전 배치 → 그 시험 전투 하나(헤드리스 `--battle=v2`, `--autoplay` 로 끝까지). 저장하지 않는다. `&seed=N` 이면 같은 전투. 파일 `scenes/board_battle.gd`·`ui/board_table.gd`(3D 탁자)·`core/rules_v2.gd`·`data/battle_v2_data.gd`·`ui/board_hand.gd`·`ui/board_pieces.gd`·`ui/shaders/card3d·table3d·shadow3d` |
+| (옵션 없음) | **1층 전투는 새 전투(v2 「3D 탁자」)가 기본**(2026-11-22 밤샘 계획 2): 장례 회랑·기도실·무덤지기·가장 깊은 곳(→ 거대한 발)을 3D 탁자로. 2·3층은 아직 옛 전투. 판단은 DECISIONS.md 「1층에 새 전투 · 데스신 연결」 |
+| `?battle=v1` | 옛 전투(1인칭 손패 — `ui/battle_view.gd`)로 — 지금까지와 같은 옛 게임(헤드리스 `--battle=v1`). 스모크와 CI 의 옛 경로가 쓴다 |
+| `?battle=v2` | 전투 시험판 v2.1 「3D 탁자」 **시험 전투 하나로 바로 가기**(`docs/battle-v2-spec.md` 9장): 타이틀 없이 출전 배치 → 광신도 둘 + 무덤지기(죽음 카드)(헤드리스 `--battle=v2`, `--autoplay` 로 끝까지). 저장하지 않는다. `&seed=N` 이면 같은 전투. 파일 `scenes/board_battle.gd`·`ui/board_table.gd`(3D 탁자)·`core/rules_v2.gd`·`data/battle_v2_data.gd`·`ui/board_hand.gd`·`ui/board_pieces.gd`·`ui/shaders/card3d·table3d·shadow3d` |
 | `?anim=off` | 전투 움직임을 그 전 기본(튀어 나가기·흔들림)으로 — 비교용. 옵션이 없으면 A′(2026-11-22부터 기본, `ui/battle_anim.gd`). 예전 `?anim=a`·`c` 는 A′ |
 | `?test=1` | 웹 시험 훅(`window.witch.*`, 스모크가 씀) |
 | `?autoguide=1` · `?autoplay=1` | 대사·안내 자동 넘김 · 자동 진행 |
@@ -60,7 +62,7 @@ Godot 바이너리를 `godot` 라고 쓴다(로컬 예: 스크래치패드의 `g
 1. 가져오기 두 번(처음은 글꼴 경고가 날 수 있다): `godot --headless --path game --import` ×2
 2. 스크립트 검사: `godot --headless --path game -- --check-scripts` → `scripts: N ok, failures: 0`
 3. 규칙 시험: `godot --headless --path game --script res://tests/test_rules.gd` → `rules: N passed, failures: 0`
-4. 헤드리스 자동 진행(처음부터 끝까지): CI 와 같은 6경로는 `.github/workflows/witch-web-build.yml` 의 `for args in …`. 한 경로 예
+4. 헤드리스 자동 진행(처음부터 끝까지): CI 와 같은 11경로(옛 전투 `--battle=v1` 6 + 새 기본 흐름 4 + 시험 전투 `--battle=v2` 1)는 `.github/workflows/witch-web-build.yml` 의 `for args in …`. 한 경로 예(옵션이 없으면 1층은 새 전투)
    `godot --headless --path game -- --speed=10 --autoguide --guides=reset --nosave --trace --quit-on-end --scene=camp --rooms=prayer,gravekeeper,buried,corpse,stall,chapel,training,footprints --choice=open,card --fates=defy,defy,defy --autoplay`
    → 기록에 `] result` 가 있고 `SCRIPT ERROR`·`ERROR` 가 없으면 통과.
 5. 스모크(웹 빌드를 Playwright 로 실제 클릭·드래그·터치, 스크린샷):

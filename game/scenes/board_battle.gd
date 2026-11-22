@@ -22,6 +22,7 @@ static var current: BoardBattle = null
 var game := {}            # 게임 모드 설정 {battle: new_battle opts, enc, bg} — 비어 있으면 시험 전투(?battle=v2)
 var _done := false
 var _cut := false          # 데스신이 도는 중(자동 진행 멈춤)
+var _hold := {}            # 죽음 연출 전인 동료 id → 보이는 HP (그때까지 산 얼굴로)
 
 var st := {}
 var mode := "busy"        # formation | idle | drag | pick | shift | move | busy | over
@@ -321,10 +322,11 @@ func face_mine(uid: String, fc := {}) -> Dictionary:
 func face_ally(id: String) -> Dictionary:
 	var a: Dictionary = st.allies[id]
 	var tr: Dictionary = D().traits[a.trait]
-	if a.dead:
+	var held := _hold.has(id)   # 죽음 연출 전: 상태는 이미 「죽음」이어도 그 순간까지는 산 얼굴(직전 HP)로
+	if a.dead and not held:
 		return {"kind": "dead", "name": G.name_of(id), "art": str(D().portraits[id].img), "deadText": T("dead")}
-	var f := {"kind": "ally", "name": G.name_of(id), "art": str(D().portraits[id].img), "hp": int(a.hp), "maxHp": int(a.maxHp), "block": int(a.block),
-		"trait": str(tr.name), "text": str(tr.text).replace("\n", " "), "down": bool(a.down), "downText": T("down")}
+	var f := {"kind": "ally", "name": G.name_of(id), "art": str(D().portraits[id].img), "hp": int(_hold[id]) if held else int(a.hp), "maxHp": int(a.maxHp), "block": int(a.block),
+		"trait": str(tr.name), "text": str(tr.text).replace("\n", " "), "down": bool(a.down) and not held, "downText": T("down")}
 	match str(a.trait):
 		"brace":
 			f.statusLabel = T("brace")
@@ -1441,10 +1443,12 @@ func end_turn() -> void:
 
 # ───────── 연출 ─────────
 func _play(events: Array) -> void:
-	# 뽑을 카드는 뽑는 연출 전까지 손패에 보이지 않게
+	# 뽑을 카드는 뽑는 연출 전까지 손패에 보이지 않게 · 죽음 연출 전까지 그 동료는 산 얼굴로(_hold)
 	for e in events:
 		if str(e.t) == "draw":
 			_hidden.append_array(e.uids)
+		elif str(e.t) == "death" and table.card("ally:" + str(e.ally)) != null:
+			_hold[str(e.ally)] = int(table.card("ally:" + str(e.ally)).face.get("hp", 0))
 	for e in events:
 		if not is_inside_tree():
 			return
@@ -1652,6 +1656,8 @@ func _ev_summon(_e: Dictionary) -> void:
 func _ev_allyHit(e: Dictionary) -> void:
 	var key := "ally:" + str(e.ally)
 	var c: BoardTable.Card3D = table.card(key)
+	if _hold.has(str(e.ally)):
+		_hold[str(e.ally)] = int(e.hp)
 	if c != null:
 		c.set_face(face_ally(str(e.ally)))
 		c.hit_shake(1.2)
@@ -1709,6 +1715,7 @@ func _ev_death(e: Dictionary) -> void:
 		table.push_out(dk, Vector3(0, 0.5, -0.2), 300)
 	elif d3 != null:
 		table.push_out(dk, Vector3(0, 0.5, -0.2), 300)
+	_hold.erase(who)
 	if tut:
 		await G.dialog.say(_fate_lines(who, "trap"))   # 속마음 — 안내 상자는 띄우지 않는다
 	var key := str(D().deathScenes.get(who, ""))

@@ -64,7 +64,8 @@ function helpers(page, tag) {
   page.on('pageerror', e => errors.push(tag + ' pageerror: ' + e.message));
   H.shot = async name => { await page.screenshot({ path: path.join(SHOTS, name) }); say('    📷 ' + name); };
   H.open = async q => {
-    await page.goto(BASE + 'index.html?test=1&seed=7&' + (q || ''));
+    // 2026-11-22 밤샘 계획 2: 1층 전투의 기본이 새 전투(v2)가 됐다 — 이 스모크는 옛 전투(BattleView)를 누르므로 늘 ?battle=v1 로 연다
+    await page.goto(BASE + 'index.html?test=1&seed=7&battle=v1&' + (q || ''));
     await page.waitForFunction(() => window.__witchReady === true, null, { timeout: 90000 });
   };
   H.W = (name, ...args) => page.evaluate(([n, a]) => { window.__witchOut = null; window.witch[n](...a); return JSON.parse(window.__witchOut || 'null'); }, [name, args]);

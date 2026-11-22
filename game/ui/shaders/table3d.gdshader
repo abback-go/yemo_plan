@@ -11,10 +11,10 @@ uniform float bright = 1.18;
 uniform float ambient = 0.38;
 uniform sampler2D room : source_color, filter_linear;
 uniform float room_on = 0.0;
-uniform float room_top = 0.78;    // 화면 맨 위에서 방 그림이 비치는 정도
-uniform float room_base = 0.14;   // 탁자 전체에 옅게
-uniform float room_fade = 0.42;   // 화면 위에서 이 높이(비율)까지 옅어진다
-uniform float room_dim = 0.62;    // 방 그림 밝기
+uniform float room_top = 0.6;     // 화면 맨 위에서 방 그림이 비치는 정도
+uniform float room_base = 0.06;   // 탁자 전체에 옅게
+uniform float room_fade = 0.33;   // 화면 위에서 이 높이(비율)까지 옅어진다
+uniform float room_dim = 0.55;    // 방 그림 밝기
 
 void fragment() {
 	vec3 c = texture(tex, UV).rgb;
