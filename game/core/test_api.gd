@@ -6,6 +6,7 @@
 ##   geom: card · enemy · intent · ally · endTurn · room(지도의 방) · enter(지도의 들어간다 버튼) · pick(카드 고르기의 카드, "skip" = 넘기기) · fateBtn · button
 ##         · button 은 메뉴 판(일시정지·설정·확인 창 — game_menu.gd)이 열려 있으면 거기서 먼저 찾는다. 메뉴 단추는 button "menu"
 ##   state().menu: 일시정지·열린 판·자동 저장·설정 (일시정지 중에도 부를 수 있다 — 이 훅은 JS 에서 바로 불린다)
+##   v2(명령, …): 전투 시험판 v2 「맡기기」(?battle=v2) — state · geom(kind, id) · auto · end (scenes/board_battle.gd test_call)
 class_name TestApi
 extends Node
 
@@ -20,7 +21,7 @@ func _ready() -> void:
 	_win = JavaScriptBridge.get_interface("window")
 	_obj = JavaScriptBridge.create_object("Object")
 	for name in ["state", "jump", "play", "endTurn", "advance", "choose", "pick", "train", "room", "winBattle", "enemyHp", "geom", "handCut", "resetGuides", "setSpeed",
-					"fate", "hideHand"]:
+					"fate", "hideHand", "v2"]:
 		var cb := JavaScriptBridge.create_callback(_call.bind(name))
 		_cbs.append(cb)
 		_obj.set(name, cb)
@@ -96,6 +97,8 @@ func _call(args: Array, name: String) -> void:
 		"fate":
 			# 운명의 시도 선택 화면에서 고른다 (offer | defy)
 			r = {"ok": G.scenes.pick_fate(str(_arg(args, 0, "defy")))}
+		"v2":
+			r = BoardBattle.test_call(args)
 		"hideHand":
 			# 움직임 비교 자료(밤샘 계획 4)용: 손패·노엘 손을 숨겨 동료 뒷모습 전체를 본다 (true 숨김 / false 다시 보임)
 			G.view.hand.visible = not bool(_arg(args, 0, true))

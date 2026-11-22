@@ -57,7 +57,8 @@ func read_params() -> void:
 			params[p[0]] = p[1] if p.size() > 1 else ""
 	# 개발용 바로 가기(?scene= / --scene=)로 연 판은 --nosave 처럼 — 플레이어의 자동 저장·설정 파일을 쓰지도 읽지도 않는다.
 	# 바로 가기 판을 일부러 저장하려면(헤드리스로 이어하기 시험: 저장하며 돌리다 끊고 --continue) --save(?save=1)를 함께
-	if params.has("scene") and not params.has("save"):
+	# 전투 시험판 v2(?battle=v2 / --battle=v2)도 바로 가기처럼 저장하지 않는다
+	if (params.has("scene") or params.has("battle")) and not params.has("save"):
 		params["nosave"] = ""
 	test = params.has("test")
 	autoguide = params.has("autoguide")

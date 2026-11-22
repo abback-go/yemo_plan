@@ -7,6 +7,7 @@
 ##   · ?fates=accept(=offer),defy,… (운명의 시도 자동 선택, 순서대로)
 ##   · ?nosave=1 / --nosave: 자동 저장·설정 파일을 쓰지도 읽지도 않는다(시험 실행 — 남은 저장이 결과를 바꾸지 않게) · ?continue=1: 타이틀 없이 이어하기
 ##   · ?scene= 바로 가기로 연 판은 늘 ?nosave=1 처럼(플레이어 저장을 덮어쓰지 않게 — core/game.gd read_params). 일부러 저장하려면 ?save=1 / --save
+##   · ?battle=v2 / --battle=v2: 전투 시험판 v2 「맡기기」(타이틀 없이 바로 그 전투 — scenes/board_battle.gd, docs/battle-v2-spec.md)
 ## 메뉴: 화면 오른쪽 위 메뉴 단추·Esc → 일시정지(계속 / 설정 / 타이틀로), 타이틀(시작 / 이어하기 / 설정 / 끝내기) — ui/game_menu.gd
 extends Node
 
@@ -143,6 +144,8 @@ func _ready() -> void:
 	if G.go_title:
 		G.go_title = false
 		scenes.title()
+	elif str(G.params.get("battle", "")) == "v2":
+		BoardBattle.open(world, G.params.get("seed"))   # 전투 시험판 v2 「맡기기」
 	elif G.params.has("scene"):
 		ctl.jump(str(G.params.scene))
 	elif G.params.has("continue") and not ctl.load_save().is_empty():
