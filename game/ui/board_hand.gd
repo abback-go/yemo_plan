@@ -1,6 +1,7 @@
 ## board_hand.gd — 전투 시험판 v2.1 「3D 탁자」의 노엘의 손과 손패 (scenes/board_battle.gd, docs/battle-v2-spec.md 9-4 사용자 결정).
 ##  · 왼손: 화면 왼쪽 아래에 편 왼손(그림은 손패 뒤). 그 위로 손패가 부채꼴로 살짝 떠서 천천히 흔들린다. 손가락과 카드 사이에 붉은 실 몇 가닥(코드).
-##  · 오른손: 평소 오른쪽 아래에 놓여 있다(idle). 카드를 끌면 집어 들고 따라간다(pinch). 대상을 고를 때 그 자리를 가리킨다(point).
+##  · 오른손: 평소 오른쪽 아래에 놓여 있다(idle). 카드를 끌면 집어 들고 따라간다(pinch). 탁자 카드를 끌어 옮길 때 그 자리를 가리킨다(point —
+##    그림체 F 81 가리키는 손이 있으면 그 그림으로 바뀐다, 밤샘 계획 2 D).
 ##  · v2.4 손패 당겨 보기(9-5 바꿈): open 이면 왼손·오른손 대신 예전 전투(ui/hand.gd)의 두 손 그림(GameData layout.hand imgL·imgR)이 가운데 아래로 올라오고,
 ##    다섯 장을 예전과 같은 부채꼴·엄지 겹침으로 쥔다(카드 자리 = HandView.fan 을 그대로 쓰고 open.scale 배로 키움 · 빈 자리는 덱 덮개).
 ##    탁자는 검은 반투명(dim)으로 가라앉힌다. 열고 닫기는 board(scenes/board_battle.gd)가 set_open 으로.
@@ -30,13 +31,16 @@ var dim: Node2D
 var left: Sprite2D
 var right: Sprite2D
 var pinch: Sprite2D
+var point: Sprite2D       # 가리키는 오른손(그림체 F 81) — point_at 이 있을 때 평소 손 대신
 var threads: Node2D
 var _L := {}
 var _R := {}
 var _P := {}
+var _PT := {}
 var _t := 0.0
 var _rpos := Vector2.ZERO     # 오른손 손끝(화면) — 부드럽게 따라간다
 var _pinch_a := 0.0
+var _point_a := 0.0
 
 
 func HL() -> Dictionary:
@@ -55,6 +59,7 @@ func _ready() -> void:
 	_L = _pick(h.left)
 	_R = _pick(h.right)
 	_P = _pick(h.pinch)
+	_PT = _pick(h.get("point", []))
 	left = _sprite(_L, 30)
 	if not _L.is_empty():
 		left.position = Vector2(_L.pos[0], _L.pos[1])
@@ -65,6 +70,8 @@ func _ready() -> void:
 	right = _sprite(_R, 150)
 	pinch = _sprite(_P, 160)
 	pinch.visible = false
+	point = _sprite(_PT, 150)
+	point.visible = false
 	_rpos = _rest()
 	# v2.3 양손(펼친 손패 뒤) · 탁자 어둡게(그 뒤)
 	dim = Node2D.new()
@@ -81,6 +88,8 @@ func _ready() -> void:
 	for i in GH.slots.size():
 		var b := CardView.new()
 		b.setup_back()
+		if BoardPieces.back_tex() != null:
+			b.tex = BoardPieces.back_tex()   # 새 전투의 뒷면(그림체 F 82)
 		b.bright = 0.82
 		b.z_index = 44 + (2 if i == 2 else (1 if i == 1 or i == 3 else 0))
 		b.visible = false
@@ -307,9 +316,8 @@ func hands_visible() -> int:
 	if _open_k > 0.5:
 		return 2   # 펼침: 양손 그림 둘 (왼손·오른손은 숨김)
 	var n := 1 if left.visible else 0
-	if right.visible and right.modulate.a > 0.02:
-		n += 1
-	if pinch.visible and pinch.modulate.a > 0.02:
+	# 오른손은 평소·집기·가리키기 그림이 서로 바뀌는 중에도 한 손으로 센다
+	if (right.visible and right.modulate.a > 0.02) or (pinch.visible and pinch.modulate.a > 0.02) or (point.visible and point.modulate.a > 0.02):
 		n += 1
 	return n
 
@@ -353,7 +361,10 @@ func _process(delta: float) -> void:
 	if not _R.is_empty():
 		var tip := Vector2(_R.tip[0], _R.tip[1]) * float(_R.scale)
 		right.position = _rpos - tip
+	if not _PT.is_empty():
+		point.position = _rpos - Vector2(_PT.tip[0], _PT.tip[1]) * float(_PT.scale)
 	_pinch_a = move_toward(_pinch_a, 1.0 if pinching else 0.0, delta * FX.speed * 6.0)
+	_point_a = move_toward(_point_a, 1.0 if (point_at is Vector2 and not _PT.is_empty() and not pinching) else 0.0, delta * FX.speed * 6.0)
 	# v2.3 손패 당겨 보기: 양손이 아래에서 올라오고 왼손·오른손은 사라진다
 	var ok := _open_k
 	_open_k = move_toward(_open_k, 1.0 if open else 0.0, delta * FX.speed * 4.5)
@@ -374,8 +385,10 @@ func _process(delta: float) -> void:
 			b.set_quad(_open_q(_hv.slot_quad(i)), true)
 	left.modulate.a = 1.0 - ek
 	left.visible = left.texture != null and ek < 0.99
-	right.modulate.a = (1.0 - _pinch_a) * (1.0 - ek)
+	right.modulate.a = (1.0 - _pinch_a) * (1.0 - _point_a) * (1.0 - ek)
 	right.visible = right.texture != null and right.modulate.a > 0.01
+	point.modulate.a = _point_a * (1.0 - ek)
+	point.visible = point.texture != null and point.modulate.a > 0.01
 	pinch.visible = pinch.texture != null and _pinch_a > 0.01
 	pinch.modulate.a = _pinch_a
 	if pinch.visible and cards.has(drag_uid):

@@ -488,7 +488,7 @@ func _sync_table(animate := true) -> void:
 			c.flip = float(w.flip)
 			c.tflip = float(w.flip)
 			if w.get("back", false):
-				c.set_back(table.back_tex, Color(0.62, 0.32, 0.34))
+				c.set_back(table.back_tex, Color(0.92, 0.6, 0.6))   # 적 덱: 붉게(노엘의 덱과 가르게 — 밤샘 계획 2 D: 새 뒷면은 원래 어두워 옅게)
 		elif c.face != w.face:
 			c.set_face(w.face)
 		if mdrag.get("key", "") == key and mdrag.get("moved", false):
@@ -567,7 +567,7 @@ func _draw_hud() -> void:
 		return
 	# 덱: 뒷면 카드 몇 장 + 「덱 n」
 	var Dk: Dictionary = L().deck
-	var back := BoardPieces.tex(str(GameData.D.cardBackImg))
+	var back := BoardPieces.back_tex()
 	var n: int = st.draw.size()
 	for i in mini(3, maxi(1, n)):
 		var r := Rect2(float(Dk.x) - i * 4, float(Dk.y) - i * 5, float(Dk.w), float(Dk.h))

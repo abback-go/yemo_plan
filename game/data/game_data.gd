@@ -483,8 +483,9 @@ const D := {
 		"W": 1920, "H": 1080,
 		"bg": "bg_cathedral.png",
 		# 마녀의 손 그림: 원본 1672×941. scale 배로 줄여 (x, y)에 둔다. 왼손/오른손은 ui_witch_hands.png 를 x=836에서 나눈 것
+		# (밤샘 계획 2 D: 소매 초록 물듦을 지운 _clean 판 — tools/vs_f_import.py --only cleanhands. 옛 전투와 새 전투의 손패 당겨 보기가 같이 쓴다)
 		"hand": {
-			"imgL": "ui_witch_hand_left.png", "imgR": "ui_witch_hand_right.png", "splitX": 836, "imgW": 1672, "imgH": 941,
+			"imgL": "ui_witch_hand_left_clean.png", "imgR": "ui_witch_hand_right_clean.png", "splitX": 836, "imgW": 1672, "imgH": 941,
 			"scale": 0.72, "x": 362, "y": 550,   # 배치 C(2026-11-21 사용자 승인): 0.9·212·370 → 손 무리 80%, 가운데 x 964 유지, 카드 윗변 약 746 (세라피나 머리·어깨가 보이게)
 			# 원본 그림 속 다섯 장 카드 자리 (투명 영역, 원본 좌표). [왼위, 오위, 오아래, 왼아래]
 			"slots": [

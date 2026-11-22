@@ -8,10 +8,13 @@
   · 카드 틀: 76_card_frames(초록 바탕, 틀 셋이 가로로) → 배경 제거 → 왼쪽부터 card_frame_f_ally.png(동료·노엘 카드) ·
     card_frame_f_enemy.png(적·적 행동) · card_frame_f_minion.png(하수인). 틀 안쪽 그림 자리가 투명해져 카드 그림을 뒤에 깐다
   · 적: 08 광신도 · 40 무덤지기 · 77 해골 병사(있는 것만) → 배경 제거 → f_spr_<적>.png (높이 900)
-  · 노엘의 손: 78 왼손(손패를 띄우는 편 손) · 79 오른손 평소 · 80 오른손 집기·가리키기(있는 것만) → f_hand_*.png (캔버스 유지, 가로 HAND_W)
-  · v2.3 손패 당겨 보기의 양손: 예전 전투 양손 그림(game/assets/ui_witch_hand_left·right.png, 그림체 D) → 소매 초록 물듦 지우기
-    (G > max(R,B)+20 이면 G = (R+B)/2) + 그림체 F 에 맞게 조금 어둡고 채도 낮게 → ui_witch_hands_open_l·r.png (캔버스 836×941 유지)
-사용법: python3 tools/vs_f_import.py [--only busts,enemies,hands,table,frames,openhands] [--check 폴더]
+  · 노엘의 손: 78 왼손(손패를 띄우는 편 손) · 79 오른손 평소 · 80 오른손 집기 · 81 오른손 가리키기(있는 것만) → f_hand_*.png (캔버스 유지, 가로 HAND_W)
+  · 카드 뒷면(밤샘 계획 2 D): 82_card_back(초록 바탕) → 배경 제거 → 카드만 잘라 2:3(BACK_SIZE, 카드 틀처럼 가로를 조금 늘림) → f_card_back.png
+    (새 전투의 덱 · 적 덱 · 뒤집힌 카드 · 어둠의 뒷면. 옛 전투의 card_back.png 는 그대로)
+  · 예전 전투 양손 그림(game/assets/ui_witch_hand_left·right.png, 그림체 D — 옛 전투와 새 전투의 손패 당겨 보기가 쓴다) → 소매 초록 물듦 지우기
+    (G > max(R,B)+CLEAN_MARGIN(20) 이면 G = (R+B)/2, 원본은 덮지 않음) → ui_witch_hand_left·right_clean.png (캔버스 836×941 유지)
+    (v2.3 에는 여기에 어둡게·채도 낮게를 더한 ui_witch_hands_open_l·r.png 를 만들었다가 v2.4 에서 지웠다)
+사용법: python3 tools/vs_f_import.py [--only busts,enemies,hands,table,frames,back,cleanhands] [--check 폴더]
 """
 import argparse
 import os
@@ -42,7 +45,11 @@ HANDS = {
     '78_hand_left_hold': ('f_hand_left_hold.png', 600),
     '79_hand_right_idle': ('f_hand_right_idle.png', 600),
     '80_hand_right_pinch_point': ('f_hand_right_pinch.png', 600),
+    '81_hand_right_point': ('f_hand_right_point.png', 600),
 }
+# 그림 가장자리에서 잘린 소매를 옅게 지우는 띠(가로·세로 몫): 가리키는 손(81)은 탁자 가운데까지 옮겨 가 그림의 오른쪽·아래 끝이 화면 안에 들어온다
+# → 잘린 소매 끝이 곧은 선으로 보이지 않게 오른쪽·아래 띠를 투명 쪽으로 옅게(밤샘 계획 2 D). 평소 손(79)은 화면 구석이라 필요 없다
+HAND_FADE = {'81_hand_right_point': (0.3, 0.3)}
 HAND_W = 1152
 # 적 그림(그림체 F, 초록 바탕): 원본 → (게임 파일, 최대 높이). 원본이 아직 없으면 건너뛴다 — 게임은 파일이 있으면 F 그림, 없으면 예전 그림(battle_v2_data.gd enemies.art)
 ENEMIES = {
@@ -51,6 +58,8 @@ ENEMIES = {
     '77_skeleton_soldier': ('f_spr_skeleton.png', 900),
 }
 FRAMES = ('76_card_frames', ['card_frame_f_ally.png', 'card_frame_f_enemy.png', 'card_frame_f_minion.png'])
+BACK = ('82_card_back', 'f_card_back.png')
+BACK_SIZE = (480, 720)   # 카드 2:3(탁자 카드·손패 카드와 같은 비율)
 
 
 def keyed_f(name, keep_canvas):
@@ -104,32 +113,51 @@ def do_hands():
         if min_area:
             vs_import.remove_bg.remove_small_islands(im, min_area)
         im = im.resize((HAND_W, round(HAND_W * im.height / im.width)), Image.LANCZOS)
+        if src in HAND_FADE:
+            fx, fy = HAND_FADE[src]
+            a = np.asarray(im).astype(np.float32).copy()
+            h, w = a.shape[:2]
+            rx = np.clip((w - 1 - np.arange(w)) / max(1.0, fx * w), 0, 1)
+            ry = np.clip((h - 1 - np.arange(h)) / max(1.0, fy * h), 0, 1)
+            ramp = np.minimum(ry[:, None], rx[None, :])
+            a[..., 3] *= ramp * ramp * (3 - 2 * ramp)   # smoothstep
+            im = Image.fromarray(np.clip(np.round(a), 0, 255).astype(np.uint8), 'RGBA')
         vs_import.save(im, out)
         outs.append(out)
     return outs
 
 
-# v2.3 양손(손패 당겨 보기): 원본(게임 폴더 안 예전 그림) → 결과. DESAT: 회색 쪽으로 섞는 비율 · DARK: 밝기 배율
-OPEN_HANDS = {'ui_witch_hand_left.png': 'ui_witch_hands_open_l.png', 'ui_witch_hand_right.png': 'ui_witch_hands_open_r.png'}
-OPEN_DESAT = 0.3
-OPEN_DARK = 0.8
+# 예전 전투 양손 그림의 소매 초록 물듦 지우기(밤샘 계획 2 D): 원본(게임 폴더 안 예전 그림 — 덮지 않음) → 결과
+CLEAN_HANDS = {'ui_witch_hand_left.png': 'ui_witch_hand_left_clean.png', 'ui_witch_hand_right.png': 'ui_witch_hand_right_clean.png'}
+# 초록으로 보는 기준: G 가 max(R, B) 보다 이만큼 넘게 크면(지시 +20). +20 이면 옅은 올리브빛(G 가 1~20 큼)은 남는다 — 0 으로 하면 그것까지 지운다
+CLEAN_MARGIN = 20
 
 
-def do_open_hands():
+def do_clean_hands():
     outs = []
-    for src, out in OPEN_HANDS.items():
+    for src, out in CLEAN_HANDS.items():
         a = np.asarray(Image.open(os.path.join(OUT, src)).convert('RGBA')).astype(np.float32)
         r, g, b = a[..., 0], a[..., 1], a[..., 2]
-        green = g > np.maximum(r, b) + 20
+        green = (g > np.maximum(r, b) + CLEAN_MARGIN) & (a[..., 3] > 0)
         a[..., 1] = np.where(green, (r + b) / 2.0, g)
-        lum = a[..., 0] * 0.299 + a[..., 1] * 0.587 + a[..., 2] * 0.114
-        for ch in range(3):
-            a[..., ch] = (a[..., ch] * (1 - OPEN_DESAT) + lum * OPEN_DESAT) * OPEN_DARK
-        im = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
+        im = Image.fromarray(np.clip(np.round(a), 0, 255).astype(np.uint8), 'RGBA')
         vs_import.save(im, out)
         print('양손 %s: 초록 물듦 %d px 지움' % (out, int(green.sum())))
         outs.append(out)
     return outs
+
+
+def do_back():
+    src, out = BACK
+    if not os.path.exists(os.path.join(RAW_F, src + '.webp')):
+        print('없음(건너뜀):', src)
+        return []
+    im = keyed_f(src, True)
+    im = im.crop(im.getbbox())
+    print('카드 뒷면: 잘라 낸 크기 %s 비율 %.3f → %s' % (im.size, im.width / im.height, BACK_SIZE))
+    im = im.resize(BACK_SIZE, Image.LANCZOS)
+    vs_import.save(im, out)
+    return [out]
 
 
 def do_table():
@@ -186,8 +214,10 @@ if __name__ == '__main__':
         done += do_table()
     if not only or 'frames' in only:
         done += do_frames()
-    if not only or 'openhands' in only:
-        done += do_open_hands()
+    if not only or 'back' in only:
+        done += do_back()
+    if not only or 'cleanhands' in only:
+        done += do_clean_hands()
     if a.check:
         vs_import.check([f for f in done if f.endswith('.png')], a.check)
     for f, (pct, mn) in vs_import.REPORT.items():

@@ -38,6 +38,11 @@ static func first_file(list: Array) -> String:
 	return ""
 
 
+## 새 전투의 카드 뒷면(BattleV2Data cardBack — 그림체 F 82, 없으면 옛 뒷면)
+static func back_tex() -> Texture2D:
+	return tex(first_file(BattleV2Data.D.cardBack))
+
+
 static func grad_bottom() -> Texture2D:
 	if _grad_bottom == null:
 		_grad_bottom = UI.grad([[0, Color(0, 0, 0, 0)], [0.45, Color(0.02, 0.01, 0.01, 0.72)], [1, Color(0.02, 0.0, 0.01, 0.96)]], "v", 4, 64)

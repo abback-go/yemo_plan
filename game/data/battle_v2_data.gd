@@ -36,6 +36,9 @@ const D := {
 	},
 	# 동료 초상 카드(v2.1): 그림체 F 스탠딩에서 얼굴~가슴을 잘라 둔 그림(tools/vs_f_import.py → f_bust_*.png). 놀란 표정 그림은 아직 없어
 	# 노려지면 붉은 테두리·흔들림으로 대신한다(지시서 9-1)
+	# 카드 뒷면(밤샘 계획 2 D — 그림체 F 82, tools/vs_f_import.py --only back): 덱 · 적 덱 · 뒤집힌 카드(쓰러진 적 · 적 덱에서 나오는 행동 카드) · 어둠의 뒷면.
+	# 후보 가운데 파일이 있는 것(없으면 옛 전투의 뒷면 card_back.png). 옛 전투(?battle=v1)는 그대로 card_back.png
+	"cardBack": ["f_card_back.png", "card_back.png"],
 	"portraits": {
 		"hero": {"img": "f_bust_hero.png", "color": "#cfd3dd"},
 		"warrior": {"img": "f_bust_warrior.png", "color": "#c9a985"},
@@ -177,11 +180,16 @@ const D := {
 		"hands": {
 			"left": [
 				{"file": "f_hand_left_hold.png", "scale": 0.62, "pos": [-30, 872], "tips": [[652, 171], [751, 253], [790, 321]]},
-				{"file": "ui_witch_hand_left.png", "scale": 0.55, "pos": [-80, 700], "tips": [[716, 493], [763, 599]]},
+				{"file": "ui_witch_hand_left_clean.png", "scale": 0.55, "pos": [-80, 700], "tips": [[716, 493], [763, 599]]},
 			],
 			"right": [
 				{"file": "f_hand_right_idle.png", "scale": 0.6, "tip": [316, 536], "rest": [1470, 975]},
-				{"file": "ui_witch_hand_right.png", "scale": 0.55, "tip": [62, 600], "rest": [1520, 960]},
+				{"file": "ui_witch_hand_right_clean.png", "scale": 0.55, "tip": [62, 600], "rest": [1520, 960]},
+			],
+			# 오른손 가리키기(그림체 F 81, 밤샘 계획 2 D): 탁자 카드를 끌 때(자리 바꾸기 · 운명 전가로 옮기기) 평소 손 대신 이 그림이 그 자리를 가리킨다.
+			# tip: 집게손가락 끝(그림 px — f_hand_right_point.png 1152×768). 없으면 평소 손(right)이 그대로 옮겨 가리킨다
+			"point": [
+				{"file": "f_hand_right_point.png", "scale": 0.6, "tip": [502, 146]},
 			],
 			"pinch": [
 				{"file": "f_hand_right_pinch.png", "scale": 0.41, "cardScale": 0.55, "quad": [[866, 64], [1186, 32], [1221, 480], [914, 507]]},

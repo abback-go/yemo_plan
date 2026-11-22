@@ -33,7 +33,7 @@ func setup() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_shader_card = preload("res://ui/shaders/card3d.gdshader")
 	_shader_shadow = preload("res://ui/shaders/shadow3d.gdshader")
-	back_tex = Assets.tex(str(GameData.D.cardBackImg))
+	back_tex = BoardPieces.back_tex()
 	vp = SubViewport.new()
 	vp.own_world_3d = true
 	vp.transparent_bg = false
