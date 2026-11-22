@@ -828,17 +828,18 @@ func t_game_gravekeeper() -> bool:
 	var st := game_battle("gravekeeper")
 	RulesV2.start_battle(st)
 	var g = RulesV2.enemy(st, "G")
-	check("무덤지기: HP 34(옛 수치) · 1턴은 해골 병사 부르기", int(g.hp) == 34 and g.intent.kind == "summon")
+	check("무덤지기: HP 40(D2 — 옛 34) · 1턴은 해골 병사 부르기", int(g.hp) == 40 and g.intent.kind == "summon")
 	_zero_hits(st)
 	RulesV2.end_turn(st)
 	RulesV2.start_turn(st)
 	var s = RulesV2.enemy(st, "S")
-	check("2턴: 해골 병사가 무덤지기 앞에(같은 칸) · 무덤지기는 「관 뚜껑 내려치기」 8", s.alive and int(s.col) == 1 and g.intent.kind == "hit" and int(g.intent.value) == 8)
+	check("2턴: 해골 병사(HP 10 · 녹슨 칼 5 — D2)가 무덤지기 앞에(같은 칸) · 무덤지기는 「관 뚜껑 내려치기」 8", s.alive and int(s.col) == 1 and int(s.hp) == 10
+		and s.intent != null and int(s.intent.value) == 5 and g.intent.kind == "hit" and int(g.intent.value) == 8)
 	_zero_hits(st)
 	RulesV2.end_turn(st)
 	RulesV2.start_turn(st)
 	var hc := RulesV2._highest_col(st)
-	check("3턴: 「짓누르기」 10 → HP 가 가장 많은 동료의 칸", int(g.intent.value) == 10 and int(g.intent.slot) == hc, "%s → %d" % [str(g.intent), hc])
+	check("3턴: 「짓누르기」 12(D2 — 옛 10) → HP 가 가장 많은 동료의 칸", int(g.intent.value) == 12 and int(g.intent.slot) == hc, "%s → %d" % [str(g.intent), hc])
 	return true
 
 

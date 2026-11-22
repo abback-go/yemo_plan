@@ -118,9 +118,11 @@ const D := {
 		"prayer": {"bg": "bg_vs_cult_prayer_room.webp", "v1": "prayer",
 			"lineup": [{"id": "c1", "type": "cultist", "tag": "A", "col": 0}, {"id": "c3", "type": "cultist", "tag": "B", "col": 2}],
 			"hit": {"cultist": {"min": 4, "max": 6}}},
+		# 무덤지기(강적): 밤샘 계획 2 D2 난이도 [임시·판단] — 옛 수치 HP 34 · 해골 병사 8/녹슨 칼 4 · 짓누르기 10 → 40 · 10/5 · 12 (DECISIONS.md 「D2」 전후 표)
 		"gravekeeper": {"bg": "bg_vs_gravekeeper_vault.webp", "v1": "gravekeeper",
-			"lineup": [{"id": "G", "type": "gravekeeper", "col": 1, "hp": 34}, {"id": "S", "type": "skeleton", "of": "G", "col": 1}],
-			"pattern": {"gravekeeper": [{"label": "관 뚜껑 내려치기", "value": 8, "target": "random"}, {"label": "짓누르기", "value": 10, "target": "highest"}]}},
+			"lineup": [{"id": "G", "type": "gravekeeper", "col": 1, "hp": 40}, {"id": "S", "type": "skeleton", "of": "G", "col": 1, "hp": 10}],
+			"hit": {"skeleton": {"value": 5}},
+			"pattern": {"gravekeeper": [{"label": "관 뚜껑 내려치기", "value": 8, "target": "random"}, {"label": "짓누르기", "value": 12, "target": "highest"}]}},
 		"deep": {"bg": "bg_vs_deepest_hall.webp", "v1": "deep", "giantAt": 1,
 			"lineup": [{"id": "c1", "type": "cultist", "tag": "A", "col": 0}, {"id": "c3", "type": "cultist", "tag": "B", "col": 2}],
 			"hit": {"cultist": {"min": 5, "max": 6}},
