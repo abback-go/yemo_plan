@@ -9,6 +9,7 @@ extends SceneTree
 var passes := 0
 var fails := 0
 var D: Dictionary = GameData.D
+var v2_done := false   # tests/test_rules_v2.gd 가 끝까지 돌면 true
 
 
 func check(name: String, ok: bool, detail := "") -> void:
@@ -117,6 +118,8 @@ func _init() -> void:
 	t_retry_hp()
 	t_save()
 	t_settings()
+	t_v2()
+	check("전투 시험판 v2 규칙 시험이 끝까지 돌았다(스크립트 에러 없이)", v2_done)
 	print("rules: %d passed, failures: %d" % [passes, fails])
 	quit(1 if fails > 0 else 0)
 
@@ -1157,6 +1160,11 @@ func t_save() -> void:
 	SaveGame.clear(path)
 	check("깨진 저장(잘림·빈 파일·JSON 아님·키 빠짐·없는 카드·없는 방·모르는 단계)은 '저장 없음'", bad_ok and from_file.is_empty())
 	check("없는 저장 파일을 읽으면 '저장 없음'", SaveGame.read("user://no_such_save_file.json").is_empty())
+
+
+# 전투 시험판 v2 「맡기기」(?battle=v2) 규칙 — tests/test_rules_v2.gd
+func t_v2() -> void:
+	TestRulesV2.run(self)
 
 
 func t_settings() -> void:
