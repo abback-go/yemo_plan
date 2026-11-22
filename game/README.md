@@ -47,6 +47,7 @@
 | `?guides=reset` | 본 안내 기록을 지워 안내를 다시 보이게 |
 | `?darkness=N` · `?omen=1` · `?hp=누구:HP,…` | 시험용(바로 가기와 함께): 어둠 단계 · 전조를 본 상태 · HP(`witch`·`hero`·`warrior`·`archer`) |
 | `?run=N` | 회차 번호 |
+| `?battle=v2` | 전투 시험판 v2 「맡기기」(`docs/battle-v2-spec.md`): 타이틀 없이 그 시험 전투 하나(헤드리스 `--battle=v2`, `--autoplay` 로 끝까지). 저장하지 않는다. `&seed=N` 이면 같은 전투. 파일 `scenes/board_battle.gd`·`core/rules_v2.gd`·`data/battle_v2_data.gd`·`ui/board_hand.gd`·`ui/board_pieces.gd` |
 | `?anim=off` | 전투 움직임을 그 전 기본(튀어 나가기·흔들림)으로 — 비교용. 옵션이 없으면 A′(2026-11-22부터 기본, `ui/battle_anim.gd`). 예전 `?anim=a`·`c` 는 A′ |
 | `?test=1` | 웹 시험 훅(`window.witch.*`, 스모크가 씀) |
 | `?autoguide=1` · `?autoplay=1` | 대사·안내 자동 넘김 · 자동 진행 |
