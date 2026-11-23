@@ -1,0 +1,22 @@
+diff --git a/game/data/game_data.gd b/game/data/game_data.gd
+index 3c99a41..2d4d3dd 100644
+--- a/game/data/game_data.gd
++++ b/game/data/game_data.gd
+@@ -529,7 +529,7 @@ const D := {
+ 		# 새 뒷모습(그림체 D) 기준 — vertical-slice.md 5-9: top 600~640, 높이 740~800, x 520·960·1420 (배경마다 battleLayouts 로 바꿀 수 있다)
+ 		"allies": {
+ 			"archer": {"img": "spr_archer_back.png", "x": 520, "top": 610, "h": 790, "anchor": [0.50, 0.22]},
+-			"hero": {"img": "spr_hero_back.png", "x": 960, "top": 636, "h": 770, "anchor": [0.50, 0.2]},
++			"hero": {"img": "spr_hero_back.png", "x": 960, "top": 430, "h": 770, "anchor": [0.50, 0.2]},   # [배치 B 시험] 636 → 430
+ 			"warrior": {"img": "spr_warrior_back.png", "x": 1420, "top": 604, "h": 800, "anchor": [0.55, 0.2]},
+ 		},
+ 		"allyHpOffset": 34,
+@@ -570,7 +570,7 @@ const D := {
+ 		"deepest": {"enemySlots": [{"x": 765, "feet": 674, "h": 268}, {"x": 960, "feet": 674, "h": 268}, {"x": 1170, "feet": 674, "h": 268}],
+ 			"giant": {"w": 1100, "bottom": 640, "feetY": 452, "intentY": 368}, "allies": {
+ 				"archer": {"img": "spr_archer_back.png", "x": 520, "top": 640, "h": 790, "anchor": [0.50, 0.22]},
+-				"hero": {"img": "spr_hero_back.png", "x": 960, "top": 664, "h": 770, "anchor": [0.50, 0.2]},
++				"hero": {"img": "spr_hero_back.png", "x": 960, "top": 430, "h": 770, "anchor": [0.50, 0.2]},   # [배치 B 시험] 664 → 430
+ 				"warrior": {"img": "spr_warrior_back.png", "x": 1420, "top": 634, "h": 800, "anchor": [0.55, 0.2]}},
+ 			"enemyHp": "above", "guideBattleY": 18},
+ 	},

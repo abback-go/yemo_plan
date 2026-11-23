@@ -1,0 +1,13 @@
+# 던전 탐색 화면 목업 (1인칭 + 동료 + 갈림길 선택) — 분위기 확인용, 게임에 그대로 쓰지 않음
+# 화면비: 16:9 가로. 첨부 권장: 09_mock_firstperson_normal_v2_APPROVED.webp, 세라피나·엘리안·브룬힐드 시트
+
+- - - 여기부터 복사 - - -
+Dark fantasy card RPG exploration screen mockup, 16:9, anime illustration style. Detailed cel-shaded rendering with soft painterly lighting and fine, clean linework. Cold blue-gray palette with a single deep red accent.
+First-person point of view of a witch walking through the underground ruins beneath a gothic cathedral, the camera at eye level. The witch is never seen; only her own very pale, thin hand in a frayed wide black robe sleeve is visible at the bottom right, holding a small old lantern that casts a warm, trembling light on the nearby stones.
+Ahead, the corridor splits into three paths: on the left, a half-open carved wooden door to a small candle-lit chapel with warm light spilling out; in the center, a wide stone staircase descending into deep darkness with cold mist rising from below; on the right, a collapsed passage with rubble and a faint deep red glow and old bloodstains on the walls.
+The witch's companions walk with her and are close around her, not lined up for battle: on the left foreground, an adult female elf archer with a blonde crown braid, a dark green ribbon and a dark green hooded cloak, seen from the side as she peers toward the left door with her bow lowered; just ahead in the center, a silver-haired knight with one thick braid tied with a deep red ribbon, silver plate armor and a tattered deep red cape, half-turned and looking back over her shoulder at the viewer with a reassuring, gentle smile, as if saying "this way"; on the right, a tall, broad-shouldered woman with short ash-white hair, dark iron armor and a huge iron tower shield, standing guard and watching the dark passage on the right.
+Game UI overlaid: above each of the three paths a small glowing round icon (a little flame for rest, a question mark for an event, a crossed-swords mark for battle); on the far left edge a slim vertical floor track of stacked small stone tablets, the current floor highlighted, and two floors further down marked by a thin glowing deep red thread; at the bottom left three small round portrait frames with thin health bars. All UI is small and elegant, gothic silver and dark red. No readable text, no letters, no numbers.
+Mood: tense but warm, a fragile moment of companionship in a hopeless place.
+
+AVOID: text, letters, numbers, the witch's face or body, top-down map view, side view, bright saturated colors other than the deep red and the lantern light, extra fingers, watermark, signature.
+- - - 여기까지 복사 - - -
